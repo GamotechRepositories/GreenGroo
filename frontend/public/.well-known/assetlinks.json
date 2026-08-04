@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.bulkmobilemart.app",
+      "sha256_cert_fingerprints": [
+        "0EDC6BC6F479300FFB268916B90FE168F39941763DB62636731E4F1DCF8355CB"
+      ]
+    }
+  }
+]

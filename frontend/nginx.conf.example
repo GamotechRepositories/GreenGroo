@@ -1,0 +1,21 @@
+# Serve SPA + Android/iOS app-link verification files
+server {
+    listen 80;
+    server_name www.bulkmobilemart.in bulkmobilemart.in;
+    root /var/www/bulkmobilemart/frontend/dist;
+    index index.html;
+
+    location /.well-known/ {
+        default_type application/json;
+        try_files $uri =404;
+    }
+
+    location = /apple-app-site-association {
+        default_type application/json;
+        try_files /apple-app-site-association =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

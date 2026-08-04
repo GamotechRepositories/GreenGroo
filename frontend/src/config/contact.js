@@ -1,0 +1,55 @@
+/** Primary business contact email */
+export const CONTACT_EMAIL = "bulkmobilemart@gmail.com";
+
+/** Primary business phone */
+export const CONTACT_PHONE_RAW = "7400222233";
+export const CONTACT_PHONE_DISPLAY = "+91 74002 22233";
+export const CONTACT_PHONE_TEL = "tel:+917400222233";
+export const CONTACT_WHATSAPP_URL =
+  "https://wa.me/917400222233?text=Hi%2C%20I%20am%20interested%20in%20bulk%20mobile%20accessories%20from%20Bulk%20Mobile%20Mart.";
+
+export const CONTACT_LOCATION = "Mumbai";
+
+export const CONTACT_ADDRESS = "Mumbai Central";
+
+/** WhatsApp community group invite — header & quick join links */
+export const WHATSAPP_GROUP_URL =
+  "https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8";
+
+export const SOCIAL_LINKS = [
+  {
+    id: "whatsapp-community",
+    label: "WhatsApp Community",
+    description: "Join our community group",
+    href: "https://chat.whatsapp.com/KEjIzY8mRbn8vR3LYBxnP8",
+    platform: "whatsapp",
+  },
+  {
+    id: "whatsapp-channel",
+    label: "WhatsApp Channel",
+    description: "Follow for latest updates",
+    href: "https://whatsapp.com/channel/0029VbD3QHm8KMqo7ZP42U2a",
+    platform: "whatsapp",
+  },
+  {
+    id: "whatsapp-catalog",
+    label: "WhatsApp Catalog",
+    description: "Browse our product catalog",
+    href: "https://wa.me/c/917400222233",
+    platform: "whatsapp",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    description: "@bulkmobilemart.in",
+    href: "https://www.instagram.com/bulkmobilemart.in?igsh=YjlwcjZzamdpYXdp&utm_source=qr",
+    platform: "instagram",
+  },
+  {
+    id: "facebook",
+    label: "Facebook",
+    description: "Like & follow our page",
+    href: "https://www.facebook.com/share/17vXtbcF4D/?mibextid=wwXIfr",
+    platform: "facebook",
+  },
+];

@@ -1,0 +1,7 @@
+# Copy to key.properties (do not commit key.properties).
+# Used for Play Store release signing — see README.md.
+
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=../upload-keystore.jks
