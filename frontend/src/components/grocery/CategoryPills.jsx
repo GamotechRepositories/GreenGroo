@@ -19,21 +19,21 @@ function CategoryCard({ cat }) {
   return (
     <Link
       to={`/product?categoryName=${encodeURIComponent(cat.slug)}`}
-      className="group relative flex h-[88px] items-stretch overflow-hidden rounded-2xl transition hover:-translate-y-0.5 hover:shadow-md sm:h-[96px] lg:h-[100px]"
+      className="group relative flex h-[76px] items-stretch overflow-hidden rounded-xl transition hover:-translate-y-0.5 hover:shadow-md sm:h-[88px] sm:rounded-2xl lg:h-[100px]"
       style={{ backgroundColor: cat.bg }}
     >
-      <div className="relative z-10 flex flex-1 flex-col justify-center py-3 pl-3.5 pr-2 sm:pl-4">
-        <h3 className="text-sm font-bold leading-tight text-text-primary sm:text-[15px]">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center py-2 pl-2.5 pr-1 sm:py-3 sm:pl-3.5 lg:pl-4">
+        <h3 className="truncate text-[11px] font-bold leading-tight text-text-primary sm:text-sm lg:text-[15px]">
           {cat.name}
         </h3>
-        <p className="mt-1 text-[11px] font-medium text-text-secondary sm:text-xs">
+        <p className="mt-0.5 text-[9px] font-medium text-text-secondary sm:mt-1 sm:text-[11px] lg:text-xs">
           {cat.items} items
         </p>
       </div>
 
-      <div className="relative flex w-[42%] shrink-0 items-end justify-end pr-1 pb-0.5 sm:w-[40%]">
+      <div className="relative flex w-[38%] shrink-0 items-end justify-end pr-0.5 pb-0 sm:w-[40%] sm:pr-1">
         <span
-          className="translate-x-0.5 translate-y-1 text-[2.75rem] leading-none transition duration-200 group-hover:scale-105 sm:text-[3.1rem] lg:text-[3.25rem]"
+          className="translate-x-0.5 translate-y-1 text-[2rem] leading-none transition duration-200 group-hover:scale-105 sm:text-[2.75rem] lg:text-[3.25rem]"
           aria-hidden="true"
         >
           {cat.emoji}
@@ -64,7 +64,7 @@ function CategoryPills() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5">
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5">
           {CATEGORIES.map((cat) => (
             <CategoryCard key={cat.slug} cat={cat} />
           ))}
