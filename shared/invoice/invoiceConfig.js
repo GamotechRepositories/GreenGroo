@@ -1,9 +1,9 @@
 export const LOGO_URL =
-  "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png";
+  "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/GreenGrocc_logo_2-removebg-preview_wcso0k.png";
 
 /** Compact logo for tax invoice header (matches PDF-style small branding) */
 export const INVOICE_LOGO_URL =
-  "https://res.cloudinary.com/dsafvwkrf/image/upload/w_220,h_56,c_limit,q_auto,f_auto/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png";
+  "https://res.cloudinary.com/dsafvwkrf/image/upload/w_220,h_56,c_limit,q_auto,f_auto/v1780561447/GreenGrocc_logo_2-removebg-preview_wcso0k.png";
 
 export const INVOICE_CONFIG = {
   companyName: "GreenGrocc",

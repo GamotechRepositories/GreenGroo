@@ -23,7 +23,9 @@ function DealProductCard({
   const disabled = addDisabled || !inStock;
 
   const layoutClass =
-    layout === "scroll" ? "w-[150px] shrink-0 snap-start sm:w-[165px]" : "w-full";
+    layout === "scroll"
+      ? "w-[150px] shrink-0 snap-start sm:w-[165px]"
+      : "w-full";
 
   const productUrl =
     product._id?.length > 10 ? `/product/${product._id}` : "/product";
@@ -94,7 +96,11 @@ function DealProductCard({
 
   return (
     <div
-      className={`flex h-full flex-col overflow-hidden rounded-xl border border-border-light bg-white transition ${layoutClass}`}
+      className={`flex h-full flex-col overflow-hidden rounded-2xl border border-border-light bg-white transition ${layoutClass} ${
+        layout === "grid"
+          ? "hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
+          : ""
+      }`}
     >
       <div className="relative">
         <div className="absolute right-1.5 top-1.5 z-10">

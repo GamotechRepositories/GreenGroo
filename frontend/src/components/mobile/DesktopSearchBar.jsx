@@ -34,10 +34,10 @@ function DesktopSearchBar({ className = "" }) {
 
   return (
     <form
-      className={`flex h-11 items-stretch overflow-hidden rounded-md border border-border-light bg-[#f3f3f3] ${className}`}
+      className={`flex h-11 items-stretch overflow-hidden rounded-xl border border-border-light bg-white ${className}`}
       onSubmit={handleSubmit}
     >
-      <div className="relative flex shrink-0 items-center border-r border-border-light bg-[#ebebeb]">
+      <div className="relative flex shrink-0 items-center border-r border-border-light bg-mobile-surface">
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -73,7 +73,7 @@ function DesktopSearchBar({ className = "" }) {
 
       <button
         type="submit"
-        className="shrink-0 bg-primary px-6 text-sm font-bold text-white transition hover:brightness-110"
+        className="shrink-0 bg-primary px-6 text-sm font-bold text-white transition hover:bg-primary-dark"
       >
         Search
       </button>

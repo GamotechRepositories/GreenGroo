@@ -6,7 +6,8 @@ import ShareWebsiteButton from "./ShareWebsiteButton";
 
 const essentialLinks = [
   { to: "/", label: "Home" },
-  { to: "/product", label: "Products" },
+  { to: "/categories", label: "Categories" },
+  { to: "/product", label: "Shop" },
   { to: "/about", label: "About Us" },
   { to: "/contact", label: "Contact" },
   { to: "/support", label: "Support" },
@@ -23,7 +24,7 @@ function FooterToggleButton({ expanded, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-primary hover:text-primary"
+      className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary-light px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary hover:text-white"
       aria-expanded={expanded}
     >
       {expanded ? "Hide footer" : "Show footer"}
@@ -41,49 +42,30 @@ function FooterToggleButton({ expanded, onClick }) {
   );
 }
 
-function Footer() {
-  const [expanded, setExpanded] = useState(false);
-
-  if (!expanded) {
-    return (
-      <footer className="border-t border-neutral-800 bg-black pb-20 text-neutral-400 lg:pb-0">
-        <div className="mx-auto flex max-w-7xl justify-center px-4 py-4 sm:px-6">
-          <FooterToggleButton expanded={false} onClick={() => setExpanded(true)} />
-        </div>
-      </footer>
-    );
-  }
-
+function FooterContent() {
   return (
-    <footer className="border-t border-neutral-800 bg-black text-neutral-400 pb-20 lg:pb-0">
-      <div className="mx-auto flex max-w-7xl justify-center px-4 pt-4 sm:px-6">
-        <FooterToggleButton expanded onClick={() => setExpanded(false)} />
-      </div>
-
+    <>
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:gap-10 lg:py-12">
         <div className="sm:col-span-2 lg:col-span-1">
           <Link to="/" className="inline-flex items-center gap-2">
-            <img
-              src={LOGO_URL}
-              alt="GreenGrocc"
-              className="h-10 w-auto object-contain brightness-0 invert"
-            />
+            <img src={LOGO_URL} alt="GreenGrocc" className="h-10 w-auto object-contain" />
+            <span className="text-lg font-extrabold text-primary">GreenGrocc</span>
           </Link>
-          <p className="mt-4 text-sm leading-relaxed">
-            Your trusted partner for wholesale smartphones, tablets, and accessories.
-            Serving retailers and distributors across India.
+          <p className="mt-4 text-sm leading-relaxed text-text-secondary">
+            Your neighbourhood grocery store, online. Fresh fruits, vegetables, dairy, and daily
+            essentials delivered fast to your doorstep.
           </p>
           <ShareWebsiteButton className="mt-4" />
         </div>
 
         <div>
-          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-white">
-            Essential Links
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-text-primary">
+            Quick Links
           </h4>
           <ul className="space-y-2.5 text-sm">
             {essentialLinks.map(({ to, label }) => (
               <li key={to}>
-                <Link to={to} className="transition hover:text-primary">
+                <Link to={to} className="text-text-secondary transition hover:text-primary">
                   {label}
                 </Link>
               </li>
@@ -92,13 +74,13 @@ function Footer() {
         </div>
 
         <div>
-          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-white">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-text-primary">
             Legal
           </h4>
           <ul className="space-y-2.5 text-sm">
             {legalLinks.map(({ to, label }) => (
               <li key={to}>
-                <Link to={to} className="transition hover:text-primary">
+                <Link to={to} className="text-text-secondary transition hover:text-primary">
                   {label}
                 </Link>
               </li>
@@ -107,11 +89,11 @@ function Footer() {
         </div>
 
         <div>
-          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-white">
+          <h4 className="mb-4 text-sm font-bold uppercase tracking-wide text-text-primary">
             Contact
           </h4>
-          <ul className="space-y-2.5 text-sm">
-            <li className="leading-relaxed text-neutral-400">{CONTACT_ADDRESS}</li>
+          <ul className="space-y-2.5 text-sm text-text-secondary">
+            <li className="leading-relaxed">{CONTACT_ADDRESS}</li>
             <li>
               <a href={`mailto:${CONTACT_EMAIL}`} className="transition hover:text-primary">
                 {CONTACT_EMAIL}
@@ -122,13 +104,31 @@ function Footer() {
                 {CONTACT_PHONE_DISPLAY}
               </a>
             </li>
-            <li className="text-neutral-500">Mon – Sat: 10:00 AM – 7:00 PM</li>
+            <li className="text-text-muted">Mon – Sat: 8:00 AM – 9:00 PM</li>
           </ul>
         </div>
       </div>
 
-      <div className="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500 sm:text-sm">
+      <div className="border-t border-border-light py-4 text-center text-xs text-text-muted sm:text-sm">
         © {new Date().getFullYear()} GreenGrocc. All rights reserved.
+      </div>
+    </>
+  );
+}
+
+function Footer() {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <footer className="mt-auto border-t border-border-light bg-white pb-20 text-text-primary lg:pb-0">
+      {/* Mobile toggle */}
+      <div className="mx-auto flex max-w-7xl justify-center px-4 py-4 sm:px-6 lg:hidden">
+        <FooterToggleButton expanded={expanded} onClick={() => setExpanded((v) => !v)} />
+      </div>
+
+      {/* Mobile collapsible / desktop always visible */}
+      <div className={`${expanded ? "block" : "hidden"} lg:block`}>
+        <FooterContent />
       </div>
     </footer>
   );

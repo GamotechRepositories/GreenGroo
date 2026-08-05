@@ -63,7 +63,7 @@ function ProfileInfoRow({ icon, label, value, onEdit, showDivider }) {
   return (
     <div>
       <div className="flex items-center gap-3 px-3.5 py-3.5 sm:px-4 sm:py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFE8D4] text-primary">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
           {icon}
         </div>
         <div className="min-w-0 flex-1">
@@ -427,7 +427,7 @@ function Profile() {
             <>
               <div className="rounded-2xl border border-border-light bg-white p-4 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFE8D4] text-primary">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-light text-primary">
                     <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>

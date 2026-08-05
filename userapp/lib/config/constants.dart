@@ -6,7 +6,7 @@ class AppConstants {
   static const String authStorageKey = 'bmm_auth';
   static const String logoAsset = 'assets/images/favicon.png';
   static const String logoUrl =
-      'https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png';
+      'https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/GreenGrocc_logo_2-removebg-preview_wcso0k.png';
 
   static const int moq = 10;
   static const double freeDeliveryThreshold = 999;

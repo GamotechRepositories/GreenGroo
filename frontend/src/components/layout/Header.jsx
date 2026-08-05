@@ -5,7 +5,7 @@ import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 
 export const LOGO_URL =
-  "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png";
+  "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/GreenGrocc_logo_2-removebg-preview_wcso0k.png";
 
 function SearchIcon({ className = "w-4 h-4" }) {
   return (
@@ -57,12 +57,6 @@ function SearchBar({ className = "" }) {
 function UtilityIcons({ user, onLoginClick }) {
   const { cartCount } = useCart();
 
-  const handleCartClick = (e) => {
-    if (!user) {
-      e.preventDefault();
-      onLoginClick();
-    }
-  };
   return (
     <div className="flex items-center shrink-0 justify-end">
       <div className="hidden xl:flex items-center gap-2 pr-4 mr-4 border-r border-gray-200 text-gray-800">
@@ -94,14 +88,13 @@ function UtilityIcons({ user, onLoginClick }) {
 
       <Link
         to="/cart"
-        onClick={handleCartClick}
         className="flex flex-col items-center justify-center gap-1 px-3 lg:px-4 text-gray-700 hover:text-accent transition"
       >
         <span className="relative inline-flex">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
           </svg>
-          {user && (
+          {cartCount > 0 && (
             <span className="absolute -top-1.5 -right-2.5 flex h-[18px] min-w-[18px] px-0.5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-white leading-none">
               {cartCount > 99 ? "99+" : cartCount}
             </span>

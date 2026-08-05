@@ -6,9 +6,10 @@
   --color-body: #000000;
   --color-surface: #0a0a0a;
   --color-border: #262626;
-  --color-accent: #ff7a00;
-  --color-primary: #ff7a00;
-  --color-primary-dark: #cc6200;
+  --color-accent: #22c55e;
+  --color-primary: #22c55e;
+  --color-primary-dark: #16a34a;
+  --color-primary-light: #dcfce7;
   --color-light-bg: #f8f8f8;
   --color-muted: #a3a3a3;
   --color-mobile-bg: #ffffff;
@@ -59,7 +60,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fffaf6;
+  background: #f0fdf4;
   opacity: 1;
   transform: scale(1);
   transition: opacity 0.45s ease, transform 0.45s ease;
@@ -117,7 +118,7 @@ input[type="number"] {
   height: 3px;
   margin-top: 1rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, #ff7a00, #ffb347);
+  background: linear-gradient(90deg, #22c55e, #4ade80);
   transform-origin: center;
   animation: opening-bar-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
 }

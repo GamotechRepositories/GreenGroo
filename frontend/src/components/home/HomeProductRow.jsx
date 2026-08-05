@@ -1,5 +1,6 @@
 import SectionHeader from "../mobile/SectionHeader";
 import DealProductCard from "../product/DealProductCard";
+import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import HorizontalScrollRow from "./HorizontalScrollRow";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 
@@ -13,33 +14,51 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
     onIncrease: handleIncrease,
     onDecrease: handleDecrease,
     cartQuantity: getCartQuantity(product),
-    layout: "scroll",
   });
 
   if (!loading && (!products || products.length === 0)) {
     return null;
   }
 
-  return (
-    <section className="bg-white px-4 py-3 sm:px-6 md:px-8">
-      <SectionHeader title={title} viewAllTo={viewAllTo} className="mb-2" />
+  const skeleton = (key, className) => (
+    <div key={key} className={`animate-pulse rounded-xl bg-[#f5f5f5] ${className}`} />
+  );
 
-      {loading ? (
-        <HorizontalScrollRow>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div
-              key={`product-row-skeleton-${index}`}
-              className="h-[258px] w-[150px] shrink-0 animate-pulse rounded-xl border border-border-light bg-gray-100 sm:w-[165px]"
-            />
-          ))}
-        </HorizontalScrollRow>
-      ) : (
-        <HorizontalScrollRow>
-          {products.map((product) => (
-            <DealProductCard key={product._id} {...cardProps(product)} />
-          ))}
-        </HorizontalScrollRow>
-      )}
+  return (
+    <section className="bg-white px-4 py-4 sm:px-6 lg:rounded-2xl lg:border lg:border-border-light lg:px-6 lg:py-6 lg:shadow-sm xl:px-8">
+      <div className="mx-auto max-w-7xl">
+        <SectionHeader title={title} viewAllTo={viewAllTo} className="mb-4" />
+
+        {loading ? (
+          <>
+            <div className="lg:hidden">
+              <HorizontalScrollRow gapClassName="gap-3">
+                {Array.from({ length: 6 }).map((_, i) =>
+                  skeleton(`m-${i}`, "h-[200px] w-[128px] shrink-0 sm:w-[140px]")
+                )}
+              </HorizontalScrollRow>
+            </div>
+            <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
+              {Array.from({ length: 8 }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="lg:hidden">
+              <HorizontalScrollRow gapClassName="gap-3">
+                {products.map((product) => (
+                  <QuickCommerceProductCard key={product._id} {...cardProps(product)} />
+                ))}
+              </HorizontalScrollRow>
+            </div>
+            <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
+              {products.map((product) => (
+                <DealProductCard key={product._id} {...cardProps(product)} layout="grid" />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </section>
   );
 }

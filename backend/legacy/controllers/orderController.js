@@ -834,7 +834,7 @@ export const getDashboardStats = async (req, res) => {
         { $unwind: "$items" },
         {
           $lookup: {
-            from: "bulkmobilemartproducts",
+            from: "GreenGroccproducts",
             localField: "items.product",
             foreignField: "_id",
             as: "productDoc",

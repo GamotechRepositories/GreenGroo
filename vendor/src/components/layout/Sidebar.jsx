@@ -108,7 +108,7 @@ export function Sidebar({ open, onClose }) {
               <Leaf className="h-5 w-5 text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <p className="text-sm font-bold leading-tight text-text-primary">GreenGroo</p>
+              <p className="text-sm font-bold leading-tight text-text-primary">GreenGrocc</p>
               <p className="text-[11px] font-medium text-text-secondary">Seller Central</p>
             </div>
           </div>

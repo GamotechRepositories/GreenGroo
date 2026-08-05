@@ -36,7 +36,7 @@ const wishlistSchema = new mongoose.Schema(
 const Wishlist = mongoose.model(
   "GreenGroccWishlist",
   wishlistSchema,
-  "bulkmobilemartwishlists"
+  "GreenGroccwishlists"
 );
 
 export default Wishlist;

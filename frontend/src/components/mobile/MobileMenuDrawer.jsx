@@ -155,16 +155,6 @@ function MobileMenuDrawer({ open, onClose, categories }) {
 
   if (!open) return null;
 
-  const handleWishlistClick = (e) => {
-    if (!user) {
-      e.preventDefault();
-      onClose();
-      openAuthModal("login");
-    } else {
-      onClose();
-    }
-  };
-
   const handleGuestLink = (e, requiresAuth) => {
     if (requiresAuth && !user) {
       e.preventDefault();
@@ -234,16 +224,12 @@ function MobileMenuDrawer({ open, onClose, categories }) {
           <ul className="mb-4 space-y-0.5">
             {PAGE_LINKS.map((item) => {
               const needsAuth =
-                item.to === "/wishlist" || item.to === "/orders" || item.to === "/profile";
+                item.to === "/orders" || item.to === "/profile";
               return (
                 <li key={item.to}>
                   <Link
                     to={item.to}
-                    onClick={(e) =>
-                      item.to === "/wishlist"
-                        ? handleWishlistClick(e)
-                        : handleGuestLink(e, needsAuth)
-                    }
+                    onClick={(e) => handleGuestLink(e, needsAuth)}
                     className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-primary transition hover:bg-mobile-surface"
                   >
                     {item.label}

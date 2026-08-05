@@ -16,6 +16,11 @@ import { useAuth } from "./AuthContext";
 import AddedToCartToast from "../components/cart/AddedToCartToast";
 import FlyToCartOverlay from "../components/cart/FlyToCartOverlay";
 import { buildFlyToWishlistAnimation, pulseWishlistTarget } from "../utils/flyToCart";
+import {
+  clearGuestWishlist,
+  loadGuestWishlist,
+  saveGuestWishlist,
+} from "../utils/guestWishlistStorage";
 
 const WishlistContext = createContext(null);
 const TOAST_DURATION_MS = 2600;
@@ -67,13 +72,14 @@ const mapToggleProduct = (product) => ({
 });
 
 export function WishlistProvider({ children }) {
-  const { user, loading: authLoading, openAuthModal } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [wishlistToast, setWishlistToast] = useState(null);
   const [flyAnimation, setFlyAnimation] = useState(null);
   const [toastLeaving, setToastLeaving] = useState(false);
   const pendingToggleRef = useRef(null);
+  const guestMergedRef = useRef(false);
   const toastTimerRef = useRef(null);
   const toastExitTimerRef = useRef(null);
 
@@ -138,6 +144,19 @@ export function WishlistProvider({ children }) {
     []
   );
 
+  const mergeGuestWishlistToServer = useCallback(async () => {
+    const guestItems = loadGuestWishlist();
+    if (!guestItems.length) return;
+
+    for (const item of guestItems) {
+      await toggleWishlistItem(toProductId(item._id));
+    }
+
+    clearGuestWishlist();
+    const { data } = await getWishlist();
+    setItems(mapWishlistItems(data.data));
+  }, []);
+
   const loadWishlist = useCallback(async () => {
     if (!user) {
       setItems([]);
@@ -158,12 +177,25 @@ export function WishlistProvider({ children }) {
   useEffect(() => {
     if (authLoading) return;
 
-    if (user) {
-      loadWishlist();
-    } else {
-      setItems([]);
-    }
-  }, [user, authLoading, loadWishlist]);
+    const bootstrap = async () => {
+      if (user) {
+        await loadWishlist();
+        if (!guestMergedRef.current) {
+          guestMergedRef.current = true;
+          try {
+            await mergeGuestWishlistToServer();
+          } catch {
+            // Keep server wishlist if merge fails.
+          }
+        }
+      } else {
+        guestMergedRef.current = false;
+        setItems(loadGuestWishlist());
+      }
+    };
+
+    bootstrap();
+  }, [user, authLoading, loadWishlist, mergeGuestWishlistToServer]);
 
   const wishlistIds = useMemo(
     () => new Set(items.map((item) => toProductId(item._id))),
@@ -181,9 +213,26 @@ export function WishlistProvider({ children }) {
       if (!productId || productId.length < 10) return { success: false };
 
       if (!user) {
-        pendingToggleRef.current = { product, flySource: options.flySource || null };
-        openAuthModal("login");
-        return { requiresLogin: true };
+        const normalized = mapToggleProduct(product);
+        let nextWishlisted = false;
+
+        setItems((prev) => {
+          const wasWishlisted = prev.some((item) => toProductId(item._id) === productId);
+          nextWishlisted = !wasWishlisted;
+          const nextItems = wasWishlisted
+            ? prev.filter((item) => toProductId(item._id) !== productId)
+            : [...prev, normalized];
+          saveGuestWishlist(nextItems);
+          return nextItems;
+        });
+
+        if (options.flySource && nextWishlisted) {
+          playFlyToWishlist(product, options.flySource);
+        } else if (nextWishlisted) {
+          showAddedToWishlistToast(product);
+        }
+
+        return { success: true, wishlisted: nextWishlisted };
       }
 
       const normalized = mapToggleProduct(product);
@@ -222,7 +271,7 @@ export function WishlistProvider({ children }) {
         };
       }
     },
-    [user, openAuthModal, wishlistIds, showAddedToWishlistToast, playFlyToWishlist]
+    [user, wishlistIds, showAddedToWishlistToast, playFlyToWishlist]
   );
 
   useEffect(() => {
@@ -235,9 +284,17 @@ export function WishlistProvider({ children }) {
 
   const removeFromWishlist = useCallback(
     async (productId) => {
-      if (!user) return;
-
       const id = toProductId(productId);
+
+      if (!user) {
+        setItems((prev) => {
+          const nextItems = prev.filter((item) => toProductId(item._id) !== id);
+          saveGuestWishlist(nextItems);
+          return nextItems;
+        });
+        return;
+      }
+
       setItems((prev) => prev.filter((item) => toProductId(item._id) !== id));
 
       try {

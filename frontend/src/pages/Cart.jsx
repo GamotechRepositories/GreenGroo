@@ -232,6 +232,7 @@ function CartItemsSection({ items, loading, onRemove, onIncrease, onDecrease }) 
 }
 
 function OrderSummary({ items, storeSettings }) {
+  const { user, openAuthModal } = useAuth();
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
@@ -273,13 +274,23 @@ function OrderSummary({ items, storeSettings }) {
       </div>
 
       {canCheckout ? (
-        <Link
-          to="/checkout"
-          onClick={() => clearBuyNowCheckout()}
-          className="mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm"
-        >
-          Proceed to Checkout
-        </Link>
+        user ? (
+          <Link
+            to="/checkout"
+            onClick={() => clearBuyNowCheckout()}
+            className="mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm"
+          >
+            Proceed to Checkout
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openAuthModal("login")}
+            className="mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm"
+          >
+            Login to Checkout
+          </button>
+        )
       ) : (
         <button
           type="button"
@@ -334,7 +345,7 @@ function CartSidebar({ items, storeSettings }) {
 }
 
 function Cart() {
-  const { user, openAuthModal } = useAuth();
+  const { user } = useAuth();
   const { items, removeFromCart, incrementCartItem, decrementCartItem, loading, loadCart } =
     useCart();
   const [clearing, setClearing] = useState(false);
@@ -377,26 +388,6 @@ function Cart() {
   };
 
   const pageTitle = "Shopping Cart";
-
-  if (!user) {
-    return (
-      <div className="min-h-[60vh] bg-mobile-bg px-4 py-16 text-text-primary sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h1 className="mb-3 text-2xl font-bold sm:text-3xl">{pageTitle}</h1>
-          <p className="mb-6 text-text-secondary">
-            Please login to view your cart and bulk orders.
-          </p>
-          <button
-            type="button"
-            onClick={() => openAuthModal("login")}
-            className="rounded-lg bg-primary px-8 py-3 text-sm font-bold tracking-wide text-white transition hover:brightness-110"
-          >
-            Login / Sign Up
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-mobile-bg text-text-primary">

@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
-import { useAuth } from "../../context/AuthContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { LOGO_URL } from "../layout/Header";
 import { NavIconWrap } from "./NavIconWrap";
@@ -10,7 +9,6 @@ import MobileMenuDrawer from "./MobileMenuDrawer";
 import MobileSearchBar from "./MobileSearchBar";
 
 function MobileHeader() {
-  const { user, openAuthModal } = useAuth();
   const { wishlistCount } = useWishlist();
   const headerRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(72);
@@ -47,13 +45,6 @@ function MobileHeader() {
   const openMenu = () => {
     setSearchOpen(false);
     setMenuOpen(true);
-  };
-
-  const handleWishlistClick = (e) => {
-    if (!user) {
-      e.preventDefault();
-      openAuthModal("login");
-    }
   };
 
   return (
@@ -95,7 +86,6 @@ function MobileHeader() {
             <Link
               to="/wishlist"
               data-wishlist-target="mobile"
-              onClick={handleWishlistClick}
               className="relative flex h-10 w-10 items-center justify-center overflow-visible rounded-lg text-primary transition hover:bg-primary/5 hover:text-primary-dark"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
             >

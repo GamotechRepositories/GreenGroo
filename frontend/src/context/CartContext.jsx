@@ -18,12 +18,17 @@ import {
   removeLine,
   setLineQuantity,
 } from "../utils/cartState";
+import {
+  clearGuestCart,
+  loadGuestCart,
+  saveGuestCart,
+} from "../utils/guestCartStorage";
 
 const CartContext = createContext(null);
 const TOAST_DURATION_MS = 2600;
 
 export function CartProvider({ children }) {
-  const { user, loading: authLoading, openAuthModal } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cartToast, setCartToast] = useState(null);
@@ -31,7 +36,7 @@ export function CartProvider({ children }) {
   const [toastLeaving, setToastLeaving] = useState(false);
   const itemsRef = useRef([]);
   const queueRef = useRef(Promise.resolve());
-  const pendingAddRef = useRef(null);
+  const guestMergedRef = useRef(false);
   const toastTimerRef = useRef(null);
   const toastExitTimerRef = useRef(null);
 
@@ -81,6 +86,11 @@ export function CartProvider({ children }) {
     []
   );
 
+  const applyGuestCart = useCallback((nextItems) => {
+    setItems(nextItems);
+    saveGuestCart(nextItems);
+  }, []);
+
   const syncCartFromServer = useCallback(async () => {
     if (!user) {
       setItems([]);
@@ -115,15 +125,45 @@ export function CartProvider({ children }) {
     [user, syncCartFromServer]
   );
 
+  const mergeGuestCartToServer = useCallback(async () => {
+    const guestItems = loadGuestCart();
+    if (!guestItems.length) return;
+
+    for (const item of guestItems) {
+      await addToCartItem({
+        productId: item._id,
+        quantity: item.quantity,
+        variantName: item.variantName || "",
+        colorName: item.colorName || "",
+      });
+    }
+
+    clearGuestCart();
+    await syncCartFromServer();
+  }, [syncCartFromServer]);
+
   useEffect(() => {
     if (authLoading) return;
 
-    if (user) {
-      loadCart();
-    } else {
-      setItems([]);
-    }
-  }, [user, authLoading, loadCart]);
+    const bootstrap = async () => {
+      if (user) {
+        await loadCart({ silent: true });
+        if (!guestMergedRef.current) {
+          guestMergedRef.current = true;
+          try {
+            await mergeGuestCartToServer();
+          } catch {
+            // Keep server cart if merge fails.
+          }
+        }
+      } else {
+        guestMergedRef.current = false;
+        setItems(loadGuestCart());
+      }
+    };
+
+    bootstrap();
+  }, [user, authLoading, loadCart, mergeGuestCartToServer]);
 
   const playFlyToCart = useCallback(
     (product, flySource) => {
@@ -190,15 +230,19 @@ export function CartProvider({ children }) {
       }
 
       if (!user) {
-        pendingAddRef.current = {
-          product,
-          quantity: qty,
-          variantName: options.variantName || "",
-          colorName: options.colorName || "",
-          flySource: options.flySource || null,
-        };
-        openAuthModal("login");
-        return { requiresLogin: true };
+        const variantName = options.variantName || "";
+        const colorName = options.colorName || "";
+
+        if (options.flySource) {
+          playFlyToCart(product, options.flySource);
+        } else {
+          showAddedToCartToast(product);
+        }
+
+        applyGuestCart(
+          addOrMergeLine(itemsRef.current, product, qty, variantName, colorName)
+        );
+        return { success: true };
       }
 
       const variantName = options.variantName || "";
@@ -221,25 +265,17 @@ export function CartProvider({ children }) {
           }),
       }));
     },
-    [user, openAuthModal, playFlyToCart, runCartMutation, showAddedToCartToast]
+    [user, playFlyToCart, runCartMutation, showAddedToCartToast, applyGuestCart]
   );
-
-  useEffect(() => {
-    if (!user || !pendingAddRef.current) return;
-
-    const pending = pendingAddRef.current;
-    pendingAddRef.current = null;
-
-    addToCart(pending.product, pending.quantity, {
-      variantName: pending.variantName,
-      colorName: pending.colorName,
-      flySource: pending.flySource || undefined,
-    });
-  }, [user, addToCart]);
 
   const removeFromCart = useCallback(
     (productId, variantName = "", colorName = "") => {
-      if (!user) return Promise.resolve();
+      if (!user) {
+        applyGuestCart(
+          removeLine(itemsRef.current, productId, variantName, colorName)
+        );
+        return Promise.resolve({ success: true });
+      }
 
       return runCartMutation((current) => {
         const line = findCartLine(current, productId, variantName, colorName);
@@ -251,15 +287,26 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation]
+    [user, runCartMutation, applyGuestCart]
   );
 
   const updateQuantity = useCallback(
     (productId, quantity, variantName = "", colorName = "") => {
-      if (!user) return Promise.resolve();
-
       const qty = Number(quantity);
       if (!Number.isFinite(qty)) return Promise.resolve({ success: false });
+
+      if (!user) {
+        if (qty < 1) {
+          applyGuestCart(
+            removeLine(itemsRef.current, productId, variantName, colorName)
+          );
+        } else {
+          applyGuestCart(
+            setLineQuantity(itemsRef.current, productId, variantName, colorName, qty)
+          );
+        }
+        return Promise.resolve({ success: true });
+      }
 
       return runCartMutation((current) => {
         const line = findCartLine(current, productId, variantName, colorName);
@@ -278,15 +325,29 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation]
+    [user, runCartMutation, applyGuestCart]
   );
 
   const incrementCartItem = useCallback(
     ({ productId, variantName = "", colorName = "", step = 1, maxQuantity }) => {
-      if (!user) return Promise.resolve({ success: false });
-
       const safeStep = Number(step) || 1;
       const maxQty = Number.isFinite(Number(maxQuantity)) ? Number(maxQuantity) : null;
+
+      if (!user) {
+        const line = findCartLine(itemsRef.current, productId, variantName, colorName);
+        if (!line) return Promise.resolve({ success: false });
+
+        let nextQty = line.quantity + safeStep;
+        if (maxQty != null) {
+          nextQty = Math.min(maxQty, nextQty);
+        }
+        if (nextQty === line.quantity) return Promise.resolve({ success: true });
+
+        applyGuestCart(
+          setLineQuantity(itemsRef.current, productId, variantName, colorName, nextQty)
+        );
+        return Promise.resolve({ success: true });
+      }
 
       return runCartMutation((current) => {
         const line = findCartLine(current, productId, variantName, colorName);
@@ -304,12 +365,35 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation]
+    [user, runCartMutation, applyGuestCart]
   );
 
   const decrementCartItem = useCallback(
     ({ productId, variantName = "", colorName = "", resolveNextQuantity }) => {
-      if (!user) return Promise.resolve({ success: false });
+      if (!user) {
+        const line = findCartLine(itemsRef.current, productId, variantName, colorName);
+        if (!line) return Promise.resolve({ success: false });
+
+        const nextQty =
+          typeof resolveNextQuantity === "function"
+            ? Number(resolveNextQuantity(line.quantity))
+            : line.quantity - 1;
+
+        if (!Number.isFinite(nextQty) || nextQty === line.quantity) {
+          return Promise.resolve({ success: true });
+        }
+
+        if (nextQty < 1) {
+          applyGuestCart(
+            removeLine(itemsRef.current, productId, variantName, colorName)
+          );
+        } else {
+          applyGuestCart(
+            setLineQuantity(itemsRef.current, productId, variantName, colorName, nextQty)
+          );
+        }
+        return Promise.resolve({ success: true });
+      }
 
       return runCartMutation((current) => {
         const line = findCartLine(current, productId, variantName, colorName);
@@ -335,12 +419,15 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation]
+    [user, runCartMutation, applyGuestCart]
   );
 
   const resetCart = useCallback(() => {
     setItems([]);
-  }, []);
+    if (!user) {
+      clearGuestCart();
+    }
+  }, [user]);
 
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 

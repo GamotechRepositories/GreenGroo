@@ -6,7 +6,7 @@ import { useProductCartActions } from "../hooks/useProductCartActions";
 import DealProductCard from "../components/product/DealProductCard";
 
 function Wishlist() {
-  const { user, openAuthModal } = useAuth();
+  const { user } = useAuth();
   const { items: wishlistItems, loading, loadWishlist } = useWishlist();
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
@@ -14,26 +14,6 @@ function Wishlist() {
   useEffect(() => {
     if (user) loadWishlist();
   }, [user, loadWishlist]);
-
-  if (!user) {
-    return (
-      <div className="min-h-[60vh] bg-mobile-bg px-4 py-16 text-text-primary sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h1 className="mb-3 text-2xl font-bold sm:text-3xl">My Wishlist</h1>
-          <p className="mb-6 text-text-secondary">
-            Please login to save and view your favourite products.
-          </p>
-          <button
-            type="button"
-            onClick={() => openAuthModal("login")}
-            className="rounded-lg bg-primary px-8 py-3 text-sm font-bold tracking-wide text-white transition hover:brightness-110"
-          >
-            Login / Sign Up
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-mobile-bg pb-24 text-text-primary lg:pb-8">

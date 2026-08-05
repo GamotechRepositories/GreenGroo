@@ -51,7 +51,7 @@ const cartSchema = new mongoose.Schema(
 const Cart = mongoose.model(
   "GreenGroccCart",
   cartSchema,
-  "bulkmobilemartcarts"
+  "GreenGrocccarts"
 );
 
 export default Cart;

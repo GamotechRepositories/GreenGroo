@@ -308,7 +308,7 @@ productSchema.index(
 const Product = mongoose.model(
   "GreenGroccProduct",
   productSchema,
-  "bulkmobilemartproducts"
+  "GreenGroccproducts"
 );
 
 export default Product;
