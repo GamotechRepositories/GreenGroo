@@ -1,8 +1,8 @@
 import HomeMobileHeader from "../components/grocery/HomeMobileHeader";
 import FreshPromoBanner from "../components/grocery/FreshPromoBanner";
+import DesktopSideBanner from "../components/grocery/DesktopSideBanner";
 import TodaysDealStrip from "../components/grocery/TodaysDealStrip";
 import CategoryPills from "../components/grocery/CategoryPills";
-import DesktopCategorySidebar from "../components/grocery/DesktopCategorySidebar";
 import TrustBadges from "../components/grocery/TrustBadges";
 import BestDeals from "../components/mobile/BestDeals";
 import JustArrived from "../components/home/JustArrived";
@@ -23,10 +23,10 @@ function Home() {
       </div>
 
       <div className="mx-auto max-w-7xl lg:px-8 lg:py-8">
-        {/* Desktop hero row — flex so banner fills width when sidebar is empty */}
-        <div className="mb-0 hidden lg:mb-8 lg:flex lg:items-stretch lg:gap-6">
-          <DesktopCategorySidebar />
-          <div className="min-w-0 flex-1">
+        {/* Desktop: left ~25% side banner + right ~75% main banner */}
+        <div className="mb-0 hidden lg:mb-8 lg:flex lg:items-stretch lg:gap-5">
+          <DesktopSideBanner />
+          <div className="min-w-0 flex-[3]">
             <FreshPromoBanner />
           </div>
         </div>

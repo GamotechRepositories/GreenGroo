@@ -5,7 +5,7 @@ const HERO_BG = "/herobaner.png";
 function FreshPromoBanner({ className = "" }) {
   return (
     <section className={`px-4 py-3 sm:px-6 lg:h-full lg:px-0 lg:py-0 ${className}`}>
-      <div className="relative overflow-hidden rounded-2xl bg-[#e8f5e9] shadow-sm lg:h-full lg:min-h-[340px] lg:rounded-3xl lg:shadow-lg lg:shadow-primary/10 xl:min-h-[380px]">
+      <div className="relative overflow-hidden rounded-2xl bg-[#e8f5e9] shadow-sm lg:h-full lg:min-h-[220px] lg:rounded-3xl lg:shadow-lg lg:shadow-primary/10 xl:min-h-[240px]">
         {/* Mobile: natural aspect ratio · Desktop: fill available width/height */}
         <img
           src={HERO_BG}
