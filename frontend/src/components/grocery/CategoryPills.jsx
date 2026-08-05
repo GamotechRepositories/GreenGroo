@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 
 const CATEGORIES = [
-  { name: "Vegetables", emoji: "🥦", slug: "Vegetables", items: "150+", bg: "#F3F7EF" },
+  {
+    name: "Vegetables",
+    emoji: "🥦",
+    slug: "Vegetables",
+    items: "150+",
+    bg: "#E2F0D9",
+    image: "/categories/vegetables.webp",
+  },
   {
     name: "Fruits",
     emoji: "🍎",
@@ -10,8 +17,22 @@ const CATEGORIES = [
     bg: "#F0F7ED",
     image: "/categories/fruits.webp",
   },
-  { name: "Dairy", emoji: "🥛", slug: "Dairy", items: "80+", bg: "#F0F6FF" },
-  { name: "Grains", emoji: "🌾", slug: "Grains", items: "90+", bg: "#FFF8E8" },
+  {
+    name: "Dairy",
+    emoji: "🥛",
+    slug: "Dairy",
+    items: "80+",
+    bg: "#E8F5E9",
+    image: "/categories/dairy.webp",
+  },
+  {
+    name: "Grains",
+    emoji: "🌾",
+    slug: "Grains",
+    items: "90+",
+    bg: "#E8F5E0",
+    image: "/categories/grains.webp",
+  },
   { name: "Pulses", emoji: "🌱", slug: "Pulses", items: "70+", bg: "#F1F8E9" },
   { name: "Grocery", emoji: "🧂", slug: "Grocery", items: "200+", bg: "#F5F5F2" },
   { name: "Oils", emoji: "🫒", slug: "Oils", items: "45+", bg: "#F7F4E8" },
