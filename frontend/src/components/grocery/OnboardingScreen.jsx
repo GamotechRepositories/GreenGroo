@@ -3,7 +3,7 @@ import { LOGO_URL } from "../layout/Header";
 
 const ONBOARDING_KEY = "greengrocc_onboarding_done";
 const HERO_IMAGE = "/onboarding-hero.png";
-const DESKTOP_IMAGE = "/onboarding-desktop.png";
+const DESKTOP_IMAGE = "/onboarding-desktop.webp";
 
 export function isOnboardingComplete() {
   return localStorage.getItem(ONBOARDING_KEY) === "1";

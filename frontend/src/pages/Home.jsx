@@ -16,10 +16,11 @@ function Home() {
         <HomeMobileHeader />
       </div>
 
-      {/* Mobile hero + deal strip */}
+      {/* Mobile hero + deal strip + categories */}
       <div className="lg:hidden">
         <FreshPromoBanner />
         <TodaysDealStrip />
+        <CategoryPills />
       </div>
 
       <div className="mx-auto max-w-7xl lg:px-8 lg:py-8">
