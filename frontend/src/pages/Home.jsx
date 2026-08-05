@@ -23,10 +23,12 @@ function Home() {
       </div>
 
       <div className="mx-auto max-w-7xl lg:px-8 lg:py-8">
-        {/* Desktop hero row */}
-        <div className="mb-0 hidden lg:mb-8 lg:grid lg:grid-cols-[240px_1fr] lg:gap-6 xl:grid-cols-[260px_1fr]">
+        {/* Desktop hero row — flex so banner fills width when sidebar is empty */}
+        <div className="mb-0 hidden lg:mb-8 lg:flex lg:items-stretch lg:gap-6">
           <DesktopCategorySidebar />
-          <FreshPromoBanner />
+          <div className="min-w-0 flex-1">
+            <FreshPromoBanner />
+          </div>
         </div>
 
         <div className="hidden lg:block">

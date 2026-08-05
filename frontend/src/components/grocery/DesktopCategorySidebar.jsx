@@ -19,7 +19,7 @@ function DesktopCategorySidebar() {
   if (!categories.length) return null;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border-light bg-white p-4 shadow-sm">
+    <div className="flex h-full w-[240px] shrink-0 flex-col rounded-2xl border border-border-light bg-white p-4 shadow-sm xl:w-[260px]">
       <h3 className="mb-3 text-sm font-bold text-text-primary">Shop by Category</h3>
       <ul className="flex flex-1 flex-col gap-1">
         {categories.map((cat, index) => (

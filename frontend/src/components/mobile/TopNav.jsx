@@ -1,202 +1,111 @@
 import { Link } from "react-router-dom";
-
 import { LOGO_URL } from "../layout/Header";
-
 import { useAuth } from "../../context/AuthContext";
-
 import { useCart } from "../../context/CartContext";
-
-import { useWishlist } from "../../context/WishlistContext";
-
+import { useLocation } from "../../context/LocationContext";
 import UserAccountDropdown from "../account/UserAccountDropdown";
-
 import DesktopSearchBar from "./DesktopSearchBar";
 
-import { NavIconWrap } from "./NavIconWrap";
-
-import { downloadAndroidApp } from "../../utils/appDownload";
-
-
-
-const formatPrice = (amount) =>
-
-  new Intl.NumberFormat("en-IN", {
-
-    style: "currency",
-
-    currency: "INR",
-
-    minimumFractionDigits: 0,
-
-    maximumFractionDigits: 0,
-
-  }).format(amount);
-
-
-
 function TopNav() {
-
   const { user, openAuthModal } = useAuth();
+  const { cartCount } = useCart();
+  const { location } = useLocation();
 
-  const { items, cartCount } = useCart();
-
-  const { wishlistCount } = useWishlist();
-
-
-
-  const cartTotal = items.reduce(
-
-    (sum, item) => sum + item.discountedPrice * item.quantity,
-
-    0
-
-  );
-
-
+  const addressLine = [location.label, location.address, location.pincode]
+    .filter(Boolean)
+    .join(", ");
 
   return (
-
-    <header className="fixed top-0 left-0 right-0 z-50 hidden border-b border-border-light bg-white/95 shadow-sm backdrop-blur-md lg:block">
-
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3 xl:gap-6 xl:px-8">
-
-        <Link to="/" className="flex shrink-0 items-center gap-2">
-
+    <header className="fixed top-0 left-0 right-0 z-50 hidden border-b border-[#F0F0F0] bg-white lg:block">
+      <div className="mx-auto flex h-[72px] max-w-[1400px] items-center gap-4 px-5 xl:gap-6 xl:px-8">
+        {/* Logo */}
+        <Link to="/" className="flex h-full shrink-0 items-center pr-4 xl:pr-5">
           <img
-
             src={LOGO_URL}
-
             alt="GreenGrocc"
-
             className="h-10 w-auto object-contain xl:h-11"
-
           />
-
-          <span className="hidden text-lg font-extrabold text-primary xl:inline">
-
-            GreenGrocc
-
-          </span>
-
         </Link>
 
+        <div className="h-10 w-px shrink-0 bg-[#E8E8E8]" aria-hidden="true" />
 
-
-        <DesktopSearchBar className="mx-2 min-w-0 flex-1 rounded-xl shadow-sm" />
-
-
-
-        <div className="flex shrink-0 items-center gap-1 xl:gap-2">
-
-          <button
-
-            type="button"
-
-            onClick={downloadAndroidApp}
-
-            className="hidden items-center gap-2 rounded-xl border border-border-light px-3 py-2 text-sm font-semibold text-text-primary transition hover:border-primary hover:text-primary xl:flex"
-
-          >
-
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-
-            </svg>
-
-            Get App
-
-          </button>
-
-
-
-          {user ? (
-
-            <UserAccountDropdown user={user} />
-
-          ) : (
-
-            <button
-
-              type="button"
-
-              onClick={() => openAuthModal("login")}
-
-              className="rounded-xl border border-primary bg-primary-light px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary hover:text-white"
-
+        {/* Delivery location */}
+        <Link
+          to="/location"
+          className="group flex min-w-0 max-w-[220px] shrink-0 flex-col justify-center py-1 xl:max-w-[260px]"
+        >
+          <p className="text-[15px] font-extrabold leading-tight text-text-primary">
+            Delivery in 15 minutes
+          </p>
+          <span className="mt-0.5 flex min-w-0 items-center gap-1">
+            <span className="truncate text-[13px] font-medium text-text-secondary group-hover:text-text-primary">
+              {addressLine || "Select your delivery location"}
+            </span>
+            <svg
+              className="h-3.5 w-3.5 shrink-0 text-text-primary"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              aria-hidden="true"
             >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </Link>
 
+        {/* Search */}
+        <DesktopSearchBar className="mx-2 min-w-0 flex-1" />
+
+        {/* Login / Account */}
+        <div className="flex shrink-0 items-center gap-5 xl:gap-6">
+          {user ? (
+            <UserAccountDropdown user={user} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => openAuthModal("login")}
+              className="text-[15px] font-semibold text-[#363636] transition hover:text-text-primary"
+            >
               Login
-
             </button>
-
           )}
 
-
-
+          {/* My Cart */}
           <Link
-
-            to="/wishlist"
-
-            data-wishlist-target="desktop"
-
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-primary transition hover:bg-primary-light"
-
-            aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
-
-          >
-
-            <NavIconWrap badge={wishlistCount}>
-
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-
-              </svg>
-
-            </NavIconWrap>
-
-          </Link>
-
-
-
-          <Link
-
             to="/cart"
-
             data-cart-target="desktop"
-
-            className="relative flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-white transition hover:bg-primary-dark"
-
-            aria-label={`Cart, ${cartCount} items`}
-
+            className="inline-flex h-11 items-center gap-2.5 rounded-xl bg-[#0C831F] px-3.5 text-white transition hover:bg-[#097019]"
+            aria-label={`My Cart${cartCount > 0 ? `, ${cartCount} items` : ""}`}
           >
-
-            <NavIconWrap badge={cartCount}>
-
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-
+            <span className="relative inline-flex">
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+                />
               </svg>
-
-            </NavIconWrap>
-
-            <span className="hidden text-sm font-bold xl:inline">{formatPrice(cartTotal)}</span>
-
+              {cartCount > 0 ? (
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-[#0C831F]">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              ) : null}
+            </span>
+            <span className="h-5 w-px bg-white/35" aria-hidden="true" />
+            <span className="text-sm font-bold tracking-wide">My Cart</span>
           </Link>
-
         </div>
-
       </div>
-
     </header>
-
   );
-
 }
 
-
-
 export default TopNav;
-

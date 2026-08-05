@@ -4,20 +4,20 @@ const HERO_BG = "/herobaner.png";
 
 function FreshPromoBanner({ className = "" }) {
   return (
-    <section className={`px-4 py-3 sm:px-6 lg:px-0 lg:py-0 ${className}`}>
-      <div className="relative overflow-hidden rounded-2xl bg-[#e8f5e9] shadow-sm lg:rounded-3xl lg:shadow-lg lg:shadow-primary/10">
-        {/* Natural aspect ratio on all screens (2022×778) */}
+    <section className={`px-4 py-3 sm:px-6 lg:h-full lg:px-0 lg:py-0 ${className}`}>
+      <div className="relative overflow-hidden rounded-2xl bg-[#e8f5e9] shadow-sm lg:h-full lg:min-h-[340px] lg:rounded-3xl lg:shadow-lg lg:shadow-primary/10 xl:min-h-[380px]">
+        {/* Mobile: natural aspect ratio · Desktop: fill available width/height */}
         <img
           src={HERO_BG}
           alt=""
-          className="block h-auto w-full"
+          className="block h-auto w-full lg:absolute lg:inset-0 lg:h-full lg:object-cover lg:object-right"
           width={2022}
           height={778}
           aria-hidden="true"
         />
 
         {/* Overlay — left empty area of the banner */}
-        <div className="absolute inset-y-0 left-0 z-10 flex w-[56%] flex-col justify-center pl-5 pr-1 sm:w-[50%] sm:pl-7 lg:w-[48%] lg:pl-10 xl:pl-12">
+        <div className="absolute inset-y-0 left-0 z-10 flex w-[56%] flex-col justify-center pl-5 pr-1 sm:w-[50%] sm:pl-7 lg:w-[52%] lg:pl-10 xl:w-[48%] xl:pl-14">
           <p className="w-fit rounded-full bg-white/90 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#07875f] shadow-sm sm:px-3 sm:py-1 sm:text-xs">
             Special Offer
           </p>
@@ -26,7 +26,7 @@ function FreshPromoBanner({ className = "" }) {
             Fresh &amp; Healthy
           </h2>
 
-          <p className="mt-1 text-[10px] leading-snug text-text-secondary sm:text-xs lg:mt-2 lg:max-w-sm lg:text-base">
+          <p className="mt-1 text-[10px] leading-snug text-text-secondary sm:text-xs lg:mt-2 lg:max-w-md lg:text-base">
             <span className="lg:hidden">Up to 30% off organic produce</span>
             <span className="hidden lg:inline">
               Up to 30% off on organic fruits &amp; vegetables. Delivered fresh to your doorstep.
