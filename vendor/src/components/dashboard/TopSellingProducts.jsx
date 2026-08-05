@@ -18,24 +18,21 @@ export function TopSellingProducts() {
           <li key={product.name}>
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2.5">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cream text-[11px] font-bold text-primary">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-[11px] font-semibold text-text-secondary">
                   {index + 1}
                 </span>
                 <span className="truncate text-sm font-semibold text-text-primary">
                   {product.name}
                 </span>
               </div>
-              <span className="shrink-0 text-xs font-bold text-text-secondary">
+              <span className="shrink-0 text-xs font-medium text-text-secondary">
                 {formatNumber(product.sales)}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${(product.sales / max) * 100}%`,
-                  background: `linear-gradient(90deg, ${product.color}, #81C784)`,
-                }}
+                className="h-full rounded-full bg-primary/70 transition-all duration-700"
+                style={{ width: `${(product.sales / max) * 100}%` }}
               />
             </div>
           </li>

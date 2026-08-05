@@ -41,10 +41,33 @@ body {
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
   min-height: 100vh;
+}
+
+html[data-theme='dark'] {
+  --color-cream: #121a14;
+  --color-background: #121a14;
+  --color-card: #1a241c;
+  --color-sidebar: #152018;
+  --color-border: #2a382e;
+  --color-text-primary: #f3f4f6;
+  --color-text-secondary: #9ca3af;
+  --color-muted: #243028;
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme='dark'] .glass-header {
+  background: rgba(21, 32, 24, 0.82);
+}
+
+html[data-theme='dark'] body {
+  background: var(--color-cream);
+  color: var(--color-text-primary);
 }
 
 .hide-scrollbar {
@@ -73,4 +96,23 @@ body {
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 999px;
+}
+
+html[data-theme='dark'] .sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f5144;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: toast-in 0.2s ease-out;
 }

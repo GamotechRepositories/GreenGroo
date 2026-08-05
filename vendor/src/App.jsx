@@ -1,41 +1,36 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { VendorProvider } from '@/context/VendorContext'
 import { VendorLayout } from '@/components/layout/VendorLayout'
+import { ModulePage } from '@/components/shared/ModulePage'
+import { getAllRoutes } from '@/config/navigation'
 import Dashboard from '@/pages/Dashboard'
-import Products from '@/pages/Products'
-import PlaceholderPage from '@/pages/PlaceholderPage'
 
-const PLACEHOLDER_ROUTES = [
-  { path: 'categories', title: 'Categories' },
-  { path: 'inventory', title: 'Inventory' },
-  { path: 'orders', title: 'Orders' },
-  { path: 'customers', title: 'Customers' },
-  { path: 'coupons', title: 'Coupons' },
-  { path: 'returns', title: 'Returns' },
-  { path: 'wallet', title: 'Wallet' },
-  { path: 'analytics', title: 'Analytics' },
-  { path: 'reports', title: 'Reports' },
-  { path: 'marketing', title: 'Marketing' },
-  { path: 'support', title: 'Support' },
-  { path: 'settings', title: 'Settings' },
-]
+const moduleRoutes = getAllRoutes().filter((r) => !r.isDashboard)
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<VendorLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="products" element={<Products />} />
-          {PLACEHOLDER_ROUTES.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={<PlaceholderPage title={route.title} />}
-            />
-          ))}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <VendorProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<VendorLayout />}>
+            <Route index element={<Dashboard />} />
+            {moduleRoutes.map((route) => (
+              <Route
+                key={route.path}
+                path={route.path.replace(/^\//, '')}
+                element={
+                  <ModulePage
+                    title={route.label}
+                    parent={route.parent}
+                    permission={route.permission}
+                  />
+                }
+              />
+            ))}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </VendorProvider>
   )
 }

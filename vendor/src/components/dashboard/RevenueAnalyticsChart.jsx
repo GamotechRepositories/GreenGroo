@@ -25,7 +25,7 @@ export function RevenueAnalyticsChart() {
     <Card className="h-full">
       <CardHeader>
         <div>
-          <CardTitle>Revenue Analytics</CardTitle>
+          <CardTitle>Revenue Chart</CardTitle>
           <CardDescription>Monthly revenue trend (in lakhs)</CardDescription>
         </div>
       </CardHeader>
@@ -49,10 +49,11 @@ export function RevenueAnalyticsChart() {
             <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F7F2E8' }} />
             <Bar
               dataKey="revenue"
-              fill="#43A047"
-              radius={[10, 10, 4, 4]}
-              maxBarSize={36}
-              animationDuration={900}
+              fill="#2E7D32"
+              fillOpacity={0.75}
+              radius={[6, 6, 2, 2]}
+              maxBarSize={32}
+              animationDuration={700}
             />
           </BarChart>
         </ResponsiveContainer>

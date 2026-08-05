@@ -2,28 +2,13 @@ import { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Navbar } from './Navbar'
-
-const PAGE_TITLES = {
-  '/': 'Dashboard',
-  '/products': 'Products',
-  '/categories': 'Categories',
-  '/inventory': 'Inventory',
-  '/orders': 'Orders',
-  '/customers': 'Customers',
-  '/coupons': 'Coupons',
-  '/returns': 'Returns',
-  '/wallet': 'Wallet',
-  '/analytics': 'Analytics',
-  '/reports': 'Reports',
-  '/marketing': 'Marketing',
-  '/support': 'Support',
-  '/settings': 'Settings',
-}
+import { ToastViewport } from '@/components/ui/toast'
+import { getPageTitle } from '@/config/navigation'
 
 export function VendorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
-  const pageTitle = PAGE_TITLES[pathname] || 'Vendor'
+  const pageTitle = getPageTitle(pathname)
 
   return (
     <div className="flex min-h-screen bg-cream">
@@ -34,6 +19,7 @@ export function VendorLayout() {
           <Outlet />
         </main>
       </div>
+      <ToastViewport />
     </div>
   )
 }

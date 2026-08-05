@@ -9,59 +9,43 @@ export function StatCard({
   trend = 'up',
   icon: Icon,
   format = 'number',
-  accent = 'green',
 }) {
   const display =
     format === 'currency'
       ? formatCurrency(value)
       : format === 'compact'
         ? formatNumber(value)
-        : formatNumber(value)
-
-  const accentMap = {
-    green: 'bg-primary/10 text-primary',
-    lime: 'bg-secondary/15 text-secondary',
-    gold: 'bg-accent/25 text-amber-700',
-    warn: 'bg-warning/15 text-amber-700',
-    error: 'bg-error/10 text-error',
-    slate: 'bg-muted text-text-secondary',
-  }
+        : typeof value === 'number'
+          ? formatNumber(value)
+          : value
 
   return (
-    <Card className="group relative overflow-hidden p-4 sm:p-5">
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/[0.04] transition-transform duration-300 group-hover:scale-125" />
-      <div className="relative flex items-start justify-between gap-3">
+    <Card className="p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-            {title}
-          </p>
+          <p className="text-xs font-medium text-text-secondary">{title}</p>
           <p className="mt-2 truncate text-2xl font-bold tracking-tight text-text-primary">
             {display}
           </p>
           {change != null && (
             <div
               className={cn(
-                'mt-2 inline-flex items-center gap-1 text-xs font-semibold',
-                trend === 'up' ? 'text-success' : 'text-error',
+                'mt-2 inline-flex items-center gap-1 text-xs font-medium',
+                trend === 'up' ? 'text-text-secondary' : 'text-text-secondary',
               )}
             >
               {trend === 'up' ? (
-                <TrendingUp className="h-3.5 w-3.5" />
+                <TrendingUp className="h-3.5 w-3.5 text-primary" />
               ) : (
-                <TrendingDown className="h-3.5 w-3.5" />
+                <TrendingDown className="h-3.5 w-3.5 text-error" />
               )}
-              {change}
-              <span className="font-medium text-text-secondary">vs yesterday</span>
+              <span className={trend === 'up' ? 'text-primary' : 'text-error'}>{change}</span>
+              <span className="text-text-secondary">vs yesterday</span>
             </div>
           )}
         </div>
-        <div
-          className={cn(
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-transform duration-200 group-hover:scale-105',
-            accentMap[accent],
-          )}
-        >
-          <Icon className="h-5 w-5" strokeWidth={2} />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-cream">
+          <Icon className="h-5 w-5 text-text-secondary" strokeWidth={1.75} />
         </div>
       </div>
     </Card>

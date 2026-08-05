@@ -27,7 +27,7 @@ export function SalesOverviewChart() {
     <Card className="h-full">
       <CardHeader>
         <div>
-          <CardTitle>Sales Overview</CardTitle>
+          <CardTitle>Sales Chart</CardTitle>
           <CardDescription>Weekly sales performance across your store</CardDescription>
         </div>
         <div className="flex gap-1 rounded-full bg-muted p-1">
@@ -49,8 +49,8 @@ export function SalesOverviewChart() {
           <AreaChart data={salesOverviewData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2E7D32" stopOpacity={0.28} />
-                <stop offset="100%" stopColor="#2E7D32" stopOpacity={0.02} />
+                <stop offset="0%" stopColor="#2E7D32" stopOpacity={0.12} />
+                <stop offset="100%" stopColor="#2E7D32" stopOpacity={0.01} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#E8E8E8" vertical={false} />
@@ -72,9 +72,9 @@ export function SalesOverviewChart() {
               type="monotone"
               dataKey="sales"
               stroke="#2E7D32"
-              strokeWidth={2.5}
+              strokeWidth={2}
               fill="url(#salesGradient)"
-              animationDuration={900}
+              animationDuration={700}
             />
             <Area
               type="monotone"

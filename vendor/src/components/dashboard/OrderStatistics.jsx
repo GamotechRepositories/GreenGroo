@@ -5,8 +5,8 @@ import { orderStats } from '@/data/mockData'
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-border bg-white px-3 py-2 shadow-[var(--shadow-soft)]">
-      <p className="text-sm font-bold text-text-primary">
+    <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-sm">
+      <p className="text-sm font-semibold text-text-primary">
         {payload[0].name}: {payload[0].value}%
       </p>
     </div>
@@ -18,7 +18,7 @@ export function OrderStatistics() {
     <Card className="h-full">
       <CardHeader>
         <div>
-          <CardTitle>Order Statistics</CardTitle>
+          <CardTitle>Order Analytics</CardTitle>
           <CardDescription>Distribution by status</CardDescription>
         </div>
       </CardHeader>

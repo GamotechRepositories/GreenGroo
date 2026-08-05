@@ -4,10 +4,10 @@ import { latestOrders } from '@/data/mockData'
 import { formatCurrency } from '@/lib/utils'
 
 const statusVariant = {
-  Delivered: 'success',
-  Processing: 'accent',
-  Pending: 'warning',
-  Cancelled: 'error',
+  Delivered: 'secondary',
+  Processing: 'secondary',
+  Pending: 'secondary',
+  Cancelled: 'secondary',
 }
 
 export function LatestOrders() {

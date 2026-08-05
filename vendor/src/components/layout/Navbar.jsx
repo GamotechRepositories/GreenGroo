@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Bell,
   ChevronDown,
+  CircleHelp,
   Globe,
+  LogOut,
   Menu,
   MessageSquare,
+  Moon,
   Search,
-  Store,
-  User,
-  LogOut,
   Settings,
+  Sun,
+  User,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { notifications, stores } from '@/data/mockData'
+import { useVendor } from '@/context/VendorContext'
+import { notifications } from '@/data/mockData'
 import { cn } from '@/lib/utils'
 
 function Dropdown({ open, onClose, children, className }) {
@@ -35,7 +38,7 @@ function Dropdown({ open, onClose, children, className }) {
     <div
       ref={ref}
       className={cn(
-        'absolute right-0 top-full z-50 mt-2 min-w-[240px] overflow-hidden rounded-xl border border-border bg-white shadow-[var(--shadow-soft)]',
+        'absolute right-0 top-full z-50 mt-2 min-w-[240px] overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-soft)]',
         className,
       )}
     >
@@ -45,15 +48,16 @@ function Dropdown({ open, onClose, children, className }) {
 }
 
 export function Navbar({ onMenuClick, pageTitle }) {
-  const [store, setStore] = useState(stores[0])
+  const { theme, toggleTheme, vendor, toast, role, setRole } = useVendor()
   const [openMenu, setOpenMenu] = useState(null)
+  const [search, setSearch] = useState('')
 
   const toggle = (key) => setOpenMenu((prev) => (prev === key ? null : key))
   const close = () => setOpenMenu(null)
 
   return (
     <header className="glass-header sticky top-0 z-30 border-b border-border/80">
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+      <div className="flex h-16 items-center gap-2 px-4 sm:gap-3 sm:px-6">
         <button
           type="button"
           onClick={onMenuClick}
@@ -65,26 +69,29 @@ export function Navbar({ onMenuClick, pageTitle }) {
 
         <div className="hidden min-w-0 md:block">
           <h1 className="truncate text-lg font-bold text-text-primary">{pageTitle}</h1>
-          <p className="truncate text-xs font-medium text-text-secondary">
-            Manage your store performance in real time
-          </p>
+          <p className="truncate text-xs font-medium text-text-secondary">{vendor.store}</p>
         </div>
 
         <div className="relative mx-auto hidden w-full max-w-md flex-1 lg:block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" />
           <Input
-            placeholder="Search Products..."
-            className="pl-10 bg-white/90"
-            aria-label="Search products"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && search.trim()) {
+                toast(`Searching for “${search.trim()}”`, 'info')
+              }
+            }}
+            placeholder="Search products, orders, customers…"
+            className="bg-white/90 pl-10"
+            aria-label="Search"
           />
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          <div className="relative lg:hidden">
-            <Button variant="ghost" size="icon-sm" aria-label="Search">
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+          <Button variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Search">
+            <Search className="h-4 w-4" />
+          </Button>
 
           <div className="relative">
             <Button
@@ -98,8 +105,15 @@ export function Navbar({ onMenuClick, pageTitle }) {
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-error ring-2 ring-white" />
             </Button>
             <Dropdown open={openMenu === 'notify'} onClose={close} className="w-80">
-              <div className="border-b border-border px-4 py-3">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <p className="text-sm font-bold text-text-primary">Notifications</p>
+                <Link
+                  to="/notifications"
+                  onClick={close}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  View all
+                </Link>
               </div>
               <ul className="max-h-72 overflow-y-auto">
                 {notifications.map((n) => (
@@ -107,16 +121,9 @@ export function Navbar({ onMenuClick, pageTitle }) {
                     key={n.id}
                     className="border-b border-border/70 px-4 py-3 transition hover:bg-cream/60 last:border-0"
                   >
-                    <div className="flex items-start gap-2">
-                      {n.unread && (
-                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                      )}
-                      <div className={cn(!n.unread && 'pl-4')}>
-                        <p className="text-sm font-semibold text-text-primary">{n.title}</p>
-                        <p className="text-xs font-medium text-text-secondary">{n.desc}</p>
-                        <p className="mt-1 text-[11px] text-text-secondary">{n.time}</p>
-                      </div>
-                    </div>
+                    <p className="text-sm font-semibold text-text-primary">{n.title}</p>
+                    <p className="text-xs font-medium text-text-secondary">{n.desc}</p>
+                    <p className="mt-1 text-[11px] text-text-secondary">{n.time}</p>
                   </li>
                 ))}
               </ul>
@@ -135,13 +142,33 @@ export function Navbar({ onMenuClick, pageTitle }) {
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent ring-2 ring-white" />
             </Button>
             <Dropdown open={openMenu === 'messages'} onClose={close}>
-              <div className="px-4 py-6 text-center">
-                <MessageSquare className="mx-auto h-8 w-8 text-text-secondary/50" />
-                <p className="mt-2 text-sm font-semibold text-text-primary">No new messages</p>
-                <p className="text-xs text-text-secondary">Customer chats will appear here</p>
+              <div className="px-4 py-5 text-center">
+                <p className="text-sm font-semibold text-text-primary">Messages</p>
+                <p className="mt-1 text-xs text-text-secondary">3 unread customer chats</p>
+                <Link
+                  to="/enquiries/messages"
+                  onClick={close}
+                  className="mt-3 inline-block text-xs font-bold text-primary hover:underline"
+                >
+                  Open inbox
+                </Link>
               </div>
             </Dropdown>
           </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            title="Theme toggle"
+          >
+            {theme === 'light' ? (
+              <Moon className="h-5 w-5 text-gray-600" />
+            ) : (
+              <Sun className="h-5 w-5 text-amber-500" />
+            )}
+          </Button>
 
           <div className="relative hidden sm:block">
             <Button
@@ -159,7 +186,10 @@ export function Navbar({ onMenuClick, pageTitle }) {
                 <button
                   key={lang}
                   type="button"
-                  onClick={close}
+                  onClick={() => {
+                    toast(`Language set to ${lang}`, 'info')
+                    close()
+                  }}
                   className="block w-full px-4 py-2.5 text-left text-sm font-medium text-text-primary transition hover:bg-cream"
                 >
                   {lang}
@@ -168,37 +198,13 @@ export function Navbar({ onMenuClick, pageTitle }) {
             </Dropdown>
           </div>
 
-          <div className="relative hidden md:block">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toggle('store')}
-              className="max-w-[200px] gap-1.5 bg-white/80"
-            >
-              <Store className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <span className="truncate">{store.name.replace('GreenGrocc — ', '')}</span>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-            </Button>
-            <Dropdown open={openMenu === 'store'} onClose={close} className="min-w-[240px]">
-              {stores.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setStore(s)
-                    close()
-                  }}
-                  className={cn(
-                    'flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium transition hover:bg-cream',
-                    store.id === s.id ? 'text-primary' : 'text-text-primary',
-                  )}
-                >
-                  {s.name}
-                  {store.id === s.id && <Badge variant="success">Active</Badge>}
-                </button>
-              ))}
-            </Dropdown>
-          </div>
+          <Link
+            to="/support/faq"
+            className="hidden items-center gap-1.5 rounded-full border border-border bg-white/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-primary/30 hover:text-primary md:inline-flex"
+          >
+            <CircleHelp className="h-3.5 w-3.5" />
+            Help
+          </Link>
 
           <div className="relative">
             <button
@@ -207,40 +213,57 @@ export function Navbar({ onMenuClick, pageTitle }) {
               className="flex items-center gap-2 rounded-full border border-border bg-white/90 py-1 pl-1 pr-2.5 transition hover:border-primary/30 hover:shadow-sm"
             >
               <span className="soft-green-gradient flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white">
-                RK
+                {vendor.initials}
               </span>
-              <span className="hidden text-left sm:block">
+              <span className="hidden text-left lg:block">
                 <span className="block text-xs font-bold leading-tight text-text-primary">
-                  Ravi Kumar
+                  {vendor.name}
                 </span>
-                <span className="block text-[10px] font-medium text-text-secondary">
-                  Store Owner
+                <span className="block text-[10px] font-medium capitalize text-text-secondary">
+                  {role}
                 </span>
               </span>
-              <ChevronDown className="hidden h-3.5 w-3.5 text-text-secondary sm:block" />
+              <ChevronDown className="hidden h-3.5 w-3.5 text-text-secondary lg:block" />
             </button>
-            <Dropdown open={openMenu === 'profile'} onClose={close} className="min-w-[200px]">
+            <Dropdown open={openMenu === 'profile'} onClose={close} className="min-w-[220px]">
               <div className="border-b border-border px-4 py-3">
-                <p className="text-sm font-bold text-text-primary">Ravi Kumar</p>
-                <p className="text-xs text-text-secondary">ravi@greengrocc.store</p>
+                <p className="text-sm font-bold text-text-primary">{vendor.name}</p>
+                <p className="text-xs text-text-secondary">{vendor.email}</p>
               </div>
-              <button
-                type="button"
+              <Link
+                to="/settings/profile"
+                onClick={close}
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-cream"
               >
-                <User className="h-4 w-4 text-gray-600" /> Profile
-              </button>
-              <button
-                type="button"
+                <User className="h-4 w-4 text-gray-600" /> Vendor Profile
+              </Link>
+              <Link
+                to="/settings/store"
+                onClick={close}
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-cream"
               >
                 <Settings className="h-4 w-4 text-gray-600" /> Settings
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setRole(role === 'owner' ? 'staff' : 'owner')
+                  toast(`Switched to ${role === 'owner' ? 'staff' : 'owner'} role`, 'info')
+                  close()
+                }}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-text-primary transition hover:bg-cream"
+              >
+                Switch role ({role === 'owner' ? '→ Staff' : '→ Owner'})
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  toast('Signed out successfully')
+                  close()
+                }}
                 className="flex w-full items-center gap-2 border-t border-border px-4 py-2.5 text-sm font-medium text-error transition hover:bg-error/5"
               >
-                <LogOut className="h-4 w-4" /> Sign out
+                <LogOut className="h-4 w-4" /> Logout
               </button>
             </Dropdown>
           </div>
