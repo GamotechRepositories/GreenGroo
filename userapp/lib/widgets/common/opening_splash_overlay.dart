@@ -138,7 +138,7 @@ class _OpeningSplashContent extends StatelessWidget {
           const AppLogo(height: 84),
           const SizedBox(height: 18),
           const Text(
-            'Bulk Mobile Mart',
+            'GreenGrocc',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 22,

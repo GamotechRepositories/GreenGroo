@@ -49,7 +49,7 @@ Future<void> main() async {
       overrides: [
         authStorageProvider.overrideWithValue(authStorage),
       ],
-      child: const BulkMobileMartApp(),
+      child: const GreenGroccApp(),
     ),
   );
 

@@ -1,5 +1,5 @@
 /** Primary business contact email */
-export const CONTACT_EMAIL = "bulkmobilemart@gmail.com";
+export const CONTACT_EMAIL = "greengrocc@gmail.com";
 
 /** Primary business phone */
 export const CONTACT_PHONE_RAW = "7400222233";
@@ -41,8 +41,8 @@ export const SOCIAL_LINKS = [
   {
     id: "instagram",
     label: "Instagram",
-    description: "@bulkmobilemart.in",
-    href: "https://www.instagram.com/bulkmobilemart.in?igsh=YjlwcjZzamdpYXdp&utm_source=qr",
+    description: "@greengrocc.in",
+    href: "https://www.instagram.com/greengrocc.in?igsh=YjlwcjZzamdpYXdp&utm_source=qr",
     platform: "instagram",
   },
   {

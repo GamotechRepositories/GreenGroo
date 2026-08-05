@@ -1,4 +1,4 @@
-# Final Performance Report — BulkMobileMart Mobile App
+# Final Performance Report — GreenGrocc Mobile App
 
 **Date:** June 25, 2026  
 **Target devices:** Android 3 GB / 4 GB / 6 GB RAM  

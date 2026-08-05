@@ -21,7 +21,7 @@ import ImagePicker from "../ImagePicker";
 import { UPLOAD_FOLDERS } from "../../../utils/uploadFolders";
 
 const EMPTY_SLAB = { orderAmount: "", shippingCharge: "" };
-const EMPTY_UPI_ACCOUNT = { upiId: "", label: "BulkMobileMart", enabled: false };
+const EMPTY_UPI_ACCOUNT = { upiId: "", label: "GreenGrocc", enabled: false };
 const EMPTY_GIFT_TIER = {
   minOrderAmount: "",
   giftName: "",
@@ -72,7 +72,7 @@ function normalizeUpiAccounts(accounts = []) {
   return accounts.map((account) => {
     const normalized = {
       upiId: account.upiId || "",
-      label: account.label || "BulkMobileMart",
+      label: account.label || "GreenGrocc",
       enabled: account.enabled !== false,
     };
 
@@ -119,7 +119,7 @@ function serializeUpiSection(form) {
       (form.merchantUpiAccounts || [])
         .map((account) => ({
           upiId: String(account.upiId || "").trim(),
-          label: String(account.label || "").trim() || "BulkMobileMart",
+          label: String(account.label || "").trim() || "GreenGrocc",
           enabled: Boolean(account.enabled),
         }))
         .filter((account) => account.upiId)
@@ -213,14 +213,14 @@ function StoreSettingsSection() {
           settings.merchantUpiAccounts?.length > 0
             ? settings.merchantUpiAccounts.map((account) => ({
                 upiId: account.upiId || "",
-                label: account.label || "BulkMobileMart",
+                label: account.label || "GreenGrocc",
                 enabled: account.enabled !== false,
               }))
             : settings.merchantUpiId
               ? [
                   {
                     upiId: settings.merchantUpiId,
-                    label: settings.merchantUpiName || "BulkMobileMart",
+                    label: settings.merchantUpiName || "GreenGrocc",
                     enabled: true,
                   },
                 ]
@@ -442,7 +442,7 @@ function StoreSettingsSection() {
             form.merchantUpiAccounts
               .map((account) => ({
                 upiId: account.upiId.trim(),
-                label: account.label.trim() || "BulkMobileMart",
+                label: account.label.trim() || "GreenGrocc",
                 enabled: Boolean(account.enabled),
               }))
               .filter((account) => account.upiId)
@@ -871,7 +871,7 @@ function StoreSettingsSection() {
                       placeholder="merchant@upi"
                     />
                     <p className="mt-1 text-xs text-neutral-500">
-                      Example: bulkmobilemart@okaxis, store@paytm
+                      Example: greengrocc@okaxis, store@paytm
                     </p>
                   </div>
                   <div>
@@ -881,7 +881,7 @@ function StoreSettingsSection() {
                       className={inputClass}
                       value={account.label}
                       onChange={(e) => updateUpiAccount(index, "label", e.target.value)}
-                      placeholder="BulkMobileMart"
+                      placeholder="GreenGrocc"
                     />
                     <p className="mt-1 text-xs text-neutral-500">
                       Shown in UPI apps when customer pays.

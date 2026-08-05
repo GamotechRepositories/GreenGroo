@@ -30,7 +30,7 @@ class AppLogo extends StatelessWidget {
 
   Widget _textFallback(BuildContext context) {
     return Text(
-      'BulkMobileMart',
+      'GreenGrocc',
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
             color: invert ? Colors.white : null,

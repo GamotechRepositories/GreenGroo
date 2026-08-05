@@ -322,7 +322,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'key': keyId,
         'amount': amountPaise,
         'order_id': razorpayOrderId,
-        'name': 'Bulk Mobile Mart',
+        'name': 'GreenGrocc',
         'description': _paymentPlan == PaymentPlan.advance
             ? '10% advance payment via Razorpay'
             : 'Full order payment via Razorpay',

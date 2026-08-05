@@ -33,12 +33,12 @@ class BlogPost {
 }
 
 const aboutPage = StaticPageContent(
-  title: 'About BulkMobileMart',
+  title: 'About GreenGrocc',
   sections: [
     InfoSection(
       title: '',
       body:
-          'BulkMobileMart was built for businesses that sell mobiles — not end-customers shopping one phone at a time. We connect retailers, online marketplace sellers, and regional distributors with genuine wholesale stock at prices that protect your margins.',
+          'GreenGrocc was built for businesses that sell mobiles — not end-customers shopping one phone at a time. We connect retailers, online marketplace sellers, and regional distributors with genuine wholesale stock at prices that protect your margins.',
     ),
     InfoSection(
       title: 'Our Mission',
@@ -109,7 +109,7 @@ const termsPage = StaticPageContent(
     InfoSection(
       title: 'General',
       body:
-          'By using BulkMobileMart, you agree to these terms. Our platform is intended for businesses, retailers, and distributors purchasing mobile devices in bulk — not for individual retail consumers.',
+          'By using GreenGrocc, you agree to these terms. Our platform is intended for businesses, retailers, and distributors purchasing mobile devices in bulk — not for individual retail consumers.',
     ),
     InfoSection(
       title: 'Orders & Minimum Quantity',
@@ -146,7 +146,7 @@ const shippingDetailsPage = StaticPageContent(
     InfoSection(
       title: 'Delivery Coverage',
       body:
-          'BulkMobileMart ships across India through trusted courier and logistics partners. We deliver to most pin codes; remote or restricted areas may require additional time or confirmation before dispatch.',
+          'GreenGrocc ships across India through trusted courier and logistics partners. We deliver to most pin codes; remote or restricted areas may require additional time or confirmation before dispatch.',
     ),
     InfoSection(
       title: 'Processing Time',
@@ -197,7 +197,7 @@ const blogPosts = <BlogPost>[
     title: 'GST Invoices & Compliance for Mobile Distributors',
     date: 'May 2, 2026',
     excerpt:
-        'Why proper GST billing matters for B2B mobile trade and how BulkMobileMart keeps your records clean.',
+        'Why proper GST billing matters for B2B mobile trade and how GreenGrocc keeps your records clean.',
   ),
   BlogPost(
     title: 'Top Selling Smartphone Brands for Q2 2026',

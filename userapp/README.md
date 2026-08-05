@@ -1,4 +1,4 @@
-# BulkMobileMart — Flutter mobile app
+# GreenGrocc — Flutter mobile app
 
 B2B wholesale mobile accessories app. Uses the same backend as the React web frontend (`../backend`).
 
@@ -17,7 +17,7 @@ B2B wholesale mobile accessories app. Uses the same backend as the React web fro
    ```
 
 2. Set `API_URL` in `.env` (default is production):
-   - **Production:** `https://api.bulkmobilemart.in`
+   - **Production:** `https://api.greengrocc.in`
    - **Physical phone (local backend):** your PC LAN IP, e.g. `http://192.168.1.35:5001`
    - **Android emulator:** `http://10.0.2.2:5001`
    - **iOS simulator:** `http://localhost:5001`
@@ -50,7 +50,7 @@ dart run flutter_native_splash:create
 
 ## Release APK (Android)
 
-**Package ID:** `com.bulkmobilemart.app`
+**Package ID:** `com.greengrocc.app`
 
 ### Quick debug-signed release (testing)
 
@@ -105,15 +105,15 @@ CI runs automatically on pull requests that touch `mobile app/` (see `.github/wo
 
 Shared product links open directly in the app when it is installed:
 
-- `https://www.bulkmobilemart.in/product/<id>` (App Links / Universal Links)
-- `bulkmobilemart://product/<id>` (custom scheme fallback)
+- `https://www.greengrocc.in/product/<id>` (App Links / Universal Links)
+- `greengrocc://product/<id>` (custom scheme fallback)
 
 ### Android App Links
 
-1. Host `frontend/public/.well-known/assetlinks.json` on `www.bulkmobilemart.in` (deploy the frontend).
+1. Host `frontend/public/.well-known/assetlinks.json` on `www.greengrocc.in` (deploy the frontend).
 2. Add your **Play Console → App integrity → App signing** SHA-256 fingerprint to `sha256_cert_fingerprints` (debug builds already include the local debug cert).
 3. Reinstall the app after manifest changes (`android:autoVerify="true"`).
-4. Verify: `adb shell pm get-app-links com.bulkmobilemart.app`
+4. Verify: `adb shell pm get-app-links com.greengrocc.app`
 
 ### iOS Universal Links
 
@@ -123,7 +123,7 @@ Shared product links open directly in the app when it is installed:
 
 ## iOS release
 
-**Bundle ID:** `com.bulkmobilemart.app` (matches Android)
+**Bundle ID:** `com.greengrocc.app` (matches Android)
 
 ```bash
 flutter build ipa --release

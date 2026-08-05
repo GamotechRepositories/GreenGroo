@@ -17,7 +17,7 @@ class AppBackBinding with WidgetsBindingObserver {
   static final AppBackBinding instance = AppBackBinding._();
 
   static const _exitWindow = Duration(seconds: 2);
-  static const _channel = MethodChannel('com.bulkmobilemart.app/back');
+  static const _channel = MethodChannel('com.greengrocc.app/back');
 
   GoRouter? router;
   DateTime? _lastHomeBackAt;

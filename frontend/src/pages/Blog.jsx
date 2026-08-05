@@ -15,7 +15,7 @@ const posts = [
     title: "GST Invoices & Compliance for Mobile Distributors",
     date: "May 2, 2026",
     excerpt:
-      "Why proper GST billing matters for B2B mobile trade and how BulkMobileMart keeps your records clean.",
+      "Why proper GST billing matters for B2B mobile trade and how GreenGrocc keeps your records clean.",
   },
   {
     title: "Top Selling Smartphone Brands for Q2 2026",

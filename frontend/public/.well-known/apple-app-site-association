@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAM_ID.com.bulkmobilemart.app",
+        "appID": "TEAM_ID.com.greengrocc.app",
         "paths": ["/product/*", "/orders/*"]
       }
     ]

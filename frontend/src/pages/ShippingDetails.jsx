@@ -15,7 +15,7 @@ function ShippingDetails() {
           <div>
             <h2 className="text-xl font-bold text-text-primary mb-3">Delivery Coverage</h2>
             <p>
-              BulkMobileMart ships across India through trusted courier and logistics
+              GreenGrocc ships across India through trusted courier and logistics
               partners. We deliver to most pin codes; remote or restricted areas may
               require additional time or confirmation before dispatch.
             </p>

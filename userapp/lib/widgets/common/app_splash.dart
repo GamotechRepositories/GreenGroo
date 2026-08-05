@@ -21,7 +21,7 @@ class AppSplash extends StatelessWidget {
               const AppLogo(height: 88),
               const SizedBox(height: 20),
               const Text(
-                'BulkMobileMart',
+                'GreenGrocc',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,

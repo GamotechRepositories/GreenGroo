@@ -9,7 +9,7 @@ class Env {
   }
 
   /// Same backend as web frontend (`VITE_API_URL` in frontend/.env).
-  static const productionApiUrl = 'https://api.bulkmobilemart.in';
+  static const productionApiUrl = 'https://api.greengrocc.in';
 
   static String get apiUrl {
     // Production/release builds must always use live backend.
@@ -26,14 +26,14 @@ class Env {
   static String get merchantUpiId => dotenv.env['MERCHANT_UPI_ID']?.trim() ?? '';
 
   static String get merchantUpiName =>
-      dotenv.env['MERCHANT_UPI_NAME']?.trim() ?? 'BulkMobileMart';
+      dotenv.env['MERCHANT_UPI_NAME']?.trim() ?? 'GreenGrocc';
 
   /// Public storefront URL used in product share links (must match live website).
   static String get storeUrl {
     final raw = dotenv.env['STORE_URL']?.trim();
     final url = raw != null && raw.isNotEmpty
         ? raw
-        : 'https://www.bulkmobilemart.in';
+        : 'https://www.greengrocc.in';
     return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
   }
 

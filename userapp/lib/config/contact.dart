@@ -16,7 +16,7 @@ class SocialLink {
 }
 
 abstract final class ContactConfig {
-  static const contactEmail = 'bulkmobilemart@gmail.com';
+  static const contactEmail = 'greengrocc@gmail.com';
 
   static const contactPhoneRaw = '7400222233';
   static const contactPhoneDisplay = '+91 74002 22233';
@@ -60,9 +60,9 @@ abstract final class ContactConfig {
     SocialLink(
       id: 'instagram',
       label: 'Instagram',
-      description: '@bulkmobilemart.in',
+      description: '@greengrocc.in',
       href:
-          'https://www.instagram.com/bulkmobilemart.in?igsh=YjlwcjZzamdpYXdp&utm_source=qr',
+          'https://www.instagram.com/greengrocc.in?igsh=YjlwcjZzamdpYXdp&utm_source=qr',
       platform: 'instagram',
     ),
     SocialLink(

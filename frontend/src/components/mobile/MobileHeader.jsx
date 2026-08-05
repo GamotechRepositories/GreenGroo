@@ -66,7 +66,7 @@ function MobileHeader() {
           <Link to="/" className="shrink-0">
             <img
               src={LOGO_URL}
-              alt="BulkMobileMart"
+              alt="GreenGrocc"
               className="h-11 w-auto object-contain sm:h-12"
             />
           </Link>

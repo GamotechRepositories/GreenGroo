@@ -1,7 +1,7 @@
 const PROMPT_DISMISSED_KEY = "bmm_app_download_prompt_dismissed";
 
 export const PLAY_STORE_APP_URL =
-  "https://play.google.com/store/apps/details?id=com.bulkmobilemart.app";
+  "https://play.google.com/store/apps/details?id=com.greengrocc.app";
 
 export function getAndroidAppDownloadUrl() {
   const configured = String(import.meta.env.VITE_ANDROID_APP_DOWNLOAD_URL || "").trim();
@@ -37,7 +37,7 @@ export function downloadAndroidApp() {
 
   const link = document.createElement("a");
   link.href = url;
-  link.download = "BulkMobileMart.apk";
+  link.download = "GreenGrocc.apk";
   link.rel = "noopener noreferrer";
   document.body.appendChild(link);
   link.click();

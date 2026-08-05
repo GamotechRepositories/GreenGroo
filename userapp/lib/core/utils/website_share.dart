@@ -23,14 +23,14 @@ WebsiteShareContent buildWebsiteShareContent({String? shareUrl}) {
   final url = (shareUrl ?? Env.storeUrl).trim();
   final normalized = url.endsWith('/') ? url : '$url/';
   final text = [
-    'Bulk Mobile Mart',
+    'GreenGrocc',
     'Wholesale mobile phones & accessories in India',
     '',
     normalized,
   ].join('\n');
 
   return WebsiteShareContent(
-    title: 'BulkMobileMart',
+    title: 'GreenGrocc',
     text: text,
     shareUrl: normalized,
   );
@@ -41,7 +41,7 @@ Future<File?> _websiteShareImageFile() async {
   if (bytes == null || bytes.isEmpty) return null;
 
   final dir = await getTemporaryDirectory();
-  final file = File('${dir.path}/bulkmobilemart-share.jpg');
+  final file = File('${dir.path}/greengrocc-share.jpg');
   await file.writeAsBytes(bytes, flush: true);
   return file;
 }

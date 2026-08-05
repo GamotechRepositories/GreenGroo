@@ -3,9 +3,9 @@ function About() {
     <div className="info-page legal-page">
       <section className="page-hero-section px-3 sm:px-4">
         <div className="max-w-7xl mx-auto">
-          <h1 className="page-title">About BulkMobileMart</h1>
+          <h1 className="page-title">About GreenGrocc</h1>
           <p className="text-text-secondary text-lg max-w-3xl leading-relaxed">
-            BulkMobileMart was built for businesses that sell mobiles — not
+            GreenGrocc was built for businesses that sell mobiles — not
             end-customers shopping one phone at a time. We connect retailers,
             online marketplace sellers, and regional distributors with genuine
             wholesale stock at prices that protect your margins.

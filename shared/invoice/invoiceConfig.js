@@ -6,11 +6,11 @@ export const INVOICE_LOGO_URL =
   "https://res.cloudinary.com/dsafvwkrf/image/upload/w_220,h_56,c_limit,q_auto,f_auto/v1780561447/Bulkmobilemart_logo_2-removebg-preview_wcso0k.png";
 
 export const INVOICE_CONFIG = {
-  companyName: "BulkMobileMart",
-  legalEntity: "Bulk Mobile Mart",
+  companyName: "GreenGrocc",
+  legalEntity: "GreenGrocc",
   tagline: "Your Trusted Mobile Accessories Wholesale Partner",
-  email: "bulkmobilemart@gmail.com",
-  supportEmail: "bulkmobilemart@gmail.com",
+  email: "greengrocc@gmail.com",
+  supportEmail: "greengrocc@gmail.com",
   phone: "+91 74002 22233",
   address: "Mumbai Central",
   gstNumber: "",
@@ -21,7 +21,7 @@ export const INVOICE_CONFIG = {
   bank: {
     name: "HDFC Bank",
     ifsc: "HDFC0000000",
-    accountName: "Bulk Mobile Mart",
+    accountName: "GreenGrocc",
     accountNumber: "",
     upiId: "",
   },

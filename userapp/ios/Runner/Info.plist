@@ -7,7 +7,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Bulk Mobile Mart</string>
+		<string>GreenGrocc</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -82,10 +82,10 @@
 				<key>CFBundleTypeRole</key>
 				<string>Editor</string>
 				<key>CFBundleURLName</key>
-				<string>com.bulkmobilemart.app</string>
+				<string>com.greengrocc.app</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>bulkmobilemart</string>
+					<string>greengrocc</string>
 				</array>
 			</dict>
 		</array>

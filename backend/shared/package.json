@@ -1,0 +1,19 @@
+{
+  "name": "@greengrocc/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./db": "./db/connect.js",
+    "./middleware/auth": "./middleware/auth.js",
+    "./middleware/errorHandler": "./middleware/errorHandler.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.3"
+  }
+}

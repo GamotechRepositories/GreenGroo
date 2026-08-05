@@ -104,9 +104,9 @@ export function buildProductShareContent({
   }
 
   if (includeUrl && shareUrl) {
-    lines.push(`🛒 Shop on Bulk Mobile Mart:\n${shareUrl}`);
+    lines.push(`🛒 Shop on GreenGrocc:\n${shareUrl}`);
   } else {
-    lines.push("🛒 Shop on Bulk Mobile Mart");
+    lines.push("🛒 Shop on GreenGrocc");
   }
 
   return {
@@ -295,12 +295,12 @@ export function updateProductShareMeta({ product, shareUrl, imageUrl, variantNam
     includeUrl: false,
   });
 
-  document.title = `${productName} | BulkMobileMart`;
+  document.title = `${productName} | GreenGrocc`;
 
   const descriptionParts = [];
   if (brandName) descriptionParts.push(brandName);
   if (priceLabel) descriptionParts.push(priceLabel);
-  descriptionParts.push("Wholesale on Bulk Mobile Mart");
+  descriptionParts.push("Wholesale on GreenGrocc");
   const description = descriptionParts.join(" · ");
 
   upsertMetaTag("property", "og:title", productName);

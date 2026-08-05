@@ -82,7 +82,7 @@ class _PaymentModalState extends State<PaymentModal> {
       return [
         MerchantUpiAccount(
           upiId: legacyUpiId,
-          label: widget.merchantUpiName?.trim() ?? 'BulkMobileMart',
+          label: widget.merchantUpiName?.trim() ?? 'GreenGrocc',
           enabled: true,
         ),
       ];

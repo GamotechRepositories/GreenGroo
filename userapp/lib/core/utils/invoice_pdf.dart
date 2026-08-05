@@ -48,7 +48,7 @@ Future<Uint8List> generateInvoicePdf(
           child: pw.Column(
             children: [
               pw.Text(
-                'BulkMobileMart',
+                'GreenGrocc',
                 style: pw.TextStyle(
                   color: PdfColors.white,
                   fontSize: 22,

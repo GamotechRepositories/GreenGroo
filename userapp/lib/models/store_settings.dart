@@ -12,7 +12,7 @@ class MerchantUpiAccount {
   factory MerchantUpiAccount.fromJson(Map<String, dynamic> json) {
     return MerchantUpiAccount(
       upiId: (json['upiId'] as String? ?? '').trim(),
-      label: (json['label'] as String? ?? 'BulkMobileMart').trim(),
+      label: (json['label'] as String? ?? 'GreenGrocc').trim(),
       enabled: json['enabled'] != false,
     );
   }
@@ -54,7 +54,7 @@ class StoreSettings {
 
     final legacyUpiId = (json['merchantUpiId'] as String? ?? '').trim();
     final legacyUpiName =
-        (json['merchantUpiName'] as String? ?? 'BulkMobileMart').trim();
+        (json['merchantUpiName'] as String? ?? 'GreenGrocc').trim();
 
     final resolvedAccounts = accounts.isNotEmpty
         ? accounts

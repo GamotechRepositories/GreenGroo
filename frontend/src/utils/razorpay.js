@@ -31,7 +31,7 @@ export function openRazorpayCheckout({
     key: keyId,
     amount,
     currency: "INR",
-    name: "BulkMobileMart",
+    name: "GreenGrocc",
     description,
     order_id: razorpayOrderId,
     prefill: {

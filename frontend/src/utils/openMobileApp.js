@@ -1,5 +1,5 @@
-const ANDROID_APP_PACKAGE = "com.bulkmobilemart.app";
-const IOS_APP_SCHEME = "bulkmobilemart";
+const ANDROID_APP_PACKAGE = "com.greengrocc.app";
+const IOS_APP_SCHEME = "greengrocc";
 
 function isMobileDevice() {
   if (typeof navigator === "undefined") return false;
@@ -23,7 +23,7 @@ function shouldTryOpenInApp() {
   }
 }
 
-/** Redirect mobile browsers into the installed BulkMobileMart app when possible. */
+/** Redirect mobile browsers into the installed GreenGrocc app when possible. */
 export function tryOpenProductInApp(productId) {
   if (!productId || typeof window === "undefined" || !isMobileDevice()) return;
   if (!shouldTryOpenInApp()) return;

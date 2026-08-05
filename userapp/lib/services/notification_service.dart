@@ -286,7 +286,7 @@ class NotificationService {
         visibility: NotificationVisibility.public,
         playSound: true,
         enableVibration: true,
-        ticker: 'BulkMobileMart',
+        ticker: 'GreenGrocc',
       );
 
       const notificationDetails = NotificationDetails(android: androidDetails);

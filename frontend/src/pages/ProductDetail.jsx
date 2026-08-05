@@ -562,7 +562,7 @@ function ProductDetail() {
     });
 
     return () => {
-      document.title = "BulkMobileMart";
+      document.title = "GreenGrocc";
     };
   }, [product, shareUrl, shareImageUrl, activeVariantName]);
 

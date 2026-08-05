@@ -33,8 +33,8 @@ String? mapDeepLinkToRoute(Uri uri) {
   if (staticRoutes.contains(path)) return path;
   if (path.startsWith('/orders/')) return path;
 
-  // Custom scheme: bulkmobilemart://product/<id>
-  if (uri.scheme == 'bulkmobilemart' && uri.host == 'product' && uri.pathSegments.isNotEmpty) {
+  // Custom scheme: greengrocc://product/<id>
+  if (uri.scheme == 'greengrocc' && uri.host == 'product' && uri.pathSegments.isNotEmpty) {
     return '/product/${uri.pathSegments.first}';
   }
 

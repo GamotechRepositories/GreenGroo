@@ -51,7 +51,7 @@
         tools:node="remove" />
 
     <application
-        android:label="BulkMobileMart"
+        android:label="GreenGrocc"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
@@ -82,16 +82,16 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="www.bulkmobilemart.in" android:pathPrefix="/product" />
-                <data android:scheme="https" android:host="bulkmobilemart.in" android:pathPrefix="/product" />
-                <data android:scheme="https" android:host="www.bulkmobilemart.com" android:pathPrefix="/product" />
-                <data android:scheme="https" android:host="bulkmobilemart.com" android:pathPrefix="/product" />
+                <data android:scheme="https" android:host="www.greengrocc.in" android:pathPrefix="/product" />
+                <data android:scheme="https" android:host="greengrocc.in" android:pathPrefix="/product" />
+                <data android:scheme="https" android:host="www.greengrocc.com" android:pathPrefix="/product" />
+                <data android:scheme="https" android:host="greengrocc.com" android:pathPrefix="/product" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="bulkmobilemart" android:host="product" />
+                <data android:scheme="greengrocc" android:host="product" />
             </intent-filter>
             <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
         </activity>

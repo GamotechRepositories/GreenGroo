@@ -101,7 +101,7 @@ function AppDownloadPrompt() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-text-primary">Get the BulkMobileMart app</p>
+            <p className="text-sm font-bold text-text-primary">Get the GreenGrocc app</p>
             <p className="mt-0.5 text-xs text-text-secondary">
               Faster ordering and order tracking on Google Play.
             </p>

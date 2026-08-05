@@ -151,7 +151,7 @@ export default function Dashboard() {
 
       <p className="flex items-center justify-center gap-2 pb-2 text-center text-xs font-medium text-text-secondary">
         <ShoppingBag className="h-3.5 w-3.5" />
-        GreenGroo Vendor Dashboard · Live preview with sample data
+        GreenGrocc Vendor Dashboard · Live preview with sample data
       </p>
     </div>
   )

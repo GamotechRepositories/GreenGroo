@@ -68,8 +68,8 @@ void main() {
 
   group('AppInfo', () {
     test('has production package id', () {
-      expect(AppInfo.androidPackageId, 'com.bulkmobilemart.app');
-      expect(AppInfo.iosBundleId, 'com.bulkmobilemart.app');
+      expect(AppInfo.androidPackageId, 'com.greengrocc.app');
+      expect(AppInfo.iosBundleId, 'com.greengrocc.app');
     });
   });
 
@@ -106,26 +106,26 @@ void main() {
   group('Deep links', () {
     test('maps product share URLs to in-app routes', () {
       expect(
-        mapDeepLinkToRoute(Uri.parse('https://bulkmobilemart.com/product/abc123def456')),
+        mapDeepLinkToRoute(Uri.parse('https://greengrocc.com/product/abc123def456')),
         '/product/abc123def456',
       );
       expect(
-        mapDeepLinkToRoute(Uri.parse('https://www.bulkmobilemart.in/product/abc123def456')),
+        mapDeepLinkToRoute(Uri.parse('https://www.greengrocc.in/product/abc123def456')),
         '/product/abc123def456',
       );
     });
 
     test('maps static routes', () {
-      expect(mapDeepLinkToRoute(Uri.parse('https://bulkmobilemart.com/cart')), '/cart');
+      expect(mapDeepLinkToRoute(Uri.parse('https://greengrocc.com/cart')), '/cart');
     });
 
     test('ignores unknown paths', () {
-      expect(mapDeepLinkToRoute(Uri.parse('https://bulkmobilemart.com/admin')), isNull);
+      expect(mapDeepLinkToRoute(Uri.parse('https://greengrocc.com/admin')), isNull);
     });
 
     test('maps custom scheme product links', () {
       expect(
-        mapDeepLinkToRoute(Uri.parse('bulkmobilemart://product/abc123def456')),
+        mapDeepLinkToRoute(Uri.parse('greengrocc://product/abc123def456')),
         '/product/abc123def456',
       );
     });

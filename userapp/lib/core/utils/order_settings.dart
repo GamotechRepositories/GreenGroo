@@ -27,7 +27,7 @@ StoreSettings mergeStoreSettings(StoreSettings? settings) {
     minimumShippingCharge: source?.minimumShippingCharge ?? 280,
     shippingSlabs: source?.shippingSlabs ?? const [],
     merchantUpiId: source?.merchantUpiId ?? '',
-    merchantUpiName: source?.merchantUpiName ?? 'BulkMobileMart',
+    merchantUpiName: source?.merchantUpiName ?? 'GreenGrocc',
     merchantUpiAccounts: source?.merchantUpiAccounts ?? const [],
     cartNoticeEn: source?.cartNoticeEn.isNotEmpty == true
         ? source!.cartNoticeEn

@@ -496,7 +496,7 @@ function AdminOrderDetailSection() {
       return;
     }
     setError("");
-    const text = `Hi, speaking from Bulk Mobile Mart.`;
+    const text = `Hi, speaking from GreenGrocc.`;
     const url = `https://wa.me/${customerWaPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };

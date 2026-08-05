@@ -169,7 +169,7 @@ function AddOfferBannerForm({ deviceType, editingBanner, onCancelEdit, onAdded }
         {isEditing ? "Edit" : "Add"} {DEVICE_LABELS[deviceType]} Offer Banner
       </h3>
       <p className="text-xs text-text-secondary">
-        Shown below &quot;Why Choose BulkMobileMart?&quot; on the home page.
+        Shown below &quot;Why Choose GreenGrocc?&quot; on the home page.
       </p>
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -374,7 +374,7 @@ function OfferBannerSection() {
       <div className={`${cardClass} mb-6`}>
         <h2 className="text-lg font-bold text-neutral-900">Offer Banners</h2>
         <p className="mt-1 text-sm text-neutral-600">
-          Manage the wholesale offer banner shown after &quot;Why Choose BulkMobileMart?&quot; on
+          Manage the wholesale offer banner shown after &quot;Why Choose GreenGrocc?&quot; on
           the website and app home page.
         </p>
       </div>

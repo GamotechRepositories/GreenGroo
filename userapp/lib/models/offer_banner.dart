@@ -7,7 +7,7 @@ class OfferBanner {
     this.subtitle =
         'MOQ 10 pieces · Pan-India delivery · Best deals for retailers & distributors',
     this.linkUrl = '',
-    this.alt = 'BulkMobileMart offer banner',
+    this.alt = 'GreenGrocc offer banner',
     this.order = 0,
     this.isActive = true,
     this.device = 'mobile',
@@ -33,7 +33,7 @@ class OfferBanner {
       subtitle: json['subtitle']?.toString() ??
           'MOQ 10 pieces · Pan-India delivery · Best deals for retailers & distributors',
       linkUrl: json['linkUrl']?.toString() ?? '',
-      alt: json['alt']?.toString() ?? 'BulkMobileMart offer banner',
+      alt: json['alt']?.toString() ?? 'GreenGrocc offer banner',
       order: json['order'] is num ? (json['order'] as num).toInt() : 0,
       isActive: json['isActive'] as bool? ?? true,
       device: json['device']?.toString() ?? 'mobile',

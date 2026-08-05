@@ -176,7 +176,7 @@ export function Navbar({ onMenuClick, pageTitle }) {
               className="max-w-[200px] gap-1.5 bg-white/80"
             >
               <Store className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <span className="truncate">{store.name.replace('GreenGroo — ', '')}</span>
+              <span className="truncate">{store.name.replace('GreenGrocc — ', '')}</span>
               <ChevronDown className="h-3.5 w-3.5 shrink-0" />
             </Button>
             <Dropdown open={openMenu === 'store'} onClose={close} className="min-w-[240px]">
@@ -222,7 +222,7 @@ export function Navbar({ onMenuClick, pageTitle }) {
             <Dropdown open={openMenu === 'profile'} onClose={close} className="min-w-[200px]">
               <div className="border-b border-border px-4 py-3">
                 <p className="text-sm font-bold text-text-primary">Ravi Kumar</p>
-                <p className="text-xs text-text-secondary">ravi@greengroo.store</p>
+                <p className="text-xs text-text-secondary">ravi@greengrocc.store</p>
               </div>
               <button
                 type="button"

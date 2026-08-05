@@ -276,7 +276,7 @@ function SidebarContent({
             type="button"
             onClick={onExpand}
             aria-label="Expand sidebar"
-            title="Bulk Mobile Mart"
+            title="GreenGrocc"
             className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-xl font-bold text-primary transition hover:bg-neutral-800"
           >
             B
@@ -284,7 +284,7 @@ function SidebarContent({
         ) : (
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight text-white">
-              Bulk Mobile Mart
+              GreenGrocc
             </div>
             <button
               type="button"

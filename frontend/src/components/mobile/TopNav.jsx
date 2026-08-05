@@ -48,7 +48,7 @@ function TopNav() {
           <Link to="/" className="flex items-center">
             <img
               src={LOGO_URL}
-              alt="BulkMobileMart"
+              alt="GreenGrocc"
               className="h-11 w-auto object-contain xl:h-12"
             />
           </Link>

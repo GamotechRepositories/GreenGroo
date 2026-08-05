@@ -160,7 +160,7 @@ class _WhyChooseUsSectionState extends State<WhyChooseUsSection>
               children: [
                 TextSpan(text: 'Why Choose '),
                 TextSpan(
-                  text: 'BulkMobileMart?',
+                  text: 'GreenGrocc?',
                   style: TextStyle(color: AppColors.primary),
                 ),
               ],

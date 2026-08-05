@@ -31,7 +31,7 @@ String buildProductShareMessage(
       'Brand: ${product.brandName.trim()}',
     if (variantName.trim().isNotEmpty) 'Variant: ${variantName.trim()}',
     '',
-    'Shop on Bulk Mobile Mart:',
+    'Shop on GreenGrocc:',
     url,
   ];
 

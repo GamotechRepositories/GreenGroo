@@ -72,7 +72,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
     final orderNo = getOrderNumber(order);
     final addr = order.deliveryAddress;
     final buffer = StringBuffer()
-      ..writeln('BulkMobileMart Invoice')
+      ..writeln('GreenGrocc Invoice')
       ..writeln('Order #$orderNo')
       ..writeln('Date: ${formatOrderDate(order.createdAt)}')
       ..writeln('Status: ${getOrderStatusLabel(order.status)}')
@@ -103,7 +103,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
       ..writeln('Delivery: ${order.deliveryCharges == 0 ? 'Free' : formatInr(order.deliveryCharges)}')
       ..writeln('Total: ${formatInr(order.total)}')
       ..writeln()
-      ..writeln('Thank you for shopping with BulkMobileMart!');
+      ..writeln('Thank you for shopping with GreenGrocc!');
 
     if (user != null) {
       buffer.writeln('Customer: ${user.name}');
@@ -127,7 +127,7 @@ class _OrderInvoiceScreenState extends ConsumerState<OrderInvoiceScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(path)],
-          text: 'BulkMobileMart Invoice #${getOrderNumber(order)}',
+          text: 'GreenGrocc Invoice #${getOrderNumber(order)}',
         ),
       );
     } catch (_) {
@@ -262,7 +262,7 @@ class _InvoiceDocument extends StatelessWidget {
                     const AppLogo(height: 56),
                     const SizedBox(height: 12),
                     const Text(
-                      'BulkMobileMart',
+                      'GreenGrocc',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 22,

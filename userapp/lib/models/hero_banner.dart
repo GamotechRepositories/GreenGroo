@@ -2,7 +2,7 @@ class HeroBanner {
   const HeroBanner({
     required this.id,
     required this.imageUrl,
-    this.alt = 'BulkMobileMart hero banner',
+    this.alt = 'GreenGrocc hero banner',
     this.order = 0,
     this.isActive = true,
     this.device = 'mobile',
@@ -19,7 +19,7 @@ class HeroBanner {
     return HeroBanner(
       id: json['_id']?.toString() ?? '',
       imageUrl: json['imageUrl']?.toString() ?? '',
-      alt: json['alt']?.toString() ?? 'BulkMobileMart hero banner',
+      alt: json['alt']?.toString() ?? 'GreenGrocc hero banner',
       order: json['order'] is num ? (json['order'] as num).toInt() : 0,
       isActive: json['isActive'] as bool? ?? true,
       device: json['device']?.toString() ?? 'mobile',

@@ -50,14 +50,14 @@ export function getWebsiteShareUrl() {
 
 export function buildWebsiteShareContent(shareUrl = getWebsiteShareUrl()) {
   const text = [
-    "Bulk Mobile Mart",
+    "GreenGrocc",
     "Wholesale mobile phones & accessories in India",
     "",
     shareUrl,
   ].join("\n");
 
   return {
-    title: "BulkMobileMart",
+    title: "GreenGrocc",
     text,
     shareUrl,
   };
@@ -69,13 +69,13 @@ export async function getShareableWebsiteFile() {
     const localResponse = await fetch("/favicon.png").catch(() => null);
     if (!localResponse?.ok) return null;
     const localBlob = await localResponse.blob();
-    return new File([localBlob], "bulkmobilemart-logo.png", {
+    return new File([localBlob], "greengrocc-logo.png", {
       type: localBlob.type?.startsWith("image/") ? localBlob.type : "image/png",
     });
   }
 
   const ext = getImageExtension(SITE_SHARE_IMAGE_URL);
-  return new File([blob], `bulkmobilemart-logo.${ext}`, {
+  return new File([blob], `greengrocc-logo.${ext}`, {
     type: blob.type?.startsWith("image/") ? blob.type : getMimeType(ext),
   });
 }

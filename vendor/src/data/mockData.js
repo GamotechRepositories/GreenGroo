@@ -211,9 +211,9 @@ export const products = [
 ]
 
 export const stores = [
-  { id: 's1', name: 'GreenGroo — Andheri West' },
-  { id: 's2', name: 'GreenGroo — Bandra East' },
-  { id: 's3', name: 'GreenGroo — Powai Hub' },
+  { id: 's1', name: 'GreenGrocc — Andheri West' },
+  { id: 's2', name: 'GreenGrocc — Bandra East' },
+  { id: 's3', name: 'GreenGrocc — Powai Hub' },
 ]
 
 export const notifications = [

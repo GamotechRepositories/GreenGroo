@@ -122,7 +122,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
           <Link to="/" className="flex items-center shrink-0 min-w-0 max-w-[75%]">
             <img
               src={LOGO_URL}
-              alt="BulkMobileMart.in - Smart Choice, Best Price"
+              alt="GreenGrocc.in - Smart Choice, Best Price"
               className="h-9 w-auto max-w-full object-contain object-left hover:opacity-90 transition"
             />
           </Link>
@@ -150,7 +150,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
           <Link to="/" className="flex items-center shrink-0">
             <img
               src={LOGO_URL}
-              alt="BulkMobileMart.in - Smart Choice, Best Price"
+              alt="GreenGrocc.in - Smart Choice, Best Price"
               className="h-10 lg:h-12 w-auto object-contain object-left hover:opacity-90 transition"
             />
           </Link>

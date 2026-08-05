@@ -1,8 +1,8 @@
 # Serve SPA + Android/iOS app-link verification files
 server {
     listen 80;
-    server_name www.bulkmobilemart.in bulkmobilemart.in;
-    root /var/www/bulkmobilemart/frontend/dist;
+    server_name www.greengrocc.in greengrocc.in;
+    root /var/www/greengrocc/frontend/dist;
     index index.html;
 
     location /.well-known/ {

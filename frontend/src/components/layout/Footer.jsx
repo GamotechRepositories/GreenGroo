@@ -65,7 +65,7 @@ function Footer() {
           <Link to="/" className="inline-flex items-center gap-2">
             <img
               src={LOGO_URL}
-              alt="BulkMobileMart"
+              alt="GreenGrocc"
               className="h-10 w-auto object-contain brightness-0 invert"
             />
           </Link>
@@ -128,7 +128,7 @@ function Footer() {
       </div>
 
       <div className="border-t border-neutral-800 py-4 text-center text-xs text-neutral-500 sm:text-sm">
-        © {new Date().getFullYear()} BulkMobileMart. All rights reserved.
+        © {new Date().getFullYear()} GreenGrocc. All rights reserved.
       </div>
     </footer>
   );

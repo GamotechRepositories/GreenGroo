@@ -277,7 +277,7 @@ function PromotionalNotificationSection() {
           <h3 className="text-base font-semibold text-neutral-900">Preview</h3>
           <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
             <div className="rounded-lg bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-accent">Bulk Mobile Mart</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">GreenGrocc</p>
               <p className="mt-2 text-sm font-bold text-neutral-900">
                 {form.title.trim() || "Notification title"}
               </p>

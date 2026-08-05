@@ -46,7 +46,7 @@ Future<void> showAuthSuccessDialog({
               const SizedBox(height: 8),
               Text(
                 isSignup
-                    ? 'Welcome to BulkMobileMart, $greetingName!'
+                    ? 'Welcome to GreenGrocc, $greetingName!'
                     : 'Welcome back, $greetingName!',
                 textAlign: TextAlign.center,
                 style: const TextStyle(

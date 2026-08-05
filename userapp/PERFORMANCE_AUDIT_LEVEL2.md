@@ -1,6 +1,6 @@
 # Second-Level Runtime Performance Investigation
 
-**Project:** BulkMobileMart mobile app  
+**Project:** GreenGrocc mobile app  
 **Date:** June 25, 2026  
 **Scope:** Exact runtime bottlenecks after first optimization pass  
 **Method:** Static call-graph + frame-budget analysis (UI isolate, raster thread, decode, layout). Estimates calibrated for 3–6 GB Android @ 60 Hz (16.67 ms/frame).

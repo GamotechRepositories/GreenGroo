@@ -98,7 +98,7 @@ function AddTestimonialSection() {
           <textarea
             required
             rows={4}
-            placeholder="What the client said about BulkMobileMart..."
+            placeholder="What the client said about GreenGrocc..."
             value={form.text}
             onChange={(e) => setForm((p) => ({ ...p, text: e.target.value }))}
             className={inputClass}

@@ -15,7 +15,7 @@ function TermsAndConditions() {
           <div>
             <h2 className="text-xl font-bold text-text-primary mb-3">General</h2>
             <p>
-              By using BulkMobileMart, you agree to these terms. Our platform is
+              By using GreenGrocc, you agree to these terms. Our platform is
               intended for businesses, retailers, and distributors purchasing mobile
               devices in bulk — not for individual retail consumers.
             </p>

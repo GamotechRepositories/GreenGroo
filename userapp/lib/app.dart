@@ -10,8 +10,8 @@ import 'widgets/cart/cart_feedback_overlay.dart';
 import 'widgets/common/opening_splash_overlay.dart';
 import 'widgets/deep_link_listener.dart';
 
-class BulkMobileMartApp extends ConsumerWidget {
-  const BulkMobileMartApp({super.key});
+class GreenGroccApp extends ConsumerWidget {
+  const GreenGroccApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,7 +20,7 @@ class BulkMobileMartApp extends ConsumerWidget {
     return DeepLinkListener(
       child: NotificationBootstrap(
         child: MaterialApp.router(
-          title: 'BulkMobileMart',
+          title: 'GreenGrocc',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           routerConfig: router,

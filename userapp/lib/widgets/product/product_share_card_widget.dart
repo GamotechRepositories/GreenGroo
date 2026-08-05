@@ -26,7 +26,7 @@ class ProductShareCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayBrand =
-        brandName.trim().isNotEmpty ? brandName.trim() : 'Bulk Mobile Mart';
+        brandName.trim().isNotEmpty ? brandName.trim() : 'GreenGrocc';
 
     return ColoredBox(
       color: Colors.white,
@@ -108,7 +108,7 @@ class ProductShareCardWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'bulkmobilemart.in',
+                          'greengrocc.in',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

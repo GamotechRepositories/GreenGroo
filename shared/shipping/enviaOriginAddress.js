@@ -1,7 +1,7 @@
 export const DEFAULT_ENVIA_PICKUP_ORIGIN = {
   name: "Ashok Modi",
-  company: "BulkMobileMart",
-  email: "bulkmobilemart@gmail.com",
+  company: "GreenGrocc",
+  email: "greengrocc@gmail.com",
   phone: "7400222232",
   addressLine1: "SHOP NO. 2155, 2ND FLOOR, Nathani Heights",
   addressLine2: "Commercial Arcade",
@@ -55,7 +55,7 @@ export function normalizeEnviaOriginFields(origin = {}) {
 
   return {
     name: safeTrim(origin.name),
-    company: safeTrim(origin.company) || "BulkMobileMart",
+    company: safeTrim(origin.company) || "GreenGrocc",
     email: safeTrim(origin.email),
     phone: safeTrim(origin.phone),
     addressLine1: safeTrim(origin.addressLine1),

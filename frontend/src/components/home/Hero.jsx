@@ -18,7 +18,7 @@ function Hero() {
           .map((b) => ({
             id: b._id,
             src: b.imageUrl,
-            alt: b.alt || "BulkMobileMart hero banner",
+            alt: b.alt || "GreenGrocc hero banner",
           }));
         setSlides(banners);
         setCurrent(0);

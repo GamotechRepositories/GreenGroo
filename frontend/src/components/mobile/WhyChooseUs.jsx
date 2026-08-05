@@ -198,7 +198,7 @@ function WhyChooseUs() {
           </p>
 
           <h2 className="mt-3 text-2xl font-bold text-text-primary sm:text-3xl md:text-4xl">
-            Why Choose <span className="text-primary">BulkMobileMart?</span>
+            Why Choose <span className="text-primary">GreenGrocc?</span>
           </h2>
 
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-text-secondary sm:text-base">

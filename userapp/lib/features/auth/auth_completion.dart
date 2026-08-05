@@ -39,7 +39,7 @@ void completeAuthAndGoHome({
       SnackBar(
         content: Text(
           isSignup
-              ? 'Welcome to BulkMobileMart, $greetingName!'
+              ? 'Welcome to GreenGrocc, $greetingName!'
               : 'Welcome back, $greetingName!',
         ),
         behavior: SnackBarBehavior.floating,

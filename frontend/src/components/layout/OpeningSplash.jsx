@@ -76,7 +76,7 @@ function OpeningSplash() {
         <div className="opening-splash__logo-wrap">
           <img src={LOGO_URL} alt="" className="opening-splash__logo" decoding="async" />
         </div>
-        <h1 className="opening-splash__title">Bulk Mobile Mart</h1>
+        <h1 className="opening-splash__title">GreenGrocc</h1>
         <p className="opening-splash__tagline">Your Trusted Wholesale Partner</p>
         <div className="opening-splash__bar" />
       </div>

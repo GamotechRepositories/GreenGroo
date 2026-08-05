@@ -4,10 +4,10 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:www.bulkmobilemart.in</string>
-		<string>applinks:bulkmobilemart.in</string>
-		<string>applinks:www.bulkmobilemart.com</string>
-		<string>applinks:bulkmobilemart.com</string>
+		<string>applinks:www.greengrocc.in</string>
+		<string>applinks:greengrocc.in</string>
+		<string>applinks:www.greengrocc.com</string>
+		<string>applinks:greengrocc.com</string>
 	</array>
 </dict>
 </plist>

@@ -129,7 +129,7 @@ Future<Uint8List?> createProductShareCardPng({
   );
 
   final displayBrand =
-      brandName.trim().isNotEmpty ? brandName.trim() : 'Bulk Mobile Mart';
+      brandName.trim().isNotEmpty ? brandName.trim() : 'GreenGrocc';
   final displayName = productName.trim().isNotEmpty ? productName.trim() : 'Product';
 
   final brandHeight = _measureTextHeight(
@@ -151,7 +151,7 @@ Future<Uint8List?> createProductShareCardPng({
     maxLines: 1,
   );
   final storeHeight = _measureTextHeight(
-    text: 'bulkmobilemart.com',
+    text: 'greengrocc.com',
     style: storeStyle,
     maxWidth: textMaxWidth,
     maxLines: 1,
@@ -249,7 +249,7 @@ Future<Uint8List?> createProductShareCardPng({
 
   _paintText(
     canvas: canvas,
-    text: 'bulkmobilemart.in',
+    text: 'greengrocc.in',
     offset: Offset(textX, textY),
     style: storeStyle,
     maxWidth: textMaxWidth,
