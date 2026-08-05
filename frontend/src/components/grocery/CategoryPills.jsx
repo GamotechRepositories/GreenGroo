@@ -2,7 +2,14 @@ import { Link } from "react-router-dom";
 
 const CATEGORIES = [
   { name: "Vegetables", emoji: "🥦", slug: "Vegetables", items: "150+", bg: "#F3F7EF" },
-  { name: "Fruits", emoji: "🍎", slug: "Fruits", items: "120+", bg: "#FFF3F0" },
+  {
+    name: "Fruits",
+    emoji: "🍎",
+    slug: "Fruits",
+    items: "120+",
+    bg: "#F0F7ED",
+    image: "/categories/fruits.webp",
+  },
   { name: "Dairy", emoji: "🥛", slug: "Dairy", items: "80+", bg: "#F0F6FF" },
   { name: "Grains", emoji: "🌾", slug: "Grains", items: "90+", bg: "#FFF8E8" },
   { name: "Pulses", emoji: "🌱", slug: "Pulses", items: "70+", bg: "#F1F8E9" },
@@ -20,8 +27,16 @@ function CategoryCard({ cat }) {
     <Link
       to={`/product?categoryName=${encodeURIComponent(cat.slug)}`}
       className="group relative flex h-[76px] items-stretch overflow-hidden rounded-xl transition hover:-translate-y-0.5 hover:shadow-md sm:h-[88px] sm:rounded-2xl lg:h-[100px]"
-      style={{ backgroundColor: cat.bg }}
+      style={cat.image ? undefined : { backgroundColor: cat.bg }}
     >
+      {cat.image ? (
+        <img
+          src={cat.image}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-right transition duration-300 group-hover:scale-105"
+        />
+      ) : null}
+
       <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-center py-2 pl-2.5 pr-1 sm:py-3 sm:pl-3.5 lg:pl-4">
         <h3 className="truncate text-[11px] font-bold leading-tight text-text-primary sm:text-sm lg:text-[15px]">
           {cat.name}
@@ -31,14 +46,18 @@ function CategoryCard({ cat }) {
         </p>
       </div>
 
-      <div className="relative flex w-[38%] shrink-0 items-end justify-end pr-0.5 pb-0 sm:w-[40%] sm:pr-1">
-        <span
-          className="translate-x-0.5 translate-y-1 text-[2rem] leading-none transition duration-200 group-hover:scale-105 sm:text-[2.75rem] lg:text-[3.25rem]"
-          aria-hidden="true"
-        >
-          {cat.emoji}
-        </span>
-      </div>
+      {!cat.image ? (
+        <div className="relative flex w-[42%] shrink-0 items-end justify-end sm:w-[44%]">
+          <span
+            className="translate-x-0.5 translate-y-1 pr-0.5 text-[2rem] leading-none transition duration-200 group-hover:scale-105 sm:pr-1 sm:text-[2.75rem] lg:text-[3.25rem]"
+            aria-hidden="true"
+          >
+            {cat.emoji}
+          </span>
+        </div>
+      ) : (
+        <div className="relative w-[42%] shrink-0 sm:w-[44%]" aria-hidden="true" />
+      )}
     </Link>
   );
 }
