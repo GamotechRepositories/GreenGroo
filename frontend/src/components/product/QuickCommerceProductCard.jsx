@@ -80,9 +80,11 @@ function QuickCommerceProductCard({
     product._id?.length > 10 ? `/product/${product._id}` : "/product";
 
   const isGrid = layout === "grid";
+  // Mobile: 3 full + ~1/4 of 4th peeking
+  // 100vw − section px-4 (2rem) − 3×gap-3 (2.25rem) ÷ 3.25
   const widthClass = isGrid
     ? "w-full"
-    : "w-[152px] shrink-0 snap-start sm:w-[168px]";
+    : "w-[calc((100vw-2rem-2.25rem)/3.25)] shrink-0 snap-start";
 
   const handleAdd = (e) => {
     e?.preventDefault?.();

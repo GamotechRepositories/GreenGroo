@@ -34,7 +34,10 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
             <div className="lg:hidden">
               <HorizontalScrollRow gapClassName="gap-3">
                 {Array.from({ length: 6 }).map((_, i) =>
-                  skeleton(`m-${i}`, "h-[200px] w-[128px] shrink-0 sm:w-[140px]")
+                  skeleton(
+                    `m-${i}`,
+                    "h-[220px] w-[calc((100vw-2rem-2.25rem)/3.25)] shrink-0"
+                  )
                 )}
               </HorizontalScrollRow>
             </div>
