@@ -101,8 +101,12 @@ function QuickCommerceProductCard({
       type="button"
       onClick={handleAdd}
       disabled={disabled}
-      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-white px-3 text-[12px] font-extrabold uppercase tracking-wide shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-      style={{ borderColor: ADD_PINK, color: ADD_PINK }}
+      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-gradient-to-b from-white to-[#FFF0F5] px-3 text-[12px] font-extrabold uppercase tracking-wide transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+      style={{
+        borderColor: ADD_PINK,
+        color: ADD_PINK,
+        boxShadow: `2px 2px 0 0 ${ADD_PINK}`,
+      }}
     >
       ADD
     </button>
@@ -110,8 +114,11 @@ function QuickCommerceProductCard({
 
   const stepper = (
     <div
-      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[76px] items-stretch overflow-hidden rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
-      style={{ backgroundColor: ADD_PINK }}
+      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[76px] items-stretch overflow-hidden rounded-lg transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+      style={{
+        backgroundColor: ADD_PINK,
+        boxShadow: `2px 2px 0 0 #9A1248`,
+      }}
     >
       <button
         type="button"
@@ -161,15 +168,17 @@ function QuickCommerceProductCard({
         </div>
 
         {/* 2. Price badge + MRP */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <span
-            className="inline-flex items-center rounded-[5px] px-1.5 py-[3px] text-[13px] font-extrabold leading-none text-white shadow-[0_1px_0_rgba(0,0,0,0.15)]"
-            style={{ backgroundColor: PRICE_GREEN }}
+            className="inline-flex items-center rounded-md bg-gradient-to-br from-[#43A047] to-[#2E7D32] px-2 py-1 text-[15px] font-extrabold leading-none text-white"
+            style={{
+              boxShadow: "2px 2px 0 0 #1B5E20",
+            }}
           >
             {formatPrice(salePrice)}
           </span>
           {hasDiscount ? (
-            <span className="text-[12px] font-medium text-[#9CA3AF] line-through">
+            <span className="text-[15px] font-medium text-[#9CA3AF] line-through">
               {formatPrice(originalPrice)}
             </span>
           ) : null}
@@ -177,7 +186,7 @@ function QuickCommerceProductCard({
 
         {/* 3. ₹X OFF ———— (same row as 2nd image) */}
         {hasDiscount && discountAmt > 0 ? (
-          <div className="mt-1 flex items-center gap-1.5">
+          <div className="mt-2.5 flex items-center gap-1.5">
             <span
               className="shrink-0 text-[12px] font-bold leading-none"
               style={{ color: OFF_GREEN }}

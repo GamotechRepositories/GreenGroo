@@ -3,17 +3,21 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 
 const SUGGESTIONS = ["atta", "paneer", "milk", "banana", "tomato", "bread", "rice", "eggs"];
+const LINE_PX = 24;
 
 function ScrollingPlaceholder({ active }) {
   const [index, setIndex] = useState(0);
+  const [animate, setAnimate] = useState(true);
 
   useEffect(() => {
     if (!active) {
       setIndex(0);
+      setAnimate(true);
       return undefined;
     }
 
     const id = window.setInterval(() => {
+      setAnimate(true);
       setIndex((prev) => prev + 1);
     }, 2000);
 
@@ -26,6 +30,7 @@ function ScrollingPlaceholder({ active }) {
     if (index < SUGGESTIONS.length) return undefined;
 
     const id = window.setTimeout(() => {
+      setAnimate(false);
       setIndex(0);
     }, 350);
 
@@ -39,20 +44,27 @@ function ScrollingPlaceholder({ active }) {
 
   return (
     <span
-      className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-[15px] font-normal text-text-muted"
+      className="pointer-events-none absolute inset-0 flex items-center text-[15px] font-normal text-text-muted"
       aria-hidden="true"
     >
-      <span>Search&nbsp;</span>
-      <span className="relative inline-block h-[1.2em] overflow-hidden align-middle">
+      <span className="leading-none">Search&nbsp;</span>
+      <span
+        className="relative inline-block overflow-hidden align-middle"
+        style={{ height: LINE_PX }}
+      >
         <span
-          className="inline-flex flex-col"
+          className="inline-flex flex-col will-change-transform"
           style={{
-            transform: `translateY(-${offset * 1.2}em)`,
-            transition: index === 0 ? "none" : "transform 0.35s ease-out",
+            transform: `translateY(-${offset * LINE_PX}px)`,
+            transition: animate ? "transform 0.35s ease-out" : "none",
           }}
         >
           {items.map((word, i) => (
-            <span key={`${word}-${i}`} className="h-[1.2em] leading-[1.2em]">
+            <span
+              key={`${word}-${i}`}
+              className="flex items-center leading-none"
+              style={{ height: LINE_PX }}
+            >
               &quot;{word}&quot;
             </span>
           ))}
@@ -103,7 +115,7 @@ function DesktopSearchBar({ className = "" }) {
           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
         />
       </svg>
-      <div className="relative min-w-0 flex-1">
+      <div className="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden">
         <ScrollingPlaceholder active={showPlaceholder} />
         <input
           type="search"
@@ -111,7 +123,7 @@ function DesktopSearchBar({ className = "" }) {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="w-full bg-transparent text-[15px] font-medium text-text-primary focus:outline-none"
+          className="h-full w-full bg-transparent text-[15px] font-medium leading-none text-text-primary focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           aria-label="Search products"
         />
       </div>
