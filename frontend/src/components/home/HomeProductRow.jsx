@@ -26,7 +26,7 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
 
   return (
     <section className="bg-white px-4 py-4 sm:px-6 lg:rounded-2xl lg:border lg:border-border-light lg:px-6 lg:py-6 lg:shadow-sm xl:px-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-[1440px]">
         <SectionHeader title={title} viewAllTo={viewAllTo} className="mb-4" />
 
         {loading ? (
@@ -38,7 +38,7 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
                 )}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
+            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
               {Array.from({ length: 8 }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
             </div>
           </>
@@ -46,13 +46,13 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
           <>
             <div className="lg:hidden">
               <HorizontalScrollRow gapClassName="gap-3">
-                {products.map((product) => (
+                {products.slice(0, 8).map((product) => (
                   <QuickCommerceProductCard key={product._id} {...cardProps(product)} />
                 ))}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
-              {products.map((product) => (
+            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
+              {products.slice(0, 8).map((product) => (
                 <DealProductCard key={product._id} {...cardProps(product)} layout="grid" />
               ))}
             </div>

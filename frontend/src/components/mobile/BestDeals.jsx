@@ -6,7 +6,7 @@ import DealProductCard from "../product/DealProductCard";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
 
-const HOME_PRODUCT_LIMIT = 12;
+const HOME_PRODUCT_LIMIT = 8;
 
 const FALLBACK_PRODUCTS = [
   { _id: "1", name: "Fresh Apples", sub: "1 kg", price: 165, discountedPrice: 149 },
@@ -59,8 +59,8 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
   );
 
   return (
-    <section className="bg-white px-4 py-4 sm:px-6 lg:rounded-2xl lg:border lg:border-border-light lg:px-6 lg:py-6 lg:shadow-sm xl:px-8">
-      <div className="mx-auto max-w-7xl">
+    <section className="px-4 py-4 sm:px-6 lg:px-6 lg:py-5 xl:px-8">
+      <div className="mx-auto max-w-[1440px]">
         <SectionHeader title={title} viewAllTo={viewAllTo} className="mb-4" />
 
         {loading ? (
@@ -72,7 +72,7 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
                 )}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
+            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
               {Array.from({ length: 8 }).map((_, i) => skeleton(`d-${i}`, "h-[280px] rounded-2xl"))}
             </div>
           </>
@@ -85,8 +85,8 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
                 ))}
               </HorizontalScrollRow>
             </div>
-            <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
-              {displayProducts.map((product) => (
+            <div className="hidden gap-3 lg:grid lg:grid-cols-8 lg:grid-rows-1">
+              {displayProducts.slice(0, 8).map((product) => (
                 <DealProductCard key={product._id} {...cardProps(product)} layout="grid" />
               ))}
             </div>

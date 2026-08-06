@@ -14,7 +14,7 @@ function ProductSectionGrid({ children, loading, skeletonCount = 8 }) {
             ))}
           </HorizontalScrollRow>
         </div>
-        <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">
+        <div className="hidden gap-3 lg:grid lg:grid-cols-8">
           {Array.from({ length: skeletonCount }).map((_, index) => (
             <div
               key={`skel-d-${index}`}
@@ -31,7 +31,7 @@ function ProductSectionGrid({ children, loading, skeletonCount = 8 }) {
       <div className="lg:hidden">
         <HorizontalScrollRow>{children}</HorizontalScrollRow>
       </div>
-      <div className="hidden gap-4 lg:grid lg:grid-cols-4 xl:grid-cols-5">{children}</div>
+      <div className="hidden gap-3 lg:grid lg:grid-cols-8">{children}</div>
     </>
   );
 }
