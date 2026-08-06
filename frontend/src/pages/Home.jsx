@@ -1,27 +1,36 @@
-import HomeStickyCategories from "../components/grocery/HomeStickyCategories";
+import { useSearchParams } from "react-router-dom";
 import FreshPromoBanner from "../components/grocery/FreshPromoBanner";
 import DesktopSideBanner from "../components/grocery/DesktopSideBanner";
 import TodaysDealStrip from "../components/grocery/TodaysDealStrip";
 import CategoryPills from "../components/grocery/CategoryPills";
+import HomeCategoryProducts from "../components/grocery/HomeCategoryProducts";
 import BestDeals from "../components/mobile/BestDeals";
 import JustArrived from "../components/home/JustArrived";
 import HotSelling from "../components/home/HotSelling";
 
 function Home() {
+  const [searchParams] = useSearchParams();
+  const categoryName = searchParams.get("categoryName")?.trim() || "";
+
   return (
     <div className="bg-white lg:bg-gradient-to-b lg:from-primary-light/30 lg:to-mobile-bg">
       <div className="lg:hidden">
-        <HomeStickyCategories />
-
         <FreshPromoBanner />
         <TodaysDealStrip />
-        <CategoryPills />
 
-        <div className="space-y-0">
-          <BestDeals title="Previously bought" viewAllTo="/product" />
-          <JustArrived />
-          <HotSelling />
-        </div>
+        {categoryName ? (
+          <HomeCategoryProducts categoryName={categoryName} />
+        ) : (
+          <>
+            <CategoryPills />
+
+            <div className="space-y-0">
+              <BestDeals title="Previously bought" viewAllTo="/product" />
+              <JustArrived />
+              <HotSelling />
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mx-auto max-w-7xl lg:px-8 lg:py-8">

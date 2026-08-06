@@ -5,13 +5,11 @@ import MobileHeader from "../components/mobile/MobileHeader";
 import CategoryNavbar from "../components/layout/CategoryNavbar";
 import Footer from "../components/layout/Footer";
 import FloatingCartBar from "../components/grocery/FloatingCartBar";
-
-const HIDE_MOBILE_HEADER_PATHS = ["/", "/location"];
+import HomeStickyCategories from "../components/grocery/HomeStickyCategories";
 
 function MobileLayout({ children }) {
   const { pathname } = useRouterLocation();
   const isHome = pathname === "/";
-  const hideMobileHeader = HIDE_MOBILE_HEADER_PATHS.includes(pathname);
 
   return (
     <div
@@ -21,15 +19,19 @@ function MobileLayout({ children }) {
     >
       <TopNav />
 
-      {!hideMobileHeader ? <MobileHeader /> : null}
+      {isHome ? (
+        <div className="lg:hidden">
+          <HomeStickyCategories />
+        </div>
+      ) : (
+        <MobileHeader />
+      )}
 
       {!isHome ? <CategoryNavbar /> : null}
 
       <main
-        className={`mx-auto w-full flex-1 ${
-          hideMobileHeader
-            ? "pb-24 pt-0 lg:pb-0 lg:pt-[72px]"
-            : "pb-24 pt-0 lg:pb-8 lg:pt-[72px]"
+        className={`mx-auto w-full flex-1 pb-24 pt-0 lg:pt-[72px] ${
+          isHome ? "lg:pb-0" : "lg:pb-8"
         }`}
       >
         {children}

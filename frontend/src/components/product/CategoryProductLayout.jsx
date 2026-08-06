@@ -4,7 +4,6 @@ import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
 import ProductFiltersBar from "./ProductFiltersBar";
-
 function buildCategoryUrl(categoryName, params = {}) {
   const search = new URLSearchParams();
   search.set("categoryName", categoryName);

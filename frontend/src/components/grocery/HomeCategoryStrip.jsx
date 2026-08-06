@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import CategoryIcon from "./CategoryIcon";
@@ -165,9 +165,35 @@ function CategoryTabIcon({ cat, index, isActive, isAll }) {
   return <CategoryIcon name={cat.name} index={index} className="h-5 w-5" />;
 }
 
+function resolveActiveCategory(categories, categoryFromUrl) {
+  if (!categoryFromUrl) return "All";
+
+  const exact = categories.find(
+    (cat) =>
+      cat.name.toLowerCase() === categoryFromUrl.toLowerCase() ||
+      cat.slug?.toLowerCase() === categoryFromUrl.toLowerCase()
+  );
+  if (exact) return exact.name;
+
+  if (isFruitsCategory(categoryFromUrl)) {
+    return categories.find((cat) => isFruitsCategory(cat.name))?.name || "Fruits";
+  }
+  if (isVegetablesCategory(categoryFromUrl)) {
+    return categories.find((cat) => isVegetablesCategory(cat.name))?.name || "Vegetables";
+  }
+  if (isOrganicCategory(categoryFromUrl)) {
+    return categories.find((cat) => isOrganicCategory(cat.name))?.name || "Organic";
+  }
+  if (isDairyCategory(categoryFromUrl)) {
+    return categories.find((cat) => isDairyCategory(cat.name))?.name || "Dairy";
+  }
+
+  return categoryFromUrl;
+}
+
 function HomeCategoryStrip() {
   const { data: apiCategories = [] } = useCategoriesQuery();
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [searchParams] = useSearchParams();
   const navRef = useRef(null);
   const labelRefs = useRef({});
   const [borderPath, setBorderPath] = useState("");
@@ -234,6 +260,12 @@ function HomeCategoryStrip() {
     return applyLocalCategoryImages(list).slice(0, 5);
   }, [apiCategories]);
 
+  const categoryFromUrl = searchParams.get("categoryName")?.trim() || "";
+  const activeCategory = useMemo(
+    () => resolveActiveCategory(categories, categoryFromUrl),
+    [categories, categoryFromUrl]
+  );
+
   const updateBorder = useCallback(() => {
     const nav = navRef.current;
     const label = labelRefs.current[activeCategory];
@@ -271,7 +303,7 @@ function HomeCategoryStrip() {
       observer.disconnect();
       window.removeEventListener("resize", updateBorder);
     };
-  }, [updateBorder, categories]);
+  }, [updateBorder, categories, activeCategory]);
 
   const baselineTop = ICON_SIZE + ICON_GAP + LABEL_ROW_H - HUMP_H;
 
@@ -281,15 +313,14 @@ function HomeCategoryStrip() {
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
           const to = cat.slug
-            ? `/product?categoryName=${encodeURIComponent(cat.slug)}`
-            : "/product";
+            ? `/?categoryName=${encodeURIComponent(cat.slug)}`
+            : "/";
           const isAll = cat.name === "All";
 
           return (
             <Link
               key={cat.name}
               to={to}
-              onClick={() => setActiveCategory(cat.name)}
               className={`relative flex min-w-0 flex-1 flex-col items-center ${
                 isActive ? "z-10 text-[#1a1a1a]" : "z-0 text-[#4b5563]"
               }`}
@@ -304,7 +335,8 @@ function HomeCategoryStrip() {
               {/* All labels share the same row height */}
               <span
                 ref={(node) => {
-                  if (isActive) labelRefs.current[cat.name] = node;
+                  if (node) labelRefs.current[cat.name] = node;
+                  else delete labelRefs.current[cat.name];
                 }}
                 className={`relative z-[1] flex w-full items-end justify-center px-0.5 text-center text-[10px] leading-none ${
                   isActive ? "font-bold" : "font-normal"
