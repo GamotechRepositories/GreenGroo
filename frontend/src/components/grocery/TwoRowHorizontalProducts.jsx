@@ -11,7 +11,7 @@ function ProductScrollRow({ products, cardProps }) {
       {products.map((product) => (
         <div
           key={product._id}
-          className="w-[calc((100vw-2rem-1.25rem)/3)] shrink-0 snap-start"
+          className="w-[calc((100vw-2rem-1.875rem)/3.2)] shrink-0 snap-start"
         >
           <QuickCommerceProductCard
             {...cardProps(product)}
