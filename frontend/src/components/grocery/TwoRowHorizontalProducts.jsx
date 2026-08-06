@@ -1,46 +1,12 @@
-import { useRef } from "react";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 
 function ProductScrollRow({ products, cardProps }) {
-  const rowRef = useRef(null);
-  const touchRef = useRef({ x: 0, y: 0, axis: null });
-
   if (!products?.length) return null;
-
-  const onTouchStart = (e) => {
-    const t = e.touches[0];
-    touchRef.current = { x: t.clientX, y: t.clientY, axis: null };
-    if (rowRef.current) rowRef.current.style.overflowX = "auto";
-  };
-
-  const onTouchMove = (e) => {
-    if (touchRef.current.axis != null) return;
-    const t = e.touches[0];
-    const dx = Math.abs(t.clientX - touchRef.current.x);
-    const dy = Math.abs(t.clientY - touchRef.current.y);
-    if (dx < 6 && dy < 6) return;
-
-    // Vertical gesture → unlock page scroll; horizontal → keep row scroll
-    touchRef.current.axis = dy > dx ? "y" : "x";
-    if (touchRef.current.axis === "y" && rowRef.current) {
-      rowRef.current.style.overflowX = "hidden";
-    }
-  };
-
-  const onTouchEnd = () => {
-    if (rowRef.current) rowRef.current.style.overflowX = "auto";
-    touchRef.current.axis = null;
-  };
 
   return (
     <div
-      ref={rowRef}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-      className="hide-scrollbar flex gap-2.5 overflow-x-auto scroll-smooth"
-      style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}
+      className="hide-scrollbar flex gap-2.5 overflow-x-auto overflow-y-hidden"
+      style={{ overscrollBehavior: "auto" }}
     >
       {products.map((product) => (
         <div
