@@ -11,11 +11,25 @@ import HotSelling from "../components/home/HotSelling";
 function Home() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
+  const isFruits = /fruit/i.test(categoryName);
+  const isVegetables = /vegetable|veggie/i.test(categoryName);
+  const isOrganic = /organic/i.test(categoryName);
+  const isDairy = /dairy|milk/i.test(categoryName);
+  const promoBanner =
+    isFruits
+      ? "/banners/fruits-banner.png"
+      : isVegetables
+        ? "/banners/vegetables-banner.png"
+        : isOrganic
+          ? "/banners/organic-banner.png"
+          : isDairy
+            ? "/banners/dairy-banner.png"
+            : "/banners/all-banner.png";
 
   return (
     <div className="bg-white lg:bg-gradient-to-b lg:from-primary-light/30 lg:to-mobile-bg">
       <div className="lg:hidden">
-        <FreshPromoBanner />
+        <FreshPromoBanner bgImage={promoBanner} />
         <TodaysDealStrip />
 
         {categoryName ? (

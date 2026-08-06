@@ -2,17 +2,17 @@ import { Link } from "react-router-dom";
 
 const HERO_BG = "/herobaner.png";
 
-function FreshPromoBanner({ className = "" }) {
+function FreshPromoBanner({ className = "", bgImage = HERO_BG }) {
   return (
     <section className={`px-4 py-3 sm:px-6 lg:h-full lg:px-0 lg:py-0 ${className}`}>
       <div className="relative overflow-hidden rounded-2xl bg-[#e8f5e9] shadow-sm lg:h-full lg:min-h-[220px] lg:rounded-3xl lg:shadow-lg lg:shadow-primary/10 xl:min-h-[240px]">
         {/* Mobile: natural aspect ratio · Desktop: fill available width/height */}
         <img
-          src={HERO_BG}
+          src={bgImage}
           alt=""
-          className="block h-auto w-full lg:absolute lg:inset-0 lg:h-full lg:object-cover lg:object-right"
-          width={2022}
-          height={778}
+          className="block aspect-[1024/395] h-auto w-full object-cover object-right lg:absolute lg:inset-0 lg:aspect-auto lg:h-full"
+          width={1024}
+          height={395}
           aria-hidden="true"
         />
 
