@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
@@ -10,10 +11,11 @@ class AttendanceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Attendance',
-        subtitle: 'Track your working hours',
+      appBar: CustomAppBar(
+        title: l10n.attendance,
+        subtitle: l10n.trackWorkingHours,
         showBackButton: true,
       ),
       body: ListView(
@@ -26,7 +28,7 @@ class AttendanceScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(onPressed: () {}, icon: const Icon(Icons.chevron_left)),
-                    Text('Month Year', style: Theme.of(context).textTheme.titleMedium),
+                    Text(l10n.monthYear, style: Theme.of(context).textTheme.titleMedium),
                     IconButton(onPressed: () {}, icon: const Icon(Icons.chevron_right)),
                   ],
                 ),
@@ -73,21 +75,21 @@ class AttendanceScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
-              Expanded(child: _TimeCard(title: 'Login Time', value: '— : —')),
+              Expanded(child: _TimeCard(title: l10n.loginTime, value: l10n.timePlaceholder)),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: _TimeCard(title: 'Logout Time', value: '— : —')),
+              Expanded(child: _TimeCard(title: l10n.logoutTime, value: l10n.timePlaceholder)),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              Expanded(child: _TimeCard(title: 'Working Hours', value: '— h — m')),
+              Expanded(child: _TimeCard(title: l10n.workingHours, value: l10n.workingHoursPlaceholder)),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: _TimeCard(title: 'Break Time', value: '— m')),
+              Expanded(child: _TimeCard(title: l10n.breakTime, value: l10n.breakTimePlaceholder)),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          Text('Attendance History', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18)),
+          Text(l10n.attendanceHistory, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18)),
           const SizedBox(height: AppSpacing.md),
           ...List.generate(5, (_) {
             return Padding(
@@ -109,8 +111,8 @@ class AttendanceScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Date —', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
-                          Text('— h — m worked', style: Theme.of(context).textTheme.bodyMedium),
+                          Text(l10n.datePlaceholder, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
+                          Text(l10n.hoursWorked, style: Theme.of(context).textTheme.bodyMedium),
                         ],
                       ),
                     ),

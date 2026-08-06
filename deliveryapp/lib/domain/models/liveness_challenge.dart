@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 enum LivenessChallenge {
   centerFace,
   blink,
@@ -9,12 +11,12 @@ enum LivenessChallenge {
 }
 
 extension LivenessChallengeX on LivenessChallenge {
-  String get instruction => switch (this) {
-        LivenessChallenge.centerFace => 'Center your face in the circle',
-        LivenessChallenge.blink => 'Blink your eyes',
-        LivenessChallenge.lookLeft => 'Turn your head left',
-        LivenessChallenge.lookRight => 'Turn your head right',
-        LivenessChallenge.lookUp => 'Look up',
+  String instruction(AppLocalizations l10n) => switch (this) {
+        LivenessChallenge.centerFace => l10n.livenessCenterFace,
+        LivenessChallenge.blink => l10n.livenessBlink,
+        LivenessChallenge.lookLeft => l10n.livenessLookLeft,
+        LivenessChallenge.lookRight => l10n.livenessLookRight,
+        LivenessChallenge.lookUp => l10n.livenessLookUp,
       };
 
   IconData get hintIcon => switch (this) {

@@ -2,36 +2,85 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/l10n/locale_controller.dart';
+import '../../../core/l10n/supported_locales.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
-  const LanguageSelectionScreen({super.key});
+  const LanguageSelectionScreen({
+    super.key,
+    this.fromSettings = false,
+  });
+
+  final bool fromSettings;
 
   @override
-  State<LanguageSelectionScreen> createState() => _LanguageSelectionScreenState();
+  State<LanguageSelectionScreen> createState() =>
+      _LanguageSelectionScreenState();
 }
 
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   String? _selected;
 
-  static const _languages = [
-    _Language(code: 'en', name: 'English', native: 'English', flag: '🇬🇧'),
-    _Language(code: 'hi', name: 'Hindi', native: 'हिन्दी', flag: '🇮🇳'),
-    _Language(code: 'mr', name: 'Marathi', native: 'मराठी', flag: '🇮🇳'),
-    _Language(code: 'gu', name: 'Gujarati', native: 'ગુજરાતી', flag: '🇮🇳'),
-    _Language(code: 'ta', name: 'Tamil', native: 'தமிழ்', flag: '🇮🇳'),
-    _Language(code: 'te', name: 'Telugu', native: 'తెలుగు', flag: '🇮🇳'),
-    _Language(code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ', flag: '🇮🇳'),
-    _Language(code: 'bn', name: 'Bengali', native: 'বাংলা', flag: '🇮🇳'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _selected = LocaleController.instance.locale?.languageCode ?? 'en';
+  }
+
+  Future<void> _continue() async {
+    if (_selected == null) return;
+    await LocaleController.instance.setLocale(Locale(_selected!));
+    if (!mounted) return;
+
+    if (AuthService.instance.isLoggedIn) {
+      await AuthService.instance.updateOnboarding(
+        data: {'language': _selected},
+      );
+    }
+
+    if (!mounted) return;
+
+    if (widget.fromSettings) {
+      Navigator.pop(context);
+      return;
+    }
+
+    Navigator.pushNamed(context, AppRoutes.login);
+  }
+
+  String _englishName(AppLocalizations l10n, String code) {
+    return switch (code) {
+      'en' => l10n.languageEnglish,
+      'hi' => l10n.languageHindi,
+      'mr' => l10n.languageMarathi,
+      'ta' => l10n.languageTamil,
+      'te' => l10n.languageTelugu,
+      'kn' => l10n.languageKannada,
+      _ => SupportedLocales.displayName(code),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: const AppBackButton(),
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -51,7 +100,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Choose Language',
+                    l10n.chooseLanguage,
                     style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -60,7 +109,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Select your preferred language to continue',
+                    l10n.selectLanguageSubtitle,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       color: AppColors.textSecondary,
@@ -79,14 +128,15 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 1.45,
                 ),
-                itemCount: _languages.length,
+                itemCount: SupportedLocales.codes.length,
                 itemBuilder: (context, index) {
-                  final lang = _languages[index];
-                  final selected = _selected == lang.code;
+                  final code = SupportedLocales.codes[index];
+                  final selected = _selected == code;
                   return _LanguageBox(
-                    language: lang,
+                    englishName: _englishName(l10n, code),
+                    nativeName: SupportedLocales.nativeName(code),
                     selected: selected,
-                    onTap: () => setState(() => _selected = lang.code),
+                    onTap: () => setState(() => _selected = code),
                   );
                 },
               ),
@@ -94,10 +144,10 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: PrimaryButton(
-                label: 'Continue',
-                onPressed: _selected == null
-                    ? null
-                    : () => Navigator.pushReplacementNamed(context, AppRoutes.login),
+                label: widget.fromSettings
+                    ? l10n.saveLanguage
+                    : l10n.continueButton,
+                onPressed: _selected == null ? null : _continue,
               ),
             ),
           ],
@@ -107,28 +157,16 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
   }
 }
 
-class _Language {
-  const _Language({
-    required this.code,
-    required this.name,
-    required this.native,
-    required this.flag,
-  });
-
-  final String code;
-  final String name;
-  final String native;
-  final String flag;
-}
-
 class _LanguageBox extends StatelessWidget {
   const _LanguageBox({
-    required this.language,
+    required this.englishName,
+    required this.nativeName,
     required this.selected,
     required this.onTap,
   });
 
-  final _Language language;
+  final String englishName;
+  final String nativeName;
   final bool selected;
   final VoidCallback onTap;
 
@@ -156,7 +194,6 @@ class _LanguageBox extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(language.flag, style: const TextStyle(fontSize: 22)),
                   const Spacer(),
                   if (selected)
                     Icon(Icons.check_circle, color: AppColors.primary, size: 22),
@@ -164,7 +201,7 @@ class _LanguageBox extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                language.name,
+                englishName,
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -172,7 +209,7 @@ class _LanguageBox extends StatelessWidget {
                 ),
               ),
               Text(
-                language.native,
+                nativeName,
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   color: AppColors.textSecondary,

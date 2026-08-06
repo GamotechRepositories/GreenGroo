@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/buttons/secondary_button.dart';
 import '../../widgets/chips/status_chip.dart';
@@ -11,6 +12,7 @@ class LiveNavigationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Stack(
         children: [
@@ -31,13 +33,13 @@ class LiveNavigationScreen extends StatelessWidget {
                       Icon(Icons.map_outlined, size: 64, color: AppColors.textMuted.withValues(alpha: 0.5)),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        'Live Map',
+                        l10n.liveMap,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: AppColors.textMuted,
                             ),
                       ),
                       Text(
-                        'Map integration coming soon',
+                        l10n.mapIntegrationComingSoon,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
@@ -91,21 +93,21 @@ class LiveNavigationScreen extends StatelessWidget {
                     const SizedBox(height: AppSpacing.lg),
                     Row(
                       children: [
-                        const StatusChip(label: 'En Route', type: StatusType.info),
+                        StatusChip(label: l10n.enRoute, type: StatusType.info),
                         const Spacer(),
-                        Text('ETA — min', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(l10n.etaMin, style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    _InfoRow(icon: Icons.person_outline, title: 'Customer', subtitle: 'Customer Name'),
+                    _InfoRow(icon: Icons.person_outline, title: l10n.customer, subtitle: l10n.placeholderCustomerName),
                     const SizedBox(height: AppSpacing.md),
-                    _InfoRow(icon: Icons.storefront_outlined, title: 'Store', subtitle: 'Store Name'),
+                    _InfoRow(icon: Icons.storefront_outlined, title: l10n.store, subtitle: l10n.placeholderStoreName),
                     const SizedBox(height: AppSpacing.md),
-                    _InfoRow(icon: Icons.route_outlined, title: 'Distance', subtitle: '— km remaining'),
+                    _InfoRow(icon: Icons.route_outlined, title: l10n.distance, subtitle: l10n.distanceRemaining),
                     const SizedBox(height: AppSpacing.xl),
-                    PrimaryButton(label: 'Navigate', icon: Icons.navigation_outlined, onPressed: () {}),
+                    PrimaryButton(label: l10n.navigate, icon: Icons.navigation_outlined, onPressed: () {}),
                     const SizedBox(height: AppSpacing.md),
-                    SecondaryButton(label: 'Call Customer', icon: Icons.phone_outlined, onPressed: () {}),
+                    SecondaryButton(label: l10n.callCustomer, icon: Icons.phone_outlined, onPressed: () {}),
                   ],
                 ),
               );

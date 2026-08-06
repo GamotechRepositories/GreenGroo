@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class UploadDocumentsScreen extends StatefulWidget {
@@ -71,6 +73,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
   }
 
   Future<void> _pick(String type) async {
+    final l10n = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -83,18 +86,18 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Upload document',
+                l10n.uploadDocumentSheetTitle,
                 style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 16),
               ListTile(
                 leading: Icon(Icons.camera_alt_outlined, color: AppColors.primary),
-                title: const Text('Take photo'),
+                title: Text(l10n.takePhoto),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
               ListTile(
                 leading: Icon(Icons.photo_library_outlined, color: AppColors.primary),
-                title: const Text('Choose from gallery'),
+                title: Text(l10n.chooseFromGallery),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
             ],
@@ -113,15 +116,14 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.selectCity),
       ),
       body: SafeArea(
         top: false,
@@ -132,7 +134,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
                 children: [
                   Text(
-                    'Upload Documents',
+                    l10n.uploadDocuments,
                     style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -141,103 +143,103 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Complete all documents and payment details to continue',
+                    l10n.uploadDocumentsSubtitle,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _SectionTitle(title: 'Identity Documents'),
+                  _SectionTitle(title: l10n.identityDocuments),
                   const SizedBox(height: 10),
                   _DocumentUploadCard(
-                    title: 'Aadhaar Card',
-                    subtitle: 'Front side clearly visible',
+                    title: l10n.aadhaarCard,
+                    subtitle: l10n.aadhaarCardSubtitle,
                     icon: Icons.badge_outlined,
                     file: _files['aadhaar'],
                     onTap: () => _pick('aadhaar'),
                   ),
                   const SizedBox(height: 12),
                   _DocumentUploadCard(
-                    title: 'PAN Card',
-                    subtitle: 'Clear photo of PAN',
+                    title: l10n.panCard,
+                    subtitle: l10n.panCardSubtitle,
                     icon: Icons.credit_card_outlined,
                     file: _files['pan'],
                     onTap: () => _pick('pan'),
                   ),
                   const SizedBox(height: 12),
                   _DocumentUploadCard(
-                    title: 'Passport Size Photo',
-                    subtitle: 'Recent passport-size photo',
+                    title: l10n.passportSizePhoto,
+                    subtitle: l10n.passportSizePhotoSubtitle,
                     icon: Icons.account_box_outlined,
                     file: _files['passport'],
                     onTap: () => _pick('passport'),
                   ),
                   const SizedBox(height: 12),
                   _DocumentUploadCard(
-                    title: 'Driving License',
-                    subtitle: 'Valid driving license',
+                    title: l10n.drivingLicense,
+                    subtitle: l10n.drivingLicenseSubtitle,
                     icon: Icons.directions_car_filled_outlined,
                     file: _files['license'],
                     onTap: () => _pick('license'),
                   ),
                   const SizedBox(height: 24),
-                  _SectionTitle(title: 'Vehicle Documents'),
+                  _SectionTitle(title: l10n.vehicleDocuments),
                   const SizedBox(height: 10),
                   _DocumentUploadCard(
-                    title: 'Vehicle RC',
-                    subtitle: 'Registration certificate',
+                    title: l10n.vehicleRc,
+                    subtitle: l10n.vehicleRcSubtitle,
                     icon: Icons.description_outlined,
                     file: _files['rc'],
                     onTap: () => _pick('rc'),
                   ),
                   const SizedBox(height: 12),
                   _DocumentUploadCard(
-                    title: 'Insurance',
-                    subtitle: 'Valid vehicle insurance',
+                    title: l10n.insurance,
+                    subtitle: l10n.insuranceSubtitle,
                     icon: Icons.health_and_safety_outlined,
                     file: _files['insurance'],
                     onTap: () => _pick('insurance'),
                   ),
                   const SizedBox(height: 24),
-                  _SectionTitle(title: 'Bank Details'),
+                  _SectionTitle(title: l10n.bankDetails),
                   const SizedBox(height: 10),
                   _InputField(
                     controller: _accountHolder,
-                    label: 'Account Holder Name',
-                    hint: 'Name as per bank account',
+                    label: l10n.accountHolderName,
+                    hint: l10n.accountHolderNameHint,
                     icon: Icons.person_outline,
                   ),
                   const SizedBox(height: 12),
                   _InputField(
                     controller: _bankName,
-                    label: 'Bank Name',
-                    hint: 'e.g. HDFC Bank',
+                    label: l10n.bankName,
+                    hint: l10n.bankNameHint,
                     icon: Icons.account_balance_outlined,
                   ),
                   const SizedBox(height: 12),
                   _InputField(
                     controller: _accountNumber,
-                    label: 'Account Number',
-                    hint: 'Enter account number',
+                    label: l10n.accountNumber,
+                    hint: l10n.accountNumberHint,
                     icon: Icons.numbers_outlined,
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
                   _InputField(
                     controller: _ifsc,
-                    label: 'IFSC Code',
-                    hint: 'e.g. HDFC0001234',
+                    label: l10n.ifscCode,
+                    hint: l10n.ifscCodeHint,
                     icon: Icons.qr_code_outlined,
                     textCapitalization: TextCapitalization.characters,
                   ),
                   const SizedBox(height: 24),
-                  _SectionTitle(title: 'UPI ID'),
+                  _SectionTitle(title: l10n.upiId),
                   const SizedBox(height: 10),
                   _InputField(
                     controller: _upiId,
-                    label: 'UPI ID',
-                    hint: 'yourname@upi',
+                    label: l10n.upiId,
+                    hint: l10n.upiIdHint,
                     icon: Icons.payment_outlined,
                   ),
                 ],
@@ -246,9 +248,30 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: PrimaryButton(
-                label: 'Next',
+                label: l10n.next,
                 onPressed: _canContinue
-                    ? () => Navigator.pushNamed(context, AppRoutes.takeSelfie)
+                    ? () => goOnboardingStep(
+                          context,
+                          step: 'selfie',
+                          route: AppRoutes.takeSelfie,
+                          data: {
+                            'bankDetails': {
+                              'accountHolderName': _accountHolder.text.trim(),
+                              'accountNumber': _accountNumber.text.trim(),
+                              'ifscCode': _ifsc.text.trim(),
+                              'bankName': _bankName.text.trim(),
+                              'upiId': _upiId.text.trim(),
+                            },
+                            'documents': {
+                              for (final key in _docKeys)
+                                key: {
+                                  'fileName': _files[key]?.name ?? '',
+                                  'localPath': _files[key]?.path ?? '',
+                                  'status': 'captured',
+                                },
+                            },
+                          },
+                        )
                     : null,
               ),
             ),
@@ -339,6 +362,7 @@ class _DocumentUploadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final uploaded = file != null;
 
     return Material(
@@ -390,7 +414,7 @@ class _DocumentUploadCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      uploaded ? 'Uploaded · Tap to change' : subtitle,
+                      uploaded ? l10n.uploadedTapToChange : subtitle,
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         color: uploaded ? AppColors.primary : AppColors.textSecondary,

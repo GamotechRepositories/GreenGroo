@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/cards/order_card.dart';
 import '../../widgets/cards/statistic_card.dart';
@@ -17,10 +21,75 @@ class HomeDashboardScreen extends StatefulWidget {
 }
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
-  bool _isOnline = true;
+  bool _isOnline = false;
+  bool _updatingStatus = false;
+  Timer? _heartbeat;
+
+  @override
+  void initState() {
+    super.initState();
+    _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
+    if (_isOnline) _startHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    _heartbeat?.cancel();
+    super.dispose();
+  }
+
+  void _startHeartbeat() {
+    _heartbeat?.cancel();
+    _heartbeat = Timer.periodic(const Duration(seconds: 45), (_) {
+      AuthService.instance.sendHeartbeat();
+    });
+  }
+
+  void _stopHeartbeat() {
+    _heartbeat?.cancel();
+    _heartbeat = null;
+  }
+
+  Future<void> _onStatusToggle(bool value) async {
+    if (_updatingStatus) return;
+    setState(() {
+      _updatingStatus = true;
+      _isOnline = value;
+    });
+
+    final boy = await AuthService.instance.updateStatus(
+      value ? 'online' : 'offline',
+    );
+
+    if (!mounted) return;
+
+    if (boy == null) {
+      // Revert UI if API failed
+      setState(() {
+        _isOnline = !value;
+        _updatingStatus = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update status. Try again.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isOnline = boy.isOnline;
+      _updatingStatus = false;
+    });
+
+    if (boy.isOnline) {
+      _startHeartbeat();
+    } else {
+      _stopHeartbeat();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -33,26 +102,36 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Good Morning 👋',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 22),
+                      l10n.goodMorning,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(fontSize: 22),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Be safe and deliver happiness',
+                      l10n.beSafeDeliverHappiness,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
                 ),
               ),
-              Switch(
-                value: _isOnline,
-                onChanged: (value) => setState(() => _isOnline = value),
-              ),
+              if (_updatingStatus)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Switch(
+                  value: _isOnline,
+                  onChanged: _onStatusToggle,
+                ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           StatusChip(
-            label: _isOnline ? 'Online' : 'Offline',
+            label: _isOnline ? l10n.online : l10n.offline,
             type: _isOnline ? StatusType.online : StatusType.offline,
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -65,31 +144,31 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             childAspectRatio: 1.35,
             children: [
               StatisticCard(
-                title: "Today's Earnings",
-                value: '₹ —',
-                subtitle: 'Tap to view details',
+                title: l10n.todaysEarnings,
+                value: l10n.placeholderEarnings,
+                subtitle: l10n.tapToViewDetails,
                 icon: Icons.payments_outlined,
               ),
               StatisticCard(
-                title: "Today's Deliveries",
-                value: '—',
-                subtitle: 'Completed today',
+                title: l10n.todaysDeliveries,
+                value: l10n.placeholderDash,
+                subtitle: l10n.completedToday,
                 icon: Icons.local_shipping_outlined,
                 iconColor: AppColors.info,
                 iconBackground: Color(0xFFDBEAFE),
               ),
               StatisticCard(
-                title: 'Performance Score',
-                value: '—%',
-                subtitle: 'This week',
+                title: l10n.performanceScore,
+                value: l10n.placeholderPercent,
+                subtitle: l10n.thisWeek,
                 icon: Icons.insights_outlined,
                 iconColor: AppColors.warning,
                 iconBackground: Color(0xFFFEF3C7),
               ),
               StatisticCard(
-                title: 'Customer Rating',
-                value: '—',
-                subtitle: 'Average rating',
+                title: l10n.customerRating,
+                value: l10n.placeholderDash,
+                subtitle: l10n.averageRating,
                 icon: Icons.star_outline,
                 iconColor: Color(0xFF8B5CF6),
                 iconBackground: Color(0xFFEDE9FE),
@@ -97,7 +176,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          const SectionHeader(title: 'Active Delivery'),
+          SectionHeader(title: l10n.activeDelivery),
           const SizedBox(height: AppSpacing.md),
           DashboardCard(
             onTap: () => Navigator.pushNamed(context, AppRoutes.activeDelivery),
@@ -106,10 +185,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const StatusChip(label: 'In Progress', type: StatusType.info),
+                    StatusChip(label: l10n.inProgress, type: StatusType.info),
                     const Spacer(),
                     Text(
-                      'View details',
+                      l10n.viewDetails,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
@@ -124,8 +203,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
           const SizedBox(height: AppSpacing.xl),
           SectionHeader(
-            title: 'Quick Actions',
-            actionLabel: 'See all',
+            title: l10n.quickActions,
+            actionLabel: l10n.seeAll,
             onAction: () => Navigator.pushNamed(context, AppRoutes.newOrders),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -136,45 +215,45 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               children: [
                 _QuickAction(
                   icon: Icons.add_shopping_cart_outlined,
-                  label: 'New Orders',
+                  label: l10n.newOrders,
                   onTap: () => Navigator.pushNamed(context, AppRoutes.newOrders),
                 ),
                 _QuickAction(
                   icon: Icons.map_outlined,
-                  label: 'Navigate',
+                  label: l10n.navigate,
                   onTap: () => Navigator.pushNamed(context, AppRoutes.liveNavigation),
                 ),
                 _QuickAction(
                   icon: Icons.history_outlined,
-                  label: 'History',
+                  label: l10n.history,
                   onTap: () => Navigator.pushNamed(context, AppRoutes.deliveryHistory),
                 ),
                 _QuickAction(
                   icon: Icons.account_balance_wallet_outlined,
-                  label: 'Wallet',
+                  label: l10n.wallet,
                   onTap: () => Navigator.pushNamed(context, AppRoutes.wallet),
                 ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const SectionHeader(title: 'Recent Orders'),
+          SectionHeader(title: l10n.recentOrders),
           const SizedBox(height: AppSpacing.md),
-          const OrderCard(
-            storeName: 'Store Name',
-            customerName: 'Customer Name',
-            pickupAddress: 'Pickup address',
-            dropAddress: 'Drop address',
-            distance: '— km',
-            estimatedEarnings: '₹ —',
-            estimatedTime: '— min',
+          OrderCard(
+            storeName: l10n.placeholderStoreName,
+            customerName: l10n.placeholderCustomerName,
+            pickupAddress: l10n.placeholderPickupAddress,
+            dropAddress: l10n.placeholderDropAddress,
+            distance: l10n.placeholderDistanceKm,
+            estimatedEarnings: l10n.placeholderEarnings,
+            estimatedTime: l10n.placeholderTimeMin,
             showActions: false,
           ),
           const SizedBox(height: AppSpacing.lg),
           StatisticCard(
-            title: 'Acceptance Rate',
-            value: '—%',
-            subtitle: 'Last 7 days',
+            title: l10n.acceptanceRate,
+            value: l10n.placeholderPercent,
+            subtitle: l10n.last7Days,
             icon: Icons.check_circle_outline,
             onTap: () => Navigator.pushNamed(context, AppRoutes.performance),
           ),
@@ -189,6 +268,7 @@ class DeliveryTimelinePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: [
         Column(
@@ -217,11 +297,11 @@ class DeliveryTimelinePreview extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Pick Up', style: Theme.of(context).textTheme.bodySmall),
-              Text('Store location', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
+              Text(l10n.pickUp, style: Theme.of(context).textTheme.bodySmall),
+              Text(l10n.storeLocation, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
               const SizedBox(height: AppSpacing.md),
-              Text('Drop Off', style: Theme.of(context).textTheme.bodySmall),
-              Text('Customer location', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
+              Text(l10n.dropOff, style: Theme.of(context).textTheme.bodySmall),
+              Text(l10n.customerLocation, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 14)),
             ],
           ),
         ),

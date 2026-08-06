@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/common/empty_state.dart';
@@ -14,6 +15,7 @@ class WalletScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final body = ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
@@ -30,14 +32,14 @@ class WalletScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Wallet Balance',
+                  l10n.walletBalance,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.85),
                       ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '₹ —',
+                  l10n.placeholderEarnings,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         color: Colors.white,
                         fontSize: 36,
@@ -47,25 +49,25 @@ class WalletScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(label: 'Withdraw', icon: Icons.account_balance_outlined, onPressed: () {}),
+          PrimaryButton(label: l10n.withdraw, icon: Icons.account_balance_outlined, onPressed: () {}),
           const SizedBox(height: AppSpacing.xl),
-          const SectionHeader(title: 'Bank Details'),
+          SectionHeader(title: l10n.bankDetails),
           const SizedBox(height: AppSpacing.md),
           DashboardCard(
             child: Column(
               children: [
-                _BankRow(label: 'Account Holder', value: '—'),
+                _BankRow(label: l10n.accountHolder, value: l10n.placeholderDash),
                 const Divider(height: AppSpacing.xl),
-                _BankRow(label: 'Bank Name', value: '—'),
+                _BankRow(label: l10n.bankName, value: l10n.placeholderDash),
                 const Divider(height: AppSpacing.xl),
-                _BankRow(label: 'Account Number', value: '— — — —'),
+                _BankRow(label: l10n.accountNumber, value: l10n.accountNumberMasked),
                 const Divider(height: AppSpacing.xl),
-                _BankRow(label: 'IFSC Code', value: '—'),
+                _BankRow(label: l10n.ifscCode, value: l10n.placeholderDash),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const SectionHeader(title: 'Recent Transactions'),
+          SectionHeader(title: l10n.recentTransactions),
           const SizedBox(height: AppSpacing.md),
           ...List.generate(3, (_) {
             return Padding(
@@ -79,12 +81,12 @@ class WalletScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Transaction', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
-                          Text('—', style: Theme.of(context).textTheme.bodySmall),
+                          Text(l10n.transaction, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
+                          Text(l10n.placeholderDash, style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
                     ),
-                    Text('₹ —', style: Theme.of(context).textTheme.titleMedium),
+                    Text(l10n.placeholderEarnings, style: Theme.of(context).textTheme.titleMedium),
                   ],
                 ),
               ),
@@ -96,9 +98,9 @@ class WalletScreen extends StatelessWidget {
     if (embedded) return body;
 
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Wallet',
-        subtitle: 'Manage your earnings',
+      appBar: CustomAppBar(
+        title: l10n.wallet,
+        subtitle: l10n.manageYourEarnings,
         showBackButton: true,
       ),
       body: body,

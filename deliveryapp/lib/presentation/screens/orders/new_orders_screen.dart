@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/order_card.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
@@ -11,37 +12,38 @@ class NewOrdersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final body = ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      children: const [
+      children: [
         OrderCard(
-          storeName: 'Store Name',
-          customerName: 'Customer Name',
-          pickupAddress: 'Pickup address line',
-          dropAddress: 'Drop address line',
-          distance: '— km',
-          estimatedEarnings: '₹ —',
-          estimatedTime: '— min',
+          storeName: l10n.placeholderStoreName,
+          customerName: l10n.placeholderCustomerName,
+          pickupAddress: l10n.placeholderPickupAddressLine,
+          dropAddress: l10n.placeholderDropAddressLine,
+          distance: l10n.placeholderDistanceKm,
+          estimatedEarnings: l10n.placeholderEarnings,
+          estimatedTime: l10n.placeholderTimeMin,
         ),
-        SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.md),
         OrderCard(
-          storeName: 'Store Name',
-          customerName: 'Customer Name',
-          pickupAddress: 'Pickup address line',
-          dropAddress: 'Drop address line',
-          distance: '— km',
-          estimatedEarnings: '₹ —',
-          estimatedTime: '— min',
+          storeName: l10n.placeholderStoreName,
+          customerName: l10n.placeholderCustomerName,
+          pickupAddress: l10n.placeholderPickupAddressLine,
+          dropAddress: l10n.placeholderDropAddressLine,
+          distance: l10n.placeholderDistanceKm,
+          estimatedEarnings: l10n.placeholderEarnings,
+          estimatedTime: l10n.placeholderTimeMin,
         ),
-        SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.md),
         OrderCard(
-          storeName: 'Store Name',
-          customerName: 'Customer Name',
-          pickupAddress: 'Pickup address line',
-          dropAddress: 'Drop address line',
-          distance: '— km',
-          estimatedEarnings: '₹ —',
-          estimatedTime: '— min',
+          storeName: l10n.placeholderStoreName,
+          customerName: l10n.placeholderCustomerName,
+          pickupAddress: l10n.placeholderPickupAddressLine,
+          dropAddress: l10n.placeholderDropAddressLine,
+          distance: l10n.placeholderDistanceKm,
+          estimatedEarnings: l10n.placeholderEarnings,
+          estimatedTime: l10n.placeholderTimeMin,
         ),
       ],
     );
@@ -49,9 +51,9 @@ class NewOrdersScreen extends StatelessWidget {
     if (embedded) return body;
 
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'New Orders',
-        subtitle: 'Accept orders to start earning',
+      appBar: CustomAppBar(
+        title: l10n.newOrders,
+        subtitle: l10n.newOrdersSubtitle,
         showBackButton: true,
       ),
       body: body,

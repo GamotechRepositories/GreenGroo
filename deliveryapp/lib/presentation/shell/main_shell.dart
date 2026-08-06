@@ -1,3 +1,4 @@
+import 'package:deliveryapp/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
@@ -20,7 +21,16 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final _titles = ['Dashboard', 'Orders', 'Navigation', 'Wallet', 'Profile'];
+  String _titleForIndex(AppLocalizations l10n, int index) {
+    return switch (index) {
+      0 => l10n.dashboard,
+      1 => l10n.orders,
+      2 => l10n.navigation,
+      3 => l10n.wallet,
+      4 => l10n.profile,
+      _ => l10n.dashboard,
+    };
+  }
 
   Widget _buildPage(int index) {
     return switch (index) {
@@ -37,12 +47,14 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       extendBody: true,
       drawer: const AppDrawer(),
       appBar: _useShellAppBar
           ? CustomAppBar(
-              title: _titles[_currentIndex],
+              title: _titleForIndex(l10n, _currentIndex),
               leading: Builder(
                 builder: (context) => IconButton(
                   icon: const Icon(Icons.menu),

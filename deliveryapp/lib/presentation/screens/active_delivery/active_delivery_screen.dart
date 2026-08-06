@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/buttons/secondary_button.dart';
 import '../../widgets/cards/dashboard_card.dart';
@@ -14,10 +15,11 @@ class ActiveDeliveryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Active Delivery',
-        subtitle: 'Order in progress',
+      appBar: CustomAppBar(
+        title: l10n.activeDelivery,
+        subtitle: l10n.orderInProgress,
         showBackButton: true,
       ),
       body: SingleChildScrollView(
@@ -25,7 +27,7 @@ class ActiveDeliveryScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(child: StatusChip(label: 'Heading to Pickup', type: StatusType.info)),
+            Center(child: StatusChip(label: l10n.headingToPickup, type: StatusType.info)),
             const SizedBox(height: AppSpacing.xl),
             DashboardCard(
               child: Column(
@@ -46,9 +48,9 @@ class ActiveDeliveryScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Pickup', style: Theme.of(context).textTheme.bodySmall),
-                            Text('Store Name', style: Theme.of(context).textTheme.titleMedium),
-                            Text('Store address', style: Theme.of(context).textTheme.bodyMedium),
+                            Text(l10n.pickup, style: Theme.of(context).textTheme.bodySmall),
+                            Text(l10n.placeholderStoreName, style: Theme.of(context).textTheme.titleMedium),
+                            Text(l10n.storeAddress, style: Theme.of(context).textTheme.bodyMedium),
                           ],
                         ),
                       ),
@@ -74,9 +76,9 @@ class ActiveDeliveryScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Customer', style: Theme.of(context).textTheme.bodySmall),
-                        Text('Customer Name', style: Theme.of(context).textTheme.titleMedium),
-                        Text('Delivery address', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(l10n.customer, style: Theme.of(context).textTheme.bodySmall),
+                        Text(l10n.placeholderCustomerName, style: Theme.of(context).textTheme.titleMedium),
+                        Text(l10n.deliveryAddress, style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
                   ),
@@ -100,9 +102,9 @@ class ActiveDeliveryScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Delivery OTP', style: Theme.of(context).textTheme.bodySmall),
-                        Text('— — — —', style: Theme.of(context).textTheme.headlineMedium),
-                        Text('Ask customer for OTP', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(l10n.deliveryOtp, style: Theme.of(context).textTheme.bodySmall),
+                        Text(l10n.otpPlaceholder, style: Theme.of(context).textTheme.headlineMedium),
+                        Text(l10n.askCustomerForOtp, style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
                   ),
@@ -110,21 +112,21 @@ class ActiveDeliveryScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
-            const DeliveryTimeline(
+            DeliveryTimeline(
               steps: [
                 DeliveryTimelineStep(
-                  title: 'Assigned',
-                  subtitle: 'Order assigned to you',
+                  title: l10n.timelineAssigned,
+                  subtitle: l10n.timelineAssignedSubtitle,
                   isCompleted: true,
                 ),
                 DeliveryTimelineStep(
-                  title: 'Pick Up',
-                  subtitle: 'Collect from store',
+                  title: l10n.timelinePickUp,
+                  subtitle: l10n.timelinePickUpSubtitle,
                   isActive: true,
                 ),
                 DeliveryTimelineStep(
-                  title: 'Delivered',
-                  subtitle: 'Hand over to customer',
+                  title: l10n.timelineDelivered,
+                  subtitle: l10n.timelineDeliveredSubtitle,
                 ),
               ],
             ),
@@ -137,15 +139,15 @@ class ActiveDeliveryScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              PrimaryButton(label: 'Navigate', icon: Icons.navigation_outlined, onPressed: () {}),
+              PrimaryButton(label: l10n.navigate, icon: Icons.navigation_outlined, onPressed: () {}),
               const SizedBox(height: AppSpacing.md),
-              SecondaryButton(label: 'Call Customer', icon: Icons.phone_outlined, onPressed: () {}),
+              SecondaryButton(label: l10n.callCustomer, icon: Icons.phone_outlined, onPressed: () {}),
               const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
-                  Expanded(child: SecondaryButton(label: 'Picked Up', onPressed: () {})),
+                  Expanded(child: SecondaryButton(label: l10n.pickedUp, onPressed: () {})),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: PrimaryButton(label: 'Delivered', onPressed: () {})),
+                  Expanded(child: PrimaryButton(label: l10n.delivered, onPressed: () {})),
                 ],
               ),
             ],

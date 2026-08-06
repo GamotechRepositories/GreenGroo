@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/cards/statistic_card.dart';
 import '../../widgets/common/empty_state.dart';
@@ -12,35 +13,36 @@ class EarningsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Earnings',
-        subtitle: 'Track your income',
+      appBar: CustomAppBar(
+        title: l10n.earnings,
+        subtitle: l10n.trackYourIncome,
         showBackButton: true,
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
-          const EarningsCard(
-            title: "Today's Earnings",
-            amount: '₹ —',
-            subtitle: 'Updated live',
+          EarningsCard(
+            title: l10n.todaysEarnings,
+            amount: l10n.placeholderEarnings,
+            subtitle: l10n.updatedLive,
           ),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
                 child: StatisticCard(
-                  title: 'Weekly',
-                  value: '₹ —',
+                  title: l10n.weekly,
+                  value: l10n.placeholderEarnings,
                   icon: Icons.calendar_view_week_outlined,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: StatisticCard(
-                  title: 'Monthly',
-                  value: '₹ —',
+                  title: l10n.monthly,
+                  value: l10n.placeholderEarnings,
                   icon: Icons.calendar_month_outlined,
                   iconColor: AppColors.info,
                   iconBackground: Color(0xFFDBEAFE),
@@ -53,8 +55,8 @@ class EarningsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: StatisticCard(
-                  title: 'Bonus',
-                  value: '₹ —',
+                  title: l10n.bonus,
+                  value: l10n.placeholderEarnings,
                   icon: Icons.card_giftcard_outlined,
                   iconColor: AppColors.warning,
                   iconBackground: Color(0xFFFEF3C7),
@@ -63,15 +65,15 @@ class EarningsScreen extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: StatisticCard(
-                  title: 'Incentives',
-                  value: '₹ —',
+                  title: l10n.incentives,
+                  value: l10n.placeholderEarnings,
                   icon: Icons.emoji_events_outlined,
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          const SectionHeader(title: 'Earnings Chart'),
+          SectionHeader(title: l10n.earningsChart),
           const SizedBox(height: AppSpacing.md),
           DashboardCard(
             child: SizedBox(
@@ -80,7 +82,15 @@ class EarningsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: List.generate(7, (index) {
                   final heights = [0.4, 0.55, 0.45, 0.7, 0.85, 0.6, 0.75];
-                  final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+                  final days = [
+                    l10n.dayMon,
+                    l10n.dayTue,
+                    l10n.dayWed,
+                    l10n.dayThu,
+                    l10n.dayFri,
+                    l10n.daySat,
+                    l10n.daySun,
+                  ];
                   return Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -111,7 +121,7 @@ class EarningsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const SectionHeader(title: 'Transactions'),
+          SectionHeader(title: l10n.transactions),
           const SizedBox(height: AppSpacing.md),
           ...List.generate(4, (index) {
             return Padding(
@@ -133,12 +143,12 @@ class EarningsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Delivery Payment', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
-                          Text('—', style: Theme.of(context).textTheme.bodySmall),
+                          Text(l10n.deliveryPayment, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
+                          Text(l10n.placeholderDash, style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
                     ),
-                    Text('₹ —', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary)),
+                    Text(l10n.placeholderEarnings, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary)),
                   ],
                 ),
               ),

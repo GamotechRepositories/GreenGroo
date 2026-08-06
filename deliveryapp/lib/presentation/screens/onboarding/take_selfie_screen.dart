@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/buttons/secondary_button.dart';
 
@@ -32,6 +34,7 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final size = MediaQuery.sizeOf(context);
 
     return Scaffold(
@@ -39,10 +42,7 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.uploadDocuments),
       ),
       body: SafeArea(
         top: false,
@@ -53,7 +53,7 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Take a Recent Photo',
+                  l10n.takeRecentPhoto,
                   style: GoogleFonts.inter(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -65,7 +65,7 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Capture a clear live selfie, then complete face verification',
+                  l10n.selfieCaptureSubtitle,
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     color: AppColors.textSecondary,
@@ -104,7 +104,7 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Camera preview',
+                            l10n.cameraPreview,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -117,8 +117,8 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
               const SizedBox(height: 20),
               Text(
                 _selfie == null
-                    ? 'Make sure your face is clearly visible'
-                    : 'Great! Next you\'ll blink and move your head on camera',
+                    ? l10n.faceClearlyVisible
+                    : l10n.selfieNextStepHint,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 14,
@@ -128,23 +128,31 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
               const Spacer(),
               if (_selfie == null)
                 PrimaryButton(
-                  label: 'Open Camera',
+                  label: l10n.openCamera,
                   icon: Icons.camera_alt_rounded,
                   onPressed: _capture,
                 )
               else ...[
                 PrimaryButton(
-                  label: 'Continue to Verification',
+                  label: l10n.continueToVerification,
                   icon: Icons.verified_user_rounded,
-                  onPressed: () => Navigator.pushNamed(
+                  onPressed: () => goOnboardingStep(
                     context,
-                    AppRoutes.livenessCheck,
+                    step: 'liveness',
+                    route: AppRoutes.livenessCheck,
                     arguments: _selfie?.path,
+                    data: {
+                      'selfie': {
+                        'fileName': _selfie?.name ?? 'selfie.jpg',
+                        'localPath': _selfie?.path ?? '',
+                        'status': 'captured',
+                      },
+                    },
                   ),
                 ),
                 const SizedBox(height: 12),
                 SecondaryButton(
-                  label: 'Retake Photo',
+                  label: l10n.retakePhoto,
                   icon: Icons.refresh_rounded,
                   onPressed: _capture,
                 ),

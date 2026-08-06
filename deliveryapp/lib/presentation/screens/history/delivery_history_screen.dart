@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/chips/status_chip.dart';
 import '../../widgets/layout/custom_app_bar.dart';
@@ -31,9 +32,10 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Delivery History',
+      appBar: CustomAppBar(
+        title: l10n.deliveryHistory,
         showBackButton: true,
       ),
       body: Column(
@@ -58,10 +60,10 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen>
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textSecondary,
               labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              tabs: const [
-                Tab(text: 'Today'),
-                Tab(text: 'Week'),
-                Tab(text: 'Month'),
+              tabs: [
+                Tab(text: l10n.today),
+                Tab(text: l10n.week),
+                Tab(text: l10n.month),
               ],
             ),
           ),
@@ -86,6 +88,7 @@ class _HistoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       itemCount: 5,
@@ -98,18 +101,18 @@ class _HistoryList extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    'Order ID —',
+                    l10n.orderId,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15),
                   ),
                   const Spacer(),
-                  const StatusChip(label: 'Delivered', type: StatusType.success),
+                  StatusChip(label: l10n.delivered, type: StatusType.success),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              _HistoryDetail(icon: Icons.person_outline, label: 'Customer', value: 'Customer Name'),
-              _HistoryDetail(icon: Icons.route_outlined, label: 'Distance', value: '— km'),
-              _HistoryDetail(icon: Icons.payments_outlined, label: 'Amount', value: '₹ —'),
-              _HistoryDetail(icon: Icons.calendar_today_outlined, label: 'Date', value: '—'),
+              _HistoryDetail(icon: Icons.person_outline, label: l10n.customer, value: l10n.placeholderCustomerName),
+              _HistoryDetail(icon: Icons.route_outlined, label: l10n.distance, value: l10n.placeholderDistanceKm),
+              _HistoryDetail(icon: Icons.payments_outlined, label: l10n.amount, value: l10n.placeholderEarnings),
+              _HistoryDetail(icon: Icons.calendar_today_outlined, label: l10n.date, value: l10n.placeholderDash),
             ],
           ),
         );
@@ -131,13 +134,14 @@ class _HistoryDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
           Icon(icon, size: 16, color: AppColors.textMuted),
           const SizedBox(width: AppSpacing.sm),
-          Text('$label: ', style: Theme.of(context).textTheme.bodySmall),
+          Text(l10n.labelWithColon(label), style: Theme.of(context).textTheme.bodySmall),
           Text(value, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textPrimary)),
         ],
       ),

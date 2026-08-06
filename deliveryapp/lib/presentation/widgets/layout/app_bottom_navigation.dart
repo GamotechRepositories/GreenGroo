@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Floating pill bottom nav matching design:
 /// Home · Orders · [raised Map] · Wallet · Profile
@@ -17,6 +18,7 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
@@ -48,11 +50,11 @@ class AppBottomNavigation extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      _tab(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
-                      _tab(1, Icons.assignment_outlined, Icons.assignment, 'Orders'),
+                      _tab(0, Icons.home_outlined, Icons.home_rounded, l10n.home),
+                      _tab(1, Icons.assignment_outlined, Icons.assignment, l10n.orders),
                       const Expanded(child: SizedBox()),
-                      _tab(3, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Wallet'),
-                      _tab(4, Icons.person_outline, Icons.person, 'Profile'),
+                      _tab(3, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, l10n.wallet),
+                      _tab(4, Icons.person_outline, Icons.person, l10n.profile),
                     ],
                   ),
                 ),
@@ -89,7 +91,7 @@ class AppBottomNavigation extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Map',
+                        l10n.map,
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight:

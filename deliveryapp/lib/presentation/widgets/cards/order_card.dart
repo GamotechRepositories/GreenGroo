@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../buttons/primary_button.dart';
 import '../buttons/secondary_button.dart';
 import '../cards/dashboard_card.dart';
@@ -35,6 +36,8 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return DashboardCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,20 +60,20 @@ class OrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const StatusChip(label: 'New', type: StatusType.success),
+              StatusChip(label: l10n.statusNew, type: StatusType.success),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
           _AddressRow(
             icon: Icons.storefront_outlined,
-            label: 'Pickup',
+            label: l10n.pickup,
             address: pickupAddress,
             color: AppColors.primary,
           ),
           const SizedBox(height: AppSpacing.md),
           _AddressRow(
             icon: Icons.location_on_outlined,
-            label: 'Drop',
+            label: l10n.drop,
             address: dropAddress,
             color: AppColors.error,
           ),
@@ -95,14 +98,14 @@ class OrderCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: SecondaryButton(
-                    label: 'Reject',
+                    label: l10n.reject,
                     onPressed: onReject,
                     color: AppColors.error,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: PrimaryButton(label: 'Accept', onPressed: onAccept),
+                  child: PrimaryButton(label: l10n.accept, onPressed: onAccept),
                 ),
               ],
             ),

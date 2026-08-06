@@ -4,6 +4,7 @@ abstract final class AppRoutes {
   static const login = '/login';
   static const selectVehicle = '/select-vehicle';
   static const selectCity = '/select-city';
+  static const selectArea = '/select-area';
   static const uploadDocuments = '/upload-documents';
   static const takeSelfie = '/take-selfie';
   static const livenessCheck = '/liveness-check';

@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,27 +19,90 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
-  bool _showOtp = false;
+  final _passwordController = TextEditingController();
+  bool _isRegister = false;
+  bool _obscure = true;
+  bool _loading = false;
 
   @override
   void dispose() {
     _phoneController.dispose();
-    _otpController.dispose();
+    _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+
+    if (phone.length != 10) {
+      _showError(l10n.mobileNumberHint);
+      return;
+    }
+    if (password.length < 6) {
+      _showError(l10n.passwordHint);
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final result = _isRegister
+          ? await AuthService.instance.register(
+              phone: phone,
+              password: password,
+            )
+          : await AuthService.instance.login(
+              phone: phone,
+              password: password,
+            );
+
+      if (!mounted) return;
+
+      final boy = result.deliveryBoy;
+      final route = AuthService.routeForStep(
+        boy.onboardingStep,
+        complete: boy.onboardingComplete,
+      );
+      Navigator.pushReplacementNamed(
+        context,
+        route,
+        arguments: AuthService.argumentsForStep(boy),
+      );
+    } on AuthApiException catch (e) {
+      if (mounted) _showError(e.message);
+    } catch (_) {
+      if (mounted) _showError(l10n.authError);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: const AppBackButton(fallbackRoute: AppRoutes.selectLanguage),
+      ),
       body: SafeArea(
+        top: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSpacing.xl),
               Center(
                 child: Container(
                   width: 72,
@@ -46,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   ),
                   child: Icon(
-                    Icons.phone_android_rounded,
+                    Icons.local_shipping_rounded,
                     size: 36,
                     color: AppColors.primary,
                   ),
@@ -54,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.xxl),
               Text(
-                _showOtp ? 'Enter OTP' : 'Login with Phone',
+                _isRegister ? l10n.createAccount : l10n.login,
                 style: GoogleFonts.inter(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
@@ -63,9 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                _showOtp
-                    ? 'We sent a 6-digit code to your number'
-                    : 'Enter your mobile number to continue',
+                l10n.enterPhoneAndPassword,
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   color: AppColors.textSecondary,
@@ -73,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.xxxl),
               Text(
-                'Mobile Number',
+                l10n.mobileNumber,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -83,91 +147,76 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: _phoneController,
-                enabled: !_showOtp,
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
-                  hintText: '10-digit mobile number',
+                  hintText: l10n.mobileNumberHint,
                   counterText: '',
                   prefixIcon: const Icon(Icons.phone_outlined),
-                  prefixText: '+91  ',
+                  prefixText: l10n.countryCodePrefix,
                   prefixStyle: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
               ),
-              if (_showOtp) ...[
-                const SizedBox(height: AppSpacing.xl),
-                Text(
-                  'OTP',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+              const SizedBox(height: AppSpacing.xl),
+              Text(
+                l10n.password,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter 6-digit OTP',
-                    prefixIcon: Icon(Icons.lock_outline),
-                    counterText: '',
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    child: Text(
-                      'Resend OTP',
-                      style: GoogleFonts.inter(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscure,
+                decoration: InputDecoration(
+                  hintText: l10n.passwordHint,
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
                     ),
+                    onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                 ),
-              ],
+              ),
               const SizedBox(height: AppSpacing.xxl),
               PrimaryButton(
-                label: _showOtp ? 'Verify & Continue' : 'Send OTP',
-                onPressed: () {
-                  if (_showOtp) {
-                    Navigator.pushNamed(context, AppRoutes.selectVehicle);
-                  } else {
-                    setState(() => _showOtp = true);
-                  }
-                },
+                label: _loading
+                    ? '...'
+                    : (_isRegister ? l10n.register : l10n.login),
+                onPressed: _loading ? null : _submit,
               ),
-              if (_showOtp) ...[
-                const SizedBox(height: AppSpacing.md),
-                Center(
-                  child: TextButton(
-                    onPressed: () => setState(() {
-                      _showOtp = false;
-                      _otpController.clear();
-                    }),
-                    child: Text(
-                      'Change number',
-                      style: GoogleFonts.inter(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
+              const SizedBox(height: AppSpacing.md),
+              Center(
+                child: TextButton(
+                  onPressed: _loading
+                      ? null
+                      : () => setState(() => _isRegister = !_isRegister),
+                  child: Text(
+                    _isRegister
+                        ? l10n.alreadyHaveAccount
+                        : l10n.dontHaveAccount,
+                    style: GoogleFonts.inter(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-              ],
+              ),
               const SizedBox(height: AppSpacing.lg),
               Center(
                 child: TextButton(
                   onPressed: () {},
                   child: Text(
-                    'Need help?',
+                    l10n.needHelp,
                     style: GoogleFonts.inter(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,

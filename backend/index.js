@@ -71,7 +71,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 connectDB("greengrocc-backend").then(() => {
-  app.listen(PORT, () => {
+  // Listen on all interfaces so physical phones on Wi‑Fi can connect.
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`GreenGrocc backend running on port ${PORT}`);
   });
 });

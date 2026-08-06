@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/constants/service_locations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class CitySelectionScreen extends StatefulWidget {
@@ -14,34 +17,9 @@ class CitySelectionScreen extends StatefulWidget {
 }
 
 class _CitySelectionScreenState extends State<CitySelectionScreen> {
-  String? _selected;
+  String? _selectedId;
   final _searchController = TextEditingController();
   String _query = '';
-
-  static const _cities = [
-    'Mumbai',
-    'Pune',
-    'Nagpur',
-    'Nashik',
-    'Thane',
-    'Aurangabad',
-    'Delhi',
-    'Bengaluru',
-    'Hyderabad',
-    'Chennai',
-    'Kolkata',
-    'Ahmedabad',
-    'Surat',
-    'Jaipur',
-    'Lucknow',
-    'Indore',
-  ];
-
-  List<String> get _filtered {
-    if (_query.trim().isEmpty) return _cities;
-    final q = _query.toLowerCase();
-    return _cities.where((c) => c.toLowerCase().contains(q)).toList();
-  }
 
   @override
   void dispose() {
@@ -51,15 +29,15 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final filtered = ServiceLocations.search(_query);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.selectVehicle),
       ),
       body: SafeArea(
         top: false,
@@ -72,7 +50,7 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Select City',
+                    l10n.selectCity,
                     style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -81,7 +59,7 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Where will you deliver?',
+                    l10n.whereWillYouDeliver,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       color: AppColors.textSecondary,
@@ -92,12 +70,13 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
                     controller: _searchController,
                     onChanged: (v) => setState(() => _query = v),
                     decoration: InputDecoration(
-                      hintText: 'Search city',
+                      hintText: l10n.searchCity,
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
                       fillColor: AppColors.surfaceVariant,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -108,25 +87,32 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
             const SizedBox(height: 8),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                itemCount: _filtered.length,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                itemCount: filtered.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final city = _filtered[index];
-                  final selected = _selected == city;
+                  final city = filtered[index];
+                  final selected = _selectedId == city.id;
                   return Material(
                     color: selected ? AppColors.primaryLight : Colors.white,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     child: InkWell(
-                      onTap: () => setState(() => _selected = city),
+                      onTap: () => setState(() => _selectedId = city.id),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusMd),
                           border: Border.all(
-                            color: selected ? AppColors.primary : AppColors.border,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.border,
                             width: selected ? 2 : 1,
                           ),
                         ),
@@ -134,21 +120,36 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
                           children: [
                             Icon(
                               Icons.location_city_rounded,
-                              color: selected ? AppColors.primary : AppColors.textMuted,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.textMuted,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                city,
-                                style: GoogleFonts.inter(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    city.name,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    city.state,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             if (selected)
-                              Icon(Icons.check_circle, color: AppColors.primary),
+                              Icon(Icons.check_circle,
+                                  color: AppColors.primary),
                           ],
                         ),
                       ),
@@ -160,10 +161,20 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: PrimaryButton(
-                label: 'Continue',
-                onPressed: _selected == null
+                label: l10n.continueButton,
+                onPressed: _selectedId == null
                     ? null
-                    : () => Navigator.pushNamed(context, AppRoutes.uploadDocuments),
+                    : () => goOnboardingStep(
+                          context,
+                          step: 'area',
+                          route: AppRoutes.selectArea,
+                          arguments: _selectedId,
+                          data: {
+                            'city': ServiceLocations.byId(_selectedId!)?.name ??
+                                _selectedId,
+                            'cityId': _selectedId,
+                          },
+                        ),
               ),
             ),
           ],

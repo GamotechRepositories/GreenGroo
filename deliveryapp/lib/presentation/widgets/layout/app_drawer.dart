@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -36,11 +40,11 @@ class AppDrawer extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'GreenRow',
+                          l10n.brandName,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         Text(
-                          'Delivery Partner',
+                          l10n.deliveryPartner,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -56,62 +60,62 @@ class AppDrawer extends StatelessWidget {
                 children: [
                   _DrawerItem(
                     icon: Icons.dashboard_outlined,
-                    label: 'Dashboard',
+                    label: l10n.dashboard,
                     onTap: () => _nav(context, AppRoutes.home),
                   ),
                   _DrawerItem(
                     icon: Icons.add_shopping_cart_outlined,
-                    label: 'New Orders',
+                    label: l10n.newOrders,
                     onTap: () => _nav(context, AppRoutes.newOrders),
                   ),
                   _DrawerItem(
                     icon: Icons.delivery_dining_outlined,
-                    label: 'Active Orders',
+                    label: l10n.activeOrders,
                     onTap: () => _nav(context, AppRoutes.activeDelivery),
                   ),
                   _DrawerItem(
                     icon: Icons.history_outlined,
-                    label: 'History',
+                    label: l10n.history,
                     onTap: () => _nav(context, AppRoutes.deliveryHistory),
                   ),
                   _DrawerItem(
                     icon: Icons.calendar_month_outlined,
-                    label: 'Attendance',
+                    label: l10n.attendance,
                     onTap: () => _nav(context, AppRoutes.attendance),
                   ),
                   _DrawerItem(
                     icon: Icons.insights_outlined,
-                    label: 'Performance',
+                    label: l10n.performance,
                     onTap: () => _nav(context, AppRoutes.performance),
                   ),
                   _DrawerItem(
                     icon: Icons.account_balance_wallet_outlined,
-                    label: 'Wallet',
+                    label: l10n.wallet,
                     onTap: () => _nav(context, AppRoutes.wallet),
                   ),
                   _DrawerItem(
                     icon: Icons.notifications_outlined,
-                    label: 'Notifications',
+                    label: l10n.notifications,
                     onTap: () => _nav(context, AppRoutes.notifications),
                   ),
                   _DrawerItem(
                     icon: Icons.description_outlined,
-                    label: 'Documents',
+                    label: l10n.documents,
                     onTap: () => _nav(context, AppRoutes.documents),
                   ),
                   _DrawerItem(
                     icon: Icons.two_wheeler_outlined,
-                    label: 'Vehicle',
+                    label: l10n.vehicle,
                     onTap: () => _nav(context, AppRoutes.vehicle),
                   ),
                   _DrawerItem(
                     icon: Icons.support_agent_outlined,
-                    label: 'Support',
+                    label: l10n.support,
                     onTap: () => _nav(context, AppRoutes.support),
                   ),
                   _DrawerItem(
                     icon: Icons.settings_outlined,
-                    label: 'Settings',
+                    label: l10n.settings,
                     onTap: () => _nav(context, AppRoutes.settings),
                   ),
                 ],
@@ -121,18 +125,13 @@ class AppDrawer extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.logout, color: AppColors.error),
               title: Text(
-                'Logout',
+                l10n.logout,
                 style: TextStyle(
                   color: AppColors.error,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              onTap: () {
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  AppRoutes.login,
-                  (route) => false,
-                );
-              },
+              onTap: () => logoutAndGoLogin(context),
             ),
           ],
         ),

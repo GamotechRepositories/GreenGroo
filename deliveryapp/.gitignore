@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local env (keep .env.example in git)
+.env
+.env.local
+.env.*.local

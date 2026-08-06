@@ -8,6 +8,7 @@ import '../../presentation/screens/history/delivery_history_screen.dart';
 import '../../presentation/screens/login/login_screen.dart';
 import '../../presentation/screens/navigation/live_navigation_screen.dart';
 import '../../presentation/screens/notifications/notifications_screen.dart';
+import '../../presentation/screens/onboarding/area_selection_screen.dart';
 import '../../presentation/screens/onboarding/city_selection_screen.dart';
 import '../../presentation/screens/onboarding/language_selection_screen.dart';
 import '../../presentation/screens/onboarding/liveness_check_screen.dart';
@@ -31,10 +32,15 @@ class AppRouter {
       settings: settings,
       builder: (context) => switch (settings.name) {
         AppRoutes.splash => const SplashScreen(),
-        AppRoutes.selectLanguage => const LanguageSelectionScreen(),
+        AppRoutes.selectLanguage => LanguageSelectionScreen(
+          fromSettings: settings.arguments == true,
+        ),
         AppRoutes.login => const LoginScreen(),
         AppRoutes.selectVehicle => const VehicleSelectionScreen(),
         AppRoutes.selectCity => const CitySelectionScreen(),
+        AppRoutes.selectArea => AreaSelectionScreen(
+            cityId: (settings.arguments as String?) ?? '',
+          ),
         AppRoutes.uploadDocuments => const UploadDocumentsScreen(),
         AppRoutes.takeSelfie => const TakeSelfieScreen(),
         AppRoutes.livenessCheck => LivenessCheckScreen(

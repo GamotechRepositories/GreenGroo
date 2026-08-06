@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 import '../../widgets/tiles/profile_tile.dart';
@@ -11,10 +12,11 @@ class SupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Support',
-        subtitle: 'We are here to help',
+      appBar: CustomAppBar(
+        title: l10n.support,
+        subtitle: l10n.weAreHereToHelp,
         showBackButton: true,
       ),
       body: ListView(
@@ -25,26 +27,26 @@ class SupportScreen extends StatelessWidget {
             child: Column(
               children: [
                 ProfileTile(
-                  title: 'FAQ',
-                  subtitle: 'Common questions',
+                  title: l10n.faq,
+                  subtitle: l10n.commonQuestions,
                   leadingIcon: Icons.help_outline,
                   onTap: () {},
                 ),
                 ProfileTile(
-                  title: 'Chat Support',
-                  subtitle: 'Chat with our team',
+                  title: l10n.chatSupport,
+                  subtitle: l10n.chatWithTeam,
                   leadingIcon: Icons.chat_bubble_outline,
                   onTap: () {},
                 ),
                 ProfileTile(
-                  title: 'Call Support',
-                  subtitle: 'Talk to support agent',
+                  title: l10n.callSupport,
+                  subtitle: l10n.talkToSupportAgent,
                   leadingIcon: Icons.phone_outlined,
                   onTap: () {},
                 ),
                 ProfileTile(
-                  title: 'Raise Ticket',
-                  subtitle: 'Submit a support request',
+                  title: l10n.raiseTicket,
+                  subtitle: l10n.submitSupportRequest,
                   leadingIcon: Icons.confirmation_number_outlined,
                   onTap: () {},
                   showDivider: false,
@@ -69,9 +71,9 @@ class SupportScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('24/7 Support', style: Theme.of(context).textTheme.titleMedium),
+                      Text(l10n.support247, style: Theme.of(context).textTheme.titleMedium),
                       Text(
-                        'Our team is available round the clock',
+                        l10n.supportAvailableRoundClock,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],

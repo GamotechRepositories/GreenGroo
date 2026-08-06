@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/chips/status_chip.dart';
 import '../../widgets/layout/custom_app_bar.dart';
@@ -11,10 +12,11 @@ class VehicleDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Vehicle Details',
-        subtitle: 'Your delivery vehicle',
+      appBar: CustomAppBar(
+        title: l10n.vehicleDetails,
+        subtitle: l10n.yourDeliveryVehicle,
         showBackButton: true,
       ),
       body: ListView(
@@ -33,7 +35,7 @@ class VehicleDetailsScreen extends StatelessWidget {
                   child: Icon(Icons.two_wheeler, size: 72, color: AppColors.primary),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                const StatusChip(label: 'Active', type: StatusType.success),
+                StatusChip(label: l10n.active, type: StatusType.success),
               ],
             ),
           ),
@@ -41,15 +43,15 @@ class VehicleDetailsScreen extends StatelessWidget {
           DashboardCard(
             child: Column(
               children: [
-                _VehicleRow(label: 'Bike Details', value: '—'),
+                _VehicleRow(label: l10n.bikeDetailsTitle, value: l10n.placeholderDash),
                 const Divider(height: AppSpacing.xxl),
-                _VehicleRow(label: 'Registration Number', value: '— — — —'),
+                _VehicleRow(label: l10n.registrationNumber, value: l10n.accountNumberMasked),
                 const Divider(height: AppSpacing.xxl),
-                _VehicleRow(label: 'Insurance', value: '—'),
+                _VehicleRow(label: l10n.insurance, value: l10n.placeholderDash),
                 const Divider(height: AppSpacing.xxl),
-                _VehicleRow(label: 'Pollution Certificate', value: '—'),
+                _VehicleRow(label: l10n.pollutionCertificate, value: l10n.placeholderDash),
                 const Divider(height: AppSpacing.xxl),
-                _VehicleRow(label: 'Vehicle Status', value: 'Verified'),
+                _VehicleRow(label: l10n.vehicleStatus, value: l10n.verified),
               ],
             ),
           ),

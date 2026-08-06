@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/chips/status_chip.dart';
 import '../../widgets/layout/custom_app_bar.dart';
@@ -9,28 +10,30 @@ import '../../widgets/layout/custom_app_bar.dart';
 class DocumentsScreen extends StatelessWidget {
   const DocumentsScreen({super.key});
 
-  static const _documents = [
-    _DocumentItem(title: 'Driving License', icon: Icons.credit_card_outlined),
-    _DocumentItem(title: 'PAN', icon: Icons.description_outlined),
-    _DocumentItem(title: 'Aadhaar', icon: Icons.fingerprint_outlined),
-    _DocumentItem(title: 'Vehicle RC', icon: Icons.two_wheeler_outlined),
-    _DocumentItem(title: 'Insurance', icon: Icons.security_outlined),
-  ];
+  List<_DocumentItem> _documents(AppLocalizations l10n) => [
+        _DocumentItem(title: l10n.docDrivingLicense, icon: Icons.credit_card_outlined),
+        _DocumentItem(title: l10n.docPan, icon: Icons.description_outlined),
+        _DocumentItem(title: l10n.docAadhaar, icon: Icons.fingerprint_outlined),
+        _DocumentItem(title: l10n.docVehicleRc, icon: Icons.two_wheeler_outlined),
+        _DocumentItem(title: l10n.insurance, icon: Icons.security_outlined),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final documents = _documents(l10n);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Documents',
-        subtitle: 'Upload and verify documents',
+      appBar: CustomAppBar(
+        title: l10n.documents,
+        subtitle: l10n.uploadAndVerifyDocuments,
         showBackButton: true,
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        itemCount: _documents.length,
+        itemCount: documents.length,
         separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
         itemBuilder: (context, index) {
-          final doc = _documents[index];
+          final doc = documents[index];
           return DashboardCard(
             child: Row(
               children: [
@@ -52,9 +55,9 @@ class DocumentsScreen extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       Row(
                         children: [
-                          const StatusChip(label: 'Upload', type: StatusType.pending, showDot: false),
+                          StatusChip(label: l10n.upload, type: StatusType.pending, showDot: false),
                           const SizedBox(width: AppSpacing.sm),
-                          const StatusChip(label: 'Pending', type: StatusType.warning, showDot: false),
+                          StatusChip(label: l10n.pending, type: StatusType.warning, showDot: false),
                         ],
                       ),
                     ],

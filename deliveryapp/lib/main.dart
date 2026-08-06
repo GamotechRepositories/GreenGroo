@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/l10n/locale_controller.dart';
 import 'core/routes/app_router.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'data/services/auth_service.dart';
+import 'l10n/app_localizations.dart';
 import 'presentation/screens/splash/splash_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
+  await LocaleController.instance.loadSavedLocale();
+  await AuthService.instance.loadSession();
   runApp(const GreenRowDeliveryApp());
 }
 
@@ -17,7 +25,10 @@ class GreenRowDeliveryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ThemeController.instance,
+      listenable: Listenable.merge([
+        ThemeController.instance,
+        LocaleController.instance,
+      ]),
       builder: (context, _) {
         final isDark = ThemeController.instance.isDark;
         SystemChrome.setSystemUIOverlayStyle(
@@ -31,11 +42,19 @@ class GreenRowDeliveryApp extends StatelessWidget {
         );
 
         return MaterialApp(
-          title: 'GreenRow Delivery',
+          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: ThemeController.instance.mode,
+          locale: LocaleController.instance.locale,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
           home: const SplashScreen(),
           onGenerateRoute: AppRouter.onGenerateRoute,
         );

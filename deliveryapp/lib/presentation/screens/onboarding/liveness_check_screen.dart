@@ -9,7 +9,9 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/camera_image_utils.dart';
+import '../../../core/utils/onboarding_nav.dart';
 import '../../../domain/models/liveness_challenge.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class LivenessCheckScreen extends StatefulWidget {
@@ -83,8 +85,7 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _cameraError =
-            'Could not open camera. Please allow camera access and try again.';
+        _cameraError = AppLocalizations.of(context).cameraAccessError;
       });
     }
   }
@@ -192,6 +193,7 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final size = MediaQuery.sizeOf(context);
     final challenge = _allComplete
         ? null
@@ -202,10 +204,7 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.takeSelfie),
       ),
       body: SafeArea(
         top: false,
@@ -216,7 +215,7 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  _allComplete ? 'Verification Complete' : 'Face Verification',
+                  _allComplete ? l10n.verificationComplete : l10n.faceVerification,
                   style: GoogleFonts.inter(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
@@ -229,8 +228,8 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   _allComplete
-                      ? 'Your live identity check was successful'
-                      : 'Follow the on-screen prompts to verify it\'s really you',
+                      ? l10n.livenessSuccessMessage
+                      : l10n.livenessFollowPrompts,
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     color: AppColors.textSecondary,
@@ -269,7 +268,7 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
                     Icon(Icons.check_circle_rounded, color: AppColors.success),
                     const SizedBox(width: 8),
                     Text(
-                      'All checks passed',
+                      l10n.allChecksPassed,
                       style: GoogleFonts.inter(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -283,16 +282,12 @@ class _LivenessCheckScreenState extends State<LivenessCheckScreen> {
               const Spacer(),
               if (_allComplete)
                 PrimaryButton(
-                  label: 'Continue to App',
-                  onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    AppRoutes.home,
-                    (route) => false,
-                  ),
+                  label: l10n.continueToApp,
+                  onPressed: () => completeOnboarding(context),
                 )
               else if (_cameraError != null)
                 PrimaryButton(
-                  label: 'Try Again',
+                  label: l10n.tryAgain,
                   icon: Icons.refresh_rounded,
                   onPressed: () {
                     setState(() {
@@ -420,6 +415,8 @@ class _ChallengeHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Column(
       children: [
         Container(
@@ -434,7 +431,7 @@ class _ChallengeHint extends StatelessWidget {
               Icon(challenge.hintIcon, color: AppColors.primary, size: 22),
               const SizedBox(width: 10),
               Text(
-                challenge.instruction,
+                challenge.instruction(l10n),
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -446,7 +443,7 @@ class _ChallengeHint extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Keep your face inside the circle',
+          l10n.keepFaceInCircle,
           style: GoogleFonts.inter(
             fontSize: 13,
             color: AppColors.textSecondary,

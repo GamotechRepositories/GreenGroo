@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// Splash bottom panel — marketing banner (NOT bottom tabs).
 class SplashBottomBanner extends StatelessWidget {
@@ -9,6 +10,7 @@ class SplashBottomBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
@@ -35,21 +37,21 @@ class SplashBottomBanner extends StatelessWidget {
               Expanded(
                 child: _FeatureChip(
                   icon: Icons.bolt_rounded,
-                  label: 'Fast\nDelivery',
+                  label: l10n.featureFastDelivery,
                 ),
               ),
               SizedBox(width: 10),
               Expanded(
                 child: _FeatureChip(
                   icon: Icons.verified_user_outlined,
-                  label: 'Safe &\nSecure',
+                  label: l10n.featureSafeSecure,
                 ),
               ),
               SizedBox(width: 10),
               Expanded(
                 child: _FeatureChip(
                   icon: Icons.payments_outlined,
-                  label: 'Earn\nMore',
+                  label: l10n.featureEarnMore,
                 ),
               ),
             ],
@@ -90,7 +92,7 @@ class SplashBottomBanner extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Deliver Safe, Earn More',
+                        l10n.deliverSafeEarnMore,
                         style: GoogleFonts.inter(
                           fontSize: (width * 0.042).clamp(15.0, 18.0),
                           fontWeight: FontWeight.w700,
@@ -99,7 +101,7 @@ class SplashBottomBanner extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Follow all safety guidelines and keep your ratings high!',
+                        l10n.followSafetyGuidelines,
                         style: GoogleFonts.inter(
                           fontSize: (width * 0.03).clamp(11.5, 13.0),
                           fontWeight: FontWeight.w500,
@@ -127,7 +129,7 @@ class SplashBottomBanner extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Trusted by delivery partners across India',
+                l10n.trustedByPartnersIndia,
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -138,7 +140,7 @@ class SplashBottomBanner extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'GreenRow  ·  Delivery Partner App',
+            l10n.splashFooterTagline,
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,

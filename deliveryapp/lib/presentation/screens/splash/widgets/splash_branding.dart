@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
 
 /// App name — brand green #0C831F
 class SplashBranding extends StatelessWidget {
@@ -16,6 +17,7 @@ class SplashBranding extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final titleSize = (width * 0.095).clamp(32.0, 44.0);
 
@@ -25,7 +27,7 @@ class SplashBranding extends StatelessWidget {
         Opacity(
           opacity: titleOpacity.clamp(0.0, 1.0),
           child: Text(
-            'GreenRow',
+            l10n.brandName,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: titleSize,
@@ -40,7 +42,7 @@ class SplashBranding extends StatelessWidget {
         Opacity(
           opacity: taglineOpacity.clamp(0.0, 1.0),
           child: Text(
-            'Delivery Partner',
+            l10n.deliveryPartner,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: (width * 0.04).clamp(14.0, 17.0),

@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../../core/l10n/locale_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/auth_service.dart';
 import 'widgets/splash_background.dart';
 import 'widgets/splash_bottom_banner.dart';
 import 'widgets/splash_branding.dart';
 import 'widgets/splash_progress_line.dart';
 import 'widgets/splash_scooter.dart';
 
-/// Splash: scooter drives slowly across mid-screen on a progress line,
-/// then app name appears after it reaches the right edge.
+/// Splash: scooter drives across mid-screen, then routes by auth/session.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,8 +22,8 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  // Scooter ~38s across (very slow), then branding → login
-  static const _totalDuration = Duration(milliseconds: 55000);
+  static const _fullDuration = Duration(milliseconds: 55000);
+  static const _shortDuration = Duration(milliseconds: 1800);
 
   late final AnimationController _controller;
   late final Animation<double> _scooterProgress;
@@ -31,6 +32,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   bool _started = false;
   bool _navigated = false;
+  bool _hasSession = false;
 
   @override
   void initState() {
@@ -43,30 +45,43 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    _controller = AnimationController(vsync: this, duration: _totalDuration);
+    _hasSession = AuthService.instance.isLoggedIn;
+    final duration = _hasSession ? _shortDuration : _fullDuration;
 
-    // Very slow left → right (~38 seconds)
+    _controller = AnimationController(vsync: this, duration: duration);
+
     _scooterProgress = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.02, 0.72, curve: Curves.linear),
+        curve: Interval(
+          0.02,
+          _hasSession ? 0.55 : 0.72,
+          curve: Curves.linear,
+        ),
       ),
     );
 
-    // App name ONLY after scooter reaches the right edge
     _titleOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.74, 0.84, curve: Curves.easeOut),
+      curve: Interval(
+        _hasSession ? 0.4 : 0.74,
+        _hasSession ? 0.7 : 0.84,
+        curve: Curves.easeOut,
+      ),
     );
 
     _taglineOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.82, 0.90, curve: Curves.easeOut),
+      curve: Interval(
+        _hasSession ? 0.55 : 0.82,
+        _hasSession ? 0.85 : 0.90,
+        curve: Curves.easeOut,
+      ),
     );
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        _goToLogin();
+        _goNext();
       }
     });
 
@@ -83,6 +98,12 @@ class _SplashScreenState extends State<SplashScreen>
       ).timeout(const Duration(seconds: 4));
     } catch (_) {}
 
+    if (_hasSession) {
+      try {
+        await AuthService.instance.fetchMe();
+      } catch (_) {}
+    }
+
     if (!mounted || _started) return;
     _started = true;
     await Future<void>.delayed(const Duration(milliseconds: 120));
@@ -90,10 +111,28 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
   }
 
-  void _goToLogin() {
+  void _goNext() {
     if (!mounted || _navigated) return;
     _navigated = true;
-    Navigator.of(context).pushReplacementNamed(AppRoutes.selectLanguage);
+
+    final auth = AuthService.instance;
+    if (auth.isLoggedIn) {
+      final boy = auth.deliveryBoy;
+      final route = AuthService.routeForStep(
+        boy?.onboardingStep ?? 'vehicle',
+        complete: boy?.onboardingComplete ?? false,
+      );
+      Navigator.of(context).pushReplacementNamed(
+        route,
+        arguments: AuthService.argumentsForStep(boy),
+      );
+      return;
+    }
+
+    final hasLanguage = LocaleController.instance.hasSelectedLanguage;
+    Navigator.of(context).pushReplacementNamed(
+      hasLanguage ? AppRoutes.login : AppRoutes.selectLanguage,
+    );
   }
 
   @override
@@ -125,8 +164,6 @@ class _SplashScreenState extends State<SplashScreen>
             clipBehavior: Clip.none,
             children: [
               const SplashBackground(),
-
-              // App name — above scooter
               Positioned(
                 left: 24,
                 right: 24,
@@ -136,8 +173,6 @@ class _SplashScreenState extends State<SplashScreen>
                   taglineOpacity: _taglineOpacity.value,
                 ),
               ),
-
-              // Scooter — above bottom banner, near vertical center
               Positioned(
                 left: left,
                 top: size.height * 0.28,
@@ -148,16 +183,12 @@ class _SplashScreenState extends State<SplashScreen>
                   height: scooterHeight,
                 ),
               ),
-
-              // Progress line under scooter
               Positioned(
                 left: 0,
                 right: 0,
                 top: size.height * 0.28 + scooterHeight - 8,
                 child: Center(child: SplashProgressLine(progress: progress)),
               ),
-
-              // Full bottom panel — fills empty space
               const Align(
                 alignment: Alignment.bottomCenter,
                 child: SplashBottomBanner(),

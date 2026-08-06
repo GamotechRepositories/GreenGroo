@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/cards/statistic_card.dart';
 import '../../widgets/layout/custom_app_bar.dart';
@@ -11,10 +12,11 @@ class PerformanceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Performance',
-        subtitle: 'Your delivery metrics',
+      appBar: CustomAppBar(
+        title: l10n.performance,
+        subtitle: l10n.deliveryMetrics,
         showBackButton: true,
       ),
       body: ListView(
@@ -43,8 +45,8 @@ class PerformanceScreen extends StatelessWidget {
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('—%', style: Theme.of(context).textTheme.headlineMedium),
-                          Text('Score', style: Theme.of(context).textTheme.bodySmall),
+                          Text(l10n.placeholderPercent, style: Theme.of(context).textTheme.headlineMedium),
+                          Text(l10n.score, style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
                     ],
@@ -52,7 +54,7 @@ class PerformanceScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  'Performance Score',
+                  l10n.performanceScore,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
@@ -68,27 +70,27 @@ class PerformanceScreen extends StatelessWidget {
             childAspectRatio: 1.3,
             children: [
               StatisticCard(
-                title: 'Acceptance Rate',
-                value: '—%',
+                title: l10n.acceptanceRate,
+                value: l10n.placeholderPercent,
                 icon: Icons.check_circle_outline,
               ),
               StatisticCard(
-                title: 'On Time Delivery',
-                value: '—%',
+                title: l10n.onTimeDelivery,
+                value: l10n.placeholderPercent,
                 icon: Icons.schedule_outlined,
                 iconColor: AppColors.info,
                 iconBackground: Color(0xFFDBEAFE),
               ),
               StatisticCard(
-                title: 'Customer Rating',
-                value: '—',
+                title: l10n.customerRating,
+                value: l10n.placeholderDash,
                 icon: Icons.star_outline,
                 iconColor: Color(0xFF8B5CF6),
                 iconBackground: Color(0xFFEDE9FE),
               ),
               StatisticCard(
-                title: 'Cancellation Rate',
-                value: '—%',
+                title: l10n.cancellationRate,
+                value: l10n.placeholderPercent,
                 icon: Icons.cancel_outlined,
                 iconColor: AppColors.error,
                 iconBackground: Color(0xFFFEE2E2),
@@ -113,9 +115,9 @@ class PerformanceScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Leaderboard Position', style: Theme.of(context).textTheme.bodyMedium),
-                      Text('# —', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 24)),
-                      Text('In your zone', style: Theme.of(context).textTheme.bodySmall),
+                      Text(l10n.leaderboardPosition, style: Theme.of(context).textTheme.bodyMedium),
+                      Text(l10n.leaderboardRank, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 24)),
+                      Text(l10n.inYourZone, style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),

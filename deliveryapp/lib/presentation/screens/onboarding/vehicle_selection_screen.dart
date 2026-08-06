@@ -5,6 +5,8 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/onboarding_nav.dart';
+import '../../../l10n/app_localizations.dart';
 
 class VehicleSelectionScreen extends StatefulWidget {
   const VehicleSelectionScreen({super.key});
@@ -19,46 +21,55 @@ class _VehicleSelectionScreenState extends State<VehicleSelectionScreen> {
   static const _options = [
     _VehicleOption(
       id: 'motorcycle',
-      title: 'Motorcycle',
       image: AppAssets.motorcycle,
     ),
     _VehicleOption(
       id: 'bicycle',
-      title: 'Bicycle',
       image: AppAssets.bicycle,
     ),
     _VehicleOption(
       id: 'electric',
-      title: 'Electric scooter',
       image: AppAssets.ebike,
     ),
     _VehicleOption(
       id: 'van',
-      title: 'Van',
       image: AppAssets.van,
     ),
     _VehicleOption(
       id: 'no_vehicle',
-      title: "I don't have a vehicle",
-      subtitle: "No vehicle? We'll help!",
       isNoVehicle: true,
     ),
   ];
 
+  String _titleFor(AppLocalizations l10n, _VehicleOption option) {
+    return switch (option.id) {
+      'motorcycle' => l10n.vehicleMotorcycle,
+      'bicycle' => l10n.vehicleBicycle,
+      'electric' => l10n.vehicleElectricScooter,
+      'van' => l10n.vehicleVan,
+      'no_vehicle' => l10n.noVehicle,
+      _ => option.id,
+    };
+  }
+
+  String? _subtitleFor(AppLocalizations l10n, _VehicleOption option) {
+    if (option.id == 'no_vehicle') return l10n.noVehicleSubtitle;
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.login),
         title: Text(
-          'Select vehicle',
+          l10n.selectVehicle,
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -79,7 +90,10 @@ class _VehicleSelectionScreenState extends State<VehicleSelectionScreen> {
                 itemBuilder: (context, index) {
                   final option = _options[index];
                   return _VehicleCard(
-                    option: option,
+                    title: _titleFor(l10n, option),
+                    subtitle: _subtitleFor(l10n, option),
+                    image: option.image,
+                    isNoVehicle: option.isNoVehicle,
                     selected: _selected == option.id,
                     onTap: () => setState(() => _selected = option.id),
                   );
@@ -92,7 +106,12 @@ class _VehicleSelectionScreenState extends State<VehicleSelectionScreen> {
                 enabled: _selected != null,
                 onPressed: _selected == null
                     ? null
-                    : () => Navigator.pushNamed(context, AppRoutes.selectCity),
+                    : () => goOnboardingStep(
+                          context,
+                          step: 'city',
+                          route: AppRoutes.selectCity,
+                          data: {'vehicleType': _selected},
+                        ),
               ),
             ),
           ],
@@ -105,27 +124,29 @@ class _VehicleSelectionScreenState extends State<VehicleSelectionScreen> {
 class _VehicleOption {
   const _VehicleOption({
     required this.id,
-    required this.title,
-    this.subtitle,
     this.image,
     this.isNoVehicle = false,
   });
 
   final String id;
-  final String title;
-  final String? subtitle;
   final String? image;
   final bool isNoVehicle;
 }
 
 class _VehicleCard extends StatelessWidget {
   const _VehicleCard({
-    required this.option,
+    required this.title,
     required this.selected,
     required this.onTap,
+    this.subtitle,
+    this.image,
+    this.isNoVehicle = false,
   });
 
-  final _VehicleOption option;
+  final String title;
+  final String? subtitle;
+  final String? image;
+  final bool isNoVehicle;
   final bool selected;
   final VoidCallback onTap;
 
@@ -156,10 +177,10 @@ class _VehicleCard extends StatelessWidget {
                   height: _imageHeight,
                   color: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  child: option.isNoVehicle
+                  child: isNoVehicle
                       ? const _NoVehicleIllustration()
                       : Image.asset(
-                          option.image!,
+                          image!,
                           fit: BoxFit.contain,
                           errorBuilder: (_, _, _) => Icon(
                             Icons.image_not_supported_outlined,
@@ -173,7 +194,7 @@ class _VehicleCard extends StatelessWidget {
                   color: _footerColor,
                   padding: EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: option.subtitle == null ? 12 : 10,
+                    vertical: subtitle == null ? 12 : 10,
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -183,17 +204,17 @@ class _VehicleCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              option.title,
+                              title,
                               style: GoogleFonts.inter(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
                               ),
                             ),
-                            if (option.subtitle != null) ...[
+                            if (subtitle != null) ...[
                               const SizedBox(height: 2),
                               Text(
-                                option.subtitle!,
+                                subtitle!,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -320,6 +341,8 @@ class _NextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return SizedBox(
       width: double.infinity,
       height: 52,
@@ -336,7 +359,7 @@ class _NextButton extends StatelessWidget {
           elevation: 0,
         ),
         child: Text(
-          'Next',
+          l10n.next,
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
