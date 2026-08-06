@@ -14,7 +14,11 @@ function MobileLayout({ children }) {
   const hideMobileHeader = HIDE_MOBILE_HEADER_PATHS.includes(pathname);
 
   return (
-    <div className="flex min-h-screen flex-col bg-mobile-bg text-text-primary">
+    <div
+      className={`flex min-h-screen flex-col text-text-primary ${
+        isHome ? "bg-white lg:bg-mobile-bg" : "bg-mobile-bg"
+      }`}
+    >
       <TopNav />
 
       {!hideMobileHeader ? <MobileHeader /> : null}
