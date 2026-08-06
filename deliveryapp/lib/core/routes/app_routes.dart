@@ -1,0 +1,25 @@
+abstract final class AppRoutes {
+  static const splash = '/';
+  static const selectLanguage = '/select-language';
+  static const login = '/login';
+  static const selectVehicle = '/select-vehicle';
+  static const selectCity = '/select-city';
+  static const uploadDocuments = '/upload-documents';
+  static const takeSelfie = '/take-selfie';
+  static const livenessCheck = '/liveness-check';
+  static const home = '/home';
+  static const newOrders = '/new-orders';
+  static const activeDelivery = '/active-delivery';
+  static const liveNavigation = '/live-navigation';
+  static const deliveryHistory = '/delivery-history';
+  static const earnings = '/earnings';
+  static const wallet = '/wallet';
+  static const attendance = '/attendance';
+  static const performance = '/performance';
+  static const notifications = '/notifications';
+  static const profile = '/profile';
+  static const documents = '/documents';
+  static const vehicle = '/vehicle';
+  static const support = '/support';
+  static const settings = '/settings';
+}
