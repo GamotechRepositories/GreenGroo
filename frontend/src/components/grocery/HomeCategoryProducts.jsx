@@ -1,6 +1,6 @@
-import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
+import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 
 function HomeCategoryProducts({ categoryName }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
@@ -26,15 +26,11 @@ function HomeCategoryProducts({ categoryName }) {
 
   return (
     <section className="bg-white px-4 py-4">
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-        {products.map((product) => (
-          <QuickCommerceProductCard
-            key={product._id}
-            {...cardProps(product)}
-            layout="grid"
-          />
-        ))}
-      </div>
+      <TwoRowHorizontalProducts
+        products={products}
+        cardProps={cardProps}
+        scroll={false}
+      />
     </section>
   );
 }

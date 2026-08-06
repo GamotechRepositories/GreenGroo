@@ -4,6 +4,7 @@ import DesktopSideBanner from "../components/grocery/DesktopSideBanner";
 import TodaysDealStrip from "../components/grocery/TodaysDealStrip";
 import CategoryPills from "../components/grocery/CategoryPills";
 import HomeCategoryProducts from "../components/grocery/HomeCategoryProducts";
+import HomeAllCategoryProducts from "../components/grocery/HomeAllCategoryProducts";
 import BestDeals from "../components/mobile/BestDeals";
 import JustArrived from "../components/home/JustArrived";
 import HotSelling from "../components/home/HotSelling";
@@ -37,12 +38,7 @@ function Home() {
         ) : (
           <>
             <CategoryPills />
-
-            <div className="space-y-0">
-              <BestDeals title="Previously bought" viewAllTo="/product" />
-              <JustArrived />
-              <HotSelling />
-            </div>
+            <HomeAllCategoryProducts limitPerCategory={20} />
           </>
         )}
       </div>
