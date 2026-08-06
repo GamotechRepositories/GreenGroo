@@ -6,7 +6,16 @@ const CART_GREEN = "#0C831F";
 function FloatingCartBar() {
   const { items, cartCount } = useCart();
 
-  if (cartCount === 0) return null;
+  // Always keep a visible-size target so fly-to-cart works on first ADD
+  if (cartCount === 0) {
+    return (
+      <div
+        data-cart-target="floating"
+        className="pointer-events-none fixed bottom-[72px] left-1/2 z-40 h-11 w-[200px] -translate-x-1/2 opacity-0 lg:hidden"
+        aria-hidden="true"
+      />
+    );
+  }
 
   const thumbnails = items.slice(0, 5);
 
@@ -20,7 +29,6 @@ function FloatingCartBar() {
         className="flex items-center gap-2 rounded-full px-2.5 py-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
         style={{ backgroundColor: CART_GREEN }}
       >
-        {/* Overlapping circular product thumbs — up to 5 */}
         <div className="flex shrink-0 items-center pl-0.5">
           {thumbnails.map((item, index) => {
             const thumb = item.productImages?.[0];
@@ -45,7 +53,6 @@ function FloatingCartBar() {
           })}
         </div>
 
-        {/* View cart + item count */}
         <div className="shrink-0 leading-tight">
           <p className="whitespace-nowrap text-[13px] font-bold text-white">View cart</p>
           <p className="whitespace-nowrap text-[11px] font-medium text-white/90">
@@ -53,7 +60,6 @@ function FloatingCartBar() {
           </p>
         </div>
 
-        {/* Chevron */}
         <svg
           className="mr-0.5 h-4 w-4 shrink-0 text-white"
           fill="none"

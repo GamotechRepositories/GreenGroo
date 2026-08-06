@@ -440,6 +440,7 @@ export function CartProvider({ children }) {
         updateQuantity,
         incrementCartItem,
         decrementCartItem,
+        playFlyToCart,
         cartCount,
         loadCart,
         resetCart,

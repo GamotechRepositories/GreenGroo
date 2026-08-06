@@ -141,7 +141,9 @@ function QuickCommerceProductCard({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          multiVariant ? setVariantSheetOpen(true) : onIncrease?.(product);
+          multiVariant
+            ? setVariantSheetOpen(true)
+            : onIncrease?.(product, e.currentTarget);
         }}
         disabled={disabled}
         className="flex w-7 items-center justify-center text-base font-bold leading-none text-white disabled:opacity-50"

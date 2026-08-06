@@ -27,7 +27,8 @@ function findCartLine(items, product) {
 
 export function useProductCartActions() {
   const { openAuthModal } = useAuth();
-  const { items, addToCart, incrementCartItem, decrementCartItem } = useCart();
+  const { items, addToCart, incrementCartItem, decrementCartItem, playFlyToCart } =
+    useCart();
 
   const getCartLine = useCallback((product) => findCartLine(items, product), [items]);
 
@@ -74,6 +75,9 @@ export function useProductCartActions() {
       const { variantName, colorName, quantity } = resolveCartDefaults(product);
 
       if (line) {
+        if (flySource) {
+          playFlyToCart?.(product, flySource);
+        }
         const step = getCartStepForItem(line);
         await incrementCartItem({
           productId: line._id,
@@ -96,7 +100,7 @@ export function useProductCartActions() {
 
       return result;
     },
-    [getCartLine, addToCart, incrementCartItem, openAuthModal]
+    [getCartLine, addToCart, incrementCartItem, openAuthModal, playFlyToCart]
   );
 
   const handleDecrease = useCallback(

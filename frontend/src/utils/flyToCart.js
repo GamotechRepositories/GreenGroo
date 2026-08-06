@@ -1,8 +1,20 @@
+function isVisibleTarget(element) {
+  if (!element) return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
 export function getCartTargetElement() {
   const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+  const floating = document.querySelector('[data-cart-target="floating"]');
   const desktop = document.querySelector('[data-cart-target="desktop"]');
   const mobile = document.querySelector('[data-cart-target="mobile"]');
-  return (isDesktop ? desktop : mobile) || desktop || mobile;
+
+  const candidates = isDesktop
+    ? [desktop, floating, mobile]
+    : [floating, mobile, desktop];
+
+  return candidates.find(isVisibleTarget) || null;
 }
 
 export function getElementCenter(element) {
@@ -43,7 +55,8 @@ export function getWishlistTargetElement() {
   const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
   const desktop = document.querySelector('[data-wishlist-target="desktop"]');
   const mobile = document.querySelector('[data-wishlist-target="mobile"]');
-  return (isDesktop ? desktop : mobile) || desktop || mobile;
+  const candidates = isDesktop ? [desktop, mobile] : [mobile, desktop];
+  return candidates.find(isVisibleTarget) || null;
 }
 
 export function buildFlyToWishlistAnimation(flySource, productImage) {
