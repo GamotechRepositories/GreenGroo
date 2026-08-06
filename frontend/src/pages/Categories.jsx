@@ -16,7 +16,7 @@ function Categories() {
       </div>
 
       <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5">
+        <div className="grid grid-cols-2 gap-2 sm:gap-2.5 md:grid-cols-2 lg:grid-cols-4 lg:gap-3.5">
           {GROCERY_CATEGORIES.map((cat) => (
             <CategoryCard key={cat.slug} cat={cat} size="lg" />
           ))}
