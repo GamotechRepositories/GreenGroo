@@ -3,7 +3,6 @@ import FreshPromoBanner from "../components/grocery/FreshPromoBanner";
 import DesktopSideBanner from "../components/grocery/DesktopSideBanner";
 import TodaysDealStrip from "../components/grocery/TodaysDealStrip";
 import CategoryPills from "../components/grocery/CategoryPills";
-import TrustBadges from "../components/grocery/TrustBadges";
 import BestDeals from "../components/mobile/BestDeals";
 import JustArrived from "../components/home/JustArrived";
 import HotSelling from "../components/home/HotSelling";
@@ -30,10 +29,6 @@ function Home() {
           <div className="min-w-0 flex-[3]">
             <FreshPromoBanner />
           </div>
-        </div>
-
-        <div className="hidden lg:block">
-          <TrustBadges />
         </div>
 
         <div className="hidden py-4 lg:block lg:py-8">
