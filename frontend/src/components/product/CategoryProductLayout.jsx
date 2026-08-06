@@ -237,18 +237,21 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
 
   if (variant === "mobile") {
     return (
-      <div className="sticky top-14 z-30 mt-2 bg-white p-2.5">
-        <div className="hide-scrollbar flex gap-1.5 overflow-x-auto">
+      <aside className="flex h-full min-h-0 w-[82px] shrink-0 flex-col overflow-hidden border-r border-border-light bg-[#FAFAFA]">
+        <nav
+          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain px-1.5 py-2"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
           <Link
             to="/product"
-            className={`flex shrink-0 flex-col items-center gap-1 rounded-lg border px-2 py-2 text-[10px] transition ${
+            className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] transition ${
               allActive
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border-light text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
+                ? "bg-primary/10 font-semibold text-primary"
+                : "text-text-primary"
             }`}
           >
             <SidebarCategoryImage showGrid name="All Products" />
-            <span>All</span>
+            <span className="text-center leading-tight">All</span>
           </Link>
           {categories.map((cat) => {
             const isActive = activeCategory === cat.categoryName;
@@ -256,19 +259,21 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
               <Link
                 key={cat._id}
                 to={buildCategoryUrl(cat.categoryName)}
-                className={`flex shrink-0 flex-col items-center gap-1 rounded-lg border px-2 py-2 text-[10px] transition ${
+                className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] transition ${
                   isActive
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border-light text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
+                    ? "bg-primary/10 font-semibold text-primary"
+                    : "text-text-primary"
                 }`}
               >
                 <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
-                <span className="max-w-[72px] truncate">{cat.categoryName}</span>
+                <span className="line-clamp-2 w-full text-center leading-tight">
+                  {cat.categoryName}
+                </span>
               </Link>
             );
           })}
-        </div>
-      </div>
+        </nav>
+      </aside>
     );
   }
 
@@ -502,20 +507,27 @@ export function AllProductsLayout({
         </ProductPageTwoBoxLayout>
       </div>
       <div className="lg:hidden">
-        <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
-        <div className="mb-3 overflow-hidden bg-white">
-          <AllProductsMain
-            products={products}
-            loading={loading}
-            onAdd={onAdd}
-            onGetCartQuantity={onGetCartQuantity}
-            onIncrease={onIncrease}
-            onDecrease={onDecrease}
-            emptyMessage={emptyMessage}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            onLoadMore={onLoadMore}
-          />
+        <div className="flex h-[calc(100dvh-8.5rem)] min-h-[420px]">
+          <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            <div className="p-2.5">
+              <AllProductsMain
+                products={products}
+                loading={loading}
+                onAdd={onAdd}
+                onGetCartQuantity={onGetCartQuantity}
+                onIncrease={onIncrease}
+                onDecrease={onDecrease}
+                emptyMessage={emptyMessage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                onLoadMore={onLoadMore}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </>
@@ -538,22 +550,29 @@ export function MobileCategoryProductLayout({
 }) {
   return (
     <div className="lg:hidden">
-      <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
-      <div className="mb-3 overflow-hidden bg-white">
-        <CategoryProductMain
-          categories={categories}
-          categoryName={categoryName}
-          products={products}
-          loading={loading}
-          onAdd={onAdd}
-          onGetCartQuantity={onGetCartQuantity}
-          onIncrease={onIncrease}
-          onDecrease={onDecrease}
-          emptyMessage={emptyMessage}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          onLoadMore={onLoadMore}
-        />
+      <div className="flex h-[calc(100dvh-8.5rem)] min-h-[420px]">
+        <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <div className="p-2.5">
+            <CategoryProductMain
+              categories={categories}
+              categoryName={categoryName}
+              products={products}
+              loading={loading}
+              onAdd={onAdd}
+              onGetCartQuantity={onGetCartQuantity}
+              onIncrease={onIncrease}
+              onDecrease={onDecrease}
+              emptyMessage={emptyMessage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onLoadMore={onLoadMore}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

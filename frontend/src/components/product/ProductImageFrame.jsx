@@ -28,21 +28,29 @@ const FIT_CLASS = {
   stretch: "product-image--stretch",
 };
 
-function ProductImageFrame({ src, alt = "", className = "", fit = "cover" }) {
+function ProductImageFrame({ src, alt = "", className = "", fit = "cover", fallbackSrc = "" }) {
   const [error, setError] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
   const fitClass = FIT_CLASS[fit] || FIT_CLASS.cover;
+  const currentSrc = useFallback && fallbackSrc ? fallbackSrc : src;
 
-  if (!src || error) {
+  if (!currentSrc || (error && (!fallbackSrc || useFallback))) {
     return <ProductImagePlaceholder className={`${fitClass} ${className}`} />;
   }
 
   return (
     <div className={`product-image ${fitClass} ${className}`}>
       <img
-        src={src}
+        src={currentSrc}
         alt={alt}
         loading="lazy"
-        onError={() => setError(true)}
+        onError={() => {
+          if (!useFallback && fallbackSrc && currentSrc !== fallbackSrc) {
+            setUseFallback(true);
+            return;
+          }
+          setError(true);
+        }}
       />
     </div>
   );

@@ -65,6 +65,7 @@ function QuickCommerceProductCard({
   layout = "scroll",
 }) {
   const image = product.productImages?.[0];
+  const fallbackImage = product.productImages?.[1] || "";
   const multiVariant = isMultiVariant(product);
   const [variantSheetOpen, setVariantSheetOpen] = useState(false);
   const inStock = getTotalProductStock(product) > 0;
@@ -156,11 +157,12 @@ function QuickCommerceProductCard({
       <div className="flex h-full flex-col bg-white">
         {/* 1. Image + pink ADD */}
         <div className="relative overflow-hidden rounded-xl border border-[#E5E5E5] bg-white">
-          <Link to={productUrl} className="block p-2 pb-3">
+          <Link to={productUrl} className="block">
             <ProductImageFrame
               src={image}
+              fallbackSrc={fallbackImage}
               alt={product.name}
-              fit="contain"
+              fit="cover"
               className="!aspect-square !bg-white"
             />
           </Link>

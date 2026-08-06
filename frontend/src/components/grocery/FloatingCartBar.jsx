@@ -1,45 +1,67 @@
 import { Link } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
 
+const CART_GREEN = "#0C831F";
+
 function FloatingCartBar() {
   const { items, cartCount } = useCart();
 
   if (cartCount === 0) return null;
 
-  const thumbnails = items.slice(0, 3);
+  const thumbnails = items.slice(0, 5);
 
   return (
     <Link
       to="/cart"
       data-cart-target="floating"
-      className="fixed bottom-[68px] left-4 right-4 z-40 lg:hidden"
+      className="fixed bottom-[72px] left-1/2 z-40 w-auto max-w-[min(260px,calc(100%-4rem))] -translate-x-1/2 lg:hidden"
     >
-      <div className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 shadow-xl shadow-primary/30">
-        <div className="flex -space-x-2">
-          {thumbnails.map((item) => {
+      <div
+        className="flex items-center gap-2 rounded-full px-2.5 py-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
+        style={{ backgroundColor: CART_GREEN }}
+      >
+        {/* Overlapping circular product thumbs — up to 5 */}
+        <div className="flex shrink-0 items-center pl-0.5">
+          {thumbnails.map((item, index) => {
             const thumb = item.productImages?.[0];
             return (
-            <div
-              key={`${item._id}-${item.variantName}`}
-              className="h-9 w-9 overflow-hidden rounded-lg border-2 border-primary bg-white"
-            >
-              {thumb ? (
-                <img src={thumb} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-primary-light text-xs">
-                  🛒
-                </div>
-              )}
-            </div>
+              <div
+                key={`${item._id}-${item.variantName}-${index}`}
+                className="relative h-8 w-8 overflow-hidden rounded-full border-2 border-white bg-white"
+                style={{
+                  marginLeft: index === 0 ? 0 : -18,
+                  zIndex: index + 1,
+                }}
+              >
+                {thumb ? (
+                  <img src={thumb} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[#E8F5E9] text-[9px] font-bold text-[#0C831F]">
+                    {(item.name || "?").charAt(0)}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
 
-        <span className="flex-1 text-sm font-bold text-white">
-          View cart&nbsp;|&nbsp;{cartCount} {cartCount === 1 ? "item" : "items"}
-        </span>
+        {/* View cart + item count */}
+        <div className="shrink-0 leading-tight">
+          <p className="whitespace-nowrap text-[13px] font-bold text-white">View cart</p>
+          <p className="whitespace-nowrap text-[11px] font-medium text-white/90">
+            {cartCount} {cartCount === 1 ? "Item" : "Items"}
+          </p>
+        </div>
 
-        <svg className="h-5 w-5 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        {/* Chevron */}
+        <svg
+          className="mr-0.5 h-4 w-4 shrink-0 text-white"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          aria-hidden="true"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </div>
