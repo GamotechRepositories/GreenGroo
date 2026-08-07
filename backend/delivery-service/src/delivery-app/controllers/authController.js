@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import DeliveryBoy from "../models/DeliveryBoy.js";
+import DeliveryManager from "../../delivery-manager/models/DeliveryManager.js";
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -196,6 +197,12 @@ export const updateOnboarding = async (req, res, next) => {
       deliveryBoy.onboardingComplete = Boolean(body.onboardingComplete);
       if (deliveryBoy.onboardingComplete) {
         deliveryBoy.onboardingStep = "home";
+        if (
+          !deliveryBoy.verificationStatus ||
+          deliveryBoy.verificationStatus === "pending"
+        ) {
+          deliveryBoy.verificationStatus = "pending";
+        }
       }
     }
 
@@ -278,19 +285,43 @@ export const updateStatus = async (req, res, next) => {
       });
     }
 
-    const now = new Date();
-    const deliveryBoy = await DeliveryBoy.findByIdAndUpdate(
-      req.user.id,
-      {
-        $set: {
-          status,
-          lastStatusAt: now,
-          lastSeenAt: now,
-        },
-      },
-      { new: true }
-    );
+    const existing = await DeliveryBoy.findById(req.user.id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery boy not found",
+      });
+    }
 
+    const verification = existing.verificationStatus || "pending";
+    if (status === "online" && verification !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Verification pending. You can go online after manager approval (usually 3–6 hours).",
+        deliveryBoy: existing.toSafeJSON(),
+      });
+    }
+
+    const now = new Date();
+    existing.status = status;
+    existing.lastStatusAt = now;
+    existing.lastSeenAt = now;
+    await existing.save();
+
+    return res.json({
+      success: true,
+      deliveryBoy: existing.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Area delivery manager details for offline verification visit. */
+export const getAreaManager = async (req, res, next) => {
+  try {
+    const deliveryBoy = await DeliveryBoy.findById(req.user.id);
     if (!deliveryBoy) {
       return res.status(404).json({
         success: false,
@@ -298,9 +329,36 @@ export const updateStatus = async (req, res, next) => {
       });
     }
 
+    const manager = await DeliveryManager.findOne({
+      isActive: true,
+      $or: [
+        { cityId: deliveryBoy.cityId, area: deliveryBoy.area },
+        { city: deliveryBoy.city, area: deliveryBoy.area },
+      ],
+    }).sort({ createdAt: 1 });
+
+    if (!manager) {
+      return res.json({
+        success: true,
+        manager: null,
+        message: "No delivery manager registered for your area yet",
+      });
+    }
+
     return res.json({
       success: true,
-      deliveryBoy: deliveryBoy.toSafeJSON(),
+      manager: {
+        name: manager.name || "Delivery Manager",
+        phone: manager.phone,
+        email: manager.email,
+        storeName: manager.storeName || `${manager.area} Store`,
+        storeAddress:
+          manager.storeAddress ||
+          `${manager.storeName || `${manager.area} Store`}, ${manager.area}, ${manager.city}, ${manager.state}`,
+        state: manager.state,
+        city: manager.city,
+        area: manager.area,
+      },
     });
   } catch (error) {
     next(error);

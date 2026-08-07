@@ -38,10 +38,14 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     await LocaleController.instance.setLocale(Locale(_selected!));
     if (!mounted) return;
 
+    // Only sync language to backend when already registered/logged in.
+    // First-time users go to Login/Register — no API call needed here.
     if (AuthService.instance.isLoggedIn) {
-      await AuthService.instance.updateOnboarding(
-        data: {'language': _selected},
-      );
+      try {
+        await AuthService.instance.updateOnboarding(
+          data: {'language': _selected},
+        );
+      } catch (_) {}
     }
 
     if (!mounted) return;
@@ -51,7 +55,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
       return;
     }
 
-    Navigator.pushNamed(context, AppRoutes.login);
+    Navigator.pushReplacementNamed(context, AppRoutes.login);
   }
 
   String _englishName(AppLocalizations l10n, String code) {
@@ -77,7 +81,8 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: const AppBackButton(),
+        // First-time (not from Settings): no back — splash already finished.
+        leading: widget.fromSettings ? const AppBackButton() : null,
       ),
       body: SafeArea(
         top: false,

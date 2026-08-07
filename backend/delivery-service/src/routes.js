@@ -1,9 +1,11 @@
-import webhookRoutes from "./routes/webhookRoutes.js";
-import shipmentRoutes from "./routes/shipmentRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
+import authRoutes from "./delivery-app/routes/authRoutes.js";
+import shipmentRoutes from "./delivery-app/routes/shipmentRoutes.js";
+import webhookRoutes from "./delivery-app/routes/webhookRoutes.js";
+import managerRoutes from "./delivery-manager/routes/managerRoutes.js";
 
 export default [
   { path: "/api/delivery-boys", router: authRoutes },
+  { path: "/api/delivery-managers", router: managerRoutes },
   { path: "/api/webhooks", router: webhookRoutes },
   { path: "/api/shipments", router: shipmentRoutes },
 ];

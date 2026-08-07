@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_assets.dart';
-import '../../../core/l10n/locale_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
@@ -12,7 +11,7 @@ import 'widgets/splash_branding.dart';
 import 'widgets/splash_progress_line.dart';
 import 'widgets/splash_scooter.dart';
 
-/// Splash: scooter drives across mid-screen, then routes by auth/session.
+/// Splash: scooter rides left → right across mid-screen, then routes by session.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -22,8 +21,9 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  static const _fullDuration = Duration(milliseconds: 55000);
-  static const _shortDuration = Duration(milliseconds: 1800);
+  /// Slow 15s pass so the scooter is easy to see.
+  static const _fullDuration = Duration(milliseconds: 15000);
+  static const _shortDuration = Duration(milliseconds: 15000);
 
   late final AnimationController _controller;
   late final Animation<double> _scooterProgress;
@@ -50,22 +50,19 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller = AnimationController(vsync: this, duration: duration);
 
+    // Slow left → right ride across most of the splash.
     _scooterProgress = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: Interval(
-          0.02,
-          _hasSession ? 0.55 : 0.72,
-          curve: Curves.linear,
-        ),
+        curve: const Interval(0.0, 0.82, curve: Curves.linear),
       ),
     );
 
     _titleOpacity = CurvedAnimation(
       parent: _controller,
       curve: Interval(
-        _hasSession ? 0.4 : 0.74,
-        _hasSession ? 0.7 : 0.84,
+        _hasSession ? 0.55 : 0.72,
+        _hasSession ? 0.8 : 0.9,
         curve: Curves.easeOut,
       ),
     );
@@ -73,8 +70,8 @@ class _SplashScreenState extends State<SplashScreen>
     _taglineOpacity = CurvedAnimation(
       parent: _controller,
       curve: Interval(
-        _hasSession ? 0.55 : 0.82,
-        _hasSession ? 0.85 : 0.90,
+        _hasSession ? 0.7 : 0.82,
+        _hasSession ? 0.92 : 0.96,
         curve: Curves.easeOut,
       ),
     );
@@ -93,20 +90,19 @@ class _SplashScreenState extends State<SplashScreen>
 
     try {
       await precacheImage(
-        const NetworkImage(AppAssets.deliveryScooter),
+        const AssetImage(AppAssets.deliveryScooter),
         context,
-      ).timeout(const Duration(seconds: 4));
+      );
     } catch (_) {}
 
     if (_hasSession) {
-      try {
-        await AuthService.instance.fetchMe();
-      } catch (_) {}
+      // Don't block scooter animation on network.
+      AuthService.instance.fetchMe();
     }
 
     if (!mounted || _started) return;
     _started = true;
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+    await Future<void>.delayed(const Duration(milliseconds: 60));
     if (!mounted) return;
     _controller.forward();
   }
@@ -129,10 +125,8 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    final hasLanguage = LocaleController.instance.hasSelectedLanguage;
-    Navigator.of(context).pushReplacementNamed(
-      hasLanguage ? AppRoutes.login : AppRoutes.selectLanguage,
-    );
+    // New / not registered users: Splash → Choose Language → Login/Register.
+    Navigator.of(context).pushReplacementNamed(AppRoutes.selectLanguage);
   }
 
   @override
@@ -144,8 +138,8 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final scooterWidth = (size.width * 0.48).clamp(160.0, 240.0);
-    final scooterHeight = scooterWidth * 0.72;
+    final scooterWidth = (size.width * 0.58).clamp(200.0, 280.0);
+    final scooterHeight = scooterWidth * 0.78;
 
     return Scaffold(
       backgroundColor: const Color(0xFFE6F4E9),
@@ -167,15 +161,16 @@ class _SplashScreenState extends State<SplashScreen>
               Positioned(
                 left: 24,
                 right: 24,
-                top: size.height * 0.12,
+                top: size.height * 0.10,
                 child: SplashBranding(
                   titleOpacity: _titleOpacity.value,
                   taglineOpacity: _taglineOpacity.value,
                 ),
               ),
+              // Scooter above background, below banner — mid screen.
               Positioned(
                 left: left,
-                top: size.height * 0.28,
+                top: size.height * 0.34,
                 width: scooterWidth,
                 height: scooterHeight,
                 child: SplashScooter(
@@ -186,7 +181,7 @@ class _SplashScreenState extends State<SplashScreen>
               Positioned(
                 left: 0,
                 right: 0,
-                top: size.height * 0.28 + scooterHeight - 8,
+                top: size.height * 0.34 + scooterHeight - 6,
                 child: Center(child: SplashProgressLine(progress: progress)),
               ),
               const Align(
@@ -200,13 +195,14 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
+  /// Starts slightly on-screen so the rider is visible immediately.
   double _scooterLeft({
     required double progress,
     required double screenWidth,
     required double scooterWidth,
   }) {
-    final start = -scooterWidth;
-    final end = screenWidth + 8;
+    final start = -scooterWidth * 0.55;
+    final end = screenWidth - scooterWidth * 0.15;
     return start + (end - start) * progress;
   }
 }

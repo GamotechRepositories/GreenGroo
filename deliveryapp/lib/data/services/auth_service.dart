@@ -19,6 +19,7 @@ class DeliveryBoy {
     this.area = '',
     this.vehicleType = '',
     this.status = 'offline',
+    this.verificationStatus = 'pending',
   });
 
   final String id;
@@ -32,8 +33,12 @@ class DeliveryBoy {
   final String status;
   final bool onboardingComplete;
   final String onboardingStep;
+  final String verificationStatus;
 
   bool get isOnline => status == 'online';
+  bool get isVerificationPending =>
+      verificationStatus != 'approved' && verificationStatus != 'rejected';
+  bool get isVerified => verificationStatus == 'approved';
 
   factory DeliveryBoy.fromJson(Map<String, dynamic> json) {
     return DeliveryBoy(
@@ -48,6 +53,7 @@ class DeliveryBoy {
       status: json['status']?.toString() ?? 'offline',
       onboardingComplete: json['onboardingComplete'] == true,
       onboardingStep: json['onboardingStep']?.toString() ?? 'vehicle',
+      verificationStatus: json['verificationStatus']?.toString() ?? 'pending',
     );
   }
 
@@ -63,7 +69,40 @@ class DeliveryBoy {
         'status': status,
         'onboardingComplete': onboardingComplete,
         'onboardingStep': onboardingStep,
+        'verificationStatus': verificationStatus,
       };
+}
+
+class AreaManagerInfo {
+  const AreaManagerInfo({
+    required this.name,
+    required this.phone,
+    required this.storeName,
+    required this.storeAddress,
+    this.email = '',
+    this.city = '',
+    this.area = '',
+  });
+
+  final String name;
+  final String phone;
+  final String email;
+  final String storeName;
+  final String storeAddress;
+  final String city;
+  final String area;
+
+  factory AreaManagerInfo.fromJson(Map<String, dynamic> json) {
+    return AreaManagerInfo(
+      name: json['name']?.toString() ?? 'Delivery Manager',
+      phone: json['phone']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      storeName: json['storeName']?.toString() ?? '',
+      storeAddress: json['storeAddress']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      area: json['area']?.toString() ?? '',
+    );
+  }
 }
 
 class AuthResult {
@@ -199,21 +238,25 @@ class AuthService {
     Map<String, dynamic>? data,
   }) async {
     if (!isLoggedIn) return;
-    final res = await apiPatch(
-      ApiConfig.onboarding,
-      headers: _authHeaders,
-      body: jsonEncode({
-        if (step != null) 'onboardingStep': step,
-        if (complete != null) 'onboardingComplete': complete,
-        ...?data,
-      }),
-    );
-    if (res.statusCode == 200) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final boy = DeliveryBoy.fromJson(
-        body['deliveryBoy'] as Map<String, dynamic>,
+    try {
+      final res = await apiPatch(
+        ApiConfig.onboarding,
+        headers: _authHeaders,
+        body: jsonEncode({
+          if (step != null) 'onboardingStep': step,
+          if (complete != null) 'onboardingComplete': complete,
+          ...?data,
+        }),
       );
-      await _persist(_token!, boy);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final boy = DeliveryBoy.fromJson(
+          body['deliveryBoy'] as Map<String, dynamic>,
+        );
+        await _persist(_token!, boy);
+      }
+    } catch (_) {
+      // Offline / unreachable — keep local progress; sync later.
     }
   }
 
@@ -225,13 +268,34 @@ class AuthService {
       headers: _authHeaders,
       body: jsonEncode({'status': status}),
     );
-    if (res.statusCode != 200) return null;
+    if (res.statusCode != 200) {
+      try {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        throw AuthApiException(
+          body['message']?.toString() ?? 'Could not update status',
+        );
+      } on AuthApiException {
+        rethrow;
+      } catch (_) {
+        return null;
+      }
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final boy = DeliveryBoy.fromJson(
       body['deliveryBoy'] as Map<String, dynamic>,
     );
     await _persist(_token!, boy);
     return boy;
+  }
+
+  Future<AreaManagerInfo?> fetchAreaManager() async {
+    if (!isLoggedIn) return null;
+    final res = await apiGet(ApiConfig.areaManager, headers: _authHeaders);
+    if (res.statusCode != 200) return null;
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final manager = body['manager'];
+    if (manager is! Map<String, dynamic>) return null;
+    return AreaManagerInfo.fromJson(manager);
   }
 
   /// Keep online status live while the partner is working.

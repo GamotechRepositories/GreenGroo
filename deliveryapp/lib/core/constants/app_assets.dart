@@ -1,6 +1,5 @@
 abstract final class AppAssets {
-  static const deliveryScooter =
-      'https://res.cloudinary.com/dsafvwkrf/image/upload/v1785926134/image-removebg-preview_9_1_hclxjw.webp';
+  static const deliveryScooter = 'assets/splash/delivery_scooter.webp';
 
   static const _vehiclesBase = 'assets/chooseVahicles';
   static const motorcycle = '$_vehiclesBase/motorcycle.webp';

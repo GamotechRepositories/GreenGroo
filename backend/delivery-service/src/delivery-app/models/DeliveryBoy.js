@@ -118,6 +118,21 @@ const deliveryBoySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /// Manager must approve new joiners for their area before they take orders.
+    verificationStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    verifiedAt: {
+      type: Date,
+    },
+    verificationNote: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     onboardingComplete: {
       type: Boolean,
       default: false,
@@ -168,6 +183,9 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     lastStatusAt: this.lastStatusAt,
     lastSeenAt: this.lastSeenAt,
     isActive: this.isActive,
+    verificationStatus: this.verificationStatus || "pending",
+    verifiedAt: this.verifiedAt,
+    verificationNote: this.verificationNote || "",
     onboardingComplete: this.onboardingComplete,
     onboardingStep: this.onboardingStep,
     createdAt: this.createdAt,

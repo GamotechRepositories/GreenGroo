@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_assets.dart';
 
-/// Delivery scooter PNG — horizontal motion only (no rotate/scale/bounce).
+/// Delivery scooter — faces right and rides left → right.
 class SplashScooter extends StatelessWidget {
   const SplashScooter({
     super.key,
@@ -18,19 +18,26 @@ class SplashScooter extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: Image.network(
+      child: Image.asset(
         AppAssets.deliveryScooter,
         width: width,
         height: height,
         fit: BoxFit.contain,
         alignment: Alignment.bottomCenter,
         filterQuality: FilterQuality.high,
+        gaplessPlayback: true,
+        // Image already faces right — do not flip.
         errorBuilder: (context, error, stackTrace) {
-          return Align(
+          // Fallback so motion is still visible if asset fails to load.
+          return Image.asset(
+            AppAssets.motorcycle,
+            width: width,
+            height: height,
+            fit: BoxFit.contain,
             alignment: Alignment.bottomCenter,
-            child: Icon(
+            errorBuilder: (_, _, _) => Icon(
               Icons.delivery_dining_rounded,
-              size: width * 0.45,
+              size: width * 0.5,
               color: const Color(0xFF0C831F),
             ),
           );

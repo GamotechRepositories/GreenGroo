@@ -2025,6 +2025,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No areas found'**
   String get noAreasFound;
+
+  /// No description provided for @verificationPendingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification in progress'**
+  String get verificationPendingTitle;
+
+  /// No description provided for @verificationPendingHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Document & identity verification usually completes within 3–6 hours.'**
+  String get verificationPendingHours;
+
+  /// No description provided for @verificationOfflineVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Please visit your area Delivery Manager for offline verification with original documents.'**
+  String get verificationOfflineVisit;
+
+  /// No description provided for @verificationManagerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery Manager'**
+  String get verificationManagerLabel;
+
+  /// No description provided for @verificationStoreLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Store'**
+  String get verificationStoreLabel;
+
+  /// No description provided for @verificationAddressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get verificationAddressLabel;
+
+  /// No description provided for @verificationPhoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get verificationPhoneLabel;
+
+  /// No description provided for @verificationNoManagerYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No delivery manager is registered for your area yet. Stay offline until verification is assigned.'**
+  String get verificationNoManagerYet;
+
+  /// No description provided for @verificationCannotGoOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'You can go online after verification is complete.'**
+  String get verificationCannotGoOnline;
+
+  /// No description provided for @verificationApprovedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re verified'**
+  String get verificationApprovedTitle;
+
+  /// No description provided for @verificationApprovedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified! You can go online now.'**
+  String get verificationApprovedToast;
+
+  /// No description provided for @verificationRejectedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification rejected'**
+  String get verificationRejectedTitle;
+
+  /// No description provided for @verificationRejectedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact your area delivery manager for help.'**
+  String get verificationRejectedHint;
 }
 
 class _AppLocalizationsDelegate

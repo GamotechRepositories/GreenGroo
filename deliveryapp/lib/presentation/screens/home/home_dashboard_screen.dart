@@ -24,17 +24,105 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _isOnline = false;
   bool _updatingStatus = false;
   Timer? _heartbeat;
+  Timer? _verifyPoll;
+  AreaManagerInfo? _areaManager;
+  bool _loadingManager = false;
+  String? _lastVerificationStatus;
+  bool _showVerifiedBanner = false;
+
+  bool get _verificationPending {
+    final boy = AuthService.instance.deliveryBoy;
+    if (boy == null) return false;
+    return boy.onboardingComplete && boy.isVerificationPending;
+  }
 
   @override
   void initState() {
     super.initState();
+    _lastVerificationStatus =
+        AuthService.instance.deliveryBoy?.verificationStatus;
     _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
     if (_isOnline) _startHeartbeat();
+    _refreshVerificationInfo();
+    _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (_verificationPending ||
+          _lastVerificationStatus == 'pending' ||
+          _lastVerificationStatus == null) {
+        _refreshVerificationInfo();
+      }
+    });
+  }
+
+  Future<void> _refreshVerificationInfo() async {
+    setState(() => _loadingManager = true);
+    try {
+      final before = _lastVerificationStatus ??
+          AuthService.instance.deliveryBoy?.verificationStatus;
+      await AuthService.instance.fetchMe();
+      final manager = await AuthService.instance.fetchAreaManager();
+      if (!mounted) return;
+
+      final after =
+          AuthService.instance.deliveryBoy?.verificationStatus ?? 'pending';
+      final justApproved = before != 'approved' && after == 'approved';
+
+      setState(() {
+        _areaManager = manager;
+        _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
+        _loadingManager = false;
+        _lastVerificationStatus = after;
+        if (justApproved) {
+          _showVerifiedBanner = true;
+        }
+      });
+
+      if (justApproved) {
+        _showVerifiedToast();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingManager = false);
+    }
+  }
+
+  void _showVerifiedToast() {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        backgroundColor: const Color(0xFF0C831F),
+        leading: const Icon(Icons.verified_rounded, color: Colors.white),
+        content: Text(
+          l10n.verificationApprovedToast,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => messenger.hideCurrentMaterialBanner(),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    Future<void>.delayed(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      messenger.hideCurrentMaterialBanner();
+      setState(() => _showVerifiedBanner = false);
+    });
   }
 
   @override
   void dispose() {
     _heartbeat?.cancel();
+    _verifyPoll?.cancel();
     super.dispose();
   }
 
@@ -52,38 +140,58 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   Future<void> _onStatusToggle(bool value) async {
     if (_updatingStatus) return;
-    setState(() {
-      _updatingStatus = true;
-      _isOnline = value;
-    });
 
-    final boy = await AuthService.instance.updateStatus(
-      value ? 'online' : 'offline',
-    );
-
-    if (!mounted) return;
-
-    if (boy == null) {
-      // Revert UI if API failed
-      setState(() {
-        _isOnline = !value;
-        _updatingStatus = false;
-      });
+    if (value && _verificationPending) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update status. Try again.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).verificationCannotGoOnline),
+        ),
       );
       return;
     }
 
     setState(() {
-      _isOnline = boy.isOnline;
-      _updatingStatus = false;
+      _updatingStatus = true;
+      _isOnline = value;
     });
 
-    if (boy.isOnline) {
-      _startHeartbeat();
-    } else {
-      _stopHeartbeat();
+    try {
+      final boy = await AuthService.instance.updateStatus(
+        value ? 'online' : 'offline',
+      );
+
+      if (!mounted) return;
+
+      if (boy == null) {
+        setState(() {
+          _isOnline = !value;
+          _updatingStatus = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update status. Try again.')),
+        );
+        return;
+      }
+
+      setState(() {
+        _isOnline = boy.isOnline;
+        _updatingStatus = false;
+      });
+
+      if (boy.isOnline) {
+        _startHeartbeat();
+      } else {
+        _stopHeartbeat();
+      }
+    } on AuthApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isOnline = !value;
+        _updatingStatus = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
     }
   }
 
@@ -125,7 +233,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               else
                 Switch(
                   value: _isOnline,
-                  onChanged: _onStatusToggle,
+                  onChanged: _verificationPending ? null : _onStatusToggle,
                 ),
             ],
           ),
@@ -134,6 +242,44 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             label: _isOnline ? l10n.online : l10n.offline,
             type: _isOnline ? StatusType.online : StatusType.offline,
           ),
+          if (_showVerifiedBanner) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0C831F),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      l10n.verificationApprovedToast,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (_verificationPending ||
+              AuthService.instance.deliveryBoy?.verificationStatus ==
+                  'rejected') ...[
+            const SizedBox(height: AppSpacing.lg),
+            _VerificationNoticeCard(
+              pending: _verificationPending,
+              rejected: AuthService.instance.deliveryBoy?.verificationStatus ==
+                  'rejected',
+              manager: _areaManager,
+              loading: _loadingManager,
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           GridView.count(
             crossAxisCount: 2,
@@ -352,6 +498,138 @@ class _QuickAction extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _VerificationNoticeCard extends StatelessWidget {
+  const _VerificationNoticeCard({
+    required this.pending,
+    required this.rejected,
+    required this.manager,
+    required this.loading,
+  });
+
+  final bool pending;
+  final bool rejected;
+  final AreaManagerInfo? manager;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = rejected
+        ? (isDark ? const Color(0xFF3F1D1D) : const Color(0xFFFEF2F2))
+        : (isDark ? const Color(0xFF3B2F14) : const Color(0xFFFFFBEB));
+    final border = rejected
+        ? const Color(0xFFFECACA)
+        : const Color(0xFFFDE68A);
+    final iconColor = rejected ? AppColors.error : AppColors.warning;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                rejected ? Icons.cancel_outlined : Icons.warning_amber_rounded,
+                color: iconColor,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  rejected
+                      ? l10n.verificationRejectedTitle
+                      : l10n.verificationPendingTitle,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (pending) ...[
+            Text(
+              l10n.verificationPendingHours,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              l10n.verificationOfflineVisit,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              l10n.verificationCannotGoOnline,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+          ] else if (rejected) ...[
+            Text(
+              l10n.verificationRejectedHint,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
+          else if (manager != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : Colors.white.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${l10n.verificationManagerLabel}: ${manager!.name}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${l10n.verificationStoreLabel}: ${manager!.storeName}'),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${l10n.verificationAddressLabel}: ${manager!.storeAddress}',
+                  ),
+                  if (manager!.phone.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('${l10n.verificationPhoneLabel}: ${manager!.phone}'),
+                  ],
+                ],
+              ),
+            ),
+          ] else ...[
+            Text(
+              l10n.verificationNoManagerYet,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+          ],
+        ],
       ),
     );
   }

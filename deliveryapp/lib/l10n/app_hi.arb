@@ -326,5 +326,18 @@
   "selectArea": "क्षेत्र चुनें",
   "selectAreaSubtitle": "अपना डिलीवरी क्षेत्र चुनें",
   "searchArea": "क्षेत्र खोजें",
-  "noAreasFound": "कोई क्षेत्र नहीं मिला"
+  "noAreasFound": "कोई क्षेत्र नहीं मिला",
+  "verificationPendingTitle": "Verification in progress",
+  "verificationPendingHours": "Document & identity verification usually completes within 3-6 hours.",
+  "verificationOfflineVisit": "Please visit your area Delivery Manager for offline verification with original documents.",
+  "verificationManagerLabel": "Delivery Manager",
+  "verificationStoreLabel": "Store",
+  "verificationAddressLabel": "Address",
+  "verificationPhoneLabel": "Phone",
+  "verificationNoManagerYet": "No delivery manager is registered for your area yet. Stay offline until verification is assigned.",
+  "verificationCannotGoOnline": "You can go online after verification is complete.",
+  "verificationApprovedTitle": "You are verified",
+  "verificationRejectedTitle": "Verification rejected",
+  "verificationRejectedHint": "Contact your area delivery manager for help.",
+  "verificationApprovedToast": "Verified! You can go online now."
 }

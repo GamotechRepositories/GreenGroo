@@ -982,4 +982,48 @@ class AppLocalizationsMr extends AppLocalizations {
 
   @override
   String get noAreasFound => 'कोणतेही क्षेत्र सापडले नाही';
+
+  @override
+  String get verificationPendingTitle => 'Verification in progress';
+
+  @override
+  String get verificationPendingHours =>
+      'Document & identity verification usually completes within 3-6 hours.';
+
+  @override
+  String get verificationOfflineVisit =>
+      'Please visit your area Delivery Manager for offline verification with original documents.';
+
+  @override
+  String get verificationManagerLabel => 'Delivery Manager';
+
+  @override
+  String get verificationStoreLabel => 'Store';
+
+  @override
+  String get verificationAddressLabel => 'Address';
+
+  @override
+  String get verificationPhoneLabel => 'Phone';
+
+  @override
+  String get verificationNoManagerYet =>
+      'No delivery manager is registered for your area yet. Stay offline until verification is assigned.';
+
+  @override
+  String get verificationCannotGoOnline =>
+      'You can go online after verification is complete.';
+
+  @override
+  String get verificationApprovedTitle => 'You are verified';
+
+  @override
+  String get verificationApprovedToast => 'Verified! You can go online now.';
+
+  @override
+  String get verificationRejectedTitle => 'Verification rejected';
+
+  @override
+  String get verificationRejectedHint =>
+      'Contact your area delivery manager for help.';
 }

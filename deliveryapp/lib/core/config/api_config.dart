@@ -27,6 +27,7 @@ abstract final class ApiConfig {
   static const onboarding = '/api/delivery-boys/onboarding';
   static const status = '/api/delivery-boys/status';
   static const heartbeat = '/api/delivery-boys/heartbeat';
+  static const areaManager = '/api/delivery-boys/area-manager';
 }
 
 Future<http.Response> apiPost(

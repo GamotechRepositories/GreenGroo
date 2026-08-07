@@ -12,7 +12,8 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "dev:legacy": "npm run dev -w legacy"
+    "dev:legacy": "npm run dev -w legacy",
+    "seed:manager-store": "node delivery-service/src/delivery-manager/scripts/seedAllManagerStores.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1067.0",
