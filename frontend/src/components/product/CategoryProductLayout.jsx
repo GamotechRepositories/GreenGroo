@@ -507,7 +507,7 @@ export function AllProductsLayout({
         </ProductPageTwoBoxLayout>
       </div>
       <div className="lg:hidden">
-        <div className="flex h-[calc(100dvh-8.5rem)] min-h-[420px]">
+        <div className="flex h-[calc(100dvh-7rem)] min-h-[420px]">
           <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
           <div
             className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white"
@@ -550,7 +550,7 @@ export function MobileCategoryProductLayout({
 }) {
   return (
     <div className="lg:hidden">
-      <div className="flex h-[calc(100dvh-8.5rem)] min-h-[420px]">
+      <div className="flex h-[calc(100dvh-7rem)] min-h-[420px]">
         <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white"

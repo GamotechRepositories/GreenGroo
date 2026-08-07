@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
 import { useInfiniteProductsQuery } from "../hooks/queries/useProductsQuery";
@@ -11,6 +11,11 @@ import CategoryProductLayout, {
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
 import ProductFiltersBar, { PRODUCT_SORT_OPTIONS } from "../components/product/ProductFiltersBar";
+import {
+  DUMMY_SHOP_CATEGORIES,
+  getAllDummyProducts,
+  getDummyCategoryProducts,
+} from "../data/dummyCategoryProducts";
 
 function FilterIcon() {
   return (
@@ -315,6 +320,7 @@ function SearchResultsView(props) {
 }
 
 function Product() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
@@ -323,7 +329,7 @@ function Product() {
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
   const productParams = useProductListParams(searchParams);
 
-  const { data: categories = [], isLoading: categoriesLoading } = useCategoriesQuery();
+  const { data: apiCategories = [], isLoading: categoriesLoading } = useCategoriesQuery();
   const {
     data,
     isLoading: productsLoading,
@@ -332,16 +338,55 @@ function Product() {
     fetchNextPage,
   } = useInfiniteProductsQuery(productParams);
 
-  const products = useMemo(
+  const apiProducts = useMemo(
     () => data?.pages.flatMap((page) => page.products) ?? [],
     [data]
   );
 
-  const loading = categoriesLoading || (productsLoading && products.length === 0);
+  // Always show full grocery category list on Shop left rail
+  const categories = useMemo(() => {
+    const byName = new Map(
+      (apiCategories || [])
+        .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
+        .map((cat) => [String(cat.categoryName).toLowerCase(), cat])
+    );
+
+    return DUMMY_SHOP_CATEGORIES.map((shopCat) => {
+      const apiCat = byName.get(shopCat.categoryName.toLowerCase());
+      if (!apiCat) return shopCat;
+      return {
+        ...shopCat,
+        _id: apiCat._id || shopCat._id,
+        categoryImage: apiCat.categoryImage || shopCat.categoryImage,
+        subcategories: apiCat.subcategories || [],
+      };
+    });
+  }, [apiCategories]);
+
+  const products = useMemo(() => {
+    if (apiProducts.length > 0) return apiProducts;
+    if (categoryName) return getDummyCategoryProducts(categoryName) || [];
+    return getAllDummyProducts();
+  }, [apiProducts, categoryName]);
+
+  // Open Shop on first category so left rail + category products show together
+  useEffect(() => {
+    if (categoriesLoading) return;
+    if (categoryName || searchQuery || brandName) return;
+    if (!categories.length) return;
+    navigate(
+      `/product?categoryName=${encodeURIComponent(categories[0].categoryName)}`,
+      { replace: true }
+    );
+  }, [categoriesLoading, categories, categoryName, searchQuery, brandName, navigate]);
+
+  const loading =
+    categoriesLoading ||
+    (productsLoading && apiProducts.length === 0 && products.length === 0);
   const infiniteScrollProps = {
-    hasNextPage: Boolean(hasNextPage),
-    isFetchingNextPage,
-    onLoadMore: fetchNextPage,
+    hasNextPage: apiProducts.length > 0 ? Boolean(hasNextPage) : false,
+    isFetchingNextPage: apiProducts.length > 0 ? isFetchingNextPage : false,
+    onLoadMore: apiProducts.length > 0 ? fetchNextPage : undefined,
   };
 
   if (brandName && !categoryName && !searchQuery) {
@@ -417,7 +462,7 @@ function Product() {
       <AllProductsLayout
         categories={categories}
         products={products}
-        loading={loading}
+        loading={loading || categoriesLoading}
         onAdd={handleIncrease}
         onGetCartQuantity={getCartQuantity}
         onIncrease={handleIncrease}

@@ -24,13 +24,15 @@ function CategoryHeaderImage({ image, name }) {
   }
 
   return (
-    <img
-      src={image}
-      alt={name}
-      className="h-9 w-9 shrink-0 rounded-md object-contain sm:h-11 sm:w-11"
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-mobile-surface sm:h-11 sm:w-11">
+      <img
+        src={image}
+        alt={name}
+        className="h-full w-full object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </div>
   );
 }
 

@@ -33,13 +33,15 @@ function SidebarCategoryImage({ image, name, showGrid = false }) {
   }
 
   return (
-    <img
-      src={image}
-      alt={name}
-      className="h-12 w-12 shrink-0 rounded-lg bg-white object-contain p-1"
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-mobile-surface">
+      <img
+        src={image}
+        alt={name}
+        className="h-full w-full object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </div>
   );
 }
 

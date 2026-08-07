@@ -1,3 +1,5 @@
+import { GROCERY_CATEGORIES } from "./groceryCategories";
+
 const FRUIT_NAMES = [
   "Fresh Banana",
   "Alphonso Mango",
@@ -241,13 +243,32 @@ const DUMMY_BY_CATEGORY = {
   dairy: makeProducts(DAIRY_NAMES, "Dairy", 35),
 };
 
+/** Full shop left-rail list (Vegetables, Fruits, Dairy, … Bakery). */
+export const DUMMY_SHOP_CATEGORIES = GROCERY_CATEGORIES.map((cat) => ({
+  _id: `shop-cat-${cat.slug}`,
+  categoryName: cat.name,
+  categoryImage: cat.image,
+  subcategories: [],
+  itemsLabel: cat.items,
+}));
+
 export function getDummyCategoryProducts(categoryName) {
   const key = String(categoryName || "").trim().toLowerCase();
+  if (key.includes("dry fruit")) return null;
   if (key.includes("fruit")) return DUMMY_BY_CATEGORY.fruits;
   if (key.includes("vegetable") || key.includes("veggie")) return DUMMY_BY_CATEGORY.vegetables;
   if (key.includes("organic")) return DUMMY_BY_CATEGORY.organic;
   if (key.includes("dairy") || key.includes("milk")) return DUMMY_BY_CATEGORY.dairy;
   return null;
+}
+
+export function getAllDummyProducts() {
+  return [
+    ...DUMMY_BY_CATEGORY.fruits,
+    ...DUMMY_BY_CATEGORY.vegetables,
+    ...DUMMY_BY_CATEGORY.organic,
+    ...DUMMY_BY_CATEGORY.dairy,
+  ];
 }
 
 export function getDummyProductById(id) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { buildApiUrl, getProductById } from "../api/api";
 import { getDummyProductById } from "../data/dummyCategoryProducts";
 import { useAuth } from "../context/AuthContext";
@@ -508,6 +508,54 @@ function CartActionQuantity({ quantity, min, max, disabled, onDecrease, onIncrea
   );
 }
 
+function ProductDetailsSection({
+  productType,
+  detailsOpen,
+  onToggleDetails,
+  product,
+  specifications,
+  className = "",
+}) {
+  return (
+    <section className={className}>
+      <h2 className="text-lg font-bold text-[#1a1a1a]">Product Details</h2>
+      <div className="mt-3 space-y-2 text-[14px]">
+        <p>
+          <span className="font-semibold text-[#1a1a1a]">Type </span>
+          <span className="text-[#666]">{productType}</span>
+        </p>
+        {detailsOpen ? (
+          <div className="space-y-2 text-[#666]">
+            <ProductDescriptionContent
+              description={product.description}
+              features={product.features}
+              fallback={`Fresh ${product.name} from GreenGroo. Quality checked and ready for delivery.`}
+            />
+            {specifications.length > 0 ? (
+              <ul className="space-y-1 pt-1">
+                {specifications.map((spec, index) => (
+                  <li key={`${spec.name}-${index}`}>
+                    <span className="font-semibold text-[#1a1a1a]">{spec.name}: </span>
+                    {spec.value}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={onToggleDetails}
+          className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#0C831F]"
+        >
+          {detailsOpen ? "View less details" : "View more details"}
+          <span className="text-xs">{detailsOpen ? "▴" : "▾"}</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ActionButtons({
   inStock,
   inCart,
@@ -553,6 +601,7 @@ function ActionButtons({
 
 function ProductDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addToCart, items: cartItems, incrementCartItem, decrementCartItem } = useCart();
   const { openAuthModal } = useAuth();
   const [product, setProduct] = useState(null);
@@ -865,21 +914,36 @@ function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-white pb-24 text-[#1a1a1a] lg:pb-10">
-      {/* lg:pt accounts for TopNav (72) + CategoryNavbar (~52) */}
-      <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-5 lg:px-6 lg:pt-16">
+      {/* lg:pt accounts for TopNav (72) */}
+      <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-5 lg:px-6 lg:pt-6">
         <div className="grid min-w-0 gap-6 lg:grid-cols-2 lg:items-start lg:gap-10">
           {/* Left — scrolls with page through Product Details */}
           <div className="min-w-0">
             <div className="relative overflow-hidden rounded-2xl bg-white">
-              <div className="absolute left-2 top-2 z-10 flex items-center gap-2">
-                <WishlistButton product={product} size="md" />
-                <ProductShareMenu
-                  className="[&_button]:bg-white/95"
-                  product={product}
-                  shareUrl={shareUrl}
-                  imageUrl={shareImageUrl}
-                  variantName={activeVariantName}
-                />
+              <div className="absolute inset-x-2 top-2 z-10 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.history.length > 1) navigate(-1);
+                    else navigate("/product");
+                  }}
+                  aria-label="Go back"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E5E5] bg-white/95 text-[#1a1a1a] shadow-sm transition hover:bg-white"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+                <div className="flex items-center gap-2">
+                  <WishlistButton product={product} size="md" />
+                  <ProductShareMenu
+                    className="[&_button]:bg-white/95"
+                    product={product}
+                    shareUrl={shareUrl}
+                    imageUrl={shareImageUrl}
+                    variantName={activeVariantName}
+                  />
+                </div>
               </div>
               <div className="flex min-h-[280px] w-full items-center justify-center sm:min-h-[340px]">
                 {isVideoActive ? (
@@ -897,46 +961,18 @@ function ProductDetail() {
               />
             </div>
 
-            <section className="mt-8 border-t border-[#F0F0F0] pt-6 lg:min-h-[55vh] lg:pb-16">
-              <h2 className="text-lg font-bold text-[#1a1a1a]">Product Details</h2>
-              <div className="mt-3 space-y-2 text-[14px]">
-                <p>
-                  <span className="font-semibold text-[#1a1a1a]">Type </span>
-                  <span className="text-[#666]">{productType}</span>
-                </p>
-                {detailsOpen ? (
-                  <div className="space-y-2 text-[#666]">
-                    <ProductDescriptionContent
-                      description={product.description}
-                      features={product.features}
-                      fallback={`Fresh ${product.name} from GreenGroo. Quality checked and ready for delivery.`}
-                    />
-                    {specifications.length > 0 ? (
-                      <ul className="space-y-1 pt-1">
-                        {specifications.map((spec, index) => (
-                          <li key={`${spec.name}-${index}`}>
-                            <span className="font-semibold text-[#1a1a1a]">{spec.name}: </span>
-                            {spec.value}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setDetailsOpen((v) => !v)}
-                  className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#0C831F]"
-                >
-                  {detailsOpen ? "View less details" : "View more details"}
-                  <span className="text-xs">{detailsOpen ? "▴" : "▾"}</span>
-                </button>
-              </div>
-            </section>
+            <ProductDetailsSection
+              className="mt-8 hidden border-t border-[#F0F0F0] pt-6 lg:block lg:min-h-[55vh] lg:pb-16"
+              productType={productType}
+              detailsOpen={detailsOpen}
+              onToggleDetails={() => setDetailsOpen((v) => !v)}
+              product={product}
+              specifications={specifications}
+            />
           </div>
 
           {/* Right — sticks to top under header while left scrolls */}
-          <aside className="min-w-0 bg-white lg:sticky lg:top-[124px] lg:z-10 lg:self-start">
+          <aside className="min-w-0 bg-white lg:sticky lg:top-[88px] lg:z-10 lg:self-start">
             <nav className="mb-2 flex flex-wrap items-center gap-1 text-[12px] text-[#757575]">
               <Link to="/" className="hover:text-[#0C831F]">
                 Home
@@ -1064,6 +1100,15 @@ function ProductDetail() {
                   .join(" · ")}
               </p>
             )}
+
+            <ProductDetailsSection
+              className="mt-8 border-t border-[#F0F0F0] pt-6 lg:hidden"
+              productType={productType}
+              detailsOpen={detailsOpen}
+              onToggleDetails={() => setDetailsOpen((v) => !v)}
+              product={product}
+              specifications={specifications}
+            />
 
             <div className="mt-8 border-t border-[#F0F0F0] pt-6">
               <WhyShopFromGreenGroo />

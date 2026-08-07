@@ -10,6 +10,8 @@ import HomeStickyCategories from "../components/grocery/HomeStickyCategories";
 function MobileLayout({ children }) {
   const { pathname } = useRouterLocation();
   const isHome = pathname === "/";
+  const isProductDetail = /^\/product\/[^/]+/.test(pathname);
+  const isShop = pathname === "/product";
 
   return (
     <div
@@ -23,15 +25,16 @@ function MobileLayout({ children }) {
         <div className="lg:hidden">
           <HomeStickyCategories />
         </div>
-      ) : (
+      ) : isProductDetail ? null : (
         <MobileHeader />
       )}
 
-      {!isHome ? <CategoryNavbar /> : null}
+      {/* Shop uses vertical category rail; skip horizontal CategoryNavbar */}
+      {!isHome && !isProductDetail && !isShop ? <CategoryNavbar /> : null}
 
       <main
         className={`mx-auto w-full flex-1 pb-24 pt-0 lg:pt-[72px] ${
-          isHome ? "lg:pb-0" : "lg:pb-8"
+          isHome ? "lg:pb-0" : isShop ? "lg:pb-0" : "lg:pb-8"
         }`}
       >
         {children}
@@ -39,7 +42,7 @@ function MobileLayout({ children }) {
 
       {isHome ? <FloatingCartBar /> : null}
 
-      <div className={isHome ? "hidden lg:block" : ""}>
+      <div className={isHome || isShop ? "hidden lg:block" : ""}>
         <Footer />
       </div>
 
