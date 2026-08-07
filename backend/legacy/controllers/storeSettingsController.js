@@ -1,5 +1,5 @@
 import StoreSettings from "../models/StoreSettings.js";
-import { normalizeEnviaOriginFields } from "../../shared/shipping/enviaOriginAddress.js";
+import { normalizeEnviaOriginFields } from "../../../shared/shipping/enviaOriginAddress.js";
 import {
   clearStoreSettingsCache,
   getStoreSettings,
@@ -7,7 +7,7 @@ import {
   normalizeShippingSlabs,
   serializeStoreSettings,
 } from "../utils/storeSettingsHelpers.js";
-import { normalizeGiftHamperTiers } from "../../shared/store/giftHamper.js";
+import { normalizeGiftHamperTiers } from "../../../shared/store/giftHamper.js";
 
 const sanitizeNoticeLines = (lines) =>
   Array.isArray(lines)

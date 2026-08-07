@@ -19,7 +19,7 @@ import {
 import { calculateOrderTotal } from "./gstHelpers.js";
 import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
-import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../shared/store/giftHamper.js";
+import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../../shared/store/giftHamper.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();

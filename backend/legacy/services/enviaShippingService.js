@@ -1,14 +1,14 @@
 import axios from "axios";
 
 import StoreSettings from "../models/StoreSettings.js";
-import { normalizePackageWeight } from "../../shared/shipping/shippingServices.js";
+import { normalizePackageWeight } from "../../../shared/shipping/shippingServices.js";
 import {
   mergeEnviaOriginDefaults,
   buildEnviaOriginStreet,
   extractEnviaStreetNumber,
-} from "../../shared/shipping/enviaOriginAddress.js";
-import { buildEnviaCodAdditionalServices, resolveShipmentPaymentOptions } from "../../shared/shipping/shipmentPayment.js";
-import { buildEnviaShipmentComments } from "../../shared/shipping/shipmentMetadata.js";
+} from "../../../shared/shipping/enviaOriginAddress.js";
+import { buildEnviaCodAdditionalServices, resolveShipmentPaymentOptions } from "../../../shared/shipping/shipmentPayment.js";
+import { buildEnviaShipmentComments } from "../../../shared/shipping/shipmentMetadata.js";
 
 const TEST_BASE_URL = "https://api-test.envia.com";
 const PROD_BASE_URL = "https://api.envia.com";

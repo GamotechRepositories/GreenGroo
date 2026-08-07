@@ -1,7 +1,13 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import connectDB from "./config/dbconfig.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config();
 import { ensureUserIndexes } from "./utils/ensureUserIndexes.js";
 import { ensureCartCompatibility } from "./utils/ensureCartCompatibility.js";
 import "./models/user.js";

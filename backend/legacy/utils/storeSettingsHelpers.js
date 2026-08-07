@@ -1,6 +1,6 @@
 import StoreSettings from "../models/StoreSettings.js";
-import { mergeEnviaOriginDefaults } from "../../shared/shipping/enviaOriginAddress.js";
-import { normalizeGiftHamperTiers } from "../../shared/store/giftHamper.js";
+import { mergeEnviaOriginDefaults } from "../../../shared/shipping/enviaOriginAddress.js";
+import { normalizeGiftHamperTiers } from "../../../shared/store/giftHamper.js";
 
 export const DEFAULT_STORE_SETTINGS = {
   minimumOrderValue: 3000,
