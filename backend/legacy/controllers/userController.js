@@ -48,21 +48,74 @@ function validateSignupProfile(body) {
   const shopAddress = body.shopAddress?.trim() || "";
   const gstNumber = body.gstNumber?.trim() || "";
 
-  if (!shopName) return "Shop name is required";
-  if (shopName.length < 2) return "Shop name must be at least 2 characters";
-  if (!shopAddress) return "Shop address is required";
-  if (shopAddress.length < 5) return "Please enter a complete shop address";
+  // Shop fields are optional for customer signup
+  if (shopName && shopName.length < 2) {
+    return "Shop name must be at least 2 characters";
+  }
+  if (shopAddress && shopAddress.length < 5) {
+    return "Please enter a complete shop address";
+  }
   if (gstNumber && !GST_PATTERN.test(gstNumber.toUpperCase())) {
     return "Please provide a valid GST number";
   }
   return null;
 }
 
-export const signup = async (_req, res) => {
-  res.status(403).json({
-    success: false,
-    message: "Please sign up with your phone number and OTP.",
-  });
+export const signup = async (req, res) => {
+  try {
+    const phone = normalizeIndianPhone(req.body.phone);
+    const { name, password } = req.body;
+    const profileFields = pickSignupProfileFields(req.body);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone must be 10 digits starting with 6, 7, 8, or 9",
+      });
+    }
+
+    if (!name?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Name is required",
+      });
+    }
+
+    if (!password || String(password).trim().length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const existingPhoneUser = await User.findOne({ phone });
+    if (existingPhoneUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this phone number already exists. Please sign in instead.",
+      });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      phone,
+      password: String(password).trim(),
+      role: "user",
+      ...profileFields,
+    });
+
+    const token = signToken(user._id);
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        user: formatAuthUser(user),
+        token,
+      },
+    });
+  } catch (error) {
+    return respondWithControllerError(res, error);
+  }
 };
 
 export const login = async (req, res) => {
@@ -165,7 +218,7 @@ async function loginWithPhoneCredentials(_req, res, phone, password) {
   if (!user.password) {
     return res.status(401).json({
       success: false,
-      message: "No password set for this account. Please sign in with OTP.",
+      message: "No password set for this account. Please sign up again or reset your password.",
     });
   }
 

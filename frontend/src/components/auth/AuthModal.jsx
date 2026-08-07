@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -8,8 +8,6 @@ const validateName = (value) => {
   return words.every((word) => /^[A-Za-z]{2,30}$/.test(word));
 };
 const PHONE_PATTERN = /^[6789]\d{9}$/;
-const GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
-const OTP_LENGTH = 6;
 
 function UserIcon({ className = "h-4 w-4" }) {
   return (
@@ -23,31 +21,6 @@ function PhoneIcon({ className = "h-4 w-4" }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-    </svg>
-  );
-}
-
-function ShopIcon({ className = "h-3.5 w-3.5" }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72M6.75 6h.008v.008H6.75V6zm0 2.25h.008v.008H6.75V8.25zm0 2.25h.008v.008H6.75v-.008z" />
-    </svg>
-  );
-}
-
-function DocumentIcon({ className = "h-3.5 w-3.5" }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-    </svg>
-  );
-}
-
-function LocationIcon({ className = "h-3.5 w-3.5" }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
     </svg>
   );
 }
@@ -68,6 +41,22 @@ function LockIcon({ className = "h-3.5 w-3.5" }) {
   );
 }
 
+function EyeIcon({ open, className = "h-4 w-4" }) {
+  if (open) {
+    return (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
 function getAuthUi(isSignup) {
   if (isSignup) {
     return {
@@ -79,7 +68,6 @@ function getAuthUi(isSignup) {
         "w-full rounded-lg border border-gray-200 bg-white py-2 text-xs text-gray-900 placeholder:text-gray-400 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/10",
       fieldPad: "pl-8 pr-2.5",
       fieldPadPassword: "pl-8 pr-9",
-      iconLeft: "left-2.5",
       phoneWrap: "rounded-lg",
       phonePrefix: "gap-1.5 px-2.5 text-xs",
       phoneIcon: "h-3.5 w-3.5",
@@ -92,12 +80,7 @@ function getAuthUi(isSignup) {
       headerIcon: "h-9 w-9",
       headerTitle: "text-lg",
       headerSubtitle: "mt-0.5 text-xs",
-      otpCell: "h-9 w-8 rounded-lg text-sm",
-      otpGap: "gap-1.5",
-      actionLinks: "text-xs",
       arrow: "h-3.5 w-3.5",
-      toggle: "rounded-lg p-0.5 text-[11px]",
-      toggleBtn: "rounded-md px-3 py-1.5",
     };
   }
 
@@ -110,7 +93,6 @@ function getAuthUi(isSignup) {
       "w-full rounded-xl border border-gray-200 bg-white py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10",
     fieldPad: "pl-10 pr-3",
     fieldPadPassword: "pl-10 pr-11",
-    iconLeft: "left-3",
     phoneWrap: "rounded-xl",
     phonePrefix: "gap-2 px-3.5 text-sm",
     phoneIcon: "h-4 w-4",
@@ -123,12 +105,7 @@ function getAuthUi(isSignup) {
     headerIcon: "h-11 w-11",
     headerTitle: "text-xl sm:text-2xl",
     headerSubtitle: "mt-1 text-sm",
-    otpCell: "h-12 w-11 rounded-xl text-base sm:w-12",
-    otpGap: "gap-2",
-    actionLinks: "text-sm",
     arrow: "h-4 w-4",
-    toggle: "rounded-xl p-1 text-sm",
-    toggleBtn: "rounded-lg px-4 py-2",
   };
 }
 
@@ -151,93 +128,11 @@ function IconField({ label, htmlFor, optional = false, icon, labelClassName, chi
   );
 }
 
-function OtpInput({ value, onChange, disabled, cellClass, gapClass }) {
-  const inputsRef = useRef([]);
-  const digits = Array.from({ length: OTP_LENGTH }, (_, index) => value[index] || "");
-
-  const focusInput = (index) => {
-    inputsRef.current[index]?.focus();
-  };
-
-  const updateValue = (nextDigits) => {
-    onChange(nextDigits.join("").slice(0, OTP_LENGTH));
-  };
-
-  const handleChange = (index, nextChar) => {
-    if (!/^\d?$/.test(nextChar)) return;
-
-    const nextDigits = [...digits];
-    nextDigits[index] = nextChar;
-    updateValue(nextDigits);
-
-    if (nextChar && index < OTP_LENGTH - 1) {
-      focusInput(index + 1);
-    }
-  };
-
-  const handleKeyDown = (index, event) => {
-    if (event.key === "Backspace" && !digits[index] && index > 0) {
-      focusInput(index - 1);
-    }
-  };
-
-  const handlePaste = (event) => {
-    event.preventDefault();
-    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
-    if (!pasted) return;
-
-    const nextDigits = Array.from({ length: OTP_LENGTH }, (_, index) => pasted[index] || "");
-    updateValue(nextDigits);
-    focusInput(Math.min(pasted.length, OTP_LENGTH - 1));
-  };
-
-  return (
-    <div className={`flex justify-center ${gapClass}`}>
-      {digits.map((digit, index) => (
-        <input
-          key={index}
-          ref={(element) => {
-            inputsRef.current[index] = element;
-          }}
-          type="text"
-          inputMode="numeric"
-          autoComplete={index === 0 ? "one-time-code" : "off"}
-          maxLength={1}
-          value={digit}
-          disabled={disabled}
-          onChange={(event) => handleChange(index, event.target.value.slice(-1))}
-          onKeyDown={(event) => handleKeyDown(index, event)}
-          onPaste={handlePaste}
-          className={`${cellClass} border border-gray-200 bg-white text-center font-semibold text-gray-900 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/10`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function AuthModalHeader({ isSignup, step, phone, ui }) {
+function AuthModalHeader({ isSignup, ui }) {
   const headerWrap = `${ui.headerMb} flex items-start ${ui.headerGap}`;
   const iconWrap = `flex ${ui.headerIcon} shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary`;
   const titleClass = `${ui.headerTitle} font-bold leading-tight text-gray-900`;
   const subtitleClass = `${ui.headerSubtitle} leading-snug text-gray-500`;
-
-  if (step === "verify") {
-    return (
-      <div className={headerWrap}>
-        <div className={iconWrap}>
-          <PhoneIcon className="h-4 w-4" />
-        </div>
-        <div>
-          <h2 id="auth-modal-title" className={titleClass}>
-            Verify <span className="text-primary">OTP</span>
-          </h2>
-          <p className={subtitleClass}>
-            Enter the 6-digit code sent to +91 {phone}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (isSignup) {
     return (
@@ -249,9 +144,7 @@ function AuthModalHeader({ isSignup, step, phone, ui }) {
           <h2 id="auth-modal-title" className={titleClass}>
             Create Your <span className="text-primary">Account</span>
           </h2>
-          <p className={subtitleClass}>
-            Fill your details and verify your phone with OTP
-          </p>
+          <p className={subtitleClass}>Fill your details and set a password to sign up</p>
         </div>
       </div>
     );
@@ -266,57 +159,41 @@ function AuthModalHeader({ isSignup, step, phone, ui }) {
         <h2 id="auth-modal-title" className={titleClass}>
           Welcome <span className="text-primary">Back</span>
         </h2>
-        <p className={subtitleClass}>
-          Enter your phone number to sign in with OTP
-        </p>
+        <p className={subtitleClass}>Sign in with your phone number and password</p>
       </div>
     </div>
   );
 }
 
 function AuthModal({ mode, onClose, onSwitchMode }) {
-  const { sendOtp, loginWithOtp } = useAuth();
+  const { login, signup } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [shopName, setShopName] = useState("");
-  const [shopAddress, setShopAddress] = useState("");
-  const [gstNumber, setGstNumber] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState("details");
-  const [resendCooldown, setResendCooldown] = useState(0);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const verifyInFlight = useRef(false);
 
   const isSignup = mode === "signup";
   const ui = getAuthUi(isSignup);
 
-  const resetFlow = () => {
-    setStep("details");
-    setOtp("");
-    setShopName("");
-    setShopAddress("");
-    setGstNumber("");
+  const resetForm = () => {
+    setName("");
+    setPhone("");
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
     setError("");
   };
 
   const handleModeSwitch = (nextMode) => {
-    resetFlow();
+    resetForm();
     onSwitchMode(nextMode);
   };
 
   useEffect(() => {
-    if (resendCooldown <= 0) return undefined;
-
-    const timer = window.setInterval(() => {
-      setResendCooldown((value) => (value > 0 ? value - 1 : 0));
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [resendCooldown]);
-
-  useEffect(() => {
-    resetFlow();
+    resetForm();
   }, [mode]);
 
   useEffect(() => {
@@ -331,114 +208,56 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
     };
   }, [onClose]);
 
-  const validateDetailsStep = () => {
+  const validateForm = () => {
     if (isSignup && !validateName(name)) {
       return "Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)";
     }
     if (!PHONE_PATTERN.test(phone.trim())) {
       return "Phone must be 10 digits starting with 6, 7, 8, or 9";
     }
-    if (isSignup && !shopName.trim()) {
-      return "Shop name is required";
+    if (!password || password.length < 6) {
+      return "Password must be at least 6 characters";
     }
-    if (isSignup && shopName.trim().length < 2) {
-      return "Shop name must be at least 2 characters";
-    }
-    if (isSignup && !shopAddress.trim()) {
-      return "Shop address is required";
-    }
-    if (isSignup && shopAddress.trim().length < 5) {
-      return "Please enter a complete shop address";
-    }
-    if (isSignup && gstNumber.trim() && !GST_PATTERN.test(gstNumber.trim().toUpperCase())) {
-      return "Please enter a valid GST number";
+    if (isSignup && password !== confirmPassword) {
+      return "Passwords do not match";
     }
     return "";
   };
 
-  const handleSendOtp = async () => {
-    const validationError = validateDetailsStep();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       return;
     }
 
-    if (!PHONE_PATTERN.test(phone.trim())) {
-      setError("Phone must be 10 digits starting with 6, 7, 8, or 9");
-      return;
-    }
-
     setSubmitting(true);
     setError("");
 
     try {
-      await sendOtp(phone.trim(), { purpose: isSignup ? "signup" : "login" });
-      setStep("verify");
-      setOtp("");
-      setResendCooldown(60);
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleVerifyOtp = async (event) => {
-    event.preventDefault();
-
-    if (verifyInFlight.current) return;
-
-    if (!/^\d{6}$/.test(otp.trim())) {
-      setError("Please enter the 6-digit OTP sent to your phone");
-      return;
-    }
-
-    verifyInFlight.current = true;
-    setSubmitting(true);
-    setError("");
-
-    try {
-      const result = await loginWithOtp({
-        phone: phone.trim(),
-        otp: otp.trim(),
-        ...(isSignup
-          ? {
-              name: name.trim(),
-              shopName: shopName.trim(),
-              shopAddress: shopAddress.trim(),
-              gstNumber: gstNumber.trim(),
-            }
-          : {}),
-      });
-
-      if (result?.needsSignup) {
-        setError("No account found with this number. Please sign up first.");
-        return;
+      if (isSignup) {
+        await signup({
+          name: name.trim(),
+          phone: phone.trim(),
+          password,
+        });
+      } else {
+        await login({
+          phone: phone.trim(),
+          password,
+        });
       }
-
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "OTP verification failed.");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          (isSignup ? "Sign up failed. Please try again." : "Sign in failed. Please try again.")
+      );
     } finally {
-      verifyInFlight.current = false;
       setSubmitting(false);
     }
-  };
-
-  const handleDetailsSubmit = async (event) => {
-    event.preventDefault();
-    await handleSendOtp();
-  };
-
-  const primaryButtonLabel = () => {
-    if (submitting) {
-      if (step === "verify") return "Please wait...";
-      return "Sending OTP...";
-    }
-    if (step === "verify") {
-      return isSignup ? "Verify & Sign Up" : "Verify & Sign In";
-    }
-    return "Send OTP";
   };
 
   return createPortal(
@@ -465,205 +284,111 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
         </button>
 
         <div className={ui.panel}>
-          <AuthModalHeader
-            isSignup={isSignup}
-            step={step}
-            phone={phone}
-            ui={ui}
-          />
+          <AuthModalHeader isSignup={isSignup} ui={ui} />
 
-          <form onSubmit={step === "verify" ? handleVerifyOtp : handleDetailsSubmit} className={ui.form}>
-            {step === "details" ? (
-              <>
-                {isSignup ? (
-                  <>
-                    <IconField
-                      label="Name"
-                      htmlFor="auth-name"
-                      labelClassName={ui.label}
-                      icon={<UserIcon className="h-3.5 w-3.5" />}
-                    >
-                      <input
-                        id="auth-name"
-                        type="text"
-                        value={name}
-                        onChange={(event) => {
-                          setName(event.target.value);
-                          setError("");
-                        }}
-                        placeholder="Enter your full name"
-                        className={`${ui.field} ${ui.fieldPad}`}
-                        required
-                      />
-                    </IconField>
+          <form onSubmit={handleSubmit} className={ui.form}>
+            {isSignup ? (
+              <IconField
+                label="Name"
+                htmlFor="auth-name"
+                labelClassName={ui.label}
+                icon={<UserIcon className="h-3.5 w-3.5" />}
+              >
+                <input
+                  id="auth-name"
+                  type="text"
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    setError("");
+                  }}
+                  placeholder="Enter your full name"
+                  className={`${ui.field} ${ui.fieldPad}`}
+                  required
+                />
+              </IconField>
+            ) : null}
 
-                    <div>
-                      <label htmlFor="auth-phone" className={ui.label}>
-                        Mobile Number
-                      </label>
-                      <div
-                        className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/10 ${ui.phoneWrap}`}
-                      >
-                        <div
-                          className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
-                        >
-                          <PhoneIcon className={ui.phoneIcon} />
-                          <span>+91</span>
-                        </div>
-                        <input
-                          id="auth-phone"
-                          type="tel"
-                          value={phone}
-                          onChange={(event) => {
-                            setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
-                            setError("");
-                          }}
-                          placeholder="Enter your phone number"
-                          maxLength={10}
-                          className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <IconField
-                      label="Shop Name"
-                      htmlFor="auth-shop-name"
-                      labelClassName={ui.label}
-                      icon={<ShopIcon />}
-                    >
-                      <input
-                        id="auth-shop-name"
-                        type="text"
-                        value={shopName}
-                        onChange={(event) => {
-                          setShopName(event.target.value);
-                          setError("");
-                        }}
-                        placeholder="Enter your shop name"
-                        className={`${ui.field} ${ui.fieldPad}`}
-                        required
-                      />
-                    </IconField>
-
-                    <div>
-                      <label htmlFor="auth-shop-address" className={ui.label}>
-                        Shop Address
-                      </label>
-                      <div className="relative">
-                        <span className="pointer-events-none absolute left-2.5 top-2.5 text-gray-400">
-                          <LocationIcon />
-                        </span>
-                        <textarea
-                          id="auth-shop-address"
-                          value={shopAddress}
-                          onChange={(event) => {
-                            setShopAddress(event.target.value);
-                            setError("");
-                          }}
-                          placeholder="Building, street, area, city"
-                          rows={3}
-                          className={`${ui.field} resize-none py-2 pl-8 pr-2.5`}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <IconField
-                      label="GST Number"
-                      htmlFor="auth-gst"
-                      labelClassName={ui.label}
-                      optional
-                      icon={<DocumentIcon />}
-                    >
-                      <input
-                        id="auth-gst"
-                        type="text"
-                        value={gstNumber}
-                        onChange={(event) => {
-                          setGstNumber(event.target.value.toUpperCase());
-                          setError("");
-                        }}
-                        placeholder="e.g. 22AAAAA0000A1Z5"
-                        maxLength={15}
-                        className={`${ui.field} ${ui.fieldPad}`}
-                      />
-                    </IconField>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <label htmlFor="auth-phone" className={ui.label}>
-                        Phone Number
-                      </label>
-                      <div
-                        className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 ${ui.phoneWrap}`}
-                      >
-                        <div
-                          className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
-                        >
-                          <PhoneIcon className={ui.phoneIcon} />
-                          <span>+91</span>
-                        </div>
-                        <input
-                          id="auth-phone"
-                          type="tel"
-                          value={phone}
-                          onChange={(event) => {
-                            setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
-                            setError("");
-                          }}
-                          placeholder="Enter your phone number"
-                          maxLength={10}
-                          className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className={`${ui.label} text-center`}>
-                    Enter OTP
-                  </label>
-                  <OtpInput
-                    value={otp}
-                    onChange={(value) => {
-                      setOtp(value);
-                      setError("");
-                    }}
-                    disabled={submitting}
-                    cellClass={ui.otpCell}
-                    gapClass={ui.otpGap}
-                  />
+            <div>
+              <label htmlFor="auth-phone" className={ui.label}>
+                {isSignup ? "Mobile Number" : "Phone Number"}
+              </label>
+              <div
+                className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/10 ${ui.phoneWrap}`}
+              >
+                <div
+                  className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
+                >
+                  <PhoneIcon className={ui.phoneIcon} />
+                  <span>+91</span>
                 </div>
+                <input
+                  id="auth-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(event) => {
+                    setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
+                    setError("");
+                  }}
+                  placeholder="Enter your phone number"
+                  maxLength={10}
+                  className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
+                  required
+                />
+              </div>
+            </div>
 
-                <div className={`flex items-center justify-between gap-2 ${ui.actionLinks}`}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("details");
-                      setOtp("");
-                      setError("");
-                    }}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    Change number
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSendOtp()}
-                    disabled={submitting || resendCooldown > 0}
-                    className="font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
-                  </button>
-                </div>
-              </>
-            )}
+            <IconField
+              label="Password"
+              htmlFor="auth-password"
+              labelClassName={ui.label}
+              icon={<LockIcon />}
+            >
+              <input
+                id="auth-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setError("");
+                }}
+                placeholder={isSignup ? "Create a password (min 6 chars)" : "Enter your password"}
+                className={`${ui.field} ${ui.fieldPadPassword}`}
+                required
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                <EyeIcon open={showPassword} />
+              </button>
+            </IconField>
+
+            {isSignup ? (
+              <IconField
+                label="Confirm Password"
+                htmlFor="auth-confirm-password"
+                labelClassName={ui.label}
+                icon={<LockIcon />}
+              >
+                <input
+                  id="auth-confirm-password"
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value);
+                    setError("");
+                  }}
+                  placeholder="Re-enter your password"
+                  className={`${ui.field} ${ui.fieldPad}`}
+                  required
+                  minLength={6}
+                />
+              </IconField>
+            ) : null}
 
             {error ? (
               <p className={`rounded-lg border border-red-200 bg-red-50 text-red-600 ${ui.error}`}>
@@ -676,7 +401,11 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
               disabled={submitting}
               className={`flex w-full items-center justify-center bg-primary font-bold uppercase tracking-wide text-white shadow-sm transition hover:brightness-110 disabled:opacity-60 ${ui.btn}`}
             >
-              {primaryButtonLabel()}
+              {submitting
+                ? "Please wait..."
+                : isSignup
+                  ? "Sign Up"
+                  : "Sign In"}
               {!submitting ? <ArrowRightIcon className={ui.arrow} /> : null}
             </button>
           </form>
@@ -707,7 +436,7 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
             )}
           </p>
 
-          {isSignup && step === "details" ? (
+          {isSignup ? (
             <div className="mt-3 border-t border-gray-100 pt-3">
               <p className="flex items-center justify-center gap-1 text-center text-[10px] leading-tight text-gray-400">
                 <LockIcon />
