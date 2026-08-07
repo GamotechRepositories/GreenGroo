@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { getSimilarProducts } from "../../api/api";
+import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
 import SectionHeader from "../mobile/SectionHeader";
 import DealProductCard from "./DealProductCard";
+import QuickCommerceProductCard from "./QuickCommerceProductCard";
 
 function SimilarProducts({ productId, categoryName = "" }) {
   const [products, setProducts] = useState([]);
@@ -12,7 +14,7 @@ function SimilarProducts({ productId, categoryName = "" }) {
     useProductCartActions();
 
   useEffect(() => {
-    if (!productId) {
+    if (!productId && !categoryName) {
       setProducts([]);
       setLoading(false);
       return;
@@ -23,13 +25,24 @@ function SimilarProducts({ productId, categoryName = "" }) {
     const fetchSimilar = async () => {
       setLoading(true);
       try {
+        if (String(productId || "").startsWith("dummy-") || !productId) {
+          const dummy = (getDummyCategoryProducts(categoryName) || [])
+            .filter((p) => String(p._id) !== String(productId))
+            .slice(0, 10);
+          if (!cancelled) setProducts(dummy);
+          return;
+        }
+
         const { data } = await getSimilarProducts(productId);
         if (!cancelled) {
           setProducts(data.data || []);
         }
       } catch {
         if (!cancelled) {
-          setProducts([]);
+          const dummy = (getDummyCategoryProducts(categoryName) || [])
+            .filter((p) => String(p._id) !== String(productId))
+            .slice(0, 10);
+          setProducts(dummy);
         }
       } finally {
         if (!cancelled) {
@@ -43,7 +56,7 @@ function SimilarProducts({ productId, categoryName = "" }) {
     return () => {
       cancelled = true;
     };
-  }, [productId]);
+  }, [productId, categoryName]);
 
   const viewAllTo = categoryName
     ? `/product?categoryName=${encodeURIComponent(categoryName)}`
@@ -53,9 +66,11 @@ function SimilarProducts({ productId, categoryName = "" }) {
     return null;
   }
 
+  const useQuickCard = products.some((p) => String(p._id).startsWith("dummy-"));
+
   return (
-    <section className="col-span-6 mt-8 border-t border-border-light pt-6">
-      <SectionHeader title="Similar Products" viewAllTo={viewAllTo} className="mb-4" />
+    <section className="col-span-6 mt-8 border-t border-[#F0F0F0] pt-6">
+      <SectionHeader title="Similar products" viewAllTo={viewAllTo} className="mb-4" />
 
       {loading ? (
         <HorizontalScrollRow>
@@ -68,17 +83,29 @@ function SimilarProducts({ productId, categoryName = "" }) {
         </HorizontalScrollRow>
       ) : (
         <HorizontalScrollRow>
-          {products.map((product) => (
-            <DealProductCard
-              key={product._id}
-              product={product}
-              onAdd={handleAdd}
-              onIncrease={handleIncrease}
-              onDecrease={handleDecrease}
-              cartQuantity={getCartQuantity(product)}
-              layout="scroll"
-            />
-          ))}
+          {products.map((product) =>
+            useQuickCard ? (
+              <QuickCommerceProductCard
+                key={product._id}
+                product={product}
+                onAdd={handleAdd}
+                onIncrease={handleIncrease}
+                onDecrease={handleDecrease}
+                cartQuantity={getCartQuantity(product)}
+                layout="scroll"
+              />
+            ) : (
+              <DealProductCard
+                key={product._id}
+                product={product}
+                onAdd={handleAdd}
+                onIncrease={handleIncrease}
+                onDecrease={handleDecrease}
+                cartQuantity={getCartQuantity(product)}
+                layout="scroll"
+              />
+            )
+          )}
         </HorizontalScrollRow>
       )}
     </section>

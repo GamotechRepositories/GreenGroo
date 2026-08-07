@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { Link, useParams } from "react-router-dom";
 import { buildApiUrl, getProductById } from "../api/api";
+import { getDummyProductById } from "../data/dummyCategoryProducts";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
@@ -16,6 +17,7 @@ import {
   hasConfiguredQuantityStep,
   getUnitPriceForQuantity,
   getVariantStock,
+  getProductListPriceInfo,
   isBulkPricing,
   isMultiVariant,
 } from "../utils/productPricing";
@@ -294,9 +296,11 @@ const TABS = [
 function MediaThumbnailCarousel({ items, activeIndex, onSelect }) {
   if (items.length <= 1) return null;
 
+  const canNext = activeIndex < items.length - 1;
+
   return (
-    <div className="w-full overflow-x-auto hide-scrollbar">
-      <div className="flex w-max min-w-full justify-start gap-2 px-0.5 pb-0.5">
+    <div className="relative flex items-center gap-2">
+      <div className="hide-scrollbar flex min-w-0 flex-1 gap-2.5 overflow-x-auto py-0.5">
         {items.map((item, index) => (
           <button
             key={`${item.type}-${item.url}-${index}`}
@@ -308,8 +312,8 @@ function MediaThumbnailCarousel({ items, activeIndex, onSelect }) {
                 : `View image ${index} of ${items.length}`
             }
             aria-current={activeIndex === index ? "true" : undefined}
-            className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 bg-white lg:h-[72px] lg:w-[72px] ${
-              activeIndex === index ? "border-primary" : "border-border-light"
+            className={`relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl border bg-white ${
+              activeIndex === index ? "border-[#0C831F]" : "border-[#E5E5E5]"
             }`}
           >
             {item.type === "video" ? (
@@ -322,14 +326,109 @@ function MediaThumbnailCarousel({ items, activeIndex, onSelect }) {
               <img
                 src={item.url}
                 alt=""
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain p-1"
                 loading="lazy"
               />
             )}
           </button>
         ))}
       </div>
+      {canNext ? (
+        <button
+          type="button"
+          onClick={() => onSelect(Math.min(items.length - 1, activeIndex + 1))}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E5E5] bg-white text-[#1a1a1a] shadow-sm"
+          aria-label="Next image"
+        >
+          ›
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+function WhyShopFromGreenGroo() {
+  const points = [
+    {
+      title: "Round The Clock Delivery",
+      text: "Get items delivered to your doorstep from stores near you, whenever you need them.",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 17a2 2 0 100-4 2 2 0 000 4zm8 0a2 2 0 100-4 2 2 0 000 4z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h11v8H3V7zm11 3h3l3 3v2h-6v-5z" />
+        </svg>
+      ),
+    },
+    {
+      title: "Best Prices & Offers",
+      text: "Best price destination with offers directly from trusted suppliers.",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18M8 7h5a3 3 0 010 6H8m0 0h6a3 3 0 010 6H8" />
+        </svg>
+      ),
+    },
+    {
+      title: "Wide Assortment",
+      text: "Choose from fresh fruits, veggies, dairy, organic staples and more.",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <section>
+      <h2 className="text-lg font-bold text-[#1a1a1a]">Why shop from GreenGroo?</h2>
+      <ul className="mt-4 space-y-5">
+        {points.map((point) => (
+          <li key={point.title} className="flex gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F7F0D8] text-[#0C831F]">
+              {point.icon}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold text-[#1a1a1a]">{point.title}</p>
+              <p className="mt-0.5 text-[13px] leading-snug text-[#666]">{point.text}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function UnitOptionCard({ label, salePrice, originalPrice, selected, discountPct, onClick }) {
+  const format = (amount) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative min-w-[104px] rounded-xl border px-3 py-2.5 text-left transition ${
+        selected ? "border-[#0C831F] bg-[#F6FBF7]" : "border-[#E5E5E5] bg-white"
+      }`}
+    >
+      {discountPct > 0 ? (
+        <span className="absolute -top-2 left-2 rounded bg-[#2563EB] px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {discountPct}% OFF
+        </span>
+      ) : null}
+      <p className="text-[13px] font-semibold text-[#1a1a1a]">{label}</p>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="text-[15px] font-bold text-[#1a1a1a]">{format(salePrice)}</span>
+        {originalPrice > salePrice ? (
+          <span className="text-[12px] text-[#9CA3AF] line-through">{format(originalPrice)}</span>
+        ) : null}
+      </div>
+    </button>
   );
 }
 
@@ -465,10 +564,11 @@ function ProductDetail() {
   const [selectedVariant, setSelectedVariant] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const [downloadingImage, setDownloadingImage] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const canViewPrice = useCanViewProductPrice(product);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || String(id).startsWith("dummy-")) return;
     tryOpenProductInApp(id);
   }, [id]);
 
@@ -477,8 +577,10 @@ function ProductDetail() {
       setLoading(true);
       setError("");
       try {
-        const { data } = await getProductById(id);
-        const nextProduct = data.data;
+        const dummy = getDummyProductById(id);
+        const nextProduct = dummy
+          ? dummy
+          : (await getProductById(id)).data.data;
         const initialVariant =
           nextProduct?.variantType === "multi"
             ? nextProduct.variants?.[0]?.name || ""
@@ -491,7 +593,7 @@ function ProductDetail() {
         setActiveMedia(0);
         setActiveTab("description");
 
-        if (nextProduct?._id) {
+        if (nextProduct?._id && !String(nextProduct._id).startsWith("dummy-")) {
           addRecentlyViewed(nextProduct._id);
         }
       } catch {
@@ -719,28 +821,56 @@ function ProductDetail() {
   const maxQuantity = inStock
     ? Math.max(variantStock, minOrderQuantity)
     : minOrderQuantity;
+  const unitLabel = product.sub || product.unit || product.weight || "1 pc";
+  const priceInfo = getProductListPriceInfo(product, activeVariantName);
+
+  const unitOptions = isMultiVariant(product)
+    ? (product.variants || []).map((variant) => {
+        const info = getProductListPriceInfo(product, variant.name);
+        const discountPct =
+          info.hasDiscount && info.originalPrice > 0
+            ? Math.round(((info.originalPrice - info.salePrice) / info.originalPrice) * 100)
+            : 0;
+        return {
+          key: variant.name,
+          label: variant.name,
+          salePrice: info.salePrice,
+          originalPrice: info.originalPrice,
+          discountPct,
+          selected: selectedVariant === variant.name,
+          onSelect: () => handleVariantChange(variant.name),
+        };
+      })
+    : [
+        {
+          key: "default",
+          label: unitLabel,
+          salePrice: priceInfo.salePrice,
+          originalPrice: priceInfo.originalPrice,
+          discountPct:
+            priceInfo.hasDiscount && priceInfo.originalPrice > 0
+              ? Math.round(
+                  ((priceInfo.originalPrice - priceInfo.salePrice) / priceInfo.originalPrice) * 100
+                )
+              : 0,
+          selected: true,
+          onSelect: () => {},
+        },
+      ];
+
+  const productType =
+    specifications.find((s) => /type|category/i.test(s.name))?.value ||
+    product.subcategory ||
+    category;
 
   return (
-    <div className="min-h-screen bg-white pb-24 text-text-primary lg:pb-10">
-      <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-4 sm:pt-4 md:px-5 lg:px-6 lg:pt-4 xl:px-8">
-        <nav className="mb-4 hidden flex-wrap items-center gap-1.5 text-xs text-text-secondary sm:mb-5 sm:text-sm lg:flex">
-          <Link to="/" className="transition hover:text-primary">
-            Home
-          </Link>
-          <span className="text-text-muted">›</span>
-          <Link
-            to={`/product?categoryName=${encodeURIComponent(category)}`}
-            className="transition hover:text-primary"
-          >
-            {category}
-          </Link>
-          <span className="text-text-muted">›</span>
-          <span className="min-w-0 break-words font-medium text-text-primary">{product.name}</span>
-        </nav>
-
-        <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-2 lg:items-stretch lg:gap-8 xl:gap-10">
-          <div className="flex min-w-0 flex-col gap-3 lg:gap-4">
-            <div className="relative overflow-hidden rounded-lg bg-white">
+    <div className="min-h-screen bg-white pb-24 text-[#1a1a1a] lg:pb-10">
+      {/* lg:pt accounts for TopNav (72) + CategoryNavbar (~52) */}
+      <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-5 lg:px-6 lg:pt-16">
+        <div className="grid min-w-0 gap-6 lg:grid-cols-2 lg:items-start lg:gap-10">
+          {/* Left — scrolls with page through Product Details */}
+          <div className="min-w-0">
+            <div className="relative overflow-hidden rounded-2xl bg-white">
               <div className="absolute left-2 top-2 z-10 flex items-center gap-2">
                 <WishlistButton product={product} size="md" />
                 <ProductShareMenu
@@ -751,116 +881,119 @@ function ProductDetail() {
                   variantName={activeVariantName}
                 />
               </div>
-              {activeGalleryItem?.type === "image" && activeGalleryItem.url && (
-                <button
-                  type="button"
-                  disabled={downloadingImage}
-                  onClick={async () => {
-                    setDownloadingImage(true);
-                    try {
-                      await downloadProductImage(
-                        activeGalleryItem.url,
-                        product.name,
-                        Math.max(0, imageOnlyIndex)
-                      );
-                    } finally {
-                      setDownloadingImage(false);
-                    }
-                  }}
-                  className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-light bg-white/95 text-text-secondary transition hover:border-primary hover:text-primary disabled:cursor-wait disabled:opacity-60"
-                  aria-label="Save image to gallery"
-                >
-                  <DownloadIcon />
-                </button>
-              )}
-              <div className="flex w-full items-center justify-center">
+              <div className="flex min-h-[280px] w-full items-center justify-center sm:min-h-[340px]">
                 {isVideoActive ? (
                   <ProductVideo url={activeGalleryItem.url} embedded />
                 ) : (
                   <ProductImage src={activeGalleryItem?.url} alt={product.name} />
                 )}
               </div>
-              {galleryItems.length > 1 ? (
-                <>
-                  <GalleryNavButton
-                    direction="prev"
-                    disabled={activeMedia === 0}
-                    onClick={() => setActiveMedia((prev) => Math.max(0, prev - 1))}
-                  />
-                  <GalleryNavButton
-                    direction="next"
-                    disabled={activeMedia === galleryItems.length - 1}
-                    onClick={() =>
-                      setActiveMedia((prev) => Math.min(galleryItems.length - 1, prev + 1))
-                    }
-                  />
-                </>
-              ) : null}
             </div>
-            <div className="mt-auto space-y-2">
-              {galleryItems.length > 1 ? (
-                <p className="text-center text-xs text-text-muted">
-                  {isVideoActive
-                    ? "Video"
-                    : `Image ${Math.max(1, imageOnlyIndex + 1)} of ${images.length}`}
-                </p>
-              ) : null}
+            <div className="mt-3">
               <MediaThumbnailCarousel
                 items={galleryItems}
                 activeIndex={activeMedia}
                 onSelect={setActiveMedia}
               />
             </div>
+
+            <section className="mt-8 border-t border-[#F0F0F0] pt-6 lg:min-h-[55vh] lg:pb-16">
+              <h2 className="text-lg font-bold text-[#1a1a1a]">Product Details</h2>
+              <div className="mt-3 space-y-2 text-[14px]">
+                <p>
+                  <span className="font-semibold text-[#1a1a1a]">Type </span>
+                  <span className="text-[#666]">{productType}</span>
+                </p>
+                {detailsOpen ? (
+                  <div className="space-y-2 text-[#666]">
+                    <ProductDescriptionContent
+                      description={product.description}
+                      features={product.features}
+                      fallback={`Fresh ${product.name} from GreenGroo. Quality checked and ready for delivery.`}
+                    />
+                    {specifications.length > 0 ? (
+                      <ul className="space-y-1 pt-1">
+                        {specifications.map((spec, index) => (
+                          <li key={`${spec.name}-${index}`}>
+                            <span className="font-semibold text-[#1a1a1a]">{spec.name}: </span>
+                            {spec.value}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((v) => !v)}
+                  className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#0C831F]"
+                >
+                  {detailsOpen ? "View less details" : "View more details"}
+                  <span className="text-xs">{detailsOpen ? "▴" : "▾"}</span>
+                </button>
+              </div>
+            </section>
           </div>
 
-          <div className="flex min-w-0 flex-col">
-            <div className="flex items-start justify-between gap-3">
-              <h1 className="min-w-0 flex-1 break-words text-2xl font-bold leading-snug lg:text-[1.75rem] xl:text-3xl">
-                {product.name}
-              </h1>
-            </div>
-            <ProductSkuRow product={product} />
+          {/* Right — sticks to top under header while left scrolls */}
+          <aside className="min-w-0 bg-white lg:sticky lg:top-[124px] lg:z-10 lg:self-start">
+            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[12px] text-[#757575]">
+              <Link to="/" className="hover:text-[#0C831F]">
+                Home
+              </Link>
+              <span>/</span>
+              <Link
+                to={`/product?categoryName=${encodeURIComponent(category)}`}
+                className="hover:text-[#0C831F]"
+              >
+                {category}
+              </Link>
+              <span>/</span>
+              <span className="line-clamp-1 text-[#1a1a1a]">{product.name}</span>
+            </nav>
 
-            <div className="mt-2">
-              <StarRating rating={rating} reviewCount={REVIEW_COUNT} />
-            </div>
+            <h1 className="text-[22px] font-bold leading-snug sm:text-[26px]">
+              {product.name}
+            </h1>
+            {(() => {
+              const raw =
+                product.shortDescription ||
+                product.description ||
+                `Fresh ${product.name}${category ? ` from ${category}` : ""}.`;
+              const short = String(raw)
+                .replace(/<[^>]+>/g, "")
+                .replace(/\s+/g, " ")
+                .trim()
+                .slice(0, 120);
+              if (!short) return null;
+              return (
+                <p className="mt-1.5 text-[13px] font-bold leading-snug text-[#1a1a1a] sm:text-[14px]">
+                  {short}
+                  {String(raw).replace(/<[^>]+>/g, "").trim().length > 120 ? "…" : ""}
+                </p>
+              );
+            })()}
 
-            <div className="mt-3">
-              <ProductPriceDisplay
-                product={product}
-                variantName={activeVariantName}
-                size="lg"
-              />
-            </div>
-
-            {isMultiVariant(product) ? (
-              <div className="mt-3">
-                <p className="mb-2 text-sm font-semibold text-text-primary">Select variant</p>
-                <div className="flex flex-wrap gap-2">
-                  {product.variants.map((variant) => {
-                    const isActive = selectedVariant === variant.name;
-                    return (
-                      <button
-                        key={variant.name}
-                        type="button"
-                        onClick={() => handleVariantChange(variant.name)}
-                        className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                          isActive
-                            ? "border-primary bg-primary text-white"
-                            : "border-border-light bg-white text-text-primary hover:border-primary/40"
-                        }`}
-                      >
-                        {variant.name}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="mt-5">
+              <p className="mb-2.5 text-[15px] font-semibold text-[#1a1a1a]">Select Unit</p>
+              <div className="flex flex-wrap gap-2.5">
+                {unitOptions.map((opt) => (
+                  <UnitOptionCard
+                    key={opt.key}
+                    label={opt.label}
+                    salePrice={opt.salePrice}
+                    originalPrice={opt.originalPrice}
+                    selected={opt.selected}
+                    discountPct={opt.discountPct}
+                    onClick={opt.onSelect}
+                  />
+                ))}
               </div>
-            ) : null}
+            </div>
 
             {availableColors.length > 0 ? (
-              <div className="mt-3">
-                <p className="mb-2 text-sm font-semibold text-text-primary">Select color</p>
+              <div className="mt-4">
+                <p className="mb-2 text-[15px] font-semibold">Select color</p>
                 <div className="flex flex-wrap gap-2">
                   {availableColors.map((color) => {
                     const isActive = selectedColor === color.name;
@@ -869,11 +1002,10 @@ function ProductDetail() {
                         key={color.name}
                         type="button"
                         onClick={() => setSelectedColor(color.name)}
-                        title={color.name}
-                        className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                        className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
                           isActive
-                            ? "border-primary bg-primary/5 text-primary"
-                            : "border-border-light bg-white text-text-primary hover:border-primary/40"
+                            ? "border-[#0C831F] bg-[#F6FBF7] text-[#0C831F]"
+                            : "border-[#E5E5E5] text-[#1a1a1a]"
                         }`}
                       >
                         {color.name}
@@ -884,154 +1016,62 @@ function ProductDetail() {
               </div>
             ) : null}
 
-            {canViewPrice && isBulkPricing(product, activeVariantName) ? (
-              <p className="mt-1 text-sm text-text-secondary">
-                Current selection: {formatPrice(currentUnitPrice)} / piece
-              </p>
-            ) : null}
-
-            {(showMoq || showStepByQty || isMultiVariant(product)) ? (
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-text-primary">
-                  {[
-                    showMoq ? `MOQ: ${minOrderQuantity} Pieces` : null,
-                    showStepByQty ? `Step by QTY: ${quantityStep} Pieces` : null,
-                    isMultiVariant(product) ? `Stock: ${variantStock}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-                <p className="shrink-0 text-xs font-semibold text-text-secondary">
-                  Purchased {Number(product.purchaseCount) || 0} times
-                </p>
-              </div>
-            ) : null}
-
-            {!cartLineQuantity ? (
-              <div className="mt-2">
-                <QuantitySelector
-                  quantity={quantity}
-                  min={minOrderQuantity}
-                  max={maxQuantity}
-                  disabled={!inStock}
-                  onDecrease={handleQuantityDecrease}
-                  onIncrease={handleQuantityIncrease}
-                />
-              </div>
-            ) : null}
-
-            {canViewPrice && bulkTiers.length > 0 ? (
-              <div className="mt-3 lg:mt-4">
-                <h2 className="mb-2 text-base font-bold">Bulk Price (Per Piece)</h2>
-                <div className="space-y-2 rounded-lg border border-border-light p-3">
-                  {bulkTiers.map((tier) => (
-                    <div
-                      key={tier.key}
-                      className="flex items-center justify-between gap-3 text-sm leading-relaxed text-text-secondary"
-                    >
-                      <span>Buy {tier.minQuantity} Pieces or more at</span>
-                      <div className="flex shrink-0 items-baseline gap-2">
-                        {tier.hasDiscount ? (
-                          <span className="text-xs text-neutral-400 line-through">
-                            {formatPrice(tier.originalPrice)}
-                          </span>
-                        ) : null}
-                        <span className="font-semibold text-text-primary">
-                          {formatPrice(tier.price)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <ActionButtons
-              inStock={inStock}
-              inCart={cartLineQuantity != null}
-              cartQuantity={cartLineQuantity ?? quantity}
-              min={minOrderQuantity}
-              max={maxQuantity}
-              onAddToCart={handleAddToCart}
-              onDecrease={handleQuantityDecrease}
-              onIncrease={handleQuantityIncrease}
-              product={product}
-              shareImageUrl={shareImageUrl}
-              className="mt-5 flex w-full gap-3 lg:mt-auto lg:pt-4"
-            />
-          </div>
-        </div>
-
-        <div className="mt-8 border-t border-border-light pt-5 sm:mt-10 sm:pt-6">
-          <div className="flex gap-3 overflow-x-auto hide-scrollbar border-b border-border-light sm:gap-6">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 border-b-2 pb-2.5 text-xs font-semibold transition sm:pb-3 sm:text-sm ${
-                  activeTab === tab.id
-                    ? "border-primary text-primary"
-                    : "border-transparent text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                {tab.id === "reviews"
-                  ? `Reviews (${REVIEW_COUNT})`
-                  : tab.shortLabel
-                    ? (
-                        <>
-                          <span className="sm:hidden">{tab.shortLabel}</span>
-                          <span className="hidden sm:inline">{tab.label}</span>
-                        </>
-                      )
-                    : tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="py-5 text-xs leading-relaxed text-text-secondary sm:py-6 sm:text-sm">
-            {activeTab === "description" && (
-              <ProductDescriptionContent
-                description={product.description}
-                features={product.features}
-                fallback={`${product.name} supports fast charging for all devices. Safe, reliable & high performance with premium build quality.`}
-              />
-            )}
-
-            {activeTab === "specifications" && (
+            <div className="mt-6 flex items-end justify-between gap-4">
               <div>
-                {specifications.length > 0 ? (
-                  <ul className="space-y-2 text-text-primary">
-                    {specifications.map((spec, index) => (
-                      <li key={`${spec.name}-${spec.value}-${index}`}>
-                        <span className="font-semibold">{spec.name}: </span>
-                        {spec.value}
-                      </li>
-                    ))}
-                  </ul>
+                <p className="text-[13px] font-medium text-[#666]">{unitLabel}</p>
+                {canViewPrice ? (
+                  <>
+                    <p className="mt-0.5 text-[28px] font-extrabold leading-none text-[#1a1a1a]">
+                      {formatPrice(priceInfo.salePrice).replace(".00", "")}
+                    </p>
+                    <p className="mt-1 text-[12px] text-[#757575]">(Inclusive of all taxes)</p>
+                  </>
                 ) : (
-                  <p className="text-text-secondary">No specifications added.</p>
+                  <p className="mt-1 text-sm text-[#757575]">Login to view price</p>
                 )}
               </div>
-            )}
 
-            {activeTab === "reviews" && (
-              <p>
-                Rated {rating.toFixed(1)} out of 5 based on {REVIEW_COUNT} dealer reviews.
+              {cartLineQuantity != null ? (
+                <div className="w-[160px] shrink-0">
+                  <CartActionQuantity
+                    quantity={cartLineQuantity}
+                    min={minOrderQuantity}
+                    max={maxQuantity}
+                    disabled={!inStock}
+                    onDecrease={handleQuantityDecrease}
+                    onIncrease={handleQuantityIncrease}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => handleAddToCart(e.currentTarget)}
+                  disabled={!inStock}
+                  className="h-12 min-w-[150px] shrink-0 rounded-xl bg-[#0C831F] px-6 text-[15px] font-bold text-white transition hover:bg-[#097019] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Add to cart
+                </button>
+              )}
+            </div>
+
+            {(showMoq || showStepByQty) && (
+              <p className="mt-3 text-[12px] text-[#757575]">
+                {[
+                  showMoq ? `MOQ: ${minOrderQuantity}` : null,
+                  showStepByQty ? `Step: ${quantityStep}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             )}
 
-            {activeTab === "shipping" && (
-              <div className="space-y-2 text-text-primary">
-                <p>Pan-India delivery available for bulk orders.</p>
-                <p>GST invoice provided with every order.</p>
-                <p>Standard delivery: 3–7 business days across major cities.</p>
-              </div>
-            )}
-          </div>
+            <div className="mt-8 border-t border-[#F0F0F0] pt-6">
+              <WhyShopFromGreenGroo />
+            </div>
+          </aside>
         </div>
 
-        <div className="grid grid-cols-6 gap-5 sm:gap-6 lg:gap-8 xl:gap-10">
+        <div className="mt-8 grid grid-cols-6 border-t border-[#F0F0F0] pt-6">
           <SimilarProducts
             productId={product._id}
             categoryName={product.categories?.[0] || product.subcategory || ""}

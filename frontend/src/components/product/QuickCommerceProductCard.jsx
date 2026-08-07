@@ -77,8 +77,9 @@ function QuickCommerceProductCard({
   const rating = getRating(product);
   const reviewCount = getReviewCount(product);
 
-  const productUrl =
-    product._id?.length > 10 ? `/product/${product._id}` : "/product";
+  const productUrl = product._id
+    ? `/product/${encodeURIComponent(product._id)}`
+    : "/product";
 
   const isGrid = layout === "grid";
   // Mobile: 3 full + ~1/4 of 4th peeking
@@ -156,7 +157,7 @@ function QuickCommerceProductCard({
 
   return (
     <div className={widthClass}>
-      <div className="flex h-full flex-col bg-white">
+      <div className="relative flex h-full flex-col bg-white">
         {/* 1. Image + pink ADD */}
         <div className="relative overflow-hidden rounded-xl border border-[#E5E5E5] bg-white">
           <Link to={productUrl} className="block">
@@ -171,70 +172,70 @@ function QuickCommerceProductCard({
           {cartQuantity > 0 ? stepper : addButton}
         </div>
 
-        {/* 2. Price badge + MRP */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <span
-            className="inline-flex items-center rounded-md bg-gradient-to-br from-[#43A047] to-[#2E7D32] px-2 py-1 text-[15px] font-extrabold leading-none text-white"
-            style={{
-              boxShadow: "2px 2px 0 0 #1B5E20",
-            }}
-          >
-            {formatPrice(salePrice)}
-          </span>
-          {hasDiscount ? (
-            <span className="text-[15px] font-medium text-[#9CA3AF] line-through">
-              {formatPrice(originalPrice)}
-            </span>
-          ) : null}
-        </div>
-
-        {/* 3. ₹X OFF ———— (same row as 2nd image) */}
-        {hasDiscount && discountAmt > 0 ? (
-          <div className="mt-2.5 flex items-center gap-1.5">
+        <Link to={productUrl} className="mt-2.5 block min-w-0">
+          {/* 2. Price badge + MRP */}
+          <div className="flex flex-wrap items-center gap-2">
             <span
-              className="shrink-0 text-[12px] font-bold leading-none"
-              style={{ color: OFF_GREEN }}
+              className="inline-flex items-center rounded-md bg-gradient-to-br from-[#43A047] to-[#2E7D32] px-2 py-1 text-[15px] font-extrabold leading-none text-white"
+              style={{
+                boxShadow: "2px 2px 0 0 #1B5E20",
+              }}
             >
-              {formatPrice(discountAmt)} OFF
+              {formatPrice(salePrice)}
             </span>
-            <span
-              className="h-0 min-w-0 flex-1 border-t border-dashed border-[#D1D5DB]"
-              aria-hidden
-            />
+            {hasDiscount ? (
+              <span className="text-[15px] font-medium text-[#9CA3AF] line-through">
+                {formatPrice(originalPrice)}
+              </span>
+            ) : null}
           </div>
-        ) : (
-          <div className="mt-1 h-3" aria-hidden />
-        )}
 
-        <div className="mt-2" />
+          {/* 3. ₹X OFF ———— */}
+          {hasDiscount && discountAmt > 0 ? (
+            <div className="mt-2.5 flex items-center gap-1.5">
+              <span
+                className="shrink-0 text-[12px] font-bold leading-none"
+                style={{ color: OFF_GREEN }}
+              >
+                {formatPrice(discountAmt)} OFF
+              </span>
+              <span
+                className="h-0 min-w-0 flex-1 border-t border-dashed border-[#D1D5DB]"
+                aria-hidden
+              />
+            </div>
+          ) : (
+            <div className="mt-1 h-3" aria-hidden />
+          )}
 
-        {/* 5. Name */}
-        <Link to={productUrl} className="block min-w-0">
+          <div className="mt-2" />
+
+          {/* 5. Name */}
           <h3 className="line-clamp-2 text-[13px] font-bold leading-[1.35] text-[#1C1C1C]">
             {product.name}
           </h3>
+
+          {/* 6. Quantity */}
+          <p className="mt-1 text-[12px] font-normal leading-tight text-[#757575]">
+            {unit}
+          </p>
+
+          {/* 7. Rating */}
+          <div className="mt-1.5 flex items-center gap-0.5">
+            <span style={{ color: PRICE_GREEN }}>
+              <StarIcon className="h-3 w-3" />
+            </span>
+            <span
+              className="text-[12px] font-bold leading-none"
+              style={{ color: PRICE_GREEN }}
+            >
+              {rating.toFixed(1)}
+            </span>
+            <span className="text-[11px] font-medium leading-none text-[#9CA3AF]">
+              ({reviewCount})
+            </span>
+          </div>
         </Link>
-
-        {/* 6. Quantity */}
-        <p className="mt-1 text-[12px] font-normal leading-tight text-[#757575]">
-          {unit}
-        </p>
-
-        {/* 7. Rating */}
-        <div className="mt-1.5 flex items-center gap-0.5">
-          <span style={{ color: PRICE_GREEN }}>
-            <StarIcon className="h-3 w-3" />
-          </span>
-          <span
-            className="text-[12px] font-bold leading-none"
-            style={{ color: PRICE_GREEN }}
-          >
-            {rating.toFixed(1)}
-          </span>
-          <span className="text-[11px] font-medium leading-none text-[#9CA3AF]">
-            ({reviewCount})
-          </span>
-        </div>
       </div>
 
       {multiVariant ? (

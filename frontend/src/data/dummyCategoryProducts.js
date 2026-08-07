@@ -249,3 +249,27 @@ export function getDummyCategoryProducts(categoryName) {
   if (key.includes("dairy") || key.includes("milk")) return DUMMY_BY_CATEGORY.dairy;
   return null;
 }
+
+export function getDummyProductById(id) {
+  const key = String(id || "").trim();
+  if (!key.startsWith("dummy-")) return null;
+
+  const all = [
+    ...DUMMY_BY_CATEGORY.fruits,
+    ...DUMMY_BY_CATEGORY.vegetables,
+    ...DUMMY_BY_CATEGORY.organic,
+    ...DUMMY_BY_CATEGORY.dairy,
+  ];
+  const found = all.find((p) => String(p._id) === key);
+  if (!found) return null;
+
+  return {
+    ...found,
+    description:
+      found.description ||
+      `Fresh ${found.name} sourced for GreenGroo. Quality checked and ready for delivery.`,
+    brandName: found.brandName || "GreenGroo",
+    subcategory: found.sub || found.categories?.[0] || "",
+    variantType: "single",
+  };
+}
