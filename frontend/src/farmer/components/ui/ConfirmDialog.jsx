@@ -1,4 +1,5 @@
 import Modal from "./Modal";
+import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
 function ConfirmDialog({
   open,
@@ -19,27 +20,21 @@ function ConfirmDialog({
       size="sm"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-semibold text-[#1F2937] hover:bg-[#F9FAFB]"
-          >
+          <button type="button" onClick={onClose} className={EXCEL_BTN}>
             {cancelLabel}
           </button>
           <button
             type="button"
             disabled={loading}
             onClick={onConfirm}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
-              danger ? "bg-[#DC2626] hover:bg-red-700" : "bg-[#2E7D32] hover:bg-[#256628]"
-            }`}
+            className={danger ? EXCEL_BTN_DANGER : EXCEL_BTN_PRIMARY}
           >
             {loading ? "Please wait..." : confirmLabel}
           </button>
         </>
       }
     >
-      <p className="text-sm leading-relaxed text-[#6B7280]">{message}</p>
+      <p className="text-xs leading-relaxed text-[#6B7280]">{message}</p>
     </Modal>
   );
 }

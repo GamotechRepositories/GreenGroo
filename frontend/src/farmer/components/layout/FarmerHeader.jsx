@@ -2,25 +2,30 @@ import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logoutFarmer } from "../../store/farmerSlice";
 import { VERIFICATION_STATUS } from "../../utils/constants";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_INPUT,
+} from "../../utils/excelStyles";
 
 function VerificationPill({ status }) {
   if (status === VERIFICATION_STATUS.APPROVED) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-        🟢 Verified
+      <span className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-0.5 text-xs font-semibold text-emerald-700">
+        Verified
       </span>
     );
   }
   if (status === VERIFICATION_STATUS.REJECTED) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
-        🔴 Rejected
+      <span className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-0.5 text-xs font-semibold text-red-600">
+        Rejected
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-      🟡 Pending
+    <span className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-0.5 text-xs font-semibold text-amber-700">
+      Pending
     </span>
   );
 }
@@ -30,13 +35,9 @@ function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceh
   const farmer = useSelector((s) => s.farmer.farmer);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
-        <button
-          type="button"
-          onClick={onOpenSidebar}
-          className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold lg:hidden"
-        >
+    <header className="sticky top-0 z-30 border-b border-[#D4D4D4] bg-white">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 lg:px-4">
+        <button type="button" onClick={onOpenSidebar} className={`${EXCEL_BTN} lg:hidden`}>
           Menu
         </button>
 
@@ -46,36 +47,27 @@ function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceh
             value={searchValue || ""}
             onChange={(e) => onSearchChange?.(e.target.value)}
             placeholder={searchPlaceholder || "Search products, orders..."}
-            className="w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] py-2.5 pl-3 pr-3 text-sm text-[#1F2937] outline-none focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/15"
+            className={EXCEL_INPUT}
           />
         </div>
 
         <VerificationPill status={farmer?.verificationStatus} />
 
-        <button
-          type="button"
-          className="relative rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm"
-          aria-label="Notifications"
-        >
+        <button type="button" className={`${EXCEL_BTN} relative`} aria-label="Notifications">
           🔔
-          <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#F59E0B]" />
         </button>
 
         <Link
           to="/farmer/profile"
-          className="hidden items-center gap-2 rounded-xl border border-[#E5E7EB] px-3 py-1.5 sm:inline-flex"
+          className={`${EXCEL_BTN} hidden items-center gap-2 sm:inline-flex`}
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E8F5E9] text-sm font-bold text-[#2E7D32]">
+          <span className="flex h-6 w-6 items-center justify-center border border-[#D4D4D4] bg-[#F2F2F2] text-xs font-bold text-[#217346]">
             {(farmer?.name || "F").charAt(0)}
           </span>
-          <span className="text-sm font-semibold text-[#1F2937]">{farmer?.name || "Farmer"}</span>
+          <span className="text-xs font-semibold">{farmer?.name || "Farmer"}</span>
         </Link>
 
-        <button
-          type="button"
-          onClick={() => dispatch(logoutFarmer())}
-          className="rounded-xl bg-[#2E7D32] px-3 py-2 text-sm font-semibold text-white hover:bg-[#256628]"
-        >
+        <button type="button" onClick={() => dispatch(logoutFarmer())} className={EXCEL_BTN_PRIMARY}>
           Logout
         </button>
       </div>

@@ -1,22 +1,14 @@
 .farmer-panel {
-  --farmer-primary: #2E7D32;
-  --farmer-secondary: #4CAF50;
-  --farmer-light: #E8F5E9;
+  --farmer-border: #D4D4D4;
+  --farmer-header: #F2F2F2;
   --farmer-bg: #FFFFFF;
-  --farmer-card: #FFFFFF;
   --farmer-text: #1F2937;
   --farmer-muted: #6B7280;
-  --farmer-border: #E5E7EB;
-  --farmer-warning: #F59E0B;
-  --farmer-error: #DC2626;
-  --farmer-sidebar-w: 260px;
-  --farmer-sidebar-collapsed: 72px;
-  --farmer-header-h: 64px;
-
+  --farmer-primary: #217346;
   color: var(--farmer-text);
   background: var(--farmer-bg);
-  min-height: 100vh;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Segoe UI", Calibri, system-ui, sans-serif;
+  font-size: 12px;
 }
 
 .farmer-panel * {
@@ -24,15 +16,14 @@
 }
 
 .farmer-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .farmer-scrollbar::-webkit-scrollbar-thumb {
   background: #c5c9d0;
-  border-radius: 999px;
 }
 
 .farmer-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f2f2f2;
 }

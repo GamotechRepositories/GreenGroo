@@ -7,6 +7,7 @@ import DataTable from "../components/ui/DataTable";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
+import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_SELECT } from "../utils/excelStyles";
 
 function OrdersPage() {
   const { search } = useOutletContext() || {};
@@ -29,28 +30,12 @@ function OrdersPage() {
 
   const columns = [
     { key: "id", header: "Order ID" },
-    {
-      key: "customer",
-      header: "Customer",
-      render: (row) => row.customer?.name,
-    },
-    {
-      key: "product",
-      header: "Product",
-      render: (row) => row.products?.[0]?.name || "—",
-    },
+    { key: "customer", header: "Customer", render: (row) => row.customer?.name },
+    { key: "product", header: "Product", render: (row) => row.products?.[0]?.name || "—" },
     { key: "quantity", header: "Qty" },
-    {
-      key: "amount",
-      header: "Amount",
-      render: (row) => `₹${row.amount}`,
-    },
+    { key: "amount", header: "Amount", render: (row) => `₹${row.amount}` },
     { key: "deliveryType", header: "Delivery Type" },
-    {
-      key: "status",
-      header: "Status",
-      render: (row) => <StatusBadge status={row.status} />,
-    },
+    { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
     {
       key: "orderDate",
       header: "Order Date",
@@ -60,7 +45,7 @@ function OrdersPage() {
       key: "action",
       header: "Action",
       render: (row) => (
-        <Link to={`/farmer/orders/${row.id}`} className="font-semibold text-[#2E7D32]">
+        <Link to={`/farmer/orders/${row.id}`} className="font-semibold text-[#217346]">
           View
         </Link>
       ),
@@ -68,17 +53,13 @@ function OrdersPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold">Orders</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">Manage and fulfill customer orders.</p>
+          <h1 className={EXCEL_PAGE_TITLE}>Orders</h1>
+          <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>Manage and fulfill customer orders.</p>
         </div>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm"
-        >
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={EXCEL_SELECT}>
           <option value="">All statuses</option>
           {ORDER_STATUS.map((s) => (
             <option key={s} value={s}>

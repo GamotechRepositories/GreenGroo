@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { getProductById, getProductGradeChart } from "../api/farmerApi";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
+import { EXCEL_BTN_PRIMARY, EXCEL_PAGE_TITLE } from "../utils/excelStyles";
 import ProductGradeChart from "../components/products/ProductGradeChart";
 
 function ProductDetailPage() {
@@ -44,7 +45,7 @@ function ProductDetailPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border border-[#D4D4D4] bg-white px-3 py-2 sm:gap-4 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
           <Link
             to="/farmer/products"
@@ -60,9 +61,7 @@ function ProductDetailPage() {
             Back to products
           </Link>
           <span className="hidden h-4 w-px bg-[#E5E7EB] sm:block" aria-hidden="true" />
-          <h1 className="truncate text-lg font-extrabold text-[#1F2937] sm:text-xl">
-            {product.name}
-          </h1>
+          <h1 className={`truncate ${EXCEL_PAGE_TITLE}`}>{product.name}</h1>
           <StatusBadge status={product.status} />
           {product.category ? (
             <span className="text-sm text-[#6B7280]">{product.category}</span>
@@ -70,7 +69,7 @@ function ProductDetailPage() {
         </div>
         <Link
           to={`/farmer/products/${id}/edit`}
-          className="shrink-0 border border-[#217346] bg-[#217346] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1a5c38]"
+          className={`shrink-0 ${EXCEL_BTN_PRIMARY}`}
         >
           Edit Product
         </Link>

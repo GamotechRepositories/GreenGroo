@@ -14,6 +14,16 @@ const ACTIONS = [
   { label: "Cancel Order", status: "Cancelled", from: ["Confirmed", "Processing"], danger: true },
 ];
 
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_DANGER,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+  EXCEL_PANEL,
+  EXCEL_PANEL_HEAD,
+} from "../utils/excelStyles";
+
 function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -46,10 +56,10 @@ function OrderDetailPage() {
     <div className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold">Order {order.id}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <h1 className={EXCEL_PAGE_TITLE}>Order {order.id}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <StatusBadge status={order.status} />
-            <span className="text-sm text-[#6B7280]">
+            <span className="text-xs text-[#6B7280]">
               {new Date(order.orderDate).toLocaleString("en-IN")}
             </span>
           </div>
@@ -60,11 +70,7 @@ function OrderDetailPage() {
               key={action.label}
               type="button"
               onClick={() => setPendingStatus(action)}
-              className={`rounded-xl px-3 py-2 text-sm font-semibold ${
-                action.danger
-                  ? "border border-red-200 text-[#DC2626] hover:bg-red-50"
-                  : "bg-[#2E7D32] text-white hover:bg-[#256628]"
-              }`}
+              className={action.danger ? EXCEL_BTN_DANGER : EXCEL_BTN_PRIMARY}
             >
               {action.label}
             </button>
@@ -73,23 +79,25 @@ function OrderDetailPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-          <h2 className="font-bold">Customer details</h2>
-          <p className="mt-2 text-sm">{order.customer.name}</p>
-          <p className="text-sm text-[#6B7280]">{order.customer.mobile}</p>
-          <p className="text-sm text-[#6B7280]">{order.customer.email}</p>
-          <h3 className="mt-4 font-bold">Delivery address</h3>
-          <p className="mt-1 text-sm text-[#6B7280]">{order.address}</p>
-          <p className="mt-2 text-sm">
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Customer details</h2>
+          <div className="space-y-1 p-3 text-xs">
+          <p>{order.customer.name}</p>
+          <p className="text-[#6B7280]">{order.customer.mobile}</p>
+          <p className="text-[#6B7280]">{order.customer.email}</p>
+          <h3 className="pt-2 font-bold">Delivery address</h3>
+          <p className="text-[#6B7280]">{order.address}</p>
+          <p className="pt-1">
             Delivery type: <strong>{order.deliveryType}</strong>
           </p>
+          </div>
         </section>
 
-        <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-          <h2 className="font-bold">Ordered products</h2>
-          <ul className="mt-3 space-y-2">
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Ordered products</h2>
+          <ul className="divide-y divide-[#D4D4D4] p-0">
             {order.products.map((p) => (
-              <li key={p.productId} className="flex justify-between text-sm">
+              <li key={p.productId} className="flex justify-between border border-[#D4D4D4] px-2 py-1.5 text-xs">
                 <span>
                   {p.name} × {p.quantity}
                 </span>
@@ -97,18 +105,18 @@ function OrderDetailPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-4 border-t border-[#E5E7EB] pt-3 text-right text-base font-extrabold">
+          <p className="border-t border-[#D4D4D4] p-2 text-right text-xs font-bold">
             Total: ₹{order.amount}
           </p>
         </section>
       </div>
 
-      <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-        <h2 className="font-bold">Order timeline</h2>
-        <ol className="mt-4 space-y-3">
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Order timeline</h2>
+        <ol className="space-y-0 p-0">
           {order.timeline.map((item, idx) => (
-            <li key={`${item.status}-${idx}`} className="flex gap-3 text-sm">
-              <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#2E7D32]" />
+            <li key={`${item.status}-${idx}`} className="flex gap-2 border-b border-[#D4D4D4] px-2 py-1.5 text-xs">
+              <span className="mt-0.5 h-2 w-2 shrink-0 bg-[#217346]" />
               <div>
                 <p className="font-semibold">
                   {item.status}{" "}

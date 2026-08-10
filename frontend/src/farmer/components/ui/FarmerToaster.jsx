@@ -9,12 +9,12 @@ export function FarmerToaster() {
         style: {
           background: "#FFFFFF",
           color: "#1F2937",
-          border: "1px solid #E5E7EB",
-          borderRadius: "12px",
-          fontSize: "14px",
+          border: "1px solid #D4D4D4",
+          borderRadius: "0",
+          fontSize: "12px",
         },
-        success: { iconTheme: { primary: "#2E7D32", secondary: "#E8F5E9" } },
-        error: { iconTheme: { primary: "#DC2626", secondary: "#FEF2F2" } },
+        success: { iconTheme: { primary: "#217346", secondary: "#F2F2F2" } },
+        error: { iconTheme: { primary: "#DC2626", secondary: "#F2F2F2" } },
       }}
     />
   );

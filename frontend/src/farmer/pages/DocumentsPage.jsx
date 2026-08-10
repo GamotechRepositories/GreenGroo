@@ -13,6 +13,16 @@ import { fetchDocuments, fetchFarmerProfile } from "../store/farmerSlice";
 import StatusBadge from "../components/ui/StatusBadge";
 import FileUpload from "../components/ui/FileUpload";
 import LoadingState from "../components/ui/LoadingState";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_DANGER,
+  EXCEL_BTN_OUTLINE,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+  EXCEL_PANEL,
+  EXCEL_PANEL_HEAD,
+} from "../utils/excelStyles";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import Modal from "../components/ui/Modal";
 
@@ -120,17 +130,12 @@ function DocumentsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#1F2937]">Documents</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">
+          <h1 className={EXCEL_PAGE_TITLE}>Documents</h1>
+          <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
             Upload and track verification of your farm documents.
           </p>
         </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={handleSubmit}
-          className="rounded-xl bg-[#2E7D32] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#256628] disabled:opacity-60"
-        >
+        <button type="button" disabled={busy} onClick={handleSubmit} className={EXCEL_BTN_PRIMARY}>
           Submit for verification
         </button>
       </div>
@@ -140,17 +145,14 @@ function DocumentsPage() {
       ) : (
         <div className="grid gap-4">
           {byType.map((doc) => (
-            <div
-              key={doc.id || doc.type}
-              className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm sm:p-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
+            <div key={doc.id || doc.type} className={EXCEL_PANEL}>
+              <div className="flex flex-wrap items-start justify-between gap-3 p-3">
                 <div>
-                  <h2 className="text-base font-bold text-[#1F2937]">
+                  <h2 className="text-xs font-bold text-[#1F2937]">
                     {doc.name}
                     {doc.required ? <span className="text-[#DC2626]"> *</span> : null}
                   </h2>
-                  <p className="mt-1 text-sm text-[#6B7280]">
+                  <p className="mt-0.5 text-xs text-[#6B7280]">
                     File: {doc.fileName || "Not uploaded"} · Uploaded: {formatDate(doc.uploadedAt)}
                   </p>
                 </div>
@@ -158,43 +160,27 @@ function DocumentsPage() {
               </div>
 
               {doc.status === VERIFICATION_STATUS.REJECTED && doc.adminRemarks ? (
-                <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p className="mx-3 mb-3 border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-xs text-red-700">
                   Admin remarks: {doc.adminRemarks}
                 </p>
               ) : doc.adminRemarks ? (
                 <p className="mt-3 text-sm text-[#6B7280]">Admin remarks: {doc.adminRemarks}</p>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUploadType(doc.type)}
-                  className="rounded-xl border border-[#2E7D32] px-3 py-2 text-sm font-semibold text-[#2E7D32] hover:bg-[#E8F5E9]"
-                >
+              <div className="flex flex-wrap gap-2 border-t border-[#D4D4D4] p-3">
+                <button type="button" onClick={() => setUploadType(doc.type)} className={EXCEL_BTN_OUTLINE}>
                   {doc.fileName ? "Replace" : "Upload"}
                 </button>
                 {doc.fileName ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setViewDoc(doc)}
-                      className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold hover:bg-[#F9FAFB]"
-                    >
+                    <button type="button" onClick={() => setViewDoc(doc)} className={EXCEL_BTN}>
                       View
                     </button>
-                    <a
-                      href={doc.fileUrl || "#"}
-                      download={doc.fileName}
-                      className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold hover:bg-[#F9FAFB]"
-                    >
+                    <a href={doc.fileUrl || "#"} download={doc.fileName} className={EXCEL_BTN}>
                       Download
                     </a>
                     {doc.status !== VERIFICATION_STATUS.APPROVED ? (
-                      <button
-                        type="button"
-                        onClick={() => setDeleteId(doc.id)}
-                        className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-[#DC2626] hover:bg-red-50"
-                      >
+                      <button type="button" onClick={() => setDeleteId(doc.id)} className={EXCEL_BTN_DANGER}>
                         Delete
                       </button>
                     ) : null}

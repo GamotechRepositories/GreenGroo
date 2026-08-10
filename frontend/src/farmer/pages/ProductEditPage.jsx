@@ -5,6 +5,8 @@ import ProductForm from "../components/products/ProductForm";
 import LoadingState from "../components/ui/LoadingState";
 import { getProductById, updateProduct } from "../api/farmerApi";
 
+import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE } from "../utils/excelStyles";
+
 function ProductEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -32,10 +34,10 @@ function ProductEditPage() {
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold">Edit Product</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">{product.name}</p>
+          <h1 className={EXCEL_PAGE_TITLE}>Edit Product</h1>
+          <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>{product.name}</p>
         </div>
-        <Link to={`/farmer/products/${id}`} className="text-sm font-semibold text-[#2E7D32]">
+        <Link to={`/farmer/products/${id}`} className="text-xs font-semibold text-[#217346]">
           View details
         </Link>
       </div>
@@ -43,6 +45,18 @@ function ProductEditPage() {
         defaultValues={{
           ...product,
           imageUrl: product.images?.[0] || "",
+          availableQuantity: product.availableQuantity ?? product.stock,
+          produceType: product.produceType ?? (product.organic ? "organic" : "non-organic"),
+          availableForDelivery: product.availableForDelivery === false ? "no" : "yes",
+          gradeAQty: product.gradeAQty ?? 0,
+          gradeBQty: product.gradeBQty ?? 0,
+          grades: product.grades?.length
+            ? product.grades
+            : [
+                { label: "Grade A", quantity: product.gradeAQty ?? 0 },
+                { label: "Grade B", quantity: product.gradeBQty ?? 0 },
+              ],
+          farmLocation: product.farmLocation ?? "",
         }}
         submitting={submitting}
         onSubmit={async (values) => {

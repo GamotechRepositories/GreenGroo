@@ -37,6 +37,29 @@ export const PRODUCT_STATUS = [
   "Inactive",
 ];
 
+/** Status options shown on add / edit product form */
+export const FARMER_PRODUCT_FORM_STATUS = [
+  "Draft",
+  "Pending Approval",
+  "Approved",
+  "Out of Stock",
+  "Inactive",
+];
+
+export const PRODUCT_UNITS = [
+  "Kg",
+  "Gram",
+  "Quintal",
+  "Litre",
+  "ml",
+  "Piece",
+  "Dozen",
+  "Packet",
+  "Box",
+  "Bundle",
+  "Bag",
+];
+
 export const PRICING_TYPES = [
   "Fixed Price",
   "Per Kg",

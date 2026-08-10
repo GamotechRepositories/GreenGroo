@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PANEL } from "../../utils/excelStyles";
 
 function FileUpload({
   label = "Upload file",
@@ -19,7 +20,7 @@ function FileUpload({
 
   return (
     <div>
-      {label ? <p className="mb-1.5 text-sm font-semibold text-[#1F2937]">{label}</p> : null}
+      {label ? <p className="mb-1 text-xs font-semibold text-[#1F2937]">{label}</p> : null}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -31,11 +32,11 @@ function FileUpload({
           setDragging(false);
           handleFiles(e.dataTransfer.files);
         }}
-        className={`rounded-2xl border-2 border-dashed px-4 py-6 text-center transition ${
-          dragging ? "border-[#2E7D32] bg-[#E8F5E9]" : "border-[#E5E7EB] bg-[#FAFAFA]"
+        className={`${EXCEL_PANEL} border-dashed px-3 py-5 text-center ${
+          dragging ? "border-[#217346] bg-[#F9F9F9]" : ""
         } ${disabled ? "opacity-60" : ""}`}
       >
-        <p className="text-sm font-medium text-[#1F2937]">
+        <p className="text-xs font-medium text-[#1F2937]">
           {currentFileName || "Drop file here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-[#6B7280]">{hint}</p>
@@ -43,7 +44,7 @@ function FileUpload({
           type="button"
           disabled={disabled}
           onClick={() => inputRef.current?.click()}
-          className="mt-3 rounded-xl bg-[#2E7D32] px-4 py-2 text-sm font-semibold text-white hover:bg-[#256628] disabled:cursor-not-allowed"
+          className={`mt-2 ${EXCEL_BTN_PRIMARY} disabled:cursor-not-allowed`}
         >
           {currentFileName ? "Replace file" : "Choose file"}
         </button>

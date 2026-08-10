@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import ProductForm from "../components/products/ProductForm";
 import { createProduct } from "../api/farmerApi";
 
+import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE } from "../utils/excelStyles";
+
 function ProductAddPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -11,8 +13,8 @@ function ProductAddPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div>
-        <h1 className="text-2xl font-extrabold">Add Product</h1>
-        <p className="mt-1 text-sm text-[#6B7280]">Create a new listing for your farm produce.</p>
+        <h1 className={EXCEL_PAGE_TITLE}>Add Product</h1>
+        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>Create a new listing for your farm produce.</p>
       </div>
       <ProductForm
         submitting={submitting}

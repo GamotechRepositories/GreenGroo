@@ -3,6 +3,13 @@ import { Link, useOutletContext } from "react-router-dom";
 import toast from "react-hot-toast";
 import { deleteProduct, getProducts } from "../api/farmerApi";
 import { PRODUCT_STATUS } from "../utils/constants";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+  EXCEL_SELECT,
+} from "../utils/excelStyles";
 import DataTable from "../components/ui/DataTable";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
@@ -43,7 +50,7 @@ function ProductsPage() {
           <img
             src={row.images?.[0] || "/categories/grocery.webp"}
             alt=""
-            className="h-10 w-10 rounded-lg object-cover"
+            className="h-8 w-8 object-cover"
           />
           <div>
             <p className="font-semibold">{row.name}</p>
@@ -69,7 +76,7 @@ function ProductsPage() {
       header: "Actions",
       render: (row) => (
         <div className="flex gap-2">
-          <Link to={`/farmer/products/${row.id}`} className="font-semibold text-[#2E7D32]">
+          <Link to={`/farmer/products/${row.id}`} className="font-semibold text-[#217346]">
             View
           </Link>
           <Link to={`/farmer/products/${row.id}/edit`} className="font-semibold text-[#1F2937]">
@@ -88,28 +95,25 @@ function ProductsPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold">Products</h1>
-          <p className="mt-1 text-sm text-[#6B7280]">{data.total} products</p>
+          <h1 className={EXCEL_PAGE_TITLE}>Products</h1>
+          <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>{data.total} products</p>
         </div>
-        <Link
-          to="/farmer/products/add"
-          className="rounded-xl bg-[#2E7D32] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#256628]"
-        >
+        <Link to="/farmer/products/add" className={EXCEL_BTN_PRIMARY}>
           + Add Product
         </Link>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <select
           value={status}
           onChange={(e) => {
             setPage(1);
             setStatus(e.target.value);
           }}
-          className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm"
+          className={EXCEL_SELECT}
         >
           <option value="">All statuses</option>
           {PRODUCT_STATUS.map((s) => (
@@ -121,7 +125,7 @@ function ProductsPage() {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm"
+          className={EXCEL_SELECT}
         >
           <option value="newest">Newest</option>
           <option value="price-asc">Price ↑</option>
@@ -137,10 +141,7 @@ function ProductsPage() {
           title="No products yet"
           description="Add your first farm product to start selling."
           action={
-            <Link
-              to="/farmer/products/add"
-              className="rounded-xl bg-[#2E7D32] px-4 py-2 text-sm font-bold text-white"
-            >
+            <Link to="/farmer/products/add" className={EXCEL_BTN_PRIMARY}>
               Add Product
             </Link>
           }
@@ -153,18 +154,18 @@ function ProductsPage() {
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm disabled:opacity-40"
+              className={EXCEL_BTN}
             >
               Prev
             </button>
-            <span className="text-sm text-[#6B7280]">
+            <span className="text-xs text-[#6B7280]">
               Page {page} / {data.totalPages}
             </span>
             <button
               type="button"
               disabled={page >= data.totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm disabled:opacity-40"
+              className={EXCEL_BTN}
             >
               Next
             </button>

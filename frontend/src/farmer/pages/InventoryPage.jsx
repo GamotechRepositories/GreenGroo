@@ -9,6 +9,13 @@ import DataTable from "../components/ui/DataTable";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import Modal from "../components/ui/Modal";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_INPUT,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+} from "../utils/excelStyles";
 
 function InventoryPage() {
   const [rows, setRows] = useState([]);
@@ -63,7 +70,7 @@ function InventoryPage() {
             setChange(0);
             setReason("Stock adjustment");
           }}
-          className="font-semibold text-[#2E7D32]"
+          className="font-semibold text-[#217346]"
         >
           Adjust
         </button>
@@ -72,18 +79,18 @@ function InventoryPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-extrabold">Inventory</h1>
-        <p className="mt-1 text-sm text-[#6B7280]">
+        <h1 className={EXCEL_PAGE_TITLE}>Inventory</h1>
+        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
           Update stock, track low-stock alerts, and view history.
         </p>
       </div>
 
       {loading ? <LoadingState /> : <DataTable columns={columns} rows={rows} />}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-bold">Stock History</h2>
+      <section className="space-y-2">
+        <h2 className={EXCEL_PAGE_TITLE}>Stock History</h2>
         <DataTable
           columns={[
             { key: "productName", header: "Product" },
@@ -114,11 +121,7 @@ function InventoryPage() {
         onClose={() => setSelected(null)}
         footer={
           <>
-            <button
-              type="button"
-              onClick={() => setSelected(null)}
-              className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-semibold"
-            >
+            <button type="button" onClick={() => setSelected(null)} className={EXCEL_BTN}>
               Cancel
             </button>
             <button
@@ -141,45 +144,28 @@ function InventoryPage() {
                   setBusy(false);
                 }
               }}
-              className="rounded-xl bg-[#2E7D32] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className={EXCEL_BTN_PRIMARY}
             >
               Save
             </button>
           </>
         }
       >
-        <p className="mb-3 text-sm text-[#6B7280]">
+        <p className="mb-2 text-xs text-[#6B7280]">
           Current stock: <strong>{selected?.currentStock}</strong> {selected?.unit}
         </p>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setChange(10)}
-            className="rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => setChange(10)} className={EXCEL_BTN}>
             + Add 10
           </button>
-          <button
-            type="button"
-            onClick={() => setChange(-5)}
-            className="rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-sm"
-          >
+          <button type="button" onClick={() => setChange(-5)} className={EXCEL_BTN}>
             − Reduce 5
           </button>
         </div>
-        <label className="mt-4 block text-sm font-semibold">Change (+/−)</label>
-        <input
-          type="number"
-          value={change}
-          onChange={(e) => setChange(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-sm"
-        />
-        <label className="mt-3 block text-sm font-semibold">Reason</label>
-        <input
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-sm"
-        />
+        <label className="mt-3 block text-xs font-semibold">Change (+/−)</label>
+        <input type="number" value={change} onChange={(e) => setChange(e.target.value)} className={`mt-1 ${EXCEL_INPUT}`} />
+        <label className="mt-2 block text-xs font-semibold">Reason</label>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} className={`mt-1 ${EXCEL_INPUT}`} />
       </Modal>
     </div>
   );

@@ -6,6 +6,7 @@ import FarmerHeader from "./FarmerHeader";
 import { FarmerToaster } from "../ui/FarmerToaster";
 import { fetchDocuments, fetchFarmerProfile, selectIsVerified } from "../../store/farmerSlice";
 import { SELLING_ROUTE_PREFIXES } from "../../utils/constants";
+import "../../styles/farmer.css";
 
 function FarmerLayout() {
   const dispatch = useDispatch();
@@ -42,7 +43,7 @@ function FarmerLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white text-[#1F2937]">
+    <div className="farmer-panel flex min-h-screen bg-white text-[#1F2937]">
       <FarmerSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <FarmerHeader
@@ -50,7 +51,7 @@ function FarmerLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
-        <main className="flex-1 bg-white p-4 lg:p-6">
+        <main className="farmer-scrollbar flex-1 bg-white p-3 lg:p-4">
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>

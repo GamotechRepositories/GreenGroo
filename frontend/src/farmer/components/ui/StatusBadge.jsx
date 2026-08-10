@@ -1,34 +1,34 @@
 const STATUS_STYLES = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  not_uploaded: "bg-gray-50 text-gray-600 border-gray-200",
-  Draft: "bg-gray-50 text-gray-700 border-gray-200",
-  "Pending Approval": "bg-amber-50 text-amber-700 border-amber-200",
-  Approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Rejected: "bg-red-50 text-red-700 border-red-200",
-  "Out of Stock": "bg-orange-50 text-orange-700 border-orange-200",
-  Inactive: "bg-slate-50 text-slate-600 border-slate-200",
-  New: "bg-sky-50 text-sky-700 border-sky-200",
-  Confirmed: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  Processing: "bg-violet-50 text-violet-700 border-violet-200",
-  "Ready for Pickup": "bg-teal-50 text-teal-700 border-teal-200",
-  Completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Cancelled: "bg-red-50 text-red-700 border-red-200",
-  Paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Failed: "bg-red-50 text-red-700 border-red-200",
-  "In Stock": "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "Low Stock": "bg-amber-50 text-amber-700 border-amber-200",
+  pending: "text-amber-700",
+  approved: "text-emerald-700",
+  rejected: "text-red-600",
+  not_uploaded: "text-[#6B7280]",
+  Draft: "text-[#6B7280]",
+  "Pending Approval": "text-amber-700",
+  Approved: "text-emerald-700",
+  Rejected: "text-red-600",
+  "Out of Stock": "text-orange-700",
+  Inactive: "text-slate-600",
+  New: "text-sky-700",
+  Confirmed: "text-indigo-700",
+  Processing: "text-violet-700",
+  "Ready for Pickup": "text-teal-700",
+  Completed: "text-emerald-700",
+  Cancelled: "text-red-600",
+  Paid: "text-emerald-700",
+  Failed: "text-red-600",
+  "In Stock": "text-emerald-700",
+  "Low Stock": "text-amber-700",
 };
 
 function StatusBadge({ status, className = "" }) {
   const key = String(status || "");
-  const style = STATUS_STYLES[key] || "bg-gray-50 text-gray-700 border-gray-200";
+  const style = STATUS_STYLES[key] || "text-[#374151]";
   const label = key === "not_uploaded" ? "Not Uploaded" : key.replace(/_/g, " ");
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${style} ${className}`}
+      className={`inline-flex items-center border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-0.5 text-xs font-semibold capitalize ${style} ${className}`}
     >
       {label}
     </span>

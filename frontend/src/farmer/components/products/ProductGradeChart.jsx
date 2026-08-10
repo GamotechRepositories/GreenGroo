@@ -1,9 +1,5 @@
 import { useMemo, useState } from "react";
-
-const EXCEL_CELL = "border border-[#D4D4D4] px-2 py-1.5 text-xs text-[#1F2937]";
-const EXCEL_HEAD = "border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-xs font-semibold text-[#1F2937]";
-const EXCEL_WRAP = "overflow-x-auto border border-[#D4D4D4] bg-white";
-const EXCEL_TABLE = "w-full min-w-[720px] border-collapse text-left";
+import { EXCEL_CELL, EXCEL_HEAD, EXCEL_TABLE, EXCEL_WRAP } from "../../utils/excelStyles";
 
 function formatDate(isoDate) {
   if (!isoDate) return "—";
@@ -131,7 +127,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
               <th className={`${EXCEL_HEAD} text-right`}>B Qty</th>
               <th className={`${EXCEL_HEAD} text-right`}>B Rate</th>
               <th className={`${EXCEL_HEAD} text-right`}>B Amount</th>
-              <th className={`${EXCEL_HEAD} text-right`}>Total</th>
+              <th className={`${EXCEL_HEAD} text-right text-red-600`}>Total</th>
             </tr>
           </thead>
           <tbody>
@@ -151,13 +147,15 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
                     {row.gradeAQty} {row.unit || unit}
                   </td>
                   <td className={`${EXCEL_CELL} text-right`}>{formatRupee(row.gradeARate)}</td>
-                  <td className={`${EXCEL_CELL} text-right`}>{formatRupee(row.aTotal)}</td>
+                  <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(row.aTotal)}</td>
                   <td className={`${EXCEL_CELL} text-right`}>
                     {row.gradeBQty} {row.unit || unit}
                   </td>
                   <td className={`${EXCEL_CELL} text-right`}>{formatRupee(row.gradeBRate)}</td>
-                  <td className={`${EXCEL_CELL} text-right`}>{formatRupee(row.bTotal)}</td>
-                  <td className={`${EXCEL_CELL} text-right font-semibold`}>{formatRupee(row.abTotal)}</td>
+                  <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(row.bTotal)}</td>
+                  <td className={`${EXCEL_CELL} text-right font-semibold text-red-600`}>
+                    {formatRupee(row.abTotal)}
+                  </td>
                 </tr>
               ))
             )}
@@ -172,13 +170,15 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
                   {totals.gradeAQty} {unit}
                 </td>
                 <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.avgARate)}</td>
-                <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.aTotal)}</td>
+                <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(totals.aTotal)}</td>
                 <td className={`${EXCEL_CELL} text-right`}>
                   {totals.gradeBQty} {unit}
                 </td>
                 <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.avgBRate)}</td>
-                <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.bTotal)}</td>
-                <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.abTotal)}</td>
+                <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(totals.bTotal)}</td>
+                <td className={`${EXCEL_CELL} text-right font-semibold text-red-600`}>
+                  {formatRupee(totals.abTotal)}
+                </td>
               </tr>
             </tfoot>
           ) : null}
@@ -206,11 +206,16 @@ function SalesSummarySection({
   const columns = [
     { header: "Grade A Qty", value: `${grandAQty} ${unit}`, cellClass: "text-left" },
     { header: "A Rate (avg)", value: formatRupee(avgARate), cellClass: "text-right" },
-    { header: "A Amount", value: formatRupee(grandATotal), cellClass: "text-right" },
+    { header: "A Amount", value: formatRupee(grandATotal), cellClass: "text-right font-bold", headClass: "text-right" },
     { header: "Grade B Qty", value: `${grandBQty} ${unit}`, cellClass: "text-right" },
     { header: "B Rate (avg)", value: formatRupee(avgBRate), cellClass: "text-right" },
-    { header: "B Amount", value: formatRupee(grandBTotal), cellClass: "text-right" },
-    { header: "Total Amount", value: formatRupee(totalRupees), cellClass: "text-right font-semibold" },
+    { header: "B Amount", value: formatRupee(grandBTotal), cellClass: "text-right font-bold", headClass: "text-right" },
+    {
+      header: "Total Amount",
+      value: formatRupee(totalRupees),
+      cellClass: "text-right text-red-600 font-semibold",
+      headClass: "text-right text-red-600",
+    },
   ];
 
   return (
@@ -221,7 +226,7 @@ function SalesSummarySection({
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.header} className={`${EXCEL_HEAD} ${col.cellClass}`}>
+                <th key={col.header} className={`${EXCEL_HEAD} ${col.headClass || col.cellClass}`}>
                   {col.header}
                 </th>
               ))}
@@ -244,9 +249,24 @@ function SalesSummarySection({
 
 function PaymentOverviewSection({ totalRupees, deposited, balance, formatRupee }) {
   const columns = [
-    { header: "Total Amount", value: formatRupee(totalRupees), cellClass: "text-left" },
-    { header: "Received", value: formatRupee(deposited), cellClass: "text-right" },
-    { header: "Pending", value: formatRupee(balance), cellClass: "text-right" },
+    {
+      header: "Total Amount",
+      value: formatRupee(totalRupees),
+      cellClass: "text-left text-red-600 font-semibold",
+      headClass: "text-left text-red-600",
+    },
+    {
+      header: "Received",
+      value: formatRupee(deposited),
+      cellClass: "text-right text-emerald-700 font-semibold",
+      headClass: "text-right text-emerald-700",
+    },
+    {
+      header: "Pending",
+      value: formatRupee(balance),
+      cellClass: "text-right text-red-600 font-semibold",
+      headClass: "text-right text-red-600",
+    },
   ];
 
   return (
@@ -257,7 +277,7 @@ function PaymentOverviewSection({ totalRupees, deposited, balance, formatRupee }
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.header} className={`${EXCEL_HEAD} ${col.cellClass}`}>
+                <th key={col.header} className={`${EXCEL_HEAD} ${col.headClass || col.cellClass}`}>
                   {col.header}
                 </th>
               ))}
@@ -266,7 +286,7 @@ function PaymentOverviewSection({ totalRupees, deposited, balance, formatRupee }
           <tbody>
             <tr>
               {columns.map((col) => (
-                <td key={col.header} className={`${EXCEL_CELL} ${col.cellClass} font-medium`}>
+                <td key={col.header} className={`${EXCEL_CELL} ${col.cellClass}`}>
                   {col.value}
                 </td>
               ))}

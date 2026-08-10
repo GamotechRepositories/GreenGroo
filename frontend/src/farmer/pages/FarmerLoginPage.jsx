@@ -7,6 +7,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { loginFarmer } from "../store/farmerSlice";
 import { FarmerToaster } from "../components/ui/FarmerToaster";
+import {
+  EXCEL_BTN_PRIMARY,
+  EXCEL_INPUT,
+  EXCEL_PANEL,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+} from "../utils/excelStyles";
+import "../styles/farmer.css";
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
@@ -46,47 +54,36 @@ function FarmerLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F7F2E8] px-4">
-      <div className="w-full max-w-md rounded-3xl border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-8">
-        <p className="text-sm font-bold uppercase tracking-wide text-[#2E7D32]">GreenGroo Farmer</p>
-        <h1 className="mt-2 text-2xl font-extrabold text-[#1F2937]">Sign in to Farmer Panel</h1>
-        <p className="mt-1 text-sm text-[#6B7280]">
+    <div className="farmer-panel flex min-h-screen items-center justify-center bg-white px-4">
+      <div className={`w-full max-w-md ${EXCEL_PANEL} p-4 sm:p-5`}>
+        <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">GreenGroo Farmer</p>
+        <h1 className={`mt-1 ${EXCEL_PAGE_TITLE}`}>Sign in to Farmer Panel</h1>
+        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
           Demo login is prefilled. Use any valid mobile + password (4+ chars).
         </p>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-semibold">Mobile Number</label>
-            <input
-              {...register("mobile")}
-              className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-sm outline-none focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/15"
-            />
+            <label className="mb-1 block text-xs font-semibold">Mobile Number</label>
+            <input {...register("mobile")} className={EXCEL_INPUT} />
             {errors.mobile ? (
               <p className="mt-1 text-xs text-[#DC2626]">{errors.mobile.message}</p>
             ) : null}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-semibold">Password</label>
-            <input
-              type="password"
-              {...register("password")}
-              className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-sm outline-none focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/15"
-            />
+            <label className="mb-1 block text-xs font-semibold">Password</label>
+            <input type="password" {...register("password")} className={EXCEL_INPUT} />
             {errors.password ? (
               <p className="mt-1 text-xs text-[#DC2626]">{errors.password.message}</p>
             ) : null}
           </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-[#2E7D32] py-3 text-sm font-bold text-white hover:bg-[#256628] disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className={`w-full ${EXCEL_BTN_PRIMARY} py-2`}>
             {submitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-[#6B7280]">
-          <Link to="/" className="font-semibold text-[#2E7D32] hover:underline">
+        <p className={`mt-4 text-center ${EXCEL_PAGE_SUB}`}>
+          <Link to="/" className="font-semibold text-[#217346] hover:underline">
             ← Back to marketplace
           </Link>
         </p>

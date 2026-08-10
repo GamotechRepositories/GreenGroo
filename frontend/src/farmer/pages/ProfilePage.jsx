@@ -10,6 +10,17 @@ import {
   updateFarmerProfile,
 } from "../api/farmerApi";
 import { logoutFarmer, setFarmerProfile } from "../store/farmerSlice";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_DANGER,
+  EXCEL_BTN_OUTLINE,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_INPUT,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+  EXCEL_PANEL,
+  EXCEL_PANEL_HEAD,
+} from "../utils/excelStyles";
 import LoadingState from "../components/ui/LoadingState";
 
 const profileSchema = z.object({
@@ -38,8 +49,7 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-const inputClass =
-  "w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-sm outline-none focus:border-[#2E7D32] focus:ring-2 focus:ring-[#2E7D32]/15";
+const inputClass = EXCEL_INPUT;
 
 function ProfilePage() {
   const dispatch = useDispatch();
@@ -81,8 +91,8 @@ function ProfilePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold">Profile</h1>
-        <p className="mt-1 text-sm text-[#6B7280]">Manage your personal, farm, and bank details.</p>
+        <h1 className={EXCEL_PAGE_TITLE}>Profile</h1>
+        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>Manage your personal, farm, and bank details.</p>
       </div>
 
       <form
@@ -113,7 +123,7 @@ function ProfilePage() {
             setSaving(false);
           }
         })}
-        className="space-y-5 rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm"
+        className={`${EXCEL_PANEL} space-y-3 p-3`}
       >
         <Section title="Personal Information">
           <Field label="Farmer Name" error={profileForm.formState.errors.name?.message}>
@@ -163,7 +173,7 @@ function ProfilePage() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-[#2E7D32] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+          className={EXCEL_BTN_PRIMARY}
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
@@ -182,9 +192,9 @@ function ProfilePage() {
             setPwdSaving(false);
           }
         })}
-        className="space-y-4 rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm"
+        className={`${EXCEL_PANEL} space-y-3 p-3`}
       >
-        <h2 className="text-lg font-bold">Security</h2>
+        <h2 className={EXCEL_PANEL_HEAD}>Security</h2>
         <Field label="Current Password" error={passwordForm.formState.errors.currentPassword?.message}>
           <input type="password" className={inputClass} {...passwordForm.register("currentPassword")} />
         </Field>
@@ -202,18 +212,10 @@ function ProfilePage() {
           />
         </Field>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            disabled={pwdSaving}
-            className="rounded-xl border border-[#2E7D32] px-4 py-2.5 text-sm font-bold text-[#2E7D32]"
-          >
+          <button type="submit" disabled={pwdSaving} className={EXCEL_BTN_OUTLINE}>
             {pwdSaving ? "Updating..." : "Change Password"}
           </button>
-          <button
-            type="button"
-            onClick={() => dispatch(logoutFarmer())}
-            className="rounded-xl bg-[#DC2626] px-4 py-2.5 text-sm font-bold text-white"
-          >
+          <button type="button" onClick={() => dispatch(logoutFarmer())} className={EXCEL_BTN_DANGER}>
             Logout
           </button>
         </div>
@@ -225,7 +227,7 @@ function ProfilePage() {
 function Section({ title, children }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">{title}</h2>
+      <h2 className={`${EXCEL_PANEL_HEAD} border-0 bg-transparent px-0 py-0`}>{title}</h2>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </div>
   );
@@ -234,7 +236,7 @@ function Section({ title, children }) {
 function Field({ label, error, children }) {
   return (
     <div className="sm:col-span-1">
-      <label className="mb-1 block text-sm font-semibold">{label}</label>
+      <label className="mb-1 block text-xs font-semibold">{label}</label>
       {children}
       {error ? <p className="mt-1 text-xs text-[#DC2626]">{error}</p> : null}
     </div>

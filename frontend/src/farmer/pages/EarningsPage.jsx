@@ -5,6 +5,7 @@ import StatCard from "../components/ui/StatCard";
 import DataTable from "../components/ui/DataTable";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
+import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
 
 function formatCurrency(n) {
   return new Intl.NumberFormat("en-IN", {
@@ -34,15 +35,15 @@ function EarningsPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-extrabold">Earnings</h1>
-        <p className="mt-1 text-sm text-[#6B7280]">
+        <h1 className={EXCEL_PAGE_TITLE}>Earnings</h1>
+        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
           View earnings and settlements. Settlement records are read-only.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard title="Total Earnings" value={formatCurrency(data.totalEarnings)} />
         <StatCard title="Available Balance" value={formatCurrency(data.availableBalance)} />
         <StatCard title="Pending Payments" value={formatCurrency(data.pendingPayments)} />
@@ -54,52 +55,34 @@ function EarningsPage() {
         />
       </div>
 
-      <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold">Settlement details</h2>
-        <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Settlement details</h2>
+        <dl className="grid gap-2 p-3 sm:grid-cols-3">
           <div>
             <dt className="text-xs font-semibold uppercase text-[#6B7280]">Bank account</dt>
-            <dd className="mt-1 text-sm font-semibold">{data.lastPayment.bankAccount}</dd>
+            <dd className="mt-0.5 text-xs font-semibold">{data.lastPayment.bankAccount}</dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase text-[#6B7280]">Settlement date</dt>
-            <dd className="mt-1 text-sm font-semibold">{data.lastPayment.settlementDate}</dd>
+            <dd className="mt-0.5 text-xs font-semibold">{data.lastPayment.settlementDate}</dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase text-[#6B7280]">Settlement amount</dt>
-            <dd className="mt-1 text-sm font-semibold">
-              {formatCurrency(data.lastPayment.amount)}
-            </dd>
+            <dd className="mt-0.5 text-xs font-semibold">{formatCurrency(data.lastPayment.amount)}</dd>
           </div>
         </dl>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-bold">Transaction history</h2>
+      <section className="space-y-2">
+        <h2 className={EXCEL_PAGE_TITLE}>Transaction history</h2>
         <DataTable
           columns={[
             { key: "id", header: "Transaction ID" },
             { key: "orderId", header: "Order ID" },
-            {
-              key: "amount",
-              header: "Amount",
-              render: (row) => formatCurrency(row.amount),
-            },
-            {
-              key: "commission",
-              header: "Commission",
-              render: (row) => formatCurrency(row.commission),
-            },
-            {
-              key: "netEarnings",
-              header: "Net Earnings",
-              render: (row) => formatCurrency(row.netEarnings),
-            },
-            {
-              key: "status",
-              header: "Status",
-              render: (row) => <StatusBadge status={row.status} />,
-            },
+            { key: "amount", header: "Amount", render: (row) => formatCurrency(row.amount) },
+            { key: "commission", header: "Commission", render: (row) => formatCurrency(row.commission) },
+            { key: "netEarnings", header: "Net Earnings", render: (row) => formatCurrency(row.netEarnings) },
+            { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
             {
               key: "date",
               header: "Date",
