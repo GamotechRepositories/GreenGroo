@@ -22,6 +22,99 @@ let earningsDb = structuredClone(MOCK_EARNINGS);
 let stockHistoryDb = structuredClone(MOCK_STOCK_HISTORY);
 let farmerDb = structuredClone(MOCK_FARMER);
 
+function resolveStockAction(changedQuantity, action) {
+  if (action) return action;
+  if (changedQuantity > 0) return "Stock Added";
+  if (changedQuantity < 0) return "Stock Reduced";
+  return "Stock Adjustment";
+}
+
+function normalizeStockHistoryEntry(entry) {
+  const changedQuantity = Number(entry.changedQuantity ?? entry.change) || 0;
+  const newStock = Number(entry.newStock ?? entry.stockAfter) || 0;
+  const previousStock =
+    entry.previousStock != null ? Number(entry.previousStock) : newStock - changedQuantity;
+
+  return {
+    id: entry.id,
+    productId: entry.productId,
+    productName: entry.productName,
+    at: entry.at,
+    grade: entry.grade || "All Grades",
+    action: resolveStockAction(changedQuantity, entry.action),
+    previousStock,
+    changedQuantity,
+    newStock,
+    reason: entry.reason || "Manual Update",
+    updatedBy: entry.updatedBy || "Farmer",
+    reference: entry.reference ?? "—",
+  };
+}
+
+function buildStockHistoryEntry({
+  productId,
+  productName,
+  grade = "All Grades",
+  previousStock,
+  changedQuantity,
+  newStock,
+  reason = "Manual Update",
+  updatedBy = "Farmer",
+  reference = "—",
+  action,
+}) {
+  const change = Number(changedQuantity) || 0;
+  const nextStock = newStock != null ? Number(newStock) : Number(previousStock) + change;
+
+  return normalizeStockHistoryEntry({
+    id: `sh-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    productId,
+    productName,
+    at: new Date().toISOString(),
+    grade,
+    action: resolveStockAction(change, action),
+    previousStock: Number(previousStock) || 0,
+    changedQuantity: change,
+    newStock: nextStock,
+    reason,
+    updatedBy,
+    reference: reference || "—",
+  });
+}
+
+function appendGradeHistoryEntries(prevProduct, nextProduct, reason = "Manual Update") {
+  const entries = [];
+  const gradeLabels = ["Grade A", "Grade B", "Grade C", "Grade D"];
+
+  gradeLabels.forEach((label, index) => {
+    const prevQty =
+      prevProduct.grades?.[index]?.quantity ??
+      (index === 0 ? prevProduct.gradeAQty : index === 1 ? prevProduct.gradeBQty : 0) ??
+      0;
+    const nextQty =
+      nextProduct.grades?.[index]?.quantity ??
+      (index === 0 ? nextProduct.gradeAQty : index === 1 ? nextProduct.gradeBQty : 0) ??
+      0;
+
+    if (Number(prevQty) === Number(nextQty)) return;
+
+    entries.push(
+      buildStockHistoryEntry({
+        productId: nextProduct.id,
+        productName: nextProduct.name,
+        grade: label,
+        previousStock: Number(prevQty) || 0,
+        changedQuantity: Number(nextQty) - Number(prevQty),
+        newStock: Number(nextQty) || 0,
+        reason,
+        updatedBy: "Farmer",
+      })
+    );
+  });
+
+  return entries;
+}
+
 function computeVerificationStatus(docs) {
   const required = docs.filter((d) => ["aadhaar", "pan", "bank", "address"].includes(d.type));
   if (required.some((d) => d.status === VERIFICATION_STATUS.NOT_UPLOADED || !d.fileName)) {
@@ -194,7 +287,15 @@ export async function getProductById(id) {
 export async function getProductGradeChart(productId) {
   await delay(200);
   const source = MOCK_PRODUCT_GRADE_CHARTS[productId] || [];
-  const rows = structuredClone(source).map((row, index) => {
+  const rows = buildGradeChartRows(source);
+  return {
+    rows,
+    summary: buildGradeChartSummary(rows),
+  };
+}
+
+function buildGradeChartRows(source) {
+  return structuredClone(source).map((row, index) => {
     const aTotal = Number(row.gradeAQty) * Number(row.gradeARate);
     const bTotal = Number(row.gradeBQty) * Number(row.gradeBRate);
     return {
@@ -205,19 +306,91 @@ export async function getProductGradeChart(productId) {
       abTotal: aTotal + bTotal,
     };
   });
+}
 
+function buildGradeChartSummary(rows) {
   const totalRupees = rows.reduce((s, r) => s + Number(r.abTotal || 0), 0);
-  // Demo: ~70% collected; rest pending — replace with API settlement later
   const deposited = Math.round(totalRupees * 0.7);
   const balance = Math.max(0, totalRupees - deposited);
+  return { totalRupees, deposited, balance };
+}
+
+function mergeGradeChartRowsByDate(sources) {
+  const byDate = new Map();
+
+  for (const row of sources) {
+    const key = row.date;
+    const aTotal = Number(row.gradeAQty) * Number(row.gradeARate);
+    const bTotal = Number(row.gradeBQty) * Number(row.gradeBRate);
+
+    if (!byDate.has(key)) {
+      byDate.set(key, {
+        date: row.date,
+        weekday: row.weekday,
+        gradeAQty: 0,
+        gradeBQty: 0,
+        aTotal: 0,
+        bTotal: 0,
+        unit: row.unit || "Kg",
+      });
+    }
+
+    const agg = byDate.get(key);
+    agg.gradeAQty += Number(row.gradeAQty) || 0;
+    agg.gradeBQty += Number(row.gradeBQty) || 0;
+    agg.aTotal += aTotal;
+    agg.bTotal += bTotal;
+    if (!agg.weekday && row.weekday) agg.weekday = row.weekday;
+    if (agg.unit !== (row.unit || "Kg")) agg.unit = "Kg";
+  }
+
+  return [...byDate.values()]
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+    .map((row, index) => ({
+      ...row,
+      srNo: index + 1,
+      gradeARate: row.gradeAQty > 0 ? Math.round(row.aTotal / row.gradeAQty) : 0,
+      gradeBRate: row.gradeBQty > 0 ? Math.round(row.bTotal / row.gradeBQty) : 0,
+      abTotal: row.aTotal + row.bTotal,
+    }));
+}
+
+export async function getDashboardCharts() {
+  await delay(300);
+
+  const products = productsDb.map((product) => {
+    const source = MOCK_PRODUCT_GRADE_CHARTS[product.id] || [];
+    const rows = buildGradeChartRows(source);
+    return {
+      productId: product.id,
+      productName: product.name,
+      category: product.category,
+      unit: product.unit,
+      rows,
+      summary: buildGradeChartSummary(rows),
+    };
+  });
+
+  const allSources = productsDb.flatMap(
+    (product) => MOCK_PRODUCT_GRADE_CHARTS[product.id] || []
+  );
+  const allRows = mergeGradeChartRowsByDate(structuredClone(allSources));
 
   return {
-    rows,
-    summary: {
-      totalRupees,
-      deposited,
-      balance,
+    stats: {
+      totalProducts: productsDb.length,
+      availableStock: productsDb.reduce((sum, p) => sum + Number(p.stock || 0), 0),
+      totalOrders: ordersDb.length,
+      pendingOrders: ordersDb.filter((o) =>
+        ["New", "Confirmed", "Processing"].includes(o.status)
+      ).length,
+      totalEarnings: earningsDb.totalEarnings,
     },
+    all: {
+      rows: allRows,
+      summary: buildGradeChartSummary(allRows),
+    },
+    products: products.filter((item) => item.rows.length > 0),
   };
 }
 
@@ -248,11 +421,28 @@ export async function updateProduct(id, payload) {
   await delay(500);
   const idx = productsDb.findIndex((p) => p.id === id);
   if (idx < 0) throw new Error("Product not found");
-  productsDb[idx] = {
-    ...productsDb[idx],
+
+  const prevProduct = structuredClone(productsDb[idx]);
+  const nextProduct = {
+    ...prevProduct,
     ...payload,
     updatedAt: new Date().toISOString(),
   };
+
+  if (
+    payload.availableQuantity != null ||
+    payload.stock != null ||
+    payload.grades != null ||
+    payload.gradeAQty != null ||
+    payload.gradeBQty != null
+  ) {
+    const historyEntries = appendGradeHistoryEntries(prevProduct, nextProduct);
+    if (historyEntries.length > 0) {
+      stockHistoryDb = [...historyEntries, ...stockHistoryDb];
+    }
+  }
+
+  productsDb[idx] = nextProduct;
   return structuredClone(productsDb[idx]);
 }
 
@@ -276,33 +466,90 @@ export async function getInventory() {
   }));
 }
 
-export async function adjustStock({ productId, change, reason }) {
+export async function adjustStock({
+  productId,
+  change,
+  reason = "Manual Update",
+  grade = "Grade A",
+  updatedBy = "Farmer",
+  reference = "—",
+} = {}) {
   await delay(400);
   const idx = productsDb.findIndex((p) => p.id === productId);
   if (idx < 0) throw new Error("Product not found");
-  const nextStock = Math.max(0, Number(productsDb[idx].stock) + Number(change));
+
+  const product = productsDb[idx];
+  const changedQuantity = Number(change) || 0;
+  if (!changedQuantity) throw new Error("Enter a quantity to adjust");
+
+  const gradeIndex = grade === "Grade B" ? 1 : grade === "Grade C" ? 2 : 0;
+  const grades = Array.isArray(product.grades) && product.grades.length
+    ? product.grades.map((g) => ({ ...g }))
+    : [
+        { label: "Grade A", quantity: Number(product.gradeAQty) || 0 },
+        { label: "Grade B", quantity: Number(product.gradeBQty) || 0 },
+      ];
+
+  while (grades.length <= gradeIndex) {
+    grades.push({ label: `Grade ${String.fromCharCode(65 + grades.length)}`, quantity: 0 });
+  }
+
+  const previousGradeStock = Number(grades[gradeIndex].quantity) || 0;
+  const nextGradeStock = Math.max(0, previousGradeStock + changedQuantity);
+  const appliedChange = nextGradeStock - previousGradeStock;
+  if (appliedChange === 0 && changedQuantity < 0) {
+    throw new Error("Not enough stock to remove");
+  }
+
+  grades[gradeIndex] = {
+    ...grades[gradeIndex],
+    label: grades[gradeIndex].label || grade,
+    quantity: nextGradeStock,
+  };
+
+  const gradeAQty = Number(grades[0]?.quantity) || 0;
+  const gradeBQty = Number(grades[1]?.quantity) || 0;
+  const nextStock = grades.reduce((sum, g) => sum + (Number(g.quantity) || 0), 0);
+
+  const resolvedReason = reason?.includes("Order") ? "Sale" : reason || "Manual Update";
+  const resolvedBy = reason?.includes("Order") ? "System" : updatedBy;
+  const resolvedRef = reason?.includes("FO-")
+    ? reason.replace(/.*(FO-\d+).*/, "$1")
+    : reference || "—";
+
   productsDb[idx] = {
-    ...productsDb[idx],
+    ...product,
+    grades,
+    gradeAQty,
+    gradeBQty,
     stock: nextStock,
-    status: nextStock <= 0 ? "Out of Stock" : productsDb[idx].status === "Out of Stock" ? "Approved" : productsDb[idx].status,
+    availableQuantity: nextStock,
+    status: nextStock <= 0 ? "Out of Stock" : product.status === "Out of Stock" ? "Approved" : product.status,
     updatedAt: new Date().toISOString(),
   };
-  const entry = {
-    id: `sh-${Date.now()}`,
+
+  const entry = buildStockHistoryEntry({
     productId,
     productName: productsDb[idx].name,
-    change: Number(change),
-    reason: reason || "Stock adjustment",
-    stockAfter: nextStock,
-    at: new Date().toISOString(),
-  };
+    grade: grades[gradeIndex].label || grade,
+    previousStock: previousGradeStock,
+    changedQuantity: appliedChange,
+    newStock: nextGradeStock,
+    reason: resolvedReason,
+    updatedBy: resolvedBy,
+    reference: resolvedRef,
+  });
   stockHistoryDb = [entry, ...stockHistoryDb];
   return { product: structuredClone(productsDb[idx]), history: entry };
 }
 
-export async function getStockHistory() {
+export async function getStockHistory(productId) {
   await delay(200);
-  return structuredClone(stockHistoryDb);
+  let list = stockHistoryDb.map(normalizeStockHistoryEntry);
+  if (productId) {
+    list = list.filter((entry) => entry.productId === productId);
+  }
+  return structuredClone(list.sort((a, b) => new Date(b.at) - new Date(a.at)));
 }
 
 export async function getOrders({ status = "", q = "" } = {}) {

@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getDashboardStats } from "../api/farmerApi";
+import { getDashboardCharts } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
-import DataTable from "../components/ui/DataTable";
-import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
+import ProductGradeChart from "../components/products/ProductGradeChart";
 import {
-  EXCEL_PAGE_SUB,
+  EXCEL_BTN,
   EXCEL_PAGE_TITLE,
   EXCEL_PANEL,
   EXCEL_PANEL_HEAD,
-  EXCEL_ROW,
+  EXCEL_SELECT,
 } from "../utils/excelStyles";
 
 function formatCurrency(n) {
@@ -23,13 +22,18 @@ function formatCurrency(n) {
 }
 
 function DashboardPage() {
-  const [stats, setStats] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedProductId, setSelectedProductId] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        setStats(await getDashboardStats());
+        const result = await getDashboardCharts();
+        setData(result);
+        if (result.products.length > 0) {
+          setSelectedProductId(result.products[0].productId);
+        }
       } catch (err) {
         toast.error(err.message || "Failed to load dashboard");
       } finally {
@@ -39,47 +43,15 @@ function DashboardPage() {
   }, []);
 
   if (loading) return <LoadingState rows={6} />;
+  if (!data) return null;
 
-  const orderColumns = [
-    { key: "id", header: "Order ID" },
-    {
-      key: "product",
-      header: "Product",
-      render: (row) => row.products?.[0]?.name || "—",
-    },
-    { key: "quantity", header: "Qty" },
-    {
-      key: "amount",
-      header: "Amount",
-      render: (row) => formatCurrency(row.amount),
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (row) => <StatusBadge status={row.status} />,
-    },
-    {
-      key: "date",
-      header: "Date",
-      render: (row) => new Date(row.orderDate).toLocaleDateString("en-IN"),
-    },
-    {
-      key: "action",
-      header: "Action",
-      render: (row) => (
-        <Link to={`/farmer/orders/${row.id}`} className="font-semibold text-[#217346] hover:underline">
-          View
-        </Link>
-      ),
-    },
-  ];
+  const { stats, all, products } = data;
+  const selectedProduct =
+    products.find((item) => item.productId === selectedProductId) || products[0] || null;
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className={EXCEL_PAGE_TITLE}>Dashboard</h1>
-        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>Overview of your farm marketplace activity.</p>
-      </div>
+      <h1 className={EXCEL_PAGE_TITLE}>Dashboard</h1>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard title="Total Products" value={stats.totalProducts} />
@@ -89,44 +61,47 @@ function DashboardPage() {
         <StatCard title="Total Earnings" value={formatCurrency(stats.totalEarnings)} />
       </div>
 
-      <section className="space-y-2">
-        <h2 className={EXCEL_PAGE_TITLE}>Recent Orders</h2>
-        <DataTable columns={orderColumns} rows={stats.recentOrders} />
+      <section className={`${EXCEL_PANEL} p-3`}>
+        <ProductGradeChart rows={all.rows} summary={all.summary} title="All Products" />
       </section>
 
-      <div className="grid gap-2 lg:grid-cols-2">
-        <section className={EXCEL_PANEL}>
-          <h2 className={EXCEL_PANEL_HEAD}>Low Stock Products</h2>
-          <ul className="divide-y divide-[#D4D4D4]">
-            {stats.lowStockProducts.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-[#6B7280]">All stocks look healthy.</li>
-            ) : (
-              stats.lowStockProducts.map((p) => (
-                <li key={p.id} className={`${EXCEL_ROW} flex items-center justify-between border-0 border-b`}>
-                  <span className="font-medium">{p.name}</span>
-                  <span className="font-semibold text-amber-700">
-                    {p.stock} {p.unit}
-                  </span>
-                </li>
-              ))
-            )}
-          </ul>
-        </section>
+      <section className={EXCEL_PANEL}>
+        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+          <span>Product Wise</span>
+          {products.length > 0 ? (
+            <select
+              value={selectedProductId}
+              onChange={(e) => setSelectedProductId(e.target.value)}
+              className={EXCEL_SELECT}
+            >
+              {products.map((item) => (
+                <option key={item.productId} value={item.productId}>
+                  {item.productName}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
 
-        <section className={EXCEL_PANEL}>
-          <h2 className={EXCEL_PANEL_HEAD}>Recent Earnings</h2>
-          <ul className="divide-y divide-[#D4D4D4]">
-            {stats.recentEarnings.map((t) => (
-              <li key={t.id} className={`${EXCEL_ROW} flex items-center justify-between border-0 border-b`}>
-                <span>
-                  {t.orderId} · <StatusBadge status={t.status} />
-                </span>
-                <span className="font-semibold text-[#217346]">{formatCurrency(t.netEarnings)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+        {products.length === 0 ? (
+          <div className="px-3 py-8 text-center text-xs text-[#6B7280]">No product chart data available.</div>
+        ) : selectedProduct ? (
+          <div className="p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold text-[#1F2937]">{selectedProduct.productName}</span>
+                {selectedProduct.category ? (
+                  <span className="text-[#6B7280]">{selectedProduct.category}</span>
+                ) : null}
+              </div>
+              <Link to={`/farmer/products/${selectedProduct.productId}`} className={EXCEL_BTN}>
+                View Product
+              </Link>
+            </div>
+            <ProductGradeChart rows={selectedProduct.rows} summary={selectedProduct.summary} />
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

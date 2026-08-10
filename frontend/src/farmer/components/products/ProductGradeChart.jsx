@@ -203,17 +203,34 @@ function SalesSummarySection({
   unit,
   formatRupee,
 }) {
+  const totalQty = Number(grandAQty || 0) + Number(grandBQty || 0);
   const columns = [
-    { header: "Grade A Qty", value: `${grandAQty} ${unit}`, cellClass: "text-left" },
-    { header: "A Rate (avg)", value: formatRupee(avgARate), cellClass: "text-right" },
-    { header: "A Amount", value: formatRupee(grandATotal), cellClass: "text-right font-bold", headClass: "text-right" },
-    { header: "Grade B Qty", value: `${grandBQty} ${unit}`, cellClass: "text-right" },
-    { header: "B Rate (avg)", value: formatRupee(avgBRate), cellClass: "text-right" },
-    { header: "B Amount", value: formatRupee(grandBTotal), cellClass: "text-right font-bold", headClass: "text-right" },
+    { header: "A Qty", value: `${grandAQty} ${unit}`, cellClass: "text-right tabular-nums" },
+    { header: "A Rate", value: formatRupee(avgARate), cellClass: "text-right tabular-nums" },
     {
-      header: "Total Amount",
+      header: "A Amount",
+      value: formatRupee(grandATotal),
+      cellClass: "text-right font-bold tabular-nums",
+      headClass: "text-right",
+    },
+    { header: "B Qty", value: `${grandBQty} ${unit}`, cellClass: "text-right tabular-nums" },
+    { header: "B Rate", value: formatRupee(avgBRate), cellClass: "text-right tabular-nums" },
+    {
+      header: "B Amount",
+      value: formatRupee(grandBTotal),
+      cellClass: "text-right font-bold tabular-nums",
+      headClass: "text-right",
+    },
+    {
+      header: "Total Qty",
+      value: `${totalQty} ${unit}`,
+      cellClass: "text-right font-semibold tabular-nums",
+      headClass: "text-right",
+    },
+    {
+      header: "Total",
       value: formatRupee(totalRupees),
-      cellClass: "text-right text-red-600 font-semibold",
+      cellClass: "text-right text-red-600 font-semibold tabular-nums",
       headClass: "text-right text-red-600",
     },
   ];
@@ -222,7 +239,7 @@ function SalesSummarySection({
     <div>
       <p className="mb-2 text-xs font-semibold text-[#1F2937]">Sales Summary</p>
       <div className={EXCEL_WRAP}>
-        <table className={EXCEL_TABLE}>
+        <table className={`${EXCEL_TABLE} min-w-[720px]`}>
           <thead>
             <tr>
               {columns.map((col) => (
@@ -301,11 +318,12 @@ function PaymentOverviewSection({ totalRupees, deposited, balance, formatRupee }
 function ProductGradeChart({
   rows = [],
   summary = { totalRupees: 0, deposited: 0, balance: 0 },
+  title,
 }) {
   if (!rows.length) {
     return (
       <div className="border border-[#D4D4D4] bg-white px-4 py-10 text-center text-xs text-[#6B7280]">
-        No Grade A / B chart available for this product.
+        {title ? `${title} — ` : ""}No Grade A / B chart available.
       </div>
     );
   }
@@ -324,6 +342,8 @@ function ProductGradeChart({
 
   return (
     <section className="space-y-4">
+      {title ? <h2 className="text-sm font-bold text-[#1F2937]">{title}</h2> : null}
+
       <PaymentOverviewSection
         totalRupees={totalRupees}
         deposited={deposited}

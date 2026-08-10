@@ -16,6 +16,7 @@ function ProductAddPage() {
         <h1 className={EXCEL_PAGE_TITLE}>Add Product</h1>
       </div>
       <ProductForm
+        mode="basic"
         submitting={submitting}
         onSubmit={async (values) => {
           setSubmitting(true);

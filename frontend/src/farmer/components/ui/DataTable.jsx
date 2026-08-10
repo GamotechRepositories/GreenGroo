@@ -8,6 +8,7 @@ function DataTable({
   embedded = false,
   compact = false,
   onRowClick,
+  selectedRowId,
 }) {
   if (!rows?.length) {
     return (
@@ -52,7 +53,9 @@ function DataTable({
           <tr
             key={row[keyField]}
             onClick={(event) => handleRowClick(row, event)}
-            className={`hover:bg-[#F9F9F9] ${onRowClick ? "cursor-pointer" : ""}`}
+            className={`hover:bg-[#F9F9F9] ${onRowClick ? "cursor-pointer" : ""} ${
+              selectedRowId && row[keyField] === selectedRowId ? "bg-[#E8F5E9]" : ""
+            }`}
           >
             {columns.map((col) => (
               <td

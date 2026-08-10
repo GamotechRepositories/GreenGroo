@@ -82,6 +82,10 @@ export const ORDER_STATUS = [
 
 export const PAYMENT_STATUS = ["Pending", "Processing", "Paid", "Failed"];
 
+export const STOCK_REASONS = ["Sale", "Harvest", "Damage", "Manual Update", "Other"];
+
+export const STOCK_GRADES = ["Grade A", "Grade B"];
+
 export const SIDEBAR_ITEMS = [
   { to: "/farmer/documents", label: "Documents", icon: "documents" },
   { to: "/farmer/dashboard", label: "Dashboard", icon: "dashboard" },
