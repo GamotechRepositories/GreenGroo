@@ -56,6 +56,11 @@ function Home() {
         </div>
 
         <div className="hidden space-y-6 lg:block">
+          {categoryName ? (
+            <HomeCategoryProducts categoryName={categoryName} />
+          ) : (
+            <HomeAllCategoryProducts limitPerCategory={20} />
+          )}
           <BestDeals title="Previously bought" viewAllTo="/product" />
           <JustArrived />
           <HotSelling />
