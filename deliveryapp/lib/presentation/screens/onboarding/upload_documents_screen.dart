@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/image_upload_utils.dart';
 import '../../../core/utils/onboarding_nav.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
@@ -36,6 +37,8 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
     'rc',
     'insurance',
   ];
+
+  bool _submitting = false;
 
   bool get _docsReady => _docKeys.every((k) => _files[k] != null);
 
@@ -108,7 +111,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
 
     if (source == null) return;
 
-    final file = await _picker.pickImage(source: source, imageQuality: 85);
+    final file = await _picker.pickImage(source: source, imageQuality: 70);
     if (file == null || !mounted) return;
 
     setState(() => _files[type] = file);
@@ -248,30 +251,35 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: PrimaryButton(
-                label: l10n.next,
-                onPressed: _canContinue
-                    ? () => goOnboardingStep(
-                          context,
-                          step: 'selfie',
-                          route: AppRoutes.takeSelfie,
-                          data: {
-                            'bankDetails': {
-                              'accountHolderName': _accountHolder.text.trim(),
-                              'accountNumber': _accountNumber.text.trim(),
-                              'ifscCode': _ifsc.text.trim(),
-                              'bankName': _bankName.text.trim(),
-                              'upiId': _upiId.text.trim(),
+                label: _submitting ? 'Uploading…' : l10n.next,
+                onPressed: _canContinue && !_submitting
+                    ? () async {
+                        setState(() => _submitting = true);
+                        try {
+                          final docs = <String, dynamic>{};
+                          for (final key in _docKeys) {
+                            docs[key] = await documentPayload(_files[key]);
+                          }
+                          if (!mounted) return;
+                          await goOnboardingStep(
+                            context,
+                            step: 'selfie',
+                            route: AppRoutes.takeSelfie,
+                            data: {
+                              'bankDetails': {
+                                'accountHolderName': _accountHolder.text.trim(),
+                                'accountNumber': _accountNumber.text.trim(),
+                                'ifscCode': _ifsc.text.trim(),
+                                'bankName': _bankName.text.trim(),
+                                'upiId': _upiId.text.trim(),
+                              },
+                              'documents': docs,
                             },
-                            'documents': {
-                              for (final key in _docKeys)
-                                key: {
-                                  'fileName': _files[key]?.name ?? '',
-                                  'localPath': _files[key]?.path ?? '',
-                                  'status': 'captured',
-                                },
-                            },
-                          },
-                        )
+                          );
+                        } finally {
+                          if (mounted) setState(() => _submitting = false);
+                        }
+                      }
                     : null,
               ),
             ),

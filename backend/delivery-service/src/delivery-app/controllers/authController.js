@@ -1,6 +1,12 @@
 import jwt from "jsonwebtoken";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../../delivery-manager/models/DeliveryManager.js";
+import {
+  applyGigStatusChange,
+  buildStatusResponseExtras,
+  emitRiderDocumentUpdated,
+  emitRiderStatusUpdated,
+} from "../services/riderSocketService.js";
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -54,6 +60,15 @@ const applyDocumentMeta = (target, incoming) => {
   if (incoming.fileName !== undefined) target.fileName = String(incoming.fileName);
   if (incoming.localPath !== undefined) {
     target.localPath = String(incoming.localPath);
+  }
+  if (incoming.imageBase64 !== undefined) {
+    const raw = String(incoming.imageBase64 || "");
+    // Keep only reasonable data-URL payloads (manager preview).
+    if (raw.startsWith("data:image/") && raw.length < 8_000_000) {
+      target.imageBase64 = raw;
+    } else if (raw === "") {
+      target.imageBase64 = "";
+    }
   }
   if (incoming.status !== undefined) target.status = String(incoming.status);
   target.capturedAt = incoming.capturedAt
@@ -265,6 +280,24 @@ export const updateOnboarding = async (req, res, next) => {
 
     await deliveryBoy.save();
 
+    // Notify manager dashboard when documents/selfie are uploaded during onboarding
+    for (const key of DOC_KEYS) {
+      if (body.documents?.[key]?.status || body.documents?.[key]?.imageBase64) {
+        await emitRiderDocumentUpdated(
+          deliveryBoy,
+          key,
+          deliveryBoy.documents[key]?.status || "uploaded"
+        );
+      }
+    }
+    if (body.selfie?.status || body.selfie?.imageBase64) {
+      await emitRiderDocumentUpdated(
+        deliveryBoy,
+        "selfie",
+        deliveryBoy.selfie?.status || "uploaded"
+      );
+    }
+
     return res.json({
       success: true,
       deliveryBoy: deliveryBoy.toSafeJSON(),
@@ -303,15 +336,28 @@ export const updateStatus = async (req, res, next) => {
       });
     }
 
-    const now = new Date();
-    existing.status = status;
-    existing.lastStatusAt = now;
-    existing.lastSeenAt = now;
+    try {
+      await applyGigStatusChange(existing, status);
+    } catch (err) {
+      return res.status(err.statusCode || 400).json({
+        success: false,
+        message: err.message,
+        deliveryBoy: existing.toSafeJSON(),
+      });
+    }
+
     await existing.save();
+    const extras = await buildStatusResponseExtras(existing);
+    await emitRiderStatusUpdated(existing, {
+      todayOnlineMinutes: extras.todayOnlineMinutes,
+    });
 
     return res.json({
       success: true,
       deliveryBoy: existing.toSafeJSON(),
+      todayOnlineMinutes: extras.todayOnlineMinutes,
+      isPeak: extras.isPeak,
+      storeId: extras.storeId,
     });
   } catch (error) {
     next(error);
@@ -348,6 +394,7 @@ export const getAreaManager = async (req, res, next) => {
     return res.json({
       success: true,
       manager: {
+        storeId: manager._id.toString(),
         name: manager.name || "Delivery Manager",
         phone: manager.phone,
         email: manager.email,

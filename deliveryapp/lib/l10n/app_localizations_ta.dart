@@ -1035,4 +1035,109 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get verificationRejectedHint =>
       'Contact your area delivery manager for help.';
+
+  @override
+  String get myShifts => 'My Shifts';
+
+  @override
+  String get myShiftsSubtitle => 'Your booked and available delivery shifts';
+
+  @override
+  String get availableShifts => 'Available Shifts';
+
+  @override
+  String get myProgress => 'My Progress';
+
+  @override
+  String get loginHours => 'Login Hours';
+
+  @override
+  String get totalOrdersToday => 'Total Orders Today';
+
+  @override
+  String get shiftBooked => 'Booked';
+
+  @override
+  String get shiftAvailable => 'Available';
+
+  @override
+  String get bookShift => 'Book Shift';
+
+  @override
+  String get shiftBookedSuccess => 'Shift booked successfully!';
+
+  @override
+  String get noShiftsYet => 'No shifts booked yet';
+
+  @override
+  String get noShiftsYetHint => 'Book a shift from available slots below';
+
+  @override
+  String get noAvailableShifts => 'No shifts available';
+
+  @override
+  String get noAvailableShiftsHint => 'Check back later for new slots';
+
+  @override
+  String get ordersExpected => 'orders expected';
+
+  @override
+  String get viewAllShifts => 'View all shifts';
+
+  @override
+  String get dailyProgress => 'Daily Progress';
+
+  @override
+  String get dailyProgressSubtitle => 'Track your goals for today';
+
+  @override
+  String get complete => 'complete';
+
+  @override
+  String get onlineForToday => 'Online for';
+
+  @override
+  String get peakHoursBanner => 'Peak hours right now — earn extra per order';
+
+  @override
+  String shiftBookedBanner(String label, String time) {
+    return 'You\'re booked for $label ($time)';
+  }
+
+  @override
+  String get shiftBookingHint =>
+      'Booking a shift helps the store plan — you can still go online/offline anytime';
+
+  @override
+  String get bookTomorrowShift => 'Book Tomorrow\'s Shift';
+
+  @override
+  String get youreOnline => 'You\'re online';
+
+  @override
+  String get goOnlineToReceive => 'Go online to receive orders';
+
+  @override
+  String get tapToStartReceiving => 'Tap the switch to start receiving orders';
+
+  @override
+  String get waitingForOrders => 'Waiting for orders...';
+
+  @override
+  String get waitingForOrdersHint =>
+      'Stay nearby — new deliveries will appear here';
+
+  @override
+  String get onADelivery => 'On a delivery';
+
+  @override
+  String get reachedStore => 'Reached store';
+
+  @override
+  String incentiveOrdersLeft(int count) {
+    return 'Complete $count more orders for today\'s bonus';
+  }
+
+  @override
+  String get dailyTargetReached => 'Daily order target reached — great work!';
 }

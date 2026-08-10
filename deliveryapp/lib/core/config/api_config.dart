@@ -28,6 +28,10 @@ abstract final class ApiConfig {
   static const status = '/api/delivery-boys/status';
   static const heartbeat = '/api/delivery-boys/heartbeat';
   static const areaManager = '/api/delivery-boys/area-manager';
+  static const shifts = '/api/shifts';
+  static const shiftBooking = '/api/delivery-boys/shift-booking';
+  static const loginHours = '/api/delivery-boys/login-hours';
+  static const peakHours = '/api/peak-hours';
 }
 
 Future<http.Response> apiPost(

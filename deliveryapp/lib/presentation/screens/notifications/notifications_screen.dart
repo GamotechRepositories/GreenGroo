@@ -6,18 +6,14 @@ import '../../widgets/layout/custom_app_bar.dart';
 import '../../widgets/tiles/notification_tile.dart';
 
 class NotificationsScreen extends StatelessWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: l10n.notifications,
-        subtitle: l10n.stayUpdated,
-        showBackButton: true,
-      ),
-      body: ListView(
+    final body = ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           NotificationTile(
@@ -56,7 +52,17 @@ class NotificationsScreen extends StatelessWidget {
             type: NotificationType.support,
           ),
         ],
+      );
+
+    if (embedded) return body;
+
+    return Scaffold(
+      appBar: CustomAppBar(
+        title: l10n.notifications,
+        subtitle: l10n.stayUpdated,
+        showBackButton: true,
       ),
+      body: body,
     );
   }
 }

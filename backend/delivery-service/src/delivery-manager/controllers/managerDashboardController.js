@@ -2,6 +2,7 @@ import DeliveryBoy from "../../delivery-app/models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreInventory from "../models/StoreInventory.js";
 import StoreOrder from "../models/StoreOrder.js";
+import { getIO } from "../../../../socket.js";
 
 const getManager = async (req) => {
   const manager = await DeliveryManager.findById(req.user.id);
@@ -265,6 +266,22 @@ export const verifyDriver = async (req, res, next) => {
     rider.verificationNote = note;
     await rider.save();
 
+    try {
+      getIO().to(`store_${manager._id}`).emit("rider_document_updated", {
+        riderId: rider._id.toString(),
+        documentType: "verification",
+        verificationStatus: rider.verificationStatus,
+        updatedAt: new Date().toISOString(),
+      });
+      getIO().to(`rider_${rider._id}`).emit("document_review_update", {
+        documentType: "verification",
+        verificationStatus: rider.verificationStatus,
+        remarks: note,
+      });
+    } catch (err) {
+      console.warn("[socket] verifyDriver emit failed:", err.message);
+    }
+
     return res.json({
       success: true,
       message:
@@ -427,7 +444,29 @@ export const assignOrder = async (req, res, next) => {
     order.status = "assigned";
     await order.save();
 
+    rider.status = "on_delivery";
+    rider.lastStatusAt = new Date();
+    await rider.save();
+
     const freshStock = await stockMapForManager(manager._id);
+
+    const orderPayload = {
+      orderId: order._id.toString(),
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      deliveryAddress: order.deliveryAddress,
+      items: order.items,
+      totalAmount: order.totalAmount,
+      assignedAt: order.assignedAt,
+      status: order.status,
+    };
+
+    try {
+      getIO().to(`rider_${rider._id}`).emit("new_order_assigned", orderPayload);
+    } catch (err) {
+      console.warn("[socket] assignOrder emit failed:", err.message);
+    }
 
     return res.json({
       success: true,
@@ -465,6 +504,13 @@ export const markDelivered = async (req, res, next) => {
     order.status = "delivered";
     order.deliveredAt = new Date();
     await order.save();
+
+    if (order.assignedRiderId) {
+      await DeliveryBoy.findByIdAndUpdate(order.assignedRiderId, {
+        $set: { status: "online", lastStatusAt: new Date() },
+      });
+    }
+
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,

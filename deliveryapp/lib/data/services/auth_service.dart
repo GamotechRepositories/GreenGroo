@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/l10n/locale_controller.dart';
+import 'rider_live_service.dart';
 
 class DeliveryBoy {
   const DeliveryBoy({
@@ -35,7 +36,7 @@ class DeliveryBoy {
   final String onboardingStep;
   final String verificationStatus;
 
-  bool get isOnline => status == 'online';
+  bool get isOnline => status == 'online' || status == 'on_delivery';
   bool get isVerificationPending =>
       verificationStatus != 'approved' && verificationStatus != 'rejected';
   bool get isVerified => verificationStatus == 'approved';
@@ -79,6 +80,7 @@ class AreaManagerInfo {
     required this.phone,
     required this.storeName,
     required this.storeAddress,
+    this.storeId = '',
     this.email = '',
     this.city = '',
     this.area = '',
@@ -89,6 +91,7 @@ class AreaManagerInfo {
   final String email;
   final String storeName;
   final String storeAddress;
+  final String storeId;
   final String city;
   final String area;
 
@@ -99,6 +102,7 @@ class AreaManagerInfo {
       email: json['email']?.toString() ?? '',
       storeName: json['storeName']?.toString() ?? '',
       storeAddress: json['storeAddress']?.toString() ?? '',
+      storeId: json['storeId']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       area: json['area']?.toString() ?? '',
     );
@@ -218,17 +222,21 @@ class AuthService {
 
   Future<DeliveryBoy?> fetchMe() async {
     if (!isLoggedIn) return null;
-    final res = await apiGet(ApiConfig.me, headers: _authHeaders);
-    if (res.statusCode != 200) {
-      if (res.statusCode == 401) await clearSession();
+    try {
+      final res = await apiGet(ApiConfig.me, headers: _authHeaders);
+      if (res.statusCode != 200) {
+        if (res.statusCode == 401) await clearSession();
+        return null;
+      }
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final boy = DeliveryBoy.fromJson(
+        body['deliveryBoy'] as Map<String, dynamic>,
+      );
+      await _persist(_token!, boy);
+      return boy;
+    } catch (_) {
       return null;
     }
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final boy = DeliveryBoy.fromJson(
-      body['deliveryBoy'] as Map<String, dynamic>,
-    );
-    await _persist(_token!, boy);
-    return boy;
   }
 
   /// Saves onboarding fields into the same DeliveryBoy document.
@@ -263,57 +271,76 @@ class AuthService {
   /// Immediate online/offline update in DB.
   Future<DeliveryBoy?> updateStatus(String status) async {
     if (!isLoggedIn) return null;
-    final res = await apiPatch(
-      ApiConfig.status,
-      headers: _authHeaders,
-      body: jsonEncode({'status': status}),
-    );
-    if (res.statusCode != 200) {
-      try {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        throw AuthApiException(
-          body['message']?.toString() ?? 'Could not update status',
-        );
-      } on AuthApiException {
-        rethrow;
-      } catch (_) {
-        return null;
+    try {
+      final res = await apiPatch(
+        ApiConfig.status,
+        headers: _authHeaders,
+        body: jsonEncode({'status': status}),
+      );
+      if (res.statusCode != 200) {
+        try {
+          final body = jsonDecode(res.body) as Map<String, dynamic>;
+          throw AuthApiException(
+            body['message']?.toString() ?? 'Could not update status',
+          );
+        } on AuthApiException {
+          rethrow;
+        } catch (_) {
+          return null;
+        }
       }
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final boy = DeliveryBoy.fromJson(
+        body['deliveryBoy'] as Map<String, dynamic>,
+      );
+      RiderLiveService.instance.applyStatusResponse(body);
+      await _persist(_token!, boy);
+      return boy;
+    } on AuthApiException {
+      rethrow;
+    } catch (e) {
+      throw AuthApiException(
+        'Cannot reach ${ApiConfig.baseUrl}\n$e',
+      );
     }
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final boy = DeliveryBoy.fromJson(
-      body['deliveryBoy'] as Map<String, dynamic>,
-    );
-    await _persist(_token!, boy);
-    return boy;
   }
 
   Future<AreaManagerInfo?> fetchAreaManager() async {
     if (!isLoggedIn) return null;
-    final res = await apiGet(ApiConfig.areaManager, headers: _authHeaders);
-    if (res.statusCode != 200) return null;
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final manager = body['manager'];
-    if (manager is! Map<String, dynamic>) return null;
-    return AreaManagerInfo.fromJson(manager);
+    try {
+      final res = await apiGet(ApiConfig.areaManager, headers: _authHeaders);
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final manager = body['manager'];
+      if (manager is! Map<String, dynamic>) return null;
+      return AreaManagerInfo.fromJson(manager);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Keep online status live while the partner is working.
   Future<void> sendHeartbeat() async {
     if (!isLoggedIn) return;
-    final res = await apiPost(
-      ApiConfig.heartbeat,
-      headers: _authHeaders,
-      body: jsonEncode({}),
-    );
-    if (res.statusCode == 200) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final boy = DeliveryBoy.fromJson(
-        body['deliveryBoy'] as Map<String, dynamic>,
+    try {
+      final res = await apiPost(
+        ApiConfig.heartbeat,
+        headers: _authHeaders,
+        body: jsonEncode({}),
       );
-      await _persist(_token!, boy);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final boy = DeliveryBoy.fromJson(
+          body['deliveryBoy'] as Map<String, dynamic>,
+        );
+        await _persist(_token!, boy);
+      }
+    } catch (_) {
+      // Offline / reverse tunnel dropped — ignore.
     }
   }
+
+  Map<String, String> get authHeaders => _authHeaders;
 
   Map<String, String> get _authHeaders => {
         'Authorization': 'Bearer $_token',

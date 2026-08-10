@@ -1249,7 +1249,7 @@ abstract class AppLocalizations {
   /// No description provided for @pickedUp.
   ///
   /// In en, this message translates to:
-  /// **'Picked Up'**
+  /// **'Picked up'**
   String get pickedUp;
 
   /// No description provided for @delivered.
@@ -2103,6 +2103,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Contact your area delivery manager for help.'**
   String get verificationRejectedHint;
+
+  /// No description provided for @myShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'My Shifts'**
+  String get myShifts;
+
+  /// No description provided for @myShiftsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your booked and available delivery shifts'**
+  String get myShiftsSubtitle;
+
+  /// No description provided for @availableShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Shifts'**
+  String get availableShifts;
+
+  /// No description provided for @myProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'My Progress'**
+  String get myProgress;
+
+  /// No description provided for @loginHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Login Hours'**
+  String get loginHours;
+
+  /// No description provided for @totalOrdersToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Orders Today'**
+  String get totalOrdersToday;
+
+  /// No description provided for @shiftBooked.
+  ///
+  /// In en, this message translates to:
+  /// **'Booked'**
+  String get shiftBooked;
+
+  /// No description provided for @shiftAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get shiftAvailable;
+
+  /// No description provided for @bookShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Book Shift'**
+  String get bookShift;
+
+  /// No description provided for @shiftBookedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Shift booked successfully!'**
+  String get shiftBookedSuccess;
+
+  /// No description provided for @noShiftsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No shifts booked yet'**
+  String get noShiftsYet;
+
+  /// No description provided for @noShiftsYetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Book a shift from available slots below'**
+  String get noShiftsYetHint;
+
+  /// No description provided for @noAvailableShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'No shifts available'**
+  String get noAvailableShifts;
+
+  /// No description provided for @noAvailableShiftsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check back later for new slots'**
+  String get noAvailableShiftsHint;
+
+  /// No description provided for @ordersExpected.
+  ///
+  /// In en, this message translates to:
+  /// **'orders expected'**
+  String get ordersExpected;
+
+  /// No description provided for @viewAllShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'View all shifts'**
+  String get viewAllShifts;
+
+  /// No description provided for @dailyProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Progress'**
+  String get dailyProgress;
+
+  /// No description provided for @dailyProgressSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your goals for today'**
+  String get dailyProgressSubtitle;
+
+  /// No description provided for @complete.
+  ///
+  /// In en, this message translates to:
+  /// **'complete'**
+  String get complete;
+
+  /// No description provided for @onlineForToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Online for'**
+  String get onlineForToday;
+
+  /// No description provided for @peakHoursBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Peak hours right now — earn extra per order'**
+  String get peakHoursBanner;
+
+  /// No description provided for @shiftBookedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re booked for {label} ({time})'**
+  String shiftBookedBanner(String label, String time);
+
+  /// No description provided for @shiftBookingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking a shift helps the store plan — you can still go online/offline anytime'**
+  String get shiftBookingHint;
+
+  /// No description provided for @bookTomorrowShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Book Tomorrow\'s Shift'**
+  String get bookTomorrowShift;
+
+  /// No description provided for @youreOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re online'**
+  String get youreOnline;
+
+  /// No description provided for @goOnlineToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'Go online to receive orders'**
+  String get goOnlineToReceive;
+
+  /// No description provided for @tapToStartReceiving.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the switch to start receiving orders'**
+  String get tapToStartReceiving;
+
+  /// No description provided for @waitingForOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for orders...'**
+  String get waitingForOrders;
+
+  /// No description provided for @waitingForOrdersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay nearby — new deliveries will appear here'**
+  String get waitingForOrdersHint;
+
+  /// No description provided for @onADelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'On a delivery'**
+  String get onADelivery;
+
+  /// No description provided for @reachedStore.
+  ///
+  /// In en, this message translates to:
+  /// **'Reached store'**
+  String get reachedStore;
+
+  /// No description provided for @incentiveOrdersLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete {count} more orders for today\'s bonus'**
+  String incentiveOrdersLeft(int count);
+
+  /// No description provided for @dailyTargetReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily order target reached — great work!'**
+  String get dailyTargetReached;
 }
 
 class _AppLocalizationsDelegate

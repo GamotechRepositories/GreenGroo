@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/image_upload_utils.dart';
 import '../../../core/utils/onboarding_nav.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
@@ -21,12 +22,13 @@ class TakeSelfieScreen extends StatefulWidget {
 class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
   final _picker = ImagePicker();
   XFile? _selfie;
+  bool _submitting = false;
 
   Future<void> _capture() async {
     final file = await _picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: CameraDevice.front,
-      imageQuality: 85,
+      imageQuality: 70,
     );
     if (file == null || !mounted) return;
     setState(() => _selfie = file);
@@ -134,21 +136,29 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
                 )
               else ...[
                 PrimaryButton(
-                  label: l10n.continueToVerification,
+                  label: _submitting
+                      ? 'Uploading…'
+                      : l10n.continueToVerification,
                   icon: Icons.verified_user_rounded,
-                  onPressed: () => goOnboardingStep(
-                    context,
-                    step: 'liveness',
-                    route: AppRoutes.livenessCheck,
-                    arguments: _selfie?.path,
-                    data: {
-                      'selfie': {
-                        'fileName': _selfie?.name ?? 'selfie.jpg',
-                        'localPath': _selfie?.path ?? '',
-                        'status': 'captured',
-                      },
-                    },
-                  ),
+                  onPressed: _submitting
+                      ? null
+                      : () async {
+                          if (_selfie == null) return;
+                          setState(() => _submitting = true);
+                          try {
+                            final selfie = await documentPayload(_selfie);
+                            if (!mounted) return;
+                            await goOnboardingStep(
+                              context,
+                              step: 'liveness',
+                              route: AppRoutes.livenessCheck,
+                              arguments: _selfie?.path,
+                              data: {'selfie': selfie},
+                            );
+                          } finally {
+                            if (mounted) setState(() => _submitting = false);
+                          }
+                        },
                 ),
                 const SizedBox(height: 12),
                 SecondaryButton(

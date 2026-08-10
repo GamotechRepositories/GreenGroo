@@ -16,6 +16,7 @@ import '../../presentation/screens/onboarding/take_selfie_screen.dart';
 import '../../presentation/screens/onboarding/upload_documents_screen.dart';
 import '../../presentation/screens/onboarding/vehicle_selection_screen.dart';
 import '../../presentation/screens/orders/new_orders_screen.dart';
+import '../../presentation/screens/shifts/my_shifts_screen.dart';
 import '../../presentation/screens/performance/performance_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
 import '../../presentation/screens/settings/settings_screen.dart';
@@ -47,6 +48,7 @@ class AppRouter {
             selfiePath: settings.arguments as String?,
           ),
         AppRoutes.home => const MainShell(),
+        AppRoutes.myShifts => const MyShiftsScreen(),
         AppRoutes.newOrders => const NewOrdersScreen(),
         AppRoutes.activeDelivery => const ActiveDeliveryScreen(),
         AppRoutes.liveNavigation => const LiveNavigationScreen(),

@@ -340,5 +340,54 @@
   "verificationApprovedTitle": "You're verified",
   "verificationApprovedToast": "Verified! You can go online now.",
   "verificationRejectedTitle": "Verification rejected",
-  "verificationRejectedHint": "Contact your area delivery manager for help."
+  "verificationRejectedHint": "Contact your area delivery manager for help.",
+
+  "myShifts": "My Shifts",
+  "myShiftsSubtitle": "Your booked and available delivery shifts",
+  "availableShifts": "Available Shifts",
+  "myProgress": "My Progress",
+  "loginHours": "Login Hours",
+  "totalOrdersToday": "Total Orders Today",
+  "shiftBooked": "Booked",
+  "shiftAvailable": "Available",
+  "bookShift": "Book Shift",
+  "shiftBookedSuccess": "Shift booked successfully!",
+  "noShiftsYet": "No shifts booked yet",
+  "noShiftsYetHint": "Book a shift from available slots below",
+  "noAvailableShifts": "No shifts available",
+  "noAvailableShiftsHint": "Check back later for new slots",
+  "ordersExpected": "orders expected",
+  "viewAllShifts": "View all shifts",
+
+  "dailyProgress": "Daily Progress",
+  "dailyProgressSubtitle": "Track your goals for today",
+  "complete": "complete",
+
+  "onlineForToday": "Online for",
+  "peakHoursBanner": "Peak hours right now — earn extra per order",
+  "shiftBookedBanner": "You're booked for {label} ({time})",
+  "@shiftBookedBanner": {
+    "placeholders": {
+      "label": { "type": "String" },
+      "time": { "type": "String" }
+    }
+  },
+  "shiftBookingHint": "Booking a shift helps the store plan — you can still go online/offline anytime",
+  "bookTomorrowShift": "Book Tomorrow's Shift",
+
+  "youreOnline": "You're online",
+  "goOnlineToReceive": "Go online to receive orders",
+  "tapToStartReceiving": "Tap the switch to start receiving orders",
+  "waitingForOrders": "Waiting for orders...",
+  "waitingForOrdersHint": "Stay nearby — new deliveries will appear here",
+  "onADelivery": "On a delivery",
+  "reachedStore": "Reached store",
+  "pickedUp": "Picked up",
+  "incentiveOrdersLeft": "Complete {count} more orders for today's bonus",
+  "@incentiveOrdersLeft": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "dailyTargetReached": "Daily order target reached — great work!"
 }

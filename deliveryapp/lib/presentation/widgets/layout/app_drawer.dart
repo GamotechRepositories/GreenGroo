@@ -64,6 +64,11 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _nav(context, AppRoutes.home),
                   ),
                   _DrawerItem(
+                    icon: Icons.schedule_outlined,
+                    label: l10n.myShifts,
+                    onTap: () => _nav(context, AppRoutes.myShifts),
+                  ),
+                  _DrawerItem(
                     icon: Icons.add_shopping_cart_outlined,
                     label: l10n.newOrders,
                     onTap: () => _nav(context, AppRoutes.newOrders),
@@ -97,6 +102,11 @@ class AppDrawer extends StatelessWidget {
                     icon: Icons.notifications_outlined,
                     label: l10n.notifications,
                     onTap: () => _nav(context, AppRoutes.notifications),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.person_outline,
+                    label: l10n.profile,
+                    onTap: () => _nav(context, AppRoutes.profile),
                   ),
                   _DrawerItem(
                     icon: Icons.description_outlined,

@@ -5,6 +5,8 @@ const documentMetaSchema = new mongoose.Schema(
   {
     fileName: { type: String, default: "" },
     localPath: { type: String, default: "" },
+    /// data:image/...;base64,... so manager dashboard can preview
+    imageBase64: { type: String, default: "" },
     status: {
       type: String,
       enum: ["pending", "captured", "uploaded", "verified", "rejected"],
@@ -101,7 +103,7 @@ const deliveryBoySchema = new mongoose.Schema(
     /// Live availability — changes often (go online/offline anytime).
     status: {
       type: String,
-      enum: ["online", "offline"],
+      enum: ["online", "offline", "on_delivery"],
       default: "offline",
       index: true,
     },
@@ -112,6 +114,31 @@ const deliveryBoySchema = new mongoose.Schema(
     lastSeenAt: {
       type: Date,
       default: Date.now,
+    },
+    lastOnlineAt: {
+      type: Date,
+    },
+    lastOfflineAt: {
+      type: Date,
+    },
+    todayOnlineMinutes: {
+      type: Number,
+      default: 0,
+    },
+    todayOnlineDate: {
+      type: String,
+      default: "",
+    },
+
+    /// Informational shift booking for store staffing (does not gate online toggle).
+    shiftBooking: {
+      slot: {
+        type: String,
+        enum: ["morning", "midday", "evening_peak", "late_night", ""],
+        default: "",
+      },
+      date: { type: Date },
+      bookedAt: { type: Date },
     },
 
     isActive: {
@@ -182,6 +209,17 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     status: this.status,
     lastStatusAt: this.lastStatusAt,
     lastSeenAt: this.lastSeenAt,
+    lastOnlineAt: this.lastOnlineAt,
+    lastOfflineAt: this.lastOfflineAt,
+    todayOnlineMinutes: this.todayOnlineMinutes || 0,
+    todayOnlineDate: this.todayOnlineDate || "",
+    shiftBooking: this.shiftBooking?.slot
+      ? {
+          slot: this.shiftBooking.slot,
+          date: this.shiftBooking.date,
+          bookedAt: this.shiftBooking.bookedAt,
+        }
+      : null,
     isActive: this.isActive,
     verificationStatus: this.verificationStatus || "pending",
     verifiedAt: this.verifiedAt,

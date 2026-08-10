@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const takeSelfie = '/take-selfie';
   static const livenessCheck = '/liveness-check';
   static const home = '/home';
+  static const myShifts = '/my-shifts';
   static const newOrders = '/new-orders';
   static const activeDelivery = '/active-delivery';
   static const liveNavigation = '/live-navigation';
