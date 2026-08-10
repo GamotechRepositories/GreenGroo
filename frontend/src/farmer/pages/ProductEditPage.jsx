@@ -31,7 +31,7 @@ function ProductEditPage() {
   if (!product) return null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className={EXCEL_PAGE_TITLE}>Edit Product</h1>
