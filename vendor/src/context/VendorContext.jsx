@@ -15,6 +15,9 @@ const STAFF_PERMISSIONS = [
   'enquiries.view',
   'notifications.view',
   'support.view',
+  'farmerManager.view',
+  'farmerManager.create',
+  'farmerManager.edit',
 ]
 
 export function VendorProvider({ children }) {
@@ -65,6 +68,7 @@ export function VendorProvider({ children }) {
       toasts,
       dismissToast,
       vendor: {
+        id: 'vendor-1',
         name: 'Ravi Kumar',
         email: 'ravi@greengroo.store',
         store: 'GreenGroo — Andheri West',

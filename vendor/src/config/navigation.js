@@ -13,6 +13,7 @@ import {
   BarChart3,
   FileBarChart,
   UserCog,
+  Sprout,
   Star,
   Bell,
   Headphones,
@@ -243,6 +244,15 @@ export const NAVIGATION = [
   },
   {
     type: 'group',
+    label: 'Farmer Manager',
+    icon: Sprout,
+    children: [
+      { label: 'All Managers', path: '/farmer-manager/managers', permission: 'farmerManager.view' },
+      { label: 'All Farmers', path: '/farmer-manager/farmers', permission: 'farmerManager.view' },
+    ],
+  },
+  {
+    type: 'group',
     label: 'Reviews',
     icon: Star,
     children: [
@@ -331,6 +341,16 @@ export function getAllRoutes() {
 
 export function getPageTitle(pathname) {
   if (pathname === '/') return 'Dashboard'
+  if (pathname.startsWith('/farmer-manager/managers/') && pathname.includes('/farmers/add')) {
+    return 'Add Farmer'
+  }
+  if (pathname.match(/^\/farmer-manager\/managers\/[^/]+\/edit$/)) return 'Edit Manager'
+  if (pathname.match(/^\/farmer-manager\/managers\/[^/]+$/)) return 'Manager Details'
+  if (pathname === '/farmer-manager/managers/add') return 'Add Manager'
+  if (pathname.match(/^\/farmer-manager\/farmers\/[^/]+\/products\/[^/]+$/)) return 'Product Details'
+  if (pathname.match(/^\/farmer-manager\/farmers\/[^/]+$/)) return 'Farmer Details'
+  if (pathname === '/farmer-manager/farmers/add') return 'Add Farmer'
+
   for (const item of NAVIGATION) {
     if (item.type === 'link' && item.path === pathname) return item.label
     if (item.children) {
@@ -342,8 +362,12 @@ export function getPageTitle(pathname) {
 }
 
 export function findActiveGroup(pathname) {
+  if (pathname.startsWith('/farmer-manager')) return 'Farmer Manager'
   for (const item of NAVIGATION) {
-    if (item.type === 'group' && item.children?.some((c) => c.path === pathname)) {
+    if (
+      item.type === 'group' &&
+      item.children?.some((c) => pathname === c.path || pathname.startsWith(`${c.path}/`))
+    ) {
       return item.label
     }
   }
