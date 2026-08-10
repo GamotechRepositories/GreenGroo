@@ -18,7 +18,7 @@ import {
   EXCEL_PANEL,
   EXCEL_SELECT,
 } from "../../utils/excelStyles";
-import { GROCERY_CATEGORIES } from "../../../data/groceryCategories";
+import { GROCERY_CATEGORIES } from "../../data/groceryCategories";
 import { adjustStock } from "../../api/farmerApi";
 import Modal from "../ui/Modal";
 

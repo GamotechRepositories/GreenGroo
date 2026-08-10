@@ -5,7 +5,6 @@ const NAV_LINKS = [
   { to: "/categories", label: "Categories" },
   { to: "/product", label: "Shop" },
   { to: "/orders", label: "Orders" },
-  { to: "/farmer/login", label: "Farmer" },
 ];
 
 function DesktopSubNav() {

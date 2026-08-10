@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
@@ -32,7 +32,6 @@ import ShippingDetails from "./pages/ShippingDetails";
 import Location from "./pages/Location";
 import Categories from "./pages/Categories";
 import FloatingCornerActions from "./components/layout/FloatingCornerActions";
-import FarmerRoutes from "./farmer/routes/FarmerRoutes";
 
 function AuthModalHost() {
   const { authModal, closeAuthModal, setAuthModal } = useAuth();
@@ -49,13 +48,7 @@ function AuthModalHost() {
 }
 
 function OnboardingGate({ children }) {
-  const { pathname } = useLocation();
   const [done, setDone] = useState(() => isOnboardingComplete());
-
-  // Farmer panel has its own auth/onboarding flow
-  if (pathname.startsWith("/farmer")) {
-    return children;
-  }
 
   if (!done) {
     return <OnboardingScreen onComplete={() => setDone(true)} />;
@@ -245,7 +238,6 @@ function App() {
                   </MobileLayout>
                 }
               />
-              <Route path="/farmer/*" element={<FarmerRoutes />} />
               <Route path="/admin/*" element={<Navigate to="/" replace />} />
               <Route
                 path="/*"

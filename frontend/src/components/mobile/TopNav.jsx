@@ -59,13 +59,6 @@ function TopNav() {
 
         {/* Login / Account */}
         <div className="flex shrink-0 items-center gap-4 xl:gap-5">
-          <Link
-            to="/farmer/login"
-            className="rounded-xl border border-[#2E7D32] px-3 py-2 text-sm font-bold text-[#2E7D32] transition hover:bg-[#E8F5E9]"
-          >
-            Farmer
-          </Link>
-
           {user ? (
             <UserAccountDropdown user={user} />
           ) : (
