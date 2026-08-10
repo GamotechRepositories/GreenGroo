@@ -6,6 +6,7 @@ import { PRODUCT_SORT_OPTIONS } from "../product/ProductFiltersBar";
 import ShareWebsiteButton from "../layout/ShareWebsiteButton";
 
 const PAGE_LINKS = [
+  { to: "/farmer/login", label: "Farmer Panel" },
   { to: "/wishlist", label: "Wishlist" },
   { to: "/about", label: "About" },
   { to: "/support", label: "Support" },
