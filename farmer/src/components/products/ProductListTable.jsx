@@ -40,6 +40,7 @@ function getAvailQty(row) {
 }
 
 const INVENTORY_COLUMN_KEYS = [
+  "image",
   "name",
   "category",
   "unit",
@@ -169,6 +170,24 @@ function ProductListTable({
       : onRowClick || ((row) => navigate(`/farmer/products/${row.id}`));
 
   const allColumns = [
+    {
+      key: "image",
+      header: "Photo",
+      width: "5%",
+      render: (row) => {
+        const imgSrc = row.imageUrl || row.images?.[0] || "/categories/grocery.webp";
+        return (
+          <img
+            src={imgSrc}
+            alt={row.name}
+            className="h-7 w-7 rounded object-cover border border-[#E5E7EB]"
+            onError={(e) => {
+              e.currentTarget.src = "/categories/grocery.webp";
+            }}
+          />
+        );
+      },
+    },
     {
       key: "name",
       header: "Product Name",
@@ -325,7 +344,7 @@ function ProductListTable({
 
   const columns =
     view === "summary"
-      ? allColumns.filter((col) => ["name", "category", "farmLocation", "actions"].includes(col.key))
+      ? allColumns.filter((col) => ["image", "name", "category", "harvestDate", "farmLocation", "actions"].includes(col.key))
       : view === "inventory"
         ? allColumns.filter((col) => INVENTORY_COLUMN_KEYS.includes(col.key))
         : allColumns;

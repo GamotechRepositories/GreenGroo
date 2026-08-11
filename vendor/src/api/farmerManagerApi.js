@@ -410,3 +410,156 @@ export async function getFarmerDocuments(farmerId) {
     documentsDb.filter((d) => d.farmerId === farmerId && d.vendorId === CURRENT_VENDOR_ID),
   )
 }
+
+export async function createFarmerProduct(farmerId, payload) {
+  await delay(400)
+  const farmer = farmersDb.find((f) => f.id === farmerId && f.vendorId === CURRENT_VENDOR_ID)
+  if (!farmer) throw new Error('Farmer not found')
+
+  const grades = (payload.grades || []).map((g, idx) => ({
+    id: g.id || `g-${String.fromCharCode(97 + idx)}`,
+    label: g.label || `Grade ${String.fromCharCode(65 + idx)}`,
+    quantity: Number(g.quantity) || 0,
+  }))
+
+  if (!grades.length) {
+    grades.push(
+      { id: 'g-a', label: 'Grade A', quantity: Number(payload.gradeAQty) || 0 },
+      { id: 'g-b', label: 'Grade B', quantity: Number(payload.gradeBQty) || 0 },
+    )
+  }
+
+  const product = {
+    id: `fp-${Date.now()}`,
+    vendorId: CURRENT_VENDOR_ID,
+    managerId: farmer.managerId,
+    farmerId,
+    name: payload.name,
+    category: payload.category || 'Vegetables',
+    subCategory: payload.subCategory || 'Fresh Produce',
+    description: payload.description || '',
+    image: payload.image || payload.imageUrl || '',
+    unit: payload.unit || 'Kg',
+    harvestDate: payload.harvestDate || new Date().toISOString().split('T')[0],
+    produceType: payload.produceType || 'organic',
+    farmLocation: payload.farmLocation || farmer.farmLocation || '',
+    status: payload.status || 'Approved',
+    grades,
+    updatedAt: new Date().toISOString(),
+  }
+
+  productsDb.unshift(product)
+  syncInventoryFromProduct(product)
+  return structuredClone(product)
+}
+
+export async function updateFarmerProduct(farmerId, productId, payload) {
+  await delay(400)
+  const pIdx = productsDb.findIndex(
+    (p) => p.id === productId && p.farmerId === farmerId && p.vendorId === CURRENT_VENDOR_ID,
+  )
+  if (pIdx < 0) throw new Error('Product not found')
+
+  const prev = productsDb[pIdx]
+  const updatedGrades = payload.grades
+    ? payload.grades.map((g, idx) => ({
+        id: g.id || prev.grades[idx]?.id || `g-${String.fromCharCode(97 + idx)}`,
+        label: g.label || prev.grades[idx]?.label || `Grade ${String.fromCharCode(65 + idx)}`,
+        quantity: Number(g.quantity) || 0,
+      }))
+    : prev.grades
+
+  const next = {
+    ...prev,
+    ...payload,
+    grades: updatedGrades,
+    updatedAt: new Date().toISOString(),
+  }
+
+  productsDb[pIdx] = next
+  syncInventoryFromProduct(next)
+  return structuredClone(next)
+}
+
+export async function deleteFarmerProduct(farmerId, productId) {
+  await delay(350)
+  const pIdx = productsDb.findIndex(
+    (p) => p.id === productId && p.farmerId === farmerId && p.vendorId === CURRENT_VENDOR_ID,
+  )
+  if (pIdx < 0) throw new Error('Product not found')
+  productsDb.splice(pIdx, 1)
+
+  for (let i = inventoryDb.length - 1; i >= 0; i--) {
+    if (inventoryDb[i].productId === productId && inventoryDb[i].farmerId === farmerId) {
+      inventoryDb.splice(i, 1)
+    }
+  }
+  return { success: true }
+}
+
+export async function updateFarmerInventoryItem(farmerId, inventoryId, payload) {
+  await delay(350)
+  const idx = inventoryDb.findIndex(
+    (i) => i.id === inventoryId && i.farmerId === farmerId && i.vendorId === CURRENT_VENDOR_ID,
+  )
+  if (idx < 0) throw new Error('Inventory item not found')
+
+  const current = inventoryDb[idx]
+  const nextStock = payload.currentStock != null ? Number(payload.currentStock) : current.currentStock
+  const reserved = payload.reservedStock != null ? Number(payload.reservedStock) : current.reservedStock
+  const sold = payload.soldStock != null ? Number(payload.soldStock) : current.soldStock
+
+  const updated = {
+    ...current,
+    ...payload,
+    currentStock: nextStock,
+    reservedStock: reserved,
+    soldStock: sold,
+    totalStock: nextStock + reserved + sold,
+    status:
+      payload.status || (nextStock <= 0 ? 'Out of Stock' : nextStock < 20 ? 'Low Stock' : 'In Stock'),
+    lastUpdated: new Date().toISOString(),
+  }
+
+  inventoryDb[idx] = updated
+
+  const pIdx = productsDb.findIndex((p) => p.id === current.productId)
+  if (pIdx >= 0) {
+    const gIdx = productsDb[pIdx].grades.findIndex((g) => g.id === current.gradeId || g.label === current.grade)
+    if (gIdx >= 0) {
+      productsDb[pIdx].grades[gIdx].quantity = nextStock
+    }
+  }
+
+  return structuredClone(updated)
+}
+
+export async function updateFarmerDocumentStatus(farmerId, documentId, status, rejectionReason = '') {
+  await delay(350)
+  const idx = documentsDb.findIndex(
+    (d) => d.id === documentId && d.farmerId === farmerId && d.vendorId === CURRENT_VENDOR_ID,
+  )
+  if (idx < 0) throw new Error('Document not found')
+
+  documentsDb[idx] = {
+    ...documentsDb[idx],
+    status,
+    rejectionReason,
+  }
+
+  const farmerDocs = documentsDb.filter((d) => d.farmerId === farmerId)
+  const reqTypes = ['aadhaar', 'pan', 'address', 'bank']
+  const reqDocs = farmerDocs.filter((d) => reqTypes.includes(d.type))
+  const fIdx = farmersDb.findIndex((f) => f.id === farmerId)
+
+  if (fIdx >= 0) {
+    if (reqDocs.every((d) => d.status === 'Approved')) {
+      farmersDb[fIdx].verificationStatus = 'Approved'
+      farmersDb[fIdx].status = 'Active'
+    } else if (reqDocs.some((d) => d.status === 'Rejected')) {
+      farmersDb[fIdx].verificationStatus = 'Rejected'
+    }
+  }
+
+  return structuredClone(documentsDb[idx])
+}

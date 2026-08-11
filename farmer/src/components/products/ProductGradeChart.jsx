@@ -1,11 +1,23 @@
 import { useMemo, useState } from "react";
-import { EXCEL_CELL, EXCEL_HEAD, EXCEL_TABLE, EXCEL_WRAP } from "../../utils/excelStyles";
+import toast from "react-hot-toast";
+import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY, EXCEL_CELL, EXCEL_HEAD, EXCEL_TABLE, EXCEL_WRAP } from "../../utils/excelStyles";
 
 function formatDate(isoDate) {
   if (!isoDate) return "—";
   const [y, m, d] = String(isoDate).split("-");
   if (!d) return isoDate;
   return `${d}/${m}/${y}`;
+}
+
+function getDayOfWeek(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-US", { weekday: "long" });
+  } catch {
+    return "";
+  }
 }
 
 function formatRupee(amount) {
@@ -28,10 +40,59 @@ function SearchIcon() {
   );
 }
 
-function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
+// Seamless Excel Sheet Input Cell Style (Spinners hidden & scroll disabled)
+const CELL_INPUT = "w-full h-full bg-transparent px-2 py-1.5 text-xs border-0 outline-none focus:bg-[#E8F5E9] focus:ring-2 focus:ring-[#217346] font-mono text-[#1F2937] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
+function DailyChartSection({ rows, setRows, unit, formatDate, formatRupee, onSave }) {
   const [query, setQuery] = useState("");
   const [dayFilter, setDayFilter] = useState("");
   const [pageSize, setPageSize] = useState(24);
+
+  const handleCellChange = (index, field, value) => {
+    setRows((prev) => {
+      const copy = [...prev];
+      const row = { ...copy[index], [field]: value };
+
+      if (field === "date") {
+        row.weekday = getDayOfWeek(value) || row.weekday;
+      }
+
+      const gAQty = Number(row.gradeAQty) || 0;
+      const gARate = Number(row.gradeARate) || 0;
+      const gBQty = Number(row.gradeBQty) || 0;
+      const gBRate = Number(row.gradeBRate) || 0;
+
+      row.aTotal = gAQty * gARate;
+      row.bTotal = gBQty * gBRate;
+      row.abTotal = row.aTotal + row.bTotal;
+
+      copy[index] = row;
+      return copy;
+    });
+  };
+
+  const handleAddRow = () => {
+    const newRow = {
+      srNo: rows.length + 1,
+      date: "",
+      weekday: "",
+      gradeAQty: "",
+      gradeARate: "",
+      aTotal: 0,
+      gradeBQty: "",
+      gradeBRate: "",
+      bTotal: 0,
+      abTotal: 0,
+      unit: unit || "Kg",
+    };
+    setRows([newRow, ...rows]);
+    toast.success("Empty spreadsheet row added");
+  };
+
+  const handleDeleteRow = (index) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+    toast.success("Row removed");
+  };
 
   const filteredRows = useMemo(() => {
     let list = [...rows];
@@ -56,9 +117,9 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
   const totals = useMemo(() => {
     const gradeAQty = filteredRows.reduce((s, r) => s + Number(r.gradeAQty || 0), 0);
     const gradeBQty = filteredRows.reduce((s, r) => s + Number(r.gradeBQty || 0), 0);
-    const aTotal = filteredRows.reduce((s, r) => s + Number(r.aTotal || 0), 0);
-    const bTotal = filteredRows.reduce((s, r) => s + Number(r.bTotal || 0), 0);
-    const abTotal = filteredRows.reduce((s, r) => s + Number(r.abTotal || 0), 0);
+    const aTotal = filteredRows.reduce((s, r) => s + (Number(r.gradeAQty || 0) * Number(r.gradeARate || 0)), 0);
+    const bTotal = filteredRows.reduce((s, r) => s + (Number(r.gradeBQty || 0) * Number(r.gradeBRate || 0)), 0);
+    const abTotal = aTotal + bTotal;
     const avgARate = gradeAQty > 0 ? Math.round(aTotal / gradeAQty) : 0;
     const avgBRate = gradeBQty > 0 ? Math.round(bTotal / gradeBQty) : 0;
     return { gradeAQty, gradeBQty, aTotal, bTotal, abTotal, avgARate, avgBRate };
@@ -66,11 +127,33 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
 
   return (
     <div className="border border-[#D4D4D4] bg-white">
-      <div className="border-b border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2">
-        <p className="text-xs font-semibold text-[#1F2937]">Daily Chart — Grade A / B</p>
+      {/* Header Bar */}
+      <div className="flex flex-wrap items-center justify-between border-b border-[#D4D4D4] bg-[#217346] px-3 py-2 text-white">
+        <p className="text-xs font-bold flex items-center gap-1.5">
+          <span>📊</span> Daily Chart — Grade A / B (Excel Editable Spreadsheet)
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleAddRow}
+            className="bg-white text-[#217346] hover:bg-[#F3F4F6] font-bold text-xs py-1 px-3 rounded shadow-sm transition-all"
+          >
+            + Add Excel Row
+          </button>
+          {onSave ? (
+            <button
+              type="button"
+              onClick={onSave}
+              className="bg-[#15803D] hover:bg-[#166534] text-white border border-white/30 font-bold text-xs py-1 px-3 rounded transition-all"
+            >
+              💾 Save Chart
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#D4D4D4] bg-white px-3 py-2">
+      {/* Toolbar Controls */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#D4D4D4] bg-[#F9F9F9] px-3 py-2">
         <div className="relative min-w-[200px] flex-1">
           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[#6B7280]">
             <SearchIcon />
@@ -79,14 +162,13 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder="Search date or day..."
             className="w-full border border-[#D4D4D4] bg-white py-1.5 pl-7 pr-2 text-xs text-[#1F2937] outline-none focus:border-[#217346]"
           />
         </div>
         <select
           value={dayFilter}
           onChange={(e) => setDayFilter(e.target.value)}
-          aria-label="Filter by day"
           className="border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs text-[#1F2937]"
         >
           <option value="">All days</option>
@@ -99,7 +181,6 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
         <select
           value={pageSize}
           onChange={(e) => setPageSize(Number(e.target.value))}
-          aria-label="Rows per page"
           className="border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs text-[#1F2937]"
         >
           <option value={10}>10 / page</option>
@@ -108,85 +189,184 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
         </select>
         <button
           type="button"
-          className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-xs font-medium text-[#1F2937] hover:bg-[#E7E7E7]"
+          onClick={() => {
+            const csvData = rows.map((r, i) => `${i+1},${r.date},${r.weekday},${r.gradeAQty},${r.gradeARate},${(r.gradeAQty||0)*(r.gradeARate||0)},${r.gradeBQty},${r.gradeBRate},${(r.gradeBQty||0)*(r.gradeBRate||0)},${((r.gradeAQty||0)*(r.gradeARate||0))+((r.gradeBQty||0)*(r.gradeBRate||0))}`).join('\n');
+            const blob = new Blob([`Sr,Date,Day,A Qty,A Rate,A Amount,B Qty,B Rate,B Amount,Total\n${csvData}`], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'daily_chart_excel.csv';
+            a.click();
+            toast.success("CSV exported");
+          }}
+          className="border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs font-medium text-[#1F2937] hover:bg-[#F3F4F6]"
         >
           Export CSV
         </button>
       </div>
 
+      {/* Real Excel Grid Table */}
       <div className={EXCEL_WRAP}>
-        <table className={`${EXCEL_TABLE} min-w-[900px]`}>
+        <table className="w-full border-collapse border border-[#D4D4D4] text-left text-xs min-w-[950px]">
           <thead>
-            <tr>
-              <th className={`${EXCEL_HEAD} text-left`}>Sr.</th>
-              <th className={`${EXCEL_HEAD} text-left`}>Date</th>
-              <th className={`${EXCEL_HEAD} text-left`}>Day</th>
-              <th className={`${EXCEL_HEAD} text-right`}>A Qty</th>
-              <th className={`${EXCEL_HEAD} text-right`}>A Rate</th>
-              <th className={`${EXCEL_HEAD} text-right`}>A Amount</th>
-              <th className={`${EXCEL_HEAD} text-right`}>B Qty</th>
-              <th className={`${EXCEL_HEAD} text-right`}>B Rate</th>
-              <th className={`${EXCEL_HEAD} text-right`}>B Amount</th>
-              <th className={`${EXCEL_HEAD} text-right text-red-600`}>Total</th>
+            <tr className="bg-[#E6F2EB] text-[#1F2937] text-[11px] font-bold">
+              <th className="border border-[#D4D4D4] px-2 py-2 text-center w-10">Sr.</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-left w-36">Date</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-left w-28">Day</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right w-28">A Qty ({unit})</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right w-24">A Rate (₹)</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right w-28">A Amount</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right w-28">B Qty ({unit})</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right w-24">B Rate (₹)</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right w-28">B Amount</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right text-[#DC2626] w-28">Total</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-center w-12">Del</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className={`${EXCEL_CELL} py-6 text-center text-[#6B7280]`}>
-                  No records found.
+                <td colSpan={11} className="border border-[#D4D4D4] py-8 text-center text-[#6B7280] bg-white">
+                  No records yet. Click "+ Add Excel Row" to insert an empty spreadsheet row.
                 </td>
               </tr>
             ) : (
-              visibleRows.map((row) => (
-                <tr key={`${row.date}-${row.srNo}`} className="hover:bg-[#F9F9F9]">
-                  <td className={`${EXCEL_CELL} text-left`}>{row.srNo}</td>
-                  <td className={`${EXCEL_CELL} whitespace-nowrap text-left`}>{formatDate(row.date)}</td>
-                  <td className={`${EXCEL_CELL} text-left`}>{row.weekday}</td>
-                  <td className={`${EXCEL_CELL} text-right`}>
-                    {row.gradeAQty} {row.unit || unit}
-                  </td>
-                  <td className={`${EXCEL_CELL} text-right`}>{formatRupee(row.gradeARate)}</td>
-                  <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(row.aTotal)}</td>
-                  <td className={`${EXCEL_CELL} text-right`}>
-                    {row.gradeBQty} {row.unit || unit}
-                  </td>
-                  <td className={`${EXCEL_CELL} text-right`}>{formatRupee(row.gradeBRate)}</td>
-                  <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(row.bTotal)}</td>
-                  <td className={`${EXCEL_CELL} text-right font-semibold text-red-600`}>
-                    {formatRupee(row.abTotal)}
-                  </td>
-                </tr>
-              ))
+              visibleRows.map((row, idx) => {
+                const aQty = Number(row.gradeAQty) || 0;
+                const aRate = Number(row.gradeARate) || 0;
+                const aTotal = aQty * aRate;
+
+                const bQty = Number(row.gradeBQty) || 0;
+                const bRate = Number(row.gradeBRate) || 0;
+                const bTotal = bQty * bRate;
+
+                const abTotal = aTotal + bTotal;
+
+                return (
+                  <tr key={row.srNo || idx} className={idx % 2 === 0 ? "bg-white" : "bg-[#F9FBF9]"}>
+                    <td className="border border-[#D4D4D4] px-2 py-1.5 text-center font-bold text-[#6B7280] bg-[#F2F2F2]">
+                      {idx + 1}
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0">
+                      <input
+                        type="date"
+                        value={row.date || ""}
+                        onChange={(e) => handleCellChange(idx, "date", e.target.value)}
+                        className={CELL_INPUT}
+                      />
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0">
+                      <input
+                        type="text"
+                        value={row.weekday || ""}
+                        onChange={(e) => handleCellChange(idx, "weekday", e.target.value)}
+                        className={CELL_INPUT}
+                        placeholder="Day"
+                      />
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0">
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.gradeAQty ?? ""}
+                        onChange={(e) => handleCellChange(idx, "gradeAQty", e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`${CELL_INPUT} text-right font-medium`}
+                        placeholder=""
+                      />
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0">
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.gradeARate ?? ""}
+                        onChange={(e) => handleCellChange(idx, "gradeARate", e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`${CELL_INPUT} text-right font-medium`}
+                        placeholder=""
+                      />
+                    </td>
+                    <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-[#1F2937] tabular-nums bg-[#F9F9F9]">
+                      {aTotal === 0 && (row.gradeAQty === "" || row.gradeARate === "") ? "—" : formatRupee(aTotal)}
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0">
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.gradeBQty ?? ""}
+                        onChange={(e) => handleCellChange(idx, "gradeBQty", e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`${CELL_INPUT} text-right font-medium`}
+                        placeholder=""
+                      />
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0">
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.gradeBRate ?? ""}
+                        onChange={(e) => handleCellChange(idx, "gradeBRate", e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        className={`${CELL_INPUT} text-right font-medium`}
+                        placeholder=""
+                      />
+                    </td>
+                    <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-[#1F2937] tabular-nums bg-[#F9F9F9]">
+                      {bTotal === 0 && (row.gradeBQty === "" || row.gradeBRate === "") ? "—" : formatRupee(bTotal)}
+                    </td>
+                    <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-extrabold text-[#DC2626] tabular-nums bg-[#FEF2F2]">
+                      {abTotal === 0 && row.gradeAQty === "" && row.gradeBQty === "" ? "—" : formatRupee(abTotal)}
+                    </td>
+                    <td className="border border-[#D4D4D4] p-0 text-center bg-white">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRow(idx)}
+                        className="w-full h-full py-1 px-2 text-[#DC2626] hover:bg-[#FEE2E2] font-bold text-xs transition-colors"
+                        title="Delete row"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
           {visibleRows.length > 0 ? (
             <tfoot>
-              <tr className="bg-[#F2F2F2] font-semibold">
-                <td className={`${EXCEL_CELL} text-left`} colSpan={3}>
-                  Total
+              <tr className="bg-[#E6F2EB] font-bold text-xs">
+                <td className="border border-[#D4D4D4] px-3 py-2 text-left" colSpan={3}>
+                  Total Summary
                 </td>
-                <td className={`${EXCEL_CELL} text-right`}>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
                   {totals.gradeAQty} {unit}
                 </td>
-                <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.avgARate)}</td>
-                <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(totals.aTotal)}</td>
-                <td className={`${EXCEL_CELL} text-right`}>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">{formatRupee(totals.avgARate)}</td>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold tabular-nums">{formatRupee(totals.aTotal)}</td>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
                   {totals.gradeBQty} {unit}
                 </td>
-                <td className={`${EXCEL_CELL} text-right`}>{formatRupee(totals.avgBRate)}</td>
-                <td className={`${EXCEL_CELL} text-right font-bold`}>{formatRupee(totals.bTotal)}</td>
-                <td className={`${EXCEL_CELL} text-right font-semibold text-red-600`}>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">{formatRupee(totals.avgBRate)}</td>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold tabular-nums">{formatRupee(totals.bTotal)}</td>
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right font-extrabold text-[#DC2626] tabular-nums">
                   {formatRupee(totals.abTotal)}
                 </td>
+                <td className="border border-[#D4D4D4]"></td>
               </tr>
             </tfoot>
           ) : null}
         </table>
       </div>
 
-      <div className="border-t border-[#D4D4D4] px-3 py-1.5 text-xs text-[#6B7280]">
-        Showing {visibleRows.length} of {filteredRows.length} records
+      <div className="border-t border-[#D4D4D4] px-3 py-2 text-xs text-[#6B7280] flex justify-between items-center bg-[#F9F9F9]">
+        <span>Showing {visibleRows.length} of {filteredRows.length} Excel spreadsheet records</span>
+        <button
+          type="button"
+          onClick={handleAddRow}
+          className={`${EXCEL_BTN_PRIMARY} py-1 px-3 text-xs font-semibold`}
+        >
+          + Add Excel Row
+        </button>
       </div>
     </div>
   );
@@ -316,29 +496,29 @@ function PaymentOverviewSection({ totalRupees, deposited, balance, formatRupee }
 }
 
 function ProductGradeChart({
-  rows = [],
+  rows: initialRows = [],
   summary = { totalRupees: 0, deposited: 0, balance: 0 },
   title,
+  onSave,
 }) {
-  if (!rows.length) {
-    return (
-      <div className="border border-[#D4D4D4] bg-white px-4 py-10 text-center text-xs text-[#6B7280]">
-        {title ? `${title} — ` : ""}No Grade A / B chart available.
-      </div>
-    );
-  }
+  const [chartRows, setChartRows] = useState(initialRows);
 
-  const grandAQty = rows.reduce((s, r) => s + Number(r.gradeAQty || 0), 0);
-  const grandBQty = rows.reduce((s, r) => s + Number(r.gradeBQty || 0), 0);
-  const grandATotal = rows.reduce((s, r) => s + Number(r.aTotal || 0), 0);
-  const grandBTotal = rows.reduce((s, r) => s + Number(r.bTotal || 0), 0);
+  const grandAQty = chartRows.reduce((s, r) => s + Number(r.gradeAQty || 0), 0);
+  const grandBQty = chartRows.reduce((s, r) => s + Number(r.gradeBQty || 0), 0);
+  const grandATotal = chartRows.reduce((s, r) => s + (Number(r.gradeAQty || 0) * Number(r.gradeARate || 0)), 0);
+  const grandBTotal = chartRows.reduce((s, r) => s + (Number(r.gradeBQty || 0) * Number(r.gradeBRate || 0)), 0);
   const grandAB = grandATotal + grandBTotal;
-  const unit = rows[0]?.unit || "Kg";
-  const totalRupees = summary.totalRupees ?? grandAB;
-  const deposited = summary.deposited ?? 0;
+  const unit = chartRows[0]?.unit || "Kg";
+  const totalRupees = grandAB || summary.totalRupees;
+  const deposited = summary.deposited ?? Math.round(totalRupees * 0.7);
   const balance = summary.balance ?? Math.max(0, totalRupees - deposited);
   const avgARate = grandAQty > 0 ? Math.round(grandATotal / grandAQty) : 0;
   const avgBRate = grandBQty > 0 ? Math.round(grandBTotal / grandBQty) : 0;
+
+  const handleSaveChart = () => {
+    toast.success("Excel daily chart saved!");
+    onSave?.(chartRows);
+  };
 
   return (
     <section className="space-y-4">
@@ -364,10 +544,12 @@ function ProductGradeChart({
       />
 
       <DailyChartSection
-        rows={rows}
+        rows={chartRows}
+        setRows={setChartRows}
         unit={unit}
         formatDate={formatDate}
         formatRupee={formatRupee}
+        onSave={handleSaveChart}
       />
     </section>
   );

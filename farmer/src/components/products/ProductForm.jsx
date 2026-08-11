@@ -21,6 +21,7 @@ import {
 import { GROCERY_CATEGORIES } from "../../data/groceryCategories";
 import { adjustStock } from "../../api/farmerApi";
 import Modal from "../ui/Modal";
+import ImageUploadField from "../ui/ImageUploadField";
 
 const gradeRowSchema = z.object({
   label: z.string().min(1, "Grade name is required"),
@@ -59,6 +60,8 @@ const inventorySchema = z.object({
 const basicSchema = z.object({
   name: z.string().min(2, "Product name is required"),
   category: z.string().min(1, "Category is required"),
+  harvestDate: z.string().optional(),
+  imageUrl: z.string().optional(),
   farmLocation: z.string().min(2, "Farm location is required"),
 });
 
@@ -126,6 +129,8 @@ function mapDefaultValues(defaultValues = {}, mode = "full") {
     return {
       name: base.name,
       category: base.category,
+      harvestDate: base.harvestDate || "",
+      imageUrl: base.imageUrl ?? base.images?.[0] ?? "",
       farmLocation: base.farmLocation,
       grades: [
         { label: "Grade A", quantity: 0 },
@@ -189,15 +194,17 @@ function mapDefaultValues(defaultValues = {}, mode = "full") {
 
 function buildPayload(values, defaultValues, mode = "full") {
   if (mode === "basic") {
+    const img = values.imageUrl || defaultValues?.imageUrl || defaultValues?.images?.[0] || "/categories/grocery.webp";
     return {
       name: values.name,
       category: values.category,
+      harvestDate: values.harvestDate || "",
+      imageUrl: img,
       farmLocation: values.farmLocation,
       description: defaultValues?.description || `${values.name} — farm produce`,
       unit: defaultValues?.unit || "Kg",
       stock: Number(defaultValues?.stock) || 0,
       availableQuantity: Number(defaultValues?.availableQuantity) || 0,
-      harvestDate: defaultValues?.harvestDate || "",
       organic: defaultValues?.organic ?? true,
       produceType: defaultValues?.produceType || "organic",
       grades: defaultValues?.grades?.length
@@ -212,7 +219,7 @@ function buildPayload(values, defaultValues, mode = "full") {
       maxOrderQty: Number(defaultValues?.maxOrderQty) || 50,
       availableForDelivery: defaultValues?.availableForDelivery ?? true,
       status: defaultValues?.status || "Draft",
-      images: defaultValues?.images?.length ? defaultValues.images : ["/categories/grocery.webp"],
+      images: img ? [img] : ["/categories/grocery.webp"],
       sellingPrice: Number(defaultValues?.sellingPrice) || 0,
       mrp: Number(defaultValues?.mrp) || 0,
       lowStockLimit: Number(defaultValues?.lowStockLimit) || 10,
@@ -397,24 +404,36 @@ function ProductForm({
         onSubmit={handleSubmit((values) => onSubmit(buildPayload(values, defaultValues, mode)))}
         className={EXCEL_PANEL}
       >
-        <div className="grid gap-2 p-2 sm:grid-cols-3">
-          <Field label="Product Name" error={errors.name?.message}>
-            <input className={inputClass} {...register("name")} />
-          </Field>
-          <Field label="Category" error={errors.category?.message}>
-            <select className={selectClass} {...register("category")}>
-              {GROCERY_CATEGORIES.map((c) => (
-                <option key={c.slug} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Farm Location" error={errors.farmLocation?.message}>
-            <input className={inputClass} {...register("farmLocation")} placeholder="Location" />
-          </Field>
+        <div className="space-y-3 p-2">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Product Name" error={errors.name?.message}>
+              <input className={inputClass} {...register("name")} placeholder="Product Name" />
+            </Field>
+            <Field label="Category" error={errors.category?.message}>
+              <select className={selectClass} {...register("category")}>
+                {GROCERY_CATEGORIES.map((c) => (
+                  <option key={c.slug} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Harvest Date" error={errors.harvestDate?.message}>
+              <input type="date" className={inputClass} {...register("harvestDate")} />
+            </Field>
+            <Field label="Farm Location" error={errors.farmLocation?.message}>
+              <input className={inputClass} {...register("farmLocation")} placeholder="Location" />
+            </Field>
+          </div>
+
+          <ImageUploadField
+            label="Product Photo (Camera or Upload)"
+            value={watch("imageUrl")}
+            onChange={(url) => setValue("imageUrl", url, { shouldValidate: true, shouldDirty: true })}
+            error={errors.imageUrl?.message}
+          />
         </div>
-        <div className="flex justify-end border-t border-[#D4D4D4] px-2 py-1.5">
+        <div className="flex justify-end border-t border-[#D4D4D4] px-2 py-1.5 bg-[#F9F9F9]">
           <button type="submit" disabled={submitting} className={`${EXCEL_BTN_PRIMARY} py-1`}>
             {submitting ? "Saving..." : "Save Product"}
           </button>
@@ -648,9 +667,14 @@ function ProductForm({
               ))}
             </select>
           </Field>
-          <Field label="Product Image" className="sm:col-span-2" error={errors.imageUrl?.message}>
-            <input className={inputClass} {...register("imageUrl")} placeholder="Image URL" />
-          </Field>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <ImageUploadField
+              label="Product Photo (Camera or Upload)"
+              value={watch("imageUrl")}
+              onChange={(url) => setValue("imageUrl", url, { shouldValidate: true, shouldDirty: true })}
+              error={errors.imageUrl?.message}
+            />
+          </div>
           <Field label="Description" className="sm:col-span-2 lg:col-span-4" error={errors.description?.message}>
             <textarea rows={2} className={inputClass} {...register("description")} />
           </Field>
