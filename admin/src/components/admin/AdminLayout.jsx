@@ -37,6 +37,7 @@ const PAGE_TITLES = {
   "/testimonials/show": "Testimonials",
   "/settings": "Store Settings",
   "/users": "Users",
+  "/staff": "Staff Accounts",
   "/orders": "Orders",
   "/orders/create": "Create Order",
   "/payments": "Payments",
@@ -106,6 +107,7 @@ const NAV_ITEMS = [
   { type: "link", to: "/promotional-notifications", label: "Promotional", icon: IconPromotional },
   { type: "link", to: "/support", label: "Support", icon: IconSupport },
   { type: "link", to: "/users", label: "Users", icon: IconUsers },
+  { type: "link", to: "/staff", label: "Staff Accounts", icon: IconUsers },
   { type: "link", to: "/banners", label: "Hero Banners", icon: IconBanner },
   { type: "link", to: "/offer-banners", label: "Offer Banners", icon: IconPromotional },
 ];

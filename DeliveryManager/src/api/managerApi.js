@@ -28,6 +28,7 @@ export const managerApi = {
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
   riders: () => api.get(`${BASE}/riders`),
+  createRider: (data) => api.post(`${BASE}/riders`, data),
   pendingRiders: () => api.get(`${BASE}/riders/pending`),
   verifyRider: (riderId, body) =>
     api.post(`${BASE}/riders/${riderId}/verify`, body),

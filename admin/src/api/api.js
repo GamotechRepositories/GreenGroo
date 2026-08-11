@@ -89,6 +89,9 @@ export const requestAdminPasswordReset = (data) =>
 export const resetAdminPassword = (data) =>
   api.post("/api/users/admin/reset-password", data);
 export const getUsers = (params) => api.get("/api/users", { params });
+export const getStaffHierarchy = () => api.get("/api/staff/hierarchy");
+export const getStaffAccounts = (params) => api.get("/api/staff", { params });
+export const createStaffAccount = (data) => api.post("/api/staff", data);
 export const getUserOrderStats = (id) => api.get(`/api/users/${id}/order-stats`);
 export const getCurrentUser = () => api.get("/api/users/me");
 export const sendAdminSecurityOtp = () => api.post("/api/users/me/security-otp");

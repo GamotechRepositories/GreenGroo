@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
+import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
@@ -34,6 +35,7 @@ const navItems = [
     ],
   },
   { to: '/inventory-requests', label: 'Inventory Requests', icon: 'inbox' },
+  { to: '/product-managers', label: 'Product Managers', icon: 'user' },
   { to: '/stock-transfers', label: 'Stock Transfers', icon: 'transfer' },
   { to: '/pricing', label: 'Product Cost & Pricing', icon: 'currency' },
   { to: '/reports', label: 'Inventory Reports', icon: 'chart' },
@@ -123,6 +125,9 @@ function NavGroup({ item }) {
 }
 
 export default function SegregationManagerLayout() {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
       <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-green-dark text-white">
@@ -166,6 +171,10 @@ export default function SegregationManagerLayout() {
             <li>
               <button
                 type="button"
+                onClick={() => {
+                  logout()
+                  navigate('/login', { replace: true })
+                }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10"
               >
                 <Icon name="power" size="sm" />

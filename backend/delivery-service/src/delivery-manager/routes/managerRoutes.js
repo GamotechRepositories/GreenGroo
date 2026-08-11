@@ -1,7 +1,7 @@
 import express from "express";
 import { protect } from "@greengrocc/shared";
 import { requireDeliveryManager } from "../middleware/requireDeliveryManager.js";
-import { login, me, register } from "../controllers/managerAuthController.js";
+import { login, me } from "../controllers/managerAuthController.js";
 import {
   assignOrder,
   getDashboardSummary,
@@ -24,10 +24,18 @@ import {
   updateRiderDocumentStatus,
   manualAssignOrder,
 } from "../controllers/liveOpsController.js";
+import { createDeliveryBoyByManager } from "../controllers/createRiderController.js";
 
 const router = express.Router();
 
-router.post("/register", register);
+// Public self-register disabled — product managers create accounts via /api/staff
+router.post("/register", (_req, res) => {
+  res.status(403).json({
+    success: false,
+    message:
+      "Self-registration is disabled. Ask a Product Manager to create your account.",
+  });
+});
 router.post("/login", login);
 
 router.use(protect, requireDeliveryManager);
@@ -38,6 +46,7 @@ router.get("/orders", listIncomingOrders);
 router.get("/inventory", listInventory);
 router.get("/riders", listRiders);
 router.get("/riders/pending", listPendingDrivers);
+router.post("/riders", createDeliveryBoyByManager);
 router.post("/riders/:riderId/verify", verifyDriver);
 router.post("/orders/:orderId/inform-customer", informCustomer);
 router.post("/orders/:orderId/assign", assignOrder);

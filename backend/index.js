@@ -4,6 +4,8 @@ import express from "express";
 import cors from "cors";
 import { connectDB, errorHandler, notFound } from "@greengrocc/shared";
 import { initSocket } from "./socket.js";
+// Ensure User model is registered for admin JWT role resolution
+import "./legacy/models/user.js";
 
 import authRoutes from "./auth-service/src/routes.js";
 import userRoutes from "./user-service/src/routes.js";
@@ -13,6 +15,7 @@ import orderRoutes from "./order-service/src/routes.js";
 import paymentRoutes from "./payment-service/src/routes.js";
 import deliveryRoutes from "./delivery-service/src/routes.js";
 import notificationRoutes from "./notification-service/src/routes.js";
+import staffRoutes from "./staff-service/src/routes.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -25,6 +28,7 @@ const allRoutes = [
   ...paymentRoutes,
   ...deliveryRoutes,
   ...notificationRoutes,
+  ...staffRoutes,
 ];
 
 const app = express();
@@ -56,6 +60,7 @@ app.get("/health", (_req, res) => {
       "payment",
       "delivery",
       "notification",
+      "staff",
     ],
   });
 });
