@@ -110,7 +110,7 @@ function EarningsPage() {
                 grades: (ho.grades || []).map((g) => ({
                   name: g.name,
                   quantity: Number(g.quantity || 0),
-                  rate: Number(g.rate || 0),
+                  rate: g.rate !== null && g.rate !== undefined && g.rate !== '' ? Number(g.rate) : null,
                 })),
                 rejectionQty: Number(ho.rejectionQty || 0),
               })) : []}

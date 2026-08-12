@@ -62,7 +62,7 @@ function getGradeData(row, gName) {
   return { qty: 0, rate: null, amount: 0 }
 }
 
-function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
+function RowEditModal({ row, dynamicGrades, unit, onSave, onClose, onDelete }) {
   const [date, setDate] = useState(row.date || new Date().toISOString().split('T')[0])
   const [rejectionQty, setRejectionQty] = useState(row.rejectionQty || 0)
   const [gradesData, setGradesData] = useState(() => {
@@ -206,20 +206,35 @@ function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-[#E5E7EB]">
-            <button
-              type="button"
-              onClick={onClose}
-              className={EXCEL_BTN_OUTLINE}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className={`${EXCEL_BTN_PRIMARY} px-4 py-1.5 text-xs font-bold`}
-            >
-              💾 Save Rates & Update Row
-            </button>
+          <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB]">
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Are you sure you want to delete this record?")) {
+                    onDelete()
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded border border-red-200 transition-colors"
+              >
+                🗑️ Delete Row
+              </button>
+            )}
+            <div className="flex justify-end gap-2 flex-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className={EXCEL_BTN_OUTLINE}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`${EXCEL_BTN_PRIMARY} px-4 py-1.5 text-xs font-bold`}
+              >
+                💾 Save Rates & Update Row
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -227,7 +242,7 @@ function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
   )
 }
 
-function DailyChartSection({ rows, setRows, unit, onSave }) {
+function DailyChartSection({ rows, setRows, unit, onSave, onDeleteRow }) {
   const [query, setQuery] = useState('')
   const [dayFilter, setDayFilter] = useState('')
   const [pageSize, setPageSize] = useState(24)
@@ -321,11 +336,16 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
   }
 
   const handleDeleteRow = (index) => {
-    setRows((prev) => {
-      const copy = prev.filter((_, i) => i !== index)
-      onSave?.(copy)
-      return copy
-    })
+    const rowToDelete = rows[index]
+    if (rowToDelete?.id && onDeleteRow) {
+      onDeleteRow(rowToDelete.id)
+    } else {
+      setRows((prev) => {
+        const copy = prev.filter((_, i) => i !== index)
+        onSave?.(copy)
+        return copy
+      })
+    }
   }
 
   const filteredRows = useMemo(() => {
@@ -563,6 +583,10 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
           unit={unit}
           onSave={handleSaveModalRow}
           onClose={() => setEditingRow(null)}
+          onDelete={() => {
+            handleDeleteRow(editingRow.index)
+            setEditingRow(null)
+          }}
         />
       ) : null}
     </div>
@@ -664,6 +688,7 @@ export default function FarmerPanelGradeChart({
   summary: initialSummary = { totalRupees: 0, deposited: 0, balance: 0 },
   title,
   onSave,
+  onDeleteRow
 }) {
   const [chartRows, setChartRows] = useState(initialRows)
   const [summaryState, setSummaryState] = useState(initialSummary)

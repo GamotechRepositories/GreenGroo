@@ -921,7 +921,7 @@ export default function FarmerDetailPage() {
                     grades: (ho.grades || []).map((g) => ({
                       name: g.name,
                       quantity: Number(g.quantity || 0),
-                      rate: Number(g.rate || 0),
+                      rate: g.rate !== null && g.rate !== undefined && g.rate !== '' ? Number(g.rate) : null,
                     })),
                     rejectionQty: Number(ho.rejectionQty || 0),
                   })) : []}
@@ -946,6 +946,18 @@ export default function FarmerDetailPage() {
                       load()
                     } catch (err) {
                       toast.error(err?.message || "Failed to update earning record rates")
+                    }
+                  }}
+                  onDeleteRow={async (id) => {
+                    try {
+                      setBusy(true)
+                      await deleteFarmerHarvestOrder(farmer.id, id)
+                      toast.success("Harvest order deleted")
+                      load()
+                    } catch (err) {
+                      toast.error(err?.message || "Failed to delete harvest order")
+                    } finally {
+                      setBusy(false)
                     }
                   }}
                 />

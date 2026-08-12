@@ -223,7 +223,11 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
                             {gData.qty > 0 ? `${gData.qty} ${unit}` : "0"}
                           </td>
                           <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-medium">
-                            {formatRupee(gData.rate)}
+                            {gData.rate !== null && gData.rate !== '' ? (
+                              formatRupee(gData.rate)
+                            ) : (
+                              <span className="text-[#B48846] text-[11px] font-normal">Pending</span>
+                            )}
                           </td>
                           <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-[#1F2937] tabular-nums bg-[#F9F9F9]">
                             {formatRupee(gData.amount)}
