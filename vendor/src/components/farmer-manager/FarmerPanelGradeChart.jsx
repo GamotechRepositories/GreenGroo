@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { EXCEL_BTN_PRIMARY, EXCEL_CELL, EXCEL_HEAD, EXCEL_TABLE, EXCEL_WRAP } from './excelStyles'
+import { EXCEL_BTN_OUTLINE, EXCEL_BTN_PRIMARY, EXCEL_CELL, EXCEL_HEAD, EXCEL_TABLE, EXCEL_WRAP } from './excelStyles'
 
 function formatDate(isoDate) {
   if (!isoDate) return '—'
@@ -42,53 +42,290 @@ function SearchIcon() {
 const CELL_INPUT =
   'w-full h-full bg-transparent px-2 py-1.5 text-xs border-0 outline-none focus:bg-[#E8F5E9] focus:ring-2 focus:ring-[#217346] font-mono text-[#1F2937] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 
-function DailyChartSection({ rows, setRows, unit, onSave }) {
-  const [query, setQuery] = useState('')
-  const [dayFilter, setDayFilter] = useState('')
-  const [pageSize, setPageSize] = useState(24)
+function getGradeData(row, gName) {
+  if (Array.isArray(row.grades) && row.grades.length > 0) {
+    const gObj = row.grades.find((g) => g.name === gName)
+    const qty = gObj?.quantity != null ? Number(gObj.quantity) : 0
+    const rate = gObj?.rate != null ? Number(gObj.rate) : 0
+    return { qty, rate, amount: qty * rate }
+  }
+  if (gName === 'A Grade' || gName.startsWith('A')) {
+    const qty = Number(row.gradeAQty || 0)
+    const rate = Number(row.gradeARate || 0)
+    return { qty, rate, amount: qty * rate }
+  }
+  if (gName === 'B Grade' || gName.startsWith('B')) {
+    const qty = Number(row.gradeBQty || 0)
+    const rate = Number(row.gradeBRate || 0)
+    return { qty, rate, amount: qty * rate }
+  }
+  return { qty: 0, rate: 0, amount: 0 }
+}
 
-  const handleCellChange = (index, field, value) => {
-    setRows((prev) => {
-      const copy = [...prev]
-      const row = { ...copy[index], [field]: value }
-
-      if (field === 'date') {
-        row.weekday = getDayOfWeek(value) || row.weekday
+function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
+  const [date, setDate] = useState(row.date || new Date().toISOString().split('T')[0])
+  const [rejectionQty, setRejectionQty] = useState(row.rejectionQty || 0)
+  const [gradesData, setGradesData] = useState(() => {
+    return dynamicGrades.map((gName) => {
+      const existing = getGradeData(row, gName)
+      return {
+        name: gName,
+        quantity: existing.qty || 0,
+        rate: existing.rate || '',
       }
+    })
+  })
 
-      const gAQty = Number(row.gradeAQty) || 0
-      const gARate = Number(row.gradeARate) || 0
-      const gBQty = Number(row.gradeBQty) || 0
-      const gBRate = Number(row.gradeBRate) || 0
+  const weekday = getDayOfWeek(date) || row.weekday || '—'
 
-      row.aTotal = gAQty * gARate
-      row.bTotal = gBQty * gBRate
-      row.abTotal = row.aTotal + row.bTotal
-
-      copy[index] = row
+  const handleGradeChange = (gIndex, field, value) => {
+    setGradesData((prev) => {
+      const copy = [...prev]
+      copy[gIndex] = { ...copy[gIndex], [field]: value === '' ? '' : Number(value) }
       return copy
     })
   }
 
+  const grandTotal = useMemo(() => {
+    return gradesData.reduce((sum, g) => sum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0)
+  }, [gradesData])
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      ...row,
+      date,
+      weekday,
+      grades: gradesData.map(g => ({
+        name: g.name,
+        quantity: Number(g.quantity) || 0,
+        rate: Number(g.rate) || 0,
+      })),
+      rejectionQty: Number(rejectionQty) || 0,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-2xl border border-[#D4D4D4] animate-fadeIn">
+        <div className="flex items-center justify-between border-b border-[#D4D4D4] bg-[#217346] px-4 py-3 text-white">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            ✏️ Enter Rates & Edit Earning Record
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-white/80 hover:text-white font-bold text-base"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-3 bg-[#F9FBF9] p-3 rounded border border-[#E5E7EB]">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6B7280] mb-1">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full border border-[#D4D4D4] bg-white px-2 py-1.5 font-mono text-xs text-[#1F2937] outline-none focus:border-[#217346]"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6B7280] mb-1">Day</label>
+              <div className="w-full border border-[#E5E7EB] bg-[#F3F4F6] px-2 py-1.5 text-xs font-semibold text-[#374151]">
+                {weekday}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-[#1F2937]">
+                Grade Quantities & Pricing Rates (₹/{unit})
+              </label>
+              <span className="text-[10px] text-[#217346] font-semibold bg-[#E8F5E9] px-2 py-0.5 rounded">
+                Click rate box to type amount
+              </span>
+            </div>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {gradesData.map((g, idx) => {
+                const subtotal = (Number(g.quantity) || 0) * (Number(g.rate) || 0)
+                return (
+                  <div key={g.name || idx} className="flex items-center gap-2 bg-[#F9F9F9] p-2 rounded border border-[#E5E7EB]">
+                    <div className="w-24 font-bold text-[#1F2937] text-xs">{g.name}</div>
+                    <div className="w-28">
+                      <span className="block text-[9px] text-[#6B7280] font-semibold">Qty ({unit})</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={g.quantity}
+                        onChange={(e) => handleGradeChange(idx, 'quantity', e.target.value)}
+                        className="w-full border border-[#D4D4D4] bg-white px-2 py-1 text-right font-medium text-xs outline-none focus:border-[#217346]"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-[9px] text-[#217346] font-bold">Rate (₹/{unit})</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={g.rate}
+                        onChange={(e) => handleGradeChange(idx, 'rate', e.target.value)}
+                        placeholder="Enter rate ₹"
+                        className="w-full border-2 border-[#217346] bg-white px-2 py-1 text-right font-bold text-xs text-[#217346] outline-none focus:ring-2 focus:ring-[#217346]"
+                        autoFocus={idx === 0}
+                      />
+                    </div>
+                    <div className="w-24 text-right">
+                      <span className="block text-[9px] text-[#6B7280] font-semibold">Subtotal</span>
+                      <span className="font-bold text-[#1F2937] tabular-nums text-xs">{formatRupee(subtotal)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between bg-[#FEF2F2] p-3 rounded border border-[#FCA5A5]">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-red-700">Rejection Qty ({unit})</label>
+              <input
+                type="number"
+                min="0"
+                value={rejectionQty}
+                onChange={(e) => setRejectionQty(e.target.value)}
+                className="w-28 border border-red-300 bg-white px-2 py-1 text-right font-bold text-xs text-red-600 outline-none focus:border-red-500 mt-0.5"
+              />
+            </div>
+            <div className="text-right">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-red-700">Calculated Total</span>
+              <span className="text-base font-extrabold text-red-600 tabular-nums">{formatRupee(grandTotal)}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-[#E5E7EB]">
+            <button
+              type="button"
+              onClick={onClose}
+              className={EXCEL_BTN_OUTLINE}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`${EXCEL_BTN_PRIMARY} px-4 py-1.5 text-xs font-bold`}
+            >
+              💾 Save Rates & Update Row
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function DailyChartSection({ rows, setRows, unit, onSave }) {
+  const [query, setQuery] = useState('')
+  const [dayFilter, setDayFilter] = useState('')
+  const [pageSize, setPageSize] = useState(24)
+  const [editingRow, setEditingRow] = useState(null)
+
+  const dynamicGrades = useMemo(() => {
+    const set = new Set()
+    rows.forEach((r) => {
+      if (Array.isArray(r.grades) && r.grades.length > 0) {
+        r.grades.forEach((g) => {
+          if (g.name) set.add(g.name)
+        })
+      } else {
+        if (r.gradeAQty != null || r.gradeARate != null) set.add('A Grade')
+        if (r.gradeBQty != null || r.gradeBRate != null) set.add('B Grade')
+      }
+    })
+    if (set.size === 0) {
+      set.add('A Grade')
+      set.add('B Grade')
+    }
+    return Array.from(set)
+  }, [rows])
+
+  const handleCellGradeChange = (rowIndex, gName, field, value) => {
+    setRows((prev) => {
+      const copy = [...prev]
+      const row = { ...copy[rowIndex] }
+      let grades = Array.isArray(row.grades) ? [...row.grades] : []
+
+      let gIndex = grades.findIndex((g) => g.name === gName)
+      if (gIndex === -1) {
+        grades.push({ name: gName, quantity: 0, rate: 0, [field]: Number(value) || 0 })
+      } else {
+        grades[gIndex] = { ...grades[gIndex], [field]: Number(value) || 0 }
+      }
+      row.grades = grades
+
+      if (gName === 'A Grade' || gName.startsWith('A')) {
+        if (field === 'quantity') row.gradeAQty = Number(value) || 0
+        if (field === 'rate') row.gradeARate = Number(value) || 0
+      } else if (gName === 'B Grade' || gName.startsWith('B')) {
+        if (field === 'quantity') row.gradeBQty = Number(value) || 0
+        if (field === 'rate') row.gradeBRate = Number(value) || 0
+      }
+
+      copy[rowIndex] = row
+      onSave?.(copy)
+      return copy
+    })
+  }
+
+  const handleRowFieldChange = (rowIndex, field, value) => {
+    setRows((prev) => {
+      const copy = [...prev]
+      const row = { ...copy[rowIndex], [field]: value }
+      if (field === 'date') {
+        row.weekday = getDayOfWeek(value) || row.weekday
+      }
+      copy[rowIndex] = row
+      onSave?.(copy)
+      return copy
+    })
+  }
+
+  const handleSaveModalRow = (updatedRow) => {
+    if (editingRow == null) return
+    const index = editingRow.index
+    setRows((prev) => {
+      const copy = [...prev]
+      copy[index] = updatedRow
+      onSave?.(copy)
+      return copy
+    })
+    setEditingRow(null)
+  }
+
   const handleAddRow = () => {
+    const today = new Date().toISOString().split('T')[0]
     const newRow = {
       srNo: rows.length + 1,
-      date: new Date().toISOString().split('T')[0],
-      weekday: getDayOfWeek(new Date().toISOString().split('T')[0]),
-      gradeAQty: '',
-      gradeARate: '',
-      aTotal: 0,
-      gradeBQty: '',
-      gradeBRate: '',
-      bTotal: 0,
-      abTotal: 0,
+      date: today,
+      weekday: getDayOfWeek(today),
       unit: unit || 'Kg',
+      grades: dynamicGrades.map((g) => ({ name: g, quantity: 0, rate: 0 })),
+      rejectionQty: 0,
     }
-    setRows([newRow, ...rows])
+    const updated = [newRow, ...rows]
+    setRows(updated)
+    setEditingRow({ index: 0, row: newRow })
   }
 
   const handleDeleteRow = (index) => {
-    setRows((prev) => prev.filter((_, i) => i !== index))
+    setRows((prev) => {
+      const copy = prev.filter((_, i) => i !== index)
+      onSave?.(copy)
+      return copy
+    })
   }
 
   const filteredRows = useMemo(() => {
@@ -112,21 +349,26 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
   const days = [...new Set(rows.map((r) => r.weekday).filter(Boolean))]
 
   const totals = useMemo(() => {
-    const gradeAQty = filteredRows.reduce((s, r) => s + Number(r.gradeAQty || 0), 0)
-    const gradeBQty = filteredRows.reduce((s, r) => s + Number(r.gradeBQty || 0), 0)
-    const aTotal = filteredRows.reduce((s, r) => s + Number(r.gradeAQty || 0) * Number(r.gradeARate || 0), 0)
-    const bTotal = filteredRows.reduce((s, r) => s + Number(r.gradeBQty || 0) * Number(r.gradeBRate || 0), 0)
-    const abTotal = aTotal + bTotal
-    const avgARate = gradeAQty > 0 ? Math.round(aTotal / gradeAQty) : 0
-    const avgBRate = gradeBQty > 0 ? Math.round(bTotal / gradeBQty) : 0
-    return { gradeAQty, gradeBQty, aTotal, bTotal, abTotal, avgARate, avgBRate }
-  }, [filteredRows])
+    const gradeTotals = {}
+    dynamicGrades.forEach((gName) => {
+      const gQty = filteredRows.reduce((sum, r) => sum + getGradeData(r, gName).qty, 0)
+      const gAmt = filteredRows.reduce((sum, r) => sum + getGradeData(r, gName).amount, 0)
+      const avgRate = gQty > 0 ? Math.round(gAmt / gQty) : 0
+      gradeTotals[gName] = { qty: gQty, rate: avgRate, amount: gAmt }
+    })
+    const totalRejection = filteredRows.reduce((sum, r) => sum + Number(r.rejectionQty || 0), 0)
+    const grandTotal = dynamicGrades.reduce((sum, gName) => sum + gradeTotals[gName].amount, 0)
+
+    return { gradeTotals, totalRejection, grandTotal }
+  }, [filteredRows, dynamicGrades])
+
+  const colSpanCount = 3 + dynamicGrades.length * 3 + 2
 
   return (
     <div className="border border-[#D4D4D4] bg-white">
       <div className="flex flex-wrap items-center justify-between border-b border-[#D4D4D4] bg-[#217346] px-3 py-2 text-white">
         <p className="flex items-center gap-1.5 text-xs font-bold">
-          <span>📊</span> Daily Chart — Grade A / B (Excel Editable Spreadsheet)
+          <span>📊</span> Daily Chart — Dynamic Grades & Fixed Rejection (Click Row to Fill Rates)
         </p>
         <div className="flex items-center gap-2">
           <button
@@ -139,7 +381,7 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
           {onSave ? (
             <button
               type="button"
-              onClick={onSave}
+              onClick={() => onSave(rows)}
               className="rounded border border-white/30 bg-[#15803D] px-3 py-1 text-xs font-bold text-white transition-all hover:bg-[#166534]"
             >
               💾 Save Chart
@@ -182,6 +424,9 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
           <option value={24}>24 / page</option>
           <option value={50}>50 / page</option>
         </select>
+        <span className="text-[11px] text-[#217346] font-semibold">
+          💡 Click any row to open rate entry modal
+        </span>
       </div>
 
       <div className={EXCEL_WRAP}>
@@ -189,113 +434,89 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
           <thead>
             <tr className="bg-[#E6F2EB] text-[11px] font-bold text-[#1F2937]">
               <th className="w-10 border border-[#D4D4D4] px-2 py-2 text-center">Sr.</th>
-              <th className="w-36 border border-[#D4D4D4] px-2 py-2 text-left">Date</th>
+              <th className="w-20 border border-[#D4D4D4] px-2 py-2 text-left">Date</th>
               <th className="w-28 border border-[#D4D4D4] px-2 py-2 text-left">Day</th>
-              <th className="w-28 border border-[#D4D4D4] px-2 py-2 text-right">A Qty ({unit})</th>
-              <th className="w-24 border border-[#D4D4D4] px-2 py-2 text-right">A Rate (₹)</th>
-              <th className="w-28 border border-[#D4D4D4] px-2 py-2 text-right">A Amount</th>
-              <th className="w-28 border border-[#D4D4D4] px-2 py-2 text-right">B Qty ({unit})</th>
-              <th className="w-24 border border-[#D4D4D4] px-2 py-2 text-right">B Rate (₹)</th>
-              <th className="w-28 border border-[#D4D4D4] px-2 py-2 text-right">B Amount</th>
+              {dynamicGrades.map((gName) => (
+                <FragmentHeader key={gName} gName={gName} unit={unit} />
+              ))}
+              <th className="w-20 border border-[#D4D4D4] px-2 py-2 text-right text-red-600">Rejection Qty ({unit})</th>
               <th className="w-28 border border-[#D4D4D4] px-2 py-2 text-right text-[#DC2626]">Total</th>
-              <th className="w-12 border border-[#D4D4D4] px-2 py-2 text-center">Del</th>
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="border border-[#D4D4D4] bg-white py-8 text-center text-[#6B7280]">
+                <td colSpan={colSpanCount} className="border border-[#D4D4D4] bg-white py-8 text-center text-[#6B7280]">
                   No records yet. Click "+ Add Excel Row" to insert an empty spreadsheet row.
                 </td>
               </tr>
             ) : (
               visibleRows.map((row, idx) => {
-                const aQty = Number(row.gradeAQty) || 0
-                const aRate = Number(row.gradeARate) || 0
-                const aTotal = aQty * aRate
-
-                const bQty = Number(row.gradeBQty) || 0
-                const bRate = Number(row.gradeBRate) || 0
-                const bTotal = bQty * bRate
-
-                const abTotal = aTotal + bTotal
-
+                let rowTotal = 0
                 return (
-                  <tr key={row.srNo || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#F9FBF9]'}>
-                    <td className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-center font-bold text-[#6B7280]">
+                  <tr
+                    key={row.srNo || idx}
+                    onClick={() => setEditingRow({ index: idx, row })}
+                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-[#F9FBF9]'} hover:bg-[#E8F5E9] cursor-pointer transition-colors group`}
+                    title="Click row to edit rates and quantities"
+                  >
+                    <td className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-center font-bold text-[#6B7280] group-hover:bg-[#C8E6C9] group-hover:text-[#1B5E20]">
                       {idx + 1}
                     </td>
-                    <td className="border border-[#D4D4D4] p-0">
+                    <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="date"
                         value={row.date || ''}
-                        onChange={(e) => handleCellChange(idx, 'date', e.target.value)}
+                        onChange={(e) => handleRowFieldChange(idx, 'date', e.target.value)}
                         className={CELL_INPUT}
                       />
                     </td>
-                    <td className="border border-[#D4D4D4] p-0">
-                      <input
-                        type="text"
-                        value={row.weekday || ''}
-                        onChange={(e) => handleCellChange(idx, 'weekday', e.target.value)}
-                        className={CELL_INPUT}
-                        placeholder="Day"
-                      />
+                    <td className="border border-[#D4D4D4] px-2 py-1.5 text-[#6B7280] font-medium">
+                      {getDayOfWeek(row.date) || row.weekday || '—'}
                     </td>
-                    <td className="border border-[#D4D4D4] p-0">
-                      <input
-                        type="number"
-                        min="0"
-                        value={row.gradeAQty ?? ''}
-                        onChange={(e) => handleCellChange(idx, 'gradeAQty', e.target.value)}
-                        className={`${CELL_INPUT} text-right font-medium`}
-                      />
-                    </td>
-                    <td className="border border-[#D4D4D4] p-0">
-                      <input
-                        type="number"
-                        min="0"
-                        value={row.gradeARate ?? ''}
-                        onChange={(e) => handleCellChange(idx, 'gradeARate', e.target.value)}
-                        className={`${CELL_INPUT} text-right font-medium`}
-                      />
-                    </td>
-                    <td className="border border-[#D4D4D4] bg-[#F9F9F9] px-2 py-1.5 text-right font-bold tabular-nums text-[#1F2937]">
-                      {aTotal === 0 && (row.gradeAQty === '' || row.gradeARate === '') ? '—' : formatRupee(aTotal)}
-                    </td>
-                    <td className="border border-[#D4D4D4] p-0">
-                      <input
-                        type="number"
-                        min="0"
-                        value={row.gradeBQty ?? ''}
-                        onChange={(e) => handleCellChange(idx, 'gradeBQty', e.target.value)}
-                        className={`${CELL_INPUT} text-right font-medium`}
-                      />
-                    </td>
-                    <td className="border border-[#D4D4D4] p-0">
+                    {dynamicGrades.map((gName) => {
+                      const gData = getGradeData(row, gName)
+                      rowTotal += gData.amount
+                      return (
+                        <tr key={gName} className="contents">
+                          <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              min="0"
+                              value={gData.qty || ''}
+                              onChange={(e) => handleCellGradeChange(idx, gName, 'quantity', e.target.value)}
+                              className={`${CELL_INPUT} text-right font-medium`}
+                            />
+                          </td>
+                          <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={gData.rate || ''}
+                              placeholder="Rate ₹"
+                              onChange={(e) => handleCellGradeChange(idx, gName, 'rate', e.target.value)}
+                              className={`${CELL_INPUT} text-right font-bold text-[#217346] ${!gData.rate ? 'bg-yellow-50 placeholder:text-yellow-600/60' : ''}`}
+                            />
+                          </td>
+                          <td className="border border-[#D4D4D4] bg-[#F9F9F9] px-2 py-1.5 text-right font-bold tabular-nums text-[#1F2937]">
+                            {formatRupee(gData.amount)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="number"
                         min="0"
-                        value={row.gradeBRate ?? ''}
-                        onChange={(e) => handleCellChange(idx, 'gradeBRate', e.target.value)}
-                        className={`${CELL_INPUT} text-right font-medium`}
+                        value={row.rejectionQty ?? ''}
+                        onChange={(e) => handleRowFieldChange(idx, 'rejectionQty', Number(e.target.value) || 0)}
+                        className={`${CELL_INPUT} text-right font-bold text-red-600`}
+                        placeholder="0"
                       />
-                    </td>
-                    <td className="border border-[#D4D4D4] bg-[#F9F9F9] px-2 py-1.5 text-right font-bold tabular-nums text-[#1F2937]">
-                      {bTotal === 0 && (row.gradeBQty === '' || row.gradeBRate === '') ? '—' : formatRupee(bTotal)}
                     </td>
                     <td className="border border-[#D4D4D4] bg-[#FEF2F2] px-2 py-1.5 text-right font-extrabold tabular-nums text-[#DC2626]">
-                      {abTotal === 0 && row.gradeAQty === '' && row.gradeBQty === '' ? '—' : formatRupee(abTotal)}
-                    </td>
-                    <td className="border border-[#D4D4D4] bg-white p-0 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRow(idx)}
-                        className="h-full w-full px-2 py-1 text-xs font-bold text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
-                        title="Delete row"
-                      >
-                        ✕
-                      </button>
+                      {formatRupee(rowTotal)}
                     </td>
                   </tr>
                 )
@@ -308,20 +529,28 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
                 <td className="border border-[#D4D4D4] px-3 py-2 text-left" colSpan={3}>
                   Total Summary
                 </td>
-                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
-                  {totals.gradeAQty} {unit}
+                {dynamicGrades.map((gName) => {
+                  const gTot = totals.gradeTotals[gName] || { qty: 0, rate: 0, amount: 0 }
+                  return (
+                    <tr key={gName} className="contents">
+                      <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
+                        {gTot.qty} {unit}
+                      </td>
+                      <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
+                        {formatRupee(gTot.rate)}
+                      </td>
+                      <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold tabular-nums">
+                        {formatRupee(gTot.amount)}
+                      </td>
+                    </tr>
+                  )
+                })}
+                <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold text-red-600 tabular-nums">
+                  {totals.totalRejection} {unit}
                 </td>
-                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">{formatRupee(totals.avgARate)}</td>
-                <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold tabular-nums">{formatRupee(totals.aTotal)}</td>
-                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
-                  {totals.gradeBQty} {unit}
-                </td>
-                <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">{formatRupee(totals.avgBRate)}</td>
-                <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold tabular-nums">{formatRupee(totals.bTotal)}</td>
                 <td className="border border-[#D4D4D4] px-2 py-2 text-right font-extrabold tabular-nums text-[#DC2626]">
-                  {formatRupee(totals.abTotal)}
+                  {formatRupee(totals.grandTotal)}
                 </td>
-                <td className="border border-[#D4D4D4]"></td>
               </tr>
             </tfoot>
           ) : null}
@@ -338,78 +567,27 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
           + Add Excel Row
         </button>
       </div>
+
+      {editingRow ? (
+        <RowEditModal
+          row={editingRow.row}
+          dynamicGrades={dynamicGrades}
+          unit={unit}
+          onSave={handleSaveModalRow}
+          onClose={() => setEditingRow(null)}
+        />
+      ) : null}
     </div>
   )
 }
 
-function SalesSummarySection({
-  grandAQty,
-  grandBQty,
-  grandATotal,
-  grandBTotal,
-  totalRupees,
-  avgARate,
-  avgBRate,
-  unit,
-}) {
-  const totalQty = Number(grandAQty || 0) + Number(grandBQty || 0)
-  const columns = [
-    { header: 'A Qty', value: `${grandAQty} ${unit}`, cellClass: 'text-right tabular-nums' },
-    { header: 'A Rate', value: formatRupee(avgARate), cellClass: 'text-right tabular-nums' },
-    {
-      header: 'A Amount',
-      value: formatRupee(grandATotal),
-      cellClass: 'text-right font-bold tabular-nums',
-      headClass: 'text-right',
-    },
-    { header: 'B Qty', value: `${grandBQty} ${unit}`, cellClass: 'text-right tabular-nums' },
-    { header: 'B Rate', value: formatRupee(avgBRate), cellClass: 'text-right tabular-nums' },
-    {
-      header: 'B Amount',
-      value: formatRupee(grandBTotal),
-      cellClass: 'text-right font-bold tabular-nums',
-      headClass: 'text-right',
-    },
-    {
-      header: 'Total Qty',
-      value: `${totalQty} ${unit}`,
-      cellClass: 'text-right font-semibold tabular-nums',
-      headClass: 'text-right',
-    },
-    {
-      header: 'Total',
-      value: formatRupee(totalRupees),
-      cellClass: 'text-right text-red-600 font-semibold tabular-nums',
-      headClass: 'text-right text-red-600',
-    },
-  ]
-
+function FragmentHeader({ gName, unit }) {
   return (
-    <div>
-      <p className="mb-2 text-xs font-semibold text-[#1F2937]">Sales Summary</p>
-      <div className={EXCEL_WRAP}>
-        <table className={`${EXCEL_TABLE} min-w-[720px]`}>
-          <thead>
-            <tr>
-              {columns.map((col) => (
-                <th key={col.header} className={`${EXCEL_HEAD} ${col.headClass || col.cellClass}`}>
-                  {col.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {columns.map((col) => (
-                <td key={col.header} className={`${EXCEL_CELL} ${col.cellClass}`}>
-                  {col.value}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <>
+      <th className="w-24 border border-[#D4D4D4] px-2 py-2 text-right">{gName} Qty ({unit})</th>
+      <th className="w-24 border border-[#D4D4D4] px-2 py-2 text-right text-[#217346]">{gName} Rate (₹)</th>
+      <th className="w-24 border border-[#D4D4D4] px-2 py-2 text-right">{gName} Amount</th>
+    </>
   )
 }
 
@@ -441,7 +619,7 @@ function PaymentOverviewSection({ totalRupees, deposited, balance, onUpdatePayme
               setEditing(true)
             }
           }}
-          className={`${EXCEL_BTN_PRIMARY} py-0.5 px-2 text-xs font-semibold`}
+          className={`${EXCEL_BTN_PRIMARY} px-2 py-0.5 text-xs font-semibold`}
         >
           {editing ? '💾 Save Overview' : '✏️ Edit Payment Overview'}
         </button>
@@ -502,26 +680,20 @@ export default function FarmerPanelGradeChart({
   const [chartRows, setChartRows] = useState(initialRows)
   const [summaryState, setSummaryState] = useState(initialSummary)
 
-  const grandAQty = chartRows.reduce((s, r) => s + Number(r.gradeAQty || 0), 0)
-  const grandBQty = chartRows.reduce((s, r) => s + Number(r.gradeBQty || 0), 0)
-  const grandATotal = chartRows.reduce((s, r) => s + Number(r.gradeAQty || 0) * Number(r.gradeARate || 0), 0)
-  const grandBTotal = chartRows.reduce((s, r) => s + Number(r.gradeBQty || 0) * Number(r.gradeBRate || 0), 0)
-  const grandAB = grandATotal + grandBTotal
   const unit = chartRows[0]?.unit || 'Kg'
 
-  const totalRupees = summaryState.totalRupees || (chartRows.length > 0 ? grandAB : 0)
+  const totalRupees = summaryState.totalRupees || 0
   const deposited = summaryState.deposited || 0
   const balance = summaryState.balance ?? Math.max(0, totalRupees - deposited)
-  const avgARate = grandAQty > 0 ? Math.round(grandATotal / grandAQty) : 0
-  const avgBRate = grandBQty > 0 ? Math.round(grandBTotal / grandBQty) : 0
 
   const handleUpdatePayment = (newSummary) => {
     setSummaryState(newSummary)
     onSave?.(chartRows, newSummary)
   }
 
-  const handleSaveChart = () => {
-    onSave?.(chartRows, summaryState)
+  const handleSaveChart = (updatedRows = chartRows) => {
+    setChartRows(updatedRows)
+    onSave?.(updatedRows, summaryState)
   }
 
   return (
@@ -533,17 +705,6 @@ export default function FarmerPanelGradeChart({
         deposited={deposited}
         balance={balance}
         onUpdatePayment={handleUpdatePayment}
-      />
-
-      <SalesSummarySection
-        grandAQty={grandAQty}
-        grandBQty={grandBQty}
-        grandATotal={grandATotal}
-        grandBTotal={grandBTotal}
-        totalRupees={totalRupees}
-        avgARate={avgARate}
-        avgBRate={avgBRate}
-        unit={unit}
       />
 
       <DailyChartSection

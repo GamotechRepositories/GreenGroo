@@ -202,6 +202,34 @@ const farmerDocumentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const farmerHarvestOrderSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, default: "vendor-1" },
+    managerId: { type: String, default: "" },
+    farmerId: { type: String, required: true },
+    productId: { type: String, required: true },
+    productName: { type: String, default: "" },
+    category: { type: String, default: "Vegetables" },
+    date: { type: String, required: true },
+    day: { type: String, default: "" },
+    unit: { type: String, default: "Kg" },
+    grades: [
+      {
+        name: { type: String, default: "A Grade" },
+        quantity: { type: Number, default: 0 },
+        rate: { type: Number, default: 0 },
+        amount: { type: Number, default: 0 },
+      },
+    ],
+    rejectionQty: { type: Number, default: 0 },
+    totalQuantity: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: 0 },
+    status: { type: String, default: "Approved" },
+  },
+  { timestamps: true }
+);
+
 export const Farmer =
   mongoose.models.Farmer || mongoose.model("Farmer", farmerSchema);
 export const FarmerManager =
@@ -216,3 +244,5 @@ export const FarmerEarning =
   mongoose.models.FarmerEarning || mongoose.model("FarmerEarning", farmerEarningSchema);
 export const FarmerDocument =
   mongoose.models.FarmerDocument || mongoose.model("FarmerDocument", farmerDocumentSchema);
+export const FarmerHarvestOrder =
+  mongoose.models.FarmerHarvestOrder || mongoose.model("FarmerHarvestOrder", farmerHarvestOrderSchema);

@@ -14,6 +14,7 @@ import InventoryAddPage from "../pages/InventoryAddPage";
 import InventoryViewPage from "../pages/InventoryViewPage";
 import OrdersPage from "../pages/OrdersPage";
 import OrderDetailPage from "../pages/OrderDetailPage";
+import HarvestOrdersPage from "../pages/HarvestOrdersPage";
 import EarningsPage from "../pages/EarningsPage";
 import ProfilePage from "../pages/ProfilePage";
 
@@ -28,8 +29,9 @@ function FarmerRoutes() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/add" element={<ProductAddPage />} />
-          <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="products/:id" element={<Navigate to="/farmer/products" replace />} />
           <Route path="products/:id/edit" element={<ProductEditPage />} />
+          <Route path="harvest-orders" element={<HarvestOrdersPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/add" element={<InventoryAddPage />} />
           <Route path="inventory/:id" element={<InventoryViewPage />} />

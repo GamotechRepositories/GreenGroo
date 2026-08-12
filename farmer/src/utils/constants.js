@@ -87,19 +87,17 @@ export const STOCK_REASONS = ["Sale", "Harvest", "Damage", "Manual Update", "Oth
 export const STOCK_GRADES = ["Grade A", "Grade B"];
 
 export const SIDEBAR_ITEMS = [
-  { to: "/farmer/documents", label: "Documents", icon: "documents" },
   { to: "/farmer/dashboard", label: "Dashboard", icon: "dashboard" },
-  { to: "/farmer/products", label: "Products", icon: "products" },
-  { to: "/farmer/inventory", label: "Inventory", icon: "inventory" },
-  { to: "/farmer/orders", label: "Orders", icon: "orders" },
-  { to: "/farmer/earnings", label: "Earnings", icon: "earnings" },
+  { to: "/farmer/products", label: "Product", icon: "products" },
+  { to: "/farmer/harvest-orders", label: "Harvest Order", icon: "harvest" },
+  { to: "/farmer/earnings", label: "Earning", icon: "earnings" },
+  { to: "/farmer/documents", label: "Document", icon: "documents" },
   { to: "/farmer/profile", label: "Profile", icon: "profile" },
 ];
 
 /** Selling routes require approved documents when verification is enforced */
 export const SELLING_ROUTE_PREFIXES = [
   "/farmer/products",
-  "/farmer/inventory",
-  "/farmer/orders",
+  "/farmer/harvest-orders",
   "/farmer/earnings",
 ];

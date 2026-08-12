@@ -8,6 +8,7 @@ import {
   FarmerOrder,
   FarmerEarning,
   FarmerDocument,
+  FarmerHarvestOrder,
 } from "./models.js";
 
 const DEFAULT_VENDOR_ID = "vendor-1";
@@ -1495,5 +1496,84 @@ export async function deleteManager(req, res) {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to delete manager" });
+  }
+}
+
+// ----------------------------------------------------
+// HARVEST ORDERS CONTROLLERS
+// ----------------------------------------------------
+export async function getHarvestOrders(req, res) {
+  try {
+    const { farmerId } = req.query;
+    const filter = {};
+    if (farmerId) filter.farmerId = farmerId;
+    const list = await FarmerHarvestOrder.find(filter).sort({ createdAt: -1 });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch harvest orders" });
+  }
+}
+
+export async function createHarvestOrder(req, res) {
+  try {
+    const payload = req.body;
+    const id = `ho-${Date.now()}`;
+    const order = new FarmerHarvestOrder({
+      id,
+      vendorId: payload.vendorId || DEFAULT_VENDOR_ID,
+      farmerId: payload.farmerId,
+      productId: payload.productId,
+      productName: payload.productName,
+      category: payload.category || "Vegetables",
+      date: payload.date || new Date().toISOString().split("T")[0],
+      day: payload.day || "",
+      unit: payload.unit || "Kg",
+      grades: payload.grades || [],
+      rejectionQty: Number(payload.rejectionQty) || 0,
+      totalQuantity: Number(payload.totalQuantity) || 0,
+      totalAmount: Number(payload.totalAmount) || 0,
+      status: payload.status || "Approved",
+    });
+
+    await order.save();
+    res.status(201).json(order);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create harvest order" });
+  }
+}
+
+export async function updateHarvestOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const payload = req.body;
+    const order = await FarmerHarvestOrder.findOne({ id });
+    if (!order) return res.status(404).json({ message: "Harvest order not found" });
+
+    if (payload.productId) order.productId = payload.productId;
+    if (payload.productName) order.productName = payload.productName;
+    if (payload.category) order.category = payload.category;
+    if (payload.date) order.date = payload.date;
+    if (payload.day !== undefined) order.day = payload.day;
+    if (payload.unit) order.unit = payload.unit;
+    if (payload.grades) order.grades = payload.grades;
+    if (payload.rejectionQty !== undefined) order.rejectionQty = Number(payload.rejectionQty);
+    if (payload.totalQuantity !== undefined) order.totalQuantity = Number(payload.totalQuantity);
+    if (payload.totalAmount !== undefined) order.totalAmount = Number(payload.totalAmount);
+    if (payload.status) order.status = payload.status;
+
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update harvest order" });
+  }
+}
+
+export async function deleteHarvestOrder(req, res) {
+  try {
+    const { id } = req.params;
+    await FarmerHarvestOrder.deleteOne({ id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete harvest order" });
   }
 }

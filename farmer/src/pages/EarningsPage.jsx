@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { getEarnings } from "../api/farmerApi";
+import { getEarnings, getProducts, getHarvestOrders } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
-import DataTable from "../components/ui/DataTable";
-import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
-import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
+import ProductGradeChart from "../components/products/ProductGradeChart";
+import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD, EXCEL_SELECT } from "../utils/excelStyles";
 
 function formatCurrency(n) {
   return new Intl.NumberFormat("en-IN", {
@@ -17,12 +16,27 @@ function formatCurrency(n) {
 
 function EarningsPage() {
   const [data, setData] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [harvestOrders, setHarvestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        setData(await getEarnings());
+        const [earningsRes, productsRes, harvestOrdersRes] = await Promise.all([
+          getEarnings().catch(() => ({ totalEarnings: 0, availableBalance: 0, pendingPayments: 0, transactions: [] })),
+          getProducts().catch(() => []),
+          getHarvestOrders().catch(() => []),
+        ]);
+        const prodList = Array.isArray(productsRes) ? productsRes : (productsRes?.products || []);
+        const hoList = Array.isArray(harvestOrdersRes) ? harvestOrdersRes : [];
+        setData(earningsRes);
+        setProducts(prodList);
+        setHarvestOrders(hoList);
+        if (prodList.length > 0) {
+          setSelectedProductId(prodList[0].id || prodList[0]._id);
+        }
       } catch (err) {
         toast.error(err.message || "Failed to load earnings");
       } finally {
@@ -32,65 +46,86 @@ function EarningsPage() {
   }, []);
 
   if (loading) return <LoadingState rows={5} />;
-  if (!data) return null;
+
+  const safeProducts = Array.isArray(products) ? products : [];
+  const selectedProduct = safeProducts.find((p) => (p.id || p._id) === selectedProductId) || safeProducts[0];
+
+  // Filter harvest orders for selected product
+  const productHarvestOrders = harvestOrders.filter((ho) => ho.productId === (selectedProduct?.id || selectedProduct?._id) || ho.productName === selectedProduct?.name);
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className={EXCEL_PAGE_TITLE}>Earnings</h1>
+        <h1 className={EXCEL_PAGE_TITLE}>Earning Statement</h1>
         <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
-          View earnings and settlements. Settlement records are read-only.
+          Product-wise accounting spreadsheet and earnings statement. (Read-Only)
         </p>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Total Earnings" value={formatCurrency(data.totalEarnings)} />
-        <StatCard title="Available Balance" value={formatCurrency(data.availableBalance)} />
-        <StatCard title="Pending Payments" value={formatCurrency(data.pendingPayments)} />
-        <StatCard title="This Month" value={formatCurrency(data.thisMonthEarnings)} />
-        <StatCard
-          title="Last Payment"
-          value={formatCurrency(data.lastPayment.amount)}
-          hint={new Date(data.lastPayment.date).toLocaleDateString("en-IN")}
-        />
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Total Earnings" value={formatCurrency(data?.totalEarnings || 0)} />
+        <StatCard title="Available Balance" value={formatCurrency(data?.availableBalance || 0)} />
+        <StatCard title="Pending Payments" value={formatCurrency(data?.pendingPayments || 0)} />
+        <StatCard title="Total Products" value={safeProducts.length} />
       </div>
 
+      {/* Product-Wise Earning Selector */}
       <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>Settlement details</h2>
-        <dl className="grid gap-2 p-3 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs font-semibold uppercase text-[#6B7280]">Bank account</dt>
-            <dd className="mt-0.5 text-xs font-semibold">{data.lastPayment.bankAccount}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase text-[#6B7280]">Settlement date</dt>
-            <dd className="mt-0.5 text-xs font-semibold">{data.lastPayment.settlementDate}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase text-[#6B7280]">Settlement amount</dt>
-            <dd className="mt-0.5 text-xs font-semibold">{formatCurrency(data.lastPayment.amount)}</dd>
-          </div>
-        </dl>
-      </section>
+        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+          <span>Product-Wise Earning Spreadsheet</span>
+          {safeProducts.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#6B7280]">Select Product:</span>
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                className={EXCEL_SELECT}
+              >
+                {safeProducts.map((item) => (
+                  <option key={item.id || item._id} value={item.id || item._id}>
+                    {item.name} ({item.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </div>
 
-      <section className="space-y-2">
-        <h2 className={EXCEL_PAGE_TITLE}>Transaction history</h2>
-        <DataTable
-          columns={[
-            { key: "id", header: "Transaction ID" },
-            { key: "orderId", header: "Order ID" },
-            { key: "amount", header: "Amount", render: (row) => formatCurrency(row.amount) },
-            { key: "commission", header: "Commission", render: (row) => formatCurrency(row.commission) },
-            { key: "netEarnings", header: "Net Earnings", render: (row) => formatCurrency(row.netEarnings) },
-            { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
-            {
-              key: "date",
-              header: "Date",
-              render: (row) => new Date(row.date).toLocaleDateString("en-IN"),
-            },
-          ]}
-          rows={data.transactions}
-        />
+        {selectedProduct ? (
+          <div className="p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] pb-2">
+              <div>
+                <h3 className="text-sm font-bold text-[#1F2937]">{selectedProduct.name}</h3>
+                <p className="text-xs text-[#6B7280]">Category: {selectedProduct.category} · Location: {selectedProduct.farmLocation || "Sangamner"}</p>
+              </div>
+            </div>
+
+            <ProductGradeChart
+              rows={productHarvestOrders.length > 0 ? productHarvestOrders.map((ho, idx) => ({
+                id: ho.id || ho._id || idx,
+                srNo: idx + 1,
+                date: ho.date,
+                weekday: ho.day,
+                unit: ho.unit || "Kg",
+                grades: (ho.grades || []).map((g) => ({
+                  name: g.name,
+                  quantity: Number(g.quantity || 0),
+                  rate: Number(g.rate || 0),
+                })),
+                rejectionQty: Number(ho.rejectionQty || 0),
+              })) : []}
+              summary={{
+                totalRupees: 0,
+                deposited: 0,
+                balance: 0,
+              }}
+            />
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-[#6B7280]">
+            No products found. Add products to view product-wise earnings.
+          </div>
+        )}
       </section>
     </div>
   );

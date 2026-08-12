@@ -19,6 +19,7 @@ const ICONS = {
   documents: FileText,
   dashboard: LayoutDashboard,
   products: Package,
+  harvest: ClipboardList,
   inventory: ClipboardList,
   orders: ShoppingCart,
   earnings: Wallet,

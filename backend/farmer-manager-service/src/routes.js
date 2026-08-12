@@ -33,6 +33,10 @@ import {
   updateManager,
   deleteManager,
   setManagerStatus,
+  getHarvestOrders,
+  createHarvestOrder,
+  updateHarvestOrder,
+  deleteHarvestOrder,
 } from "./controllers.js";
 
 const farmerRouter = express.Router();
@@ -77,6 +81,18 @@ farmerRouter.patch("/:farmerId/orders/:orderId/status", updateFarmerOrderStatus)
 
 // Earnings
 farmerRouter.get("/:farmerId/earnings", getFarmerEarnings);
+
+// Harvest Orders
+farmerRouter.get("/harvest-orders", getHarvestOrders);
+farmerRouter.get("/:farmerId/harvest-orders", getHarvestOrders);
+farmerRouter.post("/:farmerId/harvest-orders", createHarvestOrder);
+farmerRouter.put("/:farmerId/harvest-orders/:id", updateHarvestOrder);
+farmerRouter.delete("/:farmerId/harvest-orders/:id", deleteHarvestOrder);
+
+vendorFarmerRouter.get("/:farmerId/harvest-orders", getHarvestOrders);
+vendorFarmerRouter.post("/:farmerId/harvest-orders", createHarvestOrder);
+vendorFarmerRouter.put("/:farmerId/harvest-orders/:id", updateHarvestOrder);
+vendorFarmerRouter.delete("/:farmerId/harvest-orders/:id", deleteHarvestOrder);
 
 // Documents
 farmerRouter.get("/:farmerId/documents", getFarmerDocuments);

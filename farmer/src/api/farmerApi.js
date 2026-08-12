@@ -340,3 +340,8 @@ export async function getEarnings() {
   const farmerId = getActiveFarmerId();
   return apiFetch(`/api/farmers/${farmerId}/earnings`);
 }
+
+export async function getHarvestOrders() {
+  const farmerId = getActiveFarmerId();
+  return apiFetch(`/api/farmers/${farmerId}/harvest-orders`);
+}

@@ -167,7 +167,7 @@ function ProductListTable({
   const rowClickHandler =
     view === "inventory" && inventoryViewPath
       ? handleInventoryView
-      : onRowClick || ((row) => navigate(`/farmer/products/${row.id}`));
+      : onRowClick || ((row) => navigate(`/farmer/products/${row.id}/edit`));
 
   const allColumns = [
     {

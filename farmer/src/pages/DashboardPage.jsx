@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getDashboardCharts } from "../api/farmerApi";
+import { getDashboardCharts, getHarvestOrders } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
 import LoadingState from "../components/ui/LoadingState";
 import ProductGradeChart from "../components/products/ProductGradeChart";
@@ -23,15 +23,20 @@ function formatCurrency(n) {
 
 function DashboardPage() {
   const [data, setData] = useState(null);
+  const [harvestOrders, setHarvestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProductId, setSelectedProductId] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const result = await getDashboardCharts();
+        const [result, hoList] = await Promise.all([
+          getDashboardCharts().catch(() => ({ stats: {}, all: { rows: [] }, products: [] })),
+          getHarvestOrders().catch(() => []),
+        ]);
         setData(result);
-        if (result.products.length > 0) {
+        setHarvestOrders(hoList);
+        if (result.products && result.products.length > 0) {
           setSelectedProductId(result.products[0].productId);
         }
       } catch (err) {
@@ -45,24 +50,35 @@ function DashboardPage() {
   if (loading) return <LoadingState rows={6} />;
   if (!data) return null;
 
-  const { stats, all, products } = data;
+  const { stats, all, products = [] } = data;
   const selectedProduct =
     products.find((item) => item.productId === selectedProductId) || products[0] || null;
 
+  const totalHarvestOrders = harvestOrders.length;
+  const pendingHarvest = harvestOrders.filter((h) => h.status === "Pending" || h.status === "In Progress").length;
+  const totalQuantity = stats.availableStock || stats.totalQuantity || "0 Kg";
+
   return (
     <div className="space-y-4">
-      <h1 className={EXCEL_PAGE_TITLE}>Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className={EXCEL_PAGE_TITLE}>Farmer Dashboard</h1>
+        <span className="rounded bg-[#E8F5E9] px-2 py-0.5 text-xs font-bold text-[#217346]">
+          Dynamic Backend Connected
+        </span>
+      </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Total Products" value={stats.totalProducts} />
-        <StatCard title="Available Stock" value={stats.availableStock} />
-        <StatCard title="Total Orders" value={stats.totalOrders} />
-        <StatCard title="Pending Orders" value={stats.pendingOrders} />
-        <StatCard title="Total Earnings" value={formatCurrency(stats.totalEarnings)} />
+      {/* Dynamic Requirement Cards */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard title="Total Products" value={stats.totalProducts || products.length || 0} />
+        <StatCard title="Total Harvest Orders" value={totalHarvestOrders} />
+        <StatCard title="Pending Harvest" value={pendingHarvest} />
+        <StatCard title="Total Quantity" value={totalQuantity} />
+        <StatCard title="Total Earnings" value={formatCurrency(stats.totalEarnings || 0)} />
+        <StatCard title="Pending Earnings" value={formatCurrency(stats.pendingEarnings || stats.pendingPayments || 0)} />
       </div>
 
       <section className={`${EXCEL_PANEL} p-3`}>
-        <ProductGradeChart rows={all.rows} summary={all.summary} title="All Products" />
+        <ProductGradeChart rows={all.rows} summary={all.summary} title="All Products Summary" />
       </section>
 
       <section className={EXCEL_PANEL}>
@@ -94,8 +110,8 @@ function DashboardPage() {
                   <span className="text-[#6B7280]">{selectedProduct.category}</span>
                 ) : null}
               </div>
-              <Link to={`/farmer/products/${selectedProduct.productId}`} className={EXCEL_BTN}>
-                View Product
+              <Link to={`/farmer/products/${selectedProduct.productId}/edit`} className={EXCEL_BTN}>
+                Edit Product
               </Link>
             </div>
             <ProductGradeChart rows={selectedProduct.rows} summary={selectedProduct.summary} />

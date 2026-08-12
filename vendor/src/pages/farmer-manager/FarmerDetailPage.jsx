@@ -22,6 +22,10 @@ import {
   updateFarmerLoginStatus,
   updateFarmerPassword,
   updateFarmerProduct,
+  getFarmerHarvestOrders,
+  createFarmerHarvestOrder,
+  updateFarmerHarvestOrder,
+  deleteFarmerHarvestOrder,
 } from '@/api/farmerManagerApi'
 import { formatDate, formatDateTime } from '@/components/farmer-manager/FmShared'
 import { ExcelDataTable, ExcelInfoGrid, ExcelStatCard, ExcelStatusBadge } from '@/components/farmer-manager/ExcelUi'
@@ -32,6 +36,8 @@ import {
   EXCEL_BTN_DANGER,
   EXCEL_BTN_OUTLINE,
   EXCEL_BTN_PRIMARY,
+  EXCEL_CELL,
+  EXCEL_HEAD,
   EXCEL_INPUT,
   EXCEL_PAGE_SUB,
   EXCEL_PAGE_TITLE,
@@ -40,10 +46,12 @@ import {
   EXCEL_SELECT,
   EXCEL_TAB,
   EXCEL_TAB_ACTIVE,
+  EXCEL_TABLE,
+  EXCEL_WRAP,
 } from '@/components/farmer-manager/excelStyles'
 import { formatCurrency } from '@/lib/utils'
 
-const TABS = ['Dashboard', 'Products', 'Inventory', 'Orders', 'Earnings', 'Documents', 'Profile']
+const TABS = ['Dashboard', 'Product', 'Harvest Order', 'Earning', 'Document', 'Profile']
 
 const CATEGORY_OPTIONS = [
   'Vegetables',
@@ -109,6 +117,24 @@ export default function FarmerDetailPage() {
   const [rejectDocModal, setRejectDocModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
 
+  // Harvest Orders State & Modal Form
+  const [harvestOrders, setHarvestOrders] = useState([])
+  const [harvestOrderModal, setHarvestOrderModal] = useState(null)
+  const [harvestOrderForm, setHarvestOrderForm] = useState({
+    productId: '',
+    productName: '',
+    category: 'Vegetables',
+    date: new Date().toISOString().split('T')[0],
+    day: 'Wednesday',
+    unit: 'Kg',
+    grades: [
+      { name: 'A Grade', quantity: 0 },
+      { name: 'B Grade', quantity: 0 },
+    ],
+    rejectionQty: 0,
+    status: 'Approved',
+  })
+
   // Order Details Modal
   const [viewOrderModal, setViewOrderModal] = useState(null)
 
@@ -116,7 +142,7 @@ export default function FarmerDetailPage() {
     setLoading(true)
     setError('')
     try {
-      const [f, mgrs, p, inv, o, e, d, h] = await Promise.all([
+      const [f, mgrs, p, inv, o, e, d, h, ho] = await Promise.all([
         getFarmerById(farmerId),
         getManagers(),
         getFarmerProducts(farmerId),
@@ -125,6 +151,7 @@ export default function FarmerDetailPage() {
         getFarmerEarnings(farmerId),
         getFarmerDocuments(farmerId),
         getStockHistory(farmerId),
+        getFarmerHarvestOrders(farmerId).catch(() => []),
       ])
       setFarmer(f)
       setManagers(mgrs)
@@ -134,6 +161,7 @@ export default function FarmerDetailPage() {
       setEarnings(e)
       setDocuments(d)
       setHistory(h)
+      setHarvestOrders(ho)
 
       if (p.length > 0 && !selectedProductId) {
         setSelectedProductId(p[0].id || p[0].productId)
@@ -191,12 +219,27 @@ export default function FarmerDetailPage() {
     return products.filter((p) => {
       const matchQ =
         !productSearch ||
-        p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-        p.category?.toLowerCase().includes(productSearch.toLowerCase())
-      const matchStatus = !productStatusFilter || p.status === productStatusFilter
-      return matchQ && matchStatus
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.category && p.category.toLowerCase().includes(productSearch.toLowerCase()))
+      const matchS = !productStatusFilter || p.status === productStatusFilter
+      return matchQ && matchS
     })
   }, [products, productSearch, productStatusFilter])
+
+  const selectedProduct = useMemo(
+    () => products.find((p) => (p.id || p.productId) === selectedProductId) || products[0] || null,
+    [products, selectedProductId]
+  )
+
+  const productHarvestOrders = useMemo(
+    () =>
+      harvestOrders.filter(
+        (ho) =>
+          ho.productId === (selectedProduct?.id || selectedProduct?.productId) ||
+          ho.productName === selectedProduct?.name
+      ),
+    [harvestOrders, selectedProduct]
+  )
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
@@ -204,11 +247,6 @@ export default function FarmerDetailPage() {
       return !orderStatusFilter || o.status === orderStatusFilter
     })
   }, [orders, orderStatusFilter])
-
-  // Selected Product for Grade Chart
-  const selectedProduct = useMemo(() => {
-    return products.find((p) => (p.id || p.productId) === selectedProductId) || products[0] || null
-  }, [products, selectedProductId])
 
   if (loading) return <PageSkeleton />
   if (error) return <ErrorState description={error} onRetry={load} />
@@ -398,9 +436,6 @@ export default function FarmerDetailPage() {
       label: 'Actions',
       render: (row) => (
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => setViewProductDetail(row)}>
-            View
-          </button>
           <button type="button" className={EXCEL_BTN} onClick={() => openEditProductModal(row)}>
             Edit
           </button>
@@ -669,167 +704,259 @@ export default function FarmerDetailPage() {
         </div>
       ) : null}
 
-      {/* Tab 2: Products */}
-      {tab === 'Products' ? (
-        viewProductDetail ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-                <button
-                  type="button"
-                  onClick={() => setViewProductDetail(null)}
-                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#217346]"
-                >
-                  ← Back to products
-                </button>
-                <span className="hidden h-4 w-px bg-[#E5E7EB] sm:block" />
-                <h2 className="truncate text-base font-bold text-text-primary">{viewProductDetail.name}</h2>
-                <ExcelStatusBadge status={viewProductDetail.status} />
-                {viewProductDetail.category ? (
-                  <span className="text-xs text-[#6B7280]">{viewProductDetail.category}</span>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                className={EXCEL_BTN_PRIMARY}
-                onClick={() => openEditProductModal(viewProductDetail)}
-              >
-                Edit Product
-              </button>
-            </div>
-
-            {/* Product Summary Header Card */}
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-[#D4D4D4] bg-white p-4 shadow-sm">
-              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#FAFAFA]">
-                <img
-                  src={viewProductDetail.image || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&auto=format&fit=crop'}
-                  alt={viewProductDetail.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="grid flex-1 grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-                <div>
-                  <span className="block font-semibold text-[#6B7280]">Harvest Date</span>
-                  <span className="font-medium text-[#1F2937]">{formatDate(viewProductDetail.harvestDate)}</span>
-                </div>
-                <div>
-                  <span className="block font-semibold text-[#6B7280]">Farm Location</span>
-                  <span className="font-medium text-[#1F2937]">{viewProductDetail.farmLocation || '—'}</span>
-                </div>
-                <div>
-                  <span className="block font-semibold text-[#6B7280]">Type</span>
-                  <span className="font-medium text-[#1F2937]">
-                    {viewProductDetail.produceType === 'non-organic' || viewProductDetail.organic === false ? 'Non-Organic' : 'Organic'}
-                  </span>
-                </div>
-                <div>
-                  <span className="block font-semibold text-[#6B7280]">Available Qty</span>
-                  <span className="font-medium text-[#1F2937]">
-                    {(Number(viewProductDetail.gradeAQty ?? 0) + Number(viewProductDetail.gradeBQty ?? 0))} {viewProductDetail.unit || 'Kg'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Overview, Sales Summary & Daily Excel Grade Chart Spreadsheet */}
-            <FarmerPanelGradeChart
-              rows={viewProductDetail.dailyChartRows || []}
-              summary={{
-                totalRupees: viewProductDetail.dailyChartRows?.length
-                  ? (Number(viewProductDetail.gradeAQty || 0) * 35 + Number(viewProductDetail.gradeBQty || 0) * 28)
-                  : 0,
-                deposited: 0,
-                balance: 0,
-              }}
-            />
-          </div>
-        ) : (
-          <section className={EXCEL_PANEL}>
-            <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
-              <span>Products Management</span>
-              <button type="button" className={EXCEL_BTN_PRIMARY} onClick={openAddProductModal}>
-                + Add Product
-              </button>
-            </div>
-            <div className="p-3 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <input
-                  type="search"
-                  placeholder="Search products by name or category..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className={`${EXCEL_INPUT} max-w-xs`}
-                />
-                <select
-                  value={productStatusFilter}
-                  onChange={(e) => setProductStatusFilter(e.target.value)}
-                  className={EXCEL_SELECT}
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Draft">Draft</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-              <ExcelDataTable
-                columns={productColumns}
-                rows={filteredProducts}
-                emptyMessage="No products match your query."
-                onRowClick={(row) => setViewProductDetail(row)}
-              />
-            </div>
-          </section>
-        )
-      ) : null}
-
-      {/* Tab 3: Inventory */}
-      {tab === 'Inventory' ? (
-        <div className="space-y-4">
-          <section className={EXCEL_PANEL}>
-            <h2 className={EXCEL_PANEL_HEAD}>Inventory Stock Balances</h2>
-            <ExcelDataTable columns={inventoryColumns} rows={inventory} emptyMessage="No inventory entries found." />
-          </section>
-          <section className={EXCEL_PANEL}>
-            <h2 className={EXCEL_PANEL_HEAD}>Stock Movement History Log</h2>
-            <ExcelDataTable columns={historyColumns} rows={history} emptyMessage="No stock adjustments recorded yet." />
-          </section>
-        </div>
-      ) : null}
-
-      {/* Tab 4: Orders */}
-      {tab === 'Orders' ? (
+      {/* Tab 2: Product */}
+      {tab === 'Product' || tab === 'Products' ? (
         <section className={EXCEL_PANEL}>
           <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
-            <span>Orders Management</span>
-            <select
-              value={orderStatusFilter}
-              onChange={(e) => setOrderStatusFilter(e.target.value)}
-              className={EXCEL_SELECT}
-            >
-              <option value="">All Order Statuses</option>
-              {ORDER_STATUS_OPTIONS.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
+            <span>Products Management</span>
+            <button type="button" className={EXCEL_BTN_PRIMARY} onClick={openAddProductModal}>
+              + Add Product
+            </button>
           </div>
-          <div className="p-3">
-            <ExcelDataTable columns={orderColumns} rows={filteredOrders} emptyMessage="No orders found for this farmer." />
+          <div className="p-3 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="search"
+                placeholder="Search products by name or category..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className={`${EXCEL_INPUT} max-w-xs`}
+              />
+              <select
+                value={productStatusFilter}
+                onChange={(e) => setProductStatusFilter(e.target.value)}
+                className={EXCEL_SELECT}
+              >
+                <option value="">All Statuses</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Draft">Draft</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <ExcelDataTable
+              columns={productColumns}
+              rows={filteredProducts}
+              emptyMessage="No products match your query."
+            />
           </div>
         </section>
       ) : null}
 
-      {/* Tab 5: Earnings */}
-      {tab === 'Earnings' ? (
+      {/* Tab 3: Harvest Order */}
+      {tab === 'Harvest Order' || tab === 'Orders' || tab === 'Inventory' ? (
+        <section className={EXCEL_PANEL}>
+          <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+            <span>Harvest Orders Management</span>
+            <button
+              type="button"
+              className={EXCEL_BTN_PRIMARY}
+              onClick={() => {
+                const defaultProduct = products[0] || {}
+                const defaultDate = new Date().toISOString().split('T')[0]
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+                const dayName = days[new Date(defaultDate).getDay()]
+
+                setHarvestOrderForm({
+                  productId: defaultProduct.id || defaultProduct.productId || '',
+                  productName: defaultProduct.name || '',
+                  category: defaultProduct.category || 'Vegetables',
+                  date: defaultDate,
+                  day: dayName,
+                  unit: defaultProduct.unit || 'Kg',
+                  grades: [
+                    { name: 'A Grade', quantity: 0 },
+                    { name: 'B Grade', quantity: 0 },
+                  ],
+                  rejectionQty: 0,
+                  status: 'Approved',
+                })
+                setHarvestOrderModal({ mode: 'add' })
+              }}
+            >
+              + Create Harvest Order
+            </button>
+          </div>
+          <div className="p-3">
+            {harvestOrders.length === 0 ? (
+              <div className="p-8 text-center text-xs text-text-secondary">
+                No harvest orders created yet. Click "+ Create Harvest Order" to issue a new harvest record for this farmer.
+              </div>
+            ) : (
+              <div className={EXCEL_WRAP}>
+                <table className={EXCEL_TABLE}>
+                  <thead>
+                    <tr>
+                      <th className={`${EXCEL_HEAD} text-center`}>Sr.</th>
+                      <th className={`${EXCEL_HEAD} text-left`}>Date</th>
+                      <th className={`${EXCEL_HEAD} text-left`}>Day</th>
+                      <th className={`${EXCEL_HEAD} text-left`}>Product</th>
+                      <th className={`${EXCEL_HEAD} text-left`}>Category</th>
+                      <th className={`${EXCEL_HEAD} text-center`}>Unit</th>
+                      {Array.from(new Set(harvestOrders.flatMap(h => (h.grades || []).map(g => g.name)))).map(g => (
+                        <th key={g} className={`${EXCEL_HEAD} text-right`}>{g} Qty</th>
+                      ))}
+                      <th className={`${EXCEL_HEAD} text-right text-red-600`}>Rejection Qty</th>
+                      <th className={`${EXCEL_HEAD} text-center`}>Status</th>
+                      <th className={`${EXCEL_HEAD} text-center`}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {harvestOrders.map((ho, idx) => {
+                      const dynamicGrades = Array.from(new Set(harvestOrders.flatMap(h => (h.grades || []).map(g => g.name))))
+                      const gradeMap = {}
+                      ;(ho.grades || []).forEach(g => { gradeMap[g.name] = g.quantity })
+
+                      return (
+                        <tr key={ho.id || idx} className="hover:bg-[#F9F9F9]">
+                          <td className={`${EXCEL_CELL} text-center text-text-secondary`}>{idx + 1}</td>
+                          <td className={`${EXCEL_CELL} font-medium`}>{ho.date || '—'}</td>
+                          <td className={`${EXCEL_CELL} text-text-secondary`}>{ho.day || '—'}</td>
+                          <td className={`${EXCEL_CELL} font-bold text-text-primary`}>{ho.productName}</td>
+                          <td className={`${EXCEL_CELL} text-text-secondary`}>{ho.category}</td>
+                          <td className={`${EXCEL_CELL} text-center text-text-secondary`}>{ho.unit}</td>
+                          {dynamicGrades.map(g => (
+                            <td key={g} className={`${EXCEL_CELL} text-right tabular-nums font-semibold`}>
+                              {gradeMap[g] !== undefined ? `${gradeMap[g]} ${ho.unit}` : `0 ${ho.unit}`}
+                            </td>
+                          ))}
+                          <td className={`${EXCEL_CELL} text-right tabular-nums font-bold text-red-600`}>
+                            {ho.rejectionQty || 0} {ho.unit}
+                          </td>
+                          <td className={`${EXCEL_CELL} text-center`}>
+                            <ExcelStatusBadge status={ho.status || 'Approved'} />
+                          </td>
+                          <td className={`${EXCEL_CELL} text-center`}>
+                            <div className="flex justify-center gap-1">
+                              <button
+                                type="button"
+                                className={EXCEL_BTN}
+                                onClick={() => {
+                                  setHarvestOrderForm({ ...ho })
+                                  setHarvestOrderModal({ mode: 'edit', id: ho.id })
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className={EXCEL_BTN_DANGER}
+                                onClick={async () => {
+                                  if (!confirm('Delete harvest order?')) return
+                                  setBusy(true)
+                                  try {
+                                    await deleteFarmerHarvestOrder(farmerId, ho.id)
+                                    toast('Harvest order deleted')
+                                    await load()
+                                  } catch (err) {
+                                    toast(err.message || 'Delete failed', 'error')
+                                  } finally {
+                                    setBusy(false)
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Tab 5: Earning */}
+      {tab === 'Earning' || tab === 'Earnings' ? (
         <div className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <ExcelStatCard title="Total Earnings" value={formatCurrency(earnings.summary?.totalEarnings || 0)} />
             <ExcelStatCard title="Available Balance" value={formatCurrency(earnings.summary?.availableBalance || earnings.summary?.availableEarnings || 0)} />
             <ExcelStatCard title="Pending Payments" value={formatCurrency(earnings.summary?.pendingPayments || earnings.summary?.pendingEarnings || 0)} />
-            <ExcelStatCard title="Paid Earnings" value={formatCurrency(earnings.summary?.paidEarnings || 0)} />
+            <ExcelStatCard title="Total Products" value={products.length} />
           </div>
+
+          {/* Product-Wise Earning Selector & Spreadsheet */}
+          <section className={EXCEL_PANEL}>
+            <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+              <span>Product-Wise Earning Spreadsheet</span>
+              {products.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#6B7280]">Select Product:</span>
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    className={EXCEL_SELECT}
+                  >
+                    {products.map((item) => (
+                      <option key={item.id || item.productId} value={item.id || item.productId}>
+                        {item.name} ({item.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
+
+            {selectedProduct ? (
+              <div className="p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] pb-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1F2937]">{selectedProduct.name}</h3>
+                    <p className="text-xs text-[#6B7280]">Category: {selectedProduct.category} · Location: {selectedProduct.farmLocation || "N/A"}</p>
+                  </div>
+                </div>
+
+                <FarmerPanelGradeChart
+                  rows={productHarvestOrders.length > 0 ? productHarvestOrders.map((ho, idx) => ({
+                    id: ho.id || ho._id || idx,
+                    srNo: idx + 1,
+                    date: ho.date,
+                    weekday: ho.day,
+                    unit: ho.unit || "Kg",
+                    grades: (ho.grades || []).map((g) => ({
+                      name: g.name,
+                      quantity: Number(g.quantity || 0),
+                      rate: Number(g.rate || 0),
+                    })),
+                    rejectionQty: Number(ho.rejectionQty || 0),
+                  })) : []}
+                  summary={{
+                    totalRupees: 0,
+                    deposited: 0,
+                    balance: 0,
+                  }}
+                  onSave={async (updatedRows) => {
+                    try {
+                      for (const r of updatedRows) {
+                        if (r.id) {
+                          await updateFarmerHarvestOrder(farmer.id, r.id, {
+                            grades: r.grades,
+                            rejectionQty: r.rejectionQty,
+                            date: r.date,
+                            day: r.weekday || getDayOfWeek(r.date),
+                          })
+                        }
+                      }
+                      toast.success("Rates and earning record updated successfully!")
+                      load()
+                    } catch (err) {
+                      toast.error(err?.message || "Failed to update earning record rates")
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="p-8 text-center text-xs text-[#6B7280]">
+                No products found for this farmer.
+              </div>
+            )}
+          </section>
+
           <section className={EXCEL_PANEL}>
             <h2 className={EXCEL_PANEL_HEAD}>Bank Settlement Details</h2>
             <ExcelInfoGrid
@@ -848,8 +975,8 @@ export default function FarmerDetailPage() {
         </div>
       ) : null}
 
-      {/* Tab 6: Documents */}
-      {tab === 'Documents' ? (
+      {/* Tab 6: Document */}
+      {tab === 'Document' || tab === 'Documents' ? (
         <section className={EXCEL_PANEL}>
           <h2 className={EXCEL_PANEL_HEAD}>Farmer Documents & Verification Status</h2>
           <ExcelDataTable columns={docColumns} rows={documents} emptyMessage="No documents submitted." />
@@ -1314,6 +1441,218 @@ export default function FarmerDetailPage() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {/* Harvest Order Modal */}
+      {harvestOrderModal && harvestOrderForm ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              setBusy(true)
+              try {
+                if (harvestOrderModal.mode === 'add') {
+                  await createFarmerHarvestOrder(farmerId, harvestOrderForm)
+                  toast('Harvest order created')
+                } else {
+                  await updateFarmerHarvestOrder(farmerId, harvestOrderModal.id, harvestOrderForm)
+                  toast('Harvest order updated')
+                }
+                setHarvestOrderModal(null)
+                await load()
+              } catch (err) {
+                toast(err.message || 'Failed to save harvest order', 'error')
+              } finally {
+                setBusy(false)
+              }
+            }}
+            className={`${EXCEL_PANEL} w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
+          >
+            <h3 className={EXCEL_PANEL_HEAD}>
+              {harvestOrderModal.mode === 'add' ? 'Create Harvest Order' : 'Edit Harvest Order'}
+            </h3>
+            <div className="space-y-3 p-3 text-xs">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Select Product</span>
+                  <select
+                    className={EXCEL_SELECT}
+                    value={harvestOrderForm.productId}
+                    onChange={(e) => {
+                      const pid = e.target.value
+                      const prod = products.find((p) => (p.id || p.productId) === pid)
+                      setHarvestOrderForm((f) => ({
+                        ...f,
+                        productId: pid,
+                        productName: prod ? prod.name : '',
+                        category: prod ? prod.category : f.category,
+                        unit: prod ? (prod.unit || 'Kg') : f.unit,
+                      }))
+                    }}
+                    required
+                  >
+                    <option value="">-- Select Product --</option>
+                    {products.map((p) => (
+                      <option key={p.id || p.productId} value={p.id || p.productId}>
+                        {p.name} ({p.category})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Category (Auto-Populated)</span>
+                  <input
+                    className={`${EXCEL_INPUT} bg-[#F2F2F2]`}
+                    value={harvestOrderForm.category}
+                    readOnly
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Date</span>
+                  <input
+                    type="date"
+                    className={EXCEL_INPUT}
+                    value={harvestOrderForm.date}
+                    onChange={(e) => {
+                      const dStr = e.target.value
+                      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+                      const dObj = new Date(dStr)
+                      const dayName = isNaN(dObj.getTime()) ? '' : days[dObj.getDay()]
+                      setHarvestOrderForm((f) => ({ ...f, date: dStr, day: dayName }))
+                    }}
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Day (Auto-Calculated)</span>
+                  <input
+                    className={`${EXCEL_INPUT} bg-[#F2F2F2]`}
+                    value={harvestOrderForm.day}
+                    readOnly
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Product Unit</span>
+                  <select
+                    className={EXCEL_SELECT}
+                    value={harvestOrderForm.unit}
+                    onChange={(e) => setHarvestOrderForm((f) => ({ ...f, unit: e.target.value }))}
+                  >
+                    <option value="Kg">Kg</option>
+                    <option value="Quintal">Quintal</option>
+                    <option value="Ton">Ton</option>
+                    <option value="Piece">Piece</option>
+                    <option value="Bunch">Bunch</option>
+                    <option value="Litre">Litre</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#DC2626]">Rejection Qty</span>
+                  <input
+                    type="number"
+                    min="0"
+                    className={EXCEL_INPUT}
+                    value={harvestOrderForm.rejectionQty}
+                    onChange={(e) => setHarvestOrderForm((f) => ({ ...f, rejectionQty: Number(e.target.value) }))}
+                  />
+                </label>
+              </div>
+
+              {/* Dynamic Grades Section */}
+              <div className="border border-[#D4D4D4] bg-[#FAFAFA] p-3 rounded">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-bold text-[#1F2937]">Dynamic Grades Configuration</span>
+                  <button
+                    type="button"
+                    className={`${EXCEL_BTN_PRIMARY} py-0.5 px-2 text-xs`}
+                    onClick={() => {
+                      const grades = harvestOrderForm.grades || []
+                      const nextGradeLetter = String.fromCharCode(65 + grades.length) + ' Grade'
+                      setHarvestOrderForm((f) => ({
+                        ...f,
+                        grades: [...(f.grades || []), { name: nextGradeLetter, quantity: 0 }],
+                      }))
+                    }}
+                  >
+                    + Add Grade
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {(harvestOrderForm.grades || []).map((g, gIdx) => (
+                    <div key={gIdx} className="flex flex-wrap items-center gap-2 bg-white p-2 border border-[#E5E7EB]">
+                      <div className="flex-1 min-w-[120px]">
+                        <span className="block text-[10px] font-semibold text-[#6B7280]">Grade Name</span>
+                        <input
+                          className={EXCEL_INPUT}
+                          value={g.name}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setHarvestOrderForm((f) => {
+                              const newG = [...f.grades]
+                              newG[gIdx].name = val
+                              return { ...f, grades: newG }
+                            })
+                          }}
+                        />
+                      </div>
+                      <div className="w-28">
+                        <span className="block text-[10px] font-semibold text-[#6B7280]">Quantity ({harvestOrderForm.unit})</span>
+                        <input
+                          type="number"
+                          min="0"
+                          className={EXCEL_INPUT}
+                          value={g.quantity}
+                          onChange={(e) => {
+                            const val = Number(e.target.value)
+                            setHarvestOrderForm((f) => {
+                              const newG = [...f.grades]
+                              newG[gIdx].quantity = val
+                              return { ...f, grades: newG }
+                            })
+                          }}
+                        />
+                      </div>
+                      {harvestOrderForm.grades.length > 1 ? (
+                        <button
+                          type="button"
+                          className={`${EXCEL_BTN_DANGER} self-end py-1 px-2 text-xs`}
+                          onClick={() => {
+                            setHarvestOrderForm((f) => ({
+                              ...f,
+                              grades: f.grades.filter((_, idx) => idx !== gIdx),
+                            }))
+                          }}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-1.5 border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
+              <button
+                type="button"
+                className={EXCEL_BTN_OUTLINE}
+                disabled={busy}
+                onClick={() => setHarvestOrderModal(null)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className={EXCEL_BTN_PRIMARY} disabled={busy}>
+                {busy ? 'Saving...' : harvestOrderModal.mode === 'add' ? 'Save Harvest Order' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
         </div>
       ) : null}
 

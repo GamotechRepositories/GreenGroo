@@ -187,3 +187,27 @@ export async function updateFarmerDocumentStatus(farmerId, documentId, status, r
     body: JSON.stringify({ status, rejectionReason }),
   })
 }
+
+export async function getFarmerHarvestOrders(farmerId) {
+  return apiFetch(`/api/vendor/farmers/${farmerId}/harvest-orders`)
+}
+
+export async function createFarmerHarvestOrder(farmerId, payload) {
+  return apiFetch(`/api/vendor/farmers/${farmerId}/harvest-orders`, {
+    method: 'POST',
+    body: JSON.stringify({ ...payload, farmerId }),
+  })
+}
+
+export async function updateFarmerHarvestOrder(farmerId, id, payload) {
+  return apiFetch(`/api/vendor/farmers/${farmerId}/harvest-orders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteFarmerHarvestOrder(farmerId, id) {
+  return apiFetch(`/api/vendor/farmers/${farmerId}/harvest-orders/${id}`, {
+    method: 'DELETE',
+  })
+}
