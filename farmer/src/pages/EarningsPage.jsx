@@ -48,10 +48,12 @@ function EarningsPage() {
   if (loading) return <LoadingState rows={5} />;
 
   const safeProducts = Array.isArray(products) ? products : [];
-  const selectedProduct = safeProducts.find((p) => (p.id || p._id) === selectedProductId) || safeProducts[0];
+  const selectedProduct = safeProducts.find((p) => (p.id || p._id) === selectedProductId) || null;
 
   // Filter harvest orders for selected product
-  const productHarvestOrders = harvestOrders.filter((ho) => ho.productId === (selectedProduct?.id || selectedProduct?._id) || ho.productName === selectedProduct?.name);
+  const productHarvestOrders = selectedProduct 
+    ? harvestOrders.filter((ho) => ho.productId === (selectedProduct.id || selectedProduct._id) || ho.productName === selectedProduct.name)
+    : harvestOrders;
 
   // Calculate earnings dynamically for the selected product
   const productTotalEarnings = productHarvestOrders.reduce((sum, ho) => {
@@ -92,6 +94,7 @@ function EarningsPage() {
                 onChange={(e) => setSelectedProductId(e.target.value)}
                 className={EXCEL_SELECT}
               >
+                <option value="">All Products</option>
                 {safeProducts.map((item) => (
                   <option key={item.id || item._id} value={item.id || item._id}>
                     {item.name} ({item.category})
@@ -102,12 +105,16 @@ function EarningsPage() {
           ) : null}
         </div>
 
-        {selectedProduct ? (
+        {safeProducts.length > 0 ? (
           <div className="p-3">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] pb-2">
               <div>
-                <h3 className="text-sm font-bold text-[#1F2937]">{selectedProduct.name}</h3>
-                <p className="text-xs text-[#6B7280]">Category: {selectedProduct.category} · Location: {selectedProduct.farmLocation || "Sangamner"}</p>
+                <h3 className="text-sm font-bold text-[#1F2937]">{selectedProduct ? selectedProduct.name : 'All Products'}</h3>
+                {selectedProduct ? (
+                  <p className="text-xs text-[#6B7280]">Category: {selectedProduct.category} · Unit: {selectedProduct.unit}</p>
+                ) : (
+                  <p className="text-xs text-[#6B7280]">Overview of all products</p>
+                )}
               </div>
             </div>
 

@@ -7,15 +7,21 @@ import { EXCEL_PANEL, EXCEL_PANEL_HEAD, EXCEL_TABLE, EXCEL_WRAP, EXCEL_HEAD, EXC
 
 export default function HarvestOrdersPage() {
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await getHarvestOrders();
-        setOrders(Array.isArray(data) ? data : []);
+        const [hoData, prodData] = await Promise.all([
+          getHarvestOrders(),
+          getProducts()
+        ]);
+        setOrders(Array.isArray(hoData) ? hoData : []);
+        setProducts(Array.isArray(prodData) ? prodData : []);
       } catch (err) {
-        toast.error(err.message || "Failed to load harvest orders");
+        toast.error(err.message || "Failed to load data");
       } finally {
         setLoading(false);
       }
@@ -24,9 +30,16 @@ export default function HarvestOrdersPage() {
 
   if (loading) return <LoadingState />;
 
-  // Extract unique grade names across all harvest orders for dynamic columns
+  const safeProducts = Array.isArray(products) ? products : [];
+  const selectedProduct = safeProducts.find((p) => (p.id || p._id) === selectedProductId) || null;
+
+  const filteredOrders = selectedProduct 
+    ? orders.filter((ho) => ho.productId === (selectedProduct.id || selectedProduct._id) || ho.productName === selectedProduct.name)
+    : orders;
+
+  // Extract unique grade names across filtered harvest orders for dynamic columns
   const gradeSet = new Set();
-  orders.forEach((o) => {
+  filteredOrders.forEach((o) => {
     (o.grades || []).forEach((g) => {
       if (g.name) gradeSet.add(g.name);
     });
@@ -46,11 +59,30 @@ export default function HarvestOrdersPage() {
       </div>
 
       <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>Harvest Order Details</h2>
+        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+          <span>Harvest Order Details</span>
+          {safeProducts.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#6B7280]">Select Product:</span>
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                className={`${EXCEL_SELECT} text-black bg-white border border-[#D4D4D4] py-1 px-2`}
+              >
+                <option value="">All Products</option>
+                {safeProducts.map((item) => (
+                  <option key={item.id || item._id} value={item.id || item._id}>
+                    {item.name} ({item.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </div>
         <div className="p-3">
-          {orders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#6B7280]">
-              No harvest orders recorded yet. Vendor Manager will issue harvest orders here.
+              No harvest orders found. Vendor Manager will issue harvest orders here.
             </div>
           ) : (
             <div className={EXCEL_WRAP}>
@@ -80,7 +112,7 @@ export default function HarvestOrdersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o, idx) => {
+                  {filteredOrders.map((o, idx) => {
                     const gradeMap = {};
                     (o.grades || []).forEach((g) => {
                       gradeMap[g.name] = g.quantity;

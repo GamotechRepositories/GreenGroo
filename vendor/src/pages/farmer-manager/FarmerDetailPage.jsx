@@ -227,17 +227,19 @@ export default function FarmerDetailPage() {
   }, [products, productSearch, productStatusFilter])
 
   const selectedProduct = useMemo(
-    () => products.find((p) => (p.id || p.productId) === selectedProductId) || products[0] || null,
+    () => products.find((p) => (p.id || p.productId) === selectedProductId) || null,
     [products, selectedProductId]
   )
 
   const productHarvestOrders = useMemo(
     () =>
-      harvestOrders.filter(
-        (ho) =>
-          ho.productId === (selectedProduct?.id || selectedProduct?.productId) ||
-          ho.productName === selectedProduct?.name
-      ),
+      selectedProduct
+        ? harvestOrders.filter(
+            (ho) =>
+              ho.productId === (selectedProduct.id || selectedProduct.productId) ||
+              ho.productName === selectedProduct.name
+          )
+        : harvestOrders,
     [harvestOrders, selectedProduct]
   )
 
@@ -672,6 +674,7 @@ export default function FarmerDetailPage() {
                   onChange={(e) => setSelectedProductId(e.target.value)}
                   className={EXCEL_SELECT}
                 >
+                  <option value="">All Products</option>
                   {products.map((item) => (
                     <option key={item.id || item.productId} value={item.id || item.productId}>
                       {item.name}
@@ -680,16 +683,20 @@ export default function FarmerDetailPage() {
                 </select>
               ) : null}
             </div>
-            {selectedProduct ? (
+            {products.length > 0 ? (
               <div className="p-3">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
-                    <h3 className="text-xs font-bold text-text-primary">{selectedProduct.name}</h3>
-                    <p className="text-xs text-text-secondary">Category: {selectedProduct.category} · Unit: {selectedProduct.unit}</p>
+                    <h3 className="text-xs font-bold text-text-primary">{selectedProduct ? selectedProduct.name : 'All Products'}</h3>
+                    {selectedProduct ? (
+                      <p className="text-xs text-text-secondary">Category: {selectedProduct.category} · Unit: {selectedProduct.unit}</p>
+                    ) : (
+                      <p className="text-xs text-text-secondary">Overview of all products</p>
+                    )}
                   </div>
                 </div>
                 <FarmerPanelGradeChart
-                  rows={selectedProduct.dailyChartRows || farmer.dailyChartRows || []}
+                  rows={selectedProduct?.dailyChartRows || farmer.dailyChartRows || []}
                   summary={{
                     totalRupees: productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0),
                     deposited: Math.round(productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) * 0.7),
@@ -748,39 +755,58 @@ export default function FarmerDetailPage() {
         <section className={EXCEL_PANEL}>
           <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
             <span>Harvest Orders Management</span>
-            <button
-              type="button"
-              className={EXCEL_BTN_PRIMARY}
-              onClick={() => {
-                const defaultProduct = products[0] || {}
-                const defaultDate = new Date().toISOString().split('T')[0]
-                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-                const dayName = days[new Date(defaultDate).getDay()]
+            <div className="flex items-center gap-3">
+              {products.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold">Select Product:</span>
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    className={`${EXCEL_SELECT} text-black bg-white border-none py-1 px-2`}
+                  >
+                    <option value="">All Products</option>
+                    {products.map((item) => (
+                      <option key={item.id || item.productId} value={item.id || item.productId}>
+                        {item.name} ({item.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className={`${EXCEL_BTN_PRIMARY} bg-white !text-[#217346] border-none px-3 py-1`}
+                onClick={() => {
+                  const defaultProduct = selectedProduct || products[0] || {}
+                  const defaultDate = new Date().toISOString().split('T')[0]
+                  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+                  const dayName = days[new Date(defaultDate).getDay()]
 
-                setHarvestOrderForm({
-                  productId: defaultProduct.id || defaultProduct.productId || '',
-                  productName: defaultProduct.name || '',
-                  category: defaultProduct.category || 'Vegetables',
-                  date: defaultDate,
-                  day: dayName,
-                  unit: defaultProduct.unit || 'Kg',
-                  grades: [
-                    { name: 'A Grade', quantity: 0 },
-                    { name: 'B Grade', quantity: 0 },
-                  ],
-                  rejectionQty: 0,
-                  status: 'Approved',
-                })
-                setHarvestOrderModal({ mode: 'add' })
-              }}
-            >
-              + Create Harvest Order
-            </button>
+                  setHarvestOrderForm({
+                    productId: defaultProduct.id || defaultProduct.productId || '',
+                    productName: defaultProduct.name || '',
+                    category: defaultProduct.category || 'Vegetables',
+                    date: defaultDate,
+                    day: dayName,
+                    unit: defaultProduct.unit || 'Kg',
+                    grades: [
+                      { name: 'A Grade', quantity: 0 },
+                      { name: 'B Grade', quantity: 0 },
+                    ],
+                    rejectionQty: 0,
+                    status: 'Approved',
+                  })
+                  setHarvestOrderModal({ mode: 'add' })
+                }}
+              >
+                + Create Harvest Order
+              </button>
+            </div>
           </div>
           <div className="p-3">
-            {harvestOrders.length === 0 ? (
+            {productHarvestOrders.length === 0 ? (
               <div className="p-8 text-center text-xs text-text-secondary">
-                No harvest orders created yet. Click "+ Create Harvest Order" to issue a new harvest record for this farmer.
+                No harvest orders found for this product. Click "+ Create Harvest Order" to issue a new harvest record.
               </div>
             ) : (
               <div className={EXCEL_WRAP}>
@@ -793,7 +819,7 @@ export default function FarmerDetailPage() {
                       <th className={`${EXCEL_HEAD} text-left`}>Product</th>
                       <th className={`${EXCEL_HEAD} text-left`}>Category</th>
                       <th className={`${EXCEL_HEAD} text-center`}>Unit</th>
-                      {Array.from(new Set(harvestOrders.flatMap(h => (h.grades || []).map(g => g.name)))).map(g => (
+                      {Array.from(new Set(productHarvestOrders.flatMap(h => (h.grades || []).map(g => g.name)))).map(g => (
                         <th key={g} className={`${EXCEL_HEAD} text-right`}>{g} Qty</th>
                       ))}
                       <th className={`${EXCEL_HEAD} text-right text-red-600`}>Rejection Qty</th>
@@ -802,8 +828,8 @@ export default function FarmerDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {harvestOrders.map((ho, idx) => {
-                      const dynamicGrades = Array.from(new Set(harvestOrders.flatMap(h => (h.grades || []).map(g => g.name))))
+                    {productHarvestOrders.map((ho, idx) => {
+                      const dynamicGrades = Array.from(new Set(productHarvestOrders.flatMap(h => (h.grades || []).map(g => g.name))))
                       const gradeMap = {}
                       ;(ho.grades || []).forEach(g => { gradeMap[g.name] = g.quantity })
 
@@ -892,6 +918,7 @@ export default function FarmerDetailPage() {
                     onChange={(e) => setSelectedProductId(e.target.value)}
                     className={EXCEL_SELECT}
                   >
+                    <option value="">All Products</option>
                     {products.map((item) => (
                       <option key={item.id || item.productId} value={item.id || item.productId}>
                         {item.name} ({item.category})
@@ -902,12 +929,16 @@ export default function FarmerDetailPage() {
               ) : null}
             </div>
 
-            {selectedProduct ? (
+            {products.length > 0 ? (
               <div className="p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] pb-2">
                   <div>
-                    <h3 className="text-sm font-bold text-[#1F2937]">{selectedProduct.name}</h3>
-                    <p className="text-xs text-[#6B7280]">Category: {selectedProduct.category} · Location: {selectedProduct.farmLocation || "N/A"}</p>
+                    <h3 className="text-sm font-bold text-[#1F2937]">{selectedProduct ? selectedProduct.name : 'All Products'}</h3>
+                    {selectedProduct ? (
+                      <p className="text-xs text-[#6B7280]">Category: {selectedProduct.category} · Location: {selectedProduct.farmLocation || "N/A"}</p>
+                    ) : (
+                      <p className="text-xs text-[#6B7280]">Overview of all products</p>
+                    )}
                   </div>
                 </div>
 
