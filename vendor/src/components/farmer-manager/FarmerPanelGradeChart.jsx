@@ -46,20 +46,20 @@ function getGradeData(row, gName) {
   if (Array.isArray(row.grades) && row.grades.length > 0) {
     const gObj = row.grades.find((g) => g.name === gName)
     const qty = gObj?.quantity != null ? Number(gObj.quantity) : 0
-    const rate = gObj?.rate != null ? Number(gObj.rate) : 0
-    return { qty, rate, amount: qty * rate }
+    const rate = gObj?.rate !== null && gObj?.rate !== undefined && gObj?.rate !== '' ? Number(gObj.rate) : null
+    return { qty, rate, amount: qty * (rate || 0) }
   }
   if (gName === 'A Grade' || gName.startsWith('A')) {
     const qty = Number(row.gradeAQty || 0)
-    const rate = Number(row.gradeARate || 0)
-    return { qty, rate, amount: qty * rate }
+    const rate = row.gradeARate != null && row.gradeARate !== '' ? Number(row.gradeARate) : null
+    return { qty, rate, amount: qty * (rate || 0) }
   }
   if (gName === 'B Grade' || gName.startsWith('B')) {
     const qty = Number(row.gradeBQty || 0)
-    const rate = Number(row.gradeBRate || 0)
-    return { qty, rate, amount: qty * rate }
+    const rate = row.gradeBRate != null && row.gradeBRate !== '' ? Number(row.gradeBRate) : null
+    return { qty, rate, amount: qty * (rate || 0) }
   }
-  return { qty: 0, rate: 0, amount: 0 }
+  return { qty: 0, rate: null, amount: 0 }
 }
 
 function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
@@ -71,7 +71,7 @@ function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
       return {
         name: gName,
         quantity: existing.qty || 0,
-        rate: existing.rate || '',
+        rate: existing.rate !== null ? existing.rate : '',
       }
     })
   })
@@ -99,7 +99,7 @@ function RowEditModal({ row, dynamicGrades, unit, onSave, onClose }) {
       grades: gradesData.map(g => ({
         name: g.name,
         quantity: Number(g.quantity) || 0,
-        rate: Number(g.rate) || 0,
+        rate: g.rate === '' ? null : Number(g.rate),
       })),
       rejectionQty: Number(rejectionQty) || 0,
     })
@@ -312,7 +312,7 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
       date: today,
       weekday: getDayOfWeek(today),
       unit: unit || 'Kg',
-      grades: dynamicGrades.map((g) => ({ name: g, quantity: 0, rate: 0 })),
+      grades: dynamicGrades.map((g) => ({ name: g, quantity: 0, rate: null })),
       rejectionQty: 0,
     }
     const updated = [newRow, ...rows]
@@ -453,25 +453,34 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
             ) : (
               visibleRows.map((row, idx) => {
                 let rowTotal = 0
+                let hasQuantity = false
+                let missingRate = false
+
+                dynamicGrades.forEach((gName) => {
+                  const gData = getGradeData(row, gName)
+                  if (gData.qty > 0) {
+                    hasQuantity = true
+                    if (gData.rate === null) missingRate = true
+                  }
+                })
+
+                const isPending = hasQuantity && missingRate
+                const rowBgClass = isPending ? 'bg-[#FFF3E0]' : (idx % 2 === 0 ? 'bg-white' : 'bg-[#F9FBF9]')
+
                 return (
                   <tr
                     key={row.srNo || idx}
                     onClick={() => setEditingRow({ index: idx, row })}
-                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-[#F9FBF9]'} hover:bg-[#E8F5E9] cursor-pointer transition-colors group`}
+                    className="hover:brightness-95 cursor-pointer transition-all group"
                     title="Click row to edit rates and quantities"
                   >
-                    <td className="border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-center font-bold text-[#6B7280] group-hover:bg-[#C8E6C9] group-hover:text-[#1B5E20]">
+                    <td className={`border border-[#D4D4D4] px-2 py-1.5 text-center font-bold text-[#6B7280] ${rowBgClass}`}>
                       {idx + 1}
                     </td>
-                    <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="date"
-                        value={row.date || ''}
-                        onChange={(e) => handleRowFieldChange(idx, 'date', e.target.value)}
-                        className={CELL_INPUT}
-                      />
+                    <td className={`border border-[#D4D4D4] px-2 py-1.5 font-medium text-[#1F2937] ${rowBgClass}`}>
+                      {formatDate(row.date)}
                     </td>
-                    <td className="border border-[#D4D4D4] px-2 py-1.5 text-[#6B7280] font-medium">
+                    <td className={`border border-[#D4D4D4] px-2 py-1.5 text-[#6B7280] font-medium ${rowBgClass}`}>
                       {getDayOfWeek(row.date) || row.weekday || '—'}
                     </td>
                     {dynamicGrades.map((gName) => {
@@ -479,43 +488,22 @@ function DailyChartSection({ rows, setRows, unit, onSave }) {
                       rowTotal += gData.amount
                       return (
                         <tr key={gName} className="contents">
-                          <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="number"
-                              min="0"
-                              value={gData.qty || ''}
-                              onChange={(e) => handleCellGradeChange(idx, gName, 'quantity', e.target.value)}
-                              className={`${CELL_INPUT} text-right font-medium`}
-                            />
+                          <td className={`border border-[#D4D4D4] px-2 py-1.5 text-right font-medium text-[#1F2937] ${rowBgClass}`}>
+                            {gData.qty > 0 ? gData.qty : 0}
                           </td>
-                          <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={gData.rate || ''}
-                              placeholder="Rate ₹"
-                              onChange={(e) => handleCellGradeChange(idx, gName, 'rate', e.target.value)}
-                              className={`${CELL_INPUT} text-right font-bold text-[#217346] ${!gData.rate ? 'bg-yellow-50 placeholder:text-yellow-600/60' : ''}`}
-                            />
+                          <td className={`border border-[#D4D4D4] px-2 py-1.5 text-right font-bold ${gData.rate === null ? 'text-yellow-600/60' : 'text-[#217346]'} ${rowBgClass}`}>
+                            {gData.rate !== null ? gData.rate : 'Rate ₹'}
                           </td>
-                          <td className="border border-[#D4D4D4] bg-[#F9F9F9] px-2 py-1.5 text-right font-bold tabular-nums text-[#1F2937]">
+                          <td className={`border border-[#D4D4D4] px-2 py-1.5 text-right font-bold tabular-nums text-[#1F2937] ${rowBgClass}`}>
                             {formatRupee(gData.amount)}
                           </td>
                         </tr>
                       )
                     })}
-                    <td className="border border-[#D4D4D4] p-0" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="number"
-                        min="0"
-                        value={row.rejectionQty ?? ''}
-                        onChange={(e) => handleRowFieldChange(idx, 'rejectionQty', Number(e.target.value) || 0)}
-                        className={`${CELL_INPUT} text-right font-bold text-red-600`}
-                        placeholder="0"
-                      />
+                    <td className={`border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-red-600 ${rowBgClass}`}>
+                      {row.rejectionQty || 0}
                     </td>
-                    <td className="border border-[#D4D4D4] bg-[#FEF2F2] px-2 py-1.5 text-right font-extrabold tabular-nums text-[#DC2626]">
+                    <td className={`border border-[#D4D4D4] px-2 py-1.5 text-right font-extrabold tabular-nums text-[#DC2626] ${rowBgClass}`}>
                       {formatRupee(rowTotal)}
                     </td>
                   </tr>

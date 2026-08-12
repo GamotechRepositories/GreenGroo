@@ -33,20 +33,20 @@ function getGradeData(row, gName) {
   if (Array.isArray(row.grades) && row.grades.length > 0) {
     const gObj = row.grades.find((g) => g.name === gName);
     const qty = gObj?.quantity != null ? Number(gObj.quantity) : 0;
-    const rate = gObj?.rate != null ? Number(gObj.rate) : 0;
-    return { qty, rate, amount: qty * rate };
+    const rate = gObj?.rate != null && gObj?.rate !== '' ? Number(gObj.rate) : null;
+    return { qty, rate, amount: qty * (rate || 0) };
   }
   if (gName === "A Grade" || gName.startsWith("A")) {
     const qty = Number(row.gradeAQty || 0);
-    const rate = Number(row.gradeARate || 0);
-    return { qty, rate, amount: qty * rate };
+    const rate = row.gradeARate != null && row.gradeARate !== '' ? Number(row.gradeARate) : null;
+    return { qty, rate, amount: qty * (rate || 0) };
   }
   if (gName === "B Grade" || gName.startsWith("B")) {
     const qty = Number(row.gradeBQty || 0);
-    const rate = Number(row.gradeBRate || 0);
-    return { qty, rate, amount: qty * rate };
+    const rate = row.gradeBRate != null && row.gradeBRate !== '' ? Number(row.gradeBRate) : null;
+    return { qty, rate, amount: qty * (rate || 0) };
   }
-  return { qty: 0, rate: 0, amount: 0 };
+  return { qty: 0, rate: null, amount: 0 };
 }
 
 function DailyChartSection({ rows, unit, formatDate, formatRupee }) {

@@ -218,7 +218,7 @@ const farmerHarvestOrderSchema = new mongoose.Schema(
       {
         name: { type: String, default: "A Grade" },
         quantity: { type: Number, default: 0 },
-        rate: { type: Number, default: 0 },
+        rate: { type: Number, default: null },
         amount: { type: Number, default: 0 },
       },
     ],
