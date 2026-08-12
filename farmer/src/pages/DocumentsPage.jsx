@@ -150,7 +150,6 @@ function DocumentsPage() {
                 <div>
                   <h2 className="text-xs font-bold text-[#1F2937]">
                     {doc.name}
-                    {doc.required ? <span className="text-[#DC2626]"> *</span> : null}
                   </h2>
                   <p className="mt-0.5 text-xs text-[#6B7280]">
                     File: {doc.fileName || "Not uploaded"} · Uploaded: {formatDate(doc.uploadedAt)}

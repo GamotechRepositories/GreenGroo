@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PageSkeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ui/error-state'
@@ -19,10 +19,14 @@ import {
   updateFarmer,
   updateFarmerDocumentStatus,
   updateFarmerInventoryItem,
+  updateFarmerLoginStatus,
+  updateFarmerPassword,
   updateFarmerProduct,
 } from '@/api/farmerManagerApi'
 import { formatDate, formatDateTime } from '@/components/farmer-manager/FmShared'
 import { ExcelDataTable, ExcelInfoGrid, ExcelStatCard, ExcelStatusBadge } from '@/components/farmer-manager/ExcelUi'
+import FarmerPanelGradeChart from '@/components/farmer-manager/FarmerPanelGradeChart'
+import FarmerImageUploadField from '@/components/farmer-manager/FarmerImageUploadField'
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -39,7 +43,7 @@ import {
 } from '@/components/farmer-manager/excelStyles'
 import { formatCurrency } from '@/lib/utils'
 
-const TABS = ['Overview', 'Products', 'Inventory', 'Orders', 'Earnings', 'Documents', 'Profile']
+const TABS = ['Dashboard', 'Products', 'Inventory', 'Orders', 'Earnings', 'Documents', 'Profile']
 
 const CATEGORY_OPTIONS = [
   'Vegetables',
@@ -51,12 +55,15 @@ const CATEGORY_OPTIONS = [
   'Herbs',
 ]
 
+const ORDER_STATUS_OPTIONS = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled']
+
 export default function FarmerDetailPage() {
   const { farmerId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { toast } = useVendor()
-  const tab = searchParams.get('tab') || 'Overview'
+  const rawTab = searchParams.get('tab') || 'Dashboard'
+  const tab = rawTab === 'Overview' ? 'Dashboard' : rawTab
 
   const [farmer, setFarmer] = useState(null)
   const [managers, setManagers] = useState([])
@@ -70,7 +77,13 @@ export default function FarmerDetailPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Profile Edit
+  // Filters & State
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [productSearch, setProductSearch] = useState('')
+  const [productStatusFilter, setProductStatusFilter] = useState('')
+  const [orderStatusFilter, setOrderStatusFilter] = useState('')
+
+  // Profile Edit Form State
   const [editProfile, setEditProfile] = useState(searchParams.get('edit') === '1')
   const [profileForm, setProfileForm] = useState(null)
 
@@ -79,19 +92,25 @@ export default function FarmerDetailPage() {
   const [stockQty, setStockQty] = useState('')
 
   // Product Add/Edit Modal
-  const [productModal, setProductModal] = useState(null) // { mode: 'add' | 'edit', row?: any }
+  const [productModal, setProductModal] = useState(null)
   const [productForm, setProductForm] = useState(null)
 
   // Product Delete Modal
   const [deleteProductTarget, setDeleteProductTarget] = useState(null)
 
   // Inventory Item Edit Modal
-  const [editInventoryModal, setEditInventoryModal] = useState(null) // row
+  const [editInventoryModal, setEditInventoryModal] = useState(null)
   const [inventoryForm, setInventoryForm] = useState(null)
 
+  // Product Detail View State
+  const [viewProductDetail, setViewProductDetail] = useState(null)
+
   // Document Reject Modal
-  const [rejectDocModal, setRejectDocModal] = useState(null) // doc
+  const [rejectDocModal, setRejectDocModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+
+  // Order Details Modal
+  const [viewOrderModal, setViewOrderModal] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -115,6 +134,11 @@ export default function FarmerDetailPage() {
       setEarnings(e)
       setDocuments(d)
       setHistory(h)
+
+      if (p.length > 0 && !selectedProductId) {
+        setSelectedProductId(p[0].id || p[0].productId)
+      }
+
       setProfileForm({
         name: f.name || '',
         managerId: f.managerId || '',
@@ -123,18 +147,18 @@ export default function FarmerDetailPage() {
         farmName: f.farmName || '',
         farmLocation: f.farmLocation || '',
         farmAddress: f.farmAddress || '',
-        farmArea: f.farmArea || '',
+        farmArea: f.farmArea || f.totalFarmArea || '',
         farmType: f.farmType || 'Organic',
         status: f.status || 'Active',
         bank: {
-          accountHolder: f.bank?.accountHolder || '',
+          accountHolder: f.bank?.accountHolder || f.bank?.accountHolderName || '',
           bankName: f.bank?.bankName || '',
           accountNumber: f.bank?.accountNumber || '',
           ifsc: f.bank?.ifsc || '',
         },
       })
     } catch (err) {
-      setError(err.message || 'Failed to load farmer')
+      setError(err.message || 'Failed to load farmer details')
     } finally {
       setLoading(false)
     }
@@ -151,6 +175,40 @@ export default function FarmerDetailPage() {
     setSearchParams(params)
     setEditProfile(false)
   }
+
+  // Calculated Stats
+  const dashboardStats = useMemo(() => {
+    const totalProducts = products.length
+    const availableStock = inventory.reduce((sum, item) => sum + (Number(item.currentStock) || 0), 0)
+    const totalOrders = orders.length
+    const pendingOrders = orders.filter((o) => o.status === 'Pending' || o.status === 'Processing').length
+    const totalEarnings = earnings.summary?.totalEarnings || 0
+    return { totalProducts, availableStock, totalOrders, pendingOrders, totalEarnings }
+  }, [products, inventory, orders, earnings])
+
+  // Filtered Products
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchQ =
+        !productSearch ||
+        p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+        p.category?.toLowerCase().includes(productSearch.toLowerCase())
+      const matchStatus = !productStatusFilter || p.status === productStatusFilter
+      return matchQ && matchStatus
+    })
+  }, [products, productSearch, productStatusFilter])
+
+  // Filtered Orders
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      return !orderStatusFilter || o.status === orderStatusFilter
+    })
+  }, [orders, orderStatusFilter])
+
+  // Selected Product for Grade Chart
+  const selectedProduct = useMemo(() => {
+    return products.find((p) => (p.id || p.productId) === selectedProductId) || products[0] || null
+  }, [products, selectedProductId])
 
   if (loading) return <PageSkeleton />
   if (error) return <ErrorState description={error} onRetry={load} />
@@ -173,67 +231,48 @@ export default function FarmerDetailPage() {
       status: 'Approved',
       gradeAQty: 50,
       gradeBQty: 25,
-      gradeCQty: 0,
     })
     setProductModal({ mode: 'add' })
   }
 
-  const openEditProductModal = (row) => {
+  const openEditProductModal = (product) => {
     setProductForm({
-      id: row.id,
-      name: row.name || '',
-      category: row.category || 'Vegetables',
-      subCategory: row.subCategory || '',
-      description: row.description || '',
-      image: row.image || row.imageUrl || '',
-      unit: row.unit || 'Kg',
-      harvestDate: row.harvestDate ? row.harvestDate.split('T')[0] : '',
-      produceType: row.produceType || 'organic',
-      farmLocation: row.farmLocation || '',
-      status: row.status || 'Approved',
-      gradeAQty: row.grades?.[0]?.quantity ?? 0,
-      gradeBQty: row.grades?.[1]?.quantity ?? 0,
-      gradeCQty: row.grades?.[2]?.quantity ?? 0,
+      id: product.id || product.productId,
+      name: product.name || '',
+      category: product.category || 'Vegetables',
+      subCategory: product.subCategory || 'Fresh Produce',
+      description: product.description || '',
+      image: product.image || '',
+      unit: product.unit || 'Kg',
+      harvestDate: product.harvestDate || new Date().toISOString().split('T')[0],
+      produceType: product.organic !== false ? 'organic' : 'non-organic',
+      farmLocation: product.farmLocation || farmer.farmLocation || '',
+      status: product.status || 'Approved',
+      gradeAQty: product.gradeAQty ?? product.grades?.[0]?.quantity ?? 0,
+      gradeBQty: product.gradeBQty ?? product.grades?.[1]?.quantity ?? 0,
     })
-    setProductModal({ mode: 'edit', row })
+    setProductModal({ mode: 'edit', row: product })
   }
 
   const handleSaveProduct = async (e) => {
     e.preventDefault()
+    if (!productForm.name.trim()) {
+      toast('Product name is required', 'error')
+      return
+    }
     setBusy(true)
     try {
-      const grades = [
-        { id: 'g-a', label: 'Grade A', quantity: Number(productForm.gradeAQty) || 0 },
-        { id: 'g-b', label: 'Grade B', quantity: Number(productForm.gradeBQty) || 0 },
-        { id: 'g-c', label: 'Grade C', quantity: Number(productForm.gradeCQty) || 0 },
-      ]
-
-      const payload = {
-        name: productForm.name,
-        category: productForm.category,
-        subCategory: productForm.subCategory,
-        description: productForm.description,
-        image: productForm.image,
-        unit: productForm.unit,
-        harvestDate: productForm.harvestDate,
-        produceType: productForm.produceType,
-        farmLocation: productForm.farmLocation,
-        status: productForm.status,
-        grades,
-      }
-
       if (productModal.mode === 'add') {
-        await createFarmerProduct(farmerId, payload)
-        toast('Product added for farmer')
+        await createFarmerProduct(farmerId, productForm)
+        toast('Product added successfully for farmer')
       } else {
-        await updateFarmerProduct(farmerId, productForm.id, payload)
-        toast('Product updated')
+        await updateFarmerProduct(farmerId, productForm.id, productForm)
+        toast('Product updated successfully')
       }
-
       setProductModal(null)
       await load()
     } catch (err) {
-      toast(err.message || 'Product save failed', 'error')
+      toast(err.message || 'Failed to save product', 'error')
     } finally {
       setBusy(false)
     }
@@ -243,158 +282,130 @@ export default function FarmerDetailPage() {
     if (!deleteProductTarget) return
     setBusy(true)
     try {
-      await deleteFarmerProduct(farmerId, deleteProductTarget.id)
+      await deleteFarmerProduct(farmerId, deleteProductTarget.id || deleteProductTarget.productId)
       toast('Product deleted')
       setDeleteProductTarget(null)
       await load()
     } catch (err) {
-      toast(err.message || 'Delete failed', 'error')
+      toast(err.message || 'Failed to delete product', 'error')
     } finally {
       setBusy(false)
     }
-  }
-
-  // ----------------------------------------------------
-  // Inventory Edit Helper
-  // ----------------------------------------------------
-  const openEditInventoryModal = (row) => {
-    setInventoryForm({
-      id: row.id,
-      productName: row.productName,
-      grade: row.grade,
-      currentStock: row.currentStock ?? 0,
-      reservedStock: row.reservedStock ?? 0,
-      soldStock: row.soldStock ?? 0,
-      status: row.status || 'In Stock',
-      unit: row.unit || 'Kg',
-    })
-    setEditInventoryModal(row)
   }
 
   const handleSaveInventoryItem = async (e) => {
     e.preventDefault()
     setBusy(true)
     try {
-      await updateFarmerInventoryItem(farmerId, inventoryForm.id, {
-        currentStock: Number(inventoryForm.currentStock) || 0,
-        reservedStock: Number(inventoryForm.reservedStock) || 0,
-        soldStock: Number(inventoryForm.soldStock) || 0,
-        status: inventoryForm.status,
-        unit: inventoryForm.unit,
-      })
+      await updateFarmerInventoryItem(farmerId, editInventoryModal.id, inventoryForm)
       toast('Inventory item updated')
       setEditInventoryModal(null)
       await load()
     } catch (err) {
-      toast(err.message || 'Inventory update failed', 'error')
+      toast(err.message || 'Failed to update inventory', 'error')
     } finally {
       setBusy(false)
     }
   }
 
-  // ----------------------------------------------------
-  // Document Approval Helpers
-  // ----------------------------------------------------
-  const handleApproveDocument = async (doc) => {
+  const handleDocumentApprove = async (docId) => {
     setBusy(true)
     try {
-      await updateFarmerDocumentStatus(farmerId, doc.id, 'Approved', '')
-      toast(`Document "${doc.name}" approved`)
+      await updateFarmerDocumentStatus(farmerId, docId, 'Approved')
+      toast('Document approved')
       await load()
     } catch (err) {
-      toast(err.message || 'Approval failed', 'error')
+      toast(err.message || 'Failed to approve document', 'error')
     } finally {
       setBusy(false)
     }
   }
 
-  const handleConfirmRejectDocument = async () => {
+  const handleDocumentRejectConfirmed = async () => {
     if (!rejectDocModal) return
     setBusy(true)
     try {
       await updateFarmerDocumentStatus(farmerId, rejectDocModal.id, 'Rejected', rejectReason)
-      toast(`Document "${rejectDocModal.name}" rejected`)
+      toast('Document rejected')
       setRejectDocModal(null)
       setRejectReason('')
       await load()
     } catch (err) {
-      toast(err.message || 'Rejection failed', 'error')
+      toast(err.message || 'Failed to reject document', 'error')
     } finally {
       setBusy(false)
     }
   }
 
-  // Columns Definitions
+  // ----------------------------------------------------
+  // Columns Specifications
+  // ----------------------------------------------------
   const productColumns = [
     {
       key: 'image',
-      header: 'Photo',
-      width: '60px',
+      label: 'Photo',
       render: (row) => (
         <img
-          src={row.image || row.imageUrl || '/categories/grocery.webp'}
+          src={row.image || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=100&auto=format&fit=crop'}
           alt={row.name}
-          className="h-7 w-7 rounded border border-[#D4D4D4] object-cover"
-          onError={(e) => {
-            e.currentTarget.src = '/categories/grocery.webp'
-          }}
+          className="h-9 w-9 rounded object-cover border border-[#D4D4D4]"
         />
       ),
     },
-    { key: 'name', header: 'Product Name' },
-    { key: 'category', header: 'Category' },
-    { key: 'subCategory', header: 'Sub Category' },
+    { key: 'name', label: 'Product Name' },
+    { key: 'category', label: 'Category' },
+    { key: 'unit', label: 'Unit' },
     {
-      key: 'totalQuantity',
-      header: 'Total Qty',
-      align: 'right',
-      render: (row) => `${row.totalQuantity} ${row.unit}`,
+      key: 'harvestDate',
+      label: 'Harvest Date',
+      render: (row) => formatDate(row.harvestDate),
     },
+    { key: 'farmLocation', label: 'Farm Location' },
     {
-      key: 'grades',
-      header: 'Grades Breakdown',
-      wrap: true,
+      key: 'organic',
+      label: 'Type',
       render: (row) => (
-        <div className="space-y-0.5">
-          {row.grades.map((g) => (
-            <div key={g.id || g.label}>
-              {g.label} — {g.quantity} {row.unit}
-            </div>
-          ))}
-        </div>
+        <span className="font-medium text-[#217346]">
+          {row.organic !== false ? 'Organic' : 'Non-Organic'}
+        </span>
       ),
     },
-    { key: 'harvestDate', header: 'Harvest Date', render: (row) => formatDate(row.harvestDate) },
     {
-      key: 'status',
-      header: 'Status',
-      render: (row) => <ExcelStatusBadge status={row.status} />,
+      key: 'gradeAQty',
+      label: 'Grade A Qty',
+      align: 'right',
+      render: (row) => `${row.gradeAQty ?? row.grades?.[0]?.quantity ?? 0} ${row.unit || 'Kg'}`,
     },
     {
-      key: 'action',
-      header: 'Action',
+      key: 'gradeBQty',
+      label: 'Grade B Qty',
+      align: 'right',
+      render: (row) => `${row.gradeBQty ?? row.grades?.[1]?.quantity ?? 0} ${row.unit || 'Kg'}`,
+    },
+    {
+      key: 'availableQuantity',
+      label: 'Available Stock',
+      align: 'right',
       render: (row) => (
-        <div className="flex flex-wrap gap-1">
-          <button
-            type="button"
-            className={`${EXCEL_BTN_OUTLINE} py-0.5 px-1.5`}
-            onClick={() => navigate(`/farmer-manager/farmers/${farmerId}/products/${row.id}`)}
-          >
+        <span className="font-bold text-[#217346]">
+          {(Number(row.gradeAQty ?? row.grades?.[0]?.quantity ?? 0) + Number(row.gradeBQty ?? row.grades?.[1]?.quantity ?? 0))} {row.unit || 'Kg'}
+        </span>
+      ),
+    },
+    { key: 'status', label: 'Status', type: 'badge' },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (row) => (
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => setViewProductDetail(row)}>
             View
           </button>
-          <button
-            type="button"
-            className={`${EXCEL_BTN_PRIMARY} py-0.5 px-1.5`}
-            onClick={() => openEditProductModal(row)}
-          >
+          <button type="button" className={EXCEL_BTN} onClick={() => openEditProductModal(row)}>
             Edit
           </button>
-          <button
-            type="button"
-            className={`${EXCEL_BTN_DANGER} py-0.5 px-1.5`}
-            onClick={() => setDeleteProductTarget(row)}
-          >
-            Del
+          <button type="button" className={EXCEL_BTN_DANGER} onClick={() => setDeleteProductTarget(row)}>
+            Delete
           </button>
         </div>
       ),
@@ -402,63 +413,47 @@ export default function FarmerDetailPage() {
   ]
 
   const inventoryColumns = [
-    { key: 'productName', header: 'Product' },
-    { key: 'grade', header: 'Grade' },
+    { key: 'productName', label: 'Product Name' },
+    { key: 'grade', label: 'Grade' },
     {
       key: 'currentStock',
-      header: 'Current Stock',
+      label: 'Current Stock',
       align: 'right',
-      render: (row) => `${row.currentStock} ${row.unit}`,
+      render: (row) => (
+        <span className="font-bold">{row.currentStock} {row.unit}</span>
+      ),
     },
     {
       key: 'reservedStock',
-      header: 'Reserved',
+      label: 'Reserved',
       align: 'right',
-      render: (row) => `${row.reservedStock} ${row.unit}`,
+      render: (row) => `${row.reservedStock || 0} ${row.unit}`,
     },
     {
       key: 'soldStock',
-      header: 'Sold',
+      label: 'Sold Stock',
       align: 'right',
-      render: (row) => `${row.soldStock} ${row.unit}`,
+      render: (row) => `${row.soldStock || 0} ${row.unit}`,
     },
-    {
-      key: 'totalStock',
-      header: 'Total Stock',
-      align: 'right',
-      render: (row) => `${row.totalStock} ${row.unit}`,
-    },
-    { key: 'status', header: 'Status', render: (row) => <ExcelStatusBadge status={row.status} /> },
-    {
-      key: 'lastUpdated',
-      header: 'Last Updated',
-      render: (row) => formatDateTime(row.lastUpdated),
-    },
+    { key: 'status', label: 'Stock Status', type: 'badge' },
     {
       key: 'actions',
-      header: 'Actions',
+      label: 'Adjust Stock',
       render: (row) => (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
-            className={`${EXCEL_BTN_PRIMARY} py-0.5 px-1.5`}
-            onClick={() => setStockModal({ mode: 'add', row })}
+            className={EXCEL_BTN_PRIMARY}
+            onClick={() => setStockModal({ row, mode: 'add' })}
           >
             + Add Stock
           </button>
           <button
             type="button"
-            className={`${EXCEL_BTN_DANGER} py-0.5 px-1.5`}
-            onClick={() => setStockModal({ mode: 'remove', row })}
+            className={EXCEL_BTN_DANGER}
+            onClick={() => setStockModal({ row, mode: 'remove' })}
           >
-            Remove
-          </button>
-          <button
-            type="button"
-            className={`${EXCEL_BTN_OUTLINE} py-0.5 px-1.5`}
-            onClick={() => openEditInventoryModal(row)}
-          >
-            Edit
+            - Remove
           </button>
         </div>
       ),
@@ -466,314 +461,465 @@ export default function FarmerDetailPage() {
   ]
 
   const historyColumns = [
-    { key: 'at', header: 'Date & Time', render: (row) => formatDateTime(row.at) },
-    { key: 'productName', header: 'Product' },
-    { key: 'grade', header: 'Grade' },
-    { key: 'previousStock', header: 'Previous Stock', align: 'right' },
-    { key: 'action', header: 'Action' },
+    { key: 'date', label: 'Date & Time', render: (row) => formatDateTime(row.date) },
+    { key: 'productName', label: 'Product' },
+    { key: 'grade', label: 'Grade' },
+    { key: 'type', label: 'Action Type' },
     {
-      key: 'changedQuantity',
-      header: 'Changed Qty',
+      key: 'change',
+      label: 'Stock Change',
       align: 'right',
       render: (row) => (
-        <span className={row.changedQuantity >= 0 ? 'text-emerald-700 font-semibold' : 'text-red-600 font-semibold'}>
-          {row.changedQuantity >= 0 ? `+${row.changedQuantity}` : row.changedQuantity}
+        <span className={row.change > 0 ? 'font-bold text-[#217346]' : 'font-bold text-[#DC2626]'}>
+          {row.change > 0 ? `+${row.change}` : row.change}
         </span>
       ),
     },
-    { key: 'newStock', header: 'New Stock', align: 'right' },
-    { key: 'updatedBy', header: 'Updated By' },
+    { key: 'previousStock', label: 'Prev Stock', align: 'right' },
+    { key: 'newStock', label: 'New Stock', align: 'right' },
+    { key: 'updatedBy', label: 'Updated By' },
   ]
 
   const orderColumns = [
-    { key: 'id', header: 'Order ID' },
-    { key: 'customer', header: 'Customer' },
-    { key: 'product', header: 'Product' },
-    { key: 'grade', header: 'Grade' },
-    { key: 'quantity', header: 'Qty', align: 'right' },
+    { key: 'id', label: 'Order ID' },
+    { key: 'customerName', label: 'Customer', render: (row) => row.customer?.name || row.customerName || '—' },
+    { key: 'productName', label: 'Product', render: (row) => row.products?.[0]?.name || row.productName || '—' },
+    { key: 'quantity', label: 'Qty', align: 'right', render: (row) => `${row.quantity || row.products?.[0]?.quantity || 1} ${row.unit || 'Kg'}` },
+    { key: 'amount', label: 'Amount', align: 'right', render: (row) => <span className="font-bold">{formatCurrency(row.amount)}</span> },
+    { key: 'deliveryType', label: 'Delivery' },
+    { key: 'status', label: 'Order Status', type: 'badge' },
+    { key: 'orderDate', label: 'Order Date', render: (row) => formatDate(row.orderDate) },
     {
-      key: 'amount',
-      header: 'Amount',
-      align: 'right',
-      render: (row) => formatCurrency(row.amount),
+      key: 'actions',
+      label: 'Action',
+      render: (row) => (
+        <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => setViewOrderModal(row)}>
+          View Order
+        </button>
+      ),
     },
-    { key: 'status', header: 'Status', render: (row) => <ExcelStatusBadge status={row.status} /> },
-    { key: 'orderDate', header: 'Order Date', render: (row) => formatDate(row.orderDate) },
   ]
 
   const txnColumns = [
-    { key: 'id', header: 'Transaction ID' },
-    { key: 'orderId', header: 'Order ID' },
-    { key: 'product', header: 'Product' },
-    { key: 'amount', header: 'Amount', align: 'right', render: (row) => formatCurrency(row.amount) },
-    {
-      key: 'commission',
-      header: 'Commission',
-      align: 'right',
-      render: (row) => formatCurrency(row.commission),
-    },
-    {
-      key: 'netEarnings',
-      header: 'Net Earnings',
-      align: 'right',
-      render: (row) => formatCurrency(row.netEarnings),
-    },
-    { key: 'status', header: 'Status', render: (row) => <ExcelStatusBadge status={row.status} /> },
-    { key: 'date', header: 'Date', render: (row) => formatDate(row.date) },
+    { key: 'id', label: 'Transaction ID' },
+    { key: 'orderId', label: 'Order ID' },
+    { key: 'amount', label: 'Gross Amount', align: 'right', render: (row) => formatCurrency(row.amount) },
+    { key: 'commission', label: 'Commission', align: 'right', render: (row) => formatCurrency(row.commission) },
+    { key: 'netEarnings', label: 'Net Earnings', align: 'right', render: (row) => <span className="font-bold text-[#217346]">{formatCurrency(row.netEarnings)}</span> },
+    { key: 'status', label: 'Status', type: 'badge' },
+    { key: 'date', label: 'Date', render: (row) => formatDate(row.date) },
   ]
 
   const docColumns = [
-    { key: 'name', header: 'Document Name' },
-    {
-      key: 'uploadedAt',
-      header: 'Uploaded Date',
-      render: (row) => (row.uploadedAt ? formatDate(row.uploadedAt) : '—'),
-    },
-    { key: 'status', header: 'Status', render: (row) => <ExcelStatusBadge status={row.status} /> },
-    {
-      key: 'rejectionReason',
-      header: 'Rejection Reason',
-      wrap: true,
-      render: (row) => row.rejectionReason || '—',
-    },
+    { key: 'name', label: 'Document Name' },
+    { key: 'fileName', label: 'File Name', render: (row) => row.fileName || 'Not uploaded' },
+    { key: 'uploadedAt', label: 'Uploaded Date', render: (row) => formatDate(row.uploadedAt) },
+    { key: 'status', label: 'Verification Status', type: 'badge' },
     {
       key: 'actions',
-      header: 'Actions',
+      label: 'Verification Actions',
       render: (row) => (
-        <div className="flex gap-1">
-          <button
-            type="button"
-            className={`${EXCEL_BTN_PRIMARY} py-0.5 px-1.5`}
-            onClick={() => handleApproveDocument(row)}
-            disabled={busy || row.status === 'Approved'}
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            className={`${EXCEL_BTN_DANGER} py-0.5 px-1.5`}
-            onClick={() => {
-              setRejectDocModal(row)
-              setRejectReason(row.rejectionReason || '')
-            }}
-            disabled={busy || row.status === 'Rejected'}
-          >
-            Reject
-          </button>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          {row.fileName ? (
+            <a href={row.fileUrl || '#'} download={row.fileName} className={EXCEL_BTN}>
+              Download
+            </a>
+          ) : null}
+          {row.status !== 'Approved' ? (
+            <button
+              type="button"
+              className={EXCEL_BTN_PRIMARY}
+              onClick={() => handleDocumentApprove(row.id)}
+            >
+              Approve
+            </button>
+          ) : null}
+          {row.status !== 'Rejected' ? (
+            <button
+              type="button"
+              className={EXCEL_BTN_DANGER}
+              onClick={() => {
+                setRejectDocModal(row)
+                setRejectReason('')
+              }}
+            >
+              Reject
+            </button>
+          ) : null}
         </div>
       ),
     },
   ]
 
   return (
-    <div className="space-y-3 font-[Segoe_UI,Calibri,system-ui,sans-serif] text-[12px] text-[#1F2937]">
-      {/* Header Bar */}
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="space-y-4">
+      {/* Header & Farmer Switcher */}
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#D4D4D4] pb-3">
         <div>
-          <Link
-            to={farmer.managerId ? `/farmer-manager/managers/${farmer.managerId}` : '/farmer-manager/farmers'}
-            className="text-xs font-semibold text-[#217346] hover:underline"
-          >
-            ← {farmer.managerName !== '—' ? farmer.managerName : 'All Farmers'}
+          <Link to="/farmer-manager/farmers" className="text-xs font-semibold text-primary">
+            ← Back to All Farmers
           </Link>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-10 w-10 items-center justify-center border border-[#D4D4D4] bg-[#F2F2F2] text-xs font-bold text-[#217346]">
-              {(farmer.name || 'F')
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((p) => p[0]?.toUpperCase())
-                .join('')}
+          <div className="flex items-center gap-2 mt-1">
+            <h1 className="text-xl font-bold text-text-primary">{farmer.name}</h1>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                farmer.status === 'Active' ? 'bg-[#E8F5E9] text-[#217346]' : 'bg-[#FEE2E2] text-[#DC2626]'
+              }`}
+            >
+              {farmer.status}
             </span>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className={EXCEL_PAGE_TITLE}>{farmer.name}</h1>
-                <ExcelStatusBadge status={farmer.status} />
-                <ExcelStatusBadge status={farmer.verificationStatus} />
-              </div>
-              <p className={EXCEL_PAGE_SUB}>
-                Manager: <span className="font-semibold text-[#1F2937]">{farmer.managerName}</span>
-                {' · '}
-                {farmer.farmName} · {farmer.farmLocation}
-              </p>
-            </div>
           </div>
+          <p className="text-xs text-text-secondary">
+            Manager: <strong>{farmer.managerName || 'Unassigned'}</strong> · Mobile: <strong>{farmer.mobile}</strong> · Location: <strong>{farmer.farmLocation || 'N/A'}</strong>
+          </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             className={EXCEL_BTN_OUTLINE}
-            onClick={async () => {
-              const next = farmer.status === 'Active' ? 'Inactive' : 'Active'
-              await setFarmerStatus(farmer.id, next)
-              toast(`Farmer marked ${next}`)
-              load()
-            }}
+            onClick={() => setTab('Profile')}
           >
-            {farmer.status === 'Active' ? 'Deactivate' : 'Activate'}
+            🔑 Credentials & Profile
           </button>
           <button
             type="button"
             className={EXCEL_BTN_PRIMARY}
-            onClick={() => {
-              setTab('Profile')
-              setEditProfile(true)
-            }}
+            onClick={openAddProductModal}
           >
-            ✏️ Edit All Profile Fields
+            + Add Product
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-0 border border-[#D4D4D4] bg-white">
-        {TABS.map((item) => (
+      {/* Excel Sheet Navigation Tabs */}
+      <div className="flex flex-wrap gap-1 border-b border-[#D4D4D4]">
+        {TABS.map((t) => (
           <button
-            key={item}
+            key={t}
             type="button"
-            onClick={() => setTab(item)}
-            className={`${tab === item ? EXCEL_TAB_ACTIVE : EXCEL_TAB} border-0 border-r border-[#D4D4D4] last:border-r-0`}
+            onClick={() => setTab(t)}
+            className={tab === t ? EXCEL_TAB_ACTIVE : EXCEL_TAB}
           >
-            {item}
+            {t}
           </button>
         ))}
       </div>
 
-      {/* Tab: Overview */}
-      {tab === 'Overview' ? (
-        <div className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <ExcelStatCard title="Total Products" value={farmer.totalProducts} />
-            <ExcelStatCard title="Total Stock" value={farmer.totalStock} />
-            <ExcelStatCard title="Total Orders" value={farmer.totalOrders} />
-            <ExcelStatCard title="Total Earnings" value={formatCurrency(farmer.totalEarnings)} />
-            <ExcelStatCard title="Verification" value={farmer.verificationStatus} />
-            <ExcelStatCard title="Farm Type" value={farmer.farmType} />
+      {/* Tab 1: Dashboard / Overview */}
+      {tab === 'Dashboard' ? (
+        <div className="space-y-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            <ExcelStatCard title="Total Products" value={dashboardStats.totalProducts} />
+            <ExcelStatCard title="Available Stock" value={`${dashboardStats.availableStock} Kg`} />
+            <ExcelStatCard title="Total Orders" value={dashboardStats.totalOrders} />
+            <ExcelStatCard title="Pending Orders" value={dashboardStats.pendingOrders} />
+            <ExcelStatCard title="Total Earnings" value={formatCurrency(dashboardStats.totalEarnings)} />
           </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <section className={EXCEL_PANEL}>
-              <h2 className={EXCEL_PANEL_HEAD}>Personal Information</h2>
-              <ExcelInfoGrid
-                rows={[
-                  { label: 'Farmer Name', value: farmer.name },
-                  { label: 'Assigned Manager', value: farmer.managerName },
-                  { label: 'Mobile Number', value: farmer.mobile },
-                  { label: 'Email', value: farmer.email },
-                  { label: 'Status', value: farmer.status },
-                  { label: 'Verification', value: farmer.verificationStatus },
-                ]}
-              />
-            </section>
-            <section className={EXCEL_PANEL}>
-              <h2 className={EXCEL_PANEL_HEAD}>Farm & Bank Information</h2>
-              <ExcelInfoGrid
-                rows={[
-                  { label: 'Farm Name', value: farmer.farmName },
-                  { label: 'Farm Location', value: farmer.farmLocation },
-                  { label: 'Farm Address', value: farmer.farmAddress },
-                  { label: 'Farm Area', value: farmer.farmArea },
-                  { label: 'Farm Type', value: farmer.farmType },
-                  { label: 'Bank Name', value: farmer.bank?.bankName },
-                  { label: 'Account Number', value: farmer.bank?.accountNumber },
-                  { label: 'IFSC Code', value: farmer.bank?.ifsc },
-                ]}
-              />
-            </section>
-          </div>
+
+          <section className={`${EXCEL_PANEL} p-3`}>
+            <FarmerPanelGradeChart
+              rows={farmer.dailyChartRows || []}
+              summary={{
+                totalRupees: dashboardStats.totalEarnings,
+                deposited: Math.round(dashboardStats.totalEarnings * 0.7),
+                balance: Math.round(dashboardStats.totalEarnings * 0.3),
+              }}
+              title="All Products Spreadsheet Grade Chart"
+            />
+          </section>
+
+          <section className={EXCEL_PANEL}>
+            <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+              <span>Product Wise Grade Spreadsheet</span>
+              {products.length > 0 ? (
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  className={EXCEL_SELECT}
+                >
+                  {products.map((item) => (
+                    <option key={item.id || item.productId} value={item.id || item.productId}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+            {selectedProduct ? (
+              <div className="p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-text-primary">{selectedProduct.name}</h3>
+                    <p className="text-xs text-text-secondary">Category: {selectedProduct.category} · Unit: {selectedProduct.unit}</p>
+                  </div>
+                </div>
+                <FarmerPanelGradeChart
+                  rows={selectedProduct.dailyChartRows || farmer.dailyChartRows || []}
+                  summary={{
+                    totalRupees: Number(selectedProduct.gradeAQty || 0) * 40 + Number(selectedProduct.gradeBQty || 0) * 25,
+                    deposited: Math.round((Number(selectedProduct.gradeAQty || 0) * 40 + Number(selectedProduct.gradeBQty || 0) * 25) * 0.7),
+                    balance: Math.round((Number(selectedProduct.gradeAQty || 0) * 40 + Number(selectedProduct.gradeBQty || 0) * 25) * 0.3),
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="p-8 text-center text-xs text-text-secondary">No products available for this farmer.</div>
+            )}
+          </section>
         </div>
       ) : null}
 
-      {/* Tab: Products */}
+      {/* Tab 2: Products */}
       {tab === 'Products' ? (
-        <section className={EXCEL_PANEL}>
-          <div className={`${EXCEL_PANEL_HEAD} flex items-center justify-between`}>
-            <span>Farmer Products ({products.length})</span>
-            <button
-              type="button"
-              className={EXCEL_BTN_PRIMARY}
-              onClick={openAddProductModal}
-            >
-              + Add Product
-            </button>
-          </div>
-          <ExcelDataTable
-            columns={productColumns}
-            rows={products}
-            emptyMessage="No products for this farmer. Click '+ Add Product' to create one."
-            onRowClick={(row) => navigate(`/farmer-manager/farmers/${farmerId}/products/${row.id}`)}
-          />
-        </section>
-      ) : null}
-
-      {/* Tab: Inventory */}
-      {tab === 'Inventory' ? (
-        <div className="space-y-3">
-          <section className={EXCEL_PANEL}>
-            <div className={`${EXCEL_PANEL_HEAD} flex items-center justify-between`}>
-              <span>Inventory Stock</span>
+        viewProductDetail ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+                <button
+                  type="button"
+                  onClick={() => setViewProductDetail(null)}
+                  className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#217346]"
+                >
+                  ← Back to products
+                </button>
+                <span className="hidden h-4 w-px bg-[#E5E7EB] sm:block" />
+                <h2 className="truncate text-base font-bold text-text-primary">{viewProductDetail.name}</h2>
+                <ExcelStatusBadge status={viewProductDetail.status} />
+                {viewProductDetail.category ? (
+                  <span className="text-xs text-[#6B7280]">{viewProductDetail.category}</span>
+                ) : null}
+              </div>
               <button
                 type="button"
                 className={EXCEL_BTN_PRIMARY}
-                onClick={openAddProductModal}
+                onClick={() => openEditProductModal(viewProductDetail)}
               >
-                + Add New Product Stock
+                Edit Product
               </button>
             </div>
-            <ExcelDataTable columns={inventoryColumns} rows={inventory} emptyMessage="No inventory rows." />
+
+            {/* Product Summary Header Card */}
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-[#D4D4D4] bg-white p-4 shadow-sm">
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#FAFAFA]">
+                <img
+                  src={viewProductDetail.image || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300&auto=format&fit=crop'}
+                  alt={viewProductDetail.name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="grid flex-1 grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+                <div>
+                  <span className="block font-semibold text-[#6B7280]">Harvest Date</span>
+                  <span className="font-medium text-[#1F2937]">{formatDate(viewProductDetail.harvestDate)}</span>
+                </div>
+                <div>
+                  <span className="block font-semibold text-[#6B7280]">Farm Location</span>
+                  <span className="font-medium text-[#1F2937]">{viewProductDetail.farmLocation || '—'}</span>
+                </div>
+                <div>
+                  <span className="block font-semibold text-[#6B7280]">Type</span>
+                  <span className="font-medium text-[#1F2937]">
+                    {viewProductDetail.produceType === 'non-organic' || viewProductDetail.organic === false ? 'Non-Organic' : 'Organic'}
+                  </span>
+                </div>
+                <div>
+                  <span className="block font-semibold text-[#6B7280]">Available Qty</span>
+                  <span className="font-medium text-[#1F2937]">
+                    {(Number(viewProductDetail.gradeAQty ?? 0) + Number(viewProductDetail.gradeBQty ?? 0))} {viewProductDetail.unit || 'Kg'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Overview, Sales Summary & Daily Excel Grade Chart Spreadsheet */}
+            <FarmerPanelGradeChart
+              rows={viewProductDetail.dailyChartRows || []}
+              summary={{
+                totalRupees: viewProductDetail.dailyChartRows?.length
+                  ? (Number(viewProductDetail.gradeAQty || 0) * 35 + Number(viewProductDetail.gradeBQty || 0) * 28)
+                  : 0,
+                deposited: 0,
+                balance: 0,
+              }}
+            />
+          </div>
+        ) : (
+          <section className={EXCEL_PANEL}>
+            <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+              <span>Products Management</span>
+              <button type="button" className={EXCEL_BTN_PRIMARY} onClick={openAddProductModal}>
+                + Add Product
+              </button>
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="search"
+                  placeholder="Search products by name or category..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className={`${EXCEL_INPUT} max-w-xs`}
+                />
+                <select
+                  value={productStatusFilter}
+                  onChange={(e) => setProductStatusFilter(e.target.value)}
+                  className={EXCEL_SELECT}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <ExcelDataTable
+                columns={productColumns}
+                rows={filteredProducts}
+                emptyMessage="No products match your query."
+                onRowClick={(row) => setViewProductDetail(row)}
+              />
+            </div>
+          </section>
+        )
+      ) : null}
+
+      {/* Tab 3: Inventory */}
+      {tab === 'Inventory' ? (
+        <div className="space-y-4">
+          <section className={EXCEL_PANEL}>
+            <h2 className={EXCEL_PANEL_HEAD}>Inventory Stock Balances</h2>
+            <ExcelDataTable columns={inventoryColumns} rows={inventory} emptyMessage="No inventory entries found." />
           </section>
           <section className={EXCEL_PANEL}>
-            <h2 className={EXCEL_PANEL_HEAD}>Inventory Stock History</h2>
-            <ExcelDataTable columns={historyColumns} rows={history} emptyMessage="No inventory history yet." />
+            <h2 className={EXCEL_PANEL_HEAD}>Stock Movement History Log</h2>
+            <ExcelDataTable columns={historyColumns} rows={history} emptyMessage="No stock adjustments recorded yet." />
           </section>
         </div>
       ) : null}
 
-      {/* Tab: Orders */}
+      {/* Tab 4: Orders */}
       {tab === 'Orders' ? (
         <section className={EXCEL_PANEL}>
-          <h2 className={EXCEL_PANEL_HEAD}>Orders ({orders.length})</h2>
-          <ExcelDataTable columns={orderColumns} rows={orders} emptyMessage="No orders for this farmer." />
+          <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
+            <span>Orders Management</span>
+            <select
+              value={orderStatusFilter}
+              onChange={(e) => setOrderStatusFilter(e.target.value)}
+              className={EXCEL_SELECT}
+            >
+              <option value="">All Order Statuses</option>
+              {ORDER_STATUS_OPTIONS.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="p-3">
+            <ExcelDataTable columns={orderColumns} rows={filteredOrders} emptyMessage="No orders found for this farmer." />
+          </div>
         </section>
       ) : null}
 
-      {/* Tab: Earnings */}
+      {/* Tab 5: Earnings */}
       {tab === 'Earnings' ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <ExcelStatCard title="Total Earnings" value={formatCurrency(earnings.summary.totalEarnings)} />
-            <ExcelStatCard title="Available Earnings" value={formatCurrency(earnings.summary.availableEarnings)} />
-            <ExcelStatCard title="Pending Earnings" value={formatCurrency(earnings.summary.pendingEarnings)} />
-            <ExcelStatCard title="Paid Earnings" value={formatCurrency(earnings.summary.paidEarnings)} />
+            <ExcelStatCard title="Total Earnings" value={formatCurrency(earnings.summary?.totalEarnings || 0)} />
+            <ExcelStatCard title="Available Balance" value={formatCurrency(earnings.summary?.availableBalance || earnings.summary?.availableEarnings || 0)} />
+            <ExcelStatCard title="Pending Payments" value={formatCurrency(earnings.summary?.pendingPayments || earnings.summary?.pendingEarnings || 0)} />
+            <ExcelStatCard title="Paid Earnings" value={formatCurrency(earnings.summary?.paidEarnings || 0)} />
           </div>
           <section className={EXCEL_PANEL}>
-            <h2 className={EXCEL_PANEL_HEAD}>Transaction History</h2>
-            <ExcelDataTable
-              columns={txnColumns}
-              rows={earnings.transactions}
-              emptyMessage="No transactions yet."
+            <h2 className={EXCEL_PANEL_HEAD}>Bank Settlement Details</h2>
+            <ExcelInfoGrid
+              rows={[
+                { label: 'Bank Account', value: farmer.bank?.accountNumber || '—' },
+                { label: 'Bank Name', value: farmer.bank?.bankName || '—' },
+                { label: 'Account Holder', value: farmer.bank?.accountHolder || farmer.name },
+                { label: 'IFSC Code', value: farmer.bank?.ifsc || '—' },
+              ]}
             />
+          </section>
+          <section className={EXCEL_PANEL}>
+            <h2 className={EXCEL_PANEL_HEAD}>Transaction History Log</h2>
+            <ExcelDataTable columns={txnColumns} rows={earnings.transactions || []} emptyMessage="No earnings transactions recorded." />
           </section>
         </div>
       ) : null}
 
-      {/* Tab: Documents */}
+      {/* Tab 6: Documents */}
       {tab === 'Documents' ? (
         <section className={EXCEL_PANEL}>
-          <h2 className={EXCEL_PANEL_HEAD}>Verification Documents</h2>
-          <ExcelDataTable columns={docColumns} rows={documents} emptyMessage="No documents uploaded." />
+          <h2 className={EXCEL_PANEL_HEAD}>Farmer Documents & Verification Status</h2>
+          <ExcelDataTable columns={docColumns} rows={documents} emptyMessage="No documents submitted." />
         </section>
       ) : null}
 
-      {/* Tab: Profile */}
+      {/* Tab 7: Profile */}
       {tab === 'Profile' ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          <section className={EXCEL_PANEL}>
+            <div className={`${EXCEL_PANEL_HEAD} flex items-center justify-between`}>
+              <span>Login Credentials & Security Access</span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  className={farmer.loginEnabled !== false ? EXCEL_BTN_DANGER : EXCEL_BTN_PRIMARY}
+                  onClick={async () => {
+                    try {
+                      const nextStatus = !farmer.loginEnabled
+                      const updated = await updateFarmerLoginStatus(farmer.id, nextStatus)
+                      setFarmer(updated)
+                      toast(`Farmer login ${nextStatus ? 'enabled' : 'disabled'}`)
+                    } catch (err) {
+                      toast(err.message || 'Failed to update login status', 'error')
+                    }
+                  }}
+                >
+                  {farmer.loginEnabled !== false ? 'Disable Login' : 'Enable Login'}
+                </button>
+                <button
+                  type="button"
+                  className={EXCEL_BTN_OUTLINE}
+                  onClick={async () => {
+                    const pass = prompt('Enter new password for farmer (minimum 4 characters):')
+                    if (pass === null) return
+                    if (pass.length < 4) {
+                      toast('Password must be at least 4 characters long', 'error')
+                      return
+                    }
+                    try {
+                      await updateFarmerPassword(farmer.id, pass)
+                      toast('Farmer password updated successfully')
+                    } catch (err) {
+                      toast(err.message || 'Failed to update password', 'error')
+                    }
+                  }}
+                >
+                  🔑 Reset Password
+                </button>
+              </div>
+            </div>
+            <ExcelInfoGrid
+              rows={[
+                { label: 'Mobile (Login ID)', value: farmer.mobile },
+                { label: 'Password Hash', value: '•••••••• (Encrypted in MongoDB)' },
+                {
+                  label: 'Login Access',
+                  value: farmer.loginEnabled !== false ? 'Enabled' : 'Disabled (Blocked)',
+                },
+              ]}
+            />
+          </section>
+
           {!editProfile || !profileForm ? (
             <>
               <section className={EXCEL_PANEL}>
                 <div className={`${EXCEL_PANEL_HEAD} flex items-center justify-between`}>
-                  <span>Personal Details</span>
+                  <span>Personal Information</span>
                   <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => setEditProfile(true)}>
-                    ✏️ Edit Profile Fields
+                    ✏️ Edit Profile
                   </button>
                 </div>
                 <ExcelInfoGrid
@@ -781,14 +927,13 @@ export default function FarmerDetailPage() {
                     { label: 'Name', value: farmer.name },
                     { label: 'Assigned Manager', value: farmer.managerName },
                     { label: 'Mobile', value: farmer.mobile },
-                    { label: 'Email', value: farmer.email },
+                    { label: 'Email', value: farmer.email || '—' },
                     { label: 'Status', value: farmer.status },
-                    { label: 'Verification', value: farmer.verificationStatus },
                   ]}
                 />
               </section>
               <section className={EXCEL_PANEL}>
-                <h2 className={EXCEL_PANEL_HEAD}>Farm Details</h2>
+                <h2 className={EXCEL_PANEL_HEAD}>Farm Information</h2>
                 <ExcelInfoGrid
                   rows={[
                     { label: 'Farm Name', value: farmer.farmName },
@@ -803,7 +948,7 @@ export default function FarmerDetailPage() {
                 <h2 className={EXCEL_PANEL_HEAD}>Bank Details</h2>
                 <ExcelInfoGrid
                   rows={[
-                    { label: 'Account Holder', value: farmer.bank?.accountHolder },
+                    { label: 'Account Holder', value: farmer.bank?.accountHolder || farmer.name },
                     { label: 'Bank Name', value: farmer.bank?.bankName },
                     { label: 'Account Number', value: farmer.bank?.accountNumber },
                     { label: 'IFSC', value: farmer.bank?.ifsc },
@@ -829,17 +974,19 @@ export default function FarmerDetailPage() {
                 }
               }}
             >
-              <h2 className={EXCEL_PANEL_HEAD}>Edit All Profile Fields</h2>
-              <div className="grid gap-2 p-3 sm:grid-cols-2">
-                <Field label="Farmer Name">
+              <h2 className={EXCEL_PANEL_HEAD}>Edit Farmer Profile</h2>
+              <div className="grid gap-2 p-3 sm:grid-cols-2 text-xs">
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farmer Name</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.name}
                     onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
                     required
                   />
-                </Field>
-                <Field label="Assigned Manager">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Assigned Manager</span>
                   <select
                     className={EXCEL_SELECT}
                     value={profileForm.managerId}
@@ -851,54 +998,61 @@ export default function FarmerDetailPage() {
                       </option>
                     ))}
                   </select>
-                </Field>
-                <Field label="Mobile Number">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Mobile Number</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.mobile}
                     onChange={(e) => setProfileForm((p) => ({ ...p, mobile: e.target.value }))}
                   />
-                </Field>
-                <Field label="Email Address">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Email Address</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.email}
                     onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
                   />
-                </Field>
-                <Field label="Status">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Status</span>
                   <select
                     className={EXCEL_SELECT}
                     value={profileForm.status}
                     onChange={(e) => setProfileForm((p) => ({ ...p, status: e.target.value }))}
                   >
-                    <option value="Pending">Pending</option>
                     <option value="Active">Active</option>
+                    <option value="Pending">Pending</option>
                     <option value="Inactive">Inactive</option>
                   </select>
-                </Field>
-                <Field label="Farm Name">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farm Name</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.farmName}
                     onChange={(e) => setProfileForm((p) => ({ ...p, farmName: e.target.value }))}
                   />
-                </Field>
-                <Field label="Farm Location">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farm Location</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.farmLocation}
                     onChange={(e) => setProfileForm((p) => ({ ...p, farmLocation: e.target.value }))}
                   />
-                </Field>
-                <Field label="Farm Area (e.g. 5 acres)">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farm Area</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.farmArea}
                     onChange={(e) => setProfileForm((p) => ({ ...p, farmArea: e.target.value }))}
                   />
-                </Field>
-                <Field label="Farm Type">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farm Type</span>
                   <select
                     className={EXCEL_SELECT}
                     value={profileForm.farmType}
@@ -908,15 +1062,17 @@ export default function FarmerDetailPage() {
                     <option value="Mixed">Mixed</option>
                     <option value="Conventional">Conventional</option>
                   </select>
-                </Field>
-                <Field label="Farm Address" className="sm:col-span-2">
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farm Address</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.farmAddress}
                     onChange={(e) => setProfileForm((p) => ({ ...p, farmAddress: e.target.value }))}
                   />
-                </Field>
-                <Field label="Account Holder Name">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Account Holder Name</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.bank.accountHolder}
@@ -924,8 +1080,9 @@ export default function FarmerDetailPage() {
                       setProfileForm((p) => ({ ...p, bank: { ...p.bank, accountHolder: e.target.value } }))
                     }
                   />
-                </Field>
-                <Field label="Bank Name">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Bank Name</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.bank.bankName}
@@ -933,8 +1090,9 @@ export default function FarmerDetailPage() {
                       setProfileForm((p) => ({ ...p, bank: { ...p.bank, bankName: e.target.value } }))
                     }
                   />
-                </Field>
-                <Field label="Account Number">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Account Number</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.bank.accountNumber}
@@ -942,8 +1100,9 @@ export default function FarmerDetailPage() {
                       setProfileForm((p) => ({ ...p, bank: { ...p.bank, accountNumber: e.target.value } }))
                     }
                   />
-                </Field>
-                <Field label="IFSC Code">
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">IFSC Code</span>
                   <input
                     className={EXCEL_INPUT}
                     value={profileForm.bank.ifsc}
@@ -951,7 +1110,7 @@ export default function FarmerDetailPage() {
                       setProfileForm((p) => ({ ...p, bank: { ...p.bank, ifsc: e.target.value } }))
                     }
                   />
-                </Field>
+                </label>
               </div>
               <div className="flex justify-end gap-1.5 border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
                 <button type="button" className={EXCEL_BTN_OUTLINE} onClick={() => setEditProfile(false)}>
@@ -998,19 +1157,6 @@ export default function FarmerDetailPage() {
                   autoFocus
                 />
               </label>
-              {stockQty ? (
-                <p className="text-[#6B7280]">
-                  Updated Stock:{' '}
-                  <strong className="text-[#1F2937]">
-                    {Math.max(
-                      0,
-                      Number(stockModal.row.currentStock) +
-                        (stockModal.mode === 'add' ? Number(stockQty) : -Number(stockQty)),
-                    )}{' '}
-                    {stockModal.row.unit}
-                  </strong>
-                </p>
-              ) : null}
             </div>
             <div className="flex justify-end gap-1.5 border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
               <button
@@ -1066,133 +1212,62 @@ export default function FarmerDetailPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
           <form
             onSubmit={handleSaveProduct}
-            className={`${EXCEL_PANEL} w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
+            className={`${EXCEL_PANEL} w-full max-w-3xl max-h-[90vh] overflow-y-auto`}
           >
             <h3 className={EXCEL_PANEL_HEAD}>
-              {productModal.mode === 'add' ? 'Add New Product for Farmer' : 'Edit Product'}
+              {productModal.mode === 'add' ? 'Add Product' : 'Edit Product'}
             </h3>
-            <div className="grid gap-2 p-3 sm:grid-cols-2">
-              <Field label="Product Name">
-                <input
-                  className={EXCEL_INPUT}
-                  value={productForm.name}
-                  onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))}
-                  required
-                />
-              </Field>
-              <Field label="Category">
-                <select
-                  className={EXCEL_SELECT}
-                  value={productForm.category}
-                  onChange={(e) => setProductForm((p) => ({ ...p, category: e.target.value }))}
-                >
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Sub Category">
-                <input
-                  className={EXCEL_INPUT}
-                  value={productForm.subCategory}
-                  onChange={(e) => setProductForm((p) => ({ ...p, subCategory: e.target.value }))}
-                />
-              </Field>
-              <Field label="Harvest Date">
-                <input
-                  type="date"
-                  className={EXCEL_INPUT}
-                  value={productForm.harvestDate}
-                  onChange={(e) => setProductForm((p) => ({ ...p, harvestDate: e.target.value }))}
-                />
-              </Field>
-              <Field label="Farm Location">
-                <input
-                  className={EXCEL_INPUT}
-                  value={productForm.farmLocation}
-                  onChange={(e) => setProductForm((p) => ({ ...p, farmLocation: e.target.value }))}
-                />
-              </Field>
-              <Field label="Produce Type">
-                <select
-                  className={EXCEL_SELECT}
-                  value={productForm.produceType}
-                  onChange={(e) => setProductForm((p) => ({ ...p, produceType: e.target.value }))}
-                >
-                  <option value="organic">Organic</option>
-                  <option value="non-organic">Non-Organic</option>
-                </select>
-              </Field>
-              <Field label="Unit">
-                <select
-                  className={EXCEL_SELECT}
-                  value={productForm.unit}
-                  onChange={(e) => setProductForm((p) => ({ ...p, unit: e.target.value }))}
-                >
-                  <option value="Kg">Kg</option>
-                  <option value="Gram">Gram</option>
-                  <option value="Ton">Ton</option>
-                  <option value="Piece">Piece</option>
-                  <option value="Bunch">Bunch</option>
-                </select>
-              </Field>
-              <Field label="Product Status">
-                <select
-                  className={EXCEL_SELECT}
-                  value={productForm.status}
-                  onChange={(e) => setProductForm((p) => ({ ...p, status: e.target.value }))}
-                >
-                  <option value="Approved">Approved</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Draft">Draft</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </Field>
-              <Field label="Image URL / Photo" className="sm:col-span-2">
-                <input
-                  className={EXCEL_INPUT}
-                  value={productForm.image}
-                  onChange={(e) => setProductForm((p) => ({ ...p, image: e.target.value }))}
-                  placeholder="https://example.com/photo.jpg"
-                />
-              </Field>
-              <Field label="Grade A Qty">
-                <input
-                  type="number"
-                  min="0"
-                  className={EXCEL_INPUT}
-                  value={productForm.gradeAQty}
-                  onChange={(e) => setProductForm((p) => ({ ...p, gradeAQty: e.target.value }))}
-                />
-              </Field>
-              <Field label="Grade B Qty">
-                <input
-                  type="number"
-                  min="0"
-                  className={EXCEL_INPUT}
-                  value={productForm.gradeBQty}
-                  onChange={(e) => setProductForm((p) => ({ ...p, gradeBQty: e.target.value }))}
-                />
-              </Field>
-              <Field label="Grade C Qty">
-                <input
-                  type="number"
-                  min="0"
-                  className={EXCEL_INPUT}
-                  value={productForm.gradeCQty}
-                  onChange={(e) => setProductForm((p) => ({ ...p, gradeCQty: e.target.value }))}
-                />
-              </Field>
-              <Field label="Description" className="sm:col-span-2">
-                <textarea
-                  rows={2}
-                  className={EXCEL_INPUT}
-                  value={productForm.description}
-                  onChange={(e) => setProductForm((p) => ({ ...p, description: e.target.value }))}
-                />
-              </Field>
+            <div className="space-y-3 p-3 text-xs">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Product Name</span>
+                  <input
+                    className={EXCEL_INPUT}
+                    value={productForm.name}
+                    onChange={(e) => setProductForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Product Name"
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Category</span>
+                  <select
+                    className={EXCEL_SELECT}
+                    value={productForm.category}
+                    onChange={(e) => setProductForm((p) => ({ ...p, category: e.target.value }))}
+                  >
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Harvest Date</span>
+                  <input
+                    type="date"
+                    className={EXCEL_INPUT}
+                    value={productForm.harvestDate}
+                    onChange={(e) => setProductForm((p) => ({ ...p, harvestDate: e.target.value }))}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-0.5 block font-semibold text-[#6B7280]">Farm Location</span>
+                  <input
+                    className={EXCEL_INPUT}
+                    value={productForm.farmLocation}
+                    onChange={(e) => setProductForm((p) => ({ ...p, farmLocation: e.target.value }))}
+                    placeholder="Location"
+                  />
+                </label>
+              </div>
+
+              <FarmerImageUploadField
+                label="Product Photo (Camera or Upload)"
+                value={productForm.image}
+                onChange={(url) => setProductForm((p) => ({ ...p, image: url }))}
+              />
             </div>
             <div className="flex justify-end gap-1.5 border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
               <button
@@ -1204,7 +1279,7 @@ export default function FarmerDetailPage() {
                 Cancel
               </button>
               <button type="submit" className={EXCEL_BTN_PRIMARY} disabled={busy}>
-                {busy ? 'Saving...' : productModal.mode === 'add' ? 'Create Product' : 'Save Changes'}
+                {busy ? 'Saving...' : 'Save Product'}
               </button>
             </div>
           </form>
@@ -1242,87 +1317,63 @@ export default function FarmerDetailPage() {
         </div>
       ) : null}
 
-      {/* Inventory Item Edit Modal */}
-      {editInventoryModal && inventoryForm ? (
+      {/* Order Details View Modal */}
+      {viewOrderModal ? (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
-          <form
-            onSubmit={handleSaveInventoryItem}
-            className={`${EXCEL_PANEL} w-full max-w-md`}
-          >
-            <h3 className={EXCEL_PANEL_HEAD}>Edit Inventory Item</h3>
-            <div className="space-y-2 p-3 text-xs">
-              <p>
-                <span className="text-[#6B7280]">Product:</span> <strong>{inventoryForm.productName}</strong>
-              </p>
-              <p>
-                <span className="text-[#6B7280]">Grade:</span> <strong>{inventoryForm.grade}</strong>
-              </p>
-              <Field label="Current Stock">
-                <input
-                  type="number"
-                  min="0"
-                  className={EXCEL_INPUT}
-                  value={inventoryForm.currentStock}
-                  onChange={(e) => setInventoryForm((p) => ({ ...p, currentStock: e.target.value }))}
-                />
-              </Field>
-              <Field label="Reserved Stock">
-                <input
-                  type="number"
-                  min="0"
-                  className={EXCEL_INPUT}
-                  value={inventoryForm.reservedStock}
-                  onChange={(e) => setInventoryForm((p) => ({ ...p, reservedStock: e.target.value }))}
-                />
-              </Field>
-              <Field label="Sold Stock">
-                <input
-                  type="number"
-                  min="0"
-                  className={EXCEL_INPUT}
-                  value={inventoryForm.soldStock}
-                  onChange={(e) => setInventoryForm((p) => ({ ...p, soldStock: e.target.value }))}
-                />
-              </Field>
-              <Field label="Unit">
-                <select
-                  className={EXCEL_SELECT}
-                  value={inventoryForm.unit}
-                  onChange={(e) => setInventoryForm((p) => ({ ...p, unit: e.target.value }))}
-                >
-                  <option value="Kg">Kg</option>
-                  <option value="Gram">Gram</option>
-                  <option value="Ton">Ton</option>
-                  <option value="Piece">Piece</option>
-                  <option value="Bunch">Bunch</option>
-                </select>
-              </Field>
-              <Field label="Status">
-                <select
-                  className={EXCEL_SELECT}
-                  value={inventoryForm.status}
-                  onChange={(e) => setInventoryForm((p) => ({ ...p, status: e.target.value }))}
-                >
-                  <option value="In Stock">In Stock</option>
-                  <option value="Low Stock">Low Stock</option>
-                  <option value="Out of Stock">Out of Stock</option>
-                </select>
-              </Field>
+          <div className={`${EXCEL_PANEL} w-full max-w-lg`}>
+            <h3 className={EXCEL_PANEL_HEAD}>Order Details: {viewOrderModal.id}</h3>
+            <div className="p-3 text-xs space-y-3">
+              <div className="grid grid-cols-2 gap-2 border-b pb-2">
+                <div>
+                  <span className="text-[#6B7280]">Customer Name:</span>
+                  <p className="font-bold text-[#1F2937]">{viewOrderModal.customer?.name || viewOrderModal.customerName || 'N/A'}</p>
+                </div>
+                <div>
+                  <span className="text-[#6B7280]">Delivery Type:</span>
+                  <p className="font-bold text-[#1F2937]">{viewOrderModal.deliveryType || 'Standard'}</p>
+                </div>
+                <div>
+                  <span className="text-[#6B7280]">Order Date:</span>
+                  <p className="font-bold text-[#1F2937]">{formatDate(viewOrderModal.orderDate)}</p>
+                </div>
+                <div>
+                  <span className="text-[#6B7280]">Order Status:</span>
+                  <div className="mt-0.5">
+                    <ExcelStatusBadge status={viewOrderModal.status} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-[#1F2937] mb-1">Products Ordered</h4>
+                <div className="rounded border bg-[#F9F9F9] p-2 space-y-1">
+                  <div className="flex justify-between font-semibold">
+                    <span>{viewOrderModal.products?.[0]?.name || viewOrderModal.productName || 'Farm Product'}</span>
+                    <span>{formatCurrency(viewOrderModal.amount)}</span>
+                  </div>
+                  <p className="text-[#6B7280]">
+                    Quantity: {viewOrderModal.quantity || viewOrderModal.products?.[0]?.quantity || 1} {viewOrderModal.unit || 'Kg'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-[#1F2937] mb-1">Delivery Address</h4>
+                <p className="text-[#6B7280]">
+                  {viewOrderModal.customer?.address || viewOrderModal.deliveryAddress || 'Address on file'}
+                </p>
+              </div>
             </div>
-            <div className="flex justify-end gap-1.5 border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
+            <div className="flex justify-end border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
               <button
                 type="button"
                 className={EXCEL_BTN_OUTLINE}
-                disabled={busy}
-                onClick={() => setEditInventoryModal(null)}
+                onClick={() => setViewOrderModal(null)}
               >
-                Cancel
-              </button>
-              <button type="submit" className={EXCEL_BTN_PRIMARY} disabled={busy}>
-                {busy ? 'Saving...' : 'Save Inventory'}
+                Close
               </button>
             </div>
-          </form>
+          </div>
         </div>
       ) : null}
 
@@ -1332,7 +1383,8 @@ export default function FarmerDetailPage() {
           <div className={`${EXCEL_PANEL} w-full max-w-md`}>
             <h3 className={EXCEL_PANEL_HEAD}>Reject Document: {rejectDocModal.name}</h3>
             <div className="p-3 text-xs space-y-2">
-              <Field label="Rejection Reason">
+              <label className="block">
+                <span className="mb-0.5 block font-semibold text-[#6B7280]">Rejection Reason</span>
                 <textarea
                   rows={3}
                   className={EXCEL_INPUT}
@@ -1341,7 +1393,7 @@ export default function FarmerDetailPage() {
                   placeholder="Enter reason for document rejection..."
                   required
                 />
-              </Field>
+              </label>
             </div>
             <div className="flex justify-end gap-1.5 border-t border-[#D4D4D4] px-3 py-2 bg-[#F9F9F9]">
               <button
@@ -1356,23 +1408,14 @@ export default function FarmerDetailPage() {
                 type="button"
                 className={EXCEL_BTN_DANGER}
                 disabled={busy || !rejectReason.trim()}
-                onClick={handleConfirmRejectDocument}
+                onClick={handleDocumentRejectConfirmed}
               >
-                {busy ? 'Saving...' : 'Confirm Rejection'}
+                {busy ? 'Rejecting...' : 'Reject Document'}
               </button>
             </div>
           </div>
         </div>
       ) : null}
     </div>
-  )
-}
-
-function Field({ label, children, className = '' }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">{label}</span>
-      {children}
-    </label>
   )
 }

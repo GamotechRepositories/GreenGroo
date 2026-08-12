@@ -14,11 +14,11 @@ export const FARMER_COLORS = {
 export const FARMER_STORAGE_KEY = "greengroo_farmer_auth";
 
 export const DOCUMENT_TYPES = [
-  { id: "aadhaar", name: "Aadhaar / ID Proof", required: true },
-  { id: "pan", name: "PAN Card", required: true },
-  { id: "bank", name: "Bank Details", required: true },
-  { id: "address", name: "Address Proof", required: true },
-  { id: "other", name: "Other Required Documents", required: false },
+  { id: "aadhaar", name: "Aadhaar / ID Proof", required: false },
+  { id: "pan", name: "PAN Card", required: false },
+  { id: "bank", name: "Bank Details", required: false },
+  { id: "address", name: "Address Proof", required: false },
+  { id: "other", name: "Other Documents", required: false },
 ];
 
 export const VERIFICATION_STATUS = {

@@ -13,12 +13,15 @@ const EMPTY = {
   profileImage: '',
   mobile: '',
   email: '',
+  password: '',
+  confirmPassword: '',
   farmName: '',
   farmLocation: '',
   farmAddress: '',
   farmArea: '',
   farmType: 'Organic',
-  status: 'Pending',
+  status: 'Active',
+  loginEnabled: true,
   documents: {
     aadhaar: '',
     pan: '',
@@ -68,10 +71,22 @@ export default function FarmerFormPage() {
       toast('Farmer name and mobile are required', 'error')
       return
     }
+    if (!form.password) {
+      toast('Password is required for farmer login', 'error')
+      return
+    }
+    if (form.password.length < 4) {
+      toast('Password must be at least 4 characters long', 'error')
+      return
+    }
+    if (form.password !== form.confirmPassword) {
+      toast('Password and Confirm Password do not match', 'error')
+      return
+    }
     setSaving(true)
     try {
       const created = await createFarmer({ ...form, managerId })
-      toast('Farmer added under manager')
+      toast('Farmer added under manager with login credentials')
       navigate(`/farmer-manager/farmers/${created.id}`)
     } catch (err) {
       toast(err.message || 'Failed to add farmer', 'error')
@@ -114,10 +129,36 @@ export default function FarmerFormPage() {
             <Input value={form.profileImage} onChange={(e) => set('profileImage', e.target.value)} />
           </Field>
           <Field label="Mobile Number">
-            <Input value={form.mobile} onChange={(e) => set('mobile', e.target.value)} required />
+            <Input value={form.mobile} onChange={(e) => set('mobile', e.target.value)} required placeholder="10-digit mobile" />
           </Field>
           <Field label="Email">
             <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Login Credentials</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <Field label="Password">
+            <Input
+              type="password"
+              value={form.password}
+              onChange={(e) => set('password', e.target.value)}
+              placeholder="Minimum 4 characters"
+              required
+            />
+          </Field>
+          <Field label="Confirm Password">
+            <Input
+              type="password"
+              value={form.confirmPassword}
+              onChange={(e) => set('confirmPassword', e.target.value)}
+              placeholder="Re-enter password"
+              required
+            />
           </Field>
         </CardContent>
       </Card>
@@ -152,7 +193,7 @@ export default function FarmerFormPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Documents (file names for demo)</CardTitle>
+          <CardTitle>Documents (Optional)</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <Field label="Aadhaar / ID Proof">

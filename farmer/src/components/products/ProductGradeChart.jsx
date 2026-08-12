@@ -509,9 +509,9 @@ function ProductGradeChart({
   const grandBTotal = chartRows.reduce((s, r) => s + (Number(r.gradeBQty || 0) * Number(r.gradeBRate || 0)), 0);
   const grandAB = grandATotal + grandBTotal;
   const unit = chartRows[0]?.unit || "Kg";
-  const totalRupees = grandAB || summary.totalRupees;
-  const deposited = summary.deposited ?? Math.round(totalRupees * 0.7);
-  const balance = summary.balance ?? Math.max(0, totalRupees - deposited);
+  const totalRupees = chartRows.length > 0 ? grandAB : (summary.totalRupees || 0);
+  const deposited = chartRows.length > 0 ? (summary.deposited || Math.round(totalRupees * 0.7)) : (summary.deposited || 0);
+  const balance = chartRows.length > 0 ? (summary.balance || Math.max(0, totalRupees - deposited)) : (summary.balance || 0);
   const avgARate = grandAQty > 0 ? Math.round(grandATotal / grandAQty) : 0;
   const avgBRate = grandBQty > 0 ? Math.round(grandBTotal / grandBQty) : 0;
 

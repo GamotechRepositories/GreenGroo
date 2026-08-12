@@ -33,7 +33,7 @@ function FarmerLoginPage() {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { mobile: "9876543210", password: "farm123" },
+    defaultValues: { mobile: "", password: "" },
   });
 
   if (token) {
@@ -59,7 +59,7 @@ function FarmerLoginPage() {
         <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">GreenGroo Farmer</p>
         <h1 className={`mt-1 ${EXCEL_PAGE_TITLE}`}>Sign in to Farmer Panel</h1>
         <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
-          Demo login is prefilled. Use any valid mobile + password (4+ chars).
+          Enter your registered mobile number and password to sign in.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-3">

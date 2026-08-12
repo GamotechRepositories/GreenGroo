@@ -25,17 +25,7 @@ function FarmerLayout() {
   }, [dispatch, token]);
 
   useEffect(() => {
-    if (!token || !farmer) return;
-    const needsGate =
-      farmer.verificationRequired !== false &&
-      !isVerified &&
-      SELLING_ROUTE_PREFIXES.some((prefix) => location.pathname.startsWith(prefix));
-    if (needsGate && location.pathname !== "/farmer/documents") {
-      navigate("/farmer/documents", {
-        replace: true,
-        state: { blocked: true, from: location.pathname },
-      });
-    }
+    // Documents verification gate disabled
   }, [token, farmer, isVerified, location.pathname, navigate]);
 
   if (!token) {

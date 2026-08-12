@@ -16,6 +16,8 @@ import paymentRoutes from "./payment-service/src/routes.js";
 import deliveryRoutes from "./delivery-service/src/routes.js";
 import notificationRoutes from "./notification-service/src/routes.js";
 import staffRoutes from "./staff-service/src/routes.js";
+import farmerManagerRoutes from "./farmer-manager-service/src/routes.js";
+import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -29,16 +31,35 @@ const allRoutes = [
   ...deliveryRoutes,
   ...notificationRoutes,
   ...staffRoutes,
+  ...farmerManagerRoutes,
 ];
 
 const app = express();
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
-      : true,
+    origin: (origin, callback) => {
+      // Allow non-browser requests (Postman, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Dynamically allow any localhost or 127.0.0.1 dev server port
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+        : [];
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, true);
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 app.use(express.json({ limit: "20mb" }));
@@ -61,6 +82,7 @@ app.get("/health", (_req, res) => {
       "delivery",
       "notification",
       "staff",
+      "farmer-manager",
     ],
   });
 });
@@ -78,7 +100,8 @@ if (!process.env.JWT_SECRET) {
   );
 }
 
-connectDB("greengrocc-backend").then(() => {
+connectDB("greengrocc-backend").then(async () => {
+  await seedInitialData();
   const server = http.createServer(app);
   initSocket(server);
   server.listen(PORT, "0.0.0.0", () => {
