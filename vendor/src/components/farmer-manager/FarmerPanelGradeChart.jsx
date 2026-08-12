@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { EXCEL_BTN_OUTLINE, EXCEL_BTN_PRIMARY, EXCEL_CELL, EXCEL_HEAD, EXCEL_TABLE, EXCEL_WRAP } from './excelStyles'
 
 function formatDate(isoDate) {
@@ -692,6 +692,14 @@ export default function FarmerPanelGradeChart({
 }) {
   const [chartRows, setChartRows] = useState(initialRows)
   const [summaryState, setSummaryState] = useState(initialSummary)
+
+  useEffect(() => {
+    setChartRows(initialRows)
+  }, [initialRows])
+
+  useEffect(() => {
+    setSummaryState(initialSummary)
+  }, [initialSummary])
 
   const unit = chartRows[0]?.unit || 'Kg'
 

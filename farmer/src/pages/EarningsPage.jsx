@@ -53,6 +53,17 @@ function EarningsPage() {
   // Filter harvest orders for selected product
   const productHarvestOrders = harvestOrders.filter((ho) => ho.productId === (selectedProduct?.id || selectedProduct?._id) || ho.productName === selectedProduct?.name);
 
+  // Calculate earnings dynamically for the selected product
+  const productTotalEarnings = productHarvestOrders.reduce((sum, ho) => {
+    return sum + (ho.grades || []).reduce((gSum, g) => {
+      const q = Number(g.quantity) || 0;
+      const r = Number(g.rate) || 0;
+      return gSum + (q * r);
+    }, 0);
+  }, 0);
+  const productDeposited = Math.round(productTotalEarnings * 0.7); // 70% deposited
+  const productBalance = productTotalEarnings - productDeposited;   // 30% balance
+
   return (
     <div className="space-y-4">
       <div>
@@ -63,9 +74,9 @@ function EarningsPage() {
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Earnings" value={formatCurrency(data?.totalEarnings || 0)} />
-        <StatCard title="Available Balance" value={formatCurrency(data?.availableBalance || 0)} />
-        <StatCard title="Pending Payments" value={formatCurrency(data?.pendingPayments || 0)} />
+        <StatCard title="Product Earnings" value={formatCurrency(productTotalEarnings)} />
+        <StatCard title="Deposited (70%)" value={formatCurrency(productDeposited)} />
+        <StatCard title="Pending Balance (30%)" value={formatCurrency(productBalance)} />
         <StatCard title="Total Products" value={safeProducts.length} />
       </div>
 

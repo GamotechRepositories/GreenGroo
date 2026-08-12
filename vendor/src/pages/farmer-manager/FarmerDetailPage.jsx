@@ -691,9 +691,9 @@ export default function FarmerDetailPage() {
                 <FarmerPanelGradeChart
                   rows={selectedProduct.dailyChartRows || farmer.dailyChartRows || []}
                   summary={{
-                    totalRupees: Number(selectedProduct.gradeAQty || 0) * 40 + Number(selectedProduct.gradeBQty || 0) * 25,
-                    deposited: Math.round((Number(selectedProduct.gradeAQty || 0) * 40 + Number(selectedProduct.gradeBQty || 0) * 25) * 0.7),
-                    balance: Math.round((Number(selectedProduct.gradeAQty || 0) * 40 + Number(selectedProduct.gradeBQty || 0) * 25) * 0.3),
+                    totalRupees: productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0),
+                    deposited: Math.round(productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) * 0.7),
+                    balance: productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) - Math.round(productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) * 0.7),
                   }}
                 />
               </div>
@@ -926,9 +926,9 @@ export default function FarmerDetailPage() {
                     rejectionQty: Number(ho.rejectionQty || 0),
                   })) : []}
                   summary={{
-                    totalRupees: 0,
-                    deposited: 0,
-                    balance: 0,
+                    totalRupees: productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0),
+                    deposited: Math.round(productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) * 0.7),
+                    balance: productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) - Math.round(productHarvestOrders.reduce((sum, ho) => sum + (ho.grades || []).reduce((gSum, g) => gSum + (Number(g.quantity) || 0) * (Number(g.rate) || 0), 0), 0) * 0.7),
                   }}
                   onSave={async (updatedRows) => {
                     try {
