@@ -115,7 +115,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
             <img
               src={LOGO_URL}
               alt="GreenGrocc.in - Smart Choice, Best Price"
-              className="h-9 w-auto max-w-full object-contain object-left hover:opacity-90 transition"
+              className="h-11 sm:h-12 w-auto max-w-full object-contain object-left hover:opacity-90 transition"
             />
           </Link>
           <button

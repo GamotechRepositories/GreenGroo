@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { HomeDeliveryBar, HomeSearchBar, ZeptoPromoSection } from "./HomeMobileHeader";
 import HomeCategoryStrip from "./HomeCategoryStrip";
 
@@ -7,6 +8,10 @@ function HomeStickyCategories() {
   const stickyRef = useRef(null);
   const [isFixed, setIsFixed] = useState(false);
   const [stickyHeight, setStickyHeight] = useState(0);
+  const [searchParams] = useSearchParams();
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+
+  const containerBg = currentStore === "festive" ? "bg-[#910C0C]" : currentStore === "fresh" ? "bg-[#047857]" : "bg-[#FFF3E0]";
 
   useLayoutEffect(() => {
     const sticky = stickyRef.current;
@@ -37,7 +42,7 @@ function HomeStickyCategories() {
   }, []);
 
   return (
-    <div className="bg-[#FFF3E0]">
+    <div className={`${containerBg} transition-colors duration-300`}>
       <div ref={deliveryRef}>
         <HomeDeliveryBar />
       </div>
@@ -47,8 +52,8 @@ function HomeStickyCategories() {
           ref={stickyRef}
           className={
             isFixed
-              ? "fixed left-0 right-0 top-0 z-50 bg-[#FFF3E0] pt-1 shadow-md border-b border-purple-200/80 transition-all"
-              : "relative bg-[#FFF3E0]"
+              ? `fixed left-0 right-0 top-0 z-50 ${containerBg} pt-1 shadow-md border-b border-white/20 transition-all`
+              : `relative ${containerBg}`
           }
         >
           <HomeSearchBar />
