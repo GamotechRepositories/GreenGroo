@@ -10,6 +10,7 @@ import HotSelling from "../components/home/HotSelling";
 import FestiveStoreSection from "../components/home/FestiveStoreSection";
 import FreshProduceStoreSection from "../components/home/FreshProduceStoreSection";
 
+import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
 import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
 import FestiveSaleGridSection from "../components/home/FestiveSaleGridSection";
 
@@ -32,6 +33,7 @@ function StoreContent() {
 
   return (
     <>
+      <ZeptoFestiveHeroSection />
       <CategoryPills />
       <FestiveSaleGridSection />
       <HomeAllCategoryProducts limitPerCategory={20} />

@@ -6,6 +6,7 @@ import SectionHeader from "../mobile/SectionHeader";
 import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import HomeSlidingBanners from "./HomeSlidingBanners";
 import FestiveSaleGridSection from "./FestiveSaleGridSection";
+import ZeptoFestiveHeroSection from "./ZeptoFestiveHeroSection";
 
 const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -290,29 +291,9 @@ function FestiveStoreSection() {
   });
 
   return (
-    <div className="space-y-6 py-2">
-      {/* Ready-to-Cook Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-600 p-5 text-white shadow-md border border-orange-300/40">
-        <div className="relative z-10 max-w-lg">
-          <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white backdrop-blur-sm border border-white/40">
-            ⚡ Freshly Prepped Daily | Save Cooking Time
-          </span>
-          <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl text-white">
-            Ready-to-Cook Kitchen Store
-          </h2>
-          <p className="mt-1 text-xs text-orange-50 sm:text-sm">
-            Pre-washed, peeled &amp; finely chopped vegetables. Directly add to your cooking pan!
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-orange-700 shadow-sm">
-              Use Code: READY2COOK
-            </span>
-          </div>
-        </div>
-        <div className="absolute right-2 -bottom-4 text-7xl opacity-25 select-none pointer-events-none">
-          🥗
-        </div>
-      </div>
+    <div className="space-y-4 py-1">
+      {/* Zepto Festive Freedom Sale Banner Structure (Matching Photos 1 & 2) */}
+      <ZeptoFestiveHeroSection />
 
       {/* Shop by Category Section */}
       <section className="px-4 sm:px-6 py-3">

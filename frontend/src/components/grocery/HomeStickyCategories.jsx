@@ -63,9 +63,6 @@ function HomeStickyCategories() {
         </div>
       </div>
 
-      <div className="pt-2">
-        <HomeSlidingBanners />
-      </div>
     </div>
   );
 }
