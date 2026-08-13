@@ -50,10 +50,10 @@ function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
   const isActive = storeKey === currentStore;
   const activeBgClass = theme.activeTabBg;
 
-  let activeBgHex = "#DCFCE7";
-  if (storeKey === "festive") activeBgHex = "#FFEDD5";
+  let activeBgHex = "#C6F6D5";
+  if (storeKey === "festive") activeBgHex = "#FFE0B2";
   else if (storeKey === "mall") activeBgHex = "#3C22B4";
-  else if (storeKey === "main") activeBgHex = "#DCFCE7";
+  else if (storeKey === "main") activeBgHex = "#C6F6D5";
 
   return (
     <div className="relative flex-1 min-w-0">
@@ -224,53 +224,101 @@ export function HomeSearchBar() {
   );
 }
 
-/** Dual promo cards + fee badges */
+const STORE_PROMO_DATA = {
+  main: {
+    card1: {
+      icon: "⚡",
+      iconBg: "bg-emerald-100 text-emerald-800",
+      title: "₹0 FEES",
+      subtitle: "Free Delivery",
+    },
+    card2: {
+      icon: "🏷️",
+      iconBg: "bg-amber-100 text-amber-900",
+      title: "Everyday Low Prices",
+      subtitle: "Best Savings",
+    },
+    badges: ["₹0 Handling Fee", "₹0 Delivery Fee*", "₹0 Rain & Surge Fee"],
+  },
+  festive: {
+    card1: {
+      icon: "🍳",
+      iconBg: "bg-orange-100 text-orange-900",
+      title: "READY 2 COOK",
+      subtitle: "Pre-Washed & Cut",
+    },
+    card2: {
+      icon: "⏱️",
+      iconBg: "bg-amber-100 text-amber-900",
+      title: "10 MIN PREP",
+      subtitle: "Save Cooking Time",
+    },
+    badges: ["100% Pre-Washed", "Zero Preservatives", "Farm Fresh Daily"],
+  },
+  mall: {
+    card1: {
+      icon: "🛍️",
+      iconBg: "bg-violet-100 text-violet-900",
+      title: "SUPER MALL",
+      subtitle: "Top Brand Offers",
+    },
+    card2: {
+      icon: "⚡",
+      iconBg: "bg-purple-100 text-purple-900",
+      title: "EXPRESS DELIVERY",
+      subtitle: "Fastest Shipping",
+    },
+    badges: ["100% Genuine", "Easy Returns", "Best Brand Deals"],
+  },
+};
+
 export function ZeptoPromoSection() {
   const [searchParams] = useSearchParams();
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const theme = resolveStoreTheme(currentStore);
-  const accent = currentStore === "festive" ? "text-[#910C0C]" : currentStore === "mall" ? "text-[#5B21B6]" : "text-[#C2410C]";
-  const iconBg = currentStore === "festive" ? "bg-red-100 text-[#910C0C]" : currentStore === "mall" ? "bg-violet-100 text-[#5B21B6]" : "bg-orange-100 text-[#C2410C]";
+  const promo = STORE_PROMO_DATA[currentStore] || STORE_PROMO_DATA.main;
 
   return (
-    <div className={`${theme.contentBg} px-4 pb-3 pt-1 transition-colors duration-300`}>
+    <div className={`${theme.contentBg} px-4 pb-2.5 pt-1.5 transition-colors duration-300`}>
       <div className="grid grid-cols-2 gap-2.5">
-        <div className="flex items-center gap-2.5 rounded-2xl border border-white/30 bg-white p-3 shadow-sm">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2H4v14a2 2 0 002 2h12a2 2 0 002-2V6h-4zm-6-2h4v2h-4V4z" />
-            </svg>
+        {/* Banner 1 */}
+        <div className="flex items-center gap-2.5 rounded-2xl border border-white/40 bg-white p-2.5 shadow-xs transition hover:scale-[1.01]">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-black text-sm ${promo.card1.iconBg}`}>
+            {promo.card1.icon}
           </div>
-          <p className={`text-base font-black leading-tight tracking-tight ${accent}`}>₹0 FEES</p>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
+              {promo.card1.title}
+            </p>
+            <p className="text-[10px] font-bold text-emerald-700 leading-none mt-0.5">
+              {promo.card1.subtitle}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-2xl border border-white/30 bg-white p-3 shadow-sm">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z" />
-            </svg>
+        {/* Banner 2 */}
+        <div className="flex items-center gap-2.5 rounded-2xl border border-white/40 bg-white p-2.5 shadow-xs transition hover:scale-[1.01]">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-black text-sm ${promo.card2.iconBg}`}>
+            {promo.card2.icon}
           </div>
-          <p className={`text-[11px] font-black uppercase leading-tight tracking-tight ${accent}`}>Everyday Low Prices</p>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
+              {promo.card2.title}
+            </p>
+            <p className="text-[10px] font-bold text-amber-800 leading-none mt-0.5">
+              {promo.card2.subtitle}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className={`mt-3 flex items-center justify-between px-1 text-[10px] font-bold ${theme.textColor}`}>
-        {["₹0 Handling Fee", "₹0 Delivery Fee*", "₹0 Rain & Surge Fee"].map((label) => (
+      <div className={`mt-2 flex items-center justify-between px-1 text-[10px] font-bold ${theme.textColor}`}>
+        {promo.badges.map((label) => (
           <div key={label} className="flex items-center gap-1">
             <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-[8px] font-black text-white">✓</span>
             <span>{label}</span>
           </div>
         ))}
-      </div>
-
-      <p className={`mt-1 text-center text-[8px] font-medium ${currentStore === "main" || currentStore === "cafe" ? "text-slate-500" : "text-white/80"}`}>
-        *T&amp;C Apply. Above specific minimum order value
-      </p>
-
-      <div className="mt-3 flex items-center justify-center gap-1.5 rounded-full border border-amber-300 bg-[#FFF5BE] px-4 py-2 text-center shadow-sm">
-        <span className="text-xs">🪙</span>
-        <span className="text-[11px] font-black uppercase tracking-wide text-[#7C2D12]">Special Prices For Your 1st Order</span>
-        <span className="text-xs">🪙</span>
       </div>
     </div>
   );

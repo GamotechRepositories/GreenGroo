@@ -4,6 +4,8 @@ import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "../mobile/SectionHeader";
 import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
+import HomeSlidingBanners from "./HomeSlidingBanners";
+import FestiveSaleGridSection from "./FestiveSaleGridSection";
 
 const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -368,6 +370,12 @@ function FestiveStoreSection() {
           })}
         </div>
       </section>
+
+      {/* Festive Freedom Sale Grid Section matching user screenshot */}
+      <FestiveSaleGridSection />
+
+      {/* Sliding Banners Section */}
+      <HomeSlidingBanners />
 
       {/* Category Products Section */}
       <section className="px-4 sm:px-6 py-2">

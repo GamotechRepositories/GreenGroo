@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { HomeDeliveryBar, HomeSearchBar, ZeptoPromoSection } from "./HomeMobileHeader";
+import { HomeDeliveryBar, HomeSearchBar } from "./HomeMobileHeader";
 import { resolveStoreTheme } from "./homeHeaderThemes";
 import HomeCategoryStrip from "./HomeCategoryStrip";
+import HomeSlidingBanners from "../home/HomeSlidingBanners";
 
 function HomeStickyCategories() {
   const deliveryRef = useRef(null);
@@ -43,7 +44,7 @@ function HomeStickyCategories() {
   }, []);
 
   return (
-    <div className={`${containerBg} transition-colors duration-300`}>
+    <div className={`${containerBg} transition-colors duration-300 pb-2`}>
       <div ref={deliveryRef}>
         <HomeDeliveryBar />
       </div>
@@ -62,7 +63,9 @@ function HomeStickyCategories() {
         </div>
       </div>
 
-      <ZeptoPromoSection />
+      <div className="pt-2">
+        <HomeSlidingBanners />
+      </div>
     </div>
   );
 }

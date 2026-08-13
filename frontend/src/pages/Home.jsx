@@ -10,6 +10,9 @@ import HotSelling from "../components/home/HotSelling";
 import FestiveStoreSection from "../components/home/FestiveStoreSection";
 import FreshProduceStoreSection from "../components/home/FreshProduceStoreSection";
 
+import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
+import FestiveSaleGridSection from "../components/home/FestiveSaleGridSection";
+
 function StoreContent() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
@@ -30,6 +33,7 @@ function StoreContent() {
   return (
     <>
       <CategoryPills />
+      <FestiveSaleGridSection />
       <HomeAllCategoryProducts limitPerCategory={20} />
     </>
   );
