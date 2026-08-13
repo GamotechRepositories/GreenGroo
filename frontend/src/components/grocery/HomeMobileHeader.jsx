@@ -48,23 +48,17 @@ function ProfileButton({ theme }) {
 
 function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
   const isActive = storeKey === currentStore;
-
-  let activeBgClass = theme.activeTabBg;
-  if (isActive) {
-    if (storeKey === "festive") activeBgClass = "bg-[#6D0000]";
-    else if (storeKey === "mall") activeBgClass = "bg-[#3C22B4]";
-    else if (storeKey === "cafe") activeBgClass = "bg-[#FFE3B3]";
-    else if (storeKey === "main") activeBgClass = "bg-[#DCFCE7]";
-  }
+  const activeBgClass = theme.activeTabBg;
+  const activeBorderClass = theme.activeTabBorder || "border-transparent";
 
   return (
     <button
       type="button"
       onClick={() => onSelect(storeKey)}
-      className={`flex shrink-0 items-center justify-center transition-all duration-200 cursor-pointer ${
+      className={`flex flex-1 min-w-0 items-center justify-center transition-all duration-200 cursor-pointer ${
         isActive
-          ? `${activeBgClass} h-12 min-w-[96px] rounded-t-[18px] rounded-b-none px-3.5 shadow-none border-t border-x border-transparent`
-          : "bg-white h-11 min-w-[92px] rounded-[16px] px-3 shadow-sm border border-transparent mb-0.5 hover:bg-gray-50"
+          ? `${activeBgClass} h-[54px] rounded-t-[20px] rounded-b-none px-3 border-t border-x ${activeBorderClass} mb-0`
+          : "bg-white h-[45px] rounded-[20px] px-3 border border-slate-200/90 mb-1.5 hover:bg-gray-50"
       }`}
     >
       {children}
@@ -92,7 +86,7 @@ export function HomeDeliveryBar() {
   const addressText = [location.label, location.address].filter(Boolean).join(" - ");
 
   return (
-    <div className={`${theme.deliveryBg} px-4 pb-0 pt-3 transition-colors duration-300`}>
+    <div className={`${theme.deliveryBg} px-4 pb-0 pt-3.5 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-3">
         <Link to="/location" className="min-w-0 flex-1">
           <div className={`flex items-center gap-1.5 ${theme.textColor}`}>
@@ -113,57 +107,39 @@ export function HomeDeliveryBar() {
         <ProfileButton theme={theme} />
       </div>
 
-      <div className="mt-2.5 flex items-end gap-2 overflow-x-auto pb-0 hide-scrollbar">
+      <div className="mt-3 flex items-end gap-2.5 w-full pb-0">
         {/* GreenGrocc tab */}
         <StoreTab storeKey="main" currentStore={currentStore} theme={theme} onSelect={setStore}>
           <img
             src="/greengrocc-logo.png"
             alt="GreenGrocc"
-            className="h-6 w-auto max-w-[88px] object-contain"
+            className="h-9 w-auto max-w-[125px] object-contain mx-auto"
           />
         </StoreTab>
 
-        {/* Rakhi Store tab */}
+        {/* Ready2Cook tab */}
         <StoreTab storeKey="festive" currentStore={currentStore} theme={theme} onSelect={setStore}>
           <div className="text-center leading-none">
-            <span className={`font-serif text-[15px] font-black tracking-tight ${
-              currentStore === "festive" ? "text-[#FFF5E6]" : "text-[#A00C0C]"
+            <span className={`text-[14px] sm:text-[15px] font-extrabold tracking-tight ${
+              currentStore === "festive" ? "text-[#7C2D12]" : "text-[#EA580C]"
             }`}>
-              Rakhi
-            </span>
-            <span className={`mt-0.5 block text-[8px] font-bold tracking-wider uppercase ${
-              currentStore === "festive" ? "text-red-200 opacity-90" : "text-[#A00C0C]/80"
-            }`}>
-              — Store —
+              Ready2Cook
             </span>
           </div>
         </StoreTab>
 
         {/* Super Mall tab */}
         <StoreTab storeKey="mall" currentStore={currentStore} theme={theme} onSelect={setStore}>
-          <div className="text-left leading-none">
-            <span className={`block text-[13px] font-black ${
-              currentStore === "mall" ? "text-white" : "text-slate-900"
-            }`}>
-              Super
-            </span>
-            <span className={`text-[13px] font-black ${
-              currentStore === "mall" ? "text-white" : "text-[#2563EB]"
-            }`}>
-              Mall.
-            </span>
-          </div>
-        </StoreTab>
-
-        {/* Cafe tab */}
-        <StoreTab storeKey="cafe" currentStore={currentStore} theme={theme} onSelect={setStore}>
-          <div className="flex flex-col items-center leading-none">
-            <span className="text-[14px] font-black lowercase tracking-tight text-[#7C3AED]">
-              cafe
-            </span>
-            <span className="mt-0.5 rounded-full bg-[#F97316] px-1.5 py-0.5 text-[8px] font-black leading-none text-white shadow-sm">
-              From ₹39
-            </span>
+          <div className="text-center leading-none">
+            {currentStore === "mall" ? (
+              <span className="text-[13px] sm:text-[14px] font-extrabold tracking-tight text-white">
+                Super Mall.
+              </span>
+            ) : (
+              <span className="text-[13px] sm:text-[14px] font-extrabold tracking-tight text-slate-900">
+                Super <span className="text-[#2563EB]">Mall.</span>
+              </span>
+            )}
           </div>
         </StoreTab>
       </div>
@@ -190,30 +166,30 @@ export function HomeSearchBar() {
   };
 
   return (
-    <div className={`${theme.contentBg} px-4 py-2 transition-colors duration-300`}>
+    <div className={`${theme.contentBg} px-4 py-2.5 transition-colors duration-300`}>
       <div className="flex items-center gap-2">
         <form onSubmit={handleSearch} className="min-w-0 flex-1">
-          <div className="flex h-11 items-center rounded-[16px] bg-white px-3.5 shadow-sm border border-transparent">
+          <div className="flex h-12 items-center rounded-[18px] bg-white px-4 shadow-sm border border-transparent">
             <SearchIcon className="mr-2.5 h-4 w-4 shrink-0 text-slate-700" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={theme.placeholder}
-              className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none"
             />
           </div>
         </form>
 
         <Link
           to="/coupons"
-          className="flex h-11 shrink-0 items-center justify-between gap-1.5 overflow-hidden rounded-[14px] bg-white px-2 py-1 shadow-sm border border-gray-100 transition hover:bg-gray-50 max-w-[130px]"
+          className="flex h-12 shrink-0 items-center justify-between gap-1.5 overflow-hidden rounded-[16px] bg-white px-2.5 py-1 shadow-sm border border-gray-100 transition hover:bg-gray-50 max-w-[140px]"
         >
           <div className="leading-tight text-left">
-            <p className="text-[10px] font-black text-[#047857]">Hariyali</p>
-            <p className="text-[10px] font-black text-[#047857]">Teej</p>
+            <p className="text-[11px] font-black text-[#047857]">Hariyali</p>
+            <p className="text-[11px] font-black text-[#047857]">Teej</p>
           </div>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 p-0.5 overflow-hidden">
+          <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-amber-50 p-0.5 overflow-hidden">
             <img src="/festive-store-logo.png" onError={(e) => { e.currentTarget.style.display='none'; }} alt="" className="h-7 w-7 object-contain" />
           </div>
         </Link>
