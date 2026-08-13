@@ -49,20 +49,45 @@ function ProfileButton({ theme }) {
 function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
   const isActive = storeKey === currentStore;
   const activeBgClass = theme.activeTabBg;
-  const activeBorderClass = theme.activeTabBorder || "border-transparent";
+
+  let activeBgHex = "#DCFCE7";
+  if (storeKey === "festive") activeBgHex = "#FFEDD5";
+  else if (storeKey === "mall") activeBgHex = "#3C22B4";
+  else if (storeKey === "main") activeBgHex = "#DCFCE7";
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(storeKey)}
-      className={`flex flex-1 min-w-0 items-center justify-center transition-all duration-200 cursor-pointer ${
-        isActive
-          ? `${activeBgClass} h-[54px] rounded-t-[20px] rounded-b-none px-3 border-t border-x ${activeBorderClass} mb-0`
-          : "bg-white h-[45px] rounded-[20px] px-3 border border-slate-200/90 mb-1.5 hover:bg-gray-50"
-      }`}
-    >
-      {children}
-    </button>
+    <div className="relative flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={() => onSelect(storeKey)}
+        className={`relative w-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
+          isActive
+            ? `${activeBgClass} h-[52px] rounded-t-[18px] rounded-b-none px-2 z-10`
+            : "bg-white h-[45px] rounded-[18px] px-2 border border-slate-200/90 mb-1.5 hover:bg-gray-50 z-0"
+        }`}
+      >
+        {children}
+      </button>
+
+      {isActive && (
+        <>
+          {/* Bottom-left concave fillet curve */}
+          <span
+            className="absolute -left-[10px] bottom-0 h-[10px] w-[10px] z-10 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 0 0, transparent 10px, ${activeBgHex} 10.5px)`,
+            }}
+          />
+          {/* Bottom-right concave fillet curve */}
+          <span
+            className="absolute -right-[10px] bottom-0 h-[10px] w-[10px] z-10 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 100% 0, transparent 10px, ${activeBgHex} 10.5px)`,
+            }}
+          />
+        </>
+      )}
+    </div>
   );
 }
 
