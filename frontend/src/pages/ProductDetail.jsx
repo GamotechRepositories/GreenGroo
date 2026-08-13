@@ -399,6 +399,87 @@ function WhyShopFromGreenGroo() {
   );
 }
 
+function FarmerDetailsCard({ product }) {
+  const images = normalizeProductImages(product?.productImages);
+  
+  const farmer = {
+    name: product?.farmerName || product?.farmerDetails?.name || "Kiran Pawar",
+    location: product?.farmerLocation || product?.farmerDetails?.location || "Niphad, NASHIK",
+    farmerImage: product?.farmerImage || product?.farmerDetails?.farmerImage || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=400&h=400&q=80",
+    farmImage: product?.farmImage || product?.farmerDetails?.farmImage || images[0] || "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=400&h=400&q=80",
+    totalArea: product?.farmerDetails?.totalArea || "3",
+    cultivationArea: product?.farmerDetails?.cultivationArea || "3",
+    cropCycle: product?.farmerDetails?.cropCycle || product?.name?.split("-")[0]?.trim() || "Cauliflower",
+    agricultureMethod: product?.farmerDetails?.agricultureMethod || "Modern and Traditional",
+    lastCropTaken: product?.farmerDetails?.lastCropTaken || "Onion",
+    currentCrop: product?.farmerDetails?.currentCrop || product?.name?.split("-")[0]?.trim() || "Cauliflower",
+    waterSource: product?.farmerDetails?.waterSource || "Rivers, Well",
+    soilType: product?.farmerDetails?.soilType || "Black soils",
+    farmTools: product?.farmerDetails?.farmTools || "Tractor",
+    harvestingDate: product?.harvestingDate || product?.farmerDetails?.harvestingDate || "Today (Fresh Morning Harvest)",
+    bio: product?.farmerDetails?.bio || `Hello, my name is ${product?.farmerName || "Kiran Vitthal Pawar"}. I am a graduate and I have been actively involved in farming for the past 5 years in Niphad, Nashik. We cultivate fresh organic produce using modern and traditional sustainable farming techniques.`,
+  };
+
+  return (
+    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+      {/* Title Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+          {product?.name} <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">Traceable</span>
+        </h3>
+      </div>
+
+      {/* 2 Photos side by side */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+          <img
+            src={farmer.farmerImage}
+            alt={farmer.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+          <img
+            src={farmer.farmImage}
+            alt={farmer.cropCycle}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      </div>
+
+      {/* Farmer Name & Location Row */}
+      <div className="flex items-center justify-between pt-1">
+        <h4 className="text-base sm:text-lg font-extrabold text-slate-900">{farmer.name}</h4>
+        <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-700">
+          <svg className="h-4 w-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>{farmer.location}</span>
+        </div>
+      </div>
+
+      {/* Bulleted Details List */}
+      <ul className="space-y-1.5 text-xs sm:text-sm text-slate-800 font-medium pt-2 border-t border-slate-100">
+        <li><span className="font-bold text-slate-900">• Total Area :</span> {farmer.totalArea}</li>
+        <li><span className="font-bold text-slate-900">• Area Under Cultivation :</span> {farmer.cultivationArea}</li>
+        <li><span className="font-bold text-slate-900">• Crop Cycle :</span> {farmer.cropCycle}</li>
+        <li><span className="font-bold text-slate-900">• Agriculture Method :</span> {farmer.agricultureMethod}</li>
+        <li><span className="font-bold text-slate-900">• Last Crop Taken :</span> {farmer.lastCropTaken}</li>
+        <li><span className="font-bold text-slate-900">• Current Crop :</span> {farmer.currentCrop}</li>
+        <li><span className="font-bold text-slate-900">• Water Source :</span> {farmer.waterSource}</li>
+        <li><span className="font-bold text-slate-900">• Soil Type :</span> {farmer.soilType}</li>
+        <li><span className="font-bold text-slate-900">• Farm Tools :</span> {farmer.farmTools}</li>
+      </ul>
+
+      {/* Bio / Story Paragraph */}
+      <div className="pt-2 border-t border-slate-100 text-xs sm:text-sm text-slate-700 leading-relaxed">
+        <p>{farmer.bio}</p>
+      </div>
+    </section>
+  );
+}
+
 function UnitOptionCard({ label, salePrice, originalPrice, selected, discountPct, onClick }) {
   const format = (amount) =>
     new Intl.NumberFormat("en-IN", {
@@ -523,6 +604,12 @@ function ProductDetailsSection({
         <p>
           <span className="font-semibold text-[#1a1a1a]">Type </span>
           <span className="text-[#666]">{productType}</span>
+        </p>
+        <p>
+          <span className="font-semibold text-[#1a1a1a]">Harvesting Date: </span>
+          <span className="font-bold text-[#0C831F]">
+            {product?.harvestingDate || product?.farmerDetails?.harvestingDate || "Today (Fresh Morning Harvest)"}
+          </span>
         </p>
         {detailsOpen ? (
           <div className="space-y-2 text-[#666]">
@@ -969,6 +1056,10 @@ function ProductDetail() {
               product={product}
               specifications={specifications}
             />
+
+            <div className="hidden lg:block">
+              <FarmerDetailsCard product={product} />
+            </div>
           </div>
 
           {/* Right — sticks to top under header while left scrolls */}
@@ -1109,6 +1200,8 @@ function ProductDetail() {
               product={product}
               specifications={specifications}
             />
+
+            <FarmerDetailsCard product={product} />
 
             <div className="mt-8 border-t border-[#F0F0F0] pt-6">
               <WhyShopFromGreenGroo />
