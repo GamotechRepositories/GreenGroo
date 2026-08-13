@@ -132,6 +132,9 @@ function HomeCategoryStrip() {
   const { data: apiCategories = [] } = useCategoriesQuery();
   const [searchParams] = useSearchParams();
 
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const theme = resolveStoreTheme(currentStore);
+
   const categories = useMemo(() => {
     const filtered = apiCategories.filter(
       (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
@@ -145,52 +148,61 @@ function HomeCategoryStrip() {
       { name: "Dairy", slug: "Dairy", image: "/dairy.png" },
     ];
 
-    if (!filtered.length) return defaults;
+    let baseList = defaults;
 
-    const fromApi = filtered.slice(0, 8).map((cat) => ({
-      name: cat.categoryName,
-      slug: cat.categoryName,
-      image: getCategoryImage(cat.categoryName, cat.categoryImage),
-    }));
+    if (filtered.length) {
+      const fromApi = filtered.slice(0, 8).map((cat) => ({
+        name: cat.categoryName,
+        slug: cat.categoryName,
+        image: getCategoryImage(cat.categoryName, cat.categoryImage),
+      }));
 
-    const hasFruits = fromApi.some((cat) => isFruitsCategory(cat.name));
-    const hasVegetables = fromApi.some((cat) => isVegetablesCategory(cat.name));
-    const hasOrganic = fromApi.some((cat) => isOrganicCategory(cat.name));
-    const hasDairy = fromApi.some((cat) => isDairyCategory(cat.name));
-    const list = [{ name: "All", slug: "" }, ...fromApi];
+      const hasFruits = fromApi.some((cat) => isFruitsCategory(cat.name));
+      const hasVegetables = fromApi.some((cat) => isVegetablesCategory(cat.name));
+      const hasOrganic = fromApi.some((cat) => isOrganicCategory(cat.name));
+      const hasDairy = fromApi.some((cat) => isDairyCategory(cat.name));
+      const list = [{ name: "All", slug: "" }, ...fromApi];
 
-    if (!hasFruits) {
-      list.splice(1, 0, { name: "Fruits", slug: "Fruits", image: "/fruits.png" });
-    }
-    if (!hasVegetables) {
-      const insertAt = list.findIndex((cat) => isFruitsCategory(cat.name)) + 1 || 2;
-      list.splice(insertAt, 0, {
-        name: "Vegetables",
-        slug: "Vegetables",
-        image: "/vegetables.png",
-      });
-    }
-    if (!hasOrganic) {
-      const vegIndex = list.findIndex((cat) => isVegetablesCategory(cat.name));
-      const insertAt = vegIndex >= 0 ? vegIndex + 1 : list.length;
-      list.splice(insertAt, 0, {
-        name: "Organic",
-        slug: "Organic",
-        image: "/organic.png",
-      });
-    }
-    if (!hasDairy) {
-      const organicIndex = list.findIndex((cat) => isOrganicCategory(cat.name));
-      const insertAt = organicIndex >= 0 ? organicIndex + 1 : list.length;
-      list.splice(insertAt, 0, {
-        name: "Dairy",
-        slug: "Dairy",
-        image: "/dairy.png",
-      });
+      if (!hasFruits) {
+        list.splice(1, 0, { name: "Fruits", slug: "Fruits", image: "/fruits.png" });
+      }
+      if (!hasVegetables) {
+        const insertAt = list.findIndex((cat) => isFruitsCategory(cat.name)) + 1 || 2;
+        list.splice(insertAt, 0, {
+          name: "Vegetables",
+          slug: "Vegetables",
+          image: "/vegetables.png",
+        });
+      }
+      if (!hasOrganic) {
+        const vegIndex = list.findIndex((cat) => isVegetablesCategory(cat.name));
+        const insertAt = vegIndex >= 0 ? vegIndex + 1 : list.length;
+        list.splice(insertAt, 0, {
+          name: "Organic",
+          slug: "Organic",
+          image: "/organic.png",
+        });
+      }
+      if (!hasDairy) {
+        const organicIndex = list.findIndex((cat) => isOrganicCategory(cat.name));
+        const insertAt = organicIndex >= 0 ? organicIndex + 1 : list.length;
+        list.splice(insertAt, 0, {
+          name: "Dairy",
+          slug: "Dairy",
+          image: "/dairy.png",
+        });
+      }
+      baseList = list;
     }
 
-    return applyLocalCategoryImages(list).slice(0, 5);
-  }, [apiCategories]);
+    let finalCategories = applyLocalCategoryImages(baseList);
+
+    if (currentStore === "festive") {
+      finalCategories = finalCategories.filter((cat) => !isDairyCategory(cat.name));
+    }
+
+    return finalCategories.slice(0, 5);
+  }, [apiCategories, currentStore]);
 
   const categoryFromUrl = searchParams.get("categoryName")?.trim() || "";
   const activeCategory = useMemo(
@@ -198,17 +210,21 @@ function HomeCategoryStrip() {
     [categories, categoryFromUrl]
   );
 
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
-  const theme = resolveStoreTheme(currentStore);
-
   return (
     <nav className={`${theme.contentBg} px-4 pb-0 pt-2 transition-colors duration-300`}>
       <div className={`flex items-center justify-between border-b ${theme.categoryBorder}`}>
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
-          const to = cat.slug
-            ? `/?categoryName=${encodeURIComponent(cat.slug)}`
-            : "/";
+          
+          const params = new URLSearchParams();
+          if (currentStore && currentStore !== "main") {
+            params.set("store", currentStore);
+          }
+          if (cat.slug) {
+            params.set("categoryName", cat.slug);
+          }
+          const queryString = params.toString();
+          const to = queryString ? `/?${queryString}` : "/";
 
           return (
             <Link

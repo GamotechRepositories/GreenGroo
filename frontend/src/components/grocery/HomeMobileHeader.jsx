@@ -62,8 +62,8 @@ function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
         onClick={() => onSelect(storeKey)}
         className={`relative w-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
           isActive
-            ? `${activeBgClass} h-[52px] rounded-t-[18px] rounded-b-none px-2 z-10`
-            : "bg-white h-[45px] rounded-[18px] px-2 border border-slate-200/90 mb-1.5 hover:bg-gray-50 z-0"
+            ? `${activeBgClass} h-[60px] rounded-t-[20px] rounded-b-none px-2 z-10`
+            : "bg-white h-[54px] rounded-[18px] px-3 border border-black/10 mb-1 hover:bg-gray-50 z-0"
         }`}
       >
         {children}
@@ -138,14 +138,14 @@ export function HomeDeliveryBar() {
           <img
             src="/greengrocc-logo.png"
             alt="GreenGrocc"
-            className="h-9 w-auto max-w-[125px] object-contain mx-auto"
+            className="h-10 w-auto max-w-[135px] object-contain mx-auto"
           />
         </StoreTab>
 
         {/* Ready2Cook tab */}
         <StoreTab storeKey="festive" currentStore={currentStore} theme={theme} onSelect={setStore}>
           <div className="text-center leading-none">
-            <span className={`text-[14px] sm:text-[15px] font-extrabold tracking-tight ${
+            <span className={`text-[15px] sm:text-[16px] font-black tracking-tight ${
               currentStore === "festive" ? "text-[#7C2D12]" : "text-[#EA580C]"
             }`}>
               Ready2Cook
@@ -155,16 +155,17 @@ export function HomeDeliveryBar() {
 
         {/* Super Mall tab */}
         <StoreTab storeKey="mall" currentStore={currentStore} theme={theme} onSelect={setStore}>
-          <div className="text-center leading-none">
-            {currentStore === "mall" ? (
-              <span className="text-[13px] sm:text-[14px] font-extrabold tracking-tight text-white">
-                Super Mall.
-              </span>
-            ) : (
-              <span className="text-[13px] sm:text-[14px] font-extrabold tracking-tight text-slate-900">
-                Super <span className="text-[#2563EB]">Mall.</span>
-              </span>
-            )}
+          <div className="text-left leading-[1.1]">
+            <span className={`block text-[14px] sm:text-[15px] font-black ${
+              currentStore === "mall" ? "text-white" : "text-slate-900"
+            }`}>
+              Super
+            </span>
+            <span className={`block text-[14px] sm:text-[15px] font-black ${
+              currentStore === "mall" ? "text-white" : "text-[#2563EB]"
+            }`}>
+              Mall.
+            </span>
           </div>
         </StoreTab>
       </div>
