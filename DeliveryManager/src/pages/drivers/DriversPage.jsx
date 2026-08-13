@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { Icon } from "../../components/ui/Icon";
 
 const EMPTY = { name: "", phone: "", password: "" };
 
@@ -28,7 +29,7 @@ export default function DriversPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 20000);
+    const id = setInterval(load, 15000);
     return () => clearInterval(id);
   }, [load]);
 
@@ -39,116 +40,181 @@ export default function DriversPage() {
     setError("");
     try {
       const res = await managerApi.createRider(form);
-      setMessage(res.data?.message || "Delivery boy created");
+      setMessage(res.data?.message || "Delivery partner login created successfully!");
       setForm(EMPTY);
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create delivery boy");
+      setError(err.response?.data?.message || "Failed to create delivery partner");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <PageShell title="Total Drivers" subtitle={`Approved riders · ${manager?.area}`}>
+    <PageShell
+      title="Approved Delivery Partners"
+      subtitle={`Manage online riders & create account credentials for ${manager?.area || "Store Location"}`}
+    >
       {message ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {message}
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-xs flex items-center gap-3">
+          <span>✅</span>
+          <span>{message}</span>
         </div>
       ) : null}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
           {error}
         </div>
       )}
 
+      {/* Driver Registration Form */}
       <form
         onSubmit={onSubmit}
-        className="grid grid-cols-1 gap-3 rounded-xl bg-white p-5 shadow-sm md:grid-cols-4"
+        className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-4"
       >
-        <h2 className="md:col-span-4 text-base font-bold text-gray-900">
-          Create delivery boy login
-        </h2>
-        <input
-          name="name"
-          value={form.name}
-          onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-          placeholder="Name"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-          required
-        />
-        <input
-          name="phone"
-          value={form.phone}
-          onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-          placeholder="Phone"
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-          required
-        />
-        <input
-          type="password"
-          name="password"
-          value={form.password}
-          onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-          placeholder="Temp password"
-          minLength={6}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-          required
-        />
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-lg bg-green-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-active disabled:opacity-60"
-        >
-          {submitting ? "Creating…" : "Create"}
-        </button>
-        <p className="md:col-span-4 text-xs text-gray-500">
-          New riders are linked to your area and stay pending until you verify them under
-          New Driver Verify.
-        </p>
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 font-bold">
+            <Icon name="user" size="sm" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Create Delivery Partner Account</h2>
+            <p className="text-xs text-slate-500">Register new rider credentials bound to this dark store hub</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Full Name
+            </label>
+            <input
+              name="name"
+              value={form.name}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              placeholder="e.g. Ramesh Kumar"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Mobile Number
+            </label>
+            <input
+              name="phone"
+              value={form.phone}
+              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="e.g. 9876543210"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Temporary Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+              placeholder="Min 6 characters"
+              minLength={6}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <p className="text-xs text-slate-500">
+            ℹ️ Rider account will be auto-linked to <strong>{manager?.area}</strong>. After creation, approve documents under <strong>Driver Verification</strong>.
+          </p>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-60 transition active:scale-95"
+          >
+            {submitting ? "Creating Credentials…" : "Create Partner Account"}
+          </button>
+        </div>
       </form>
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">
-          Approved drivers ({riders.length})
-        </h2>
+      {/* Driver Roster Header */}
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-bold text-slate-900">
+            Active Store Drivers ({riders.length})
+          </h2>
+          <span className="rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-bold text-emerald-800">
+            {riders.filter((r) => r.status === "online").length} Online Now
+          </span>
+        </div>
         <button
           type="button"
           onClick={load}
-          className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
         >
-          Refresh
+          🔄 Refresh Roster
         </button>
       </div>
 
+      {/* Driver Cards Grid */}
       {loading ? (
-        <p className="text-sm text-gray-500">Loading drivers…</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-32 rounded-2xl bg-slate-200/60 animate-pulse" />
+          ))}
+        </div>
       ) : riders.length === 0 ? (
-        <div className="rounded-xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-          No approved drivers in this area yet. Check New Driver Verify for pending joins.
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
+          <p className="text-3xl mb-2">🛵</p>
+          <h3 className="text-base font-bold text-slate-800">No Approved Drivers</h3>
+          <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+            No delivery partners approved for this location yet. Create an account above or check Driver Verification.
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {riders.map((r) => (
-            <div key={r.id} className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="font-semibold text-gray-900">{r.name || "Rider"}</p>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    r.status === "online"
-                      ? "bg-green-light text-green-primary"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {r.status}
-                </span>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {riders.map((r) => {
+            const isOnline = r.status === "online";
+            return (
+              <div
+                key={r.id || r._id}
+                className="group rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs hover:shadow-md transition-all space-y-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 font-bold text-slate-700 text-sm">
+                      🛵
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">{r.name || "Delivery Partner"}</p>
+                      <p className="text-xs text-slate-500 font-mono">📞 {r.phone}</p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${
+                      isOnline
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                    {isOnline ? "ONLINE" : (r.status || "OFFLINE").toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-xs text-slate-500">
+                  <span>Vehicle: <strong className="text-slate-800">{r.vehicleType || "Scooter"}</strong></span>
+                  <span>Hub: <strong className="text-slate-800">{r.area}</strong></span>
+                </div>
               </div>
-              <p className="mt-1 text-sm text-gray-500">{r.phone}</p>
-              <p className="mt-1 text-xs text-gray-400">
-                {r.vehicleType || "vehicle n/a"} · {r.area}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </PageShell>

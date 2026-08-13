@@ -16,24 +16,23 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: CustomAppBar(
-        title: l10n.settings,
-        showBackButton: true,
-      ),
-      body: ListenableBuilder(
-        listenable: Listenable.merge([
-          ThemeController.instance,
-          LocaleController.instance,
-        ]),
-        builder: (context, _) {
-          return _SettingsBody(
-            isDark: ThemeController.instance.isDark,
-          );
-        },
-      ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        ThemeController.instance,
+        LocaleController.instance,
+      ]),
+      builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
+        final isDark = ThemeController.instance.isDark;
+        return Scaffold(
+          backgroundColor: AppColors.surface,
+          appBar: CustomAppBar(
+            title: l10n.settings,
+            showBackButton: true,
+          ),
+          body: _SettingsBody(isDark: isDark),
+        );
+      },
     );
   }
 }

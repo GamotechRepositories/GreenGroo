@@ -1140,4 +1140,68 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get dailyTargetReached => 'Daily order target reached — great work!';
+
+  @override
+  String get referAndEarn => 'Refer & Earn';
+
+  @override
+  String get referAndEarnSubtitle => 'Invite friends and earn rewards';
+
+  @override
+  String get earnBonus => 'Earn Bonus';
+
+  @override
+  String get earnBonusSubtitle => 'Do extra to earn bonus';
+
+  @override
+  String get viewWallet => 'View Wallet';
+
+  @override
+  String get verifiedPartner => 'Verified Partner';
+
+  @override
+  String get youAreOnline => 'You are Online';
+
+  @override
+  String get youAreOffline => 'You are Offline';
+
+  @override
+  String get receiveDeliveryRequests => 'You will receive delivery requests.';
+
+  @override
+  String get offlineDeliveryHint => 'Go online to receive delivery requests.';
+
+  @override
+  String completeMoreDeliveriesBonus(int count, String amount) {
+    return 'Complete $count more deliveries to earn extra $amount bonus';
+  }
+
+  @override
+  String get currentOrder => 'Current Order';
+
+  @override
+  String get orderEarnings => 'Order Earnings';
+
+  @override
+  String get acceptOrder => 'Accept Order';
+
+  @override
+  String kmAway(String distance) {
+    return '$distance km away';
+  }
+
+  @override
+  String get todaysOrders => 'Today\'s Orders';
+
+  @override
+  String get completed => 'Completed';
+
+  @override
+  String get myOrders => 'My Orders';
+
+  @override
+  String get thisWeekEarnings => 'This Week';
+
+  @override
+  String get continueDelivery => 'Continue Delivery';
 }

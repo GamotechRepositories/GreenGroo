@@ -1,4 +1,4 @@
-import DeliveryManager from "../delivery-manager/models/DeliveryManager.js";
+import DeliveryManager from "../models/DeliveryManager.js";
 
 /**
  * storeId === DeliveryManager._id (no separate Store collection yet).

@@ -14,6 +14,7 @@ import 'presentation/screens/splash/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
+  debugPrint('GreenRow API base URL: ${dotenv.env['API_BASE_URL']}');
   await LocaleController.instance.loadSavedLocale();
   await AuthService.instance.loadSession();
   runApp(const GreenRowDeliveryApp());

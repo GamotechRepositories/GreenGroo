@@ -2301,6 +2301,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Daily order target reached — great work!'**
   String get dailyTargetReached;
+
+  /// No description provided for @referAndEarn.
+  ///
+  /// In en, this message translates to:
+  /// **'Refer & Earn'**
+  String get referAndEarn;
+
+  /// No description provided for @referAndEarnSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends and earn rewards'**
+  String get referAndEarnSubtitle;
+
+  /// No description provided for @earnBonus.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn Bonus'**
+  String get earnBonus;
+
+  /// No description provided for @earnBonusSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Do extra to earn bonus'**
+  String get earnBonusSubtitle;
+
+  /// No description provided for @viewWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'View Wallet'**
+  String get viewWallet;
+
+  /// No description provided for @verifiedPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified Partner'**
+  String get verifiedPartner;
+
+  /// No description provided for @youAreOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'You are Online'**
+  String get youAreOnline;
+
+  /// No description provided for @youAreOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'You are Offline'**
+  String get youAreOffline;
+
+  /// No description provided for @receiveDeliveryRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'You will receive delivery requests.'**
+  String get receiveDeliveryRequests;
+
+  /// No description provided for @offlineDeliveryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Go online to receive delivery requests.'**
+  String get offlineDeliveryHint;
+
+  /// No description provided for @completeMoreDeliveriesBonus.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete {count} more deliveries to earn extra {amount} bonus'**
+  String completeMoreDeliveriesBonus(int count, String amount);
+
+  /// No description provided for @currentOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Order'**
+  String get currentOrder;
+
+  /// No description provided for @orderEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Order Earnings'**
+  String get orderEarnings;
+
+  /// No description provided for @acceptOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept Order'**
+  String get acceptOrder;
+
+  /// No description provided for @kmAway.
+  ///
+  /// In en, this message translates to:
+  /// **'{distance} km away'**
+  String kmAway(String distance);
+
+  /// No description provided for @todaysOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Orders'**
+  String get todaysOrders;
+
+  /// No description provided for @completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get completed;
+
+  /// No description provided for @myOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'My Orders'**
+  String get myOrders;
+
+  /// No description provided for @thisWeekEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'This Week'**
+  String get thisWeekEarnings;
+
+  /// No description provided for @continueDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Delivery'**
+  String get continueDelivery;
 }
 
 class _AppLocalizationsDelegate

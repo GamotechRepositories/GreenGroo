@@ -191,9 +191,8 @@ class AuthService {
     } on AuthApiException {
       rethrow;
     } catch (e) {
-      throw AuthApiException(
-        'Cannot reach ${ApiConfig.baseUrl}\n$e',
-      );
+      // Surface the friendly message from api_config (includes URL + fix hint)
+      throw AuthApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -214,9 +213,8 @@ class AuthService {
     } on AuthApiException {
       rethrow;
     } catch (e) {
-      throw AuthApiException(
-        'Cannot reach ${ApiConfig.baseUrl}\n$e',
-      );
+      // Surface the friendly message from api_config (includes URL + fix hint)
+      throw AuthApiException(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -309,6 +307,20 @@ class AuthService {
     if (!isLoggedIn) return null;
     try {
       final res = await apiGet(ApiConfig.areaManager, headers: _authHeaders);
+      if (res.statusCode != 200) return null;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final manager = body['manager'];
+      if (manager is! Map<String, dynamic>) return null;
+      return AreaManagerInfo.fromJson(manager);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AreaManagerInfo?> fetchAreaManagerByLocation(String cityId, String area) async {
+    try {
+      final path = '${ApiConfig.areaManager}?cityId=${Uri.encodeComponent(cityId)}&area=${Uri.encodeComponent(area)}';
+      final res = await apiGet(path, headers: isLoggedIn ? _authHeaders : null);
       if (res.statusCode != 200) return null;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final manager = body['manager'];

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { Icon } from "../../components/ui/Icon";
 
 const CHECK_ITEMS = [
   { key: "aadhaar", label: "Aadhaar card", type: "doc" },
@@ -10,9 +11,9 @@ const CHECK_ITEMS = [
   { key: "license", label: "Driving license", type: "doc" },
   { key: "rc", label: "Vehicle RC", type: "doc" },
   { key: "insurance", label: "Insurance", type: "doc" },
-  { key: "selfie", label: "Passport-size / selfie photo", type: "selfie" },
+  { key: "selfie", label: "Selfie Photo", type: "selfie" },
   { key: "bankDetails", label: "Bank details", type: "bank" },
-  { key: "liveness", label: "Live camera / liveness check", type: "liveness" },
+  { key: "liveness", label: "Liveness check", type: "liveness" },
 ];
 
 function docMeta(rider, key) {
@@ -90,7 +91,7 @@ export default function PendingDriversPage() {
 
   const onVerify = async (riderId, decision) => {
     if (decision === "approved" && !allChecked(riderId)) {
-      showToast("Tick all document checkboxes before completing verification");
+      showToast("Please check and verify all document checkboxes before approving");
       return;
     }
     setBusyId(`${riderId}-${decision}`);
@@ -104,8 +105,8 @@ export default function PendingDriversPage() {
       });
       showToast(
         decision === "approved"
-          ? "Verified — driver can go online now"
-          : res.data.message || `Driver ${decision}`
+          ? "Driver verified successfully! They can go online now."
+          : res.data.message || `Driver application ${decision}`
       );
       await load();
     } catch (err) {
@@ -117,224 +118,220 @@ export default function PendingDriversPage() {
 
   return (
     <PageShell
-      title="New Driver Verification"
-      subtitle={`Review documents · ${manager?.area}`}
+      title="Driver Verification Desk"
+      subtitle={`Review background verification, KYC documents & bank accounts for ${manager?.area}`}
     >
       {toast && (
-        <div className="rounded-xl border border-green-primary/20 bg-green-light px-4 py-3 text-sm font-medium text-green-dark">
-          {toast}
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-sm flex items-center gap-3">
+          <span>⚡</span>
+          <span>{toast}</span>
         </div>
       )}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-600">
           {error}
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-900">
-          Pending applications ({riders.length})
-        </h2>
+      {/* Header bar */}
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-700 font-bold">
+            <Icon name="user" size="sm" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">
+            Pending Applications ({riders.length})
+          </h2>
+        </div>
         <button
           type="button"
           onClick={load}
-          className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
         >
-          Refresh
+          🔄 Refresh Feed
         </button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <div className="space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
+          ))}
+        </div>
       ) : riders.length === 0 ? (
-        <div className="rounded-xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-          No new driver applications waiting for verification in this area.
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
+          <p className="text-3xl mb-2">📋</p>
+          <h3 className="text-base font-bold text-slate-800">Verification Queue Empty</h3>
+          <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+            No new delivery partner applications awaiting document verification in this store area.
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {riders.map((r) => {
             const ready = allChecked(r.id);
             const bank = r.bankDetails || {};
             return (
-              <div key={r.id} className="rounded-xl bg-white p-5 shadow-sm">
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div
+                key={r.id || r._id}
+                className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-5"
+              >
+                {/* Header Row */}
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-4">
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">
-                      {r.name || "New rider"}
+                    <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                      {r.name || "New Applicant"}
                     </h3>
-                    <p className="text-sm text-gray-500">
-                      {r.phone} · {r.vehicleType || "vehicle n/a"} · {r.area}
+                    <p className="text-xs text-slate-500 mt-0.5 font-mono">
+                      📞 {r.phone} · Vehicle: <strong className="text-slate-800">{r.vehicleType || "N/A"}</strong> · Area: <strong className="text-slate-800">{r.area}</strong>
                     </p>
                   </div>
-                  <div className="flex gap-2">
+
+                  <div className="flex items-center gap-3">
                     <button
                       type="button"
                       disabled={!!busyId || !ready}
                       onClick={() => onVerify(r.id, "approved")}
-                      className="rounded-lg bg-green-dark px-4 py-2 text-sm font-semibold text-white hover:bg-green-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-40 transition active:scale-95"
                     >
-                      {busyId === `${r.id}-approved`
-                        ? "Completing…"
-                        : "Complete verification"}
+                      {busyId === `${r.id}-approved` ? "Approving…" : "Approve & Activate ✓"}
                     </button>
                     <button
                       type="button"
                       disabled={!!busyId}
                       onClick={() => onVerify(r.id, "rejected")}
-                      className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      className="rounded-xl border border-rose-300 bg-white px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition"
                     >
-                      {busyId === `${r.id}-rejected` ? "Rejecting…" : "Reject"}
+                      {busyId === `${r.id}-rejected` ? "Rejecting…" : "Reject Application"}
                     </button>
                   </div>
                 </div>
 
-                {/* Full bank details */}
-                <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Bank details
+                {/* Bank Account Verification Box */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    🏦 Bank Payout Details
                   </p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-                    <BankField label="Account holder" value={bank.accountHolderName} />
-                    <BankField label="Account number" value={bank.accountNumber} />
-                    <BankField label="IFSC" value={bank.ifscCode} />
-                    <BankField label="Bank name" value={bank.bankName} />
-                    <BankField label="UPI ID" value={bank.upiId} />
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 text-xs">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase">Account Holder</p>
+                      <p className="font-bold text-slate-900">{bank.accountHolderName || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase">Account Number</p>
+                      <p className="font-bold text-slate-900 font-mono">{bank.accountNumber || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase">IFSC Code</p>
+                      <p className="font-bold text-slate-900 font-mono">{bank.ifscCode || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase">Bank Name</p>
+                      <p className="font-bold text-slate-900">{bank.bankName || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase">UPI ID</p>
+                      <p className="font-bold text-slate-900 font-mono">{bank.upiId || "—"}</p>
+                    </div>
                   </div>
                 </div>
 
-                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-400">
-                  Tick each item after checking the document / photo
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {CHECK_ITEMS.map((item) => {
-                    const status = docStatus(r, item.key);
-                    const checked = !!checks[r.id]?.[item.key];
-                    const src = imageSrc(r, item.key);
-                    const meta = docMeta(r, item.key);
-
-                    return (
-                      <div
-                        key={item.key}
-                        className={`rounded-xl border p-3 ${
-                          checked
-                            ? "border-green-primary bg-green-light/40"
-                            : "border-gray-100 bg-gray-50"
-                        }`}
-                      >
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleCheck(r.id, item.key)}
-                            className="mt-1 h-4 w-4 accent-green-primary"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-gray-900">
-                              {item.label}
-                            </span>
-                            <span className="text-[11px] capitalize text-gray-500">
-                              Status: {status}
-                              {meta.fileName ? ` · ${meta.fileName}` : ""}
-                            </span>
-                          </span>
-                        </label>
-
-                        {item.type === "bank" ? (
-                          <div className="mt-3 space-y-1 rounded-lg bg-white p-2 text-xs text-gray-600">
-                            <p>Holder: {bank.accountHolderName || "—"}</p>
-                            <p>A/C: {bank.accountNumber || "—"}</p>
-                            <p>IFSC: {bank.ifscCode || "—"}</p>
-                            <p>Bank: {bank.bankName || "—"}</p>
-                            <p>UPI: {bank.upiId || "—"}</p>
-                          </div>
-                        ) : item.type === "liveness" ? (
-                          <div className="mt-3 rounded-lg bg-white px-3 py-6 text-center text-xs text-gray-500">
-                            {r.livenessPassed
-                              ? "✅ Liveness check passed on device"
-                              : "❌ Liveness not passed"}
-                          </div>
-                        ) : src ? (
-                          <button
-                            type="button"
-                            className="mt-3 block w-full overflow-hidden rounded-lg border border-gray-200 bg-white"
-                            onClick={() =>
-                              setPreview({ src, title: item.label, fileName: meta.fileName })
-                            }
-                          >
-                            <img
-                              src={src}
-                              alt={item.label}
-                              className="h-36 w-full object-cover"
-                            />
-                            <span className="block px-2 py-1 text-[11px] text-green-primary">
-                              Tap to enlarge
-                            </span>
-                          </button>
-                        ) : (
-                          <div className="mt-3 rounded-lg border border-dashed border-orange-200 bg-orange-50 px-3 py-6 text-center text-xs text-orange-700">
-                            No photo stored yet.
-                            <br />
-                            Ask rider to re-upload docs from the app.
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {!ready && (
-                  <p className="mt-3 text-xs text-orange-600">
-                    Complete verification unlocks only after all checkboxes are
-                    ticked. Driver then moves to Total Drivers.
+                {/* Checklist Title */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                    KYC Documents & Verification Checklist
                   </p>
-                )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {CHECK_ITEMS.map((item) => {
+                      const status = docStatus(r, item.key);
+                      const checked = !!checks[r.id]?.[item.key];
+                      const src = imageSrc(r, item.key);
+                      const meta = docMeta(r, item.key);
+
+                      return (
+                        <div
+                          key={item.key}
+                          className={`rounded-xl border p-3.5 transition ${
+                            checked
+                              ? "border-emerald-500 bg-emerald-50/40 shadow-xs"
+                              : "border-slate-200/80 bg-slate-50/50"
+                          }`}
+                        >
+                          <label className="flex cursor-pointer items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleCheck(r.id, item.key)}
+                              className="mt-0.5 h-4 w-4 rounded-md accent-emerald-600 cursor-pointer"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-xs font-bold text-slate-900">
+                                {item.label}
+                              </span>
+                              <span className="text-[10px] text-slate-500 capitalize">
+                                Status: <strong className="text-slate-700">{status}</strong>
+                              </span>
+                            </div>
+                          </label>
+
+                          {item.type === "liveness" ? (
+                            <div className="mt-3 rounded-lg bg-white p-3 text-center text-xs font-semibold text-slate-600 border border-slate-100">
+                              {r.livenessPassed ? "✅ Liveness passed on device" : "❌ Liveness incomplete"}
+                            </div>
+                          ) : src ? (
+                            <button
+                              type="button"
+                              className="mt-3 group relative block w-full overflow-hidden rounded-lg border border-slate-200 bg-white"
+                              onClick={() => setPreview({ src, title: item.label, fileName: meta.fileName })}
+                            >
+                              <img src={src} alt={item.label} className="h-32 w-full object-cover group-hover:scale-105 transition" />
+                              <span className="block bg-slate-900/80 py-1 text-[10px] font-bold text-white text-center">
+                                🔍 Tap to Enlarge Photo
+                              </span>
+                            </button>
+                          ) : item.type !== "bank" ? (
+                            <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-100/60 py-5 text-center text-[11px] text-slate-400">
+                              No image re-uploaded yet
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
       )}
 
+      {/* Image Preview Modal */}
       {preview && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4"
           onClick={() => setPreview(null)}
-          onKeyDown={(e) => e.key === "Escape" && setPreview(null)}
-          role="button"
-          tabIndex={0}
         >
           <div
-            className="max-h-[90vh] max-w-3xl overflow-auto rounded-xl bg-white p-4"
+            className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white p-5 shadow-2xl space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <p className="font-semibold text-gray-900">{preview.title}</p>
-                <p className="text-xs text-gray-500">{preview.fileName}</p>
+                <p className="font-bold text-slate-900 text-sm">{preview.title}</p>
+                {preview.fileName && <p className="text-xs text-slate-400 font-mono">{preview.fileName}</p>}
               </div>
               <button
                 type="button"
-                className="rounded-lg border px-3 py-1.5 text-sm"
+                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
                 onClick={() => setPreview(null)}
               >
-                Close
+                Close ✕
               </button>
             </div>
-            <img
-              src={preview.src}
-              alt={preview.title}
-              className="max-h-[75vh] w-full object-contain"
-            />
+            <img src={preview.src} alt={preview.title} className="max-h-[70vh] w-full object-contain rounded-xl" />
           </div>
         </div>
       )}
     </PageShell>
-  );
-}
-
-function BankField({ label, value }) {
-  return (
-    <div>
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="font-medium text-gray-900">{value || "—"}</p>
-    </div>
   );
 }

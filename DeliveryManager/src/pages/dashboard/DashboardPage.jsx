@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { Icon } from "../../components/ui/Icon";
 
 export default function DashboardPage() {
   const { manager } = useAuth();
@@ -10,93 +11,233 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const fetchDashboardData = async () => {
+    try {
+      const res = await managerApi.dashboard();
+      if (res.data?.summary) setSummary(res.data.summary);
+      setError("");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const res = await managerApi.dashboard();
-        if (alive) setSummary(res.data.summary);
-      } catch (err) {
-        if (alive) {
-          setError(err.response?.data?.message || "Failed to load dashboard");
-        }
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 15000);
+    return () => clearInterval(interval);
   }, []);
 
-  const cards = [
+  const kpis = [
     {
-      label: "Incoming orders",
-      value: summary?.incomingOrders ?? "—",
+      label: "Incoming Orders",
+      value: summary?.incomingOrders ?? 0,
+      subtext: "Awaiting pack & dispatch",
       to: "/orders",
-      tone: "text-gray-900",
+      urgent: (summary?.incomingOrders ?? 0) > 0,
+      icon: "orders",
+      iconBg: "bg-emerald-50 text-emerald-600",
     },
     {
-      label: "Stock SKUs",
-      value: summary?.inventorySkus ?? "—",
-      to: "/stock",
-      tone: "text-gray-900",
-    },
-    {
-      label: "Low stock",
-      value: summary?.lowStockItems ?? "—",
-      to: "/stock",
-      tone: "text-orange-600",
-    },
-    {
-      label: "Drivers online",
-      value: `${summary?.ridersOnline ?? 0}/${summary?.ridersTotal ?? 0}`,
+      label: "Riders Online",
+      value: `${summary?.ridersOnline ?? 0} / ${summary?.ridersTotal ?? 0}`,
+      subtext: "Available for delivery",
       to: "/drivers",
-      tone: "text-gray-900",
+      urgent: false,
+      icon: "truck",
+      iconBg: "bg-indigo-50 text-indigo-600",
     },
     {
-      label: "Pending verification",
-      value: summary?.pendingDrivers ?? "—",
+      label: "Driver Applications",
+      value: summary?.pendingDrivers ?? 0,
+      subtext: "Awaiting verification",
       to: "/drivers/pending",
-      tone: "text-blue-700",
+      urgent: (summary?.pendingDrivers ?? 0) > 0,
+      icon: "user",
+      iconBg: "bg-purple-50 text-purple-600",
+    },
+    {
+      label: "Inventory SKUs",
+      value: summary?.inventorySkus ?? 0,
+      subtext: "Products in store",
+      to: "/stock",
+      urgent: false,
+      icon: "box",
+      iconBg: "bg-blue-50 text-blue-600",
+    },
+    {
+      label: "Low Stock Items",
+      value: summary?.lowStockItems ?? 0,
+      subtext: "Items below threshold",
+      to: "/stock",
+      urgent: (summary?.lowStockItems ?? 0) > 0,
+      icon: "clipboard",
+      iconBg: "bg-rose-50 text-rose-600",
     },
   ];
 
   return (
-    <PageShell
-      title={`Welcome, ${manager?.name || "Manager"}`}
-      subtitle={`${manager?.storeName || "Store"} · ${manager?.area}, ${manager?.city}`}
-    >
+    <PageShell>
+      {/* Store Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#062C1D] via-[#0A3D29] to-[#0D4E35] p-6 text-white shadow-lg">
+        <div className="absolute right-0 top-0 -mr-12 -mt-12 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-400/30">
+              🟢 Live
+            </span>
+            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-2">
+              {manager?.storeName || "Dark Store"}
+            </h1>
+            <p className="text-sm text-emerald-100/80">
+              📍 {manager?.area}, {manager?.city}, {manager?.state}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/orders"
+              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-400 transition active:scale-95"
+            >
+              <Icon name="orders" size="sm" />
+              View Orders {summary?.incomingOrders > 0 && `(${summary.incomingOrders})`}
+            </Link>
+            <button
+              type="button"
+              onClick={fetchDashboardData}
+              className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-bold text-white border border-white/20 hover:bg-white/20 transition"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          ⚠️ {error}
         </div>
       )}
 
-      <div className="rounded-xl bg-white p-5 shadow-sm">
-        <h2 className="text-base font-bold text-gray-900">Store overview</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {manager?.storeName} · {manager?.area}, {manager?.city}, {manager?.state}
-        </p>
-      </div>
-
+      {/* KPI Cards */}
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-32 rounded-2xl bg-slate-200/60 animate-pulse" />
+          ))}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {cards.map((card) => (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {kpis.map((kpi) => (
             <Link
-              key={card.label}
-              to={card.to}
-              className="rounded-xl bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-green-primary/30"
+              key={kpi.label}
+              to={kpi.to}
+              className="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 flex flex-col justify-between"
             >
-              <p className="text-sm text-gray-500">{card.label}</p>
-              <p className={`mt-1 text-2xl font-bold ${card.tone}`}>{card.value}</p>
-              <p className="mt-2 text-xs font-medium text-green-primary">Open →</p>
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${kpi.iconBg}`}>
+                    <Icon name={kpi.icon} size="sm" />
+                  </div>
+                  {kpi.urgent && (
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
+                  )}
+                </div>
+                <p className="mt-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  {kpi.label}
+                </p>
+                <p className="mt-0.5 text-2xl font-extrabold text-slate-900 tracking-tight">
+                  {kpi.value}
+                </p>
+              </div>
+              <p className="mt-3 text-[11px] text-slate-400 border-t border-slate-100 pt-2">
+                {kpi.subtext}
+              </p>
             </Link>
           ))}
         </div>
       )}
+
+      {/* Quick Action Links */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
+          to="/orders"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-emerald-50 hover:border-emerald-200 transition group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+            <Icon name="orders" size="md" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">Incoming Orders</p>
+            <p className="text-xs text-slate-500 mt-0.5">Pack, dispatch & track orders</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/drivers"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-indigo-50 hover:border-indigo-200 transition group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+            <Icon name="truck" size="md" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">Drivers</p>
+            <p className="text-xs text-slate-500 mt-0.5">Online riders & assignments</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/drivers/pending"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-purple-50 hover:border-purple-200 transition group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-sm">
+            <Icon name="user" size="md" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">Driver Verification</p>
+            <p className="text-xs text-slate-500 mt-0.5">Approve new driver applications</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/stock"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-blue-50 hover:border-blue-200 transition group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+            <Icon name="box" size="md" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">Stock Inventory</p>
+            <p className="text-xs text-slate-500 mt-0.5">View & manage store stock</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/shifts"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-teal-50 hover:border-teal-200 transition group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm">
+            <Icon name="calendar" size="md" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">Shifts & Slots</p>
+            <p className="text-xs text-slate-500 mt-0.5">Manage rider shift schedule</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/alerts"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-rose-50 hover:border-rose-200 transition group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm">
+            <Icon name="bell" size="md" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">Alerts</p>
+            <p className="text-xs text-slate-500 mt-0.5">Operational alerts & notifications</p>
+          </div>
+        </Link>
+      </div>
     </PageShell>
   );
 }

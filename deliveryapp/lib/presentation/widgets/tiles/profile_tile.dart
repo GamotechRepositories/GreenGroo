@@ -23,6 +23,7 @@ class ProfileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Theme.of(context);
     return Column(
       children: [
         ListTile(

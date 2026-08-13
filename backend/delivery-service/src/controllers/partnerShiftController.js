@@ -1,0 +1,580 @@
+import Shift from "../models/Shift.js";
+import DeliveryBoy from "../models/DeliveryBoy.js";
+import DeliveryManager from "../models/DeliveryManager.js";
+import { getIO } from "../../../socket.js";
+import { emitRiderStatusUpdated } from "../services/riderSocketService.js";
+
+const formatDateString = (d) => {
+  if (!d) {
+    const date = new Date();
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+    return d.trim();
+  }
+  const date = new Date(d);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/** Calculates distance in meters between two lat/lng coordinates (Haversine formula) */
+const calculateHaversineDistanceMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // metres
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c);
+};
+
+/** Converts "09:30 AM" or "17:30" to minutes from start of day */
+const timeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const s = String(timeStr).trim().toUpperCase();
+  const isPM = s.includes("PM");
+  const isAM = s.includes("AM");
+  const clean = s.replace(/AM|PM/g, "").trim();
+  const [hStr, mStr] = clean.split(":");
+  let h = parseInt(hStr, 10) || 0;
+  const m = parseInt(mStr, 10) || 0;
+
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+
+  return h * 60 + m;
+};
+
+export const getAvailableSlots = async (req, res, next) => {
+  try {
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found" });
+    }
+
+    const todayStr = formatDateString(new Date());
+    const queryDateStr = req.query.date ? formatDateString(req.query.date) : todayStr;
+
+    let manager = await DeliveryManager.findOne({
+      isActive: true,
+      $or: [
+        { cityId: rider.cityId, area: rider.area },
+        { city: rider.city, area: rider.area },
+      ],
+    });
+
+    if (!manager) {
+      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
+    }
+
+    // QUERY ALL SHIFTS FOR THE DATE TO GUARANTEE COMPLETE SLOT VISIBILITY
+    const shifts = await Shift.find({
+      dateString: queryDateStr,
+    }).sort({ createdAt: 1 });
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const isToday = queryDateStr === todayStr;
+
+    const availableSlots = [];
+    let riderActiveBooking = null;
+
+    for (const shift of shifts) {
+      const shiftJson = shift.toSafeJSON();
+
+      for (const slot of shiftJson.slots) {
+        const endMin = timeToMinutes(slot.endTime);
+
+        // Check if rider already booked this slot
+        const userBooking = (slot.bookings || []).find(
+          (b) => b.deliveryPartnerId === rider._id.toString() && b.status !== "CANCELLED"
+        );
+
+        if (userBooking) {
+          riderActiveBooking = {
+            id: userBooking.bookingId,
+            bookingId: userBooking.bookingId,
+            slotId: slot.id,
+            shiftId: shift._id.toString(),
+            dateString: queryDateStr,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            status: userBooking.status,
+            storeName: manager?.storeName || `${manager?.area || "Dark"} Store`,
+            storeAddress: manager?.storeAddress || `${manager?.area || ""}, ${manager?.city || ""}`,
+            notificationEnabled: userBooking.notificationEnabled,
+            notificationTimeMinutes: userBooking.notificationTimeMinutes,
+          };
+        }
+
+        let slotStatus = slot.status;
+        if (isToday && endMin <= currentMinutes) {
+          slotStatus = "ENDED";
+        }
+
+        availableSlots.push({
+          ...slot,
+          status: slotStatus,
+          shiftName: shift.name,
+          shiftType: shift.type,
+          storeName: manager?.storeName || `${manager?.area || "Dark"} Store`,
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      serverTime: new Date().toISOString(),
+      serverDateString: todayStr,
+      date: queryDateStr,
+      storeName: manager?.storeName || "Dark Store Hub",
+      storeAddress: manager?.storeAddress || "",
+      slots: availableSlots,
+      shifts: shifts.map((s) => s.toSafeJSON()),
+      userHasBookingForDate: !!riderActiveBooking,
+      activeBooking: riderActiveBooking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bookSlot = async (req, res, next) => {
+  try {
+    const targetSlotId = req.body.slotId || req.body.shiftId;
+    if (!targetSlotId) {
+      return res.status(400).json({ success: false, message: "slotId is required" });
+    }
+
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+    }
+
+    if (rider.verificationStatus !== "approved" || !rider.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your profile is pending manager verification. You can book shifts after approval.",
+      });
+    }
+
+    const shiftDoc = await Shift.findOne({
+      $or: [{ _id: targetSlotId }, { "slots._id": targetSlotId }],
+    });
+
+    if (!shiftDoc) {
+      return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
+    }
+
+    const slotDoc = shiftDoc.slots.find(
+      (s) => s._id.toString() === targetSlotId || shiftDoc._id.toString() === targetSlotId
+    );
+
+    if (!slotDoc || slotDoc.status === "CANCELLED") {
+      return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
+    }
+
+    const dateStr = shiftDoc.dateString;
+
+    const allShiftsForDate = await Shift.find({ dateString: dateStr });
+    let alreadyBooked = false;
+
+    for (const sh of allShiftsForDate) {
+      for (const sl of sh.slots) {
+        const found = sl.bookings.find(
+          (b) => b.deliveryPartnerId.toString() === rider._id.toString() && b.status !== "CANCELLED"
+        );
+        if (found) {
+          alreadyBooked = true;
+          break;
+        }
+      }
+    }
+
+    if (alreadyBooked) {
+      return res.status(400).json({
+        success: false,
+        message: `You already have an active shift booking for ${dateStr}`,
+      });
+    }
+
+    const now = new Date();
+    const todayStr = formatDateString(now);
+    if (dateStr < todayStr) {
+      return res.status(400).json({ success: false, message: "Cannot book shifts in the past" });
+    }
+
+    const newBookingObj = {
+      bookingId: `BK-${Date.now()}`,
+      deliveryPartnerId: rider._id,
+      deliveryPartnerPhone: rider.phone,
+      deliveryPartnerName: rider.name || "Delivery Partner",
+      deliveryPartnerProfileImage: rider.profileImage || "",
+      bookedAt: new Date(),
+      status: "UPCOMING",
+      notificationEnabled: false,
+      notificationTimeMinutes: 15,
+    };
+
+    const freshShift = await Shift.findById(shiftDoc._id);
+    const freshSlot = freshShift?.slots.id(slotDoc._id);
+
+    if (!freshSlot || freshSlot.bookedCount >= freshSlot.capacity) {
+      return res.status(400).json({
+        success: false,
+        message: "FULLY BOOKED! Capacity reached for this shift slot. Please select another slot.",
+      });
+    }
+
+    freshSlot.bookedCount += 1;
+    freshSlot.bookings.push(newBookingObj);
+    if (freshSlot.bookedCount >= freshSlot.capacity) freshSlot.status = "FULL";
+    await freshShift.save();
+
+    rider.shiftBooking = {
+      slot: `${slotDoc.startTime} - ${slotDoc.endTime}`,
+      date: shiftDoc.date,
+      bookedAt: newBookingObj.bookedAt,
+      bookingId: newBookingObj.bookingId,
+    };
+    await rider.save();
+
+    try {
+      getIO().to(`store_${shiftDoc.managerId}`).emit("rider_shift_booked", {
+        bookingId: newBookingObj.bookingId,
+        shiftId: shiftDoc._id.toString(),
+        slotId: slotDoc._id.toString(),
+        riderId: rider._id.toString(),
+        name: rider.name || rider.phone,
+        startTime: slotDoc.startTime,
+        endTime: slotDoc.endTime,
+      });
+    } catch (e) {}
+
+    return res.status(201).json({
+      success: true,
+      message: "Shift Booked Successfully!",
+      booking: {
+        id: newBookingObj.bookingId,
+        slotId: slotDoc._id.toString(),
+        shiftId: shiftDoc._id.toString(),
+        dateString: dateStr,
+        startTime: slotDoc.startTime,
+        endTime: slotDoc.endTime,
+        status: "UPCOMING",
+        storeName: "Dark Store",
+        storeAddress: "",
+      },
+      shift: freshShift.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyBookings = async (req, res, next) => {
+  try {
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found" });
+    }
+
+    const todayStr = formatDateString(new Date());
+
+    const shifts = await Shift.find({
+      dateString: { $gte: todayStr },
+      "slots.bookings.deliveryPartnerId": rider._id,
+    }).populate("managerId", "storeName storeAddress latitude longitude geofenceRadius");
+
+    const upcomingBookings = [];
+    let todayBooking = null;
+
+    for (const shift of shifts) {
+      for (const slot of shift.slots) {
+        const userBooking = slot.bookings.find(
+          (b) => b.deliveryPartnerId.toString() === rider._id.toString() && b.status !== "CANCELLED"
+        );
+
+        if (userBooking) {
+          const bookingInfo = {
+            id: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
+            bookingId: userBooking.bookingId,
+            slotId: slot._id.toString(),
+            shiftId: shift._id.toString(),
+            dateString: shift.dateString,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            status: userBooking.status,
+            storeName: shift.managerId?.storeName || `${shift.managerId?.area || "Dark"} Store`,
+            storeAddress: shift.managerId?.storeAddress || `${shift.managerId?.area || ""}, ${shift.managerId?.city || ""}`,
+            notificationEnabled: userBooking.notificationEnabled,
+            notificationTimeMinutes: userBooking.notificationTimeMinutes,
+            bookedAt: userBooking.bookedAt,
+          };
+
+          upcomingBookings.push(bookingInfo);
+
+          if (shift.dateString === todayStr) {
+            todayBooking = bookingInfo;
+          }
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      todayBooking,
+      upcomingBookings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleNotification = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const { notificationEnabled = true, notificationTimeMinutes = 15 } = req.body;
+
+    const shift = await Shift.findOne({
+      "slots.bookings._id": bookingId,
+    });
+
+    if (!shift) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+
+    for (const slot of shift.slots) {
+      const b = slot.bookings.find((x) => x._id.toString() === bookingId || x.bookingId === bookingId);
+      if (b) {
+        b.notificationEnabled = Boolean(notificationEnabled);
+        b.notificationTimeMinutes = parseInt(notificationTimeMinutes, 10) || 15;
+        break;
+      }
+    }
+
+    await shift.save();
+
+    return res.json({
+      success: true,
+      message: notificationEnabled
+        ? `Reminder set for ${notificationTimeMinutes} minutes before shift starts!`
+        : "Shift reminder disabled.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const cancelBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+
+    const shift = await Shift.findOne({
+      "slots.bookings._id": bookingId,
+    });
+
+    if (!shift) {
+      return res.status(404).json({ success: false, message: "Active booking not found" });
+    }
+
+    for (const slot of shift.slots) {
+      const bIndex = slot.bookings.findIndex(
+        (x) => x._id.toString() === bookingId || x.bookingId === bookingId
+      );
+
+      if (bIndex !== -1) {
+        slot.bookings.splice(bIndex, 1);
+        slot.bookedCount = Math.max(0, slot.bookedCount - 1);
+        if (slot.status === "FULL") slot.status = "AVAILABLE";
+        break;
+      }
+    }
+
+    await shift.save();
+
+    await DeliveryBoy.findByIdAndUpdate(req.user.id, {
+      shiftBooking: { slot: "", date: null, bookedAt: null, bookingId: null },
+    });
+
+    return res.json({
+      success: true,
+      message: "Shift booking cancelled successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const goOnline = async (req, res, next) => {
+  try {
+    const { latitude, longitude } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Current latitude and longitude are required to verify location before going online",
+      });
+    }
+
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+    }
+
+    if (rider.verificationStatus !== "approved" || !rider.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Your profile is pending manager verification. You cannot go online yet.",
+      });
+    }
+
+    const todayStr = formatDateString(new Date());
+
+    const shift = await Shift.findOne({
+      dateString: todayStr,
+      "slots.bookings.deliveryPartnerId": rider._id,
+    }).populate("managerId");
+
+    if (!shift) {
+      return res.status(400).json({
+        success: false,
+        code: "NO_SHIFT_BOOKED",
+        message: "Mandatory: You must select and book today's shift slot before going online!",
+      });
+    }
+
+    let todayBooking = null;
+    let targetSlot = null;
+
+    for (const slot of shift.slots) {
+      const found = slot.bookings.find(
+        (b) => b.deliveryPartnerId.toString() === rider._id.toString() && b.status !== "CANCELLED"
+      );
+      if (found) {
+        todayBooking = found;
+        targetSlot = slot;
+        break;
+      }
+    }
+
+    if (!todayBooking || !targetSlot) {
+      return res.status(400).json({
+        success: false,
+        code: "NO_SHIFT_BOOKED",
+        message: "Mandatory: You must select and book today's shift slot before going online!",
+      });
+    }
+
+    const now = new Date();
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const startMin = timeToMinutes(targetSlot.startTime);
+    const endMin = timeToMinutes(targetSlot.endTime);
+
+    const allowedEarlyMin = Math.max(0, startMin - 30);
+    if (currentMin < allowedEarlyMin) {
+      return res.status(400).json({
+        success: false,
+        code: "SHIFT_NOT_STARTED",
+        message: `Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) starts at ${targetSlot.startTime}. Online check-in opens 30 mins before start time.`,
+      });
+    }
+
+    if (currentMin >= endMin) {
+      return res.status(400).json({
+        success: false,
+        code: "SHIFT_EXPIRED",
+        message: `Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) has already ended for today.`,
+      });
+    }
+
+    let manager = shift.managerId;
+    if (!manager) {
+      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
+    }
+
+    const storeLat = manager?.latitude ?? 18.559;
+    const storeLng = manager?.longitude ?? 73.7868;
+    const allowedRadius = manager?.geofenceRadius ?? 500;
+
+    const partnerLat = parseFloat(latitude);
+    const partnerLng = parseFloat(longitude);
+
+    const distanceMeters = calculateHaversineDistanceMeters(
+      partnerLat,
+      partnerLng,
+      storeLat,
+      storeLng
+    );
+
+    if (distanceMeters > allowedRadius) {
+      return res.status(400).json({
+        success: false,
+        code: "OUT_OF_GEOFENCE",
+        message: `You are not at the assigned store (${manager?.storeName || "Dark Store"}). Please move closer to the store to go online.`,
+        distanceMeters,
+        allowedRadius,
+        storeName: manager?.storeName || "Dark Store",
+      });
+    }
+
+    rider.status = "online";
+    rider.lastOnlineAt = new Date();
+    rider.currentLocation = {
+      latitude: partnerLat,
+      longitude: partnerLng,
+      updatedAt: new Date(),
+    };
+    await rider.save();
+
+    todayBooking.status = "ACTIVE";
+    todayBooking.onlineAt = new Date();
+    await shift.save();
+
+    await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
+
+    return res.json({
+      success: true,
+      message: `Verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! You are now ONLINE 🟢`,
+      status: "ONLINE",
+      distanceMeters,
+      allowedRadius,
+      deliveryBoy: rider.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const goOffline = async (req, res, next) => {
+  try {
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found" });
+    }
+
+    rider.status = "offline";
+    await rider.save();
+
+    await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
+
+    return res.json({
+      success: true,
+      message: "You are now OFFLINE 🔴",
+      status: "OFFLINE",
+      deliveryBoy: rider.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

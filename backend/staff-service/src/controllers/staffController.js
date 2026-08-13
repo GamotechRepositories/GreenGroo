@@ -1,8 +1,8 @@
 import jwt from "jsonwebtoken";
 import Staff from "../models/Staff.js";
-import DeliveryManager from "../../../delivery-service/src/delivery-manager/models/DeliveryManager.js";
-import DeliveryBoy from "../../../delivery-service/src/delivery-app/models/DeliveryBoy.js";
-import { seedManagerStore } from "../../../delivery-service/src/delivery-manager/services/seedManagerStore.js";
+import DeliveryManager from "../../../delivery-service/src/models/DeliveryManager.js";
+import DeliveryBoy from "../../../delivery-service/src/models/DeliveryBoy.js";
+import { seedManagerStore } from "../../../delivery-service/src/services/seedManagerStore.js";
 import {
   canCreateRole,
   CREATE_PERMISSIONS,

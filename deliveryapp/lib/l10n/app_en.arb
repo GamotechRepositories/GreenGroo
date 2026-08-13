@@ -389,5 +389,38 @@
       "count": { "type": "int" }
     }
   },
-  "dailyTargetReached": "Daily order target reached — great work!"
+  "dailyTargetReached": "Daily order target reached — great work!",
+
+  "referAndEarn": "Refer & Earn",
+  "referAndEarnSubtitle": "Invite friends and earn rewards",
+  "earnBonus": "Earn Bonus",
+  "earnBonusSubtitle": "Do extra to earn bonus",
+
+  "viewWallet": "View Wallet",
+  "verifiedPartner": "Verified Partner",
+  "youAreOnline": "You are Online",
+  "youAreOffline": "You are Offline",
+  "receiveDeliveryRequests": "You will receive delivery requests.",
+  "offlineDeliveryHint": "Go online to receive delivery requests.",
+  "completeMoreDeliveriesBonus": "Complete {count} more deliveries to earn extra {amount} bonus",
+  "@completeMoreDeliveriesBonus": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "amount": { "type": "String" }
+    }
+  },
+  "currentOrder": "Current Order",
+  "orderEarnings": "Order Earnings",
+  "acceptOrder": "Accept Order",
+  "kmAway": "{distance} km away",
+  "@kmAway": {
+    "placeholders": {
+      "distance": { "type": "String" }
+    }
+  },
+  "todaysOrders": "Today's Orders",
+  "completed": "Completed",
+  "myOrders": "My Orders",
+  "thisWeekEarnings": "This Week",
+  "continueDelivery": "Continue Delivery"
 }

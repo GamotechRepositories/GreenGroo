@@ -2,6 +2,7 @@ import 'package:deliveryapp/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
+import '../../core/theme/app_colors.dart';
 import '../widgets/layout/app_bottom_navigation.dart';
 import '../widgets/layout/app_drawer.dart';
 import '../widgets/layout/custom_app_bar.dart';
@@ -27,10 +28,12 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     ShellNavigation.instance.bind(_tabIndex);
     _tabIndex.addListener(_onTabChanged);
+    ThemeController.instance.addListener(_onThemeChanged);
   }
 
   @override
   void dispose() {
+    ThemeController.instance.removeListener(_onThemeChanged);
     _tabIndex.removeListener(_onTabChanged);
     ShellNavigation.instance.unbind();
     _tabIndex.dispose();
@@ -38,6 +41,10 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onThemeChanged() {
     if (mounted) setState(() {});
   }
 
@@ -55,43 +62,84 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildPage(int index) {
+    // Non-const so theme rebuilds remount/update page colors.
     return switch (index) {
-      0 => const HomeDashboardScreen(),
-      1 => const MyShiftsScreen(embedded: true),
-      2 => const LiveNavigationScreen(),
-      3 => const WalletScreen(embedded: true),
-      4 => const NotificationsScreen(embedded: true),
-      _ => const HomeDashboardScreen(),
+      0 => HomeDashboardScreen(key: ValueKey('home_${ThemeController.instance.isDark}')),
+      1 => MyShiftsScreen(
+          key: ValueKey('shifts_${ThemeController.instance.isDark}'),
+          embedded: true,
+        ),
+      2 => LiveNavigationScreen(
+          key: ValueKey('map_${ThemeController.instance.isDark}'),
+        ),
+      3 => WalletScreen(
+          key: ValueKey('wallet_${ThemeController.instance.isDark}'),
+          embedded: true,
+        ),
+      4 => NotificationsScreen(
+          key: ValueKey('notif_${ThemeController.instance.isDark}'),
+          embedded: true,
+        ),
+      _ => HomeDashboardScreen(
+          key: ValueKey('home_${ThemeController.instance.isDark}'),
+        ),
     };
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    Theme.of(context); // track Material themeMode changes too
 
     return Scaffold(
-      // Keep body above bottom bar so the tab sticks flush to the bottom.
+      backgroundColor: AppColors.surface,
       extendBody: false,
       drawer: const AppDrawer(),
       appBar: CustomAppBar(
         title: _titleForIndex(l10n, _currentIndex),
+        showTitle: _currentIndex != 0,
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
-          ),
-        ],
+        actions: _currentIndex == 0
+            ? [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined),
+                      onPressed: () => _tabIndex.value = 4,
+                    ),
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.settings),
+                ),
+              ],
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
         child: KeyedSubtree(
-          key: ValueKey(_currentIndex),
+          key: ValueKey('${_currentIndex}_${ThemeController.instance.isDark}'),
           child: _buildPage(_currentIndex),
         ),
       ),

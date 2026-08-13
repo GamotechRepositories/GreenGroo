@@ -6,6 +6,7 @@ import '../../../core/constants/service_locations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
@@ -22,6 +23,8 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
   String? _selectedArea;
   final _searchController = TextEditingController();
   String _query = '';
+  AreaManagerInfo? _darkStoreInfo;
+  bool _loadingStore = false;
 
   ServiceCity? get _city => ServiceLocations.byId(widget.cityId);
 
@@ -36,6 +39,26 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onAreaSelect(String area) async {
+    setState(() {
+      _selectedArea = area;
+      _loadingStore = true;
+      _darkStoreInfo = null;
+    });
+
+    final info = await AuthService.instance.fetchAreaManagerByLocation(
+      widget.cityId,
+      area,
+    );
+
+    if (mounted) {
+      setState(() {
+        _darkStoreInfo = info;
+        _loadingStore = false;
+      });
+    }
   }
 
   @override
@@ -125,7 +148,7 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                           borderRadius:
                               BorderRadius.circular(AppSpacing.radiusMd),
                           child: InkWell(
-                            onTap: () => setState(() => _selectedArea = area),
+                            onTap: () => _onAreaSelect(area),
                             borderRadius:
                                 BorderRadius.circular(AppSpacing.radiusMd),
                             child: AnimatedContainer(
@@ -177,8 +200,99 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                       },
                     ),
             ),
+
+            // DARK STORE ADDRESS & MANAGER INFO CARD
+            if (_selectedArea != null)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: _loadingStore
+                    ? const Row(
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF059669)),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Fetching Dark Store location details...', style: TextStyle(fontSize: 13, color: Color(0xFF065F46))),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.storefront_rounded, color: Color(0xFF059669), size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _darkStoreInfo?.storeName ?? '${_selectedArea!} Dark Store',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF064E3B),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'ACTIVE HUB',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.location_on_outlined, color: Color(0xFF047857), size: 16),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _darkStoreInfo?.storeAddress ?? '${_selectedArea!}, ${city?.name ?? "City"}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF065F46),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_darkStoreInfo?.phone.isNotEmpty == true) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.phone_outlined, color: Color(0xFF047857), size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Store Manager Contact: ${_darkStoreInfo!.phone}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF047857),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
               child: PrimaryButton(
                 label: l10n.continueButton,
                 onPressed: _selectedArea == null || city == null

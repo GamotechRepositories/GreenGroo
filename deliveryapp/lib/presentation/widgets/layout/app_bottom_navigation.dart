@@ -20,6 +20,7 @@ class AppBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final bottomPad = MediaQuery.paddingOf(context).bottom;
+    Theme.of(context); // rebuild on light/dark toggle
 
     return Material(
       color: Colors.transparent,

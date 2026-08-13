@@ -1,4 +1,4 @@
-import PeakHoursConfig from "../delivery-manager/models/PeakHoursConfig.js";
+import PeakHoursConfig from "../models/PeakHoursConfig.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

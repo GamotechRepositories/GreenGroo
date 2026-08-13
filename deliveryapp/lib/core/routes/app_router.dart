@@ -25,46 +25,49 @@ import '../../presentation/screens/support/support_screen.dart';
 import '../../presentation/screens/vehicle/vehicle_details_screen.dart';
 import '../../presentation/screens/wallet/wallet_screen.dart';
 import '../../presentation/shell/main_shell.dart';
+import '../../core/theme/theme_rebuild.dart';
 import 'app_routes.dart';
 
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     return MaterialPageRoute(
       settings: settings,
-      builder: (context) => switch (settings.name) {
-        AppRoutes.splash => const SplashScreen(),
-        AppRoutes.selectLanguage => LanguageSelectionScreen(
-          fromSettings: settings.arguments == true,
-        ),
-        AppRoutes.login => const LoginScreen(),
-        AppRoutes.selectVehicle => const VehicleSelectionScreen(),
-        AppRoutes.selectCity => const CitySelectionScreen(),
-        AppRoutes.selectArea => AreaSelectionScreen(
-            cityId: (settings.arguments as String?) ?? '',
+      builder: (context) => ThemeRebuild(
+        builder: (context) => switch (settings.name) {
+          AppRoutes.splash => const SplashScreen(),
+          AppRoutes.selectLanguage => LanguageSelectionScreen(
+            fromSettings: settings.arguments == true,
           ),
-        AppRoutes.uploadDocuments => const UploadDocumentsScreen(),
-        AppRoutes.takeSelfie => const TakeSelfieScreen(),
-        AppRoutes.livenessCheck => LivenessCheckScreen(
-            selfiePath: settings.arguments as String?,
-          ),
-        AppRoutes.home => const MainShell(),
-        AppRoutes.myShifts => const MyShiftsScreen(),
-        AppRoutes.newOrders => const NewOrdersScreen(),
-        AppRoutes.activeDelivery => const ActiveDeliveryScreen(),
-        AppRoutes.liveNavigation => const LiveNavigationScreen(),
-        AppRoutes.deliveryHistory => const DeliveryHistoryScreen(),
-        AppRoutes.earnings => const EarningsScreen(),
-        AppRoutes.wallet => const WalletScreen(),
-        AppRoutes.attendance => const AttendanceScreen(),
-        AppRoutes.performance => const PerformanceScreen(),
-        AppRoutes.notifications => const NotificationsScreen(),
-        AppRoutes.profile => const ProfileScreen(),
-        AppRoutes.documents => const DocumentsScreen(),
-        AppRoutes.vehicle => const VehicleDetailsScreen(),
-        AppRoutes.support => const SupportScreen(),
-        AppRoutes.settings => const SettingsScreen(),
-        _ => const SplashScreen(),
-      },
+          AppRoutes.login => const LoginScreen(),
+          AppRoutes.selectVehicle => const VehicleSelectionScreen(),
+          AppRoutes.selectCity => const CitySelectionScreen(),
+          AppRoutes.selectArea => AreaSelectionScreen(
+              cityId: (settings.arguments as String?) ?? '',
+            ),
+          AppRoutes.uploadDocuments => const UploadDocumentsScreen(),
+          AppRoutes.takeSelfie => const TakeSelfieScreen(),
+          AppRoutes.livenessCheck => LivenessCheckScreen(
+              selfiePath: settings.arguments as String?,
+            ),
+          AppRoutes.home => const MainShell(),
+          AppRoutes.myShifts => const MyShiftsScreen(),
+          AppRoutes.newOrders => const NewOrdersScreen(),
+          AppRoutes.activeDelivery => const ActiveDeliveryScreen(),
+          AppRoutes.liveNavigation => const LiveNavigationScreen(),
+          AppRoutes.deliveryHistory => const DeliveryHistoryScreen(),
+          AppRoutes.earnings => const EarningsScreen(),
+          AppRoutes.wallet => const WalletScreen(),
+          AppRoutes.attendance => const AttendanceScreen(),
+          AppRoutes.performance => const PerformanceScreen(),
+          AppRoutes.notifications => const NotificationsScreen(),
+          AppRoutes.profile => const ProfileScreen(),
+          AppRoutes.documents => const DocumentsScreen(),
+          AppRoutes.vehicle => const VehicleDetailsScreen(),
+          AppRoutes.support => const SupportScreen(),
+          AppRoutes.settings => const SettingsScreen(),
+          _ => const SplashScreen(),
+        },
+      ),
     );
   }
 }

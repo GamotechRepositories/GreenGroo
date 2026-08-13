@@ -1,8 +1,13 @@
-import authRoutes from "./delivery-app/routes/authRoutes.js";
-import shipmentRoutes from "./delivery-app/routes/shipmentRoutes.js";
-import webhookRoutes from "./delivery-app/routes/webhookRoutes.js";
-import managerRoutes from "./delivery-manager/routes/managerRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import shipmentRoutes from "./routes/shipmentRoutes.js";
+import webhookRoutes from "./routes/webhookRoutes.js";
+import managerRoutes from "./routes/managerRoutes.js";
 import liveRoutes from "./liveRoutes.js";
+
+import shiftSlotRoutes from "./routes/shiftSlot.routes.js";
+import orderRoutes from "./routes/order.routes.js";
+import alertRoutes from "./routes/alert.routes.js";
+import incentiveRoutes from "./routes/incentive.routes.js";
 
 export default [
   { path: "/api/delivery-boys", router: authRoutes },
@@ -10,4 +15,8 @@ export default [
   { path: "/api/webhooks", router: webhookRoutes },
   { path: "/api/shipments", router: shipmentRoutes },
   ...liveRoutes,
+  { path: "/api/shift-slots", router: shiftSlotRoutes },
+  { path: "/api/delivery-orders", router: orderRoutes },
+  { path: "/api/alerts", router: alertRoutes },
+  { path: "/api/incentives", router: incentiveRoutes },
 ];

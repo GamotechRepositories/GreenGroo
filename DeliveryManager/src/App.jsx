@@ -9,6 +9,9 @@ import StockPage from "./pages/stock/StockPage";
 import DriversPage from "./pages/drivers/DriversPage";
 import PendingDriversPage from "./pages/drivers/PendingDriversPage";
 import OrdersPage from "./pages/orders/OrdersPage";
+import ShiftManagementPage from "./pages/shifts/ShiftManagementPage";
+import IncentivesPage from "./pages/incentives/IncentivesPage";
+import AlertsPage from "./pages/alerts/AlertsPage";
 
 function App() {
   return (
@@ -20,10 +23,13 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<ManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/shifts" element={<ShiftManagementPage />} />
               <Route path="/stock" element={<StockPage />} />
               <Route path="/drivers" element={<DriversPage />} />
               <Route path="/drivers/pending" element={<PendingDriversPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/incentives" element={<IncentivesPage />} />
+              <Route path="/alerts" element={<AlertsPage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -1,74 +1,271 @@
-import '../../domain/models/shift.dart';
-import '../../domain/models/daily_progress.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
-/// Placeholder shift data until backend API is wired.
+import '../../core/config/api_config.dart';
+import 'auth_service.dart';
+
+class ShiftSlotInfo {
+  final String id;
+  final String shiftId;
+  final String shiftName;
+  final String shiftType;
+  final String startTime;
+  final String endTime;
+  final int capacity;
+  final int bookedCount;
+  final int remainingCapacity;
+  final String status;
+
+  const ShiftSlotInfo({
+    required this.id,
+    required this.shiftId,
+    required this.shiftName,
+    required this.shiftType,
+    required this.startTime,
+    required this.endTime,
+    required this.capacity,
+    required this.bookedCount,
+    required this.remainingCapacity,
+    required this.status,
+  });
+
+  factory ShiftSlotInfo.fromJson(Map<String, dynamic> json) {
+    return ShiftSlotInfo(
+      id: json['id']?.toString() ?? '',
+      shiftId: json['shiftId']?.toString() ?? '',
+      shiftName: json['shiftName']?.toString() ?? 'Shift',
+      shiftType: json['shiftType']?.toString() ?? 'morning',
+      startTime: json['startTime']?.toString() ?? '',
+      endTime: json['endTime']?.toString() ?? '',
+      capacity: (json['capacity'] as num?)?.toInt() ?? 10,
+      bookedCount: (json['bookedCount'] as num?)?.toInt() ?? 0,
+      remainingCapacity: (json['remainingCapacity'] as num?)?.toInt() ?? 0,
+      status: json['status']?.toString() ?? 'AVAILABLE',
+    );
+  }
+}
+
+class ShiftBookingInfo {
+  final String id;
+  final String slotId;
+  final String dateString;
+  final String startTime;
+  final String endTime;
+  final String status;
+  final String storeName;
+  final String storeAddress;
+  final bool notificationEnabled;
+  final int notificationTimeMinutes;
+  final DateTime? bookedAt;
+
+  const ShiftBookingInfo({
+    required this.id,
+    required this.slotId,
+    required this.dateString,
+    required this.startTime,
+    required this.endTime,
+    required this.status,
+    required this.storeName,
+    required this.storeAddress,
+    required this.notificationEnabled,
+    required this.notificationTimeMinutes,
+    this.bookedAt,
+  });
+
+  factory ShiftBookingInfo.fromJson(Map<String, dynamic> json) {
+    return ShiftBookingInfo(
+      id: json['id']?.toString() ?? '',
+      slotId: json['slotId']?.toString() ?? '',
+      dateString: json['dateString']?.toString() ?? '',
+      startTime: json['startTime']?.toString() ?? '',
+      endTime: json['endTime']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'UPCOMING',
+      storeName: json['storeName']?.toString() ?? 'Dark Store',
+      storeAddress: json['storeAddress']?.toString() ?? '',
+      notificationEnabled: json['notificationEnabled'] == true,
+      notificationTimeMinutes: (json['notificationTimeMinutes'] as num?)?.toInt() ?? 15,
+      bookedAt: json['bookedAt'] != null ? DateTime.tryParse(json['bookedAt'].toString()) : null,
+    );
+  }
+}
+
+class AvailableSlotsResponse {
+  final String serverTime;
+  final String serverDateString;
+  final String date;
+  final String storeName;
+  final String storeAddress;
+  final List<ShiftSlotInfo> slots;
+  final bool userHasBookingForDate;
+  final ShiftBookingInfo? activeBooking;
+
+  const AvailableSlotsResponse({
+    required this.serverTime,
+    required this.serverDateString,
+    required this.date,
+    required this.storeName,
+    required this.storeAddress,
+    required this.slots,
+    required this.userHasBookingForDate,
+    this.activeBooking,
+  });
+}
+
+class GoOnlineResult {
+  final bool success;
+  final String message;
+  final String? code;
+  final int? distanceMeters;
+  final int? allowedRadius;
+
+  const GoOnlineResult({
+    required this.success,
+    required this.message,
+    this.code,
+    this.distanceMeters,
+    this.allowedRadius,
+  });
+}
+
 class ShiftService {
   ShiftService._();
   static final instance = ShiftService._();
 
-  static const loginHoursToday = '4h 32m';
-  static const earningsToday = '₹ 842';
-  static const ordersToday = '12';
+  static const String earningsToday = '\u20B9750';
+  static const String ordersToday = '12';
 
-  static const dailyProgress = DailyProgress.sample;
+  Map<String, String>? get _headers => AuthService.instance.authHeaders;
 
-  List<Shift> get myShifts => const [
-        Shift(
-          id: 's1',
-          dateLabel: 'Today',
-          timeRange: '10:00 AM – 2:00 PM',
-          area: 'Kothrud',
-          status: ShiftStatus.booked,
-          earningPotential: '₹ 400–600',
-          ordersExpected: 8,
-        ),
-        Shift(
-          id: 's2',
-          dateLabel: 'Tomorrow',
-          timeRange: '6:00 PM – 10:00 PM',
-          area: 'Baner',
-          status: ShiftStatus.booked,
-          earningPotential: '₹ 350–500',
-          ordersExpected: 6,
-        ),
-        Shift(
-          id: 's3',
-          dateLabel: 'Wed, 12 Aug',
-          timeRange: '8:00 AM – 12:00 PM',
-          area: 'Hinjewadi',
-          status: ShiftStatus.booked,
-          earningPotential: '₹ 300–450',
-          ordersExpected: 5,
-        ),
-      ];
+  Future<AvailableSlotsResponse?> fetchAvailableSlots(String date) async {
+    try {
+      final path = '${ApiConfig.availableSlots}?date=${Uri.encodeComponent(date)}';
+      final res = await apiGet(path, headers: _headers);
+      if (res.statusCode != 200) return null;
 
-  List<Shift> get availableShifts => const [
-        Shift(
-          id: 'a1',
-          dateLabel: 'Today',
-          timeRange: '2:00 PM – 6:00 PM',
-          area: 'Kothrud',
-          status: ShiftStatus.available,
-          earningPotential: '₹ 350–550',
-          ordersExpected: 7,
-        ),
-        Shift(
-          id: 'a2',
-          dateLabel: 'Tomorrow',
-          timeRange: '10:00 AM – 2:00 PM',
-          area: 'Wakad',
-          status: ShiftStatus.available,
-          earningPotential: '₹ 400–600',
-          ordersExpected: 8,
-        ),
-        Shift(
-          id: 'a3',
-          dateLabel: 'Thu, 13 Aug',
-          timeRange: '6:00 PM – 10:00 PM',
-          area: 'Aundh',
-          status: ShiftStatus.available,
-          earningPotential: '₹ 300–500',
-          ordersExpected: 6,
-        ),
-      ];
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final rawSlots = body['slots'] as List? ?? [];
+      final slotsList = rawSlots.map((s) => ShiftSlotInfo.fromJson(s as Map<String, dynamic>)).toList();
+
+      final activeBookingJson = body['activeBooking'] as Map<String, dynamic>?;
+
+      return AvailableSlotsResponse(
+        serverTime: body['serverTime']?.toString() ?? '',
+        serverDateString: body['serverDateString']?.toString() ?? '',
+        date: body['date']?.toString() ?? date,
+        storeName: body['storeName']?.toString() ?? 'Dark Store',
+        storeAddress: body['storeAddress']?.toString() ?? '',
+        slots: slotsList,
+        userHasBookingForDate: body['userHasBookingForDate'] == true,
+        activeBooking: activeBookingJson != null ? ShiftBookingInfo.fromJson(activeBookingJson) : null,
+      );
+    } catch (e) {
+      debugPrint('[ShiftService] fetchAvailableSlots error: $e');
+      return null;
+    }
+  }
+
+  Future<ShiftBookingInfo?> bookSlot(String slotId) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.shiftBookings,
+        headers: _headers,
+        body: jsonEncode({'slotId': slotId}),
+      );
+
+      if (res.statusCode != 200 && res.statusCode != 201) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        throw Exception(body['message']?.toString() ?? 'Booking failed');
+      }
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final bookingJson = body['booking'] as Map<String, dynamic>;
+      return ShiftBookingInfo.fromJson(bookingJson);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchMyBookings() async {
+    try {
+      final res = await apiGet(ApiConfig.shiftBookings + '/my', headers: _headers);
+      if (res.statusCode != 200) return {};
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final todayBookingJson = body['todayBooking'] as Map<String, dynamic>?;
+      final rawUpcoming = body['upcomingBookings'] as List? ?? [];
+
+      return {
+        'todayBooking': todayBookingJson != null ? ShiftBookingInfo.fromJson(todayBookingJson) : null,
+        'upcomingBookings': rawUpcoming.map((b) => ShiftBookingInfo.fromJson(b as Map<String, dynamic>)).toList(),
+      };
+    } catch (e) {
+      debugPrint('[ShiftService] fetchMyBookings error: $e');
+      return {};
+    }
+  }
+
+  Future<bool> toggleNotification(String bookingId, bool enabled, int minutes) async {
+    try {
+      final path = '${ApiConfig.shiftBookings}/$bookingId/notify';
+      final res = await apiPost(
+        path,
+        headers: _headers,
+        body: jsonEncode({
+          'notificationEnabled': enabled,
+          'notificationTimeMinutes': minutes,
+        }),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> cancelBooking(String bookingId) async {
+    try {
+      final path = '${ApiConfig.shiftBookings}/$bookingId/cancel';
+      final res = await apiPatch(path, headers: _headers);
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<GoOnlineResult> goOnlineWithLocation(double latitude, double longitude) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.goOnline,
+        headers: _headers,
+        body: jsonEncode({
+          'latitude': latitude,
+          'longitude': longitude,
+        }),
+      );
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final isSuccess = res.statusCode == 200 && body['success'] == true;
+
+      return GoOnlineResult(
+        success: isSuccess,
+        message: body['message']?.toString() ?? 'Location verification complete',
+        code: body['code']?.toString(),
+        distanceMeters: (body['distanceMeters'] as num?)?.toInt(),
+        allowedRadius: (body['allowedRadius'] as num?)?.toInt(),
+      );
+    } catch (e) {
+      return GoOnlineResult(
+        success: false,
+        message: 'Cannot verify location. Please check server connection.',
+      );
+    }
+  }
+
+  Future<bool> goOffline() async {
+    try {
+      final res = await apiPost(ApiConfig.goOffline, headers: _headers);
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

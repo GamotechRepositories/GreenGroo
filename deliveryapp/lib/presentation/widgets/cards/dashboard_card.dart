@@ -19,6 +19,8 @@ class DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild when light/dark mode changes (Theme inherited widget).
+    Theme.of(context);
     return Container(
       margin: margin,
       decoration: BoxDecoration(

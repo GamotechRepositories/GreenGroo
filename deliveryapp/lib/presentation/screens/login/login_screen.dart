@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/config/api_config.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
@@ -193,6 +194,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? '...'
                     : (_isRegister ? l10n.register : l10n.login),
                 onPressed: _loading ? null : _submit,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Server: ${ApiConfig.baseUrl}',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Center(

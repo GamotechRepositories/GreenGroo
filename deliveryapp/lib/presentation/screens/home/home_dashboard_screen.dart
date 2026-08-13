@@ -1,19 +1,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/order_service.dart';
 import '../../../data/services/rider_live_service.dart';
 import '../../../data/services/shift_service.dart';
-import '../../../domain/models/daily_progress.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../shell/shell_navigation.dart';
+import '../active_delivery/active_delivery_screen.dart';
+import '../shifts/select_shift_screen.dart';
 import '../../widgets/cards/dashboard_card.dart';
-import '../../widgets/chips/status_chip.dart';
+import '../../widgets/dialogs/order_dispatch_dialog.dart';
+import '../../widgets/icons/line_icon.dart';
+
+const _kRupee = '\u20B9';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -27,15 +31,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _updatingStatus = false;
   Timer? _heartbeat;
   Timer? _verifyPoll;
+  Timer? _offerPoll;
+  bool _isShowingOffer = false;
   AreaManagerInfo? _areaManager;
   bool _loadingManager = false;
   String? _lastVerificationStatus;
   bool _showVerifiedBanner = false;
-  bool _isPeak = false;
-  String _onlineTodayLabel = '0m';
-  ShiftBooking? _shiftBooking;
 
-  /// Placeholder until live order API is wired.
+  /// Active order status check
   bool get _hasActiveOrder =>
       AuthService.instance.deliveryBoy?.status == 'on_delivery';
 
@@ -52,28 +55,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     return AppLocalizations.of(context).partnerName;
   }
 
-  String get _statusLabel {
-    final l10n = AppLocalizations.of(context);
-    final status = AuthService.instance.deliveryBoy?.status ?? 'offline';
-    if (status == 'on_delivery') return l10n.onADelivery;
-    if (_isOnline) return l10n.online;
-    return l10n.offline;
-  }
-
-  StatusType get _statusType {
-    final status = AuthService.instance.deliveryBoy?.status ?? 'offline';
-    if (status == 'on_delivery') return StatusType.info;
-    if (_isOnline) return StatusType.online;
-    return StatusType.offline;
-  }
-
   @override
   void initState() {
     super.initState();
     _lastVerificationStatus =
         AuthService.instance.deliveryBoy?.verificationStatus;
     _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
-    if (_isOnline) _startHeartbeat();
+    if (_isOnline) {
+      _startHeartbeat();
+      _startOfferPoll();
+    }
     _refreshVerificationInfo();
     _loadLiveData();
     _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
@@ -85,19 +76,50 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
   }
 
+  void _startOfferPoll() {
+    _offerPoll?.cancel();
+    _offerPoll = Timer.periodic(const Duration(seconds: 2), (_) {
+      _checkOrderOffers();
+    });
+  }
+
+  void _stopOfferPoll() {
+    _offerPoll?.cancel();
+    _offerPoll = null;
+  }
+
+  Future<void> _checkOrderOffers() async {
+    if (!_isOnline || _isShowingOffer || !mounted) return;
+    final offer = await OrderService.instance.checkForOffer();
+    if (offer != null && !_isShowingOffer && mounted) {
+      _isShowingOffer = true;
+      await OrderDispatchDialog.show(
+        context,
+        offer: offer,
+        onAccept: () async {
+          final success = await OrderService.instance.acceptOffer(offer.orderId);
+          _isShowingOffer = false;
+          if (success && mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ActiveDeliveryScreen()),
+            );
+          }
+        },
+        onDecline: () async {
+          await OrderService.instance.declineOffer(offer.orderId);
+          _isShowingOffer = false;
+        },
+      );
+      _isShowingOffer = false;
+    }
+  }
+
   Future<void> _loadLiveData() async {
     await RiderLiveService.instance.refreshLoginHours();
-    final booking = await RiderLiveService.instance.fetchMyBooking();
     final storeId = await _resolveStoreId();
     if (storeId != null) {
       await RiderLiveService.instance.refreshPeakHours(storeId);
     }
-    if (!mounted) return;
-    setState(() {
-      _onlineTodayLabel = RiderLiveService.instance.formattedOnlineToday;
-      _shiftBooking = booking;
-      _isPeak = RiderLiveService.instance.isPeak;
-    });
   }
 
   Future<String?> _resolveStoreId() async {
@@ -167,6 +189,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   void dispose() {
     _heartbeat?.cancel();
     _verifyPoll?.cancel();
+    _offerPoll?.cancel();
     super.dispose();
   }
 
@@ -196,47 +219,86 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     setState(() {
       _updatingStatus = true;
-      _isOnline = value;
     });
 
     try {
-      final boy = await AuthService.instance.updateStatus(
-        value ? 'online' : 'offline',
-      );
+      if (value) {
+        // Going ONLINE: Mandatory Shift & Location Geofence Verification
+        // Use store lat/lng coordinates (Baner Dark Store 18.559, 73.7868)
+        final result = await ShiftService.instance.goOnlineWithLocation(18.559, 73.7868);
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (boy == null) {
+        if (!result.success) {
+          setState(() {
+            _isOnline = false;
+            _updatingStatus = false;
+          });
+
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  Icon(
+                    result.code == 'NO_SHIFT_BOOKED' ? Icons.calendar_today_rounded : Icons.location_off_rounded,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(result.code == 'NO_SHIFT_BOOKED' ? 'Shift Required' : 'Location Check Failed'),
+                ],
+              ),
+              content: Text(result.message),
+              actions: [
+                if (result.code == 'NO_SHIFT_BOOKED')
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
+                      );
+                    },
+                    child: const Text('Select Shift Slot', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  )
+                else
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK'),
+                  ),
+              ],
+            ),
+          );
+          return;
+        }
+
         setState(() {
-          _isOnline = !value;
+          _isOnline = true;
           _updatingStatus = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update status. Try again.')),
-        );
-        return;
-      }
-
-      setState(() {
-        _isOnline = boy.isOnline;
-        _updatingStatus = false;
-        _isPeak = RiderLiveService.instance.isPeak;
-      });
-
-      if (boy.isOnline) {
         _startHeartbeat();
+        _startOfferPoll();
       } else {
+        // Going OFFLINE
+        await ShiftService.instance.goOffline();
+
+        if (!mounted) return;
+        setState(() {
+          _isOnline = false;
+          _updatingStatus = false;
+        });
         _stopHeartbeat();
+        _stopOfferPoll();
       }
-      await _loadLiveData();
-    } on AuthApiException catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isOnline = !value;
         _updatingStatus = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
+        SnackBar(content: Text('Could not update status: $e')),
       );
     }
   }
@@ -244,43 +306,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final progress = ShiftService.dailyProgress;
+    Theme.of(context);
+    final isVerified = AuthService.instance.deliveryBoy?.isVerified ?? false;
+    final earningsToday = ShiftService.earningsToday;
+    const walletBalance = '${_kRupee}1,250.00';
+    const weekEarnings = '${_kRupee}4,350.00';
+    const completedToday = '8';
+    const distanceToday = '120 km';
+    const milestoneCurrent = 8;
+    const milestoneTarget = 13;
+    const bonusAmount = '${_kRupee}200';
+    const orderEarnings = '${_kRupee}45.00';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.md,
+        AppSpacing.sm,
         AppSpacing.lg,
         AppSpacing.xl,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PartnerHeader(
+          _ProfileHeader(
+            greeting: l10n.goodMorning,
             name: _partnerName,
-            statusLabel: _statusLabel,
-            statusType: _statusType,
-            onProfile: () => Navigator.pushNamed(context, AppRoutes.profile),
-            onNotifications: () => ShellNavigation.instance.goToTab(4),
+            rating: '4.8',
+            isVerified: isVerified,
+            onProfileTap: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          _OnlineToggleCard(
-            isOnline: _isOnline,
-            updating: _updatingStatus,
-            enabled: !_verificationPending,
-            onlineTodayLabel: _onlineTodayLabel,
-            onChanged: _onStatusToggle,
-          ),
-          if (_isPeak && _isOnline) ...[
-            const SizedBox(height: AppSpacing.md),
-            const _PeakBanner(),
-          ],
-          if (_shiftBooking?.hasBooking == true) ...[
-            const SizedBox(height: AppSpacing.md),
-            _ShiftBanner(
-              label: _shiftBooking!.label,
-              time: '${_shiftBooking!.start}–${_shiftBooking!.end}',
-            ),
-          ],
           if (_showVerifiedBanner) ...[
             const SizedBox(height: AppSpacing.md),
             _VerifiedBanner(text: l10n.verificationApprovedToast),
@@ -297,33 +351,103 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               loading: _loadingManager,
             ),
           ],
-          const SizedBox(height: AppSpacing.xl),
-          _EarningsStrip(
-            earnings: ShiftService.earningsToday,
-            orders: ShiftService.ordersToday,
-            onlineHours: _onlineTodayLabel,
-            onEarningsTap: () =>
-                Navigator.pushNamed(context, AppRoutes.earnings),
-            onOrdersTap: () =>
-                Navigator.pushNamed(context, AppRoutes.deliveryHistory),
-            onHoursTap: () =>
-                Navigator.pushNamed(context, AppRoutes.attendance),
+          const SizedBox(height: AppSpacing.lg),
+          _WalletBalanceCard(
+            balance: walletBalance,
+            todayEarnings: earningsToday,
+            weekEarnings: weekEarnings,
+            onViewWallet: () => ShellNavigation.instance.goToTab(3),
           ),
           const SizedBox(height: AppSpacing.md),
-          _IncentiveProgressCard(progress: progress),
+          _OnlineStatusCard(
+            isOnline: _isOnline,
+            updating: _updatingStatus,
+            enabled: !_verificationPending,
+            onlineTitle: l10n.youAreOnline,
+            offlineTitle: l10n.youAreOffline,
+            subtitle: _isOnline
+                ? l10n.receiveDeliveryRequests
+                : l10n.offlineDeliveryHint,
+            onChanged: _onStatusToggle,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _DailyStatsGrid(
+            orders: ShiftService.ordersToday,
+            completed: completedToday,
+            distance: distanceToday,
+            earnings: earningsToday,
+            ordersLabel: l10n.todaysOrders,
+            completedLabel: l10n.completed,
+            distanceLabel: l10n.distance,
+            earningsLabel: l10n.earnings,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _MilestoneCard(
+            current: milestoneCurrent,
+            target: milestoneTarget,
+            remaining: milestoneTarget - milestoneCurrent,
+            bonusAmount: bonusAmount,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _FullWidthPromoCard(
+            title: l10n.earnBonus,
+            subtitle: l10n.earnBonusSubtitle,
+            icon: LineIconName.gift,
+            background: const Color(0xFFFFF7ED),
+            iconBackground: const Color(0xFFFFEDD5),
+            iconColor: const Color(0xFFEA580C),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.earnings),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _FullWidthPromoCard(
+            title: l10n.referAndEarn,
+            subtitle: l10n.referAndEarnSubtitle,
+            icon: LineIconName.users,
+            background: const Color(0xFFEFF6FF),
+            iconBackground: const Color(0xFFDBEAFE),
+            iconColor: const Color(0xFF2563EB),
+            onTap: () {},
+          ),
+          if (_hasActiveOrder || _isOnline) ...[
+            const SizedBox(height: AppSpacing.md),
+            if (_hasActiveOrder)
+              _ActiveDeliveryCard(
+                onOpen: () =>
+                    Navigator.pushNamed(context, AppRoutes.activeDelivery),
+                continueLabel: l10n.continueDelivery,
+              )
+            else
+              _IncomingOrderCard(
+                title: l10n.currentOrder,
+                pickUpLabel: l10n.pickUp,
+                dropOffLabel: l10n.dropOff,
+                distanceLabel: l10n.kmAway('2.4'),
+                earningsAmount: orderEarnings,
+                earningsLabel: l10n.orderEarnings,
+                acceptLabel: l10n.acceptOrder,
+              ),
+          ],
           const SizedBox(height: AppSpacing.xl),
-          if (_hasActiveOrder)
-            _ActiveOrderCard(
-              onOpen: () =>
-                  Navigator.pushNamed(context, AppRoutes.activeDelivery),
-            )
-          else
-            _IdleOrderCard(isOnline: _isOnline),
-          const SizedBox(height: AppSpacing.xl),
-          _QuickLinksRow(
-            onMap: () => ShellNavigation.instance.goToTab(2),
-            onShifts: () => ShellNavigation.instance.goToTab(1),
+          Text(
+            l10n.quickActions,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _QuickActionsRow(
+            myOrdersLabel: l10n.myOrders,
+            earningsLabel: l10n.earnings,
+            incentivesLabel: l10n.incentives,
+            supportLabel: l10n.support,
+            profileLabel: l10n.profile,
+            onMyOrders: () =>
+                Navigator.pushNamed(context, AppRoutes.deliveryHistory),
+            onEarnings: () => Navigator.pushNamed(context, AppRoutes.earnings),
+            onIncentives: () =>
+                Navigator.pushNamed(context, AppRoutes.earnings),
             onSupport: () => Navigator.pushNamed(context, AppRoutes.support),
+            onProfile: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
         ],
       ),
@@ -331,145 +455,371 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 }
 
-// ─── Top partner header ───────────────────────────────────────────────────────
-
-class _PartnerHeader extends StatelessWidget {
-  const _PartnerHeader({
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.greeting,
     required this.name,
-    required this.statusLabel,
-    required this.statusType,
-    required this.onProfile,
-    required this.onNotifications,
+    required this.rating,
+    required this.isVerified,
+    required this.onProfileTap,
   });
 
+  final String greeting;
   final String name;
-  final String statusLabel;
-  final StatusType statusType;
-  final VoidCallback onProfile;
-  final VoidCallback onNotifications;
+  final String rating;
+  final bool isVerified;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: onProfile,
-          child: CircleAvatar(
-            radius: 26,
-            backgroundColor: AppColors.primaryLight,
-            child: Icon(Icons.person, color: AppColors.primary, size: 28),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                name,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
+                greeting,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
               ),
               const SizedBox(height: 4),
-              StatusChip(label: statusLabel, type: statusType),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      name,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  LineIcon(LineIconName.star, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 2),
+                  Text(
+                    rating,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+              if (isVerified) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LineIcon(
+                        LineIconName.verified,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        l10n.verifiedPartner,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
-        IconButton(
-          onPressed: onNotifications,
-          icon: const Icon(Icons.notifications_outlined),
-          color: AppColors.textPrimary,
+        const SizedBox(width: AppSpacing.md),
+        GestureDetector(
+          onTap: onProfileTap,
+          child: CircleAvatar(
+            radius: 28,
+            backgroundColor: AppColors.primaryLight,
+            backgroundImage: const AssetImage(
+              'assets/splash/delivery_scooter.webp',
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-// ─── Big online toggle ────────────────────────────────────────────────────────
+class _WalletBalanceCard extends StatelessWidget {
+  const _WalletBalanceCard({
+    required this.balance,
+    required this.todayEarnings,
+    required this.weekEarnings,
+    required this.onViewWallet,
+  });
 
-class _OnlineToggleCard extends StatelessWidget {
-  const _OnlineToggleCard({
+  final String balance;
+  final String todayEarnings;
+  final String weekEarnings;
+  final VoidCallback onViewWallet;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0C831F), Color(0xFF086618)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -12,
+            bottom: -8,
+            child: LineIcon(
+              LineIconName.walletOutline,
+              size: 120,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.walletBalance,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            balance,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 28,
+                                ),
+                          ),
+                          LineIcon(
+                            LineIconName.chevronRight,
+                            size: 22,
+                            color: Colors.white70,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        onTap: onViewWallet,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                l10n.viewWallet,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              const SizedBox(width: 4),
+                              LineIcon(
+                                LineIconName.wallet,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Divider(color: Colors.white.withValues(alpha: 0.25), height: 1),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _WalletStat(
+                        label: l10n.todaysEarnings,
+                        value: todayEarnings,
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 36,
+                      color: Colors.white.withValues(alpha: 0.25),
+                    ),
+                    Expanded(
+                      child: _WalletStat(
+                        label: l10n.thisWeekEarnings,
+                        value: weekEarnings,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletStat extends StatelessWidget {
+  const _WalletStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OnlineStatusCard extends StatelessWidget {
+  const _OnlineStatusCard({
     required this.isOnline,
     required this.updating,
     required this.enabled,
-    required this.onlineTodayLabel,
+    required this.onlineTitle,
+    required this.offlineTitle,
+    required this.subtitle,
     required this.onChanged,
   });
 
   final bool isOnline;
   final bool updating;
   final bool enabled;
-  final String onlineTodayLabel;
+  final String onlineTitle;
+  final String offlineTitle;
+  final String subtitle;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final bg = isOnline ? AppColors.primary : AppColors.surfaceVariant;
-    final fg = isOnline ? Colors.white : AppColors.textPrimary;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: isOnline
-                ? AppColors.primary.withValues(alpha: 0.28)
-                : AppColors.shadow,
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    return DashboardCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
       child: Row(
         children: [
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: isOnline ? AppColors.primary : AppColors.offline,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOnline ? l10n.youreOnline : l10n.goOnlineToReceive,
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: fg,
-                  ),
+                  isOnline ? onlineTitle : offlineTitle,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isOnline
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
+                      ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 Text(
-                  isOnline
-                      ? '${l10n.onlineForToday} $onlineTodayLabel'
-                      : l10n.tapToStartReceiving,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: fg.withValues(alpha: 0.85),
-                  ),
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                 ),
               ],
             ),
           ),
           if (updating)
-            SizedBox(
-              width: 28,
+            const SizedBox(
+              width: 48,
               height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: fg,
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             )
           else
             Switch.adaptive(
               value: isOnline,
               onChanged: enabled ? onChanged : null,
-              activeThumbColor: Colors.white,
-              activeTrackColor: Colors.white.withValues(alpha: 0.35),
+              activeThumbColor: AppColors.primary,
             ),
         ],
       ),
@@ -477,101 +827,272 @@ class _OnlineToggleCard extends StatelessWidget {
   }
 }
 
-// ─── Earnings strip ───────────────────────────────────────────────────────────
-
-class _EarningsStrip extends StatelessWidget {
-  const _EarningsStrip({
-    required this.earnings,
+class _DailyStatsGrid extends StatelessWidget {
+  const _DailyStatsGrid({
     required this.orders,
-    required this.onlineHours,
-    required this.onEarningsTap,
-    required this.onOrdersTap,
-    required this.onHoursTap,
+    required this.completed,
+    required this.distance,
+    required this.earnings,
+    required this.ordersLabel,
+    required this.completedLabel,
+    required this.distanceLabel,
+    required this.earningsLabel,
   });
 
-  final String earnings;
   final String orders;
-  final String onlineHours;
-  final VoidCallback onEarningsTap;
-  final VoidCallback onOrdersTap;
-  final VoidCallback onHoursTap;
+  final String completed;
+  final String distance;
+  final String earnings;
+  final String ordersLabel;
+  final String completedLabel;
+  final String distanceLabel;
+  final String earningsLabel;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return DashboardCard(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-      child: Row(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            _DailyStatItem(
+              icon: LineIconName.shoppingBag,
+              iconColor: AppColors.primary,
+              value: orders,
+              label: ordersLabel,
+            ),
+            _verticalDivider(),
+            _DailyStatItem(
+              icon: LineIconName.clock,
+              iconColor: const Color(0xFFEA580C),
+              value: completed,
+              label: completedLabel,
+            ),
+            _verticalDivider(),
+            _DailyStatItem(
+              icon: LineIconName.route,
+              iconColor: const Color(0xFF2563EB),
+              value: distance,
+              label: distanceLabel,
+            ),
+            _verticalDivider(),
+            _DailyStatItem(
+              icon: LineIconName.wallet,
+              iconColor: const Color(0xFF7C3AED),
+              value: earnings,
+              label: earningsLabel,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _verticalDivider() => Container(
+        width: 1,
+        color: AppColors.border,
+      );
+}
+
+class _DailyStatItem extends StatelessWidget {
+  const _DailyStatItem({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
+
+  final LineIconName icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
         children: [
-          _StatCell(
-            label: l10n.todaysEarnings,
-            value: earnings,
-            onTap: onEarningsTap,
+          LineIcon(icon, size: 20, color: iconColor),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+            textAlign: TextAlign.center,
           ),
-          _divider(),
-          _StatCell(
-            label: l10n.orders,
-            value: orders,
-            onTap: onOrdersTap,
-          ),
-          _divider(),
-          _StatCell(
-            label: l10n.loginHours,
-            value: onlineHours,
-            onTap: onHoursTap,
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
           ),
         ],
       ),
     );
   }
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 40,
-        color: AppColors.border,
-      );
 }
 
-class _StatCell extends StatelessWidget {
-  const _StatCell({
-    required this.label,
-    required this.value,
+class _MilestoneCard extends StatelessWidget {
+  const _MilestoneCard({
+    required this.current,
+    required this.target,
+    required this.remaining,
+    required this.bonusAmount,
+  });
+
+  final int current;
+  final int target;
+  final int remaining;
+  final String bonusAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final progress = current / target;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primarySoft),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: LineIcon(
+                LineIconName.gift,
+                size: 26,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.completeMoreDeliveriesBonus(remaining, bonusAmount),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                        height: 1.35,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 6,
+                    backgroundColor: Colors.white,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$current / $target',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.primary,
+                    ),
+              ),
+              LineIcon(
+                LineIconName.chevronRight,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FullWidthPromoCard extends StatelessWidget {
+  const _FullWidthPromoCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.background,
+    required this.iconBackground,
+    required this.iconColor,
     required this.onTap,
   });
 
-  final String label;
-  final String value;
+  final String title;
+  final String subtitle;
+  final LineIconName icon;
+  final Color background;
+  final Color iconBackground;
+  final Color iconColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: Column(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Row(
             children: [
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: LineIcon(icon, size: 24, color: iconColor),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
+              ),
+              LineIcon(
+                LineIconName.chevronRight,
+                size: 20,
+                color: AppColors.textMuted,
               ),
             ],
           ),
@@ -581,60 +1102,197 @@ class _StatCell extends StatelessWidget {
   }
 }
 
-// ─── Incentive / daily progress ───────────────────────────────────────────────
+class _IncomingOrderCard extends StatefulWidget {
+  const _IncomingOrderCard({
+    required this.title,
+    required this.pickUpLabel,
+    required this.dropOffLabel,
+    required this.distanceLabel,
+    required this.earningsAmount,
+    required this.earningsLabel,
+    required this.acceptLabel,
+  });
 
-class _IncentiveProgressCard extends StatelessWidget {
-  const _IncentiveProgressCard({required this.progress});
+  final String title;
+  final String pickUpLabel;
+  final String dropOffLabel;
+  final String distanceLabel;
+  final String earningsAmount;
+  final String earningsLabel;
+  final String acceptLabel;
 
-  final DailyProgress progress;
+  @override
+  State<_IncomingOrderCard> createState() => _IncomingOrderCardState();
+}
+
+class _IncomingOrderCardState extends State<_IncomingOrderCard> {
+  static const _totalSeconds = 30;
+  late int _secondsLeft;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _secondsLeft = _totalSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_secondsLeft <= 0) {
+        _timer?.cancel();
+        return;
+      }
+      setState(() => _secondsLeft--);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String get _timerLabel {
+    final m = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final s = (_secondsLeft % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final remaining =
-        (progress.ordersTarget - progress.ordersCompleted).clamp(0, 999);
-    final pct = progress.ordersProgress.clamp(0.0, 1.0);
-
     return DashboardCard(
-      onTap: () => Navigator.pushNamed(context, AppRoutes.performance),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            widget.title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.emoji_events_outlined, color: AppColors.warning, size: 22),
-              const SizedBox(width: 8),
+              _OrderTimelineRail(),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: Text(
-                  remaining > 0
-                      ? l10n.incentiveOrdersLeft(remaining)
-                      : l10n.dailyTargetReached,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          widget.pickUpLabel,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            widget.distanceLabel,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'DMart Store',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text(
+                      'Kothrud, Pune',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      widget.dropOffLabel,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Rahul Sharma',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text(
+                      'Baner, Pune',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                '${progress.ordersCompleted}/${progress.ordersTarget}',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+              const SizedBox(width: AppSpacing.sm),
+              SizedBox(
+                width: 108,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      widget.earningsAmount,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text(
+                      widget.earningsLabel,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.end,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          widget.acceptLabel,
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      _timerLabel,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 8,
-              backgroundColor: AppColors.surfaceVariant,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
           ),
         ],
       ),
@@ -642,12 +1300,14 @@ class _IncentiveProgressCard extends StatelessWidget {
   }
 }
 
-// ─── Active / idle order ──────────────────────────────────────────────────────
-
-class _ActiveOrderCard extends StatelessWidget {
-  const _ActiveOrderCard({required this.onOpen});
+class _ActiveDeliveryCard extends StatelessWidget {
+  const _ActiveDeliveryCard({
+    required this.onOpen,
+    required this.continueLabel,
+  });
 
   final VoidCallback onOpen;
+  final String continueLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -657,55 +1317,65 @@ class _ActiveOrderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              StatusChip(label: l10n.inProgress, type: StatusType.info),
-              const Spacer(),
-              Text(
-                l10n.viewDetails,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
+          Text(
+            l10n.currentOrder,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
                 ),
-              ),
-            ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          _RouteLine(
-            icon: Icons.storefront_outlined,
-            title: l10n.pickUp,
-            subtitle: l10n.placeholderStoreName,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 15),
-            child: Container(width: 2, height: 16, color: AppColors.border),
-          ),
-          _RouteLine(
-            icon: Icons.location_on_outlined,
-            title: l10n.dropOff,
-            subtitle: l10n.placeholderDropAddress,
-          ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _OrderTimelineRail(),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: OutlinedButton(
-                  onPressed: onOpen,
-                  child: Text(l10n.reachedStore),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton(
-                  onPressed: onOpen,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                  ),
-                  child: Text(l10n.pickedUp),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.pickUp, style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      'DMart Store',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text('Kothrud, Pune', style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(l10n.dropOff, style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      'Rahul Sharma',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text('Baner, Pune', style: Theme.of(context).textTheme.bodySmall),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton(
+              onPressed: onOpen,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                continueLabel,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Colors.white,
+                    ),
+              ),
+            ),
           ),
         ],
       ),
@@ -713,166 +1383,156 @@ class _ActiveOrderCard extends StatelessWidget {
   }
 }
 
-class _RouteLine extends StatelessWidget {
-  const _RouteLine({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
+class _OrderTimelineRail extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 16,
+      child: Column(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          Container(
+            width: 2,
+            height: 52,
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            child: CustomPaint(
+              painter: _DashedLinePainter(color: AppColors.border),
+            ),
+          ),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF59E0B),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  _DashedLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2;
+    const dashHeight = 4.0;
+    const gap = 3.0;
+    var y = 0.0;
+    while (y < size.height) {
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, y + dashHeight),
+        paint,
+      );
+      y += dashHeight + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({
+    required this.myOrdersLabel,
+    required this.earningsLabel,
+    required this.incentivesLabel,
+    required this.supportLabel,
+    required this.profileLabel,
+    required this.onMyOrders,
+    required this.onEarnings,
+    required this.onIncentives,
+    required this.onSupport,
+    required this.onProfile,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final String myOrdersLabel;
+  final String earningsLabel;
+  final String incentivesLabel;
+  final String supportLabel;
+  final String profileLabel;
+  final VoidCallback onMyOrders;
+  final VoidCallback onEarnings;
+  final VoidCallback onIncentives;
+  final VoidCallback onSupport;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
+    final items = [
+      (LineIconName.receipt, myOrdersLabel, onMyOrders),
+      (LineIconName.wallet, earningsLabel, onEarnings),
+      (LineIconName.trophy, incentivesLabel, onIncentives),
+      (LineIconName.headset, supportLabel, onSupport),
+      (LineIconName.person, profileLabel, onProfile),
+    ];
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 22, color: AppColors.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _QuickActionTile(
+              icon: items[i].$1,
+              label: items[i].$2,
+              onTap: items[i].$3,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
 }
 
-class _IdleOrderCard extends StatelessWidget {
-  const _IdleOrderCard({required this.isOnline});
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
-  final bool isOnline;
+  final LineIconName icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return DashboardCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-        child: Column(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: isOnline
-                    ? AppColors.primaryLight
-                    : AppColors.surfaceVariant,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isOnline
-                    ? Icons.hourglass_top_rounded
-                    : Icons.power_settings_new_rounded,
-                color: isOnline ? AppColors.primary : AppColors.textMuted,
-                size: 30,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              isOnline ? l10n.waitingForOrders : l10n.goOnlineToReceive,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isOnline ? l10n.waitingForOrdersHint : l10n.tapToStartReceiving,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.md,
+        horizontal: AppSpacing.xs,
       ),
-    );
-  }
-}
-
-// ─── Banners & quick links ────────────────────────────────────────────────────
-
-class _PeakBanner extends StatelessWidget {
-  const _PeakBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFDBA74)),
-      ),
-      child: Row(
+      child: Column(
         children: [
-          const Text('🔥', style: TextStyle(fontSize: 18)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              l10n.peakHoursBanner,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
+          LineIcon(icon, size: 22, color: AppColors.primary),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ShiftBanner extends StatelessWidget {
-  const _ShiftBanner({required this.label, required this.time});
-
-  final String label;
-  final String time;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        l10n.shiftBookedBanner(label, time),
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
       ),
     );
   }
@@ -887,22 +1547,23 @@ class _VerifiedBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C831F),
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primarySoft),
       ),
       child: Row(
         children: [
-          const Icon(Icons.verified_rounded, color: Colors.white),
-          const SizedBox(width: 10),
+          LineIcon(LineIconName.verified, size: 20, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
             ),
           ),
         ],
@@ -910,88 +1571,7 @@ class _VerifiedBanner extends StatelessWidget {
     );
   }
 }
-
-class _QuickLinksRow extends StatelessWidget {
-  const _QuickLinksRow({
-    required this.onMap,
-    required this.onShifts,
-    required this.onSupport,
-  });
-
-  final VoidCallback onMap;
-  final VoidCallback onShifts;
-  final VoidCallback onSupport;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Row(
-      children: [
-        _QuickChip(icon: Icons.map_outlined, label: l10n.map, onTap: onMap),
-        const SizedBox(width: 8),
-        _QuickChip(
-          icon: Icons.schedule_outlined,
-          label: l10n.myShifts,
-          onTap: onShifts,
-        ),
-        const SizedBox(width: 8),
-        _QuickChip(
-          icon: Icons.support_agent_outlined,
-          label: l10n.support,
-          onTap: onSupport,
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickChip extends StatelessWidget {
-  const _QuickChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 22),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Verification notice (unchanged logic) ────────────────────────────────────
+// â”€â”€â”€ Verification notice (unchanged logic) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VerificationNoticeCard extends StatelessWidget {
   const _VerificationNoticeCard({
