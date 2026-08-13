@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { HomeDeliveryBar, HomeSearchBar, ZeptoPromoSection } from "./HomeMobileHeader";
+import { resolveStoreTheme } from "./homeHeaderThemes";
 import HomeCategoryStrip from "./HomeCategoryStrip";
 
 function HomeStickyCategories() {
@@ -10,8 +11,8 @@ function HomeStickyCategories() {
   const [stickyHeight, setStickyHeight] = useState(0);
   const [searchParams] = useSearchParams();
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
-
-  const containerBg = currentStore === "festive" ? "bg-[#910C0C]" : currentStore === "fresh" ? "bg-[#047857]" : "bg-[#FFF3E0]";
+  const theme = resolveStoreTheme(currentStore);
+  const containerBg = theme.contentBg;
 
   useLayoutEffect(() => {
     const sticky = stickyRef.current;

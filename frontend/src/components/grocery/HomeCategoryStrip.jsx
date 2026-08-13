@@ -2,6 +2,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useMemo } from "react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import CategoryIcon from "./CategoryIcon";
+import { resolveStoreTheme } from "./homeHeaderThemes";
 
 const CATEGORY_IMAGES = {
   fruits: "/fruits.png",
@@ -198,14 +199,11 @@ function HomeCategoryStrip() {
   );
 
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
-  const stripBg = currentStore === "festive" ? "bg-[#910C0C]" : currentStore === "fresh" ? "bg-[#047857]" : "bg-[#FFF3E0]";
-  const stripTextColor = currentStore === "main" ? "text-slate-900" : "text-white";
-  const inactiveTextColor = currentStore === "main" ? "text-slate-600" : "text-white/80";
-  const indicatorColor = currentStore === "main" ? "bg-slate-900" : "bg-amber-300";
+  const theme = resolveStoreTheme(currentStore);
 
   return (
-    <nav className={`${stripBg} px-4 pt-2 pb-0 transition-colors duration-300`}>
-      <div className={`flex items-center justify-between border-b ${currentStore === 'main' ? 'border-purple-200/70' : 'border-white/20'}`}>
+    <nav className={`${theme.contentBg} px-4 pb-0 pt-2 transition-colors duration-300`}>
+      <div className={`flex items-center justify-between border-b ${theme.categoryBorder}`}>
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
           const to = cat.slug
@@ -217,7 +215,7 @@ function HomeCategoryStrip() {
               key={cat.name}
               to={to}
               className={`flex min-w-0 flex-1 flex-col items-center justify-between px-1 text-center transition ${
-                isActive ? stripTextColor : inactiveTextColor
+                isActive ? theme.categoryText : theme.categoryInactive
               }`}
             >
               <div className="flex h-6 w-6 items-center justify-center">
@@ -228,7 +226,7 @@ function HomeCategoryStrip() {
               </span>
               <div
                 className={`mt-1.5 h-[3px] w-full rounded-full transition-all ${
-                  isActive ? indicatorColor : "bg-transparent"
+                  isActive ? theme.categoryIndicator : "bg-transparent"
                 }`}
               />
             </Link>
