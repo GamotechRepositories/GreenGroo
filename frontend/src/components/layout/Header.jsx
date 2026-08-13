@@ -4,8 +4,7 @@ import { useCart } from "../../context/CartContext";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 
-export const LOGO_URL =
-  "https://res.cloudinary.com/dsafvwkrf/image/upload/v1780561447/GreenGrocc_logo_2-removebg-preview_wcso0k.png";
+export const LOGO_URL = "/greengrocc-logo.png";
 
 function SearchIcon({ className = "w-4 h-4" }) {
   return (

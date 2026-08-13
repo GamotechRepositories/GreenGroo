@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { HomeDeliveryBar, HomeSearchBar } from "./HomeMobileHeader";
+import { HomeDeliveryBar, HomeSearchBar, ZeptoPromoSection } from "./HomeMobileHeader";
 import HomeCategoryStrip from "./HomeCategoryStrip";
 
 function HomeStickyCategories() {
@@ -37,7 +37,7 @@ function HomeStickyCategories() {
   }, []);
 
   return (
-    <>
+    <div className="bg-[#FFF3E0]">
       <div ref={deliveryRef}>
         <HomeDeliveryBar />
       </div>
@@ -47,16 +47,19 @@ function HomeStickyCategories() {
           ref={stickyRef}
           className={
             isFixed
-              ? "fixed left-0 right-0 top-0 z-50 bg-white pt-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
-              : "relative bg-white"
+              ? "fixed left-0 right-0 top-0 z-50 bg-[#FFF3E0] pt-1 shadow-md border-b border-purple-200/80 transition-all"
+              : "relative bg-[#FFF3E0]"
           }
         >
           <HomeSearchBar />
           <HomeCategoryStrip />
         </div>
       </div>
-    </>
+
+      <ZeptoPromoSection />
+    </div>
   );
 }
 
 export default HomeStickyCategories;
+
