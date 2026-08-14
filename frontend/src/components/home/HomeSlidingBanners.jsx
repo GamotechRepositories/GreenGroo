@@ -110,7 +110,7 @@ export default function HomeSlidingBanners() {
   const banner = SLIDING_BANNERS[currentIndex];
 
   return (
-    <section className={`${theme.contentBg} px-4 sm:px-6 pt-4 pb-3.5 transition-colors duration-300`}>
+    <section className={`${theme.bannerBg || theme.contentBg} px-4 sm:px-6 pt-4 pb-4 transition-colors duration-300 rounded-b-3xl sm:rounded-b-[36px] overflow-hidden`}>
       {/* Main Full-Width Sliding Card with Uniform Compact Height */}
       <div
         onTouchStart={handleTouchStart}

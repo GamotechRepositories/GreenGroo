@@ -50,10 +50,10 @@ function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
   const isActive = storeKey === currentStore;
   const activeBgClass = theme.activeTabBg;
 
-  let activeBgHex = "#C6F6D5";
-  if (storeKey === "festive") activeBgHex = "#FFE0B2";
-  else if (storeKey === "mall") activeBgHex = "#3C22B4";
-  else if (storeKey === "main") activeBgHex = "#C6F6D5";
+  let activeBgHex = "#059669";
+  if (storeKey === "festive") activeBgHex = "#C2410C";
+  else if (storeKey === "mall") activeBgHex = "#1E1B4B";
+  else if (storeKey === "main") activeBgHex = "#059669";
 
   return (
     <div className="relative flex-1 min-w-0">
@@ -146,7 +146,7 @@ export function HomeDeliveryBar() {
         <StoreTab storeKey="festive" currentStore={currentStore} theme={theme} onSelect={setStore}>
           <div className="text-center leading-none">
             <span className={`text-[15px] sm:text-[16px] font-black tracking-tight ${
-              currentStore === "festive" ? "text-[#7C2D12]" : "text-[#EA580C]"
+              currentStore === "festive" ? "text-white" : "text-[#EA580C]"
             }`}>
               Ready2Cook
             </span>
@@ -192,7 +192,7 @@ export function HomeSearchBar() {
   };
 
   return (
-    <div className={`${theme.contentBg} px-4 py-2.5 transition-colors duration-300`}>
+    <div className={`${theme.searchBg || theme.contentBg} px-4 py-2.5 transition-colors duration-300`}>
       <div className="flex items-center gap-2">
         <form onSubmit={handleSearch} className="min-w-0 flex-1">
           <div className="flex h-12 items-center rounded-[18px] bg-white px-4 shadow-sm border border-transparent">

@@ -211,7 +211,7 @@ function HomeCategoryStrip() {
   );
 
   return (
-    <nav className={`${theme.contentBg} px-4 pb-0 pt-2 transition-colors duration-300`}>
+    <nav className={`${theme.categoryBg || theme.contentBg} px-4 pb-0 pt-2 transition-colors duration-300`}>
       <div className={`flex items-center justify-between border-b ${theme.categoryBorder}`}>
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
