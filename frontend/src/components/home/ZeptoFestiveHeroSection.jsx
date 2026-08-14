@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
+import { resolveStoreTheme } from "../grocery/homeHeaderThemes";
 
 const HERO_CARDS = [
   {
@@ -30,14 +31,15 @@ const HERO_CARDS = [
 export default function ZeptoFestiveHeroSection() {
   const [searchParams] = useSearchParams();
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const theme = resolveStoreTheme(currentStore);
   const isGreenTheme = currentStore !== "festive";
 
   const outerBg = isGreenTheme
-    ? "bg-gradient-to-b from-[#DCFCE7] via-[#C6F6D5] to-[#A7F3D0] border-emerald-200"
-    : "bg-gradient-to-b from-[#FFE6C9] via-[#FFD39B] to-[#FFB763] border-amber-200/60";
+    ? "bg-gradient-to-b from-[#C6F6D5] via-[#C6F6D5] to-[#A7F3D0] border-emerald-300/40"
+    : "bg-gradient-to-b from-[#FFE0B2] via-[#FFE0B2] to-[#FFB763] border-amber-300/40";
 
   return (
-    <section className="px-4 sm:px-6 pt-2 pb-3">
+    <section className={`${theme.contentBg} px-4 sm:px-6 pt-1 pb-3 transition-colors duration-300`}>
       {/* Outer Dynamic Theme Gradient Box */}
       <div className={`relative overflow-hidden rounded-3xl ${outerBg} p-3 sm:p-5 shadow-sm border`}>
         
