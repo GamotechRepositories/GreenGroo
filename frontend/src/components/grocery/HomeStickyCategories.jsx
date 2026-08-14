@@ -44,7 +44,7 @@ function HomeStickyCategories() {
   }, []);
 
   return (
-    <div className={`${containerBg} transition-colors duration-300 pb-2`}>
+    <div className={`${containerBg} transition-colors duration-300 pb-0`}>
       <div ref={deliveryRef}>
         <HomeDeliveryBar />
       </div>

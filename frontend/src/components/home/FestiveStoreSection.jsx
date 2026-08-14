@@ -291,7 +291,7 @@ function FestiveStoreSection() {
   });
 
   return (
-    <div className="space-y-4 py-1">
+    <div className="space-y-4 pt-0 pb-1">
       {/* Zepto Festive Freedom Sale Banner Structure (Matching Photos 1 & 2) */}
       <ZeptoFestiveHeroSection />
 
@@ -354,9 +354,6 @@ function FestiveStoreSection() {
 
       {/* Festive Freedom Sale Grid Section matching user screenshot */}
       <FestiveSaleGridSection />
-
-      {/* Sliding Banners Section */}
-      <HomeSlidingBanners />
 
       {/* Category Products Section */}
       <section className="px-4 sm:px-6 py-2">

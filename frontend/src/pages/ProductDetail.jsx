@@ -405,7 +405,7 @@ function FarmerDetailsCard({ product }) {
   const farmer = {
     name: product?.farmerName || product?.farmerDetails?.name || "Kiran Pawar",
     location: product?.farmerLocation || product?.farmerDetails?.location || "Niphad, NASHIK",
-    farmerImage: product?.farmerImage || product?.farmerDetails?.farmerImage || "https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=400&h=400&q=80",
+    farmerImage: product?.farmerImage || product?.farmerDetails?.farmerImage || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80",
     farmImage: product?.farmImage || product?.farmerDetails?.farmImage || images[0] || "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=400&h=400&q=80",
     totalArea: product?.farmerDetails?.totalArea || "3",
     cultivationArea: product?.farmerDetails?.cultivationArea || "3",
@@ -429,21 +429,33 @@ function FarmerDetailsCard({ product }) {
         </h3>
       </div>
 
-      {/* 2 Photos side by side */}
+      {/* 2 Photos side by side with overlay labels */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-xs">
           <img
             src={farmer.farmerImage}
             alt={farmer.name}
             className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80";
+            }}
           />
+          <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-slate-900/75 backdrop-blur-xs px-2 py-1 text-center text-[10px] sm:text-xs font-black text-white shadow-xs">
+            👨‍🌾 Farmer Photo
+          </div>
         </div>
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-xs">
           <img
             src={farmer.farmImage}
             alt={farmer.cropCycle}
             className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=400&h=400&q=80";
+            }}
           />
+          <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-slate-900/75 backdrop-blur-xs px-2 py-1 text-center text-[10px] sm:text-xs font-black text-white shadow-xs">
+            🚜 Farm Land Photo
+          </div>
         </div>
       </div>
 
@@ -1100,6 +1112,39 @@ function ProductDetail() {
                 </p>
               );
             })()}
+
+            {/* Farmer Quick Profile Card */}
+            <div className="mt-3.5 flex items-center gap-3 rounded-2xl bg-emerald-50/80 p-2.5 sm:p-3 border border-emerald-200/60 shadow-xs">
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-emerald-600 shadow-xs bg-slate-100">
+                <img
+                  src={product?.farmerImage || product?.farmerDetails?.farmerImage || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80"}
+                  alt={product?.farmerName || "Farmer"}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80";
+                  }}
+                />
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] text-white font-black shadow-xs">
+                  ✓
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
+                    👨‍🌾 Direct Farmer
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Harvested Fresh
+                  </span>
+                </div>
+                <h4 className="text-sm font-black text-slate-900 leading-tight mt-0.5 truncate">
+                  {product?.farmerName || product?.farmerDetails?.name || "Kiran Vitthal Pawar"}
+                </h4>
+                <p className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-0.5">
+                  <span>📍 {product?.farmerLocation || product?.farmerDetails?.location || "Niphad, Nashik"}</span>
+                </p>
+              </div>
+            </div>
 
             <div className="mt-5">
               <p className="mb-2.5 text-[15px] font-semibold text-[#1a1a1a]">Select Unit</p>

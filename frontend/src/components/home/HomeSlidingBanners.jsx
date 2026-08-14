@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { resolveStoreTheme } from "../grocery/homeHeaderThemes";
 
 const SLIDING_BANNERS = [
   {
@@ -71,6 +72,9 @@ const SLIDING_BANNERS = [
 
 export default function HomeSlidingBanners() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [searchParams] = useSearchParams();
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const theme = resolveStoreTheme(currentStore);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
@@ -106,7 +110,7 @@ export default function HomeSlidingBanners() {
   const banner = SLIDING_BANNERS[currentIndex];
 
   return (
-    <section className="px-4 sm:px-6 py-2">
+    <section className={`${theme.contentBg} px-4 sm:px-6 pt-4 pb-3.5 transition-colors duration-300`}>
       {/* Main Full-Width Sliding Card with Uniform Compact Height */}
       <div
         onTouchStart={handleTouchStart}
