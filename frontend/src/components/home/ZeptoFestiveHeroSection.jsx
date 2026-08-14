@@ -75,7 +75,7 @@ const TICKER_OFFERS = [
 
 function MovingOfferMarquee() {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-white py-2 px-1 shadow-xs border border-white/90">
+    <div className="relative overflow-hidden rounded-xl bg-white py-1 px-1 shadow-2xs border border-white/90">
       <style>{`
         @keyframes offerMarquee {
           0% { transform: translateX(0%); }
@@ -96,16 +96,16 @@ function MovingOfferMarquee() {
           <Link
             key={`${offer.badge}-${index}`}
             to={offer.link || "/coupons"}
-            className="flex items-center gap-2 shrink-0 rounded-xl bg-slate-50 px-2.5 py-1 border border-slate-100 hover:bg-emerald-50 transition cursor-pointer"
+            className="flex items-center gap-1.5 shrink-0 px-1.5 py-0.5 transition cursor-pointer hover:opacity-80"
           >
-            <span className="text-sm">{offer.icon}</span>
-            <span className={`rounded-md px-1.5 py-0.5 text-[9.5px] font-black uppercase tracking-wider ${offer.badgeBg}`}>
+            <span className="text-xs">{offer.icon}</span>
+            <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${offer.badgeBg}`}>
               {offer.badge}
             </span>
-            <span className="text-xs font-black text-slate-900 whitespace-nowrap">
+            <span className="text-[11px] font-black text-slate-900 whitespace-nowrap">
               {offer.text}
             </span>
-            <span className="rounded bg-white px-1.5 py-0.5 text-[9.5px] font-extrabold text-emerald-800 border border-emerald-200/80 whitespace-nowrap shadow-2xs">
+            <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-extrabold text-emerald-800 border border-emerald-300/60 whitespace-nowrap">
               {offer.code}
             </span>
           </Link>
@@ -162,44 +162,82 @@ export default function ZeptoFestiveHeroSection() {
         {/* 2. Continuous Moving Offers Marquee Ticker Strip */}
         <MovingOfferMarquee />
 
-        {/* 3. 4-Column Category Offer Cards (Zepto Style Yellow Pill Badges) */}
+        {/* 3. 4-Column Category Offer Cards (Exact 1:1 Reference Screenshot UI) */}
         <div className="grid grid-cols-4 gap-2 sm:gap-3">
           {HERO_CARDS.map((card) => (
             <Link
               key={card.title}
               to={card.link}
-              className="group relative flex flex-col justify-between items-center rounded-2xl bg-white p-2 sm:p-2.5 text-center shadow-xs border border-white/90 transition-all duration-200 hover:scale-[1.03] hover:shadow-md cursor-pointer overflow-hidden"
+              className="group relative flex flex-col justify-between items-center rounded-2xl bg-white text-center shadow-xs border-2 border-amber-300/80 transition-all duration-200 hover:scale-[1.03] hover:shadow-md cursor-pointer overflow-hidden pt-2.5"
             >
-              <h4 className="text-[10.5px] sm:text-xs font-black text-slate-900 leading-tight line-clamp-1 min-h-[15px] sm:min-h-[18px]">
+              {/* Top Category Title */}
+              <h4 className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight px-1 line-clamp-1 min-h-[16px]">
                 {card.title}
               </h4>
 
-              <div className="my-1.5 h-16 sm:h-20 w-full overflow-hidden rounded-xl bg-slate-50 flex items-center justify-center p-1">
+              {/* Center Product Image (Direct Clean View) */}
+              <div className="my-1.5 h-16 sm:h-22 w-full flex items-center justify-center px-1">
                 <img
                   src={card.image}
                   alt={card.title}
-                  className="h-full w-full object-cover rounded-lg transition-transform duration-300 group-hover:scale-110"
+                  className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-110"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
                   }}
                 />
               </div>
 
-              {/* Yellow Offer Pill Badge */}
-              <div className="w-full rounded-xl bg-[#FFD600] py-1 px-0.5 text-[9.5px] sm:text-xs font-black text-slate-950 uppercase shadow-2xs tracking-tight line-clamp-1">
+              {/* Edge-to-Edge Yellow Bottom Offer Block (Exact Reference UI) */}
+              <div className="w-full bg-[#FFD600] py-1.5 px-0.5 text-[10.5px] sm:text-xs font-black text-slate-950 uppercase tracking-tight line-clamp-1 rounded-b-xl shadow-2xs">
                 {card.badge}
               </div>
             </Link>
           ))}
         </div>
 
-        {/* 4. SBI Card Instant Discount Pill */}
-        <div className="rounded-2xl bg-white p-2.5 sm:p-3 shadow-xs border border-white/80 flex items-center justify-center gap-2 text-center text-slate-900 cursor-pointer hover:bg-slate-50">
-          <span className="font-black text-sky-700 text-xs sm:text-sm">💳 SBI card</span>
-          <span className="h-3 w-px bg-slate-300" />
-          <span className="text-[10px] sm:text-xs font-black text-slate-900">
-            10% Instant Discount* <span className="text-slate-500 font-medium hidden sm:inline">with SBI Credit Card &amp; EMI Txns</span>
-          </span>
+        {/* 4. SBI Card Instant Discount Pill (Exact Reference Screenshot UI) */}
+        <div className="relative flex items-center justify-center pt-0.5">
+          {/* Subtle Horizontal Side Lines (Left and Right) */}
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col gap-[3px] pointer-events-none px-1 opacity-25">
+            <div className="w-full h-[1px] bg-slate-400" />
+            <div className="w-full h-[1px] bg-slate-400" />
+          </div>
+
+          {/* Center Ultra-Compact White Pill Container (Sharp Corners) */}
+          <div className="relative z-10 w-[68%] sm:w-[56%] max-w-[320px] rounded-lg bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 shadow-xs border border-white/90 flex items-center justify-between gap-1.5 mx-auto">
+            {/* SBI Card Logo (Authentic Keyhole Logo + SBI card text) */}
+            <div className="flex items-center gap-1 shrink-0">
+              {/* SBI Blue Keyhole Icon */}
+              <div className="relative flex h-4.5 w-4.5 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-full bg-[#00A3E0] shadow-2xs">
+                <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-white flex flex-col items-center justify-end">
+                  <div className="h-0.8 sm:h-1 w-[1px] bg-[#00A3E0]" />
+                </div>
+              </div>
+              {/* Logo Text: "SBI card" */}
+              <div className="flex items-baseline font-black text-[11px] sm:text-xs tracking-tight">
+                <span className="text-[#1E293B] font-extrabold">SBI</span>
+                <span className="text-[#00A3E0] font-bold ml-0.5">card</span>
+              </div>
+            </div>
+
+            {/* Thin Vertical Divider */}
+            <div className="h-5 sm:h-6 w-[1px] bg-slate-200 shrink-0" />
+
+            {/* Offer Details Text */}
+            <div className="min-w-0 flex-1 flex flex-col justify-center">
+              <h4 className="text-[10px] sm:text-[11px] font-black text-slate-900 leading-tight">
+                10% Instant Discount<span className="text-slate-600 font-semibold">*</span>
+              </h4>
+              <p className="text-[8.5px] sm:text-[9.5px] font-medium text-slate-500 truncate leading-tight mt-0.5">
+                with SBI Credit Card (also valid on EMI Trxns.)
+              </p>
+            </div>
+
+            {/* Vertical T&C Apply Text (Exact Reference UI) */}
+            <div className="shrink-0 text-[6.5px] sm:text-[7.5px] font-bold text-slate-400 uppercase tracking-tighter [writing-mode:vertical-rl] rotate-180 leading-none select-none pl-0.5">
+              *T&amp;C Apply
+            </div>
+          </div>
         </div>
       </div>
     </section>
