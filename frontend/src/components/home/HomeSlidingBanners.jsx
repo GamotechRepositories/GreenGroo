@@ -169,25 +169,6 @@ export default function HomeSlidingBanners() {
         </div>
       </div>
 
-      {/* Pagination Indicator Dots Bar */}
-      <div className="mt-3 flex items-center justify-center gap-1.5">
-        {SLIDING_BANNERS.map((item, index) => {
-          const isActive = index === currentIndex;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setCurrentIndex(index)}
-              aria-label={`Go to slide ${index + 1}`}
-              className={`transition-all duration-300 rounded-full ${
-                isActive
-                  ? "w-6 h-1.5 bg-slate-900"
-                  : "w-1.5 h-1.5 bg-slate-300 hover:bg-slate-400"
-              }`}
-            />
-          );
-        })}
-      </div>
     </section>
   );
 }

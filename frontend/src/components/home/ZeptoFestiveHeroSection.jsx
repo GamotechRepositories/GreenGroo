@@ -129,8 +129,10 @@ export default function ZeptoFestiveHeroSection() {
     );
   }
 
+  const sectionBgClass = theme.bannerBg || theme.contentBg;
+
   return (
-    <section className="bg-white pt-0 pb-4 transition-colors duration-300 space-y-2.5 rounded-b-3xl sm:rounded-b-[36px] overflow-hidden">
+    <section className={`${sectionBgClass} pt-0 pb-4 transition-colors duration-300 space-y-2.5 rounded-b-3xl sm:rounded-b-[36px] overflow-hidden`}>
       {/* 1. Sky Blue Video Header Card (Full Width Edge-to-Edge with Explore More Button) */}
       <div className="relative w-full overflow-hidden rounded-b-[20px] sm:rounded-b-[24px] rounded-t-none bg-slate-900 p-4 sm:p-6 text-center text-white shadow-md border-b border-blue-300/30 min-h-[160px] sm:min-h-[190px] flex flex-col justify-end items-center">
         {/* Background Auto-Playing Video */}

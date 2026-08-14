@@ -9,6 +9,7 @@ import FestiveSaleGridSection from "./FestiveSaleGridSection";
 import ZeptoFestiveHeroSection from "./ZeptoFestiveHeroSection";
 import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
+import Ready2CookHotPickBanners from "./Ready2CookHotPickBanners";
 
 const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -293,9 +294,12 @@ function FestiveStoreSection() {
   });
 
   return (
-    <div className="space-y-4 pt-0 pb-1">
+    <div className="space-y-1.5 pt-0 pb-1">
       {/* Zepto Festive Freedom Sale Banner Structure (Matching Photos 1 & 2) */}
       <ZeptoFestiveHeroSection />
+
+      {/* Ready2Cook 2 Hot Pick Banners Section (Matching User Reference Photo) */}
+      <Ready2CookHotPickBanners />
 
       {/* Shop by Category Section */}
       <section className="px-4 sm:px-6 py-3">
@@ -317,28 +321,28 @@ function FestiveStoreSection() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+        <div className="grid grid-cols-4 gap-2 sm:gap-3.5">
           {READY2COOK_SHOP_CATEGORIES.map((cat) => {
             const isSelected = currentFilter === cat.name;
             return (
               <div
                 key={cat.name}
                 onClick={() => handleSelectCategory(cat.name)}
-                className={`group relative overflow-hidden rounded-2xl p-2.5 sm:p-4 min-h-[92px] sm:min-h-[110px] cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md border ${
+                className={`group relative overflow-hidden rounded-2xl p-2 sm:p-3 min-h-[84px] sm:min-h-[104px] cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md border ${
                   isSelected
                     ? "border-emerald-600 ring-2 ring-emerald-500/30"
                     : "border-transparent"
                 } ${cat.bgClass}`}
               >
-                <div className="relative z-10 max-w-[60%] sm:max-w-[65%] pr-1">
-                  <h3 className="text-[11px] sm:text-base font-black text-slate-900 leading-tight">
+                <div className="relative z-10 max-w-[62%] sm:max-w-[65%] pr-0.5">
+                  <h3 className="text-[10px] sm:text-sm font-black text-slate-900 leading-tight line-clamp-1">
                     {cat.name}
                   </h3>
-                  <p className="mt-0.5 text-[9px] sm:text-xs font-semibold text-slate-600">
+                  <p className="mt-0.5 text-[8.5px] sm:text-[11px] font-semibold text-slate-600 truncate">
                     {cat.itemCount}
                   </p>
                 </div>
-                <div className="absolute right-1 bottom-1 h-11 w-11 sm:h-16 sm:w-16 overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                <div className="absolute right-1 bottom-1 h-9 w-9 sm:h-14 sm:w-14 overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                   <img
                     src={cat.image}
                     alt={cat.name}
