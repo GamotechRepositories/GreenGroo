@@ -4,6 +4,8 @@ import { useProductCartActions } from "../../hooks/useProductCartActions";
 import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 
+import DealsStartingAt9Section from "../home/DealsStartingAt9Section";
+
 export const HOME_PRODUCT_CATEGORIES = ["Fruits", "Vegetables", "Organic", "Dairy"];
 
 function CategoryProductSection({ categoryName, limit = 20 }) {
@@ -52,11 +54,13 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
   return (
     <div className="space-y-1 lg:space-y-5">
       {HOME_PRODUCT_CATEGORIES.map((category) => (
-        <CategoryProductSection
-          key={category}
-          categoryName={category}
-          limit={limitPerCategory}
-        />
+        <div key={category}>
+          <CategoryProductSection
+            categoryName={category}
+            limit={limitPerCategory}
+          />
+          {category === "Vegetables" && <DealsStartingAt9Section />}
+        </div>
       ))}
     </div>
   );
