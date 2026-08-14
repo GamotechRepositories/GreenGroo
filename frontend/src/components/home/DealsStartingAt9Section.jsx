@@ -708,24 +708,24 @@ export default function DealsStartingAt9Section() {
   });
 
   return (
-    <section className="ml-4 sm:ml-6 mr-0 my-4">
+    <section className="ml-4 sm:ml-6 mr-0 my-2 sm:my-3">
       {/* 1. Header Title & Subtitle (Outside Card) */}
-      <div className="text-center mb-2.5 pr-4 sm:pr-6">
-        <h2 className="text-xl sm:text-2xl font-black text-[#0B6E28] uppercase tracking-tight">
+      <div className="text-center mb-1.5 pr-4 sm:pr-6">
+        <h2 className="text-lg sm:text-xl font-black text-[#0B6E28] uppercase tracking-tight">
           DEALS STARTING AT ₹9
         </h2>
-        <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-0.5">
+        <p className="text-[11px] sm:text-xs font-semibold text-slate-600 mt-0.5">
           Add Any 10 Items
         </p>
       </div>
 
-      {/* 2. Main Light Gray to Pure White Gradient Card Container (No Right Padding/Margin) */}
-      <div className="bg-gradient-to-r from-[#E2E8F0] via-[#F1F5F9] to-white pl-3 sm:pl-4 pr-0 py-3.5 rounded-l-3xl rounded-r-none border-0 shadow-2xs">
+      {/* 2. Main Light Gray to Pure White Gradient Card Container (Sleek Compact Height) */}
+      <div className="bg-gradient-to-r from-[#E2E8F0] via-[#F1F5F9] to-white pl-2.5 sm:pl-3.5 pr-0 py-2 rounded-l-3xl rounded-r-none border-0 shadow-2xs">
         {/* Main Flex Container: Left Tier Sidebar + Right Product Scroll */}
-        <div className="flex gap-2 sm:gap-3 items-stretch">
+        <div className="flex gap-2 sm:gap-2.5 items-stretch">
         
         {/* Left Tier Sidebar */}
-        <div className="w-[72px] sm:w-[96px] shrink-0 bg-white rounded-2xl border border-slate-100 flex flex-col divide-y divide-slate-100 overflow-hidden shadow-2xs">
+        <div className="w-[68px] sm:w-[90px] shrink-0 bg-white rounded-2xl border border-slate-100 flex flex-col divide-y divide-slate-100 overflow-hidden shadow-2xs">
           {DEAL_TIERS.map((tier) => {
             const isActive = activeTier === tier.id;
             return (
@@ -733,29 +733,29 @@ export default function DealsStartingAt9Section() {
                 key={tier.id}
                 type="button"
                 onClick={() => setActiveTier(tier.id)}
-                className={`relative flex-1 flex flex-col justify-center items-center text-center px-1 py-3 transition-colors duration-200 cursor-pointer ${
+                className={`relative flex-1 flex flex-col justify-center items-center text-center px-1 py-1.5 transition-colors duration-200 cursor-pointer ${
                   isActive ? "bg-[#DCFCE7]" : "bg-white hover:bg-slate-50"
                 }`}
               >
                 {/* Active Left Indicator Line */}
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-10 w-[3.5px] bg-[#0C831F] rounded-r-sm" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-[3px] bg-[#0C831F] rounded-r-sm" />
                 )}
 
-                <span className={`text-[9.5px] sm:text-[11px] leading-tight ${
+                <span className={`text-[9px] sm:text-[10.5px] leading-tight ${
                   isActive ? "font-black text-emerald-950" : "font-bold text-slate-700"
                 }`}>
                   {tier.topText}
                 </span>
 
                 {tier.id === "best" ? (
-                  <span className={`mt-1 rounded px-1.5 py-0.5 text-[9px] sm:text-[10.5px] font-black uppercase shadow-2xs ${
+                  <span className={`mt-0.5 rounded px-1.5 py-0.5 text-[8.5px] sm:text-[10px] font-black uppercase shadow-2xs ${
                     isActive ? "bg-emerald-700 text-white" : "bg-emerald-600/80 text-white"
                   }`}>
                     {tier.badge}
                   </span>
                 ) : (
-                  <div className={`mt-1 rounded px-2 py-0.5 text-xs sm:text-sm font-black shadow-2xs ${
+                  <div className={`mt-0.5 rounded px-1.5 py-0.5 text-[10px] sm:text-xs font-black shadow-2xs ${
                     isActive ? "bg-emerald-700 text-white" : "bg-emerald-600/80 text-white"
                   }`}>
                     {tier.badge}
