@@ -12,7 +12,8 @@ import FreshProduceStoreSection from "../components/home/FreshProduceStoreSectio
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
 import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
-import FestiveSaleGridSection from "../components/home/FestiveSaleGridSection";
+import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
+import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
 
 function StoreContent() {
   const [searchParams] = useSearchParams();
@@ -35,7 +36,8 @@ function StoreContent() {
     <>
       <ZeptoFestiveHeroSection />
       <CategoryPills />
-      <FestiveSaleGridSection />
+      <SuggestedForYouSection />
+      <TopPaymentOffersSection />
       <HomeAllCategoryProducts limitPerCategory={20} />
     </>
   );

@@ -7,6 +7,8 @@ import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import HomeSlidingBanners from "./HomeSlidingBanners";
 import FestiveSaleGridSection from "./FestiveSaleGridSection";
 import ZeptoFestiveHeroSection from "./ZeptoFestiveHeroSection";
+import SuggestedForYouSection from "./SuggestedForYouSection";
+import TopPaymentOffersSection from "./TopPaymentOffersSection";
 
 const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -352,8 +354,15 @@ function FestiveStoreSection() {
         </div>
       </section>
 
-      {/* Festive Freedom Sale Grid Section matching user screenshot */}
-      <FestiveSaleGridSection />
+      {/* Suggested for You Section (2 Rows of products) */}
+      <SuggestedForYouSection
+        title="Suggested for You"
+        subtitle="Handpicked fresh items just for you"
+        customProducts={filteredProducts}
+      />
+
+      {/* Top Payment Offers Section matching reference UI */}
+      <TopPaymentOffersSection />
 
       {/* Category Products Section */}
       <section className="px-4 sm:px-6 py-2">
