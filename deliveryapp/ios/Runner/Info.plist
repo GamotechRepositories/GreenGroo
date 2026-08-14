@@ -70,5 +70,9 @@
 	<string>We need camera access to capture your documents and selfie for verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need photo library access to upload your Aadhaar, PAN and passport photo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to verify store proximity and track deliveries while you are online.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to assign and track deliveries while on duty.</string>
 </dict>
 </plist>

@@ -4,14 +4,19 @@ const incentiveSchema = new mongoose.Schema(
   {
     riderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "DeliveryBoy",
+      ref: "Rider",
       required: [true, "Rider ID is required"],
+      index: true,
+    },
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Manager",
+      required: [true, "Manager ID is required"],
       index: true,
     },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "DeliveryManager",
-      required: [true, "Store ID is required"],
+      ref: "Manager",
       index: true,
     },
     date: {
@@ -33,6 +38,15 @@ const incentiveSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+incentiveSchema.pre("validate", function (next) {
+  if (this.managerId && !this.storeId) {
+    this.storeId = this.managerId;
+  } else if (this.storeId && !this.managerId) {
+    this.managerId = this.storeId;
+  }
+  next();
+});
 
 incentiveSchema.index({ riderId: 1, date: 1 }, { unique: true });
 

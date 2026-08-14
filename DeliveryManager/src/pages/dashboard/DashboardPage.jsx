@@ -79,37 +79,27 @@ export default function DashboardPage() {
 
   return (
     <PageShell>
-      {/* Store Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#062C1D] via-[#0A3D29] to-[#0D4E35] p-6 text-white shadow-lg">
-        <div className="absolute right-0 top-0 -mr-12 -mt-12 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-400/30">
-              🟢 Live
-            </span>
-            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight mt-2">
-              {manager?.storeName || "Dark Store"}
-            </h1>
-            <p className="text-sm text-emerald-100/80">
-              📍 {manager?.area}, {manager?.city}, {manager?.state}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to="/orders"
-              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-400 transition active:scale-95"
-            >
-              <Icon name="orders" size="sm" />
-              View Orders {summary?.incomingOrders > 0 && `(${summary.incomingOrders})`}
-            </Link>
-            <button
-              type="button"
-              onClick={fetchDashboardData}
-              className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-bold text-white border border-white/20 hover:bg-white/20 transition"
-            >
-              🔄 Refresh
-            </button>
-          </div>
+      {/* Dashboard Top Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">Store Dashboard</h1>
+          <p className="text-xs md:text-sm text-slate-500">Live operational overview for {manager?.storeName || "Dark Store"}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/orders"
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
+          >
+            <Icon name="orders" size="sm" />
+            View Orders {summary?.incomingOrders > 0 && `(${summary.incomingOrders})`}
+          </Link>
+          <button
+            type="button"
+            onClick={fetchDashboardData}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+          >
+            🔄 Refresh
+          </button>
         </div>
       </div>
 

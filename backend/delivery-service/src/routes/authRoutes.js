@@ -2,6 +2,7 @@ import express from "express";
 import { protect } from "@greengrocc/shared";
 import {
   getAreaManager,
+  getActiveHubs,
   heartbeat,
   login,
   me,
@@ -40,6 +41,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, me);
 router.get("/area-manager", getAreaManager);
+router.get("/active-hubs", getActiveHubs);
 router.patch("/onboarding", protect, updateOnboarding);
 router.patch("/status", protect, updateStatus);
 router.post("/heartbeat", protect, heartbeat);

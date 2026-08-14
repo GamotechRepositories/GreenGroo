@@ -36,19 +36,19 @@ export default function ManagerLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#062C1D] text-white shadow-2xl transition-transform duration-300 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#0F172A] text-white shadow-2xl transition-transform duration-300 lg:static lg:translate-x-0 border-r border-slate-800/80 ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand Header */}
-        <div className="flex items-center justify-between border-b border-emerald-900/60 px-6 py-5">
+        <div className="flex items-center justify-between border-b border-slate-800/80 px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-md shadow-emerald-900/50">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 shadow-md shadow-slate-950/50">
               <LogoIcon className="h-6 w-6 text-white" />
             </div>
             <div>
               <p className="text-base font-bold tracking-tight text-white">GreenRow</p>
-              <p className="text-[11px] font-medium tracking-wide uppercase text-emerald-400">
+              <p className="text-[11px] font-semibold tracking-wider uppercase text-emerald-400">
                 Dark Store Manager
               </p>
             </div>
@@ -56,41 +56,14 @@ export default function ManagerLayout() {
           <button
             type="button"
             onClick={() => setIsMobileOpen(false)}
-            className="rounded-lg p-1 text-slate-400 hover:bg-emerald-900/50 lg:hidden"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 lg:hidden"
           >
             ✕
           </button>
         </div>
 
-        {/* Store Location Card */}
-        <div className="mx-4 my-4 rounded-2xl bg-gradient-to-br from-emerald-900/70 to-emerald-950/90 p-4 border border-emerald-800/40 shadow-inner">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-              Store Location
-            </span>
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          </div>
-          <p className="mt-1 text-sm font-bold text-white truncate">
-            {manager?.storeName || "Dark Store"}
-          </p>
-          <p className="text-xs text-slate-300 truncate">
-            📍 {manager?.area || "Location"}, {manager?.city || "City"}
-          </p>
-          
-          <button
-            type="button"
-            onClick={() => setIsQrModalOpen(true)}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600/30 px-3 py-2 text-xs font-semibold text-emerald-200 border border-emerald-500/30 hover:bg-emerald-600/50 hover:text-white transition"
-          >
-            <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-            Show Store QR Code
-          </button>
-        </div>
-
         {/* Navigation List */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -100,8 +73,8 @@ export default function ManagerLayout() {
               className={({ isActive }) =>
                 `group flex items-center gap-3.5 rounded-xl px-4 py-3 text-xs font-semibold tracking-wide transition-all ${
                   isActive
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-950/40"
-                    : "text-slate-300 hover:bg-emerald-900/40 hover:text-white"
+                    ? "bg-emerald-600 text-white shadow-md shadow-slate-950/40"
+                    : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
                 }`
               }
             >
@@ -112,10 +85,10 @@ export default function ManagerLayout() {
         </nav>
 
         {/* User Footer */}
-        <div className="border-t border-emerald-900/60 p-4">
+        <div className="border-t border-slate-800/80 p-4 bg-slate-900/60">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 font-bold text-emerald-200">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 font-bold text-emerald-400 border border-slate-700">
                 {manager?.name ? manager.name.charAt(0).toUpperCase() : "M"}
               </div>
               <div className="min-w-0">
@@ -132,7 +105,7 @@ export default function ManagerLayout() {
                 navigate("/login", { replace: true });
               }}
               title="Logout"
-              className="rounded-xl p-2 text-slate-400 hover:bg-emerald-900/50 hover:text-rose-400 transition"
+              className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-rose-400 transition"
             >
               <Icon name="power" size="sm" />
             </button>

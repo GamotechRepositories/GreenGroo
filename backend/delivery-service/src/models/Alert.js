@@ -2,10 +2,15 @@ import mongoose from "mongoose";
 
 const alertSchema = new mongoose.Schema(
   {
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Manager",
+      required: [true, "Manager ID is required"],
+      index: true,
+    },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "DeliveryManager",
-      required: [true, "Store ID is required"],
+      ref: "Manager",
       index: true,
     },
     type: {
@@ -29,7 +34,7 @@ const alertSchema = new mongoose.Schema(
     },
     relatedRiderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "DeliveryBoy",
+      ref: "Rider",
     },
     isRead: {
       type: Boolean,
@@ -39,6 +44,15 @@ const alertSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+alertSchema.pre("validate", function (next) {
+  if (this.managerId && !this.storeId) {
+    this.storeId = this.managerId;
+  } else if (this.storeId && !this.managerId) {
+    this.managerId = this.storeId;
+  }
+  next();
+});
 
 if (mongoose.models.Alert) {
   delete mongoose.models.Alert;

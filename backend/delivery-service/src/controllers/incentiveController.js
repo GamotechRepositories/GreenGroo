@@ -1,15 +1,57 @@
 import Incentive from "../models/Incentive.js";
-import Rider from "../models/Rider.js";
 
 /**
- * Rider (their own) or Manager (any rider in store) — Returns incentive history for a rider.
+ * Internal helper function (not a route endpoint):
+ * Upserts today's Incentive record for a rider upon order completion (delivered).
+ */
+export async function upsertDailyIncentive({
+  riderId,
+  managerId,
+  orderEarnings = 0,
+  peakBonus = 0,
+  todayOrderCount = 1,
+}) {
+  try {
+    if (!riderId || !managerId) {
+      console.warn("[upsertDailyIncentive] Missing riderId or managerId");
+      return null;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Target bonus check e.g. 20 orders completed in a day gives bonus
+    const targetBonus = todayOrderCount >= 20 ? 100 : 0;
+
+    const incentive = await Incentive.findOneAndUpdate(
+      { riderId, date: today },
+      {
+        $setOnInsert: { managerId, storeId: managerId, date: today },
+        $inc: {
+          totalOrders: 1,
+          totalEarnings: orderEarnings,
+          targetBonusEarned: peakBonus + targetBonus,
+        },
+      },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    return incentive;
+  } catch (error) {
+    console.error("[upsertDailyIncentive] Error:", error.message);
+    return null;
+  }
+}
+
+/**
+ * Rider (their own data) or Manager (any rider under their managerId).
+ * Returns incentive history, optionally filtered by date range.
  */
 export const getRiderIncentives = async (req, res) => {
   try {
     let riderId = req.query.riderId;
 
     if (req.user?.role !== "delivery_manager") {
-      // Rider can only access their own incentive history
       riderId = req.user.id;
     } else if (!riderId) {
       return res.status(400).json({
@@ -27,6 +69,11 @@ export const getRiderIncentives = async (req, res) => {
       if (endDate) filter.date.$lte = new Date(endDate);
     }
 
+    // Security check for manager: rider must belong to managerId store if queried by manager
+    if (req.user?.role === "delivery_manager") {
+      filter.$or = [{ managerId: req.user.id }, { storeId: req.user.id }];
+    }
+
     const incentives = await Incentive.find(filter).sort({ date: -1 });
 
     res.json({
@@ -42,7 +89,7 @@ export const getRiderIncentives = async (req, res) => {
 };
 
 /**
- * Manager only — Aggregates total earnings/orders across all riders in the store for a date range.
+ * Manager only — Aggregates total earnings/orders across all riders under their managerId.
  */
 export const getStoreIncentiveSummary = async (req, res) => {
   try {
@@ -53,10 +100,22 @@ export const getStoreIncentiveSummary = async (req, res) => {
       });
     }
 
-    const storeId = req.query.storeId || req.user.id;
+    const managerId = req.query.managerId || req.query.storeId || req.user.id;
+
+    // Ownership check: Manager can only access their own store summary
+    if (managerId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access to another store's analytics",
+      });
+    }
+
     const { startDate, endDate } = req.query;
 
-    const matchQuery = { storeId };
+    const matchQuery = {
+      $or: [{ managerId }, { storeId: managerId }],
+    };
+
     if (startDate || endDate) {
       matchQuery.date = {};
       if (startDate) matchQuery.date.$gte = new Date(startDate);
@@ -67,7 +126,7 @@ export const getStoreIncentiveSummary = async (req, res) => {
       { $match: matchQuery },
       {
         $group: {
-          _id: "$storeId",
+          _id: "$managerId",
           totalOrders: { $sum: "$totalOrders" },
           totalEarnings: { $sum: "$totalEarnings" },
           totalTargetBonusEarned: { $sum: "$targetBonusEarned" },
@@ -77,6 +136,7 @@ export const getStoreIncentiveSummary = async (req, res) => {
       {
         $project: {
           _id: 0,
+          managerId: "$_id",
           storeId: "$_id",
           totalOrders: 1,
           totalEarnings: 1,
@@ -125,7 +185,8 @@ export const getStoreIncentiveSummary = async (req, res) => {
       success: true,
       data: {
         summary: summary[0] || {
-          storeId,
+          managerId,
+          storeId: managerId,
           totalOrders: 0,
           totalEarnings: 0,
           totalTargetBonusEarned: 0,

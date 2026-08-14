@@ -152,7 +152,6 @@ const deliveryBoySchema = new mongoose.Schema(
     shiftBooking: {
       slot: {
         type: String,
-        enum: ["morning", "midday", "evening_peak", "late_night", ""],
         default: "",
       },
       date: { type: Date },
@@ -258,7 +257,15 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
 if (mongoose.models.DeliveryBoy) {
   delete mongoose.models.DeliveryBoy;
 }
+if (mongoose.models.Rider) {
+  delete mongoose.models.Rider;
+}
 
 const DeliveryBoy = mongoose.model("DeliveryBoy", deliveryBoySchema);
 
+try {
+  mongoose.model("Rider", deliveryBoySchema);
+} catch (e) {}
+
 export default DeliveryBoy;
+

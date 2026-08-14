@@ -5,7 +5,7 @@ import { getIO } from "../../../socket.js";
 import { resolveStoreIdForRider } from "../utils/storeResolver.js";
 
 /**
- * Manager only — Create a new shift slot for their store.
+ * Manager only — Create a new shift slot for their store (scoped to req.user.id / managerId).
  */
 export const createShiftSlot = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ export const createShiftSlot = async (req, res) => {
     }
 
     const managerId = req.user.id;
-    const { slot, label, start, end, storeId } = req.body;
+    const { slot, label, start, end } = req.body;
 
     if (!slot || !label || !start || !end) {
       return res.status(400).json({
@@ -26,14 +26,13 @@ export const createShiftSlot = async (req, res) => {
       });
     }
 
-    const targetStoreId = storeId || managerId;
-
     const shiftSlot = await ShiftSlot.create({
       slot,
       label,
       start,
       end,
-      storeId: targetStoreId,
+      managerId,
+      storeId: managerId,
       createdBy: managerId,
     });
 
@@ -50,24 +49,27 @@ export const createShiftSlot = async (req, res) => {
 };
 
 /**
- * Returns all shift slots for a given storeId (used by both Manager and Rider).
+ * Returns all shift slots for a given managerId (used by both Manager and Rider).
  */
 export const getShiftSlots = async (req, res) => {
   try {
-    let storeId = req.query.storeId || req.params.storeId;
+    let managerId = req.query.managerId || req.query.storeId || req.params.managerId;
 
-    if (!storeId && req.user?.role === "delivery_manager") {
-      storeId = req.user.id;
+    if (!managerId && req.user?.role === "delivery_manager") {
+      managerId = req.user.id;
     }
 
-    if (!storeId && req.user?.id) {
+    if (!managerId && req.user?.id) {
       const rider = await Rider.findById(req.user.id);
       if (rider) {
-        storeId = await resolveStoreIdForRider(rider);
+        managerId = await resolveStoreIdForRider(rider);
       }
     }
 
-    const filter = storeId ? { storeId } : {};
+    const filter = managerId
+      ? { $or: [{ managerId }, { storeId: managerId }] }
+      : {};
+
     const slots = await ShiftSlot.find(filter).sort({ createdAt: 1 });
 
     res.json({
@@ -83,7 +85,7 @@ export const getShiftSlots = async (req, res) => {
 };
 
 /**
- * Manager only — Update an existing shift slot.
+ * Manager only — Update an existing shift slot. Verifies ownership.
  */
 export const updateShiftSlot = async (req, res) => {
   try {
@@ -95,24 +97,38 @@ export const updateShiftSlot = async (req, res) => {
     }
 
     const { id } = req.params;
+    const managerId = req.user.id;
     const { slot, label, start, end } = req.body;
 
-    const updatedSlot = await ShiftSlot.findByIdAndUpdate(
-      id,
-      { slot, label, start, end },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedSlot) {
+    const existingSlot = await ShiftSlot.findById(id);
+    if (!existingSlot) {
       return res.status(404).json({
         success: false,
         message: "Shift slot not found",
       });
     }
 
+    // Ownership check
+    if (
+      existingSlot.managerId?.toString() !== managerId &&
+      existingSlot.storeId?.toString() !== managerId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Shift slot does not belong to your store",
+      });
+    }
+
+    if (slot) existingSlot.slot = slot;
+    if (label) existingSlot.label = label;
+    if (start) existingSlot.start = start;
+    if (end) existingSlot.end = end;
+
+    await existingSlot.save();
+
     res.json({
       success: true,
-      data: updatedSlot,
+      data: existingSlot,
     });
   } catch (error) {
     res.status(500).json({
@@ -123,7 +139,7 @@ export const updateShiftSlot = async (req, res) => {
 };
 
 /**
- * Manager only — Delete a shift slot.
+ * Manager only — Delete a shift slot. Verifies ownership.
  */
 export const deleteShiftSlot = async (req, res) => {
   try {
@@ -135,14 +151,28 @@ export const deleteShiftSlot = async (req, res) => {
     }
 
     const { id } = req.params;
-    const deletedSlot = await ShiftSlot.findByIdAndDelete(id);
+    const managerId = req.user.id;
 
-    if (!deletedSlot) {
+    const existingSlot = await ShiftSlot.findById(id);
+    if (!existingSlot) {
       return res.status(404).json({
         success: false,
         message: "Shift slot not found",
       });
     }
+
+    // Ownership check
+    if (
+      existingSlot.managerId?.toString() !== managerId &&
+      existingSlot.storeId?.toString() !== managerId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Shift slot does not belong to your store",
+      });
+    }
+
+    await existingSlot.deleteOne();
 
     res.json({
       success: true,
@@ -193,7 +223,7 @@ export const bookShiftSlot = async (req, res) => {
       });
     }
 
-    // Resolve storeId and emit socket event to store room
+    // Resolve store / manager ID and emit socket event to store room
     const storeId = await resolveStoreIdForRider(rider);
     if (storeId) {
       try {
@@ -222,7 +252,7 @@ export const bookShiftSlot = async (req, res) => {
 };
 
 /**
- * Manager only — Returns all riders in the store grouped by booked shift slot for a date.
+ * Manager only — Returns all riders under their managerId grouped by booked shift slot for a given date.
  */
 export const getStoreShiftOverview = async (req, res) => {
   try {
@@ -233,7 +263,8 @@ export const getStoreShiftOverview = async (req, res) => {
       });
     }
 
-    const manager = await Manager.findById(req.user.id);
+    const managerId = req.user.id;
+    const manager = await Manager.findById(managerId);
     if (!manager) {
       return res.status(404).json({
         success: false,
@@ -245,7 +276,7 @@ export const getStoreShiftOverview = async (req, res) => {
     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
 
-    // Find riders matching manager's store / city / area
+    // Find riders matching manager's city / area
     const riders = await Rider.find({
       $or: [
         { cityId: manager.cityId, area: manager.area },
@@ -254,7 +285,9 @@ export const getStoreShiftOverview = async (req, res) => {
       isActive: true,
     });
 
-    const shiftSlots = await ShiftSlot.find({ storeId: manager._id });
+    const shiftSlots = await ShiftSlot.find({
+      $or: [{ managerId: manager._id }, { storeId: manager._id }],
+    });
 
     // Group riders by shift slot
     const grouped = {
@@ -270,12 +303,12 @@ export const getStoreShiftOverview = async (req, res) => {
       if (bDate && bDate >= startOfDay && bDate <= endOfDay && r.shiftBooking?.slot) {
         const slotKey = r.shiftBooking.slot;
         if (grouped[slotKey]) {
-          grouped[slotKey].push(r.toSafeJSON());
+          grouped[slotKey].push(r.toSafeJSON ? r.toSafeJSON() : r);
         } else {
-          grouped.unbooked.push(r.toSafeJSON());
+          grouped.unbooked.push(r.toSafeJSON ? r.toSafeJSON() : r);
         }
       } else {
-        grouped.unbooked.push(r.toSafeJSON());
+        grouped.unbooked.push(r.toSafeJSON ? r.toSafeJSON() : r);
       }
     });
 

@@ -139,6 +139,12 @@ const generateDateWiseShifts = async ({
         slots: defaultSlots,
       });
       createdShifts.push(newShift);
+    } else {
+      // Overwrite/update slots for this shift type on this date
+      existing.name = name || existing.name;
+      existing.slots = defaultSlots;
+      await existing.save();
+      createdShifts.push(existing);
     }
   }
 

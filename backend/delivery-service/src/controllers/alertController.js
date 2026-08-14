@@ -5,6 +5,7 @@ import { getIO } from "../../../socket.js";
  * Internal helper function: Creates an operational alert and emits socket notification.
  */
 export async function createAlert({
+  managerId,
   storeId,
   type,
   message,
@@ -12,12 +13,14 @@ export async function createAlert({
   relatedRiderId = null,
 }) {
   try {
-    if (!storeId || !type || !message) {
-      throw new Error("storeId, type, and message are required to create an alert");
+    const targetManagerId = managerId || storeId;
+    if (!targetManagerId || !type || !message) {
+      throw new Error("managerId, type, and message are required to create an alert");
     }
 
     const alert = await Alert.create({
-      storeId,
+      managerId: targetManagerId,
+      storeId: targetManagerId,
       type,
       message,
       relatedOrderId,
@@ -25,7 +28,7 @@ export async function createAlert({
     });
 
     try {
-      getIO().to(`store_${storeId}`).emit("new_alert", {
+      getIO().to(`store_${targetManagerId}`).emit("new_alert", {
         alertId: alert._id,
         type: alert.type,
         message: alert.message,
@@ -45,7 +48,7 @@ export async function createAlert({
 }
 
 /**
- * Manager only — Returns unread (or all) operational alerts for a storeId.
+ * Manager only — Returns unread (or all) operational alerts for req.user.id (managerId).
  */
 export const getAlertsForStore = async (req, res) => {
   try {
@@ -56,10 +59,13 @@ export const getAlertsForStore = async (req, res) => {
       });
     }
 
-    const storeId = req.query.storeId || req.user.id;
+    const managerId = req.user.id;
     const { unreadOnly } = req.query;
 
-    const filter = { storeId };
+    const filter = {
+      $or: [{ managerId }, { storeId: managerId }],
+    };
+
     if (unreadOnly === "true") {
       filter.isRead = false;
     }
@@ -82,7 +88,7 @@ export const getAlertsForStore = async (req, res) => {
 };
 
 /**
- * Manager only — Mark an alert as read.
+ * Manager only — Mark an alert as read. Verifies ownership against req.user.id.
  */
 export const markAlertRead = async (req, res) => {
   try {
@@ -94,19 +100,29 @@ export const markAlertRead = async (req, res) => {
     }
 
     const { alertId } = req.params;
+    const managerId = req.user.id;
 
-    const alert = await Alert.findByIdAndUpdate(
-      alertId,
-      { isRead: true },
-      { new: true }
-    );
-
+    const alert = await Alert.findById(alertId);
     if (!alert) {
       return res.status(404).json({
         success: false,
         message: "Alert not found",
       });
     }
+
+    // Ownership check
+    if (
+      alert.managerId?.toString() !== managerId &&
+      alert.storeId?.toString() !== managerId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Alert does not belong to your store",
+      });
+    }
+
+    alert.isRead = true;
+    await alert.save();
 
     res.json({
       success: true,

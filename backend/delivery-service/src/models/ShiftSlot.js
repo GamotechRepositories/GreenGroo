@@ -22,20 +22,34 @@ const shiftSlotSchema = new mongoose.Schema(
       required: [true, "End time is required"],
       trim: true,
     },
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Manager",
+      required: [true, "Manager ID is required"],
+      index: true,
+    },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "DeliveryManager",
-      required: [true, "Store ID is required"],
+      ref: "Manager",
       index: true,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "DeliveryManager",
+      ref: "Manager",
       required: [true, "Created by manager ID is required"],
     },
   },
   { timestamps: true }
 );
+
+shiftSlotSchema.pre("validate", function (next) {
+  if (this.managerId && !this.storeId) {
+    this.storeId = this.managerId;
+  } else if (this.storeId && !this.managerId) {
+    this.managerId = this.storeId;
+  }
+  next();
+});
 
 if (mongoose.models.ShiftSlot) {
   delete mongoose.models.ShiftSlot;

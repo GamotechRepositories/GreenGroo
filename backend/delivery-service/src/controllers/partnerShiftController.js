@@ -185,17 +185,31 @@ export const bookSlot = async (req, res, next) => {
     }
 
     const dateStr = shiftDoc.dateString;
+    const now = new Date();
+    const todayStr = formatDateString(now);
+    const currentMin = now.getHours() * 60 + now.getMinutes();
 
     const allShiftsForDate = await Shift.find({ dateString: dateStr });
     let alreadyBooked = false;
 
     for (const sh of allShiftsForDate) {
       for (const sl of sh.slots) {
-        const found = sl.bookings.find(
-          (b) => b.deliveryPartnerId.toString() === rider._id.toString() && b.status !== "CANCELLED"
-        );
+        const slotEndMin = timeToMinutes(sl.endTime);
+        const isSlotExpired = (dateStr === todayStr && currentMin >= slotEndMin) || (dateStr < todayStr);
+
+        const found = sl.bookings.find((b) => {
+          if (b.deliveryPartnerId.toString() !== rider._id.toString()) return false;
+          if (b.status === "CANCELLED" || b.status === "EXPIRED" || b.status === "COMPLETED") return false;
+          // If the shift slot end time has passed today, it is no longer an active blocking shift
+          if (isSlotExpired) return false;
+          return true;
+        });
+
         if (found) {
-          alreadyBooked = true;
+          // If booking exact same slot, allow rebooking
+          if (sl._id.toString() !== slotDoc._id.toString()) {
+            alreadyBooked = true;
+          }
           break;
         }
       }
@@ -204,12 +218,10 @@ export const bookSlot = async (req, res, next) => {
     if (alreadyBooked) {
       return res.status(400).json({
         success: false,
-        message: `You already have an active shift booking for ${dateStr}`,
+        message: `You already have an active unexpired shift slot booked for ${dateStr}. You can book a new slot once your current shift ends!`,
       });
     }
 
-    const now = new Date();
-    const todayStr = formatDateString(now);
     if (dateStr < todayStr) {
       return res.status(400).json({ success: false, message: "Cannot book shifts in the past" });
     }
@@ -457,9 +469,19 @@ export const goOnline = async (req, res, next) => {
     let todayBooking = null;
     let targetSlot = null;
 
+    const nowTime = new Date();
+    const currentMinCheck = nowTime.getHours() * 60 + nowTime.getMinutes();
+
     for (const slot of shift.slots) {
+      const slotEndMin = timeToMinutes(slot.endTime);
+      const isExpired = currentMinCheck >= slotEndMin;
+
       const found = slot.bookings.find(
-        (b) => b.deliveryPartnerId.toString() === rider._id.toString() && b.status !== "CANCELLED"
+        (b) =>
+          b.deliveryPartnerId.toString() === rider._id.toString() &&
+          b.status !== "CANCELLED" &&
+          b.status !== "EXPIRED" &&
+          !isExpired
       );
       if (found) {
         todayBooking = found;
@@ -543,12 +565,23 @@ export const goOnline = async (req, res, next) => {
 
     await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
 
+    const minutesUntilStart = startMin > currentMin ? startMin - currentMin : 0;
+    let shiftMessage = "";
+    if (minutesUntilStart > 0) {
+      shiftMessage = `Location verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) starts in ${minutesUntilStart} minute${minutesUntilStart > 1 ? "s" : ""} at ${targetSlot.startTime}. You are checked in and ONLINE 🟢!`;
+    } else {
+      shiftMessage = `Location verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) is ACTIVE. You are now ONLINE 🟢 and ready to receive orders!`;
+    }
+
     return res.json({
       success: true,
-      message: `Verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! You are now ONLINE 🟢`,
+      message: shiftMessage,
       status: "ONLINE",
       distanceMeters,
       allowedRadius,
+      minutesUntilStart,
+      startTime: targetSlot.startTime,
+      endTime: targetSlot.endTime,
       deliveryBoy: rider.toSafeJSON(),
     });
   } catch (error) {

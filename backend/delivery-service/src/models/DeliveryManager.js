@@ -120,10 +120,18 @@ deliveryManagerSchema.methods.toSafeJSON = function toSafeJSON() {
 if (mongoose.models.DeliveryManager) {
   delete mongoose.models.DeliveryManager;
 }
+if (mongoose.models.Manager) {
+  delete mongoose.models.Manager;
+}
 
 const DeliveryManager = mongoose.model(
   "DeliveryManager",
   deliveryManagerSchema
 );
 
+try {
+  mongoose.model("Manager", deliveryManagerSchema);
+} catch (e) {}
+
 export default DeliveryManager;
+

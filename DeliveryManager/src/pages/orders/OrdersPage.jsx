@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import StoreQrModal from "../../components/StoreQrModal";
 import { Icon } from "../../components/ui/Icon";
 
 const STATUS_BADGE = {
@@ -74,13 +73,11 @@ export default function OrdersPage() {
   const { manager } = useAuth();
   const [orders, setOrders] = useState([]);
   const [onlineRiders, setOnlineRiders] = useState([]);
-  const [darkStoreQr, setDarkStoreQr] = useState("");
   const [selectedRider, setSelectedRider] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState("");
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("active");
 
@@ -91,16 +88,14 @@ export default function OrdersPage() {
         managerApi.riders(),
       ]);
       setOrders(ord.data.orders || []);
-      // Only show online riders for dispatch
       setOnlineRiders((rid.data.riders || []).filter((r) => r.status === "online"));
-      setDarkStoreQr(ord.data.darkStoreQrCode || `DARKSTORE_${manager?.id || manager?._id || ""}`);
       setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load orders");
     } finally {
       setLoading(false);
     }
-  }, [manager]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -118,10 +113,10 @@ export default function OrdersPage() {
     setBusyKey(key);
     try {
       const res = await managerApi.packOrder(orderId);
-      showToast(res.data.message || "Order packed — auto-dispatch initiated!");
+      showToast(res.data.message || "Order packed! Auto-dispatch triggered.");
       await load();
     } catch (err) {
-      showToast(err.response?.data?.message || "Failed to pack order");
+      showToast(err.response?.data?.message || "Pack order failed");
     } finally {
       setBusyKey("");
     }
@@ -135,7 +130,7 @@ export default function OrdersPage() {
       showToast(res.data.message || "Customer informed");
       await load();
     } catch (err) {
-      showToast(err.response?.data?.message || "Failed to inform customer");
+      showToast(err.response?.data?.message || "Action failed");
     } finally {
       setBusyKey("");
     }
@@ -143,7 +138,7 @@ export default function OrdersPage() {
 
   const onManualAssign = async (orderId) => {
     const riderId = selectedRider[orderId];
-    if (!riderId) { showToast("Select a rider first"); return; }
+    if (!riderId) return;
     const key = `assign-${orderId}`;
     setBusyKey(key);
     try {
@@ -153,6 +148,19 @@ export default function OrdersPage() {
       await load();
     } catch (err) {
       showToast(err.response?.data?.message || "Assignment failed");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onCreateDemoOrder = async () => {
+    setBusyKey("create-demo");
+    try {
+      const res = await managerApi.createDemoOrder();
+      showToast(res.data.message || "Incoming order generated! Review & click 'Mark Packed' when ready.");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to generate incoming order");
     } finally {
       setBusyKey("");
     }
@@ -174,7 +182,7 @@ export default function OrdersPage() {
   return (
     <PageShell
       title="Incoming Orders"
-      subtitle={`${manager?.storeName || "Dark Store"} · ${manager?.area}, ${manager?.city}`}
+      subtitle={`${manager?.storeName || "Dark Store"} · ${manager?.area || "Area"}, ${manager?.city || "City"}`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800 flex items-center gap-2 animate-fade-in">
@@ -227,13 +235,11 @@ export default function OrdersPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsQrModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition"
+              onClick={onCreateDemoOrder}
+              disabled={busyKey === "create-demo"}
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-700 transition disabled:opacity-50 shadow-xs"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-              QR Code
+              ➕ Generate Incoming Order
             </button>
             <button
               type="button"
@@ -269,13 +275,9 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Orders List */}
+      {/* Orders Table */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 rounded-2xl bg-slate-200/60 animate-pulse" />
-          ))}
-        </div>
+        <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : filteredOrders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mb-3">
@@ -287,173 +289,130 @@ export default function OrdersPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredOrders.map((order) => {
-            const oid = order.id || order._id;
-            const isInitial = ["incoming", "order_received", "stock_issue"].includes(order.status);
-            const isPacked = order.status === "packed";
-            const isOffered = order.status === "offered";
-            const allAvailable = (order.items || []).every(
-              (i) => i.stockStatus === "available" || i.customerInformed
-            );
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="py-3.5 px-4">Order # / Date</th>
+                <th className="py-3.5 px-4">Customer Details</th>
+                <th className="py-3.5 px-4">Delivery Address</th>
+                <th className="py-3.5 px-4">Items Summary</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Assigned Driver</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredOrders.map((order) => {
+                const oid = order.id || order._id;
+                const isInitial = ["incoming", "order_received", "stock_issue"].includes(order.status);
+                const isPacked = order.status === "packed";
+                const isOffered = order.status === "offered";
+                const allAvailable = (order.items || []).every(
+                  (i) => i.stockStatus === "available" || i.customerInformed
+                );
 
-            return (
-              <div
-                key={oid}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:shadow-md transition-all space-y-4"
-              >
-                {/* Order Header */}
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-extrabold text-slate-900">#{order.orderNumber}</h3>
+                return (
+                  <tr key={oid} className="hover:bg-slate-50/60 transition">
+                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                      <div>#{order.orderNumber}</div>
+                      <div className="text-[10px] text-slate-400 font-sans font-normal">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-900">{order.customerName || "Customer"}</div>
+                      <div className="text-slate-500 text-[11px]">📞 {order.customerPhone || "N/A"}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate">
+                      📍 {order.customerAddress || "Store Pickup"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="space-y-1">
+                        {(order.items || []).map((item) => {
+                          const inStock = item.stockStatus === "available";
+                          return (
+                            <div key={item.id || item._id} className="flex items-center gap-1.5 text-[11px]">
+                              <span className="font-semibold text-slate-800">{item.name}</span>
+                              <span className="text-slate-400">x{item.quantity}</span>
+                              {!inStock && !item.customerInformed && (
+                                <button
+                                  type="button"
+                                  disabled={busyKey === `inform-${oid}-${item.id || item._id}`}
+                                  onClick={() => onInform(oid, item.id || item._id)}
+                                  className="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200"
+                                >
+                                  Inform Customer
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
                       {STATUS_BADGE[order.status] || (
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
                           {(order.status || "").toUpperCase().replace(/_/g, " ")}
                         </span>
                       )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-600">
-                      <span className="font-bold text-slate-900">👤 {order.customerName || "Customer"}</span>
-                      <span className="text-slate-500">📞 {order.customerPhone || "N/A"}</span>
-                      <span className="text-slate-400 truncate max-w-xs">📍 {order.customerAddress}</span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isInitial && (
-                      <button
-                        type="button"
-                        disabled={!allAvailable || busyKey === `pack-${oid}`}
-                        onClick={() => onPackOrder(oid)}
-                        className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition active:scale-95"
-                      >
-                        {busyKey === `pack-${oid}` ? "Packing…" : "📦 Mark Packed"}
-                      </button>
-                    )}
-
-                    {isOffered && (
-                      <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-1.5 border border-amber-200 text-xs font-bold text-amber-800">
-                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
-                        Offering to rider...
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {order.assignedRider ? (
+                        <span className="inline-flex items-center gap-1 font-bold text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full text-[11px]">
+                          🛵 {order.assignedRider.name || order.assignedRider.phone}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {isInitial && (
+                          <button
+                            type="button"
+                            disabled={!allAvailable || busyKey === `pack-${oid}`}
+                            onClick={() => onPackOrder(oid)}
+                            className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition"
+                          >
+                            {busyKey === `pack-${oid}` ? "Packing…" : "📦 Mark Packed"}
+                          </button>
+                        )}
+                        {(isInitial || isPacked) && (
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={selectedRider[oid] || ""}
+                              onChange={(e) =>
+                                setSelectedRider((prev) => ({ ...prev, [oid]: e.target.value }))
+                              }
+                              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] text-slate-800 focus:outline-none"
+                            >
+                              <option value="">Rider…</option>
+                              {onlineRiders.map((r) => (
+                                <option key={r.id || r._id} value={r.id || r._id}>
+                                  {r.name || r.phone}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              disabled={!selectedRider[oid] || busyKey === `assign-${oid}`}
+                              onClick={() => onManualAssign(oid)}
+                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
+                            >
+                              Assign
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-
-                    {/* Manual assign: show when packed or in initial state */}
-                    {(isInitial || isPacked) && (
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          value={selectedRider[oid] || ""}
-                          onChange={(e) =>
-                            setSelectedRider((prev) => ({ ...prev, [oid]: e.target.value }))
-                          }
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800 focus:outline-none"
-                        >
-                          <option value="">Manual assign…</option>
-                          {onlineRiders.map((r) => (
-                            <option key={r.id || r._id} value={r.id || r._id}>
-                              {r.name || r.phone}
-                            </option>
-                          ))}
-                          {onlineRiders.length === 0 && (
-                            <option disabled>No riders online</option>
-                          )}
-                        </select>
-                        <button
-                          type="button"
-                          disabled={!selectedRider[oid] || busyKey === `assign-${oid}`}
-                          onClick={() => onManualAssign(oid)}
-                          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
-                        >
-                          Assign
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Items Table */}
-                <div className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        <th className="pb-2">Item</th>
-                        <th className="pb-2">Qty</th>
-                        <th className="pb-2">Price</th>
-                        <th className="pb-2">Stock</th>
-                        {isInitial && <th className="pb-2 text-right">Action</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {(order.items || []).map((item) => {
-                        const inStock = item.stockStatus === "available";
-                        return (
-                          <tr key={item.id || item._id}>
-                            <td className="py-2">
-                              <p className="font-semibold text-slate-900">{item.name}</p>
-                              <p className="text-[10px] text-slate-400 font-mono">{item.sku}</p>
-                            </td>
-                            <td className="py-2 font-semibold text-slate-700">
-                              {item.quantity} {item.unit || "pcs"}
-                            </td>
-                            <td className="py-2 text-slate-600">₹{item.price}</td>
-                            <td className="py-2">
-                              {inStock ? (
-                                <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                                  ✅ In Stock
-                                </span>
-                              ) : (
-                                <span className="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200">
-                                  ❌ Out of Stock
-                                </span>
-                              )}
-                            </td>
-                            {isInitial && (
-                              <td className="py-2 text-right">
-                                {!inStock && (
-                                  <button
-                                    type="button"
-                                    disabled={item.customerInformed || busyKey === `inform-${oid}-${item.id || item._id}`}
-                                    onClick={() => onInform(oid, item.id || item._id)}
-                                    className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-60 transition"
-                                  >
-                                    {item.customerInformed ? "Informed ✅" : "Inform Customer"}
-                                  </button>
-                                )}
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Assigned Rider Info (if assigned) */}
-                {order.assignedRider && (
-                  <div className="flex items-center gap-2 text-xs text-slate-600 bg-teal-50 border border-teal-100 rounded-xl px-3 py-2">
-                    <span>🛵</span>
-                    <span className="font-semibold">
-                      {order.assignedRider.name || order.assignedRider.phone}
-                    </span>
-                    <span className="text-slate-400">·</span>
-                    <span>{order.assignedRider.phone}</span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
-
-      <StoreQrModal
-        isOpen={isQrModalOpen}
-        onClose={() => setIsQrModalOpen(false)}
-        storeName={manager?.storeName}
-        area={manager?.area}
-        qrCode={darkStoreQr}
-      />
     </PageShell>
   );
 }

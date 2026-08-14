@@ -6,6 +6,7 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/location_service.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/rider_live_service.dart';
 import '../../../data/services/shift_service.dart';
@@ -223,9 +224,91 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     try {
       if (value) {
-        // Going ONLINE: Mandatory Shift & Location Geofence Verification
-        // Use store lat/lng coordinates (Baner Dark Store 18.559, 73.7868)
-        final result = await ShiftService.instance.goOnlineWithLocation(18.559, 73.7868);
+        // Prompt Rider to Turn ON GPS / Location before going online
+        final proceed = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.location_on_rounded, color: Color(0xFF059669), size: 28),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Turn ON Location / GPS',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Before going online, please ensure your phone\'s Location / GPS is turned ON.',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Your GPS location will be verified against the assigned Dark Store (Pune Aundh/Balewadi geofence) to start your shift hours.',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.gps_fixed_rounded, color: Colors.white, size: 18),
+                label: const Text(
+                  'Location ON — Check & Go Online',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+              ),
+            ],
+          ),
+        );
+
+        if (proceed != true) {
+          setState(() {
+            _isOnline = false;
+            _updatingStatus = false;
+          });
+          return;
+        }
+
+        // Automatic Device Location Detection via LocationService
+        final position = await LocationService.instance.getCurrentLocation();
+        if (position == null) {
+          if (!mounted) return;
+          setState(() {
+            _isOnline = false;
+            _updatingStatus = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please enable location access and GPS on your phone to go online.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+
+        // Going ONLINE: Mandatory Shift & Real GPS Location Verification
+        final result = await ShiftService.instance.goOnlineWithLocation(
+          position.latitude,
+          position.longitude,
+        );
 
         if (!mounted) return;
 
@@ -280,8 +363,46 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         });
         _startHeartbeat();
         _startOfferPoll();
+
+        // Start Live Location Stream while Rider is Online
+        LocationService.instance.startLiveTracking(
+          onPositionUpdate: (pos) {
+            // Sends live GPS updates to backend during heartbeat
+            AuthService.instance.sendHeartbeat();
+          },
+        );
+
+        // Show Shift Start Countdown / Verified Alert
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.timer_rounded, color: Color(0xFF059669), size: 28),
+                SizedBox(width: 8),
+                Text('Shift Verified & Checked In!'),
+              ],
+            ),
+            content: Text(
+              result.message,
+              style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
+            ),
+            actions: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
       } else {
         // Going OFFLINE
+        LocationService.instance.stopLiveTracking();
         await ShiftService.instance.goOffline();
 
         if (!mounted) return;

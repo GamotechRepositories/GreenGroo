@@ -17,12 +17,12 @@ const formatDateWithDay = (dateStr) => {
 };
 
 const SHIFT_TYPES = [
-  { id: "early_morning", label: "Early Morning Shift (06:00 AM – 09:00 AM)", defaultStart: "06:00 AM", defaultEnd: "09:00 AM" },
-  { id: "morning", label: "Morning Shift (09:00 AM – 01:00 PM)", defaultStart: "09:00 AM", defaultEnd: "01:00 PM" },
-  { id: "afternoon", label: "Afternoon Shift (01:00 PM – 05:00 PM)", defaultStart: "01:00 PM", defaultEnd: "05:00 PM" },
-  { id: "evening", label: "Evening Shift (05:00 PM – 09:00 PM)", defaultStart: "05:00 PM", defaultEnd: "09:00 PM" },
-  { id: "night", label: "Night Shift (09:00 PM – 12:00 AM)", defaultStart: "09:00 PM", defaultEnd: "12:00 AM" },
-  { id: "late_night", label: "Late Night Shift (12:00 AM – 04:00 AM)", defaultStart: "12:00 AM", defaultEnd: "04:00 AM" },
+  { id: "early_morning", label: "Early Morning Shift", defaultStart: "06:00 AM", defaultEnd: "09:00 AM" },
+  { id: "morning", label: "Morning Shift", defaultStart: "09:00 AM", defaultEnd: "01:00 PM" },
+  { id: "afternoon", label: "Afternoon Shift", defaultStart: "01:00 PM", defaultEnd: "05:00 PM" },
+  { id: "evening", label: "Evening Shift", defaultStart: "05:00 PM", defaultEnd: "09:00 PM" },
+  { id: "night", label: "Night Shift", defaultStart: "09:00 PM", defaultEnd: "12:00 AM" },
+  { id: "late_night", label: "Late Night Shift", defaultStart: "12:00 AM", defaultEnd: "04:00 AM" },
   { id: "custom", label: "Custom Shift (Manager Defined)", defaultStart: "09:00 AM", defaultEnd: "05:00 PM" },
 ];
 
@@ -88,7 +88,7 @@ export default function ShiftManagementPage() {
     setNewShiftType(typeId);
     const found = SHIFT_TYPES.find((t) => t.id === typeId);
     if (found) {
-      setNewShiftName(found.label.split(" (")[0]);
+      setNewShiftName(found.label);
       setSlotsList([
         { startTime: found.defaultStart, endTime: found.defaultEnd, capacity: parseInt(newCapacity, 10) || 10 }
       ]);

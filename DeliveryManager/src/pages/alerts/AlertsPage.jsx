@@ -98,58 +98,62 @@ export default function AlertsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {alerts.map((item) => (
-              <div
-                key={item._id}
-                className={`rounded-xl border p-4 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                  item.isRead
-                    ? "border-slate-100 bg-slate-50/50"
-                    : "border-rose-200 bg-rose-50/40 shadow-2xs"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold ${
-                    item.isRead ? "bg-slate-200 text-slate-600" : "bg-rose-100 text-rose-700"
-                  }`}>
-                    <Icon name="bell" size="sm" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-[11px] uppercase tracking-wider text-rose-800">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <th className="py-3.5 px-4">Timestamp</th>
+                  <th className="py-3.5 px-4">Alert Type</th>
+                  <th className="py-3.5 px-4">Message / Details</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {alerts.map((item) => (
+                  <tr key={item._id} className="hover:bg-slate-50/60 transition">
+                    <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
+                      {new Date(item.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className="font-extrabold text-[10px] uppercase tracking-wider rounded-md bg-rose-50 px-2 py-0.5 text-rose-700 border border-rose-200">
                         {item.type || "SYSTEM ALERT"}
                       </span>
-                      {!item.isRead && (
-                        <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[9px] font-bold text-white uppercase">
-                          New
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-900">
+                      <div>{item.message}</div>
+                      {item.relatedOrderId && (
+                        <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                          Order Status: <span className="font-semibold text-slate-700">{item.relatedOrderId.status || "Active"}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      {item.isRead ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                          READ ✓
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-rose-500 px-2.5 py-0.5 text-[11px] font-bold text-white uppercase animate-pulse">
+                          UNREAD
                         </span>
                       )}
-                      <span className="text-[11px] text-slate-400">
-                        {new Date(item.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug">
-                      {item.message}
-                    </p>
-                    {item.relatedOrderId && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        Related Order Status: <span className="font-semibold text-slate-700">{item.relatedOrderId.status || "Active"}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {!item.isRead && (
-                  <button
-                    type="button"
-                    onClick={() => onMarkRead(item._id)}
-                    className="self-start sm:self-center shrink-0 rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50 transition"
-                  >
-                    Mark as Read ✓
-                  </button>
-                )}
-              </div>
-            ))}
+                    </td>
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      {!item.isRead && (
+                        <button
+                          type="button"
+                          onClick={() => onMarkRead(item._id)}
+                          className="rounded-lg border border-rose-300 bg-white px-3 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50 transition"
+                        >
+                          Mark Read ✓
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

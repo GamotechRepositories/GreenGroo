@@ -355,27 +355,58 @@ export const updateStatus = async (req, res, next) => {
       todayOnlineMinutes: extras.todayOnlineMinutes,
     });
 
-    // When rider goes ONLINE, auto-create/dispatch a live store order for testing if none is currently active
     if (status === "online") {
-      try {
-        let manager = await DeliveryManager.findOne({
-          isActive: true,
-          $or: [
-            { cityId: existing.cityId, area: existing.area },
-            { city: existing.city, area: existing.area },
-          ],
+      // 1. Shift Booking Verification
+      if (!existing.shiftBooking?.slot) {
+        return res.status(400).json({
+          success: false,
+          code: "NO_SHIFT_BOOKED",
+          message:
+            "Mandatory: You must select and book a shift slot for today before going online!",
+          deliveryBoy: existing.toSafeJSON(),
         });
+      }
 
-        if (!manager) {
-          manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
-        }
+      // 2. Geofence Location Verification (Near Store in Pune)
+      const lat = parseFloat(req.body.latitude || req.body.lat);
+      const lng = parseFloat(req.body.longitude || req.body.lng);
 
-        // Static incoming orders removed - add dynamic order logic here
-        if (manager) {
-          // TODO: Implement dynamic incoming order logic
+      let manager = await DeliveryManager.findOne({
+        isActive: true,
+        $or: [
+          { cityId: existing.cityId, area: existing.area },
+          { city: existing.city, area: existing.area },
+        ],
+      });
+      if (!manager) {
+        manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
+      }
+
+      const storeLat = manager?.latitude ?? 18.559;
+      const storeLng = manager?.longitude ?? 73.7868;
+      const allowedRadius = manager?.geofenceRadius ?? 1000; // 1 km radius for testing
+
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const R = 6371e3; // meters
+        const φ1 = (lat * Math.PI) / 180;
+        const φ2 = (storeLat * Math.PI) / 180;
+        const Δφ = ((storeLat - lat) * Math.PI) / 180;
+        const Δλ = ((storeLng - lng) * Math.PI) / 180;
+        const a =
+          Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+          Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceMeters = R * c;
+
+        if (distanceMeters > allowedRadius) {
+          return res.status(400).json({
+            success: false,
+            code: "OUT_OF_GEOFENCE",
+            message: `Location verification failed! You are ${Math.round(distanceMeters)}m away from store (${manager?.storeName || "Pune Store"}). Please reach near the store to start your shift.`,
+            distanceMeters,
+            deliveryBoy: existing.toSafeJSON(),
+          });
         }
-      } catch (e) {
-        console.warn("[updateStatus] auto order creation error:", e.message);
       }
     }
 
@@ -448,6 +479,35 @@ export const getAreaManager = async (req, res, next) => {
         area: manager.area || "Baner",
         darkStoreQrCode: `DARKSTORE_${manager._id}`,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Returns all active dark store hubs registered by delivery managers. */
+export const getActiveHubs = async (req, res, next) => {
+  try {
+    const managers = await DeliveryManager.find({ isActive: true }).select(
+      "state city cityId area storeName storeAddress latitude longitude"
+    );
+
+    const activeHubs = managers.map((m) => ({
+      managerId: m._id.toString(),
+      state: m.state || "Maharashtra",
+      city: m.city || "Pune",
+      cityId: m.cityId || (m.city ? m.city.toLowerCase().replace(/\s+/g, "-") : "pune"),
+      area: m.area || "General",
+      storeName: m.storeName || `${m.area} Dark Store`,
+      storeAddress: m.storeAddress || "",
+      latitude: m.latitude,
+      longitude: m.longitude,
+    }));
+
+    return res.json({
+      success: true,
+      count: activeHubs.length,
+      activeHubs,
     });
   } catch (error) {
     next(error);

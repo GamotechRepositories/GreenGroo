@@ -161,13 +161,9 @@ export default function DriversPage() {
         </button>
       </div>
 
-      {/* Driver Cards Grid */}
+      {/* Driver Roster Table */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-32 rounded-2xl bg-slate-200/60 animate-pulse" />
-          ))}
-        </div>
+        <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : riders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
           <p className="text-3xl mb-2">🛵</p>
@@ -177,44 +173,54 @@ export default function DriversPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {riders.map((r) => {
-            const isOnline = r.status === "online";
-            return (
-              <div
-                key={r.id || r._id}
-                className="group rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs hover:shadow-md transition-all space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 font-bold text-slate-700 text-sm">
-                      🛵
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">{r.name || "Delivery Partner"}</p>
-                      <p className="text-xs text-slate-500 font-mono">📞 {r.phone}</p>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${
-                      isOnline
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-slate-100 text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-                    {isOnline ? "ONLINE" : (r.status || "OFFLINE").toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>Vehicle: <strong className="text-slate-800">{r.vehicleType || "Scooter"}</strong></span>
-                  <span>Hub: <strong className="text-slate-800">{r.area}</strong></span>
-                </div>
-              </div>
-            );
-          })}
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="py-3.5 px-4">Driver Name</th>
+                <th className="py-3.5 px-4">Mobile Phone</th>
+                <th className="py-3.5 px-4">Vehicle Type</th>
+                <th className="py-3.5 px-4">Hub / Area</th>
+                <th className="py-3.5 px-4">Online Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {riders.map((r) => {
+                const isOnline = r.status === "online";
+                return (
+                  <tr key={r.id || r._id} className="hover:bg-slate-50/60 transition">
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🛵</span>
+                        <span>{r.name || "Delivery Partner"}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-slate-700 font-medium">
+                      📞 {r.phone}
+                    </td>
+                    <td className="py-3.5 px-4 font-medium text-slate-800">
+                      {r.vehicleType || "Scooter"}
+                    </td>
+                    <td className="py-3.5 px-4 font-medium text-slate-700">
+                      📍 {r.area || manager?.area || "Hub"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${
+                          isOnline
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                        {isOnline ? "ONLINE 🟢" : (r.status || "OFFLINE").toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </PageShell>

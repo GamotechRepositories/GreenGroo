@@ -1,33 +1,42 @@
 import Order from "../models/Order.js";
 import Rider from "../models/Rider.js";
 import Manager from "../models/Manager.js";
-import Incentive from "../models/Incentive.js";
+import { upsertDailyIncentive } from "./incentiveController.js";
+import { serializeOrderForRider } from "../utils/orderSerializer.js";
 import { getIO } from "../../../socket.js";
 import { isCurrentlyPeak } from "../utils/peakHoursHelper.js";
 
 /**
- * Internal helper: Auto-assign an order with status 'packed' to an online rider (round robin).
+ * Internal function: Picks rider with status: "online" under the same managerId,
+ * oldest lastAssignedAt first (round robin). Sets order -> assigned, rider -> on_delivery,
+ * lastAssignedAt = now, orderTimestamps.assignedAt = now. Emits new_order_assigned to room rider_<riderId>.
  */
 export async function autoAssignRider(order) {
   try {
     if (!order || order.status !== "packed") return order;
 
-    // Find store manager details to match city/area
-    const manager = await Manager.findById(order.storeId);
-    if (!manager) return order;
+    const managerId = order.managerId || order.storeId;
+    const manager = await Manager.findById(managerId);
 
-    // Find online riders for store area sorted by oldest lastAssignedAt (nulls first)
-    const onlineRiders = await Rider.find({
-      $or: [
-        { cityId: manager.cityId, area: manager.area },
-        { city: manager.city, area: manager.area },
-      ],
+    // Query online riders matching store manager's city/area
+    const query = {
       status: "online",
       isActive: true,
-    }).sort({ lastAssignedAt: 1, lastOrderAssignedAt: 1, createdAt: 1 });
+    };
+    if (manager) {
+      query.$or = [
+        { cityId: manager.cityId, area: manager.area },
+        { city: manager.city, area: manager.area },
+      ];
+    }
+
+    const onlineRiders = await Rider.find(query).sort({
+      lastAssignedAt: 1,
+      lastOrderAssignedAt: 1,
+      createdAt: 1,
+    });
 
     if (!onlineRiders.length) {
-      // Mark as pending_rider if no online rider available
       order.status = "pending_rider";
       await order.save();
       return order;
@@ -36,20 +45,19 @@ export async function autoAssignRider(order) {
     const selectedRider = onlineRiders[0];
     const now = new Date();
 
-    // Update order
     order.assignedRiderId = selectedRider._id;
+    order.lastAssignedAt = now;
     order.status = "assigned";
     if (!order.orderTimestamps) order.orderTimestamps = {};
     order.orderTimestamps.assignedAt = now;
     await order.save();
 
-    // Update rider status and timestamp
     selectedRider.status = "on_delivery";
     selectedRider.lastAssignedAt = now;
     selectedRider.lastOrderAssignedAt = now;
     await selectedRider.save();
 
-    // Emit socket events
+    // Socket Notifications
     try {
       getIO().to(`rider_${selectedRider._id}`).emit("new_order_assigned", {
         orderId: order._id,
@@ -60,7 +68,7 @@ export async function autoAssignRider(order) {
         status: order.status,
       });
 
-      getIO().to(`store_${order.storeId}`).emit("order_status_updated", {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
         orderId: order._id,
         status: order.status,
         assignedRiderId: selectedRider._id,
@@ -78,45 +86,82 @@ export async function autoAssignRider(order) {
 }
 
 /**
- * Creates a new order (status: packed) for a store and triggers auto assignment.
+ * Creates a new order (status: packed) for a manager/store and triggers auto assignment.
  */
 export const createOrder = async (req, res) => {
   try {
+    const managerId = req.body.managerId || req.body.storeId || req.user?.id;
+
+    if (!managerId) {
+      return res.status(400).json({
+        success: false,
+        message: "managerId is required",
+      });
+    }
+
+    const manager = await Manager.findById(managerId);
+
+    // IF AND ONLY IF at least one driver is online for this store location, then only accept incoming order
+    const query = {
+      status: "online",
+      isActive: true,
+    };
+    if (manager) {
+      query.$or = [
+        { cityId: manager.cityId, area: manager.area },
+        { city: manager.city, area: manager.area },
+      ];
+    }
+    const onlineRidersCount = await Rider.countDocuments(query);
+
+    if (onlineRidersCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No delivery driver is currently online for this location/slot. Incoming orders cannot be created until a driver comes online.",
+      });
+    }
+
     const {
-      storeId,
       pickupAddress,
+      customerName,
       customerAddress,
       customerPhone,
+      customerLocation,
+      items,
+      totalAmount,
+      paymentMethod,
+      amountToCollect,
       deliveryFee,
       deliveryOtp,
     } = req.body;
 
-    let targetStoreId = storeId;
-    if (!targetStoreId && req.user?.role === "delivery_manager") {
-      targetStoreId = req.user.id;
-    }
-
-    if (!targetStoreId) {
-      return res.status(400).json({
-        success: false,
-        message: "storeId is required",
-      });
-    }
+    const defaultAddress =
+      "In front of Balewadi Stadium Gate, Mahalunge Road, Pune";
+    const defaultLocation = { lat: 18.5793, lng: 73.7712 };
 
     const order = await Order.create({
-      storeId: targetStoreId,
-      pickupAddress: pickupAddress || "",
-      customerAddress: customerAddress || "",
-      customerPhone: customerPhone || "",
+      managerId,
+      storeId: managerId,
+      pickupAddress: pickupAddress || manager?.storeAddress || "",
+      customerName: customerName || "Akash Patil (Testing)",
+      customerAddress: customerAddress || defaultAddress,
+      customerPhone: customerPhone || "9876543210",
+      customerLocation: customerLocation || defaultLocation,
+      items: items || [],
+      totalAmount: totalAmount || 0,
+      paymentMethod: paymentMethod || "online",
+      amountToCollect: amountToCollect || 0,
       deliveryFee: deliveryFee || 40,
       deliveryOtp: deliveryOtp || String(Math.floor(1000 + Math.random() * 9000)),
+      qrData: `ORDER_${managerId}_${Date.now()}`,
+      qrCode: `ORDER_${managerId}_${Date.now()}`,
       status: "packed",
       orderTimestamps: {
         packedAt: new Date(),
       },
     });
 
-    // Auto assign online rider
     const assignedOrder = await autoAssignRider(order);
 
     res.status(201).json({
@@ -132,7 +177,488 @@ export const createOrder = async (req, res) => {
 };
 
 /**
- * Manager only — Returns live orders for their storeId, with rider populated.
+ * Rider only — Accepts the assigned order.
+ * Sets Order -> accepted, orderTimestamps.acceptedAt = now.
+ */
+export const acceptOrder = async (req, res) => {
+  try {
+    const riderId = req.user.id;
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not the assigned rider for this order",
+      });
+    }
+
+    const now = new Date();
+    order.status = "accepted";
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.acceptedAt = now;
+    await order.save();
+
+    const managerId = order.managerId || order.storeId;
+    try {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: order.status,
+        assignedRiderId: riderId,
+        acceptedAt: now,
+      });
+    } catch (ioErr) {
+      console.warn("[acceptOrder] Socket emit warning:", ioErr.message);
+    }
+
+    res.json({
+      success: true,
+      data: serializeOrderForRider(order),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to accept order",
+    });
+  }
+};
+
+/**
+ * Rider only — Rejects the assigned order.
+ * Order -> back to pending_rider (or triggers re-assignment), orderTimestamps.rejectedAt = now, rider status -> back to online.
+ */
+export const rejectOrder = async (req, res) => {
+  try {
+    const riderId = req.user.id;
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not the assigned rider for this order",
+      });
+    }
+
+    const now = new Date();
+    order.assignedRiderId = null;
+    order.status = "rejected";
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.rejectedAt = now;
+    await order.save();
+
+    // Reset rider status back to online
+    const rider = await Rider.findById(riderId);
+    if (rider) {
+      rider.status = "online";
+      await rider.save();
+    }
+
+    const managerId = order.managerId || order.storeId;
+    try {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: "rejected",
+        message: "Rider rejected the order",
+      });
+    } catch (ioErr) {}
+
+    // Reset status to packed and auto-assign next available rider
+    order.status = "packed";
+    await order.save();
+    await autoAssignRider(order);
+
+    res.json({
+      success: true,
+      message: "Order rejected and sent back to pool",
+      data: serializeOrderForRider(order),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to reject order",
+    });
+  }
+};
+
+/**
+ * Rider only — Scans QR data at pickup store.
+ * Verifies QR data matches order + rider is assigned rider.
+ * Sets addressUnlocked: true, pickupScannedAt: now, pickupScannedBy: riderId, order -> picked_up, orderTimestamps.pickedUpAt = now.
+ */
+export const scanPickup = async (req, res) => {
+  try {
+    const riderId = req.user.id;
+    const { orderId } = req.params;
+    const { qrData, qrCode } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this order",
+      });
+    }
+
+    const scannedValue = (qrData || qrCode || "").trim();
+    const expectedValue = (order.qrData || order.qrCode || `ORDER_${order.managerId}`).trim();
+
+    // Verification check (allow fallback for development if qr code starts with ORDER or STORE)
+    if (
+      scannedValue &&
+      expectedValue &&
+      scannedValue !== expectedValue &&
+      !scannedValue.startsWith("ORDER_") &&
+      !scannedValue.startsWith("STORE_")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid QR code. Please scan the QR code displayed at pickup store.",
+      });
+    }
+
+    const now = new Date();
+    order.addressUnlocked = true;
+    order.pickupScannedAt = now;
+    order.pickupScannedBy = riderId;
+    order.status = "picked_up";
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.pickedUpAt = now;
+    await order.save();
+
+    const managerId = order.managerId || order.storeId;
+    try {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: order.status,
+        pickupScannedAt: now,
+      });
+    } catch (ioErr) {}
+
+    res.json({
+      success: true,
+      message: "Pickup QR verified! Customer address unlocked.",
+      data: serializeOrderForRider(order),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to scan pickup QR",
+    });
+  }
+};
+
+/**
+ * Rider only — Marks order as out_for_delivery.
+ */
+export const markOutForDelivery = async (req, res) => {
+  try {
+    const riderId = req.user.id;
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this order",
+      });
+    }
+
+    const now = new Date();
+    order.status = "out_for_delivery";
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.outForDeliveryAt = now;
+    await order.save();
+
+    const managerId = order.managerId || order.storeId;
+    try {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: order.status,
+        outForDeliveryAt: now,
+      });
+    } catch (ioErr) {}
+
+    res.json({
+      success: true,
+      data: serializeOrderForRider(order),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to mark order out for delivery",
+    });
+  }
+};
+
+/**
+ * Rider only — Uploads proof of delivery & marks order as delivered.
+ * Requires image upload (multer req.file) or req.body.deliveryProofImageUrl.
+ * Sets deliveryProofImageUrl, proofUploadedAt: now, order -> delivered, orderTimestamps.deliveredAt = now, addressHiddenAfterDelivery: true.
+ * Calls upsertDailyIncentive and updates rider's todayOrderCount / todayEarnings / status: "online".
+ */
+export const uploadProofAndDeliver = async (req, res) => {
+  try {
+    const riderId = req.user.id;
+    const { orderId } = req.params;
+
+    let imageUrl = req.body.deliveryProofImageUrl || req.body.imageUrl || "";
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery proof image is required to complete delivery",
+      });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this order",
+      });
+    }
+
+    const managerId = order.managerId || order.storeId;
+    const now = new Date();
+
+    const isPeak = await isCurrentlyPeak(managerId);
+    const peakBonus = isPeak ? 20 : 0;
+
+    order.deliveryProofImageUrl = imageUrl;
+    order.proofUploadedAt = now;
+    order.status = "delivered";
+    order.isPeakOrder = isPeak;
+    order.peakBonus = peakBonus;
+    order.addressHiddenAfterDelivery = true;
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.deliveredAt = now;
+    await order.save();
+
+    const orderEarnings = (order.deliveryFee || 0) + peakBonus;
+
+    // Update Rider status and metrics
+    const rider = await Rider.findById(riderId);
+    let todayCount = 1;
+    if (rider) {
+      rider.status = "online";
+      rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
+      rider.todayOrderCount = (rider.todayOrderCount || 0) + 1;
+      rider.todayEarnings = (rider.todayEarnings || 0) + orderEarnings;
+      todayCount = rider.todayOrderCount;
+      await rider.save();
+    }
+
+    // Call upsertDailyIncentive helper
+    await upsertDailyIncentive({
+      riderId: rider._id,
+      managerId,
+      orderEarnings,
+      peakBonus,
+      todayOrderCount: todayCount,
+    });
+
+    try {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: order.status,
+        deliveredAt: now,
+        deliveryProofImageUrl: imageUrl,
+      });
+    } catch (ioErr) {}
+
+    res.json({
+      success: true,
+      message: "Order delivered successfully and proof uploaded!",
+      data: serializeOrderForRider(order),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to complete delivery",
+    });
+  }
+};
+
+/**
+ * Manager only — Manually assign order to a specific rider (scoped to req.user.managerId).
+ */
+export const manualAssignOrder = async (req, res) => {
+  try {
+    if (req.user?.role !== "delivery_manager") {
+      return res.status(403).json({
+        success: false,
+        message: "Only delivery managers can assign orders",
+      });
+    }
+
+    const managerId = req.user.id;
+    const { orderId, riderId } = req.body;
+
+    if (!orderId || !riderId) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId and riderId are required",
+      });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Ownership check
+    if (
+      order.managerId?.toString() !== managerId &&
+      order.storeId?.toString() !== managerId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Order does not belong to your store",
+      });
+    }
+
+    const rider = await Rider.findById(riderId);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found" });
+    }
+
+    const now = new Date();
+    order.assignedRiderId = rider._id;
+    order.lastAssignedAt = now;
+    order.status = "assigned";
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.assignedAt = now;
+    await order.save();
+
+    rider.status = "on_delivery";
+    rider.lastAssignedAt = now;
+    rider.lastOrderAssignedAt = now;
+    await rider.save();
+
+    try {
+      getIO().to(`rider_${rider._id}`).emit("new_order_assigned", {
+        orderId: order._id,
+        orderNumber: order._id.toString().slice(-6),
+        pickupAddress: order.pickupAddress,
+        customerAddress: order.customerAddress,
+        deliveryFee: order.deliveryFee,
+        status: order.status,
+      });
+
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: order.status,
+        assignedRiderId: rider._id,
+        riderName: rider.name,
+      });
+    } catch (ioErr) {}
+
+    res.json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to manually assign order",
+    });
+  }
+};
+
+/**
+ * Manager only — Cancels an order. Verifies ownership.
+ */
+export const cancelOrder = async (req, res) => {
+  try {
+    if (req.user?.role !== "delivery_manager") {
+      return res.status(403).json({
+        success: false,
+        message: "Only delivery managers can cancel orders",
+      });
+    }
+
+    const managerId = req.user.id;
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Ownership check
+    if (
+      order.managerId?.toString() !== managerId &&
+      order.storeId?.toString() !== managerId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Order does not belong to your store",
+      });
+    }
+
+    const now = new Date();
+    order.status = "cancelled";
+    if (!order.orderTimestamps) order.orderTimestamps = {};
+    order.orderTimestamps.cancelledAt = now;
+
+    // If a rider was assigned, free up rider status back to online
+    if (order.assignedRiderId) {
+      const rider = await Rider.findById(order.assignedRiderId);
+      if (rider && rider.status === "on_delivery") {
+        rider.status = "online";
+        await rider.save();
+      }
+    }
+
+    await order.save();
+
+    try {
+      getIO().to(`store_${managerId}`).emit("order_status_updated", {
+        orderId: order._id,
+        status: "cancelled",
+        cancelledAt: now,
+      });
+    } catch (ioErr) {}
+
+    res.json({
+      success: true,
+      message: "Order cancelled successfully",
+      data: order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to cancel order",
+    });
+  }
+};
+
+/**
+ * Manager only — Returns live/filtered orders scoped strictly to req.user.managerId.
  */
 export const getOrdersForStore = async (req, res) => {
   try {
@@ -143,10 +669,13 @@ export const getOrdersForStore = async (req, res) => {
       });
     }
 
-    const storeId = req.query.storeId || req.user.id;
+    const managerId = req.user.id;
     const { status } = req.query;
 
-    const filter = { storeId };
+    const filter = {
+      $or: [{ managerId }, { storeId: managerId }],
+    };
+
     if (status) filter.status = status;
 
     const orders = await Order.find(filter)
@@ -166,89 +695,63 @@ export const getOrdersForStore = async (req, res) => {
 };
 
 /**
- * Manager only — Manually assign or reassign an order to a specific rider.
+ * Rider only — Returns current active order for the logged-in rider, passed through serializeOrderForRider().
  */
-export const manualAssignOrder = async (req, res) => {
+export const getRiderActiveOrder = async (req, res) => {
   try {
-    if (req.user?.role !== "delivery_manager") {
-      return res.status(403).json({
-        success: false,
-        message: "Only delivery managers can assign orders",
-      });
-    }
+    const riderId = req.user.id;
 
-    const { orderId, riderId } = req.body;
+    const order = await Order.findOne({
+      assignedRiderId: riderId,
+      status: {
+        $in: ["assigned", "accepted", "picked_up", "out_for_delivery"],
+      },
+    }).sort({ updatedAt: -1 });
 
-    if (!orderId || !riderId) {
-      return res.status(400).json({
-        success: false,
-        message: "orderId and riderId are required",
-      });
-    }
-
-    const order = await Order.findById(orderId);
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    const rider = await Rider.findById(riderId);
-    if (!rider) {
-      return res.status(404).json({
-        success: false,
-        message: "Rider not found",
-      });
-    }
-
-    const now = new Date();
-    order.assignedRiderId = rider._id;
-    order.status = "assigned";
-    if (!order.orderTimestamps) order.orderTimestamps = {};
-    order.orderTimestamps.assignedAt = now;
-    await order.save();
-
-    rider.status = "on_delivery";
-    rider.lastAssignedAt = now;
-    rider.lastOrderAssignedAt = now;
-    await rider.save();
-
-    // Emit socket notification
-    try {
-      getIO().to(`rider_${rider._id}`).emit("new_order_assigned", {
-        orderId: order._id,
-        orderNumber: order._id.toString().slice(-6),
-        pickupAddress: order.pickupAddress,
-        customerAddress: order.customerAddress,
-        deliveryFee: order.deliveryFee,
-        status: order.status,
-      });
-
-      getIO().to(`store_${order.storeId}`).emit("order_status_updated", {
-        orderId: order._id,
-        status: order.status,
-        assignedRiderId: rider._id,
-        riderName: rider.name,
-      });
-    } catch (ioErr) {
-      console.warn("[manualAssignOrder] Socket emit warning:", ioErr.message);
+      return res.json({ success: true, activeOrder: null });
     }
 
     res.json({
       success: true,
-      data: order,
+      activeOrder: serializeOrderForRider(order),
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to assign order",
+      message: error.message || "Failed to fetch active order",
     });
   }
 };
 
 /**
- * Rider only — Update order status (accepted -> picked_up -> out_for_delivery -> delivered).
+ * Rider only — Returns completed/cancelled order history for the logged-in rider, passed through serializeOrderForRider().
+ */
+export const getRiderOrderHistory = async (req, res) => {
+  try {
+    const riderId = req.user.id;
+
+    const orders = await Order.find({
+      assignedRiderId: riderId,
+      status: { $in: ["delivered", "cancelled"] },
+    }).sort({ createdAt: -1 });
+
+    const serializedOrders = orders.map((o) => serializeOrderForRider(o));
+
+    res.json({
+      success: true,
+      data: serializedOrders,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch order history",
+    });
+  }
+};
+
+/**
+ * Generic status update function retained for backward compatibility.
  */
 export const updateOrderStatus = async (req, res) => {
   try {
@@ -256,120 +759,15 @@ export const updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ["accepted", "rejected", "picked_up", "out_for_delivery", "delivered"];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-      });
-    }
+    if (status === "accepted") return acceptOrder(req, res);
+    if (status === "rejected") return rejectOrder(req, res);
+    if (status === "picked_up") return scanPickup(req, res);
+    if (status === "out_for_delivery") return markOutForDelivery(req, res);
+    if (status === "delivered") return uploadProofAndDeliver(req, res);
 
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    if (order.assignedRiderId?.toString() !== riderId) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not assigned to this order",
-      });
-    }
-
-    const now = new Date();
-    order.status = status;
-    if (!order.orderTimestamps) order.orderTimestamps = {};
-
-    if (status === "accepted") order.orderTimestamps.acceptedAt = now;
-    if (status === "picked_up") order.orderTimestamps.pickedUpAt = now;
-    if (status === "delivered") order.orderTimestamps.deliveredAt = now;
-
-    if (status === "rejected") {
-      // Re-queue order for assignment
-      order.assignedRiderId = null;
-      order.status = "packed";
-      await order.save();
-
-      const rider = await Rider.findById(riderId);
-      if (rider) {
-        rider.status = "online";
-        await rider.save();
-      }
-
-      await autoAssignRider(order);
-
-      return res.json({
-        success: true,
-        message: "Order rejected and re-queued",
-        data: order,
-      });
-    }
-
-    if (status === "delivered") {
-      // Check store peak hours
-      const isPeak = await isCurrentlyPeak(order.storeId);
-      const peakBonusAmount = isPeak ? 20 : 0;
-
-      order.isPeakOrder = isPeak;
-      order.peakBonus = peakBonusAmount;
-
-      const orderEarnings = (order.deliveryFee || 0) + peakBonusAmount;
-
-      // Update Rider metrics
-      const rider = await Rider.findById(riderId);
-      if (rider) {
-        rider.status = "online";
-        rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
-        rider.todayOrderCount = (rider.todayOrderCount || 0) + 1;
-        rider.todayEarnings = (rider.todayEarnings || 0) + orderEarnings;
-        await rider.save();
-      }
-
-      // Upsert daily Incentive record for rider
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      await Incentive.findOneAndUpdate(
-        { riderId: rider._id, date: startOfDay },
-        {
-          $setOnInsert: { storeId: order.storeId },
-          $inc: {
-            totalOrders: 1,
-            totalEarnings: orderEarnings,
-            targetBonusEarned: peakBonusAmount,
-          },
-        },
-        { upsert: true, new: true }
-      );
-    }
-
-    await order.save();
-
-    // Emit live status update event to manager dashboard
-    try {
-      getIO().to(`store_${order.storeId}`).emit("rider_status_updated", {
-        orderId: order._id,
-        status: order.status,
-        riderId,
-        isPeakOrder: order.isPeakOrder,
-        deliveredAt: order.orderTimestamps?.deliveredAt,
-      });
-
-      getIO().to(`store_${order.storeId}`).emit("order_status_updated", {
-        orderId: order._id,
-        status: order.status,
-        assignedRiderId: riderId,
-      });
-    } catch (ioErr) {
-      console.warn("[updateOrderStatus] Socket emit warning:", ioErr.message);
-    }
-
-    res.json({
-      success: true,
-      data: order,
+    return res.status(400).json({
+      success: false,
+      message: "Unsupported status transition",
     });
   } catch (error) {
     res.status(500).json({

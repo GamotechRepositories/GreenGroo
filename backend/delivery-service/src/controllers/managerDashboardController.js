@@ -213,6 +213,25 @@ export const packOrder = async (req, res, next) => {
 export const createDemoStoreOrder = async (req, res, next) => {
   try {
     const manager = await getManager(req);
+
+    // IF AND ONLY IF at least one driver is online for this store location/slot, then only allow incoming demo order
+    const onlineDriversCount = await DeliveryBoy.countDocuments({
+      $or: [
+        { cityId: manager.cityId, area: manager.area },
+        { city: manager.city, area: manager.area },
+      ],
+      status: "online",
+      isActive: true,
+    });
+
+    if (onlineDriversCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No delivery driver is currently online for this location/slot. Please bring a driver online first to receive/create incoming orders.",
+      });
+    }
+
     const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
 
     const demoItems = [
@@ -224,14 +243,16 @@ export const createDemoStoreOrder = async (req, res, next) => {
     const newOrder = await StoreOrder.create({
       orderNumber: orderNum,
       managerId: manager._id,
-      city: manager.city || "Mumbai",
-      cityId: manager.cityId || "mumbai",
-      area: manager.area || "Andheri",
-      customerName: req.body.customerName || "Rahul Verma",
+      city: manager.city || "Pune",
+      cityId: manager.cityId || "pune",
+      area: manager.area || "Mahalunge",
+      customerName: req.body.customerName || "Akash Patil (Testing)",
       customerPhone: req.body.customerPhone || "9876543210",
-      customerAddress: req.body.customerAddress || "Flat 402, Green Acres Apt, Link Road, Andheri West",
-      customerLat: 19.1197,
-      customerLng: 72.8464,
+      customerAddress:
+        req.body.customerAddress ||
+        "In front of Balewadi Stadium Gate, Mahalunge Road, Pune",
+      customerLat: 18.5793,
+      customerLng: 73.7712,
       items: demoItems,
       status: "order_received",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
@@ -389,38 +410,7 @@ export const verifyDriver = async (req, res, next) => {
       rider.verificationNote = note;
       await rider.save();
 
-      // Auto-create a live test order for this store upon driver verification
-      const orderNum = `GR-${Date.now().toString().slice(-6)}`;
-      const newOrder = await StoreOrder.create({
-        orderNumber: orderNum,
-        managerId: manager._id,
-        city: manager.city || rider.city || "Pune",
-        cityId: manager.cityId || rider.cityId || "pune",
-        area: manager.area || rider.area || "Baner",
-        customerName: `${rider.name || "Driver"} Welcome Order`,
-        customerPhone: "9876543210",
-        customerAddress: `Flat 101, Green Acres, ${manager.area || "Baner"}, ${manager.city || "Pune"}`,
-        customerLat: 18.559,
-        customerLng: 73.7868,
-        items: [
-          { sku: "MILK-001", name: "Fresh Farm Organic Milk 1L", quantity: 2, unit: "pkt", price: 65 },
-          { sku: "BREAD-001", name: "Whole Wheat Bread 400g", quantity: 1, unit: "pkt", price: 45 },
-        ],
-        status: "order_received",
-        darkStoreQrCode: `DARKSTORE_${manager._id}`,
-        otpCode: "4321",
-      });
 
-      try {
-        getIO().to(`store_${manager._id}`).emit("new_order_received", {
-          orderId: newOrder._id.toString(),
-          orderNumber: newOrder.orderNumber,
-          customerName: newOrder.customerName,
-          customerPhone: newOrder.customerPhone,
-          itemsCount: newOrder.items.length,
-          message: `New Order #${newOrder.orderNumber} received for ${rider.name || "Verified Driver"}!`,
-        });
-      } catch (e) {}
 
       try {
         getIO().to(`store_${manager._id}`).emit("rider_document_updated", {
