@@ -5,6 +5,7 @@ import { getDashboardCharts, getHarvestOrders } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
 import LoadingState from "../components/ui/LoadingState";
 import ProductGradeChart from "../components/products/ProductGradeChart";
+import DashboardMarketPricesWidget from "../components/market/DashboardMarketPricesWidget";
 import {
   EXCEL_BTN,
   EXCEL_PAGE_TITLE,
@@ -76,6 +77,9 @@ function DashboardPage() {
         <StatCard title="Total Earnings" value={formatCurrency(stats.totalEarnings || 0)} />
         <StatCard title="Pending Earnings" value={formatCurrency(stats.pendingEarnings || stats.pendingPayments || 0)} />
       </div>
+
+      {/* Live Mandi Market Prices Widget */}
+      <DashboardMarketPricesWidget />
 
       <section className={`${EXCEL_PANEL} p-3`}>
         <ProductGradeChart rows={all.rows} summary={all.summary} title="All Products Summary" />

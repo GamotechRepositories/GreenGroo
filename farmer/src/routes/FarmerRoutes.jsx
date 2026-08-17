@@ -5,6 +5,9 @@ import FarmerLayout from "../components/layout/FarmerLayout";
 import FarmerLoginPage from "../pages/FarmerLoginPage";
 import DocumentsPage from "../pages/DocumentsPage";
 import DashboardPage from "../pages/DashboardPage";
+import MarketPricesPage from "../pages/MarketPricesPage";
+import FarmerCommunityPage from "../pages/FarmerCommunityPage";
+import GovernmentSchemesPage from "../pages/GovernmentSchemesPage";
 import ProductsPage from "../pages/ProductsPage";
 import ProductAddPage from "../pages/ProductAddPage";
 import ProductEditPage from "../pages/ProductEditPage";
@@ -27,6 +30,9 @@ function FarmerRoutes() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="market-prices" element={<MarketPricesPage />} />
+          <Route path="community" element={<FarmerCommunityPage />} />
+          <Route path="schemes" element={<GovernmentSchemesPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/add" element={<ProductAddPage />} />
           <Route path="products/:id" element={<Navigate to="/farmer/products" replace />} />

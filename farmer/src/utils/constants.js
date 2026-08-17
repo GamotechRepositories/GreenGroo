@@ -88,6 +88,9 @@ export const STOCK_GRADES = ["Grade A", "Grade B"];
 
 export const SIDEBAR_ITEMS = [
   { to: "/farmer/dashboard", label: "Dashboard", icon: "dashboard" },
+  { to: "/farmer/market-prices", label: "Market Prices", icon: "market" },
+  { to: "/farmer/community", label: "Farmer Community", icon: "community" },
+  { to: "/farmer/schemes", label: "Govt Schemes", icon: "schemes" },
   { to: "/farmer/products", label: "Product", icon: "products" },
   { to: "/farmer/harvest-orders", label: "Harvest Order", icon: "harvest" },
   { to: "/farmer/earnings", label: "Earning", icon: "earnings" },

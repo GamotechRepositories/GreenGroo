@@ -5,10 +5,13 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
+  Landmark,
   LayoutDashboard,
   Package,
   ShoppingCart,
+  TrendingUp,
   UserRound,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -18,6 +21,9 @@ import { setSidebarCollapsed, toggleSidebar } from "../../store/farmerSlice";
 const ICONS = {
   documents: FileText,
   dashboard: LayoutDashboard,
+  market: TrendingUp,
+  community: Users,
+  schemes: Landmark,
   products: Package,
   harvest: ClipboardList,
   inventory: ClipboardList,
