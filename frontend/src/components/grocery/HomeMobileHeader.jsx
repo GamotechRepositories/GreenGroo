@@ -111,7 +111,7 @@ export function HomeDeliveryBar() {
   const addressText = [location.label, location.address].filter(Boolean).join(" - ");
 
   return (
-    <div className={`${theme.deliveryBg} px-4 pb-0 pt-3.5 transition-colors duration-300`}>
+    <div className={`${theme.deliveryBg} px-4 pb-0 pt-2.5 sm:pt-3 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-3">
         <Link to="/location" className="min-w-0 flex-1">
           <div className={`flex items-center gap-1.5 ${theme.textColor}`}>

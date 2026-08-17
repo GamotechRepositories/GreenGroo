@@ -43,8 +43,10 @@ function HomeStickyCategories() {
     };
   }, []);
 
+  const stickyBg = theme.searchBg || theme.deliveryBg;
+
   return (
-    <div className={`${containerBg} transition-colors duration-300 pb-0`}>
+    <div className={`${theme.deliveryBg} transition-colors duration-300 pb-0 pt-0 border-none`}>
       <div ref={deliveryRef}>
         <HomeDeliveryBar />
       </div>
@@ -54,8 +56,8 @@ function HomeStickyCategories() {
           ref={stickyRef}
           className={
             isFixed
-              ? `fixed left-0 right-0 top-0 z-50 ${containerBg} pt-1 shadow-md border-b border-white/20 transition-all`
-              : `relative ${containerBg}`
+              ? `fixed left-0 right-0 top-0 z-50 ${stickyBg} pt-0 shadow-md border-b border-white/20 transition-all`
+              : `relative ${stickyBg} pt-0`
           }
         >
           <HomeSearchBar />
