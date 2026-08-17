@@ -52,7 +52,7 @@ function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
 
   let activeBgHex = "#059669";
   if (storeKey === "festive") activeBgHex = "#C2410C";
-  else if (storeKey === "mall") activeBgHex = "#1E1B4B";
+  else if (storeKey === "mall") activeBgHex = "#312E81";
   else if (storeKey === "main") activeBgHex = "#059669";
 
   return (
