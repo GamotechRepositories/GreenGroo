@@ -5,9 +5,10 @@ import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
 import ProductFiltersBar from "./ProductFiltersBar";
 import ShopTopSlidingBanners from "./ShopTopSlidingBanners";
-function buildCategoryUrl(categoryName, params = {}) {
+function buildCategoryUrl(categoryName, params = {}, storeParam = "") {
   const search = new URLSearchParams();
   search.set("categoryName", categoryName);
+  if (storeParam) search.set("store", storeParam);
   if (params.subcategory) search.set("subcategory", params.subcategory);
   if (params.brand) search.set("brand", params.brand);
   if (params.sort) search.set("sort", params.sort);
@@ -226,7 +227,10 @@ function ProductResultsGrid({
 }
 
 function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
+  const [searchParams] = useSearchParams();
+  const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
   const allActive = !activeCategory;
+  const allUrl = storeParam ? `/product?store=${storeParam}` : "/product";
 
   if (variant === "mobile") {
     return (
@@ -236,7 +240,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <Link
-            to="/product"
+            to={allUrl}
             className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] transition ${
               allActive
                 ? "bg-primary/10 font-semibold text-primary"
@@ -251,7 +255,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
             return (
               <Link
                 key={cat._id}
-                to={buildCategoryUrl(cat.categoryName)}
+                to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
                 className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] transition ${
                   isActive
                     ? "bg-primary/10 font-semibold text-primary"
@@ -277,7 +281,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
       </h2>
       <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
         <Link
-          to="/product"
+          to={allUrl}
           className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs transition ${
             allActive
               ? "border-primary bg-primary/10 font-semibold text-primary"
@@ -292,7 +296,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
           return (
             <Link
               key={cat._id}
-              to={buildCategoryUrl(cat.categoryName)}
+              to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
               className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs transition ${
                 isActive
                   ? "border-primary bg-primary/10 font-semibold text-primary"

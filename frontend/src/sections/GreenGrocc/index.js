@@ -14,6 +14,7 @@ export * from "./components/GreenGroccOffers";
 export * from "./components/GreenGroccFreshPicks";
 export * from "./components/GreenGroccFeaturedVendors";
 export * from "./components/GreenGroccFooter";
+export * from "./components/GreenGroccShopBanner";
 export * from "./pages/GreenGroccHome";
 export * from "./pages/GreenGroccShop";
 export * from "./pages/GreenGroccProductDetails";

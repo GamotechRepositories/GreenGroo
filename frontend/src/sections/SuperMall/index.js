@@ -13,6 +13,7 @@ export * from "./components/SuperMallBanner";
 export * from "./components/SuperMallOffers";
 export * from "./components/SuperMallBrands";
 export * from "./components/SuperMallFooter";
+export * from "./components/SuperMallShopBanner";
 export * from "./pages/SuperMallHome";
 export * from "./pages/SuperMallShop";
 export * from "./pages/SuperMallProductDetails";

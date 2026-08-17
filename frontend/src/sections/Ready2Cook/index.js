@@ -12,6 +12,7 @@ export * from "./components/Ready2CookProductCard";
 export * from "./components/Ready2CookBanner";
 export * from "./components/Ready2CookOffers";
 export * from "./components/Ready2CookFooter";
+export * from "./components/Ready2CookShopBanner";
 export * from "./pages/Ready2CookHome";
 export * from "./pages/Ready2CookShop";
 export * from "./pages/Ready2CookProductDetails";

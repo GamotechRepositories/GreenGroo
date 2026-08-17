@@ -12,7 +12,7 @@ import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import Ready2CookHotPickBanners from "./Ready2CookHotPickBanners";
 import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 
-const READY2COOK_SHOP_CATEGORIES = [
+export const READY2COOK_SHOP_CATEGORIES = [
   {
     name: "Chopped",
     tag: "🧅 Chopped",

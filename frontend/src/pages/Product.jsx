@@ -16,6 +16,10 @@ import {
   getAllDummyProducts,
   getDummyCategoryProducts,
 } from "../data/dummyCategoryProducts";
+import { SUPER_MALL_CATEGORIES } from "../data/superMallCategories";
+import { READY2COOK_SHOP_CATEGORIES } from "../components/home/FestiveStoreSection";
+import { SUPERMALL_PRODUCTS } from "../sections/SuperMall/data/products";
+import { READY2COOK_PRODUCTS } from "../sections/Ready2Cook/data/products";
 
 function FilterIcon() {
   return (
@@ -325,6 +329,7 @@ function Product() {
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
   const brandName = searchParams.get("brandName")?.trim() || "";
+  const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
   const productParams = useProductListParams(searchParams);
@@ -343,8 +348,26 @@ function Product() {
     [data]
   );
 
-  // Always show full grocery category list on Shop left rail
+  // Section-aware category list for left scroll bar
   const categories = useMemo(() => {
+    if (storeParam === "mall") {
+      return SUPER_MALL_CATEGORIES.map((cat) => ({
+        _id: cat.id,
+        categoryName: cat.name,
+        categoryImage: cat.image,
+        slug: cat.slug,
+      }));
+    }
+
+    if (storeParam === "festive") {
+      return READY2COOK_SHOP_CATEGORIES.map((cat) => ({
+        _id: cat.name,
+        categoryName: cat.name,
+        categoryImage: cat.image,
+        slug: cat.name,
+      }));
+    }
+
     const byName = new Map(
       (apiCategories || [])
         .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
@@ -361,15 +384,40 @@ function Product() {
         subcategories: apiCat.subcategories || [],
       };
     });
-  }, [apiCategories]);
+  }, [apiCategories, storeParam]);
 
+  // Section-aware product list for right product grid
   const products = useMemo(() => {
-    if (apiProducts.length > 0) return apiProducts;
-    if (categoryName) return getDummyCategoryProducts(categoryName) || [];
-    return getAllDummyProducts();
-  }, [apiProducts, categoryName]);
+    let baseList = [];
+    if (apiProducts.length > 0) {
+      baseList = apiProducts;
+    } else if (storeParam === "mall") {
+      baseList = SUPERMALL_PRODUCTS;
+    } else if (storeParam === "festive") {
+      baseList = READY2COOK_PRODUCTS;
+    } else {
+      baseList = categoryName ? getDummyCategoryProducts(categoryName) || [] : getAllDummyProducts();
+    }
 
+    if (categoryName && (storeParam === "mall" || storeParam === "festive")) {
+      const target = categoryName.toLowerCase();
+      return baseList.filter((p) => {
+        const pCats = Array.isArray(p.categories)
+          ? p.categories
+          : p.categoryName
+          ? [p.categoryName]
+          : [];
+        return pCats.some(
+          (c) =>
+            c?.toLowerCase() === target ||
+            target.includes(c?.toLowerCase()) ||
+            c?.toLowerCase().includes(target)
+        );
+      });
+    }
 
+    return baseList;
+  }, [apiProducts, categoryName, storeParam]);
 
   const loading =
     categoriesLoading ||
@@ -393,7 +441,7 @@ function Product() {
         onIncrease={handleIncrease}
         onDecrease={handleDecrease}
         brandParamKey="brandName"
-        preserveKeys={["brandName"]}
+        preserveKeys={["brandName", "store"]}
         showBrandFilter
         {...infiniteScrollProps}
       />
