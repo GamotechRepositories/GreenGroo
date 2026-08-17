@@ -16,16 +16,16 @@ function SidebarCategoryImage({ image, name, showGrid = false }) {
 
   if (showGrid || (!image && name === "All Categories")) {
     return (
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary shadow-sm">
-        <GridIcon className="h-5 w-5 text-primary" />
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200/60 text-emerald-600 shadow-xs">
+        <GridIcon className="h-7 w-7 text-emerald-600" />
       </div>
     );
   }
 
   if (!image || failed) {
     return (
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 border border-emerald-100">
-        <span className="text-xs font-extrabold uppercase text-primary">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-emerald-50 border border-emerald-100">
+        <span className="text-sm font-extrabold uppercase text-emerald-700">
           {name?.charAt(0) || "?"}
         </span>
       </div>
@@ -33,11 +33,11 @@ function SidebarCategoryImage({ image, name, showGrid = false }) {
   }
 
   return (
-    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-white border border-slate-100 shadow-sm p-0.5 flex items-center justify-center">
+    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-xs">
       <img
         src={image}
         alt={name}
-        className="h-full w-full object-contain rounded-lg"
+        className="h-full w-full object-cover"
         loading="lazy"
         onError={() => setFailed(true)}
       />

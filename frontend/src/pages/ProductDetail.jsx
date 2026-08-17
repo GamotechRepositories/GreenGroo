@@ -1014,12 +1014,12 @@ function ProductDetail() {
   return (
     <div className="min-h-screen bg-white pb-24 text-[#1a1a1a] lg:pb-10">
       {/* lg:pt accounts for TopNav (72) */}
-      <div className="mx-auto w-full max-w-6xl px-4 pt-3 sm:px-5 lg:px-6 lg:pt-6">
-        <div className="grid min-w-0 gap-6 lg:grid-cols-2 lg:items-start lg:gap-10">
+      <div className="mx-auto w-full max-w-6xl px-0 pt-0 sm:px-5 lg:px-6 lg:pt-6">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:items-start lg:gap-10">
           {/* Left — scrolls with page through Product Details */}
           <div className="min-w-0">
-            <div className="relative overflow-hidden rounded-2xl bg-white">
-              <div className="absolute inset-x-2 top-2 z-10 flex items-center justify-between gap-2">
+            <div className="relative overflow-hidden rounded-none sm:rounded-2xl bg-white border-b border-slate-100 sm:border-none">
+              <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1044,7 +1044,7 @@ function ProductDetail() {
                   />
                 </div>
               </div>
-              <div className="flex min-h-[280px] w-full items-center justify-center sm:min-h-[340px]">
+              <div className="flex w-full items-center justify-center bg-white">
                 {isVideoActive ? (
                   <ProductVideo url={activeGalleryItem.url} embedded />
                 ) : (
@@ -1052,7 +1052,7 @@ function ProductDetail() {
                 )}
               </div>
             </div>
-            <div className="mt-3">
+            <div className="mt-3 px-4 sm:px-0">
               <MediaThumbnailCarousel
                 items={galleryItems}
                 activeIndex={activeMedia}
@@ -1075,7 +1075,7 @@ function ProductDetail() {
           </div>
 
           {/* Right — sticks to top under header while left scrolls */}
-          <aside className="min-w-0 bg-white lg:sticky lg:top-[88px] lg:z-10 lg:self-start">
+          <aside className="min-w-0 bg-white px-4 sm:px-0 lg:sticky lg:top-[88px] lg:z-10 lg:self-start">
             <nav className="mb-2 flex flex-wrap items-center gap-1 text-[12px] text-[#757575]">
               <Link to="/" className="hover:text-[#0C831F]">
                 Home
