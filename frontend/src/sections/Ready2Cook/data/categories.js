@@ -1,0 +1,42 @@
+export const READY2COOK_CATEGORIES = [
+  {
+    id: "rtc-cat-1",
+    name: "Chopped Vegetables",
+    slug: "Chopped",
+    itemCount: "25+ items",
+    bgClass: "bg-[#E8F8EE]",
+    image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?auto=format&fit=crop&w=300&h=300&q=80",
+  },
+  {
+    id: "rtc-cat-2",
+    name: "Cut & Sliced",
+    slug: "Cut & Sliced",
+    itemCount: "30+ items",
+    bgClass: "bg-[#EEFBEB]",
+    image: "https://images.unsplash.com/photo-1598170845058-12ef4a457c39?auto=format&fit=crop&w=300&h=300&q=80",
+  },
+  {
+    id: "rtc-cat-3",
+    name: "Peeled & Cleaned",
+    slug: "Peeled & Cleaned",
+    itemCount: "20+ items",
+    bgClass: "bg-[#EBF7FF]",
+    image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&h=300&q=80",
+  },
+  {
+    id: "rtc-cat-4",
+    name: "Cleaned Bhaji",
+    slug: "Cleaned Bhaji",
+    itemCount: "15+ items",
+    bgClass: "bg-[#E8F8EE]",
+    image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=300&h=300&q=80",
+  },
+  {
+    id: "rtc-cat-5",
+    name: "Veggie Mix",
+    slug: "Veggie Mix",
+    itemCount: "18+ items",
+    bgClass: "bg-[#FFF8E7]",
+    image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=300&h=300&q=80",
+  },
+];
