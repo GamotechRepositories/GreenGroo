@@ -209,14 +209,14 @@ export function HomeSearchBar() {
 
         <Link
           to="/coupons"
-          className="flex h-12 shrink-0 items-center justify-between gap-1.5 overflow-hidden rounded-[16px] bg-white px-2.5 py-1 shadow-sm border border-gray-100 transition hover:bg-gray-50 max-w-[140px]"
+          className="flex h-12 shrink-0 items-center justify-between gap-1.5 overflow-hidden rounded-[16px] bg-gradient-to-r from-amber-50 to-emerald-50 px-2.5 py-1 shadow-sm border border-emerald-200/80 transition hover:scale-[1.02] active:scale-95 max-w-[140px] cursor-pointer"
         >
           <div className="leading-tight text-left">
-            <p className="text-[11px] font-black text-[#047857]">Hariyali</p>
-            <p className="text-[11px] font-black text-[#047857]">Teej</p>
+            <p className="text-[11px] font-black text-[#047857]">Super</p>
+            <p className="text-[11px] font-black text-amber-600">Offers 🎁</p>
           </div>
-          <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-amber-50 p-0.5 overflow-hidden">
-            <img src="/festive-store-logo.png" onError={(e) => { e.currentTarget.style.display='none'; }} alt="" className="h-7 w-7 object-contain" />
+          <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-amber-300 p-0.5 overflow-hidden shadow-2xs">
+            <span className="text-[11px] font-black">50%</span>
           </div>
         </Link>
       </div>
