@@ -120,8 +120,8 @@ export default function ZeptoFestiveHeroSection() {
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const theme = resolveStoreTheme(currentStore);
 
-  // Ready2Cook store view: Show Sliding Banners only
-  if (currentStore === "festive") {
+  // Ready2Cook and Super Mall store views: Show Sliding Banners format like Ready2Cook
+  if (currentStore === "festive" || currentStore === "mall") {
     return (
       <div className={`${theme.contentBg} transition-colors duration-300 pb-1`}>
         <HomeSlidingBanners />
