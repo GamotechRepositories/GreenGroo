@@ -10,6 +10,7 @@ import ZeptoFestiveHeroSection from "./ZeptoFestiveHeroSection";
 import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import Ready2CookHotPickBanners from "./Ready2CookHotPickBanners";
+import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 
 const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -285,6 +286,9 @@ function FestiveStoreSection() {
             p.categories.some((c) => c.toLowerCase().includes(currentFilter.toLowerCase()))
         );
 
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const displayCategories = currentStore === "mall" ? SUPER_MALL_CATEGORIES : READY2COOK_SHOP_CATEGORIES;
+
   const cardProps = (product) => ({
     product,
     onAdd: handleAdd,
@@ -309,7 +313,9 @@ function FestiveStoreSection() {
               Shop by Category
             </h2>
             <p className="mt-0.5 text-xs font-semibold text-slate-500 sm:text-sm">
-              Fresh picks for every kitchen need
+              {currentStore === "mall"
+                ? "Top brand groceries, essentials & packaged foods"
+                : "Fresh picks for every kitchen need"}
             </p>
           </div>
           <button
@@ -321,32 +327,39 @@ function FestiveStoreSection() {
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 sm:gap-3.5">
-          {READY2COOK_SHOP_CATEGORIES.map((cat) => {
-            const isSelected = currentFilter === cat.name;
+        <div className={`grid gap-2.5 sm:gap-4 ${
+          currentStore === "mall"
+            ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4"
+            : "grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+        }`}>
+          {displayCategories.map((cat) => {
+            const isSelected = currentFilter === cat.name || currentFilter === cat.slug;
             return (
               <div
                 key={cat.name}
                 onClick={() => handleSelectCategory(cat.name)}
-                className={`group relative overflow-hidden rounded-2xl p-2 sm:p-3 min-h-[84px] sm:min-h-[104px] cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md border ${
+                className={`group relative overflow-hidden rounded-[22px] p-3 sm:p-4 min-h-[96px] sm:min-h-[118px] cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md border ${
                   isSelected
-                    ? "border-emerald-600 ring-2 ring-emerald-500/30"
-                    : "border-transparent"
-                } ${cat.bgClass}`}
+                    ? "border-indigo-600 ring-2 ring-indigo-500/30"
+                    : "border-slate-200/60"
+                } ${cat.bgClass || "bg-[#F3F4F6]"}`}
               >
-                <div className="relative z-10 max-w-[62%] sm:max-w-[65%] pr-0.5">
-                  <h3 className="text-[10px] sm:text-sm font-black text-slate-900 leading-tight line-clamp-1">
+                {/* Left Text Column: Name & Item Count */}
+                <div className="relative z-10 max-w-[60%] sm:max-w-[62%] pr-0.5">
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight line-clamp-2">
                     {cat.name}
                   </h3>
-                  <p className="mt-0.5 text-[8.5px] sm:text-[11px] font-semibold text-slate-600 truncate">
+                  <p className="mt-1 text-[9.5px] sm:text-xs font-bold text-slate-500 truncate">
                     {cat.itemCount}
                   </p>
                 </div>
-                <div className="absolute right-1 bottom-1 h-9 w-9 sm:h-14 sm:w-14 overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+
+                {/* Right Image */}
+                <div className="absolute right-1 bottom-1 sm:right-2 sm:bottom-2 h-12 w-12 sm:h-18 sm:w-18 overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
                   <img
                     src={cat.image}
                     alt={cat.name}
-                    className="h-full w-full object-cover rounded-xl shadow-xs"
+                    className="h-full w-full object-cover rounded-xl shadow-2xs"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
                     }}

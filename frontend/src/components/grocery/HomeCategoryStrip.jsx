@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import CategoryIcon from "./CategoryIcon";
 import { resolveStoreTheme } from "./homeHeaderThemes";
+import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 
 const CATEGORY_IMAGES = {
   fruits: "/fruits.png",
@@ -193,6 +194,17 @@ function HomeCategoryStrip() {
         });
       }
       baseList = list;
+    }
+
+    if (currentStore === "mall") {
+      return [
+        { name: "All", slug: "" },
+        ...SUPER_MALL_CATEGORIES.slice(0, 5).map((cat) => ({
+          name: cat.name,
+          slug: cat.slug,
+          image: cat.image,
+        })),
+      ];
     }
 
     let finalCategories = applyLocalCategoryImages(baseList);

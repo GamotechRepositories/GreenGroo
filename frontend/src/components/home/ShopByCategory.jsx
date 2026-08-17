@@ -1,8 +1,21 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
+import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 
 function ShopByCategory() {
-  const { data: categories = [], isLoading: loading } = useCategoriesQuery();
+  const [searchParams] = useSearchParams();
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const { data: apiCategories = [], isLoading: loading } = useCategoriesQuery();
+
+  const displayList =
+    currentStore === "mall"
+      ? SUPER_MALL_CATEGORIES.map((c) => ({
+          _id: c.id,
+          categoryName: c.name,
+          categoryImage: c.image,
+          productCount: c.itemCount,
+        }))
+      : apiCategories;
 
   return (
     <section className="bg-black text-white px-5 sm:px-6 md:px-8 lg:px-12 py-8 md:py-10">
@@ -33,13 +46,13 @@ function ShopByCategory() {
               </div>
             ))}
           </div>
-        ) : categories.length === 0 ? (
+        ) : displayList.length === 0 ? (
           <p className="text-center text-neutral-400 py-8">
             No categories available yet.
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-            {categories.map((item) => (
+            {displayList.map((item) => (
               <Link
                 key={item._id}
                 to="/product"
