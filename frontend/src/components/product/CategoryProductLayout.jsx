@@ -335,7 +335,7 @@ function CategoryProductMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-0 pt-1 lg:px-3 lg:pt-2">
+      <div className="shrink-0 px-0 pt-0 lg:px-3 lg:pt-2">
         <ShopTopSlidingBanners />
         <CategoryHeaderSection
           category={activeCategoryDoc}
@@ -386,7 +386,7 @@ function AllProductsMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-0 pt-1 lg:px-3 lg:pt-2">
+      <div className="shrink-0 px-0 pt-0 lg:px-3 lg:pt-2">
         <ShopTopSlidingBanners />
       </div>
       <AllProductsFilterToolbar
@@ -503,27 +503,22 @@ export function AllProductsLayout({
           />
         </ProductPageTwoBoxLayout>
       </div>
-      <div className="lg:hidden">
-        <div className="flex h-[calc(100dvh-7rem)] min-h-[420px]">
+      <div className="h-full lg:hidden">
+        <div className="flex h-full min-h-0 overflow-hidden">
           <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
-          <div
-            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
-            <div className="p-2.5">
-              <AllProductsMain
-                products={products}
-                loading={loading}
-                onAdd={onAdd}
-                onGetCartQuantity={onGetCartQuantity}
-                onIncrease={onIncrease}
-                onDecrease={onDecrease}
-                emptyMessage={emptyMessage}
-                hasNextPage={hasNextPage}
-                isFetchingNextPage={isFetchingNextPage}
-                onLoadMore={onLoadMore}
-              />
-            </div>
+          <div className="min-h-0 flex-1 flex flex-col bg-white overflow-hidden px-1 pb-1 pt-0">
+            <AllProductsMain
+              products={products}
+              loading={loading}
+              onAdd={onAdd}
+              onGetCartQuantity={onGetCartQuantity}
+              onIncrease={onIncrease}
+              onDecrease={onDecrease}
+              emptyMessage={emptyMessage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onLoadMore={onLoadMore}
+            />
           </div>
         </div>
       </div>
@@ -546,29 +541,24 @@ export function MobileCategoryProductLayout({
   onLoadMore,
 }) {
   return (
-    <div className="lg:hidden">
-      <div className="flex h-[calc(100dvh-7rem)] min-h-[420px]">
+    <div className="h-full lg:hidden">
+      <div className="flex h-full min-h-0 overflow-hidden">
         <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
-        <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <div className="p-2.5">
-            <CategoryProductMain
-              categories={categories}
-              categoryName={categoryName}
-              products={products}
-              loading={loading}
-              onAdd={onAdd}
-              onGetCartQuantity={onGetCartQuantity}
-              onIncrease={onIncrease}
-              onDecrease={onDecrease}
-              emptyMessage={emptyMessage}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              onLoadMore={onLoadMore}
-            />
-          </div>
+        <div className="min-h-0 flex-1 flex flex-col bg-white overflow-hidden px-1 pb-1 pt-0">
+          <CategoryProductMain
+            categories={categories}
+            categoryName={categoryName}
+            products={products}
+            loading={loading}
+            onAdd={onAdd}
+            onGetCartQuantity={onGetCartQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
+            emptyMessage={emptyMessage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={onLoadMore}
+          />
         </div>
       </div>
     </div>

@@ -417,7 +417,7 @@ function Product() {
 
   if (categoryName) {
     return (
-      <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-108px)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:bg-white lg:pb-0">
+      <div className="h-[calc(100dvh-124px)] min-h-0 overflow-hidden bg-white lg:flex lg:h-[calc(100vh-108px)] lg:flex-col lg:pb-0">
         <MobileCategoryProductLayout
           categories={categories}
           categoryName={categoryName}
@@ -449,7 +449,7 @@ function Product() {
   }
 
   return (
-    <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-108px)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:bg-white lg:pb-0">
+    <div className="h-[calc(100dvh-124px)] min-h-0 overflow-hidden bg-white lg:flex lg:h-[calc(100vh-108px)] lg:flex-col lg:pb-0">
       <AllProductsLayout
         categories={categories}
         products={products}

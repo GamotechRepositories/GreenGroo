@@ -33,8 +33,8 @@ function MobileLayout({ children }) {
       {!isHome && !isProductDetail && !isShop ? <CategoryNavbar /> : null}
 
       <main
-        className={`mx-auto w-full flex-1 pb-24 pt-0 lg:pt-[72px] ${
-          isHome ? "lg:pb-0" : isShop ? "lg:pb-0" : "lg:pb-8"
+        className={`mx-auto w-full flex-1 pt-0 lg:pt-[72px] ${
+          isHome ? "pb-24 lg:pb-0" : isShop ? "pb-[56px] pt-0 lg:pb-0" : "pb-24 lg:pb-8"
         }`}
       >
         {children}
