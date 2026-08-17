@@ -20,7 +20,7 @@ function StoreContent() {
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const store = searchParams.get("store")?.trim()?.toLowerCase() || "main";
 
-  if (store === "festive") {
+  if (store === "festive" || store === "mall") {
     return <FestiveStoreSection />;
   }
 

@@ -1,8 +1,22 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { GROCERY_CATEGORIES } from "../../data/groceryCategories";
+import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 import CategoryCard from "./CategoryCard";
 
 function CategoryPills() {
+  const [searchParams] = useSearchParams();
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+
+  const displayList = currentStore === "mall"
+    ? SUPER_MALL_CATEGORIES.map(c => ({
+        slug: c.slug,
+        categoryName: c.name,
+        itemCount: c.itemCount,
+        bgClass: c.bgClass,
+        categoryImage: c.image,
+      }))
+    : GROCERY_CATEGORIES;
+
   return (
     <section className="bg-white px-4 py-4 sm:px-6 lg:px-0 lg:py-0">
       <div className="mx-auto max-w-7xl">
@@ -24,7 +38,7 @@ function CategoryPills() {
         </div>
 
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5">
-          {GROCERY_CATEGORIES.map((cat) => (
+          {displayList.map((cat) => (
             <CategoryCard key={cat.slug} cat={cat} />
           ))}
         </div>
