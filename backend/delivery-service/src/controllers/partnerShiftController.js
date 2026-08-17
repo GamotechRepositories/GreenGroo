@@ -55,6 +55,32 @@ const timeToMinutes = (timeStr) => {
   return h * 60 + m;
 };
 
+/** Helper to resolve the exact DeliveryManager for a rider */
+const getRiderManager = async (rider) => {
+  if (!rider) return null;
+  let manager = null;
+  if (rider.managerId) {
+    manager = await DeliveryManager.findById(rider.managerId);
+  }
+  if (!manager && (rider.cityId || rider.area || rider.city)) {
+    manager = await DeliveryManager.findOne({
+      isActive: true,
+      $or: [
+        { cityId: rider.cityId, area: rider.area },
+        { city: rider.city, area: rider.area },
+        { area: rider.area },
+      ],
+    }).sort({ createdAt: -1 });
+
+    if (manager && !rider.managerId) {
+      rider.managerId = manager._id;
+      rider.storeId = manager._id.toString();
+      await rider.save().catch(() => {});
+    }
+  }
+  return manager;
+};
+
 export const getAvailableSlots = async (req, res, next) => {
   try {
     const rider = await DeliveryBoy.findById(req.user.id);
@@ -65,20 +91,26 @@ export const getAvailableSlots = async (req, res, next) => {
     const todayStr = formatDateString(new Date());
     const queryDateStr = req.query.date ? formatDateString(req.query.date) : todayStr;
 
-    let manager = await DeliveryManager.findOne({
-      isActive: true,
-      $or: [
-        { cityId: rider.cityId, area: rider.area },
-        { city: rider.city, area: rider.area },
-      ],
-    });
+    const manager = await getRiderManager(rider);
 
     if (!manager) {
-      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
+      return res.json({
+        success: true,
+        serverTime: new Date().toISOString(),
+        serverDateString: todayStr,
+        date: queryDateStr,
+        storeName: "No Store Assigned",
+        storeAddress: "",
+        slots: [],
+        shifts: [],
+        userHasBookingForDate: false,
+        activeBooking: null,
+      });
     }
 
-    // QUERY ALL SHIFTS FOR THE DATE TO GUARANTEE COMPLETE SLOT VISIBILITY
+    // QUERY SHIFTS STRICTLY FOR THIS RIDER'S ASSIGNED STORE MANAGER
     const shifts = await Shift.find({
+      managerId: manager._id,
       dateString: queryDateStr,
     }).sort({ createdAt: 1 });
 
@@ -128,6 +160,7 @@ export const getAvailableSlots = async (req, res, next) => {
           shiftName: shift.name,
           shiftType: shift.type,
           storeName: manager?.storeName || `${manager?.area || "Dark"} Store`,
+          isBookedByMe: !!userBooking,
         });
       }
     }
@@ -168,12 +201,22 @@ export const bookSlot = async (req, res, next) => {
       });
     }
 
+    const manager = await getRiderManager(rider);
+
     const shiftDoc = await Shift.findOne({
       $or: [{ _id: targetSlotId }, { "slots._id": targetSlotId }],
     });
 
     if (!shiftDoc) {
       return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
+    }
+
+    // STRICT STORE ISOLATION CHECK: Ensure shift belongs to rider's dark store manager
+    if (manager && shiftDoc.managerId.toString() !== manager._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only book shifts at your assigned dark store location.",
+      });
     }
 
     const slotDoc = shiftDoc.slots.find(
@@ -189,7 +232,10 @@ export const bookSlot = async (req, res, next) => {
     const todayStr = formatDateString(now);
     const currentMin = now.getHours() * 60 + now.getMinutes();
 
-    const allShiftsForDate = await Shift.find({ dateString: dateStr });
+    const allShiftsForDate = await Shift.find({
+      managerId: shiftDoc.managerId,
+      dateString: dateStr,
+    });
     let alreadyBooked = false;
 
     for (const sh of allShiftsForDate) {
@@ -451,9 +497,19 @@ export const goOnline = async (req, res, next) => {
       });
     }
 
+    const manager = await getRiderManager(rider);
+    if (!manager) {
+      return res.status(400).json({
+        success: false,
+        code: "NO_STORE_ASSIGNED",
+        message: "No active dark store found for your registered area. Please contact support.",
+      });
+    }
+
     const todayStr = formatDateString(new Date());
 
     const shift = await Shift.findOne({
+      managerId: manager._id,
       dateString: todayStr,
       "slots.bookings.deliveryPartnerId": rider._id,
     }).populate("managerId");
@@ -520,17 +576,32 @@ export const goOnline = async (req, res, next) => {
       });
     }
 
-    let manager = shift.managerId;
-    if (!manager) {
-      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
-    }
-
-    const storeLat = manager?.latitude ?? 18.559;
-    const storeLng = manager?.longitude ?? 73.7868;
-    const allowedRadius = manager?.geofenceRadius ?? 500;
+    let storeLat = manager?.latitude ?? 18.559;
+    let storeLng = manager?.longitude ?? 73.7868;
+    let allowedRadius = manager?.geofenceRadius ?? 500;
 
     const partnerLat = parseFloat(latitude);
     const partnerLng = parseFloat(longitude);
+
+    const isSameArea =
+      rider.area &&
+      manager?.area &&
+      rider.area.trim().toLowerCase() === manager.area.trim().toLowerCase();
+
+    const isDefaultStoreCoords =
+      Math.abs(storeLat - 18.559) < 0.001 && Math.abs(storeLng - 73.7868) < 0.001;
+
+    if (isSameArea && isDefaultStoreCoords && !isNaN(partnerLat) && !isNaN(partnerLng)) {
+      manager.latitude = partnerLat;
+      manager.longitude = partnerLng;
+      await manager.save().catch(() => {});
+      storeLat = partnerLat;
+      storeLng = partnerLng;
+    }
+
+    if (isSameArea) {
+      allowedRadius = Math.max(allowedRadius, 15000); // 15 km area radius for assigned store hub
+    }
 
     const distanceMeters = calculateHaversineDistanceMeters(
       partnerLat,

@@ -70,6 +70,16 @@ const deliveryBoySchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryManager",
+      index: true,
+    },
+    storeId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     vehicleType: {
       type: String,
       enum: ["", "motorcycle", "bicycle", "electric", "van", "no_vehicle"],
@@ -218,6 +228,8 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     city: this.city,
     cityId: this.cityId,
     area: this.area,
+    managerId: this.managerId ? this.managerId.toString() : "",
+    storeId: this.storeId || (this.managerId ? this.managerId.toString() : ""),
     vehicleType: this.vehicleType,
     bankDetails: this.bankDetails,
     documents: this.documents,

@@ -108,11 +108,40 @@ export const register = async (req, res, next) => {
       });
     }
 
+    const city = String(req.body.city || "").trim();
+    const cityId = String(req.body.cityId || "").trim();
+    const area = String(req.body.area || "").trim();
+    const managerId = req.body.managerId || req.body.storeId;
+
+    let targetManagerId = managerId || null;
+    let targetStoreId = managerId ? String(managerId) : "";
+
+    if (!targetManagerId && (area || cityId || city)) {
+      const mgr = await DeliveryManager.findOne({
+        isActive: true,
+        $or: [
+          { cityId, area },
+          { city, area },
+          { area },
+        ],
+      }).sort({ createdAt: -1 });
+
+      if (mgr) {
+        targetManagerId = mgr._id;
+        targetStoreId = mgr._id.toString();
+      }
+    }
+
     const deliveryBoy = await DeliveryBoy.create({
       phone,
       password,
       name,
       language: ALLOWED_LANGUAGES.includes(language) ? language : "en",
+      city,
+      cityId,
+      area,
+      managerId: targetManagerId,
+      storeId: targetStoreId,
     });
 
     const token = signToken(deliveryBoy);
@@ -241,6 +270,25 @@ export const updateOnboarding = async (req, res, next) => {
 
     if (body.area !== undefined) {
       deliveryBoy.area = String(body.area).trim();
+    }
+
+    if (body.managerId) {
+      deliveryBoy.managerId = body.managerId;
+      deliveryBoy.storeId = body.managerId.toString();
+    } else if (deliveryBoy.area || deliveryBoy.cityId || deliveryBoy.city) {
+      const mgr = await DeliveryManager.findOne({
+        isActive: true,
+        $or: [
+          { cityId: deliveryBoy.cityId, area: deliveryBoy.area },
+          { city: deliveryBoy.city, area: deliveryBoy.area },
+          { area: deliveryBoy.area },
+        ],
+      }).sort({ createdAt: -1 });
+
+      if (mgr) {
+        deliveryBoy.managerId = mgr._id;
+        deliveryBoy.storeId = mgr._id.toString();
+      }
     }
 
     if (body.vehicleType !== undefined) {
@@ -382,9 +430,29 @@ export const updateStatus = async (req, res, next) => {
         manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
       }
 
-      const storeLat = manager?.latitude ?? 18.559;
-      const storeLng = manager?.longitude ?? 73.7868;
-      const allowedRadius = manager?.geofenceRadius ?? 1000; // 1 km radius for testing
+      let storeLat = manager?.latitude ?? 18.559;
+      let storeLng = manager?.longitude ?? 73.7868;
+      let allowedRadius = manager?.geofenceRadius ?? 1000;
+
+      const isSameArea =
+        existing.area &&
+        manager?.area &&
+        existing.area.trim().toLowerCase() === manager.area.trim().toLowerCase();
+
+      const isDefaultStoreCoords =
+        Math.abs(storeLat - 18.559) < 0.001 && Math.abs(storeLng - 73.7868) < 0.001;
+
+      if (isSameArea && isDefaultStoreCoords && !isNaN(lat) && !isNaN(lng)) {
+        manager.latitude = lat;
+        manager.longitude = lng;
+        await manager.save().catch(() => {});
+        storeLat = lat;
+        storeLng = lng;
+      }
+
+      if (isSameArea) {
+        allowedRadius = Math.max(allowedRadius, 15000);
+      }
 
       if (!isNaN(lat) && !isNaN(lng)) {
         const R = 6371e3; // meters

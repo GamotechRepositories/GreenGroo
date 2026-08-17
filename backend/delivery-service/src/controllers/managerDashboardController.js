@@ -42,8 +42,14 @@ const stockMapForManager = async (managerId) => {
 
 const areaMatch = (manager) => ({
   $or: [
-    { cityId: manager.cityId, area: manager.area },
-    { city: manager.city, area: manager.area },
+    { managerId: manager._id },
+    {
+      managerId: { $in: [null, undefined] },
+      $or: [
+        { cityId: manager.cityId, area: manager.area },
+        { city: manager.city, area: manager.area },
+      ],
+    },
   ],
 });
 
@@ -400,6 +406,8 @@ export const verifyDriver = async (req, res, next) => {
       rider.livenessPassed = true;
       rider.isActive = true;
       rider.verificationStatus = "approved";
+      rider.managerId = manager._id;
+      rider.storeId = manager._id.toString();
     } else {
       rider.isActive = false;
       rider.status = "offline";

@@ -35,6 +35,8 @@ import {
   goOffline,
 } from "../controllers/partnerShiftController.js";
 
+import { getPartnerGigs } from "../controllers/gigManagementController.js";
+
 const router = express.Router();
 
 router.post("/register", register);
@@ -55,6 +57,7 @@ router.post("/shift-bookings", protect, bookSlot);
 router.get("/shift-bookings/my", protect, getMyBookings);
 router.post("/shift-bookings/:bookingId/notify", protect, toggleNotification);
 router.put("/shift-bookings/:bookingId/cancel", protect, cancelBooking);
+router.get("/gigs", protect, getPartnerGigs);
 
 // Mandatory Location Verification & Go Online / Go Offline Gates
 router.post("/go-online", protect, goOnline);

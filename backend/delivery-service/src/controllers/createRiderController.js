@@ -47,6 +47,8 @@ export const createDeliveryBoyByManager = async (req, res, next) => {
       city: manager.city,
       cityId: manager.cityId,
       area: manager.area,
+      managerId: manager._id,
+      storeId: manager._id.toString(),
       verificationStatus: "pending",
     });
 

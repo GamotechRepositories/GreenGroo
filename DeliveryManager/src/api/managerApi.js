@@ -49,6 +49,12 @@ export const managerApi = {
   deleteSlotDateWise: (slotId) => api.delete(`${BASE}/shifts/slots/${slotId}`),
   getSlotDetailsWithRiders: (slotId) => api.get(`${BASE}/shifts/slots/${slotId}/details`),
 
+  // Gig & Incentive Management APIs
+  createGig: (data) => api.post(`${BASE}/gigs`, data),
+  getGigs: (date) => api.get(`${BASE}/gigs`, { params: { date } }),
+  updateGig: (gigId, data) => api.put(`${BASE}/gigs/${gigId}`, data),
+  deleteGig: (gigId) => api.delete(`${BASE}/gigs/${gigId}`),
+
   // Alerts & Incentives APIs
   getAlerts: (params) => api.get(`/api/alerts`, { params }),
   markAlertRead: (alertId) => api.patch(`/api/alerts/${alertId}/read`),

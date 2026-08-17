@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
@@ -38,6 +39,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _loadingManager = false;
   String? _lastVerificationStatus;
   bool _showVerifiedBanner = false;
+  List<GigInfo> _homeGigs = [];
+
+  Future<void> _loadGigsData() async {
+    try {
+      final gigs = await ShiftService.instance.fetchGigs();
+      if (mounted) {
+        setState(() {
+          _homeGigs = gigs;
+        });
+      }
+    } catch (_) {}
+  }
 
   /// Active order status check
   bool get _hasActiveOrder =>
@@ -117,6 +130,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   Future<void> _loadLiveData() async {
     await RiderLiveService.instance.refreshLoginHours();
+    await _loadGigsData();
     final storeId = await _resolveStoreId();
     if (storeId != null) {
       await RiderLiveService.instance.refreshPeakHours(storeId);
@@ -450,9 +464,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ProfileHeader(
-            greeting: l10n.goodMorning,
             name: _partnerName,
-            rating: '4.8',
             isVerified: isVerified,
             onProfileTap: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
@@ -472,13 +484,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               loading: _loadingManager,
             ),
           ],
-          const SizedBox(height: AppSpacing.lg),
-          _WalletBalanceCard(
-            balance: walletBalance,
-            todayEarnings: earningsToday,
-            weekEarnings: weekEarnings,
-            onViewWallet: () => ShellNavigation.instance.goToTab(3),
-          ),
           const SizedBox(height: AppSpacing.md),
           _OnlineStatusCard(
             isOnline: _isOnline,
@@ -491,23 +496,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 : l10n.offlineDeliveryHint,
             onChanged: _onStatusToggle,
           ),
+          if (_homeGigs.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            _GigDetailsHeaderCard(
+              gig: _homeGigs.first,
+              onBookTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
-          _DailyStatsGrid(
-            orders: ShiftService.ordersToday,
-            completed: completedToday,
-            distance: distanceToday,
+          _TodaysProgressCard(
             earnings: earningsToday,
-            ordersLabel: l10n.todaysOrders,
-            completedLabel: l10n.completed,
-            distanceLabel: l10n.distance,
-            earningsLabel: l10n.earnings,
+            trips: distanceToday,
+            sessions: '${RiderLiveService.instance.loginHoursToday} hrs',
+            gigsHistory: '${ShiftService.ordersToday} Gigs',
           ),
           const SizedBox(height: AppSpacing.md),
-          _MilestoneCard(
-            current: milestoneCurrent,
-            target: milestoneTarget,
-            remaining: milestoneTarget - milestoneCurrent,
-            bonusAmount: bonusAmount,
+          _AllOffersSectionCard(
+            gigs: _homeGigs,
+            onSeeAll: () => ShellNavigation.instance.goToTab(1),
           ),
           const SizedBox(height: AppSpacing.md),
           _FullWidthPromoCard(
@@ -578,16 +587,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
-    required this.greeting,
     required this.name,
-    required this.rating,
     required this.isVerified,
     required this.onProfileTap,
   });
 
-  final String greeting;
   final String name;
-  final String rating;
   final bool isVerified;
   final VoidCallback onProfileTap;
 
@@ -595,41 +600,19 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                greeting,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
+                name,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      name,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  LineIcon(LineIconName.star, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 2),
-                  Text(
-                    rating,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               if (isVerified) ...[
                 const SizedBox(height: 8),
@@ -1145,6 +1128,800 @@ class _MilestoneCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LiveGigIncentiveProgressCard extends StatelessWidget {
+  const _LiveGigIncentiveProgressCard({
+    required this.gigs,
+    required this.onTapMore,
+  });
+
+  final List<GigInfo> gigs;
+  final VoidCallback onTapMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (gigs.isEmpty) return const SizedBox.shrink();
+
+    final activeGig = gigs.first;
+    final isHoursBonus = activeGig.type == 'hours_bonus';
+    final hasTiers = activeGig.tiers.isNotEmpty;
+
+    // Active progress towards first target
+    final currentProgressVal = 150; 
+    final firstTier = hasTiers ? activeGig.tiers.first : null;
+    final nextTarget = firstTier != null ? firstTier.minTarget : (isHoursBonus ? activeGig.targetHours : activeGig.targetEarnings);
+    final nextBonus = firstTier != null ? firstTier.bonusAmount : activeGig.bonusAmount;
+
+    final progressRatio = (nextTarget > 0) ? (currentProgressVal / nextTarget).clamp(0.0, 1.0) : 0.0;
+    final remainingTarget = nextTarget - currentProgressVal > 0 ? nextTarget - currentProgressVal : 0;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD97706).withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Badge & Time Window
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      'ACTIVE STORE GIG',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${activeGig.startTime} – ${activeGig.endTime}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          Text(
+            activeGig.title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF78350F),
+            ),
+          ),
+          if (activeGig.description.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              activeGig.description,
+              style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          // Progress Bar & Goal Status
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isHoursBonus
+                        ? 'Current Progress: $currentProgressVal hrs'
+                        : 'Current Earnings: \u20B9$currentProgressVal / \u20B9$nextTarget',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                  Text(
+                    '+\u20B9$nextBonus Bonus',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progressRatio,
+                  minHeight: 8,
+                  backgroundColor: Colors.white,
+                  color: const Color(0xFFD97706),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                remainingTarget > 0
+                    ? (isHoursBonus
+                        ? 'Work $remainingTarget more hrs to claim +\u20B9$nextBonus!'
+                        : 'Earn \u20B9$remainingTarget more in this window to claim +\u20B9$nextBonus bonus!')
+                    : '🎉 Target reached! Bonus unlocked!',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+            ],
+          ),
+
+          if (hasTiers) ...[
+            const SizedBox(height: 12),
+            const Divider(color: Color(0xFFFDE68A), height: 1),
+            const SizedBox(height: 10),
+            const Text(
+              'INCENTIVE SLABS & BONUS LEVELS',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF92400E),
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: activeGig.tiers.map((t) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      currentProgressVal >= t.minTarget ? Icons.check_circle_rounded : Icons.lock_clock_rounded,
+                      size: 14,
+                      color: currentProgressVal >= t.minTarget ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isHoursBonus
+                          ? '${t.minTarget} hrs ➔ +\u20B9${t.bonusAmount}'
+                          : '\u20B9${t.minTarget} ➔ +\u20B9${t.bonusAmount}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF78350F),
+                      ),
+                    ),
+                  ],
+                ),
+              )).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GigDetailsHeaderCard extends StatelessWidget {
+  const _GigDetailsHeaderCard({
+    required this.gig,
+    required this.onBookTap,
+  });
+
+  final GigInfo gig;
+  final VoidCallback onBookTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F172A),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'g',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Gig details',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, color: Color(0xFF10B981), size: 6),
+                      SizedBox(width: 4),
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${gig.title} (${gig.startTime} - ${gig.endTime}) 🎉',
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  gig.description.isNotEmpty
+                      ? gig.description
+                      : 'Special Gig - you can go online even now',
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: () {},
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Know more',
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Icon(Icons.arrow_right_rounded, color: Color(0xFF0F172A), size: 18),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    onPressed: onBookTap,
+                    child: const Text(
+                      'Book and go online now',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: -0.2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodaysProgressCard extends StatelessWidget {
+  const _TodaysProgressCard({
+    required this.earnings,
+    required this.trips,
+    required this.sessions,
+    required this.gigsHistory,
+  });
+
+  final String earnings;
+  final String trips;
+  final String sessions;
+  final String gigsHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F172A),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.calendar_today_rounded, color: Colors.white, size: 14),
+                SizedBox(width: 8),
+                Text(
+                  "Today's progress",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Column(
+              children: [
+                // ROW 1: Earnings & Trips
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            earnings,
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF059669),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Row(
+                            children: [
+                              Text(
+                                'Earnings ',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              ),
+                              Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF64748B)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            trips,
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Row(
+                            children: [
+                              Text(
+                                'Trips ',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              ),
+                              Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF64748B)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // ROW 2: Sessions & History
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            sessions,
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Row(
+                            children: [
+                              Text(
+                                'Sessions ',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              ),
+                              Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF64748B)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            gigsHistory,
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Row(
+                            children: [
+                              Text(
+                                'History ',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              ),
+                              Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF64748B)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AllOffersSectionCard extends StatelessWidget {
+  const _AllOffersSectionCard({
+    required this.gigs,
+    required this.onSeeAll,
+  });
+
+  final List<GigInfo> gigs;
+  final VoidCallback onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final gig = gigs.isNotEmpty ? gigs.first : null;
+    final title = gig != null ? gig.title : 'EV - LN | Marathoner';
+    final dateSub = gig != null ? '${gig.dateString} • ${gig.startTime} - ${gig.endTime}' : '18 Apr • 5pm - 2am';
+    final bonusMax = gig != null ? '\u20B9${gig.bonusAmount}' : '\u20B9220';
+
+    final tiersList = gig != null && gig.tiers.isNotEmpty
+        ? gig.tiers
+        : const [
+            GigTierInfo(minTarget: 230, bonusAmount: 18),
+            GigTierInfo(minTarget: 383, bonusAmount: 49),
+            GigTierInfo(minTarget: 536, bonusAmount: 128),
+            GigTierInfo(minTarget: 690, bonusAmount: 220),
+          ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'All offers',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
+            ),
+            InkWell(
+              onTap: onSeeAll,
+              child: const Row(
+                children: [
+                  Text(
+                    'See All ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF0F172A)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F0F172A),
+                blurRadius: 18,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0F172A),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dateSub,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          bonusMax,
+                          style: const TextStyle(
+                            color: Color(0xFF10B981),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const Text(
+                          'Extra',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 68,
+                            child: Text(
+                              'Incentive',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: tiersList.map((t) => Text(
+                                '\u20B9${t.bonusAmount}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF10B981),
+                                ),
+                              )).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(height: 2, color: const Color(0xFFE2E8F0)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: tiersList.map((_) => Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.lock_rounded, size: 14, color: Color(0xFF94A3B8)),
+                          )).toList(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 68,
+                          child: Text(
+                            'Earnings',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: tiersList.map((t) => Text(
+                              '\u20B9${t.minTarget}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            )).toList(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

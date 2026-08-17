@@ -36,6 +36,7 @@ abstract final class ApiConfig {
   static const goOffline = '/api/delivery-boys/go-offline';
   static const loginHours = '/api/delivery-boys/login-hours';
   static const peakHours = '/api/peak-hours';
+  static const gigs = '/api/delivery-boys/gigs';
 
   // Rider Order Workflow Endpoints
   static const offer = '/api/delivery-boys/offer';

@@ -1,0 +1,223 @@
+import Gig from "../models/Gig.js";
+import DeliveryManager from "../models/DeliveryManager.js";
+import DeliveryBoy from "../models/DeliveryBoy.js";
+
+const getManager = async (req) => {
+  let manager = await DeliveryManager.findById(req.user.id);
+  if (!manager) {
+    manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
+  }
+  if (!manager) {
+    const err = new Error("Delivery manager not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  return manager;
+};
+
+/**
+ * Store Manager creates a new Gig / Incentive
+ */
+export const createGig = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const {
+      title,
+      type,
+      dateString,
+      startTime,
+      endTime,
+      targetHours,
+      targetEarnings,
+      bonusAmount,
+      description,
+    } = req.body;
+
+    if (!title || !dateString) {
+      return res.status(400).json({
+        success: false,
+        message: "Title and dateString are required fields",
+      });
+    }
+
+    const parsedTiers = Array.isArray(req.body.tiers)
+      ? req.body.tiers
+          .map((t) => ({
+            minTarget: Number(t.minTarget) || 0,
+            bonusAmount: Number(t.bonusAmount) || 0,
+          }))
+          .filter((t) => t.minTarget > 0 && t.bonusAmount > 0)
+      : [];
+
+    const defaultBonus = parsedTiers.length > 0 
+      ? Math.max(...parsedTiers.map((t) => t.bonusAmount))
+      : Number(bonusAmount) || 100;
+
+    const gig = await Gig.create({
+      managerId: manager._id,
+      storeId: manager._id.toString(),
+      area: manager.area || "",
+      title,
+      type: type || "hours_bonus",
+      dateString,
+      startTime: startTime || "06:00 PM",
+      endTime: endTime || "10:00 PM",
+      targetHours: Number(targetHours) || 3,
+      targetEarnings: Number(targetEarnings) || 500,
+      bonusAmount: defaultBonus,
+      tiers: parsedTiers,
+      description: description || "",
+      isActive: true,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Gig incentive created successfully",
+      gig: gig.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Store Manager lists all Gigs for their store
+ */
+export const listGigs = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { date } = req.query;
+
+    const query = { managerId: manager._id };
+    if (date) {
+      query.dateString = date;
+    }
+
+    const gigs = await Gig.find(query).sort({ dateString: -1, createdAt: -1 });
+
+    return res.json({
+      success: true,
+      gigs: gigs.map((g) => g.toSafeJSON()),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Store Manager updates a Gig
+ */
+export const updateGig = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { gigId } = req.params;
+
+    const gig = await Gig.findOne({ _id: gigId, managerId: manager._id });
+    if (!gig) {
+      return res.status(404).json({ success: false, message: "Gig incentive not found" });
+    }
+
+    const allowed = [
+      "title",
+      "type",
+      "dateString",
+      "startTime",
+      "endTime",
+      "targetHours",
+      "targetEarnings",
+      "bonusAmount",
+      "description",
+      "isActive",
+    ];
+
+    allowed.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        gig[field] = req.body[field];
+      }
+    });
+
+    await gig.save();
+
+    return res.json({
+      success: true,
+      message: "Gig incentive updated successfully",
+      gig: gig.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Store Manager deletes a Gig
+ */
+export const deleteGig = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { gigId } = req.params;
+
+    const gig = await Gig.findOneAndDelete({ _id: gigId, managerId: manager._id });
+    if (!gig) {
+      return res.status(404).json({ success: false, message: "Gig incentive not found" });
+    }
+
+    return res.json({
+      success: true,
+      message: "Gig incentive deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Delivery Driver fetches active Gigs for their assigned store
+ */
+export const getPartnerGigs = async (req, res, next) => {
+  try {
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+    }
+
+    let manager = null;
+    if (rider.managerId) {
+      manager = await DeliveryManager.findById(rider.managerId);
+    }
+    if (!manager && (rider.cityId || rider.area || rider.city)) {
+      manager = await DeliveryManager.findOne({
+        isActive: true,
+        $or: [
+          { cityId: rider.cityId, area: rider.area },
+          { city: rider.city, area: rider.area },
+          { area: rider.area },
+        ],
+      }).sort({ createdAt: -1 });
+    }
+
+    if (!manager) {
+      return res.json({
+        success: true,
+        gigs: [],
+        message: "No store assigned",
+      });
+    }
+
+    const { date } = req.query;
+    const queryDateStr = date || new Date().toISOString().split("T")[0];
+
+    const gigs = await Gig.find({
+      managerId: manager._id,
+      dateString: { $gte: queryDateStr },
+      isActive: true,
+    }).sort({ dateString: 1, createdAt: -1 });
+
+    return res.json({
+      success: true,
+      storeName: manager.storeName || "Dark Store Hub",
+      gigs: gigs.map((g) => g.toSafeJSON()),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

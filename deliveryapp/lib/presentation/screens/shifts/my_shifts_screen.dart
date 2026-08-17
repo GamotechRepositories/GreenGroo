@@ -20,6 +20,7 @@ class MyShiftsScreen extends StatefulWidget {
 }
 
 class _MyShiftsScreenState extends State<MyShiftsScreen> {
+  int _activeTab = 0; // 0 = My Shifts, 1 = Available Shifts
   bool _loading = true;
   ShiftBookingInfo? _todayBooking;
   List<ShiftBookingInfo> _upcomingBookings = const [];
@@ -206,229 +207,358 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final body = RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          // TODAY'S SHIFT CARD
-          Text(
-            "TODAY'S SHIFT BOOKING",
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textSecondary,
-              letterSpacing: 1.2,
+    Widget tabView;
+    if (_activeTab == 1) {
+      tabView = SelectShiftScreen(
+        embedded: true,
+        onBookingDone: _load,
+      );
+    } else {
+      tabView = RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          children: [
+            // TODAY'S SHIFT CARD
+            Text(
+              "TODAY'S SHIFT BOOKING",
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textSecondary,
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
+            const SizedBox(height: 10),
 
-          if (_todayBooking == null)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFFCA5A5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 22),
-                      const SizedBox(width: 8),
-                      Text(
-                        'No Shift Booked For Today',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          color: const Color(0xFF991B1B),
-                        ),
+            if (_todayBooking == null && _upcomingBookings.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.event_busy_rounded, color: Colors.orange, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No Shifts Booked Yet',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'You have no active or upcoming shift bookings. Would you like to book a shift slot now?',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 18),
+                    PrimaryButton(
+                      label: 'Book Shift Now 📅',
+                      onPressed: () {
+                        setState(() => _activeTab = 1);
+                      },
+                    ),
+                  ],
+                ),
+              )
+            else ...[
+              if (_todayBooking == null)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Mandatory: You must book today\'s shift before going online and receiving orders.',
-                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF7F1D1D)),
-                  ),
-                  const SizedBox(height: 16),
-                  PrimaryButton(
-                    label: 'Select Shift Slot Now',
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
-                      );
-                      _load();
-                    },
-                  ),
-                ],
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFBBF7D0), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _todayBooking!.status,
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF15803D),
+                      Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 22),
+                          const SizedBox(width: 8),
+                          Text(
+                            'No Shift Booked For Today',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: const Color(0xFF991B1B),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      TextButton.icon(
-                        onPressed: () => _cancelBooking(_todayBooking!.id),
-                        icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
-                        label: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Mandatory: You must book today\'s shift before going online and receiving orders.',
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF7F1D1D)),
+                      ),
+                      const SizedBox(height: 16),
+                      PrimaryButton(
+                        label: 'Select Shift Slot Now',
+                        onPressed: () {
+                          setState(() => _activeTab = 1);
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFBBF7D0), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _todayBooking!.status,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _cancelBooking(_todayBooking!.id),
+                            icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
+                            label: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${_todayBooking!.startTime} – ${_todayBooking!.endTime}',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            _todayBooking!.storeName,
+                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      PrimaryButton(
+                        label: 'Verify Location & Go Online 🟢',
+                        onPressed: _goOnlineWithLocation,
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 28),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Text(
-                    '${_todayBooking!.startTime} – ${_todayBooking!.endTime}',
+                    'UPCOMING SHIFTS',
                     style: GoogleFonts.inter(
-                      fontSize: 22,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textSecondary,
+                      letterSpacing: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        _todayBooking!.storeName,
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  PrimaryButton(
-                    label: 'Verify Location & Go Online 🟢',
-                    onPressed: _goOnlineWithLocation,
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _activeTab = 1);
+                    },
+                    child: const Text('+ Book More', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 10),
 
-          const SizedBox(height: 28),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'UPCOMING SHIFTS',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textSecondary,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
-                  );
-                  _load();
-                },
-                child: const Text('+ Book More', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          if (_upcomingBookings.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: const Center(
-                child: Text('No future upcoming shifts booked.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _upcomingBookings.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final b = _upcomingBookings[index];
-                return Container(
-                  padding: const EdgeInsets.all(16),
+              if (_upcomingBookings.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              b.dateString,
-                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${b.startTime} – ${b.endTime}',
-                              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800),
-                            ),
-                            Text(
-                              b.storeName,
-                              style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => _cancelBooking(b.id),
-                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                      ),
-                    ],
+                  child: const Center(
+                    child: Text('No future upcoming shifts booked.', style: TextStyle(color: Colors.grey, fontSize: 13)),
                   ),
-                );
-              },
-            ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _upcomingBookings.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final b = _upcomingBookings[index];
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  b.dateString,
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${b.startTime} – ${b.endTime}',
+                                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800),
+                                ),
+                                Text(
+                                  b.storeName,
+                                  style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _cancelBooking(b.id),
+                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
         ],
       ),
+    );
+    }
+
+    final body = Column(
+      children: [
+        Container(
+          color: AppColors.background,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _activeTab = 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _activeTab == 0 ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assignment_turned_in_rounded,
+                            size: 18,
+                            color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'My Shifts',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _activeTab = 1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _activeTab == 1 ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.event_available_rounded,
+                            size: 18,
+                            color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Available Shifts',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(child: tabView),
+      ],
     );
 
     if (widget.embedded) return body;

@@ -15,6 +15,7 @@ class ShiftSlotInfo {
   final int bookedCount;
   final int remainingCapacity;
   final String status;
+  final bool isBookedByMe;
 
   const ShiftSlotInfo({
     required this.id,
@@ -27,6 +28,7 @@ class ShiftSlotInfo {
     required this.bookedCount,
     required this.remainingCapacity,
     required this.status,
+    required this.isBookedByMe,
   });
 
   factory ShiftSlotInfo.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class ShiftSlotInfo {
       bookedCount: (json['bookedCount'] as num?)?.toInt() ?? 0,
       remainingCapacity: (json['remainingCapacity'] as num?)?.toInt() ?? 0,
       status: json['status']?.toString() ?? 'AVAILABLE',
+      isBookedByMe: json['isBookedByMe'] == true,
     );
   }
 }
@@ -270,5 +273,83 @@ class ShiftService {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<List<GigInfo>> fetchGigs({String? date}) async {
+    try {
+      final queryDate = date ?? DateTime.now().toIso8601String().split('T')[0];
+      final path = '${ApiConfig.gigs}?date=$queryDate';
+      final res = await apiGet(path, headers: _headers);
+      if (res.statusCode != 200) return [];
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final list = body['gigs'] as List? ?? [];
+      return list.map((g) => GigInfo.fromJson(g as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+}
+
+class GigTierInfo {
+  final int minTarget;
+  final int bonusAmount;
+
+  const GigTierInfo({required this.minTarget, required this.bonusAmount});
+
+  factory GigTierInfo.fromJson(Map<String, dynamic> json) {
+    return GigTierInfo(
+      minTarget: (json['minTarget'] as num?)?.toInt() ?? 0,
+      bonusAmount: (json['bonusAmount'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class GigInfo {
+  final String id;
+  final String title;
+  final String type;
+  final String dateString;
+  final String startTime;
+  final String endTime;
+  final int targetHours;
+  final int targetEarnings;
+  final int bonusAmount;
+  final List<GigTierInfo> tiers;
+  final String description;
+  final bool isActive;
+
+  const GigInfo({
+    required this.id,
+    required this.title,
+    required this.type,
+    required this.dateString,
+    required this.startTime,
+    required this.endTime,
+    required this.targetHours,
+    required this.targetEarnings,
+    required this.bonusAmount,
+    required this.tiers,
+    required this.description,
+    required this.isActive,
+  });
+
+  factory GigInfo.fromJson(Map<String, dynamic> json) {
+    final rawTiers = json['tiers'] as List? ?? [];
+    final tiersList = rawTiers.map((t) => GigTierInfo.fromJson(t as Map<String, dynamic>)).toList();
+
+    return GigInfo(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Store Gig',
+      type: json['type']?.toString() ?? 'hours_bonus',
+      dateString: json['dateString']?.toString() ?? '',
+      startTime: json['startTime']?.toString() ?? '06:00 PM',
+      endTime: json['endTime']?.toString() ?? '10:00 PM',
+      targetHours: (json['targetHours'] as num?)?.toInt() ?? 3,
+      targetEarnings: (json['targetEarnings'] as num?)?.toInt() ?? 500,
+      bonusAmount: (json['bonusAmount'] as num?)?.toInt() ?? 100,
+      tiers: tiersList,
+      description: json['description']?.toString() ?? '',
+      isActive: json['isActive'] == true,
+    );
   }
 }

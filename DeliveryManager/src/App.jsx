@@ -8,6 +8,7 @@ import DashboardPage from "./pages/dashboard/DashboardPage";
 import StockPage from "./pages/stock/StockPage";
 import DriversPage from "./pages/drivers/DriversPage";
 import PendingDriversPage from "./pages/drivers/PendingDriversPage";
+import PendingDriverDetailPage from "./pages/drivers/PendingDriverDetailPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import ShiftManagementPage from "./pages/shifts/ShiftManagementPage";
 import IncentivesPage from "./pages/incentives/IncentivesPage";
@@ -27,6 +28,7 @@ function App() {
               <Route path="/stock" element={<StockPage />} />
               <Route path="/drivers" element={<DriversPage />} />
               <Route path="/drivers/pending" element={<PendingDriversPage />} />
+              <Route path="/drivers/pending/:id" element={<PendingDriverDetailPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/incentives" element={<IncentivesPage />} />
               <Route path="/alerts" element={<AlertsPage />} />

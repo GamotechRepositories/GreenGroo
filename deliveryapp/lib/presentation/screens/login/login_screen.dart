@@ -19,6 +19,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isRegister = false;
@@ -27,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -34,9 +36,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context);
+    final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final password = _passwordController.text;
 
+    if (_isRegister && name.isEmpty) {
+      _showError('Please enter your full name');
+      return;
+    }
     if (phone.length != 10) {
       _showError(l10n.mobileNumberHint);
       return;
@@ -52,6 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ? await AuthService.instance.register(
               phone: phone,
               password: password,
+              name: name,
             )
           : await AuthService.instance.login(
               phone: phone,
@@ -137,6 +145,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xxxl),
+              if (_isRegister) ...[
+                Text(
+                  'Full Name',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: _nameController,
+                  keyboardType: TextInputType.name,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'Enter your full name (e.g. Ramesh Kumar)',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
               Text(
                 l10n.mobileNumber,
                 style: GoogleFonts.inter(

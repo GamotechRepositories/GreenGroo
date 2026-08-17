@@ -84,6 +84,12 @@ class RiderLiveService {
     return '${h}h ${m}m';
   }
 
+  String get loginHoursToday {
+    final h = _todayOnlineMinutes ~/ 60;
+    final m = _todayOnlineMinutes % 60;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
   Future<List<ShiftSlot>> fetchShiftSlots() async {
     try {
       final res = await apiGet(ApiConfig.shifts);

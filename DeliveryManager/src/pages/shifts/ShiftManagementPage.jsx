@@ -39,6 +39,50 @@ export default function ShiftManagementPage() {
   const [riderDetailsModalData, setRiderDetailsModalData] = useState(null);
   const [editingSlot, setEditingSlot] = useState(null);
 
+  // Gigs & Incentives state
+  const [gigs, setGigs] = useState([]);
+  const [loadingGigs, setLoadingGigs] = useState(false);
+  const [isGigModalOpen, setIsGigModalOpen] = useState(false);
+
+  // New Gig form state
+  const [gigTitle, setGigTitle] = useState("");
+  const [gigType, setGigType] = useState("earnings_target");
+  const [gigDate, setGigDate] = useState(getTodayString());
+  const [gigStartTime, setGigStartTime] = useState("05:00 PM");
+  const [gigEndTime, setGigEndTime] = useState("07:00 PM");
+  const [gigTargetHours, setGigTargetHours] = useState(2);
+  const [gigTargetEarnings, setGigTargetEarnings] = useState(200);
+  const [gigBonusAmount, setGigBonusAmount] = useState(18);
+  const [gigDescription, setGigDescription] = useState("");
+  const [gigTiers, setGigTiers] = useState([
+    { minTarget: 200, bonusAmount: 18 },
+    { minTarget: 400, bonusAmount: 60 },
+  ]);
+
+  const addGigTierRow = () => {
+    if (gigTiers.length >= 5) {
+      showToast("Maximum 5 incentive slabs allowed");
+      return;
+    }
+    const lastTarget = gigTiers.length > 0 ? gigTiers[gigTiers.length - 1].minTarget : 200;
+    const lastBonus = gigTiers.length > 0 ? gigTiers[gigTiers.length - 1].bonusAmount : 20;
+    setGigTiers([
+      ...gigTiers,
+      { minTarget: lastTarget + 200, bonusAmount: lastBonus + 40 },
+    ]);
+  };
+
+  const removeGigTierRow = (index) => {
+    if (gigTiers.length <= 1) return;
+    setGigTiers(gigTiers.filter((_, i) => i !== index));
+  };
+
+  const updateGigTierRow = (index, field, value) => {
+    const updated = [...gigTiers];
+    updated[index][field] = Number(value) || 0;
+    setGigTiers(updated);
+  };
+
   // New Shift form state
   const [newShiftType, setNewShiftType] = useState("morning");
   const [newShiftName, setNewShiftName] = useState("Morning Shift");
@@ -80,9 +124,22 @@ export default function ShiftManagementPage() {
     }
   }, [selectedDate]);
 
+  const loadGigs = useCallback(async () => {
+    setLoadingGigs(true);
+    try {
+      const res = await managerApi.getGigs(selectedDate);
+      setGigs(res.data.gigs || []);
+    } catch (err) {
+      console.error("Failed to load gigs", err);
+    } finally {
+      setLoadingGigs(false);
+    }
+  }, [selectedDate]);
+
   useEffect(() => {
     loadShifts();
-  }, [loadShifts]);
+    loadGigs();
+  }, [loadShifts, loadGigs]);
 
   const handleShiftTypeChange = (typeId) => {
     setNewShiftType(typeId);
@@ -143,6 +200,46 @@ export default function ShiftManagementPage() {
       showToast(err.response?.data?.message || "Failed to create shift");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateGig = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await managerApi.createGig({
+        title: gigTitle,
+        type: gigType,
+        dateString: gigDate,
+        startTime: gigStartTime,
+        endTime: gigEndTime,
+        targetHours: Number(gigTargetHours) || 3,
+        targetEarnings: Number(gigTargetEarnings) || 500,
+        bonusAmount: Number(gigBonusAmount) || 150,
+        tiers: gigTiers,
+        description: gigDescription,
+      });
+
+      showToast(res.data.message || "Gig incentive created successfully!");
+      setIsGigModalOpen(false);
+      setGigTitle("");
+      setGigDescription("");
+      await loadGigs();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to create gig");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteGig = async (gigId) => {
+    if (!window.confirm("Are you sure you want to delete this gig incentive?")) return;
+    try {
+      const res = await managerApi.deleteGig(gigId);
+      showToast(res.data.message || "Gig incentive deleted");
+      await loadGigs();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to delete gig");
     }
   };
 
@@ -248,18 +345,28 @@ export default function ShiftManagementPage() {
             <span className="text-[11px] font-medium text-slate-400">({availablePercentage}%)</span>
           </div>
         </div>
-
         {/* CARD 5: ACTIONS */}
-        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Actions</p>
-          <button
-            type="button"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-emerald-700 transition active:scale-98 whitespace-nowrap"
-          >
-            <span className="text-sm font-bold">+</span>
-            <span>Create Shift Slots</span>
-          </button>
+        <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-2xs flex flex-col justify-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Actions</p>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-emerald-700 transition active:scale-98 whitespace-nowrap"
+            >
+              <span>+ Shift Slots</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGigDate(selectedDate);
+                setIsGigModalOpen(true);
+              }}
+              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-amber-600 px-2 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-amber-700 transition active:scale-98 whitespace-nowrap"
+            >
+              <span>+ Create Gig</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -288,106 +395,83 @@ export default function ShiftManagementPage() {
           <div className="py-16 text-center text-xs font-semibold text-slate-400">Loading shifts data...</div>
         ) : shifts.length === 0 ? (
           <div className="py-16 text-center text-slate-500 space-y-2">
-            <p className="text-3xl">🗓️</p>
-            <p className="text-sm font-bold text-slate-800">No shifts scheduled for {selectedDateObj.formatted || selectedDate}</p>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Click "+ Create Shift Slots" to add Morning, Evening, Night, or Custom shifts.
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700 transition"
-            >
-              + Create Shift Slots
-            </button>
+            <p className="text-2xl">📅</p>
+            <p className="text-sm font-bold text-slate-700">No shifts generated for this date.</p>
+            <p className="text-xs text-slate-400">Click "+ Shift Slots" above to generate shift slots.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50/60 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                 <tr>
-                  <th className="py-3.5 px-6">SHIFT TYPES</th>
-                  <th className="py-3.5 px-6">DATE</th>
-                  <th className="py-3.5 px-6">TIME SLOTS</th>
-                  <th className="py-3.5 px-6">AVAILABLE SLOTS</th>
-                  <th className="py-3.5 px-6">BOOKED SLOTS</th>
-                  <th className="py-3.5 px-6 text-right">ACTIONS</th>
+                  <th className="px-5 py-3.5">SHIFT TYPES</th>
+                  <th className="px-5 py-3.5">DATE</th>
+                  <th className="px-5 py-3.5">TIME SLOTS</th>
+                  <th className="px-5 py-3.5">AVAILABLE SLOTS</th>
+                  <th className="px-5 py-3.5">BOOKED SLOTS</th>
+                  <th className="px-5 py-3.5 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {shifts.map((shift) => {
-                  const dateInfo = formatDateWithDay(shift.dateString || selectedDate);
-                  const availableCount = Math.max(0, (shift.totalCapacity || 0) - (shift.totalBooked || 0));
-                  const firstSlot = (shift.slots && shift.slots[0]) || {};
-                  const timeSlotText = firstSlot.startTime && firstSlot.endTime
-                    ? `${firstSlot.startTime} - ${firstSlot.endTime}`
-                    : "09:00 AM - 05:00 PM";
-
-                  return (
-                    <tr key={shift.id || shift._id} className="hover:bg-slate-50/40 transition">
-                      {/* SHIFT TYPES */}
-                      <td className="py-4 px-6 font-bold text-slate-900 text-sm">
-                        {shift.name}
-                      </td>
-
-                      {/* DATE */}
-                      <td className="py-4 px-6">
-                        <div className="font-bold text-slate-900 text-xs">{dateInfo.formatted}</div>
-                        <div className="text-[11px] text-slate-400 font-medium">{dateInfo.dayName}</div>
-                      </td>
-
-                      {/* TIME SLOTS */}
-                      <td className="py-4 px-6 font-bold text-slate-900 text-xs">
-                        {shift.slots && shift.slots.length > 1
-                          ? shift.slots.map(s => `${s.startTime} - ${s.endTime}`).join(", ")
-                          : timeSlotText}
-                      </td>
-
-                      {/* AVAILABLE SLOTS */}
-                      <td className="py-4 px-6 font-extrabold text-sm text-emerald-600">
-                        {availableCount} / {shift.totalCapacity}
-                      </td>
-
-                      {/* BOOKED SLOTS */}
-                      <td className="py-4 px-6 font-bold text-slate-900 text-sm">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenSlotDetails(firstSlot.id || firstSlot._id || shift.id || shift._id)}
-                          className="hover:underline hover:text-emerald-700"
-                        >
-                          {shift.totalBooked || 0}
-                        </button>
-                      </td>
-
-                      {/* ACTIONS */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (firstSlot) {
-                                setEditingSlot(firstSlot);
-                                setEditCapacity(firstSlot.capacity || 10);
-                                setEditStatus(firstSlot.status || "AVAILABLE");
-                                setEditStartTime(firstSlot.startTime || "");
-                                setEditEndTime(firstSlot.endTime || "");
-                              }
-                            }}
-                            className="rounded-lg border border-emerald-500 bg-white px-4 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSlot(shift.id || shift._id)}
-                            className="rounded-lg border border-rose-300 bg-white px-4 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 transition"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
+                  const shiftDateObj = formatDateWithDay(shift.dateString);
+                  return (shift.slots || []).map((slot, index) => {
+                    const availableCount = Math.max(0, slot.capacity - slot.bookedCount);
+                    return (
+                      <tr key={`${shift.id}-${slot.id || index}`} className="hover:bg-slate-50/50 transition">
+                        <td className="px-5 py-4 font-bold text-slate-900">
+                          {shift.shiftName}
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="font-bold text-slate-900">{shiftDateObj.formatted}</div>
+                          <div className="text-[11px] text-slate-400 font-normal">{shiftDateObj.dayName}</div>
+                        </td>
+                        <td className="px-5 py-4 font-bold text-slate-900">
+                          {slot.startTime} – {slot.endTime}
+                        </td>
+                        <td className="px-5 py-4 font-black text-emerald-600">
+                          {availableCount} / {slot.capacity}
+                        </td>
+                        <td className="px-5 py-4">
+                          {slot.bookedCount > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSlotDetails(slot.id || slot.slotId)}
+                              className="font-bold text-emerald-700 underline hover:text-emerald-900 cursor-pointer"
+                            >
+                              {slot.bookedCount} (View Riders)
+                            </button>
+                          ) : (
+                            <span className="font-bold text-slate-900">0</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingSlot(slot);
+                                setEditCapacity(slot.capacity);
+                                setEditStatus(slot.status);
+                                setEditStartTime(slot.startTime);
+                                setEditEndTime(slot.endTime);
+                              }}
+                              className="rounded-lg border border-emerald-500 bg-white px-3 py-1 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSlot(slot.id || slot.slotId)}
+                              className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 transition"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
                 })}
               </tbody>
             </table>
@@ -430,6 +514,116 @@ export default function ShiftManagementPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* STORE GIGS & INCENTIVES TABLE CONTAINER */}
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">
+        {/* Table Header Row */}
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span>🔥</span>
+              <span>Store Gigs & Driver Incentives</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Active peak hour bonuses & earnings target incentives published for drivers in your store area.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setGigDate(selectedDate);
+                setIsGigModalOpen(true);
+              }}
+              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-amber-700 transition cursor-pointer"
+            >
+              <span>+</span>
+              <span>Create Gig / Incentive</span>
+            </button>
+            <button
+              type="button"
+              onClick={loadGigs}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            >
+              <span>🔄</span>
+            </button>
+          </div>
+        </div>
+
+        {loadingGigs ? (
+          <div className="py-12 text-center text-xs font-semibold text-slate-400">Loading store gigs...</div>
+        ) : gigs.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 space-y-2">
+            <p className="text-2xl">🎁</p>
+            <p className="text-xs font-bold text-slate-600">No active store gigs or incentives created for this date.</p>
+            <p className="text-[11px] text-slate-400">Click "+ Create Gig / Incentive" above to add peak hour bonuses or target earnings incentives.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <tr>
+                  <th className="px-5 py-3.5">GIG / INCENTIVE TITLE</th>
+                  <th className="px-5 py-3.5">TYPE</th>
+                  <th className="px-5 py-3.5">DATE & TIME WINDOW</th>
+                  <th className="px-5 py-3.5">TARGET / CONDITION</th>
+                  <th className="px-5 py-3.5">BONUS AMOUNT</th>
+                  <th className="px-5 py-3.5 text-right">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {gigs.map((g) => (
+                  <tr key={g.id} className="hover:bg-slate-50/50 transition">
+                    <td className="px-5 py-4 font-bold text-slate-900">
+                      {g.title}
+                      {g.description && <p className="text-[11px] font-normal text-slate-400 mt-0.5">{g.description}</p>}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-extrabold ${
+                        g.type === "hours_bonus"
+                          ? "bg-amber-100 text-amber-800 border border-amber-200"
+                          : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                      }`}>
+                        {g.type === "hours_bonus" ? "⏳ Peak Hours Bonus" : "💰 Target Earnings Bonus"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 font-semibold text-slate-700">
+                      {g.dateString} <span className="text-slate-400 font-normal">({g.startTime} – {g.endTime})</span>
+                    </td>
+                    <td className="px-5 py-4 font-medium text-slate-700">
+                      {g.tiers && g.tiers.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {g.tiers.map((t, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800">
+                              <span className="text-slate-400">Slab {i + 1}:</span>
+                              <span>{g.type === "hours_bonus" ? `${t.minTarget} hrs` : `₹${t.minTarget}`}</span>
+                              <span className="text-emerald-600">➔ +₹{t.bonusAmount}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        g.type === "hours_bonus" ? `Work ${g.targetHours} hrs during shift` : `Earn ₹${g.targetEarnings} in window`
+                      )}
+                    </td>
+                    <td className="px-5 py-4 font-black text-emerald-600 text-sm">
+                      Up to +₹{g.bonusAmount}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGig(g.id)}
+                        className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* CREATE SHIFT MODAL */}
@@ -773,6 +967,175 @@ export default function ShiftManagementPage() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* CREATE GIG MODAL */}
+      {isGigModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>🎁</span>
+                <span>Create Store Gig / Driver Incentive</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsGigModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateGig} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Incentive Title</label>
+                <input
+                  type="text"
+                  required
+                  value={gigTitle}
+                  onChange={(e) => setGigTitle(e.target.value)}
+                  placeholder="e.g. Friday Evening Peak Hours Bonus"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-900 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Incentive Type</label>
+                <select
+                  value={gigType}
+                  onChange={(e) => setGigType(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-900 focus:border-amber-500 focus:outline-none"
+                >
+                  <option value="hours_bonus">Peak Hours Bonus (Work X Hours for Bonus)</option>
+                  <option value="earnings_target">Target Earnings Bonus (Earn ₹X Amount for Bonus)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={gigDate}
+                    onChange={(e) => setGigDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Start Time</label>
+                  <input
+                    type="text"
+                    required
+                    value={gigStartTime}
+                    onChange={(e) => setGigStartTime(e.target.value)}
+                    placeholder="06:00 PM"
+                    className="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">End Time</label>
+                  <input
+                    type="text"
+                    required
+                    value={gigEndTime}
+                    onChange={(e) => setGigEndTime(e.target.value)}
+                    placeholder="10:00 PM"
+                    className="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* MULTI-LEVEL INCENTIVE SLABS / TIERS BUILDER */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-amber-900 uppercase">
+                    Incentive Slabs / Tiers ({gigTiers.length}/5)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addGigTierRow}
+                    className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer"
+                  >
+                    + Add Slab Tier
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-800/80 font-medium">
+                  {gigType === "hours_bonus"
+                    ? "Example: Slab 1 (2 hrs => ₹18), Slab 2 (4 hrs => ₹60)"
+                    : "Example: Slab 1 (₹200 => ₹18), Slab 2 (₹400 => ₹60)"}
+                </p>
+
+                <div className="space-y-2 pt-1">
+                  {gigTiers.map((tier, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200/60 shadow-2xs">
+                      <span className="text-[11px] font-bold text-amber-900 w-12">Slab {idx + 1}:</span>
+                      <div className="flex flex-1 items-center gap-1">
+                        <span className="text-[10px] font-bold text-slate-500">{gigType === "hours_bonus" ? "Hrs" : "Target ₹"}</span>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          value={tier.minTarget}
+                          onChange={(e) => updateGigTierRow(idx, "minTarget", e.target.value)}
+                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+                      <div className="flex flex-1 items-center gap-1">
+                        <span className="text-[10px] font-bold text-emerald-700">Bonus ₹</span>
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          value={tier.bonusAmount}
+                          onChange={(e) => updateGigTierRow(idx, "bonusAmount", e.target.value)}
+                          className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs font-bold text-emerald-700"
+                        />
+                      </div>
+                      {gigTiers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeGigTierRow(idx)}
+                          className="text-rose-500 font-bold hover:text-rose-700 px-1 text-xs cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Terms / Description</label>
+                <textarea
+                  rows="2"
+                  value={gigDescription}
+                  onChange={(e) => setGigDescription(e.target.value)}
+                  placeholder="e.g. Work during peak hours and complete assigned orders to get ₹150 incentive."
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-900"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsGigModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-amber-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-amber-700 transition cursor-pointer"
+                >
+                  {isSubmitting ? "Publishing..." : "Publish Gig Incentive"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -2,11 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../data/services/shift_service.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class SelectShiftScreen extends StatefulWidget {
-  const SelectShiftScreen({super.key});
+  const SelectShiftScreen({
+    super.key,
+    this.embedded = false,
+    this.onBookingDone,
+  });
+
+  final bool embedded;
+  final VoidCallback? onBookingDone;
 
   @override
   State<SelectShiftScreen> createState() => _SelectShiftScreenState();
@@ -120,6 +128,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
       if (mounted && booking != null) {
         _showSuccessBottomSheet(booking);
         _loadSlots();
+        widget.onBookingDone?.call();
       }
     } catch (e) {
       if (mounted) {
@@ -267,22 +276,12 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
   Widget build(BuildContext context) {
     final dateStr = _formatDateString(_selectedDate);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        title: Text(
-          'Select Your Shift',
-          style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadSlots,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
-          child: Column(
+    final content = RefreshIndicator(
+      onRefresh: _loadSlots,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
@@ -366,9 +365,11 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                   itemCount: 7,
                   separatorBuilder: (_, _) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
+                    const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                     final date = DateTime.now().add(Duration(days: index));
                     final isSelected = date.day == _selectedDate.day && date.month == _selectedDate.month;
-                    final label = index == 0 ? 'Today' : '${date.day}/${date.month}';
+                    final dayName = weekdayNames[date.weekday - 1];
+                    final label = index == 0 ? 'Today ($dayName)' : '$dayName ${date.day}/${date.month}';
 
                     return GestureDetector(
                       onTap: () {
@@ -428,54 +429,73 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                     child: Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                   ),
                 )
-              else if (_slotsResponse?.slots.isEmpty ?? true)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(30),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Column(
-                    children: [
-                      Icon(Icons.event_busy_rounded, color: Colors.grey, size: 48),
-                      SizedBox(height: 12),
-                      Text(
-                        'No Available Slots for this date',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Slots have either finished or been fully booked.',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.separated(
+              else () {
+                final activeSlotId = _slotsResponse?.activeBooking?.slotId;
+                final availableSlotsList = (_slotsResponse?.slots ?? []).where((slot) {
+                  final isUserBooked = activeSlotId != null &&
+                      activeSlotId.isNotEmpty &&
+                      activeSlotId == slot.id;
+                  return !isUserBooked;
+                }).toList();
+
+                if (availableSlotsList.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Column(
+                      children: [
+                        Icon(Icons.event_busy_rounded, color: Colors.grey, size: 48),
+                        SizedBox(height: 12),
+                        Text(
+                          'No Available Slots for this date',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'All slots for this date are booked or ended.',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _slotsResponse!.slots.length,
+                  itemCount: availableSlotsList.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final slot = _slotsResponse!.slots[index];
+                    final slot = availableSlotsList[index];
+                    final isUserBooked = slot.isBookedByMe || _slotsResponse?.activeBooking?.slotId == slot.id;
+
                     final isEnded = slot.status == 'ENDED';
                     final isFull = slot.status == 'FULL' || slot.remainingCapacity == 0;
                     final isFew = slot.status == 'FEW_SPOTS_LEFT';
-                    final isDisabled = isEnded || isFull;
+                    final isDisabled = isEnded || isFull || isUserBooked;
 
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDisabled ? const Color(0xFFF9FAFB) : Colors.white,
+                        color: isUserBooked
+                            ? const Color(0xFFF0FDF4)
+                            : isDisabled
+                                ? const Color(0xFFF9FAFB)
+                                : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isDisabled
-                              ? Colors.grey.shade300
-                              : isFew
-                                  ? const Color(0xFFFDE68A)
-                                  : AppColors.border,
+                          color: isUserBooked
+                              ? const Color(0xFF22C55E)
+                              : isDisabled
+                                  ? Colors.grey.shade300
+                                  : isFew
+                                      ? const Color(0xFFFDE68A)
+                                      : AppColors.border,
+                          width: isUserBooked ? 1.5 : 1.0,
                         ),
                       ),
                       child: Row(
@@ -491,7 +511,9 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                                       style: GoogleFonts.inter(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
-                                        color: isDisabled ? Colors.grey : AppColors.textPrimary,
+                                        color: isUserBooked
+                                            ? const Color(0xFF15803D)
+                                            : (isDisabled ? Colors.grey : AppColors.textPrimary),
                                       ),
                                     ),
                                   ],
@@ -505,33 +527,39 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: isEnded
-                                        ? const Color(0xFFF3F4F6)
-                                        : isFull
-                                            ? const Color(0xFFFEE2E2)
-                                            : isFew
-                                                ? const Color(0xFFFEF3C7)
-                                                : const Color(0xFFDCFCE7),
+                                    color: isUserBooked
+                                        ? const Color(0xFFDCFCE7)
+                                        : isEnded
+                                            ? const Color(0xFFF3F4F6)
+                                            : isFull
+                                                ? const Color(0xFFFEE2E2)
+                                                : isFew
+                                                    ? const Color(0xFFFEF3C7)
+                                                    : const Color(0xFFDCFCE7),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    isEnded
-                                        ? 'SHIFT ENDED'
-                                        : isFull
-                                            ? 'FULLY BOOKED'
-                                            : isFew
-                                                ? '${slot.remainingCapacity} spots left!'
-                                                : '${slot.remainingCapacity} spots available',
+                                    isUserBooked
+                                        ? 'YOUR BOOKED SHIFT ✓'
+                                        : isEnded
+                                            ? 'SHIFT ENDED'
+                                            : isFull
+                                                ? 'FULLY BOOKED'
+                                                : isFew
+                                                    ? '${slot.remainingCapacity} spots left!'
+                                                    : '${slot.remainingCapacity} spots available',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
-                                      color: isEnded
-                                          ? Colors.grey.shade600
-                                          : isFull
-                                              ? const Color(0xFF991B1B)
-                                              : isFew
-                                                  ? const Color(0xFFD97706)
-                                                  : const Color(0xFF15803D),
+                                      color: isUserBooked
+                                          ? const Color(0xFF15803D)
+                                          : isEnded
+                                              ? Colors.grey.shade600
+                                              : isFull
+                                                  ? const Color(0xFF991B1B)
+                                                  : isFew
+                                                      ? const Color(0xFFD97706)
+                                                      : const Color(0xFF15803D),
                                     ),
                                   ),
                                 ),
@@ -540,29 +568,55 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isDisabled ? Colors.grey.shade300 : AppColors.primary,
-                              elevation: isDisabled ? 0 : 2,
+                              backgroundColor: isUserBooked
+                                  ? const Color(0xFF16A34A)
+                                  : (isDisabled ? Colors.grey.shade300 : AppColors.primary),
+                              elevation: (isDisabled && !isUserBooked) ? 0 : 2,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                            onPressed: isDisabled ? null : () => _onConfirmBooking(slot),
+                            onPressed: isDisabled
+                                ? null
+                                : () => _onConfirmBooking(slot),
                             child: Text(
-                              isEnded
-                                  ? 'Ended'
-                                  : isFull
-                                      ? 'Full'
-                                      : 'Book',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                              isUserBooked
+                                  ? 'Booked ✓'
+                                  : isEnded
+                                      ? 'Ended'
+                                      : isFull
+                                          ? 'Full'
+                                          : 'Book',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isUserBooked
+                                    ? Colors.white
+                                    : (isDisabled ? Colors.grey.shade600 : Colors.white),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     );
                   },
-                ),
+                );
+              }(),
             ],
           ),
         ),
+      );
+
+    if (widget.embedded) return content;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        title: Text(
+          'Select Your Shift',
+          style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        ),
       ),
+      body: content,
     );
   }
 }

@@ -37,6 +37,13 @@ import {
   getSlotDetailsWithRiders,
 } from "../controllers/shiftManagementController.js";
 
+import {
+  createGig,
+  listGigs,
+  updateGig,
+  deleteGig,
+} from "../controllers/gigManagementController.js";
+
 const router = express.Router();
 
 // Public self-register enabled for delivery managers
@@ -66,6 +73,12 @@ router.get("/shifts/slots", listManagerSlots);
 router.put("/shifts/slots/:slotId", updateSlotDateWise);
 router.delete("/shifts/slots/:slotId", deleteSlotDateWise);
 router.get("/shifts/slots/:slotId/details", getSlotDetailsWithRiders);
+
+// Gig & Incentive Management APIs
+router.post("/gigs", createGig);
+router.get("/gigs", listGigs);
+router.put("/gigs/:gigId", updateGig);
+router.delete("/gigs/:gigId", deleteGig);
 
 router.get("/riders/live", getLiveRiders);
 router.post("/peak-hours", setPeakHours);
