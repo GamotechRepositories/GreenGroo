@@ -357,7 +357,7 @@ function Product() {
       return {
         ...shopCat,
         _id: apiCat._id || shopCat._id,
-        categoryImage: apiCat.categoryImage || shopCat.categoryImage,
+        categoryImage: shopCat.categoryImage || apiCat.categoryImage,
         subcategories: apiCat.subcategories || [],
       };
     });
