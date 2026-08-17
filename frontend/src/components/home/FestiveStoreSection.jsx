@@ -11,6 +11,7 @@ import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import Ready2CookHotPickBanners from "./Ready2CookHotPickBanners";
 import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
+import { SUPERMALL_PRODUCTS } from "../../sections/SuperMall/data/products";
 
 export const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -277,17 +278,18 @@ function FestiveStoreSection() {
     setSearchParams(nextParams);
   };
 
-  const filteredProducts =
-    currentFilter === "All" || !currentFilter
-      ? READY2COOK_PRODUCTS
-      : READY2COOK_PRODUCTS.filter(
-          (p) =>
-            p.categories.includes(currentFilter) ||
-            p.categories.some((c) => c.toLowerCase().includes(currentFilter.toLowerCase()))
-        );
-
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const displayCategories = currentStore === "mall" ? SUPER_MALL_CATEGORIES : READY2COOK_SHOP_CATEGORIES;
+  const productPool = currentStore === "mall" ? SUPERMALL_PRODUCTS : READY2COOK_PRODUCTS;
+
+  const filteredProducts =
+    currentFilter === "All" || !currentFilter
+      ? productPool
+      : productPool.filter(
+          (p) =>
+            p.categories.includes(currentFilter) ||
+            p.categories.some((c) => c.toLowerCase().includes(currentFilter.toLowerCase()) || currentFilter.toLowerCase().includes(c.toLowerCase()))
+        );
 
   const cardProps = (product) => ({
     product,
@@ -371,10 +373,10 @@ function FestiveStoreSection() {
         </div>
       </section>
 
-      {/* Suggested for You Section (2 Rows of products) */}
+      {/* Suggested for You Section */}
       <SuggestedForYouSection
-        title="Suggested for You"
-        subtitle="Handpicked fresh items just for you"
+        title={currentStore === "mall" ? "Super Mall Best Deals" : "Suggested for You"}
+        subtitle={currentStore === "mall" ? "Top brand groceries, essentials & packaged foods" : "Handpicked fresh items just for you"}
         customProducts={filteredProducts}
       />
 
@@ -384,8 +386,8 @@ function FestiveStoreSection() {
       {/* Category Products Section */}
       <section className="px-4 sm:px-6 py-2">
         <SectionHeader
-          title={!currentFilter || currentFilter === "All" ? "All Ready-to-Cook Products" : currentFilter}
-          viewAllTo="/product"
+          title={!currentFilter || currentFilter === "All" ? (currentStore === "mall" ? "All Super Mall Marketplace Deals" : "All Ready-to-Cook Products") : currentFilter}
+          viewAllTo={currentStore === "mall" ? "/product?store=mall" : "/product?store=festive"}
           className="mb-3"
         />
 

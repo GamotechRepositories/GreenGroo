@@ -389,19 +389,19 @@ function Product() {
   // Section-aware product list for right product grid
   const products = useMemo(() => {
     let baseList = [];
-    if (apiProducts.length > 0) {
-      baseList = apiProducts;
-    } else if (storeParam === "mall") {
+    if (storeParam === "mall") {
       baseList = SUPERMALL_PRODUCTS;
     } else if (storeParam === "festive") {
       baseList = READY2COOK_PRODUCTS;
+    } else if (apiProducts.length > 0) {
+      baseList = apiProducts;
     } else {
       baseList = categoryName ? getDummyCategoryProducts(categoryName) || [] : getAllDummyProducts();
     }
 
-    if (categoryName && (storeParam === "mall" || storeParam === "festive")) {
+    if (categoryName) {
       const target = categoryName.toLowerCase();
-      return baseList.filter((p) => {
+      const filtered = baseList.filter((p) => {
         const pCats = Array.isArray(p.categories)
           ? p.categories
           : p.categoryName
@@ -414,6 +414,7 @@ function Product() {
             c?.toLowerCase().includes(target)
         );
       });
+      return filtered.length > 0 ? filtered : baseList;
     }
 
     return baseList;
