@@ -4,6 +4,7 @@ import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
 import ProductFiltersBar from "./ProductFiltersBar";
+import ShopTopSlidingBanners from "./ShopTopSlidingBanners";
 function buildCategoryUrl(categoryName, params = {}) {
   const search = new URLSearchParams();
   search.set("categoryName", categoryName);
@@ -134,20 +135,12 @@ function useAllProductsFilters(products) {
   };
 }
 
-function CategoryFilterToolbar(props) {
-  return (
-    <div className="shrink-0 border-b border-border-light">
-      <ProductFiltersBar {...props} className="justify-start sm:justify-end" />
-    </div>
-  );
+function CategoryFilterToolbar() {
+  return null;
 }
 
-function AllProductsFilterToolbar(props) {
-  return (
-    <div className="shrink-0 border-b border-border-light">
-      <ProductFiltersBar {...props} className="justify-start sm:justify-end" />
-    </div>
-  );
+function AllProductsFilterToolbar() {
+  return null;
 }
 
 function useLoadMoreOnVisible({ enabled, onLoadMore }) {
@@ -343,6 +336,7 @@ function CategoryProductMain({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-0 pt-1 lg:px-3 lg:pt-2">
+        <ShopTopSlidingBanners />
         <CategoryHeaderSection
           category={activeCategoryDoc}
           categoryName={categoryName}
@@ -392,6 +386,9 @@ function AllProductsMain({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-0 pt-1 lg:px-3 lg:pt-2">
+        <ShopTopSlidingBanners />
+      </div>
       <AllProductsFilterToolbar
         selectedBrand={filters.selectedBrand}
         onBrandChange={(value) => filters.updateParam("brand", value)}

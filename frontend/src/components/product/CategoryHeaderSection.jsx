@@ -10,32 +10,6 @@ function buildCategoryUrl(categoryName, params = {}) {
   return `/product?${search.toString()}`;
 }
 
-function CategoryHeaderImage({ image, name }) {
-  const [failed, setFailed] = useState(false);
-
-  if (!image || failed) {
-    return (
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-mobile-surface sm:h-11 sm:w-11">
-        <span className="text-sm font-bold uppercase text-text-muted">
-          {name?.charAt(0) || "?"}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-mobile-surface sm:h-11 sm:w-11">
-      <img
-        src={image}
-        alt={name}
-        className="h-full w-full object-cover"
-        loading="lazy"
-        onError={() => setFailed(true)}
-      />
-    </div>
-  );
-}
-
 function ScrollArrow({ direction, onClick }) {
   return (
     <button
@@ -131,50 +105,33 @@ function SubcategoryPillScroller({ categoryName, subcategories, activeSubcategor
   );
 }
 
-function CategoryHeaderSection({ category, categoryName, subcategories = [], activeSubcategory }) {
+function CategoryHeaderSection({ categoryName, subcategories = [], activeSubcategory }) {
   const [searchParams] = useSearchParams();
   const preservedFilters = {
     brand: searchParams.get("brand")?.trim() || "",
     sort: searchParams.get("sort")?.trim() || "",
   };
 
-  const subtitle =
-    subcategories.length > 0
-      ? subcategories.join(", ")
-      : `Browse our wholesale ${categoryName} collection.`;
+  if (!subcategories || subcategories.length === 0) {
+    return null;
+  }
 
   return (
-    <section className="rounded-lg border border-border-light bg-white px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5">
-      <div className="flex items-center gap-2 sm:gap-2.5">
-        <CategoryHeaderImage image={category?.categoryImage} name={categoryName} />
-        <div className="min-w-0">
-          <h1 className="text-sm font-bold leading-tight text-text-primary sm:text-base">
-            {categoryName}
-          </h1>
-          <p className="mt-0.5 truncate text-[10px] leading-tight text-text-secondary sm:text-xs">
-            {subtitle}
-          </p>
+    <div className="mb-1 bg-white px-2 py-1 sm:px-3">
+      <div className="flex items-center gap-2">
+        <p className="shrink-0 text-[10px] font-semibold text-text-primary sm:text-xs">
+          Subcategory:
+        </p>
+        <div className="min-w-0 flex-1">
+          <SubcategoryPillScroller
+            categoryName={categoryName}
+            subcategories={subcategories}
+            activeSubcategory={activeSubcategory}
+            preservedFilters={preservedFilters}
+          />
         </div>
       </div>
-
-      {subcategories.length > 0 ? (
-        <div className="mt-1.5 sticky top-[7.25rem] z-20 -mx-2.5 bg-white px-2.5 pt-1.5 sm:-mx-3 sm:px-3 lg:static lg:mx-0 lg:bg-transparent lg:px-0">
-          <div className="mb-1 flex items-center gap-2">
-            <p className="shrink-0 text-[10px] font-semibold text-text-primary sm:text-xs">
-              Subcategory:
-            </p>
-            <div className="min-w-0 flex-1">
-              <SubcategoryPillScroller
-                categoryName={categoryName}
-                subcategories={subcategories}
-                activeSubcategory={activeSubcategory}
-                preservedFilters={preservedFilters}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </section>
+    </div>
   );
 }
 

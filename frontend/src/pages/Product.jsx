@@ -369,16 +369,7 @@ function Product() {
     return getAllDummyProducts();
   }, [apiProducts, categoryName]);
 
-  // Open Shop on first category so left rail + category products show together
-  useEffect(() => {
-    if (categoriesLoading) return;
-    if (categoryName || searchQuery || brandName) return;
-    if (!categories.length) return;
-    navigate(
-      `/product?categoryName=${encodeURIComponent(categories[0].categoryName)}`,
-      { replace: true }
-    );
-  }, [categoriesLoading, categories, categoryName, searchQuery, brandName, navigate]);
+
 
   const loading =
     categoriesLoading ||
