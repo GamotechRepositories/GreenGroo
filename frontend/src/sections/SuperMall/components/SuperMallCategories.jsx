@@ -1,8 +1,22 @@
 import React from "react";
+import { useSuperMall } from "../hooks/useSuperMall";
 import { SUPER_MALL_CATEGORIES } from "../../../data/superMallCategories";
 import SuperMallCategoryCard from "./SuperMallCategoryCard";
 
-export function SuperMallCategories({ onSelectCategory, selectedCategory }) {
+export function SuperMallCategories({ categories: propCategories, onSelectCategory, selectedCategory }) {
+  const { categories: hookCategories } = useSuperMall();
+  const rawList = propCategories?.length ? propCategories : hookCategories?.length ? hookCategories : SUPER_MALL_CATEGORIES;
+
+  const displayList = rawList.map((cat, idx) => ({
+    id: cat._id || cat.id || `sm-${idx}`,
+    name: cat.categoryName || cat.name,
+    slug: cat.slug || cat.categoryName || cat.name,
+    itemCount: cat.itemCount || (cat.productCount ? `${cat.productCount}+ items` : "50+ items"),
+    bgClass: cat.bgClass || "bg-[#E8F8EE]",
+    image: cat.categoryImage || cat.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&h=400&q=80",
+    emoji: cat.emoji,
+  }));
+
   return (
     <section className="px-4 sm:px-6 py-3">
       <div className="mb-4 flex items-center justify-between">
@@ -17,9 +31,9 @@ export function SuperMallCategories({ onSelectCategory, selectedCategory }) {
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {SUPER_MALL_CATEGORIES.map((cat) => (
+        {displayList.map((cat) => (
           <SuperMallCategoryCard
-            key={cat.id}
+            key={cat.id || cat.slug}
             cat={cat}
             isSelected={selectedCategory === cat.slug || selectedCategory === cat.name}
             onClick={() => onSelectCategory && onSelectCategory(cat.name)}

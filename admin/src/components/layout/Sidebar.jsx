@@ -7,11 +7,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  Layers,
+  FolderTree,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Sections & Categories', href: '/categories', icon: FolderTree },
 ];
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {

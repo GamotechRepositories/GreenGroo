@@ -1,5 +1,6 @@
 import productRoutes from "./routes/productRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
+import sectionRoutes from "./routes/sectionRoutes.js";
 import brandRoutes from "./routes/brandRoutes.js";
 import bannerRoutes from "./routes/bannerRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
@@ -9,6 +10,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 export default [
   { path: "/api/products", router: productRoutes },
   { path: "/api/categories", router: categoryRoutes },
+  { path: "/api/sections", router: sectionRoutes },
   { path: "/api/brands", router: brandRoutes },
   { path: "/api/herobanners", router: bannerRoutes },
   { path: "/api/offerbanners", router: bannerRoutes },

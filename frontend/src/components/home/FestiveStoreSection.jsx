@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "../mobile/SectionHeader";
@@ -279,7 +280,25 @@ function FestiveStoreSection() {
   };
 
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
-  const displayCategories = currentStore === "mall" ? SUPER_MALL_CATEGORIES : READY2COOK_SHOP_CATEGORIES;
+  const targetSection = currentStore === "mall" ? "supermall" : "ready2cook";
+  const { data: dbCategories = [] } = useCategoriesQuery({ section: targetSection });
+
+  const displayCategories = useMemo(() => {
+    if (Array.isArray(dbCategories) && dbCategories.length > 0) {
+      return dbCategories.map((c) => ({
+        _id: c._id,
+        name: c.categoryName,
+        slug: c.slug || c.categoryName,
+        tag: c.emoji ? `${c.emoji} ${c.categoryName}` : c.categoryName,
+        itemCount: c.itemCount || (c.productCount ? `${c.productCount}+ items` : "20+ items"),
+        bgClass: c.bgClass || "bg-[#E8F8EE]",
+        image: c.categoryImage || (currentStore === "mall" ? "/categories/grocery.webp" : "/categories/vegetables.webp"),
+        emoji: c.emoji,
+      }));
+    }
+    return currentStore === "mall" ? SUPER_MALL_CATEGORIES : READY2COOK_SHOP_CATEGORIES;
+  }, [dbCategories, currentStore]);
+
   const productPool = currentStore === "mall" ? SUPERMALL_PRODUCTS : READY2COOK_PRODUCTS;
 
   const filteredProducts =

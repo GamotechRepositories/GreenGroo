@@ -1,6 +1,10 @@
 import apiClient from './client';
+import categoryApi from './categoryApi';
 
 export const adminApi = {
-  // Base client ready for future admin endpoints
   client: apiClient,
+  category: categoryApi,
 };
+
+export { categoryApi };
+export default adminApi;

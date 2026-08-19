@@ -4,6 +4,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import AdminLayout from './components/layout/AdminLayout';
 import Dashboard from './pages/Dashboard';
+import Sections from './pages/Sections';
+import Categories from './pages/Categories';
 import Login from './pages/Login';
 
 export default function App() {
@@ -16,6 +18,8 @@ export default function App() {
 
             <Route path="/" element={<AdminLayout />}>
               <Route index element={<Dashboard />} />
+              <Route path="categories" element={<Categories />} />
+              <Route path="sections" element={<Navigate to="/categories" replace />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
