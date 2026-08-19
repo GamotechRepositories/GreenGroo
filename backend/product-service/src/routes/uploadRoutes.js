@@ -61,8 +61,6 @@ router.post("/", upload.single("file"), async (req, res) => {
       Key: s3Key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
-      // Public read so images are directly accessible
-      ACL: "public-read",
     });
 
     await s3.send(command);
