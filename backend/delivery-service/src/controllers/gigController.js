@@ -61,7 +61,7 @@ export const getLiveRiders = async (req, res, next) => {
     const riders = await DeliveryBoy.find({
       $and: [areaMatchForManager(manager), { isActive: true }],
     }).select(
-      "name phone status todayOnlineMinutes todayOnlineDate lastOnlineAt lastSeenAt shiftBooking area"
+      "name phone status todayOnlineMinutes todayOnlineDate lastOnlineAt lastSeenAt currentBooking area"
     );
 
     const today = new Date().toISOString().slice(0, 10);
@@ -79,7 +79,7 @@ export const getLiveRiders = async (req, res, next) => {
         todayOnlineMinutes: minutes,
         todayOnlineFormatted: formatOnlineMinutes(minutes),
         lastSeenAt: r.lastSeenAt,
-        shiftBooking: r.shiftBooking?.slot ? r.shiftBooking : null,
+        currentBooking: r.currentBooking?.shiftId ? r.currentBooking : null,
         area: r.area,
       };
     });

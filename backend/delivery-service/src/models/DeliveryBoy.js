@@ -3,10 +3,8 @@ import bcrypt from "bcrypt";
 
 const documentMetaSchema = new mongoose.Schema(
   {
-    fileName: { type: String, default: "" },
-    localPath: { type: String, default: "" },
-    /// data:image/...;base64,... so manager dashboard can preview
-    imageBase64: { type: String, default: "" },
+    /// AWS S3 hosted image URL
+    url: { type: String, default: "" },
     status: {
       type: String,
       enum: ["pending", "captured", "uploaded", "verified", "rejected"],
@@ -109,6 +107,9 @@ const deliveryBoySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    livenessPassedAt: {
+      type: Date,
+    },
 
     /// Live availability — changes often (go online/offline anytime).
     status: {
@@ -158,14 +159,21 @@ const deliveryBoySchema = new mongoose.Schema(
       type: Date,
     },
 
-    /// Informational shift booking for store staffing (does not gate online toggle).
-    shiftBooking: {
-      slot: {
-        type: String,
-        default: "",
+    /// Active shift slot booking pointer.
+    currentBooking: {
+      shiftId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Shift",
+        default: null,
       },
-      date: { type: Date },
-      bookedAt: { type: Date },
+      slotId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+      },
+      bookingId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+      },
     },
 
     isActive: {
@@ -235,6 +243,7 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     documents: this.documents,
     selfie: this.selfie,
     livenessPassed: this.livenessPassed,
+    livenessPassedAt: this.livenessPassedAt,
     status: this.status,
     lastStatusAt: this.lastStatusAt,
     lastSeenAt: this.lastSeenAt,
@@ -247,11 +256,11 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     todayEarnings: this.todayEarnings || 0,
     lastOrderAssignedAt: this.lastOrderAssignedAt || this.lastAssignedAt,
     lastAssignedAt: this.lastAssignedAt || this.lastOrderAssignedAt,
-    shiftBooking: this.shiftBooking?.slot
+    currentBooking: this.currentBooking?.shiftId
       ? {
-          slot: this.shiftBooking.slot,
-          date: this.shiftBooking.date,
-          bookedAt: this.shiftBooking.bookedAt,
+          shiftId: this.currentBooking.shiftId.toString(),
+          slotId: this.currentBooking.slotId ? this.currentBooking.slotId.toString() : "",
+          bookingId: this.currentBooking.bookingId ? this.currentBooking.bookingId.toString() : "",
         }
       : null,
     isActive: this.isActive,

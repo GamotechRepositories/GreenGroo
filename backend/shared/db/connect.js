@@ -6,7 +6,13 @@ const connectDB = async (serviceName = "service") => {
     "mongodb://127.0.0.1:27017/greengroccdb";
 
   try {
-    const conn = await mongoose.connect(uri);
+    const conn = await mongoose.connect(uri, {
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 60000,
+      connectTimeoutMS: 30000,
+    });
     console.log(
       `[${serviceName}] MongoDB connected: ${conn.connection.host} / ${conn.connection.name}`
     );

@@ -72,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final route = AuthService.routeForStep(
         boy.onboardingStep,
         complete: boy.onboardingComplete,
+        boy: boy,
       );
       Navigator.pushReplacementNamed(
         context,

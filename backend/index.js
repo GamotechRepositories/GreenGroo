@@ -18,6 +18,7 @@ import notificationRoutes from "./notification-service/src/routes.js";
 import staffRoutes from "./staff-service/src/routes.js";
 import farmerManagerRoutes from "./farmer-manager-service/src/routes.js";
 import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
+import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -102,6 +103,7 @@ if (!process.env.JWT_SECRET) {
 
 connectDB("greengrocc-backend").then(async () => {
   await seedInitialData();
+  initIncentiveCron();
   const server = http.createServer(app);
   initSocket(server);
   server.listen(PORT, "0.0.0.0", () => {

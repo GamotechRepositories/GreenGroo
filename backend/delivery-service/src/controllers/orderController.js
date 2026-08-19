@@ -5,6 +5,7 @@ import { upsertDailyIncentive } from "./incentiveController.js";
 import { serializeOrderForRider } from "../utils/orderSerializer.js";
 import { getIO } from "../../../socket.js";
 import { isCurrentlyPeak } from "../utils/peakHoursHelper.js";
+import { isS3Configured, uploadBufferToS3, uploadDataUrlToS3 } from "../services/s3Service.js";
 
 /**
  * Internal function: Picks rider with status: "online" under the same managerId,
@@ -419,7 +420,27 @@ export const uploadProofAndDeliver = async (req, res) => {
     const { orderId } = req.params;
 
     let imageUrl = req.body.deliveryProofImageUrl || req.body.imageUrl || "";
-    if (req.file) {
+
+    if (isS3Configured()) {
+      try {
+        if (req.file) {
+          const s3Res = await uploadBufferToS3({
+            buffer: req.file.buffer || req.file.path,
+            mimeType: req.file.mimetype,
+            folder: "delivery-proofs",
+            originalName: req.file.originalname,
+          });
+          if (s3Res?.url) imageUrl = s3Res.url;
+        } else if (imageUrl.startsWith("data:image/")) {
+          const s3Res = await uploadDataUrlToS3(imageUrl, "delivery-proofs");
+          if (s3Res?.url) imageUrl = s3Res.url;
+        }
+      } catch (s3Err) {
+        console.error("[Order Delivery Proof S3 Upload Error]", s3Err);
+      }
+    }
+
+    if (!imageUrl && req.file) {
       imageUrl = `/uploads/${req.file.filename}`;
     }
 

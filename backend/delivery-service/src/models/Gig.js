@@ -65,6 +65,11 @@ const gigSchema = new mongoose.Schema(
       type: Number,
       default: 100,
     },
+    tierMetric: {
+      type: String,
+      enum: ["orders", "earnings"],
+      default: "orders",
+    },
     tiers: [tierSchema],
     description: {
       type: String,
@@ -104,6 +109,7 @@ gigSchema.methods.toSafeJSON = function toSafeJSON() {
     targetHours: this.targetHours,
     targetEarnings: this.targetEarnings,
     bonusAmount: maxBonus || this.bonusAmount,
+    tierMetric: this.tierMetric || "orders",
     tiers: safeTiers,
     description: this.description,
     isActive: this.isActive,

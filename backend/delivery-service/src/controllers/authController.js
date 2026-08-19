@@ -10,6 +10,7 @@ import {
   emitRiderDocumentUpdated,
   emitRiderStatusUpdated,
 } from "../services/riderSocketService.js";
+import { isS3Configured, uploadDataUrlToS3 } from "../services/s3Service.js";
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -58,21 +59,27 @@ const authResponse = (deliveryBoy, token) => ({
   deliveryBoy: deliveryBoy.toSafeJSON(),
 });
 
-const applyDocumentMeta = (target, incoming) => {
+const applyDocumentMeta = async (target, incoming, folder = "delivery-boys/documents") => {
   if (!incoming || typeof incoming !== "object") return;
-  if (incoming.fileName !== undefined) target.fileName = String(incoming.fileName);
-  if (incoming.localPath !== undefined) {
-    target.localPath = String(incoming.localPath);
+
+  const imageBase64 = String(incoming.imageBase64 || "");
+
+  if (incoming.url !== undefined) {
+    target.url = String(incoming.url);
   }
-  if (incoming.imageBase64 !== undefined) {
-    const raw = String(incoming.imageBase64 || "");
-    // Keep only reasonable data-URL payloads (manager preview).
-    if (raw.startsWith("data:image/") && raw.length < 8_000_000) {
-      target.imageBase64 = raw;
-    } else if (raw === "") {
-      target.imageBase64 = "";
+
+  // Upload to AWS S3 if S3 is configured and imageBase64 is provided
+  if (isS3Configured() && imageBase64.startsWith("data:image/")) {
+    try {
+      const s3Res = await uploadDataUrlToS3(imageBase64, folder);
+      if (s3Res && s3Res.url) {
+        target.url = s3Res.url;
+      }
+    } catch (err) {
+      console.error("[AWS S3 Upload Error]", err);
     }
   }
+
   if (incoming.status !== undefined) target.status = String(incoming.status);
   target.capturedAt = incoming.capturedAt
     ? new Date(incoming.capturedAt)
@@ -100,11 +107,17 @@ export const register = async (req, res, next) => {
       });
     }
 
-    const existing = await DeliveryBoy.findOne({ phone });
+    const existing = await DeliveryBoy.findOne({ phone }).select("+password");
     if (existing) {
+      const match = await existing.comparePassword(password).catch(() => false);
+      if (match) {
+        const token = signToken(existing);
+        return res.status(200).json(authResponse(existing, token));
+      }
       return res.status(409).json({
         success: false,
-        message: "Delivery boy already registered with this phone number",
+        code: "ACCOUNT_EXISTS",
+        message: "Account already exists with this phone number. Please login with your password.",
       });
     }
 
@@ -316,17 +329,32 @@ export const updateOnboarding = async (req, res, next) => {
     if (body.documents && typeof body.documents === "object") {
       for (const key of DOC_KEYS) {
         if (body.documents[key]) {
-          applyDocumentMeta(deliveryBoy.documents[key], body.documents[key]);
+          await applyDocumentMeta(
+            deliveryBoy.documents[key],
+            body.documents[key],
+            `delivery-boys/documents/${key}`
+          );
         }
       }
+      deliveryBoy.markModified("documents");
     }
 
     if (body.selfie) {
-      applyDocumentMeta(deliveryBoy.selfie, body.selfie);
+      await applyDocumentMeta(
+        deliveryBoy.selfie,
+        body.selfie,
+        "delivery-boys/selfies"
+      );
+      deliveryBoy.markModified("selfie");
     }
 
     if (body.livenessPassed !== undefined) {
       deliveryBoy.livenessPassed = Boolean(body.livenessPassed);
+      if (deliveryBoy.livenessPassed) {
+        deliveryBoy.livenessPassedAt = body.livenessPassedAt
+          ? new Date(body.livenessPassedAt)
+          : new Date();
+      }
     }
 
     await deliveryBoy.save();
@@ -405,7 +433,7 @@ export const updateStatus = async (req, res, next) => {
 
     if (status === "online") {
       // 1. Shift Booking Verification
-      if (!existing.shiftBooking?.slot) {
+      if (!existing.currentBooking?.shiftId) {
         return res.status(400).json({
           success: false,
           code: "NO_SHIFT_BOOKED",

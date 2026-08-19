@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { Icon } from "../../components/ui/Icon";
 
 const CHECK_ITEMS = [
   { key: "aadhaar", label: "Aadhaar card", type: "doc" },
@@ -37,8 +36,8 @@ function docStatus(rider, key) {
 
 function imageSrc(rider, key) {
   if (!rider) return "";
-  if (key === "selfie") return rider.selfie?.imageBase64 || "";
-  return rider.documents?.[key]?.imageBase64 || "";
+  if (key === "selfie") return rider.selfie?.url || rider.selfie?.imageBase64 || "";
+  return rider.documents?.[key]?.url || rider.documents?.[key]?.imageBase64 || "";
 }
 
 export default function PendingDriverDetailPage() {
@@ -139,7 +138,6 @@ export default function PendingDriverDetailPage() {
     <PageShell>
       {toast && (
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-xs flex items-center gap-3">
-          <span>⚡</span>
           <span>{toast}</span>
         </div>
       )}
@@ -165,9 +163,6 @@ export default function PendingDriverDetailPage() {
           <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 font-bold text-xl shadow-xs">
-                  🛵
-                </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
@@ -178,7 +173,7 @@ export default function PendingDriverDetailPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1 font-medium">
-                    <span>📞 {rider.phone}</span>
+                    <span>Phone: {rider.phone}</span>
                     <span>•</span>
                     <span>Vehicle: <strong className="text-slate-800">{rider.vehicleType || "N/A"}</strong></span>
                     <span>•</span>
@@ -197,7 +192,7 @@ export default function PendingDriverDetailPage() {
                   onClick={() => onVerify("approved")}
                   className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-40 transition active:scale-95 cursor-pointer"
                 >
-                  {busyAction === "approved" ? "Approving…" : "Approve & Activate ✓"}
+                  {busyAction === "approved" ? "Approving…" : "Approve & Activate"}
                 </button>
                 <button
                   type="button"
@@ -212,8 +207,8 @@ export default function PendingDriverDetailPage() {
 
             {/* Bank Account Details Card */}
             <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <span>🏦</span> Bank Payout Details
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Bank Payout Details
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 text-xs">
                 <div>
@@ -286,7 +281,9 @@ export default function PendingDriverDetailPage() {
 
                       {item.type === "liveness" ? (
                         <div className="mt-3 rounded-lg bg-white p-3 text-center text-xs font-semibold text-slate-600 border border-slate-100">
-                          {rider.livenessPassed ? "✅ Liveness passed on device" : "❌ Liveness incomplete"}
+                          {rider.livenessPassed
+                            ? `Liveness passed ${rider.livenessPassedAt ? `on ${new Date(rider.livenessPassedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "on device"}`
+                            : "Liveness incomplete"}
                         </div>
                       ) : src ? (
                         <button
@@ -296,7 +293,7 @@ export default function PendingDriverDetailPage() {
                         >
                           <img src={src} alt={item.label} className="h-32 w-full object-cover group-hover:scale-105 transition" />
                           <span className="block bg-slate-900/80 py-1 text-[10px] font-bold text-white text-center">
-                            🔍 Tap to Enlarge Photo
+                            Tap to Enlarge Photo
                           </span>
                         </button>
                       ) : item.type !== "bank" ? (

@@ -130,6 +130,7 @@ class AuthService {
 
   static const _tokenKey = 'auth_token';
   static const _boyKey = 'delivery_boy';
+  static const _lastRouteKey = 'last_active_route';
 
   String? _token;
   DeliveryBoy? _deliveryBoy;
@@ -156,6 +157,30 @@ class AuthService {
     }
   }
 
+  Future<void> saveLastRoute(String routeName) async {
+    const ignored = {
+      '/',
+      '/splash',
+      '/select-language',
+      '/login',
+      '/select-vehicle',
+      '/select-city',
+      '/select-area',
+      '/upload-documents',
+      '/take-selfie',
+      '/liveness-check',
+    };
+    if (ignored.contains(routeName)) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastRouteKey, routeName);
+  }
+
+  Future<String?> getLastRoute() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastRouteKey);
+  }
+
   Future<void> _persist(String token, DeliveryBoy boy) async {
     _token = token;
     _deliveryBoy = boy;
@@ -170,6 +195,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_boyKey);
+    await prefs.remove(_lastRouteKey);
   }
 
   Future<AuthResult> register({
@@ -383,8 +409,28 @@ class AuthService {
     return AuthResult(token: token, deliveryBoy: boy);
   }
 
-  static String routeForStep(String step, {required bool complete}) {
-    if (complete) return '/home';
+  static String routeForStep(
+    String step, {
+    required bool complete,
+    DeliveryBoy? boy,
+    String? lastRoute,
+  }) {
+    final isComplete = complete ||
+        (boy != null &&
+            (boy.onboardingComplete ||
+                boy.onboardingStep == 'home' ||
+                boy.verificationStatus == 'approved'));
+
+    if (isComplete) {
+      if (lastRoute != null &&
+          lastRoute.isNotEmpty &&
+          lastRoute != '/' &&
+          lastRoute != '/splash') {
+        return lastRoute;
+      }
+      return '/home';
+    }
+
     return switch (step) {
       'city' => '/select-city',
       'area' => '/select-area',

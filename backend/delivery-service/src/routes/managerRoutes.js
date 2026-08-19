@@ -19,9 +19,6 @@ import {
   getLiveRiders,
 } from "../controllers/gigController.js";
 import {
-  getManagerShiftsByDate,
-} from "../controllers/shiftController.js";
-import {
   setPeakHours,
   updateRiderDocumentStatus,
   manualAssignOrder,

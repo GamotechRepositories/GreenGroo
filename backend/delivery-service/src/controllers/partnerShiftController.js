@@ -3,6 +3,8 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import { getIO } from "../../../socket.js";
 import { emitRiderStatusUpdated } from "../services/riderSocketService.js";
+import { checkInToBooking } from "./shiftController.js";
+import { checkAndTrackIncentive } from "./incentiveController.js";
 
 const formatDateString = (d) => {
   if (!d) {
@@ -633,6 +635,10 @@ export const goOnline = async (req, res, next) => {
     todayBooking.status = "ACTIVE";
     todayBooking.onlineAt = new Date();
     await shift.save();
+
+    // Call checkInToBooking & checkAndTrackIncentive triggers
+    await checkInToBooking(rider).catch(() => {});
+    await checkAndTrackIncentive(rider._id, manager._id).catch(() => {});
 
     await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
 

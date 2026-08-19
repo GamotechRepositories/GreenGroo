@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { Icon } from "../../components/ui/Icon";
 
 const EMPTY = { name: "", phone: "", password: "" };
 
@@ -14,6 +13,7 @@ export default function DriversPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -40,8 +40,9 @@ export default function DriversPage() {
     setError("");
     try {
       const res = await managerApi.createRider(form);
-      setMessage(res.data?.message || "Delivery partner login created successfully!");
+      setMessage(res.data?.message || "Delivery partner created successfully!");
       setForm(EMPTY);
+      setIsCreateOpen(false);
       await load();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to create delivery partner");
@@ -50,138 +51,171 @@ export default function DriversPage() {
     }
   };
 
+  const onlineCount = riders.filter((r) => r.status === "online").length;
+  const offlineCount = Math.max(0, riders.length - onlineCount);
+
   return (
-    <PageShell
-      title="Approved Delivery Partners"
-      subtitle={`Manage online riders & create account credentials for ${manager?.area || "Store Location"}`}
-    >
+    <PageShell>
       {message ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800 shadow-xs flex items-center gap-3">
-          <span>✅</span>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800 shadow-xs flex items-center justify-between">
           <span>{message}</span>
+          <button type="button" onClick={() => setMessage("")} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
       ) : null}
+
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-          {error}
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 flex items-center justify-between">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError("")} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
       )}
 
-      {/* Driver Registration Form */}
-      <form
-        onSubmit={onSubmit}
-        className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xs space-y-4"
-      >
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 font-bold">
-            <Icon name="user" size="sm" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Create Delivery Partner Account</h2>
-            <p className="text-xs text-slate-500">Register new rider credentials bound to this dark store hub</p>
+      {/* SINGLE COMPACT TOP ROW: ONLINE COUNT + OFFLINE COUNT + TOTAL COUNT + ACTION */}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
+        {/* CARD 1: ONLINE DRIVERS */}
+        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Online Drivers Today</p>
+          <div className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-base font-black text-emerald-600">{onlineCount}</span>
+            <span className="text-[10px] font-medium text-emerald-600">(Active Now)</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Full Name
-            </label>
-            <input
-              name="name"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="e.g. Ramesh Kumar"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Mobile Number
-            </label>
-            <input
-              name="phone"
-              value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              placeholder="e.g. 9876543210"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Temporary Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-              placeholder="Min 6 characters"
-              minLength={6}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
-              required
-            />
+        {/* CARD 2: OFFLINE DRIVERS */}
+        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Offline Drivers Today</p>
+          <div className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-base font-black text-slate-700">{offlineCount}</span>
+            <span className="text-[10px] font-medium text-slate-400">(Inactive)</span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <p className="text-xs text-slate-500">
-            ℹ️ Rider account will be auto-linked to <strong>{manager?.area}</strong>. After creation, approve documents under <strong>Driver Verification</strong>.
-          </p>
+        {/* CARD 3: TOTAL APPROVED DRIVERS */}
+        <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Approved Roster</p>
+          <div className="mt-0.5 flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-base font-black text-slate-900">{riders.length}</span>
+            <span className="text-[10px] font-medium text-slate-400">(Bound to Hub)</span>
+          </div>
+        </div>
+
+        {/* CARD 4: ACTIONS */}
+        <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-2xs flex flex-col justify-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Actions</p>
           <button
-            type="submit"
-            disabled={submitting}
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-60 transition active:scale-95"
+            type="button"
+            onClick={() => setIsCreateOpen((prev) => !prev)}
+            className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-emerald-700 transition active:scale-98 whitespace-nowrap"
           >
-            {submitting ? "Creating Credentials…" : "Create Partner Account"}
+            <span>{isCreateOpen ? "✕ Close Form" : "+ Create Delivery Partner"}</span>
           </button>
         </div>
-      </form>
-
-      {/* Driver Roster Header */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-slate-900">
-            Active Store Drivers ({riders.length})
-          </h2>
-          <span className="rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-bold text-emerald-800">
-            {riders.filter((r) => r.status === "online").length} Online Now
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={load}
-          className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-        >
-          🔄 Refresh Roster
-        </button>
       </div>
 
-      {/* Driver Roster Table */}
+      {/* COLLAPSIBLE DRIVER CREATION DROPDOWN FORM */}
+      {isCreateOpen && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Create Delivery Partner Account</h3>
+              <p className="text-[11px] text-slate-500">Register new rider credentials bound to {manager?.area || "Dark Store Hub"}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(false)}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+            >
+              ✕ Close
+            </button>
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Full Name
+                </label>
+                <input
+                  name="name"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Mobile Number
+                </label>
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="e.g. 9876543210"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Temporary Password
+                </label>
+                <input
+                  type="password"
+                  name="password"
+                  value={form.password}
+                  onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                  placeholder="Min 6 characters"
+                  minLength={6}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-60 transition"
+              >
+                {submitting ? "Creating Credentials…" : "Create Partner Account"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* DRIVER ROSTER TABLE */}
       {loading ? (
         <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : riders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
-          <p className="text-3xl mb-2">🛵</p>
           <h3 className="text-base font-bold text-slate-800">No Approved Drivers</h3>
           <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-            No delivery partners approved for this location yet. Create an account above or check Driver Verification.
+            No delivery partners approved for this location yet. Click "+ Create Delivery Partner" above to register credentials.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th className="py-3.5 px-4">Driver Name</th>
-                <th className="py-3.5 px-4">Mobile Phone</th>
-                <th className="py-3.5 px-4">Vehicle Type</th>
-                <th className="py-3.5 px-4">Hub / Area</th>
-                <th className="py-3.5 px-4">Online Status</th>
+        <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-xs">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
+              <tr>
+                <th className="py-2 px-5">Driver Name</th>
+                <th className="py-2 px-5">Mobile Phone</th>
+                <th className="py-2 px-5">Vehicle Type</th>
+                <th className="py-2 px-5">Hub / Area</th>
+                <th className="py-2 px-5">Online Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -190,19 +224,16 @@ export default function DriversPage() {
                 return (
                   <tr key={r.id || r._id} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-4 font-bold text-slate-900">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">🛵</span>
-                        <span>{r.name || "Delivery Partner"}</span>
-                      </div>
+                      <span>{r.name || "Delivery Partner"}</span>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-700 font-medium">
-                      📞 {r.phone}
+                      {r.phone}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-800">
                       {r.vehicleType || "Scooter"}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-700">
-                      📍 {r.area || manager?.area || "Hub"}
+                      {r.area || manager?.area || "Hub"}
                     </td>
                     <td className="py-3.5 px-4">
                       <span
@@ -213,7 +244,7 @@ export default function DriversPage() {
                         }`}
                       >
                         <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-                        {isOnline ? "ONLINE 🟢" : (r.status || "OFFLINE").toUpperCase()}
+                        {isOnline ? "ONLINE" : (r.status || "OFFLINE").toUpperCase()}
                       </span>
                     </td>
                   </tr>

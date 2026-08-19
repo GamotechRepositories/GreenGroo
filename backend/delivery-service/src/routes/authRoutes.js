@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "@greengrocc/shared";
+import { protect, optionalAuth } from "@greengrocc/shared";
 import {
   getAreaManager,
   getActiveHubs,
@@ -11,8 +11,10 @@ import {
   updateStatus,
 } from "../controllers/authController.js";
 import {
-  bookShift,
-  getShiftBooking,
+  bookSlot,
+  cancelBooking,
+  getMyBooking,
+  getAvailableSlots,
 } from "../controllers/shiftController.js";
 import { getLoginHours } from "../controllers/gigController.js";
 
@@ -26,16 +28,12 @@ import {
 } from "../controllers/riderOrderController.js";
 
 import {
-  getAvailableSlots,
-  bookSlot,
-  getMyBookings,
-  toggleNotification,
-  cancelBooking,
   goOnline,
   goOffline,
 } from "../controllers/partnerShiftController.js";
 
 import { getPartnerGigs } from "../controllers/gigManagementController.js";
+import { getAvailableIncentives } from "../controllers/incentiveController.js";
 
 const router = express.Router();
 
@@ -47,19 +45,20 @@ router.get("/active-hubs", getActiveHubs);
 router.patch("/onboarding", protect, updateOnboarding);
 router.patch("/status", protect, updateStatus);
 router.post("/heartbeat", protect, heartbeat);
-router.post("/shift-booking", protect, bookShift);
-router.get("/shift-booking/:riderId", protect, getShiftBooking);
+router.post("/shift-booking", protect, bookSlot);
+router.get("/shift-booking/:riderId", protect, getMyBooking);
 router.get("/login-hours", protect, getLoginHours);
 
 // Partner Shift & Slot Management APIs
-router.get("/available-slots", protect, getAvailableSlots);
+router.get("/available-slots", optionalAuth, getAvailableSlots);
 router.post("/shift-bookings", protect, bookSlot);
-router.get("/shift-bookings/my", protect, getMyBookings);
-router.post("/shift-bookings/:bookingId/notify", protect, toggleNotification);
+router.get("/shift-bookings/my", protect, getMyBooking);
 router.put("/shift-bookings/:bookingId/cancel", protect, cancelBooking);
+router.delete("/shift-bookings/:bookingId", protect, cancelBooking);
 router.get("/gigs", protect, getPartnerGigs);
+router.get("/incentives/available", protect, getAvailableIncentives);
 
-// Mandatory Location Verification & Go Online / Go Offline Gates
+// Location Verification & Go Online / Go Offline Gates
 router.post("/go-online", protect, goOnline);
 router.post("/go-offline", protect, goOffline);
 

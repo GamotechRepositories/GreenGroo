@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { managerApi } from "../../api/managerApi";
 
@@ -348,24 +349,13 @@ export default function ShiftManagementPage() {
         {/* CARD 5: ACTIONS */}
         <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-2xs flex flex-col justify-center">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Actions</p>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-emerald-700 transition active:scale-98 whitespace-nowrap"
+          <div className="flex items-center">
+            <Link
+              to="/shifts/create"
+              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-emerald-700 transition active:scale-98 whitespace-nowrap"
             >
-              <span>+ Shift Slots</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setGigDate(selectedDate);
-                setIsGigModalOpen(true);
-              }}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-amber-600 px-2 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-amber-700 transition active:scale-98 whitespace-nowrap"
-            >
-              <span>+ Create Gig</span>
-            </button>
+              <span>+ Create Shift</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -376,21 +366,8 @@ export default function ShiftManagementPage() {
         </div>
       )}
 
-      {/* SHIFTS TABLE CONTAINER (EXACT MATCH TO REFERENCE SCREENSHOT) */}
+      {/* SHIFTS TABLE CONTAINER */}
       <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">
-        {/* Table Header Row */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h2 className="text-base font-bold text-slate-900">Shifts</h2>
-          <button
-            type="button"
-            onClick={loadShifts}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-          >
-            <span>🔄</span>
-            <span>Refresh</span>
-          </button>
-        </div>
-
         {loading ? (
           <div className="py-16 text-center text-xs font-semibold text-slate-400">Loading shifts data...</div>
         ) : shifts.length === 0 ? (
@@ -401,15 +378,15 @@ export default function ShiftManagementPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
                 <tr>
-                  <th className="px-5 py-3.5">SHIFT TYPES</th>
-                  <th className="px-5 py-3.5">DATE</th>
-                  <th className="px-5 py-3.5">TIME SLOTS</th>
-                  <th className="px-5 py-3.5">AVAILABLE SLOTS</th>
-                  <th className="px-5 py-3.5">BOOKED SLOTS</th>
-                  <th className="px-5 py-3.5 text-right">ACTIONS</th>
+                  <th className="px-5 py-2">SHIFT TYPES</th>
+                  <th className="px-5 py-2">DATE</th>
+                  <th className="px-5 py-2">TIME SLOTS</th>
+                  <th className="px-5 py-2">AVAILABLE SLOTS</th>
+                  <th className="px-5 py-2">BOOKED SLOTS</th>
+                  <th className="px-5 py-2 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -473,153 +450,6 @@ export default function ShiftManagementPage() {
                     );
                   });
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination Row (Matching Reference Screenshot) */}
-        <div className="flex flex-wrap items-center justify-end gap-6 p-4 border-t border-slate-100 text-xs text-slate-500 font-medium">
-          <div className="flex items-center gap-2">
-            <span>Rows per page:</span>
-            <select
-              value={rowsPerPage}
-              onChange={(e) => setRowsPerPage(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-
-          <div>
-            1 - {shifts.length} of {shifts.length}
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-300 disabled:opacity-50"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              disabled
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-300 disabled:opacity-50"
-            >
-              ›
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* STORE GIGS & INCENTIVES TABLE CONTAINER */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">
-        {/* Table Header Row */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span>🔥</span>
-              <span>Store Gigs & Driver Incentives</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Active peak hour bonuses & earnings target incentives published for drivers in your store area.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setGigDate(selectedDate);
-                setIsGigModalOpen(true);
-              }}
-              className="flex items-center gap-1 rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-amber-700 transition cursor-pointer"
-            >
-              <span>+</span>
-              <span>Create Gig / Incentive</span>
-            </button>
-            <button
-              type="button"
-              onClick={loadGigs}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-            >
-              <span>🔄</span>
-            </button>
-          </div>
-        </div>
-
-        {loadingGigs ? (
-          <div className="py-12 text-center text-xs font-semibold text-slate-400">Loading store gigs...</div>
-        ) : gigs.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 space-y-2">
-            <p className="text-2xl">🎁</p>
-            <p className="text-xs font-bold text-slate-600">No active store gigs or incentives created for this date.</p>
-            <p className="text-[11px] text-slate-400">Click "+ Create Gig / Incentive" above to add peak hour bonuses or target earnings incentives.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                <tr>
-                  <th className="px-5 py-3.5">GIG / INCENTIVE TITLE</th>
-                  <th className="px-5 py-3.5">TYPE</th>
-                  <th className="px-5 py-3.5">DATE & TIME WINDOW</th>
-                  <th className="px-5 py-3.5">TARGET / CONDITION</th>
-                  <th className="px-5 py-3.5">BONUS AMOUNT</th>
-                  <th className="px-5 py-3.5 text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {gigs.map((g) => (
-                  <tr key={g.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-5 py-4 font-bold text-slate-900">
-                      {g.title}
-                      {g.description && <p className="text-[11px] font-normal text-slate-400 mt-0.5">{g.description}</p>}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-extrabold ${
-                        g.type === "hours_bonus"
-                          ? "bg-amber-100 text-amber-800 border border-amber-200"
-                          : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                      }`}>
-                        {g.type === "hours_bonus" ? "⏳ Peak Hours Bonus" : "💰 Target Earnings Bonus"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 font-semibold text-slate-700">
-                      {g.dateString} <span className="text-slate-400 font-normal">({g.startTime} – {g.endTime})</span>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-slate-700">
-                      {g.tiers && g.tiers.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          {g.tiers.map((t, i) => (
-                            <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800">
-                              <span className="text-slate-400">Slab {i + 1}:</span>
-                              <span>{g.type === "hours_bonus" ? `${t.minTarget} hrs` : `₹${t.minTarget}`}</span>
-                              <span className="text-emerald-600">➔ +₹{t.bonusAmount}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        g.type === "hours_bonus" ? `Work ${g.targetHours} hrs during shift` : `Earn ₹${g.targetEarnings} in window`
-                      )}
-                    </td>
-                    <td className="px-5 py-4 font-black text-emerald-600 text-sm">
-                      Up to +₹{g.bonusAmount}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteGig(g.id)}
-                        className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>

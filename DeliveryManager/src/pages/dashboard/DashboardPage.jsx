@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { Icon } from "../../components/ui/Icon";
 
 export default function DashboardPage() {
   const { manager } = useAuth();
@@ -36,8 +35,6 @@ export default function DashboardPage() {
       subtext: "Awaiting pack & dispatch",
       to: "/orders",
       urgent: (summary?.incomingOrders ?? 0) > 0,
-      icon: "orders",
-      iconBg: "bg-emerald-50 text-emerald-600",
     },
     {
       label: "Riders Online",
@@ -45,8 +42,6 @@ export default function DashboardPage() {
       subtext: "Available for delivery",
       to: "/drivers",
       urgent: false,
-      icon: "truck",
-      iconBg: "bg-indigo-50 text-indigo-600",
     },
     {
       label: "Driver Applications",
@@ -54,8 +49,6 @@ export default function DashboardPage() {
       subtext: "Awaiting verification",
       to: "/drivers/pending",
       urgent: (summary?.pendingDrivers ?? 0) > 0,
-      icon: "user",
-      iconBg: "bg-purple-50 text-purple-600",
     },
     {
       label: "Inventory SKUs",
@@ -63,8 +56,6 @@ export default function DashboardPage() {
       subtext: "Products in store",
       to: "/stock",
       urgent: false,
-      icon: "box",
-      iconBg: "bg-blue-50 text-blue-600",
     },
     {
       label: "Low Stock Items",
@@ -72,8 +63,6 @@ export default function DashboardPage() {
       subtext: "Items below threshold",
       to: "/stock",
       urgent: (summary?.lowStockItems ?? 0) > 0,
-      icon: "clipboard",
-      iconBg: "bg-rose-50 text-rose-600",
     },
   ];
 
@@ -90,7 +79,6 @@ export default function DashboardPage() {
             to="/orders"
             className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition"
           >
-            <Icon name="orders" size="sm" />
             View Orders {summary?.incomingOrders > 0 && `(${summary.incomingOrders})`}
           </Link>
           <button
@@ -98,14 +86,14 @@ export default function DashboardPage() {
             onClick={fetchDashboardData}
             className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
           >
-            🔄 Refresh
+            Refresh
           </button>
         </div>
       </div>
 
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-          ⚠️ {error}
+          {error}
         </div>
       )}
 
@@ -126,14 +114,12 @@ export default function DashboardPage() {
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${kpi.iconBg}`}>
-                    <Icon name={kpi.icon} size="sm" />
-                  </div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">KPI</span>
                   {kpi.urgent && (
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
                   )}
                 </div>
-                <p className="mt-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <p className="mt-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   {kpi.label}
                 </p>
                 <p className="mt-0.5 text-2xl font-extrabold text-slate-900 tracking-tight">
@@ -154,9 +140,6 @@ export default function DashboardPage() {
           to="/orders"
           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-emerald-50 hover:border-emerald-200 transition group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-            <Icon name="orders" size="md" />
-          </div>
           <div>
             <p className="font-bold text-slate-900">Incoming Orders</p>
             <p className="text-xs text-slate-500 mt-0.5">Pack, dispatch & track orders</p>
@@ -167,9 +150,6 @@ export default function DashboardPage() {
           to="/drivers"
           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-indigo-50 hover:border-indigo-200 transition group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
-            <Icon name="truck" size="md" />
-          </div>
           <div>
             <p className="font-bold text-slate-900">Drivers</p>
             <p className="text-xs text-slate-500 mt-0.5">Online riders & assignments</p>
@@ -180,9 +160,6 @@ export default function DashboardPage() {
           to="/drivers/pending"
           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-purple-50 hover:border-purple-200 transition group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-sm">
-            <Icon name="user" size="md" />
-          </div>
           <div>
             <p className="font-bold text-slate-900">Driver Verification</p>
             <p className="text-xs text-slate-500 mt-0.5">Approve new driver applications</p>
@@ -193,9 +170,6 @@ export default function DashboardPage() {
           to="/stock"
           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-blue-50 hover:border-blue-200 transition group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-            <Icon name="box" size="md" />
-          </div>
           <div>
             <p className="font-bold text-slate-900">Stock Inventory</p>
             <p className="text-xs text-slate-500 mt-0.5">View & manage store stock</p>
@@ -206,9 +180,6 @@ export default function DashboardPage() {
           to="/shifts"
           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-teal-50 hover:border-teal-200 transition group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white shadow-sm">
-            <Icon name="calendar" size="md" />
-          </div>
           <div>
             <p className="font-bold text-slate-900">Shifts & Slots</p>
             <p className="text-xs text-slate-500 mt-0.5">Manage rider shift schedule</p>
@@ -219,9 +190,6 @@ export default function DashboardPage() {
           to="/alerts"
           className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-rose-50 hover:border-rose-200 transition group"
         >
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm">
-            <Icon name="bell" size="md" />
-          </div>
           <div>
             <p className="font-bold text-slate-900">Alerts</p>
             <p className="text-xs text-slate-500 mt-0.5">Operational alerts & notifications</p>

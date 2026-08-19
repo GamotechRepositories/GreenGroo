@@ -11,7 +11,9 @@ import PendingDriversPage from "./pages/drivers/PendingDriversPage";
 import PendingDriverDetailPage from "./pages/drivers/PendingDriverDetailPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import ShiftManagementPage from "./pages/shifts/ShiftManagementPage";
+import CreateShiftPage from "./pages/shifts/CreateShiftPage";
 import IncentivesPage from "./pages/incentives/IncentivesPage";
+import CreateGigPage from "./pages/incentives/CreateGigPage";
 import AlertsPage from "./pages/alerts/AlertsPage";
 
 function App() {
@@ -25,12 +27,14 @@ function App() {
             <Route element={<ManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/shifts" element={<ShiftManagementPage />} />
+              <Route path="/shifts/create" element={<CreateShiftPage />} />
               <Route path="/stock" element={<StockPage />} />
               <Route path="/drivers" element={<DriversPage />} />
               <Route path="/drivers/pending" element={<PendingDriversPage />} />
               <Route path="/drivers/pending/:id" element={<PendingDriverDetailPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/incentives" element={<IncentivesPage />} />
+              <Route path="/incentives/create" element={<CreateGigPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
             </Route>
           </Route>

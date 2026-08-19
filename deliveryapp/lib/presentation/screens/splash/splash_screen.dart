@@ -95,10 +95,11 @@ class _SplashScreenState extends State<SplashScreen>
       );
     } catch (_) {}
 
-    if (_hasSession) {
-      // Don't block scooter animation on network.
-      AuthService.instance.fetchMe();
+    await AuthService.instance.loadSession();
+    if (AuthService.instance.isLoggedIn) {
+      await AuthService.instance.fetchMe();
     }
+    _hasSession = AuthService.instance.isLoggedIn;
 
     if (!mounted || _started) return;
     _started = true;
@@ -107,17 +108,21 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
     if (!mounted || _navigated) return;
     _navigated = true;
 
     final auth = AuthService.instance;
     if (auth.isLoggedIn) {
       final boy = auth.deliveryBoy;
+      final lastRoute = await auth.getLastRoute();
       final route = AuthService.routeForStep(
         boy?.onboardingStep ?? 'vehicle',
         complete: boy?.onboardingComplete ?? false,
+        boy: boy,
+        lastRoute: lastRoute,
       );
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed(
         route,
         arguments: AuthService.argumentsForStep(boy),
@@ -125,7 +130,7 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // New / not registered users: Splash → Choose Language → Login/Register.
+    // New / unregistered users: Splash → Choose Language → Login/Register.
     Navigator.of(context).pushReplacementNamed(AppRoutes.selectLanguage);
   }
 

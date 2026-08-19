@@ -4,19 +4,19 @@ const incentiveSchema = new mongoose.Schema(
   {
     riderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Rider",
+      ref: "DeliveryBoy",
       required: [true, "Rider ID is required"],
       index: true,
     },
     managerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Manager",
+      ref: "DeliveryManager",
       required: [true, "Manager ID is required"],
       index: true,
     },
     storeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Manager",
+      ref: "DeliveryManager",
       index: true,
     },
     date: {
@@ -34,6 +34,10 @@ const incentiveSchema = new mongoose.Schema(
     targetBonusEarned: {
       type: Number,
       default: 0,
+    },
+    settled: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

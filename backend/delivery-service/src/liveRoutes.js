@@ -3,11 +3,12 @@ import { protect } from "@greengrocc/shared";
 import { requireDeliveryManager } from "./middleware/requireDeliveryManager.js";
 import { updateStatus } from "./controllers/authController.js";
 import {
-  bookShift,
-  getShiftBooking,
-  getManagerShiftsByDate,
-  listShifts,
+  bookSlot,
+  getMyBooking,
 } from "./controllers/shiftController.js";
+import {
+  listShifts,
+} from "./controllers/shiftManagementController.js";
 import {
   getLoginHours,
   getLiveRiders,
@@ -30,8 +31,8 @@ import {
 
 const riderRouter = express.Router();
 riderRouter.post("/status", protect, updateStatus);
-riderRouter.post("/shift-booking", protect, bookShift);
-riderRouter.get("/shift-booking/:riderId", protect, getShiftBooking);
+riderRouter.post("/shift-booking", protect, bookSlot);
+riderRouter.get("/shift-booking/:riderId", protect, getMyBooking);
 riderRouter.get("/login-hours", protect, getLoginHours);
 riderRouter.get("/offer", protect, getPendingOffer);
 riderRouter.post("/orders/:orderId/accept", protect, acceptOrderOffer);
@@ -45,7 +46,7 @@ managerRouter.use(protect, requireDeliveryManager);
 managerRouter.post("/rider/:riderId/document-status", updateRiderDocumentStatus);
 managerRouter.post("/order/assign", manualAssignOrder);
 managerRouter.post("/peak-hours", setPeakHours);
-managerRouter.get("/shifts", getManagerShiftsByDate);
+managerRouter.get("/shifts", listShifts);
 managerRouter.get("/riders/live", getLiveRiders);
 
 const shiftsRouter = express.Router();

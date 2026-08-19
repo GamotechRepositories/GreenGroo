@@ -5,7 +5,6 @@ import StoreOrder from "../models/StoreOrder.js";
 import PeakHoursConfig from "../models/PeakHoursConfig.js";
 import { areaMatchForManager } from "../utils/storeResolver.js";
 import { isCurrentlyPeak } from "../utils/peakHoursHelper.js";
-import { findShiftSlot } from "../data/shiftSlots.js";
 
 const DOC_KEYS = ["aadhaar", "pan", "passport", "license", "rc", "insurance"];
 
@@ -219,4 +218,4 @@ export const getPeakHours = async (req, res, next) => {
   }
 };
 
-export { findShiftSlot };
+

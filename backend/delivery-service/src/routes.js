@@ -4,7 +4,6 @@ import webhookRoutes from "./routes/webhookRoutes.js";
 import managerRoutes from "./routes/managerRoutes.js";
 import liveRoutes from "./liveRoutes.js";
 
-import shiftSlotRoutes from "./routes/shiftSlot.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import alertRoutes from "./routes/alert.routes.js";
 import incentiveRoutes from "./routes/incentive.routes.js";
@@ -15,7 +14,6 @@ export default [
   { path: "/api/webhooks", router: webhookRoutes },
   { path: "/api/shipments", router: shipmentRoutes },
   ...liveRoutes,
-  { path: "/api/shift-slots", router: shiftSlotRoutes },
   { path: "/api/delivery-orders", router: orderRoutes },
   { path: "/api/alerts", router: alertRoutes },
   { path: "/api/incentives", router: incentiveRoutes },

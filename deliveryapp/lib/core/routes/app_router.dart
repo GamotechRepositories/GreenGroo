@@ -26,10 +26,15 @@ import '../../presentation/screens/vehicle/vehicle_details_screen.dart';
 import '../../presentation/screens/wallet/wallet_screen.dart';
 import '../../presentation/shell/main_shell.dart';
 import '../../core/theme/theme_rebuild.dart';
+import '../../data/services/auth_service.dart';
 import 'app_routes.dart';
 
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+    if (settings.name != null && settings.name!.isNotEmpty) {
+      AuthService.instance.saveLastRoute(settings.name!);
+    }
+
     return MaterialPageRoute(
       settings: settings,
       builder: (context) => ThemeRebuild(

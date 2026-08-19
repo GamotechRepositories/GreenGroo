@@ -95,47 +95,25 @@ class _MainShellState extends State<MainShell> {
       backgroundColor: AppColors.surface,
       extendBody: false,
       drawer: const AppDrawer(),
-      appBar: CustomAppBar(
-        title: _titleForIndex(l10n, _currentIndex),
-        showTitle: _currentIndex != 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        actions: _currentIndex == 0
-            ? [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_outlined),
-                      onPressed: () => _tabIndex.value = 4,
-                    ),
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
+      appBar: _currentIndex == 0
+          ? null
+          : CustomAppBar(
+              title: _titleForIndex(l10n, _currentIndex),
+              showTitle: true,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
-              ]
-            : [
+              ),
+              actions: [
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   onPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.settings),
                 ),
               ],
-      ),
+            ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
         child: KeyedSubtree(

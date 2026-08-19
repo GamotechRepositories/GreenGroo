@@ -82,7 +82,7 @@ export default function AlertsPage() {
               onClick={loadAlerts}
               className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
             >
-              🔄 Refresh
+              Refresh
             </button>
           </div>
         </div>
@@ -91,7 +91,6 @@ export default function AlertsPage() {
           <p className="py-8 text-center text-xs text-slate-500">Loading alerts feed…</p>
         ) : alerts.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
-            <p className="text-3xl mb-2">🔔</p>
             <p className="text-sm font-bold text-slate-700">No alerts found</p>
             <p className="text-xs text-slate-400 mt-1">
               Your store hub is running cleanly. New stock alerts or delayed delivery flags will appear here.
@@ -99,14 +98,14 @@ export default function AlertsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="py-3.5 px-4">Timestamp</th>
-                  <th className="py-3.5 px-4">Alert Type</th>
-                  <th className="py-3.5 px-4">Message / Details</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                <tr className="bg-black text-white text-xs font-bold uppercase tracking-wider">
+                  <th className="py-2 px-4">Timestamp</th>
+                  <th className="py-2 px-4">Alert Type</th>
+                  <th className="py-2 px-4">Message / Details</th>
+                  <th className="py-2 px-4">Status</th>
+                  <th className="py-2 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -131,7 +130,7 @@ export default function AlertsPage() {
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       {item.isRead ? (
                         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                          READ ✓
+                          READ
                         </span>
                       ) : (
                         <span className="rounded-full bg-rose-500 px-2.5 py-0.5 text-[11px] font-bold text-white uppercase animate-pulse">
@@ -146,7 +145,7 @@ export default function AlertsPage() {
                           onClick={() => onMarkRead(item._id)}
                           className="rounded-lg border border-rose-300 bg-white px-3 py-1 text-xs font-bold text-rose-700 hover:bg-rose-50 transition"
                         >
-                          Mark Read ✓
+                          Mark Read
                         </button>
                       )}
                     </td>

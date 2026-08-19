@@ -280,9 +280,6 @@ export default function OrdersPage() {
         <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : filteredOrders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mb-3">
-            <Icon name="orders" size="xl" />
-          </div>
           <h3 className="text-sm font-bold text-slate-800">No Orders Found</h3>
           <p className="mt-1 text-xs text-slate-400">
             {searchQuery ? "No orders match your search." : "No orders in this category right now."}
@@ -290,16 +287,16 @@ export default function OrdersPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-sm">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th className="py-3.5 px-4">Order # / Date</th>
-                <th className="py-3.5 px-4">Customer Details</th>
-                <th className="py-3.5 px-4">Delivery Address</th>
-                <th className="py-3.5 px-4">Items Summary</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Assigned Driver</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
+              <tr className="bg-black text-white text-xs font-bold uppercase tracking-wider">
+                <th className="py-2 px-4">Order # / Date</th>
+                <th className="py-2 px-4">Customer Details</th>
+                <th className="py-2 px-4">Delivery Address</th>
+                <th className="py-2 px-4">Items Summary</th>
+                <th className="py-2 px-4">Status</th>
+                <th className="py-2 px-4">Assigned Driver</th>
+                <th className="py-2 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -322,10 +319,10 @@ export default function OrdersPage() {
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-900">{order.customerName || "Customer"}</div>
-                      <div className="text-slate-500 text-[11px]">📞 {order.customerPhone || "N/A"}</div>
+                      <div className="text-slate-500 text-[11px]">{order.customerPhone || "N/A"}</div>
                     </td>
                     <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate">
-                      📍 {order.customerAddress || "Store Pickup"}
+                      {order.customerAddress || "Store Pickup"}
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="space-y-1">

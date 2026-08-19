@@ -454,18 +454,22 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     const orderEarnings = '${_kRupee}45.00';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.sm,
+        MediaQuery.of(context).padding.top + AppSpacing.sm,
         AppSpacing.lg,
         AppSpacing.xl,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ProfileHeader(
+          _HeaderWithOnlineToggle(
             name: _partnerName,
             isVerified: isVerified,
+            isOnline: _isOnline,
+            updatingStatus: _updatingStatus,
+            verificationPending: _verificationPending,
+            onStatusToggle: _onStatusToggle,
             onProfileTap: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
           if (_showVerifiedBanner) ...[
@@ -484,18 +488,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               loading: _loadingManager,
             ),
           ],
-          const SizedBox(height: AppSpacing.md),
-          _OnlineStatusCard(
-            isOnline: _isOnline,
-            updating: _updatingStatus,
-            enabled: !_verificationPending,
-            onlineTitle: l10n.youAreOnline,
-            offlineTitle: l10n.youAreOffline,
-            subtitle: _isOnline
-                ? l10n.receiveDeliveryRequests
-                : l10n.offlineDeliveryHint,
-            onChanged: _onStatusToggle,
-          ),
           if (_homeGigs.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             _GigDetailsHeaderCard(
@@ -514,6 +506,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             gigsHistory: '${ShiftService.ordersToday} Gigs',
           ),
           const SizedBox(height: AppSpacing.md),
+          if (_homeGigs.isNotEmpty) ...[
+            _LiveGigIncentiveProgressCard(
+              gigs: _homeGigs,
+              onTapMore: () => ShellNavigation.instance.goToTab(1),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           _AllOffersSectionCard(
             gigs: _homeGigs,
             onSeeAll: () => ShellNavigation.instance.goToTab(1),
@@ -585,79 +584,99 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
+class _HeaderWithOnlineToggle extends StatelessWidget {
+  const _HeaderWithOnlineToggle({
     required this.name,
     required this.isVerified,
+    required this.isOnline,
+    required this.updatingStatus,
+    required this.verificationPending,
+    required this.onStatusToggle,
     required this.onProfileTap,
   });
 
   final String name;
   final bool isVerified;
+  final bool isOnline;
+  final bool updatingStatus;
+  final bool verificationPending;
+  final ValueChanged<bool> onStatusToggle;
   final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        // ROW 1: Menu Bar (3 lines) + Delivery Partner Name + Verified Badge + Profile Icon on far right
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Builder(
+              builder: (ctx) => IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.menu_rounded, size: 28, color: Colors.black87),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
               ),
-              if (isVerified) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      LineIcon(
-                        LineIconName.verified,
-                        size: 14,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        l10n.verifiedPartner,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        GestureDetector(
-          onTap: onProfileTap,
-          child: CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.primaryLight,
-            backgroundImage: const AssetImage(
-              'assets/splash/delivery_scooter.webp',
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      name,
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isVerified) ...[
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 18,
+                      color: Color(0xFF059669),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: onProfileTap,
+              child: Container(
+                padding: const EdgeInsets.all(1.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                ),
+                child: const CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Color(0xFFDCFCE7),
+                  backgroundImage: AssetImage('assets/splash/delivery_scooter.webp'),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // ROW 2: Online / Offline Toggle below the partner name
+        _OnlineStatusCard(
+          isOnline: isOnline,
+          updating: updatingStatus,
+          enabled: !verificationPending,
+          onlineTitle: l10n.youAreOnline,
+          offlineTitle: l10n.youAreOffline,
+          subtitle: isOnline ? l10n.receiveDeliveryRequests : l10n.offlineDeliveryHint,
+          onChanged: onStatusToggle,
         ),
       ],
     );
@@ -1150,7 +1169,7 @@ class _LiveGigIncentiveProgressCard extends StatelessWidget {
     final hasTiers = activeGig.tiers.isNotEmpty;
 
     // Active progress towards first target
-    final currentProgressVal = 150; 
+    final currentProgressVal = 0; 
     final firstTier = hasTiers ? activeGig.tiers.first : null;
     final nextTarget = firstTier != null ? firstTier.minTarget : (isHoursBonus ? activeGig.targetHours : activeGig.targetEarnings);
     final nextBonus = firstTier != null ? firstTier.bonusAmount : activeGig.bonusAmount;
@@ -1703,18 +1722,26 @@ class _AllOffersSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gig = gigs.isNotEmpty ? gigs.first : null;
-    final title = gig != null ? gig.title : 'EV - LN | Marathoner';
-    final dateSub = gig != null ? '${gig.dateString} • ${gig.startTime} - ${gig.endTime}' : '18 Apr • 5pm - 2am';
-    final bonusMax = gig != null ? '\u20B9${gig.bonusAmount}' : '\u20B9220';
+    final title = gig != null ? gig.title : 'Store Peak Hour Bonus';
+    final dateSub = gig != null ? '${gig.dateString} • ${gig.startTime} - ${gig.endTime}' : 'Active Store Incentive';
+    final bonusMax = gig != null ? '\u20B9${gig.bonusAmount}' : '\u20B9150';
 
-    final tiersList = gig != null && gig.tiers.isNotEmpty
+    final List<GigTierInfo> tiersList = (gig != null && gig.tiers.isNotEmpty)
         ? gig.tiers
-        : const [
-            GigTierInfo(minTarget: 230, bonusAmount: 18),
-            GigTierInfo(minTarget: 383, bonusAmount: 49),
-            GigTierInfo(minTarget: 536, bonusAmount: 128),
-            GigTierInfo(minTarget: 690, bonusAmount: 220),
-          ];
+        : (gig != null
+            ? [
+                GigTierInfo(
+                  minTarget: gig.type == 'hours_bonus'
+                      ? gig.targetHours
+                      : (gig.targetEarnings > 0 ? gig.targetEarnings : 500),
+                  bonusAmount: gig.bonusAmount > 0 ? gig.bonusAmount : 150,
+                )
+              ]
+            : const [
+                GigTierInfo(minTarget: 200, bonusAmount: 30),
+                GigTierInfo(minTarget: 400, bonusAmount: 80),
+                GigTierInfo(minTarget: 600, bonusAmount: 150),
+              ]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

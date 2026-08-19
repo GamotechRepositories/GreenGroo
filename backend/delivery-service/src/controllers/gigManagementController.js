@@ -49,21 +49,29 @@ export const createGig = async (req, res, next) => {
           .filter((t) => t.minTarget > 0 && t.bonusAmount > 0)
       : [];
 
+    const defaultTargetEarnings = parsedTiers.length > 0
+      ? parsedTiers[0].minTarget
+      : Number(targetEarnings) || 200;
+
+    const defaultTargetHours = parsedTiers.length > 0
+      ? parsedTiers[0].minTarget
+      : Number(targetHours) || 2;
+
     const defaultBonus = parsedTiers.length > 0 
       ? Math.max(...parsedTiers.map((t) => t.bonusAmount))
-      : Number(bonusAmount) || 100;
+      : Number(bonusAmount) || 18;
 
     const gig = await Gig.create({
       managerId: manager._id,
       storeId: manager._id.toString(),
       area: manager.area || "",
       title,
-      type: type || "hours_bonus",
+      type: type || "earnings_target",
       dateString,
       startTime: startTime || "06:00 PM",
       endTime: endTime || "10:00 PM",
-      targetHours: Number(targetHours) || 3,
-      targetEarnings: Number(targetEarnings) || 500,
+      targetHours: defaultTargetHours,
+      targetEarnings: defaultTargetEarnings,
       bonusAmount: defaultBonus,
       tiers: parsedTiers,
       description: description || "",
@@ -136,6 +144,15 @@ export const updateGig = async (req, res, next) => {
       }
     });
 
+    if (Array.isArray(req.body.tiers)) {
+      gig.tiers = req.body.tiers
+        .map((t) => ({
+          minTarget: Number(t.minTarget) || 0,
+          bonusAmount: Number(t.bonusAmount) || 0,
+        }))
+        .filter((t) => t.minTarget > 0 && t.bonusAmount > 0);
+    }
+
     await gig.save();
 
     return res.json({
@@ -196,25 +213,24 @@ export const getPartnerGigs = async (req, res, next) => {
     }
 
     if (!manager) {
-      return res.json({
-        success: true,
-        gigs: [],
-        message: "No store assigned",
-      });
+      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: -1 });
     }
 
-    const { date } = req.query;
-    const queryDateStr = date || new Date().toISOString().split("T")[0];
+    const filterOr = [{ isActive: true }];
+    if (manager) {
+      filterOr.push({ managerId: manager._id }, { storeId: manager._id.toString() });
+      if (manager.area) filterOr.push({ area: manager.area });
+    }
+    if (rider.area) filterOr.push({ area: rider.area });
 
     const gigs = await Gig.find({
-      managerId: manager._id,
-      dateString: { $gte: queryDateStr },
+      $or: filterOr,
       isActive: true,
-    }).sort({ dateString: 1, createdAt: -1 });
+    }).sort({ dateString: -1, createdAt: -1 });
 
     return res.json({
       success: true,
-      storeName: manager.storeName || "Dark Store Hub",
+      storeName: manager?.storeName || "Dark Store Hub",
       gigs: gigs.map((g) => g.toSafeJSON()),
     });
   } catch (error) {

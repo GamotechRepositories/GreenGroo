@@ -49,7 +49,10 @@ export const createDeliveryBoyByManager = async (req, res, next) => {
       area: manager.area,
       managerId: manager._id,
       storeId: manager._id.toString(),
-      verificationStatus: "pending",
+      verificationStatus: "approved",
+      onboardingComplete: true,
+      isActive: true,
+      verifiedAt: new Date(),
     });
 
     return res.status(201).json({

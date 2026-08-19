@@ -28,15 +28,15 @@ export default function Header({ onMobileMenuToggle }) {
         )}
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               {manager?.city || "Dark Store"}
             </span>
             <span className="text-slate-300">/</span>
-            <span className="text-xs font-bold text-emerald-700">
+            <span className="text-xs font-extrabold text-emerald-700">
               {manager?.area || " Hub"}
             </span>
           </div>
-          <p className="text-sm font-bold text-slate-900 leading-tight">
+          <p className="text-base font-extrabold text-slate-900 leading-tight">
             {manager?.storeName || "GreenRow Dark Store Operations"}
           </p>
         </div>
@@ -44,7 +44,6 @@ export default function Header({ onMobileMenuToggle }) {
 
       <div className="flex items-center gap-3">
         <div className="hidden sm:flex items-center gap-2 rounded-xl bg-slate-100/80 px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200/60">
-          <Icon name="clock" size="sm" className="text-slate-400" />
           <span>{time}</span>
         </div>
 

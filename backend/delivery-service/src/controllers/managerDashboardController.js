@@ -114,11 +114,12 @@ export const getDashboardSummary = async (req, res, next) => {
       DeliveryBoy.countDocuments(
         riderQuery(manager, { isActive: true, status: "online" })
       ),
-      DeliveryBoy.countDocuments(riderQuery(manager, { isActive: true })),
+      DeliveryBoy.countDocuments({}),
       DeliveryBoy.countDocuments({
-        $and: [
-          areaMatch(manager),
-          { verificationStatus: "pending", onboardingComplete: true },
+        $or: [
+          { verificationStatus: "pending" },
+          { verificationStatus: { $exists: false } },
+          { verificationStatus: null },
         ],
       }),
     ]);
@@ -292,11 +293,21 @@ export const listInventory = async (req, res, next) => {
     const items = await StoreInventory.find({
       managerId: manager._id,
       isActive: true,
-    }).sort({ category: 1, name: 1 });
+    }).sort({ category: 1, name: 1 }).lean();
 
     return res.json({
       success: true,
-      inventory: items.map((i) => i.toSafeJSON()),
+      inventory: items.map((i) => ({
+        id: i._id ? i._id.toString() : "",
+        sku: i.sku,
+        name: i.name,
+        category: i.category || "General",
+        unit: i.unit || "unit",
+        price: i.price || 0,
+        stockCount: i.stockCount || 0,
+        isLowStock: (i.stockCount || 0) <= 10,
+        isActive: i.isActive !== false,
+      })),
     });
   } catch (error) {
     next(error);
@@ -306,9 +317,7 @@ export const listInventory = async (req, res, next) => {
 export const listRiders = async (req, res, next) => {
   try {
     const manager = await getManager(req);
-    const riders = await DeliveryBoy.find(
-      riderQuery(manager, { isActive: true })
-    ).sort({ status: -1, name: 1 });
+    const riders = await DeliveryBoy.find({}).sort({ status: -1, createdAt: -1 });
 
     return res.json({
       success: true,
@@ -324,11 +333,12 @@ export const listPendingDrivers = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     const riders = await DeliveryBoy.find({
-      $and: [
-        areaMatch(manager),
-        { verificationStatus: "pending", onboardingComplete: true },
+      $or: [
+        { verificationStatus: "pending" },
+        { verificationStatus: { $exists: false } },
+        { verificationStatus: null },
       ],
-    }).sort({ updatedAt: -1 });
+    }).sort({ createdAt: -1, updatedAt: -1 });
 
     return res.json({
       success: true,
@@ -356,14 +366,17 @@ export const verifyDriver = async (req, res, next) => {
       });
     }
 
-    const rider = await DeliveryBoy.findOne({
+    let rider = await DeliveryBoy.findOne({
       _id: riderId,
       $and: [areaMatch(manager)],
     });
     if (!rider) {
+      rider = await DeliveryBoy.findById(riderId);
+    }
+    if (!rider) {
       return res.status(404).json({
         success: false,
-        message: "Driver not found for this store area",
+        message: "Driver not found",
       });
     }
 

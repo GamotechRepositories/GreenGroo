@@ -1,36 +1,111 @@
 import Incentive from "../models/Incentive.js";
+import Gig from "../models/Gig.js";
+import DeliveryBoy from "../models/DeliveryBoy.js";
+import { formatDateStringIST, timeToMinutes, getRiderManager } from "./shiftController.js";
 
 /**
- * Internal helper function (not a route endpoint):
- * Upserts today's Incentive record for a rider upon order completion (delivered).
+ * PART 2 — Utility Function: checkAndTrackIncentive(riderId, storeId)
+ * Checks for any active Gigs today, calculates rider's bonus progress,
+ * and upserts the Incentive tracking record.
  */
-export async function upsertDailyIncentive({
-  riderId,
-  managerId,
-  orderEarnings = 0,
-  peakBonus = 0,
-  todayOrderCount = 1,
-}) {
+export async function checkAndTrackIncentive(riderId, storeId) {
   try {
-    if (!riderId || !managerId) {
-      console.warn("[upsertDailyIncentive] Missing riderId or managerId");
-      return null;
+    if (!riderId) return null;
+
+    const rider = await DeliveryBoy.findById(riderId);
+    if (!rider) return null;
+
+    const manager = await getRiderManager(rider);
+    const effectiveManagerId = manager?._id || rider.managerId;
+    const effectiveStoreId = storeId || rider.storeId || (effectiveManagerId ? effectiveManagerId.toString() : "");
+
+    const now = new Date();
+    const todayStrIST = formatDateStringIST(now);
+
+    // Calculate IST start of day date object
+    const todayStart = new Date(`${todayStrIST}T00:00:00.000Z`);
+
+    const nowISTFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    });
+    const currentMinIST = timeToMinutes(nowISTFormatter.format(now));
+
+    // Find active Gigs for today for this store/manager/area
+    const query = {
+      isActive: true,
+      dateString: todayStrIST,
+    };
+
+    if (effectiveManagerId) {
+      query.$or = [
+        { managerId: effectiveManagerId },
+        { storeId: String(effectiveStoreId) },
+        { area: rider.area || "" },
+      ];
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const gigs = await Gig.find(query);
 
-    // Target bonus check e.g. 20 orders completed in a day gives bonus
-    const targetBonus = todayOrderCount >= 20 ? 100 : 0;
+    // Find gig active right now based on IST window
+    const activeGig = gigs.find((g) => {
+      const startMin = timeToMinutes(g.startTime);
+      const endMin = timeToMinutes(g.endTime);
+      return currentMinIST >= startMin && currentMinIST <= endMin;
+    });
+
+    const gigToTrack = activeGig || gigs[0];
+
+    const totalOrders = rider.todayCompletedOrders || 0;
+    const totalEarnings = rider.todayEarnings || 0;
+    const onlineMinutes = rider.todayOnlineMinutes || 0;
+
+    let targetBonusEarned = 0;
+
+    if (gigToTrack) {
+      if (gigToTrack.tiers && gigToTrack.tiers.length > 0) {
+        let valToCompare = totalEarnings;
+        if (gigToTrack.type === "hours_bonus") {
+          valToCompare = onlineMinutes / 60;
+        } else if (gigToTrack.type === "custom" && gigToTrack.tierMetric === "orders") {
+          valToCompare = totalOrders;
+        }
+
+        // Sort tiers highest minTarget first to pick the highest achieved tier
+        const sortedTiers = [...gigToTrack.tiers].sort((a, b) => b.minTarget - a.minTarget);
+        const matchedTier = sortedTiers.find((t) => valToCompare >= t.minTarget);
+
+        if (matchedTier) {
+          targetBonusEarned = matchedTier.bonusAmount;
+        }
+      } else if (gigToTrack.type === "hours_bonus") {
+        const reqMin = (gigToTrack.targetHours || 0) * 60;
+        if (onlineMinutes >= reqMin) {
+          targetBonusEarned = gigToTrack.bonusAmount || 0;
+        }
+      } else if (gigToTrack.type === "earnings_target") {
+        if (totalEarnings >= (gigToTrack.targetEarnings || 0)) {
+          targetBonusEarned = gigToTrack.bonusAmount || 0;
+        }
+      }
+    }
 
     const incentive = await Incentive.findOneAndUpdate(
-      { riderId, date: today },
+      { riderId: rider._id, date: todayStart },
       {
-        $setOnInsert: { managerId, storeId: managerId, date: today },
-        $inc: {
-          totalOrders: 1,
-          totalEarnings: orderEarnings,
-          targetBonusEarned: peakBonus + targetBonus,
+        $setOnInsert: {
+          riderId: rider._id,
+          managerId: effectiveManagerId || rider._id,
+          storeId: effectiveManagerId || rider._id,
+          date: todayStart,
+          settled: false,
+        },
+        $set: {
+          totalOrders,
+          totalEarnings,
+          targetBonusEarned,
         },
       },
       { upsert: true, new: true, runValidators: true }
@@ -38,9 +113,151 @@ export async function upsertDailyIncentive({
 
     return incentive;
   } catch (error) {
-    console.error("[upsertDailyIncentive] Error:", error.message);
+    console.error("[checkAndTrackIncentive] Error:", error.message);
     return null;
   }
+}
+
+/**
+ * GET /api/delivery/incentives/available — Rider home-page endpoint.
+ * Returns active gig + live progress and upcoming gigs scheduled later today.
+ */
+export const getAvailableIncentives = async (req, res, next) => {
+  try {
+    const rider = await DeliveryBoy.findById(req.user.id);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found" });
+    }
+
+    const manager = await getRiderManager(rider);
+    const effectiveManagerId = manager?._id || rider.managerId;
+    const todayStrIST = formatDateStringIST(new Date());
+
+    const query = {
+      isActive: true,
+      dateString: todayStrIST,
+    };
+    if (effectiveManagerId) {
+      query.$or = [
+        { managerId: effectiveManagerId },
+        { storeId: String(rider.storeId || effectiveManagerId) },
+        { area: rider.area || "" },
+      ];
+    }
+
+    const gigs = await Gig.find(query).sort({ createdAt: 1 });
+
+    const now = new Date();
+    const nowISTFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+    });
+    const currentMinIST = timeToMinutes(nowISTFormatter.format(now));
+
+    let activeGigData = null;
+    const upcomingGigs = [];
+
+    for (const gig of gigs) {
+      const startMin = timeToMinutes(gig.startTime);
+      const endMin = timeToMinutes(gig.endTime);
+
+      if (currentMinIST >= startMin && currentMinIST <= endMin) {
+        // Active Gig progress details
+        const totalOrders = rider.todayCompletedOrders || 0;
+        const totalEarnings = rider.todayEarnings || 0;
+        const onlineMinutes = rider.todayOnlineMinutes || 0;
+
+        let currentTier = null;
+        let nextTier = null;
+        let bonusEarned = 0;
+
+        if (gig.tiers && gig.tiers.length > 0) {
+          let currentVal = totalEarnings;
+          if (gig.type === "hours_bonus") {
+            currentVal = onlineMinutes / 60;
+          } else if (gig.type === "custom" && gig.tierMetric === "orders") {
+            currentVal = totalOrders;
+          }
+
+          const sortedAsc = [...gig.tiers].sort((a, b) => a.minTarget - b.minTarget);
+
+          for (const t of sortedAsc) {
+            if (currentVal >= t.minTarget) {
+              currentTier = t;
+              bonusEarned = t.bonusAmount;
+            } else if (!nextTier) {
+              nextTier = t;
+            }
+          }
+        } else if (gig.type === "hours_bonus") {
+          const targetMin = (gig.targetHours || 0) * 60;
+          if (onlineMinutes >= targetMin) bonusEarned = gig.bonusAmount || 0;
+        } else if (gig.type === "earnings_target") {
+          if (totalEarnings >= (gig.targetEarnings || 0)) bonusEarned = gig.bonusAmount || 0;
+        }
+
+        activeGigData = {
+          gigId: gig._id.toString(),
+          title: gig.title,
+          type: gig.type,
+          description: gig.description,
+          startTime: gig.startTime,
+          endTime: gig.endTime,
+          targetHours: gig.targetHours,
+          targetEarnings: gig.targetEarnings,
+          bonusAmount: gig.bonusAmount,
+          tierMetric: gig.tierMetric || "orders",
+          tiers: gig.tiers,
+          progress: {
+            ordersSoFar: totalOrders,
+            earningsSoFar: totalEarnings,
+            onlineMinutesSoFar: onlineMinutes,
+            currentTier,
+            nextTier,
+            bonusEarned,
+          },
+        };
+      } else if (currentMinIST < startMin) {
+        upcomingGigs.push({
+          gigId: gig._id.toString(),
+          title: gig.title,
+          type: gig.type,
+          description: gig.description,
+          startTime: gig.startTime,
+          endTime: gig.endTime,
+          bonusAmount: gig.bonusAmount,
+          tierMetric: gig.tierMetric || "orders",
+          tiers: gig.tiers,
+        });
+      }
+    }
+
+    // Ensure Incentive record is synced
+    const incentiveDoc = await checkAndTrackIncentive(rider._id, rider.storeId);
+
+    return res.json({
+      success: true,
+      serverTimeIST: nowISTFormatter.format(now),
+      dateString: todayStrIST,
+      activeGig: activeGigData,
+      upcomingGigs,
+      todayIncentive: incentiveDoc,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Legacy compatibility helper: Upserts today's Incentive record for a rider upon order completion.
+ */
+export async function upsertDailyIncentive({
+  riderId,
+  managerId,
+}) {
+  return checkAndTrackIncentive(riderId, managerId);
 }
 
 /**
@@ -69,7 +286,6 @@ export const getRiderIncentives = async (req, res) => {
       if (endDate) filter.date.$lte = new Date(endDate);
     }
 
-    // Security check for manager: rider must belong to managerId store if queried by manager
     if (req.user?.role === "delivery_manager") {
       filter.$or = [{ managerId: req.user.id }, { storeId: req.user.id }];
     }
@@ -102,7 +318,6 @@ export const getStoreIncentiveSummary = async (req, res) => {
 
     const managerId = req.query.managerId || req.query.storeId || req.user.id;
 
-    // Ownership check: Manager can only access their own store summary
     if (managerId !== req.user.id) {
       return res.status(403).json({
         success: false,

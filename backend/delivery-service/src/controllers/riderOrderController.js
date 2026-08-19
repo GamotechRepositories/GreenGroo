@@ -3,6 +3,7 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
 import { getIO } from "../../../socket.js";
+import { checkAndTrackIncentive } from "./incentiveController.js";
 
 /**
  * Checks for any active order offer for the logged-in rider.
@@ -337,6 +338,9 @@ export const completeDelivery = async (req, res, next) => {
       rider.lastStatusAt = new Date();
       await rider.save();
     }
+
+    // Recalculate live incentive progress upon order completion
+    await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
 
     // Notify Manager Dashboard
     try {

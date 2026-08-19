@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { Icon } from "../../components/ui/Icon";
 
 export default function PendingDriversPage() {
   const { manager } = useAuth();
@@ -47,18 +46,13 @@ export default function PendingDriversPage() {
 
       {/* Header Bar */}
       <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700 font-bold">
-            <Icon name="user" size="sm" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Pending Applications ({riders.length})
-            </h2>
-            <p className="text-xs text-slate-500">
-              Click on any row to open the complete document verification detail view
-            </p>
-          </div>
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            Pending Applications ({riders.length})
+          </h2>
+          <p className="text-xs text-slate-500">
+            Click on any row to open the complete document verification detail view
+          </p>
         </div>
       </div>
 
@@ -67,7 +61,6 @@ export default function PendingDriversPage() {
         <div className="h-64 rounded-2xl bg-slate-200/60 animate-pulse" />
       ) : riders.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
-          <p className="text-3xl mb-2">📋</p>
           <h3 className="text-base font-bold text-slate-800">Verification Queue Empty</h3>
           <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
             No new delivery partner applications awaiting document verification in this store area.
@@ -75,15 +68,15 @@ export default function PendingDriversPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th className="py-3.5 px-4">Driver Name</th>
-                <th className="py-3.5 px-4">Mobile Phone</th>
-                <th className="py-3.5 px-4">Bank Account Info</th>
-                <th className="py-3.5 px-4">Joining Date</th>
-                <th className="py-3.5 px-4">Hub / Area</th>
-                <th className="py-3.5 px-4 text-right">Action</th>
+          <table className="w-full text-left text-sm">
+            <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
+              <tr>
+                <th className="py-2 px-4">Driver Name</th>
+                <th className="py-2 px-4">Mobile Phone</th>
+                <th className="py-2 px-4">Bank Account Info</th>
+                <th className="py-2 px-4">Joining Date</th>
+                <th className="py-2 px-4">Hub / Area</th>
+                <th className="py-2 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -108,22 +101,17 @@ export default function PendingDriversPage() {
                     className="hover:bg-slate-50/80 transition cursor-pointer group"
                   >
                     <td className="py-4 px-4 font-bold text-slate-900">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 text-sm font-bold">
-                          🛵
+                      <div>
+                        <div className="font-extrabold text-slate-900 group-hover:text-emerald-700 transition">
+                          {r.name || "New Applicant"}
                         </div>
-                        <div>
-                          <div className="font-extrabold text-slate-900 group-hover:text-emerald-700 transition">
-                            {r.name || "New Applicant"}
-                          </div>
-                          <div className="text-[11px] font-normal text-slate-500 capitalize">
-                            Vehicle: <strong className="text-slate-700">{r.vehicleType || "Motorcycle"}</strong>
-                          </div>
+                        <div className="text-[11px] font-normal text-slate-500 capitalize">
+                          Vehicle: <strong className="text-slate-700">{r.vehicleType || "Motorcycle"}</strong>
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-4 font-mono text-slate-800 font-semibold">
-                      📞 {r.phone}
+                      {r.phone}
                     </td>
                     <td className="py-4 px-4 font-medium text-slate-700">
                       <div>
@@ -136,10 +124,10 @@ export default function PendingDriversPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4 font-medium text-slate-700">
-                      🗓️ {dateDisplay}
+                      {dateDisplay}
                     </td>
                     <td className="py-4 px-4 font-medium text-slate-700">
-                      📍 {r.area || manager?.area || "Hub"}
+                      {r.area || manager?.area || "Hub"}
                     </td>
                     <td className="py-4 px-4 text-right">
                       <button
@@ -150,8 +138,7 @@ export default function PendingDriversPage() {
                         }}
                         className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-600 transition shadow-xs group-hover:bg-emerald-600"
                       >
-                        <span>Review & Verify</span>
-                        <span>→</span>
+                        Review & Verify
                       </button>
                     </td>
                   </tr>
