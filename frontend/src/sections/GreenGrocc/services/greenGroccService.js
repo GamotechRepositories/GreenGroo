@@ -1,12 +1,11 @@
 import apiClient from "../../../services/api";
 import { GREENGROCC_CATEGORIES } from "../data/categories";
-import { GREENGROCC_PRODUCTS } from "../data/products";
 
 export const greenGroccService = {
   async getCategories() {
     try {
-      const res = await apiClient.get("/categories");
-      return res.data?.data || GREENGROCC_CATEGORIES;
+      const res = await apiClient.get("/categories?section=greengrocc");
+      return res.data?.data || res.data || GREENGROCC_CATEGORIES;
     } catch {
       return GREENGROCC_CATEGORIES;
     }
@@ -14,19 +13,21 @@ export const greenGroccService = {
 
   async getProducts(params = {}) {
     try {
-      const res = await apiClient.get("/products", { params });
-      return res.data?.data || GREENGROCC_PRODUCTS;
+      const res = await apiClient.get("/products", { params: { section: "greengrocc", ...params } });
+      const list = res.data?.data || res.data;
+      return Array.isArray(list) ? list : [];
     } catch {
-      return GREENGROCC_PRODUCTS;
+      return [];
     }
   },
 
   async getProductById(id) {
     try {
       const res = await apiClient.get(`/products/${id}`);
-      return res.data?.data || GREENGROCC_PRODUCTS.find((p) => p._id === id);
+      return res.data?.data || res.data || null;
     } catch {
-      return GREENGROCC_PRODUCTS.find((p) => p._id === id);
+      return null;
     }
   },
 };
+

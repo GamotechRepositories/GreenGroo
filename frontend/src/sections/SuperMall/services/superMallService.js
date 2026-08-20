@@ -1,12 +1,11 @@
 import apiClient from "../../../services/api";
 import { SUPERMALL_CATEGORIES } from "../data/categories";
-import { SUPERMALL_PRODUCTS } from "../data/products";
 
 export const superMallService = {
   async getCategories() {
     try {
       const res = await apiClient.get("/categories?section=supermall");
-      return res.data?.data || SUPERMALL_CATEGORIES;
+      return res.data?.data || res.data || SUPERMALL_CATEGORIES;
     } catch {
       return SUPERMALL_CATEGORIES;
     }
@@ -15,9 +14,11 @@ export const superMallService = {
   async getProducts() {
     try {
       const res = await apiClient.get("/products?section=supermall");
-      return res.data?.data || SUPERMALL_PRODUCTS;
+      const list = res.data?.data || res.data;
+      return Array.isArray(list) ? list : [];
     } catch {
-      return SUPERMALL_PRODUCTS;
+      return [];
     }
   },
 };
+

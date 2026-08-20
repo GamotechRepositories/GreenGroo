@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSimilarProducts } from "../../api/api";
-import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
+import { getSimilarProducts, getProducts } from "../../api/api";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
 import SectionHeader from "../mobile/SectionHeader";
@@ -25,25 +24,28 @@ function SimilarProducts({ productId, categoryName = "" }) {
     const fetchSimilar = async () => {
       setLoading(true);
       try {
-        if (String(productId || "").startsWith("dummy-") || !productId) {
-          const dummy = (getDummyCategoryProducts(categoryName) || [])
-            .filter((p) => String(p._id) !== String(productId))
-            .slice(0, 10);
-          if (!cancelled) setProducts(dummy);
-          return;
+        if (productId) {
+          const { data } = await getSimilarProducts(productId);
+          if (!cancelled) {
+            const list = data?.data || data?.products || data || [];
+            if (Array.isArray(list) && list.length > 0) {
+              setProducts(list.slice(0, 10));
+              return;
+            }
+          }
         }
 
-        const { data } = await getSimilarProducts(productId);
-        if (!cancelled) {
-          setProducts(data.data || []);
+        if (categoryName) {
+          const { data } = await getProducts({ categoryName, limit: 10 });
+          if (!cancelled) {
+            const list = data?.data || data?.products || data || [];
+            if (Array.isArray(list)) {
+              setProducts(list.filter((p) => String(p._id) !== String(productId)).slice(0, 10));
+            }
+          }
         }
       } catch {
-        if (!cancelled) {
-          const dummy = (getDummyCategoryProducts(categoryName) || [])
-            .filter((p) => String(p._id) !== String(productId))
-            .slice(0, 10);
-          setProducts(dummy);
-        }
+        if (!cancelled) setProducts([]);
       } finally {
         if (!cancelled) {
           setLoading(false);

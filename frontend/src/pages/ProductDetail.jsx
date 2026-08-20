@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { buildApiUrl, getProductById } from "../api/api";
-import { getDummyProductById } from "../data/dummyCategoryProducts";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";

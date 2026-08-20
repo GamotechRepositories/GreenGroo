@@ -1,13 +1,35 @@
+import { useState, useEffect } from "react";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
-import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
+import { getProducts } from "../../api/api";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 
 function HomeCategoryProducts({ categoryName }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
-  const products = getDummyCategoryProducts(categoryName) || [];
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    getProducts({ categoryName })
+      .then((res) => {
+        if (!isMounted) return;
+        const list = res.data?.data || res.data?.products || res.data || [];
+        if (Array.isArray(list)) setProducts(list);
+      })
+      .catch(() => {
+        if (isMounted) setProducts([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [categoryName]);
 
   const cardProps = (product) => ({
     product,
@@ -16,6 +38,14 @@ function HomeCategoryProducts({ categoryName }) {
     onDecrease: handleDecrease,
     cartQuantity: getCartQuantity(product),
   });
+
+  if (loading) {
+    return (
+      <div className="px-4 py-8 text-center text-sm text-text-secondary">
+        Loading fresh items...
+      </div>
+    );
+  }
 
   if (products.length === 0) {
     return (

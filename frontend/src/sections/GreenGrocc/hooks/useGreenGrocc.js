@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { greenGroccService } from "../services/greenGroccService";
 import { GREENGROCC_CATEGORIES } from "../data/categories";
-import { GREENGROCC_PRODUCTS } from "../data/products";
 
 export function useGreenGrocc() {
   const [categories, setCategories] = useState(GREENGROCC_CATEGORIES);
-  const [products, setProducts] = useState(GREENGROCC_PRODUCTS);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

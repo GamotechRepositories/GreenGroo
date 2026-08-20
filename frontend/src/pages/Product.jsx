@@ -11,15 +11,9 @@ import CategoryProductLayout, {
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
 import ProductFiltersBar, { PRODUCT_SORT_OPTIONS } from "../components/product/ProductFiltersBar";
-import {
-  DUMMY_SHOP_CATEGORIES,
-  getAllDummyProducts,
-  getDummyCategoryProducts,
-} from "../data/dummyCategoryProducts";
+import { DUMMY_SHOP_CATEGORIES } from "../data/dummyCategoryProducts";
 import { SUPER_MALL_CATEGORIES } from "../data/superMallCategories";
 import { READY2COOK_SHOP_CATEGORIES } from "../components/home/FestiveStoreSection";
-import { SUPERMALL_PRODUCTS } from "../sections/SuperMall/data/products";
-import { READY2COOK_PRODUCTS } from "../sections/Ready2Cook/data/products";
 
 function FilterIcon() {
   return (
@@ -386,18 +380,9 @@ function Product() {
     });
   }, [apiCategories, storeParam]);
 
-  // Section-aware product list for right product grid
+  // Product list for right product grid
   const products = useMemo(() => {
-    let baseList = [];
-    if (storeParam === "mall") {
-      baseList = SUPERMALL_PRODUCTS;
-    } else if (storeParam === "festive") {
-      baseList = READY2COOK_PRODUCTS;
-    } else if (apiProducts.length > 0) {
-      baseList = apiProducts;
-    } else {
-      baseList = categoryName ? getDummyCategoryProducts(categoryName) || [] : getAllDummyProducts();
-    }
+    let baseList = apiProducts;
 
     if (categoryName) {
       const target = categoryName.toLowerCase();
@@ -418,7 +403,7 @@ function Product() {
     }
 
     return baseList;
-  }, [apiProducts, categoryName, storeParam]);
+  }, [apiProducts, categoryName]);
 
   const loading =
     categoriesLoading ||

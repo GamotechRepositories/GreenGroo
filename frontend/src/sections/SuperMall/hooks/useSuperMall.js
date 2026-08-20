@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { superMallService } from "../services/superMallService";
 import { SUPERMALL_CATEGORIES } from "../data/categories";
-import { SUPERMALL_PRODUCTS } from "../data/products";
 
 export function useSuperMall() {
   const [categories, setCategories] = useState(SUPERMALL_CATEGORIES);
-  const [products, setProducts] = useState(SUPERMALL_PRODUCTS);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

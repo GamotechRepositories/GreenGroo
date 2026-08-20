@@ -1,19 +1,36 @@
+import { useState, useEffect } from "react";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import SectionHeader from "../mobile/SectionHeader";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
-import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
+import { getProducts } from "../../api/api";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 
 import DealsStartingAt9Section from "../home/DealsStartingAt9Section";
 
-export const HOME_PRODUCT_CATEGORIES = ["Fruits", "Vegetables", "Organic", "Dairy"];
+export const HOME_PRODUCT_CATEGORIES = ["Vegetables", "Fruits", "Dairy", "Organic"];
 
 function CategoryProductSection({ categoryName, limit = 20 }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
+  const [products, setProducts] = useState([]);
 
-  const allProducts = getDummyCategoryProducts(categoryName) || [];
-  const products = allProducts.slice(0, limit);
+  useEffect(() => {
+    let isMounted = true;
+    getProducts({ categoryName, limit })
+      .then((res) => {
+        if (!isMounted) return;
+        const list = res.data?.data || res.data?.products || res.data || [];
+        if (Array.isArray(list)) {
+          setProducts(list.slice(0, limit));
+        }
+      })
+      .catch(() => {
+        if (isMounted) setProducts([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [categoryName, limit]);
 
   const cardProps = (product) => ({
     product,

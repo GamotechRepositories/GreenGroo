@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { ready2CookService } from "../services/ready2CookService";
 import { READY2COOK_CATEGORIES } from "../data/categories";
-import { READY2COOK_PRODUCTS } from "../data/products";
 
 export function useReady2Cook() {
   const [categories, setCategories] = useState(READY2COOK_CATEGORIES);
-  const [products, setProducts] = useState(READY2COOK_PRODUCTS);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

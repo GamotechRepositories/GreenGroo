@@ -1,8 +1,9 @@
+import { useState, useEffect } from "react";
 import SectionHeader from "../mobile/SectionHeader";
 import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
-import { getDummyCategoryProducts } from "../../data/dummyCategoryProducts";
+import { getProducts } from "../../api/api";
 
 export default function SuggestedForYouSection({
   title = "Suggested for You",
@@ -12,19 +13,27 @@ export default function SuggestedForYouSection({
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
-  // Combine top products from Fruits, Vegetables, and Organic if customProducts not passed
-  const fruits = getDummyCategoryProducts("Fruits") || [];
-  const veggies = getDummyCategoryProducts("Vegetables") || [];
-  const organic = getDummyCategoryProducts("Organic") || [];
+  const [apiProducts, setApiProducts] = useState([]);
 
-  const defaultProducts = [
-    ...veggies.slice(0, 4),
-    ...fruits.slice(0, 4),
-    ...organic.slice(0, 4),
-    ...veggies.slice(4, 8),
-  ];
+  useEffect(() => {
+    if (customProducts && customProducts.length > 0) return;
+    let isMounted = true;
+    getProducts({ limit: 12 })
+      .then((res) => {
+        if (!isMounted) return;
+        const list = res.data?.data || res.data?.products || res.data || [];
+        if (Array.isArray(list)) setApiProducts(list);
+      })
+      .catch(() => {
+        if (isMounted) setApiProducts([]);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [customProducts]);
 
-  const products = customProducts && customProducts.length > 0 ? customProducts : defaultProducts;
+  const products =
+    customProducts && customProducts.length > 0 ? customProducts : apiProducts;
 
   const cardProps = (product) => ({
     product,
