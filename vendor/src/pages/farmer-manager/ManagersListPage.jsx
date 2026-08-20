@@ -18,7 +18,7 @@ import { AvatarBubble, FmTable, PageToolbar, formatDate } from '@/components/far
 
 export default function ManagersListPage() {
   const navigate = useNavigate()
-  const { toast, can } = useVendor()
+  const { toast, can, vendor } = useVendor()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,8 +31,11 @@ export default function ManagersListPage() {
     setLoading(true)
     setError('')
     try {
-      setRows(await getManagers({ q, status }))
+      const currentVendorId = vendor?.id || vendor?._id
+      const res = await getManagers({ q, status, vendorId: currentVendorId })
+      setRows(Array.isArray(res) ? res : (res?.data || []))
     } catch (err) {
+      console.error('Failed to load managers:', err)
       setError(err.message || 'Failed to load managers')
     } finally {
       setLoading(false)
@@ -41,7 +44,7 @@ export default function ManagersListPage() {
 
   useEffect(() => {
     load()
-  }, [q, status])
+  }, [q, status, vendor?.id, vendor?._id])
 
   if (!can('farmerManager.view')) {
     return (

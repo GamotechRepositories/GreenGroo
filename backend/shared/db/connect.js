@@ -7,6 +7,7 @@ const connectDB = async (serviceName = "service") => {
 
   try {
     const conn = await mongoose.connect(uri, {
+      dbName: "greengrocc-backend",
       maxPoolSize: 50,
       minPoolSize: 5,
       serverSelectionTimeoutMS: 15000,

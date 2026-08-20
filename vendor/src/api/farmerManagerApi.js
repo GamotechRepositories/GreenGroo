@@ -1,4 +1,15 @@
-export const CURRENT_VENDOR_ID = 'vendor-1'
+export function getActiveVendorId() {
+  try {
+    const saved = localStorage.getItem('vendor_user')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed.id || parsed._id) return parsed.id || parsed._id
+    }
+  } catch (e) {}
+  return 'vendor-1'
+}
+
+export const CURRENT_VENDOR_ID = getActiveVendorId()
 
 const API_BASE = 'http://localhost:5001'
 
@@ -21,12 +32,20 @@ async function apiFetch(path, options = {}) {
   return data
 }
 
-export async function getManagers({ q = '', status = '' } = {}) {
-  const params = new URLSearchParams()
-  if (q) params.set('q', q)
-  if (status) params.set('status', status)
-  params.set('vendorId', CURRENT_VENDOR_ID)
-  return apiFetch(`/api/vendor/managers?${params.toString()}`)
+export async function getManagers({ q = '', status = '', vendorId = getActiveVendorId() } = {}) {
+  try {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status) params.set('status', status)
+    params.set('vendorId', vendorId)
+    const res = await apiFetch(`/api/vendor/managers?${params.toString()}`)
+    if (Array.isArray(res)) return res
+    if (Array.isArray(res?.data)) return res.data
+    return []
+  } catch (err) {
+    console.warn('Failed to fetch managers:', err)
+    return []
+  }
 }
 
 export async function getManagerById(id) {
@@ -34,9 +53,10 @@ export async function getManagerById(id) {
 }
 
 export async function createManager(payload) {
+  const activeVendorId = getActiveVendorId()
   return apiFetch('/api/vendor/managers', {
     method: 'POST',
-    body: JSON.stringify({ ...payload, vendorId: CURRENT_VENDOR_ID }),
+    body: JSON.stringify({ ...payload, vendorId: payload.vendorId || activeVendorId }),
   })
 }
 
@@ -65,15 +85,23 @@ export async function getFarmers({
   status = '',
   managerId = '',
   location = '',
-  vendorId = CURRENT_VENDOR_ID,
+  vendorId = getActiveVendorId(),
 } = {}) {
-  const params = new URLSearchParams()
-  if (q) params.set('q', q)
-  if (status) params.set('status', status)
-  if (managerId) params.set('managerId', managerId)
-  if (location) params.set('location', location)
-  params.set('vendorId', vendorId)
-  return apiFetch(`/api/vendor/farmers?${params.toString()}`)
+  try {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status) params.set('status', status)
+    if (managerId) params.set('managerId', managerId)
+    if (location) params.set('location', location)
+    params.set('vendorId', vendorId)
+    const res = await apiFetch(`/api/vendor/farmers?${params.toString()}`)
+    if (Array.isArray(res)) return res
+    if (Array.isArray(res?.data)) return res.data
+    return []
+  } catch (err) {
+    console.warn('Failed to fetch farmers:', err)
+    return []
+  }
 }
 
 export async function getFarmerById(id) {
@@ -81,9 +109,10 @@ export async function getFarmerById(id) {
 }
 
 export async function createFarmer(payload) {
+  const activeVendorId = getActiveVendorId()
   return apiFetch('/api/vendor/farmers', {
     method: 'POST',
-    body: JSON.stringify({ ...payload, vendorId: CURRENT_VENDOR_ID }),
+    body: JSON.stringify({ ...payload, vendorId: payload.vendorId || activeVendorId }),
   })
 }
 
@@ -120,7 +149,14 @@ export async function updateFarmerLoginStatus(farmerId, loginEnabled) {
 }
 
 export async function getFarmerProducts(farmerId) {
-  return apiFetch(`/api/vendor/farmers/${farmerId}/products`)
+  try {
+    const res = await apiFetch(`/api/vendor/farmers/${farmerId}/products`)
+    if (Array.isArray(res)) return res
+    if (Array.isArray(res?.data)) return res.data
+    return []
+  } catch (err) {
+    return []
+  }
 }
 
 export async function getFarmerProduct(farmerId, productId) {

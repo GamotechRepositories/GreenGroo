@@ -15,7 +15,7 @@ import { formatCurrency } from '@/lib/utils'
 
 export default function FarmersListPage() {
   const navigate = useNavigate()
-  const { can, toast } = useVendor()
+  const { can, toast, vendor } = useVendor()
   const [rows, setRows] = useState([])
   const [managers, setManagers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,13 +39,15 @@ export default function FarmersListPage() {
     setLoading(true)
     setError('')
     try {
+      const currentVendorId = vendor?.id || vendor?._id
       const [farmers, mgrs] = await Promise.all([
-        getFarmers({ q, status, managerId, location }),
-        getManagers(),
+        getFarmers({ q, status, managerId, location, vendorId: currentVendorId }),
+        getManagers({ vendorId: currentVendorId }),
       ])
-      setRows(farmers)
-      setManagers(mgrs)
+      setRows(Array.isArray(farmers) ? farmers : (farmers?.data || []))
+      setManagers(Array.isArray(mgrs) ? mgrs : (mgrs?.data || []))
     } catch (err) {
+      console.error('Failed to load farmers:', err)
       setError(err.message || 'Failed to load farmers')
     } finally {
       setLoading(false)
@@ -54,7 +56,7 @@ export default function FarmersListPage() {
 
   useEffect(() => {
     load()
-  }, [q, status, managerId, location])
+  }, [q, status, managerId, location, vendor?.id, vendor?._id])
 
   const handleResetPassword = async (e) => {
     e.preventDefault()

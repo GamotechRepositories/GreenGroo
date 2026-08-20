@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
+import Vendor from "../models/vendor.js";
+import Admin from "../models/admin.js";
 import Order from "../models/order/Order.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { escapeRegex } from "../utils/adminSearch.js";
@@ -64,7 +66,7 @@ function validateSignupProfile(body) {
 export const signup = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
-    const { name, password } = req.body;
+    const { name, password, role = "user" } = req.body;
     const profileFields = pickSignupProfileFields(req.body);
 
     if (!phone) {
@@ -88,7 +90,9 @@ export const signup = async (req, res) => {
       });
     }
 
-    const existingPhoneUser = await User.findOne({ phone });
+    const Model = role === "vendor" ? Vendor : role === "admin" ? Admin : User;
+
+    const existingPhoneUser = await Model.findOne({ phone });
     if (existingPhoneUser) {
       return res.status(409).json({
         success: false,
@@ -96,11 +100,12 @@ export const signup = async (req, res) => {
       });
     }
 
-    const user = await User.create({
+    const user = await Model.create({
       name: name.trim(),
       phone,
+      email: req.body.email?.trim().toLowerCase() || undefined,
       password: String(password).trim(),
-      role: "user",
+      role,
       ...profileFields,
     });
 
@@ -150,19 +155,14 @@ export const login = async (req, res) => {
       return loginWithPhoneCredentials(req, res, normalizedPhone, password);
     }
 
-    const user = await User.findOne({ email: normalizedEmail }).select("+password");
+    let user = await Vendor.findOne({ email: normalizedEmail }).select("+password");
+    if (!user) user = await Admin.findOne({ email: normalizedEmail }).select("+password");
+    if (!user) user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
-      });
-    }
-
-    if (user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Please sign in with your phone number and password.",
       });
     }
 
@@ -206,7 +206,9 @@ export const loginWithPhone = async (req, res) => {
 };
 
 async function loginWithPhoneCredentials(_req, res, phone, password) {
-  const user = await User.findOne({ phone }).select("+password");
+  let user = await Vendor.findOne({ phone }).select("+password");
+  if (!user) user = await User.findOne({ phone }).select("+password");
+  if (!user) user = await Admin.findOne({ phone }).select("+password");
 
   if (!user) {
     return res.status(401).json({
@@ -226,13 +228,6 @@ async function loginWithPhoneCredentials(_req, res, phone, password) {
     return res.status(401).json({
       success: false,
       message: "Invalid phone number or password",
-    });
-  }
-
-  if (user.role === "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Please use the admin panel to sign in.",
     });
   }
 

@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
+import Vendor from "../models/vendor.js";
+import Admin from "../models/admin.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -28,7 +30,13 @@ export const protect = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id).select("-password");
+    let user = await Vendor.findById(decoded.id).select("-password");
+    if (!user) {
+      user = await User.findById(decoded.id).select("-password");
+    }
+    if (!user) {
+      user = await Admin.findById(decoded.id).select("-password");
+    }
 
     if (!user) {
       return res.status(401).json({
@@ -67,7 +75,13 @@ export const optionalProtect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
+    let user = await Vendor.findById(decoded.id).select("-password");
+    if (!user) {
+      user = await User.findById(decoded.id).select("-password");
+    }
+    if (!user) {
+      user = await Admin.findById(decoded.id).select("-password");
+    }
 
     if (user) {
       req.user = user;

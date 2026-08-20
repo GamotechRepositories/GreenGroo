@@ -27,11 +27,6 @@ function initials(name = "") {
 // ----------------------------------------------------
 export async function seedInitialData() {
   try {
-    const count = await Farmer.countDocuments();
-    if (count > 0) return;
-
-    console.log("Seeding initial Farmer Manager database records...");
-
     const managers = [
       {
         id: "mgr-1",
@@ -64,7 +59,10 @@ export async function seedInitialData() {
         password: "",
       },
     ];
-    await FarmerManager.insertMany(managers);
+
+    if ((await FarmerManager.countDocuments()) === 0) {
+      await FarmerManager.insertMany(managers).catch(() => {});
+    }
 
     const defaultHashedPassword = await bcrypt.hash("123456", 10);
 
@@ -163,7 +161,10 @@ export async function seedInitialData() {
         },
       },
     ];
-    await Farmer.insertMany(farmers);
+
+    if ((await Farmer.countDocuments()) === 0) {
+      await Farmer.insertMany(farmers).catch(() => {});
+    }
 
     const products = [
       {
@@ -254,7 +255,10 @@ export async function seedInitialData() {
         ],
       },
     ];
-    await FarmerProduct.insertMany(products);
+
+    if ((await FarmerProduct.countDocuments()) === 0) {
+      await FarmerProduct.insertMany(products).catch(() => {});
+    }
 
     const stockHistory = [
       {
@@ -292,7 +296,10 @@ export async function seedInitialData() {
         at: new Date("2026-07-25T08:05:00.000Z"),
       },
     ];
-    await FarmerStockHistory.insertMany(stockHistory);
+
+    if ((await FarmerStockHistory.countDocuments()) === 0) {
+      await FarmerStockHistory.insertMany(stockHistory).catch(() => {});
+    }
 
     const orders = [
       {
@@ -338,7 +345,10 @@ export async function seedInitialData() {
         ],
       },
     ];
-    await FarmerOrder.insertMany(orders);
+
+    if ((await FarmerOrder.countDocuments()) === 0) {
+      await FarmerOrder.insertMany(orders).catch(() => {});
+    }
 
     const earnings = [
       {
@@ -370,7 +380,10 @@ export async function seedInitialData() {
         status: "Pending",
       },
     ];
-    await FarmerEarning.insertMany(earnings);
+
+    if ((await FarmerEarning.countDocuments()) === 0) {
+      await FarmerEarning.insertMany(earnings).catch(() => {});
+    }
 
     const documents = [
       {
@@ -422,7 +435,10 @@ export async function seedInitialData() {
         status: "Approved",
       },
     ];
-    await FarmerDocument.insertMany(documents);
+
+    if ((await FarmerDocument.countDocuments()) === 0) {
+      await FarmerDocument.insertMany(documents).catch(() => {});
+    }
 
     console.log("Farmer Manager database seeded successfully!");
   } catch (err) {

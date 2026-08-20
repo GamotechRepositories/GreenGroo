@@ -1,8 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { VendorProvider } from '@/context/VendorContext'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { VendorLayout } from '@/components/layout/VendorLayout'
 import { ModulePage } from '@/components/shared/ModulePage'
 import { getAllRoutes } from '@/config/navigation'
+import SigninPage from '@/pages/auth/SigninPage'
+import SignupPage from '@/pages/auth/SignupPage'
 import Dashboard from '@/pages/Dashboard'
 import ManagersListPage from '@/pages/farmer-manager/ManagersListPage'
 import ManagerFormPage from '@/pages/farmer-manager/ManagerFormPage'
@@ -23,35 +26,42 @@ export default function App() {
     <VendorProvider>
       <BrowserRouter>
         <Routes>
-          <Route element={<VendorLayout />}>
-            <Route index element={<Dashboard />} />
+          {/* Public Auth Routes */}
+          <Route path="/signin" element={<SigninPage />} />
+          <Route path="/signup" element={<SignupPage />} />
 
-            <Route path="farmer-manager/managers" element={<ManagersListPage />} />
-            <Route path="farmer-manager/managers/add" element={<ManagerFormPage />} />
-            <Route path="farmer-manager/managers/:managerId" element={<ManagerDetailPage />} />
-            <Route path="farmer-manager/managers/:managerId/edit" element={<ManagerFormPage />} />
-            <Route path="farmer-manager/managers/:managerId/farmers/add" element={<FarmerFormPage />} />
-            <Route path="farmer-manager/farmers" element={<FarmersListPage />} />
-            <Route path="farmer-manager/farmers/:farmerId" element={<FarmerDetailPage />} />
-            <Route
-              path="farmer-manager/farmers/:farmerId/products/:productId"
-              element={<FarmerProductDetailPage />}
-            />
+          {/* Protected Vendor App Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<VendorLayout />}>
+              <Route index element={<Dashboard />} />
 
-            {moduleRoutes.map((route) => (
+              <Route path="farmer-manager/managers" element={<ManagersListPage />} />
+              <Route path="farmer-manager/managers/add" element={<ManagerFormPage />} />
+              <Route path="farmer-manager/managers/:managerId" element={<ManagerDetailPage />} />
+              <Route path="farmer-manager/managers/:managerId/edit" element={<ManagerFormPage />} />
+              <Route path="farmer-manager/managers/:managerId/farmers/add" element={<FarmerFormPage />} />
+              <Route path="farmer-manager/farmers" element={<FarmersListPage />} />
+              <Route path="farmer-manager/farmers/:farmerId" element={<FarmerDetailPage />} />
               <Route
-                key={route.path}
-                path={route.path.replace(/^\//, '')}
-                element={
-                  <ModulePage
-                    title={route.label}
-                    parent={route.parent}
-                    permission={route.permission}
-                  />
-                }
+                path="farmer-manager/farmers/:farmerId/products/:productId"
+                element={<FarmerProductDetailPage />}
               />
-            ))}
-            <Route path="*" element={<Navigate to="/" replace />} />
+
+              {moduleRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path.replace(/^\//, '')}
+                  element={
+                    <ModulePage
+                      title={route.label}
+                      parent={route.parent}
+                      permission={route.permission}
+                    />
+                  }
+                />
+              ))}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

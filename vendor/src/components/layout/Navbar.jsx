@@ -17,7 +17,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useVendor } from '@/context/VendorContext'
-import { notifications } from '@/data/mockData'
 import { cn } from '@/lib/utils'
 
 function Dropdown({ open, onClose, children, className }) {
@@ -48,7 +47,7 @@ function Dropdown({ open, onClose, children, className }) {
 }
 
 export function Navbar({ onMenuClick, pageTitle }) {
-  const { theme, toggleTheme, vendor, toast, role, setRole } = useVendor()
+  const { theme, toggleTheme, vendor, toast, role, setRole, logout } = useVendor()
   const [openMenu, setOpenMenu] = useState(null)
   const [search, setSearch] = useState('')
 
@@ -104,29 +103,15 @@ export function Navbar({ onMenuClick, pageTitle }) {
               <Bell className="h-5 w-5 text-gray-600" />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-error ring-2 ring-white" />
             </Button>
-            <Dropdown open={openMenu === 'notify'} onClose={close} className="w-80">
+            <Dropdown open={openMenu === 'notify'} onClose={close} className="w-72">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <p className="text-sm font-bold text-text-primary">Notifications</p>
-                <Link
-                  to="/notifications"
-                  onClick={close}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  View all
-                </Link>
               </div>
-              <ul className="max-h-72 overflow-y-auto">
-                {notifications.map((n) => (
-                  <li
-                    key={n.id}
-                    className="border-b border-border/70 px-4 py-3 transition hover:bg-cream/60 last:border-0"
-                  >
-                    <p className="text-sm font-semibold text-text-primary">{n.title}</p>
-                    <p className="text-xs font-medium text-text-secondary">{n.desc}</p>
-                    <p className="mt-1 text-[11px] text-text-secondary">{n.time}</p>
-                  </li>
-                ))}
-              </ul>
+              <div className="p-6 text-center text-xs text-text-secondary">
+                <Bell className="h-6 w-6 text-text-secondary mx-auto mb-2 opacity-40" />
+                <p className="font-semibold text-text-primary">No new notifications</p>
+                <p className="mt-1 text-[11px]">System alerts will appear here</p>
+              </div>
             </Dropdown>
           </div>
 
@@ -258,10 +243,10 @@ export function Navbar({ onMenuClick, pageTitle }) {
               <button
                 type="button"
                 onClick={() => {
-                  toast('Signed out successfully')
                   close()
+                  logout()
                 }}
-                className="flex w-full items-center gap-2 border-t border-border px-4 py-2.5 text-sm font-medium text-error transition hover:bg-error/5"
+                className="flex w-full items-center gap-2 border-t border-border px-4 py-2.5 text-sm font-medium text-error transition hover:bg-error/5 cursor-pointer"
               >
                 <LogOut className="h-4 w-4" /> Logout
               </button>
