@@ -3,7 +3,7 @@ import http from "http";
 import express from "express";
 import cors from "cors";
 import { connectDB, errorHandler, notFound } from "@greengrocc/shared";
-import { initSocket } from "./socket.js";
+import { initSocket } from "./shared/socket.js";
 // Ensure User model is registered for admin JWT role resolution
 import "./legacy/models/user.js";
 
