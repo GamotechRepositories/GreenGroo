@@ -6,7 +6,9 @@ const connectDB = async () => {
     "mongodb://127.0.0.1:27017/greengroccdb";
 
   try {
-    const conn = await mongoose.connect(uri);
+    const conn = await mongoose.connect(uri, {
+      dbName: process.env.MONGODB_DB_NAME || "greengrocc-backend",
+    });
     console.log(
       `MongoDB connected: ${conn.connection.host} / ${conn.connection.name}`
     );

@@ -281,6 +281,18 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    section: {
+      type: String,
+      trim: true,
+      default: "greengrocc",
+      index: true,
+    },
+    storeType: {
+      type: String,
+      trim: true,
+      default: "main",
+      index: true,
+    },
     justArrived: {
       type: Boolean,
       default: false,

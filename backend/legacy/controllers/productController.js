@@ -462,6 +462,14 @@ export const getProducts = async (req, res) => {
       filter.hotSelling = true;
     }
 
+    if (req.query.section?.trim()) {
+      filter.section = req.query.section.trim().toLowerCase();
+    }
+
+    if (req.query.storeType?.trim()) {
+      filter.storeType = req.query.storeType.trim().toLowerCase();
+    }
+
     if (req.query.ids) {
       const ids = String(req.query.ids)
         .split(",")
