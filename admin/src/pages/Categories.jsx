@@ -33,28 +33,22 @@ import sectionApi from '../api/sectionApi';
 const API_BASE = 'http://localhost:5001';
 
 const PRESET_ICONS_AND_IMAGES = [
-  { name: 'Vegetables', emoji: '🥦', image: '/categories/vegetables.webp', bg: '#E2F0D9', section: 'greengrocc' },
-  { name: 'Fruits', emoji: '🍎', image: '/categories/fruits.webp', bg: '#F0F7ED', section: 'greengrocc' },
-  { name: 'Dairy', emoji: '🥛', image: '/categories/dairy.webp', bg: '#E8F5E9', section: 'greengrocc' },
-  { name: 'Grains', emoji: '🌾', image: '/categories/grains.webp', bg: '#E8F5E0', section: 'greengrocc' },
-  { name: 'Pulses', emoji: '🌱', image: '/categories/pulses.webp', bg: '#EAF5DF', section: 'greengrocc' },
-  { name: 'Grocery', emoji: '🧂', image: '/categories/grocery.webp', bg: '#EAF5DF', section: 'greengrocc' },
-  { name: 'Oils', emoji: '🫒', image: '/categories/oils.webp', bg: '#F7F1DC', section: 'greengrocc' },
-  { name: 'Spices', emoji: '🌶️', image: '/categories/spices.webp', bg: '#F7F1DC', section: 'greengrocc' },
-  { name: 'Dry Fruits', emoji: '🥜', image: '/categories/dry-fruits.webp', bg: '#F5EDE0', section: 'greengrocc' },
-  { name: 'Organic', emoji: '🍯', image: '/categories/organic.webp', bg: '#E8F5DF', section: 'greengrocc' },
-  { name: 'Beverages', emoji: '🥤', image: '/categories/beverages.webp', bg: '#E8F4FC', section: 'greengrocc' },
-  { name: 'Bakery', emoji: '🍞', image: '/categories/bakery.webp', bg: '#F5EBD9', section: 'greengrocc' },
-  { name: 'Chopped Veggies', emoji: '🧅', image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?auto=format&fit=crop&w=300&h=300&q=80', bg: '#E8F8EE', section: 'ready2cook' },
-  { name: 'Cut & Sliced', emoji: '🥕', image: 'https://images.unsplash.com/photo-1598170845058-12ef4a457c39?auto=format&fit=crop&w=300&h=300&q=80', bg: '#EEFBEB', section: 'ready2cook' },
-  { name: 'Peeled Garlic', emoji: '🥔', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&h=300&q=80', bg: '#EBF7FF', section: 'ready2cook' },
-  { name: 'Packaged Foods', emoji: '🛒', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&h=400&q=80', bg: '#E8F8EE', section: 'supermall' },
-];
-
-const PRESET_SECTION_EMOJIS = [
-  '🥦', '🍳', '🏬', '🥗', '🍎', '🌾', '🥛', '🍞',
-  '🌿', '🌶️', '🥩', '☕', '🧴', '🛍️', '📦', '🍯',
-  '🥜', '🧃', '🍫', '✨', '⚡', '🛒'
+  { name: 'Vegetables', image: '/categories/vegetables.webp', bg: '#E2F0D9', section: 'greengrocc' },
+  { name: 'Fruits', image: '/categories/fruits.webp', bg: '#F0F7ED', section: 'greengrocc' },
+  { name: 'Dairy', image: '/categories/dairy.webp', bg: '#E8F5E9', section: 'greengrocc' },
+  { name: 'Grains', image: '/categories/grains.webp', bg: '#E8F5E0', section: 'greengrocc' },
+  { name: 'Pulses', image: '/categories/pulses.webp', bg: '#EAF5DF', section: 'greengrocc' },
+  { name: 'Grocery', image: '/categories/grocery.webp', bg: '#EAF5DF', section: 'greengrocc' },
+  { name: 'Oils', image: '/categories/oils.webp', bg: '#F7F1DC', section: 'greengrocc' },
+  { name: 'Spices', image: '/categories/spices.webp', bg: '#F7F1DC', section: 'greengrocc' },
+  { name: 'Dry Fruits', image: '/categories/dry-fruits.webp', bg: '#F5EDE0', section: 'greengrocc' },
+  { name: 'Organic', image: '/categories/organic.webp', bg: '#E8F5DF', section: 'greengrocc' },
+  { name: 'Beverages', image: '/categories/beverages.webp', bg: '#E8F4FC', section: 'greengrocc' },
+  { name: 'Bakery', image: '/categories/bakery.webp', bg: '#F5EBD9', section: 'greengrocc' },
+  { name: 'Chopped Veggies', image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?auto=format&fit=crop&w=300&h=300&q=80', bg: '#E8F8EE', section: 'ready2cook' },
+  { name: 'Cut & Sliced', image: 'https://images.unsplash.com/photo-1598170845058-12ef4a457c39?auto=format&fit=crop&w=300&h=300&q=80', bg: '#EEFBEB', section: 'ready2cook' },
+  { name: 'Peeled Garlic', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&h=300&q=80', bg: '#EBF7FF', section: 'ready2cook' },
+  { name: 'Packaged Foods', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&h=400&q=80', bg: '#E8F8EE', section: 'supermall' },
 ];
 
 const PRESET_COLORS = [
@@ -108,7 +102,7 @@ export default function Categories() {
     sectionName: 'GreenGrocc',
     categoryImage: '',
     itemCount: '100+ items',
-    emoji: '🥦',
+    emoji: '',
     bg: '#E8F5E9',
     subcategories: [],
     storeType: 'main',
@@ -122,7 +116,7 @@ export default function Categories() {
     sectionName: '',
     slug: '',
     description: '',
-    emoji: '🌿',
+    emoji: '',
     badge: '',
     color: '#10B981',
     order: 0,
@@ -258,13 +252,12 @@ export default function Categories() {
     if (found) {
       return {
         name: found.sectionName,
-        emoji: found.emoji || '🌿',
         color: found.color || '#10B981',
       };
     }
-    if (slug === 'ready2cook') return { name: 'Ready2Cook', emoji: '🍳', color: '#EA580C' };
-    if (slug === 'supermall') return { name: 'SuperMall', emoji: '🏬', color: '#2563EB' };
-    return { name: 'GreenGrocc', emoji: '🥦', color: '#10B981' };
+    if (slug === 'ready2cook') return { name: 'Ready2Cook', color: '#EA580C' };
+    if (slug === 'supermall') return { name: 'SuperMall', color: '#2563EB' };
+    return { name: 'GreenGrocc', color: '#10B981' };
   };
 
   // ================= IMAGE UPLOAD HANDLERS =================
@@ -328,7 +321,7 @@ export default function Categories() {
       sectionName: defaultSec ? defaultSec.sectionName : 'GreenGrocc',
       categoryImage: '',
       itemCount: '50+ items',
-      emoji: '🥦',
+      emoji: '',
       bg: '#E2F0D9',
       subcategories: ['Fresh Produce', 'Daily Essentials'],
       storeType: defaultSecSlug === 'ready2cook' ? 'festive' : defaultSecSlug === 'supermall' ? 'mall' : 'main',
@@ -353,7 +346,7 @@ export default function Categories() {
       sectionName: cat.sectionName || (foundSec ? foundSec.sectionName : 'GreenGrocc'),
       categoryImage: cat.categoryImage || '',
       itemCount: cat.itemCount || '50+ items',
-      emoji: cat.emoji || '🛒',
+      emoji: '',
       bg: cat.bg || '#E8F5E9',
       subcategories: Array.isArray(cat.subcategories) ? [...cat.subcategories] : [],
       storeType: cat.storeType || (catSection === 'ready2cook' ? 'festive' : catSection === 'supermall' ? 'mall' : 'main'),
@@ -372,7 +365,6 @@ export default function Categories() {
       ...prev,
       categoryName: prev.categoryName || preset.name,
       slug: prev.slug || preset.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      emoji: preset.emoji,
       categoryImage: preset.image,
       bg: preset.bg,
       section: secSlug,
@@ -485,7 +477,7 @@ export default function Categories() {
       sectionName: '',
       slug: '',
       description: '',
-      emoji: '🌿',
+      emoji: '',
       badge: '',
       color: '#10B981',
       order: sections.length + 1,
@@ -500,7 +492,7 @@ export default function Categories() {
       sectionName: sec.sectionName || '',
       slug: sec.slug || '',
       description: sec.description || '',
-      emoji: sec.emoji || '🌿',
+      emoji: '',
       badge: sec.badge || '',
       color: sec.color || '#10B981',
       order: typeof sec.order === 'number' ? sec.order : 0,
@@ -661,7 +653,7 @@ export default function Categories() {
         </div>
       </div>
 
-      {/* ================= STORE SECTIONS BAR (Compact & Understandable) ================= */}
+      {/* ================= STORE SECTIONS BAR ================= */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
@@ -684,7 +676,7 @@ export default function Categories() {
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <span className="text-xl shrink-0">🌐</span>
+              <Layers className="h-4 w-4 text-emerald-500 shrink-0" />
               <div className="min-w-0">
                 <p className="font-black text-xs truncate">All Sections</p>
                 <p className={`text-[10px] truncate ${selectedSectionFilter === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>
@@ -724,7 +716,7 @@ export default function Categories() {
                 />
 
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-xl shrink-0">{sec.emoji || '🌿'}</span>
+                  <FolderTree className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <div className="min-w-0">
                     <p className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
                       {sec.sectionName}
@@ -771,7 +763,7 @@ export default function Categories() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>{activeSectionObj ? `${activeSectionObj.emoji} ${activeSectionObj.sectionName}` : 'All Categories'}</span>
+              <span>{activeSectionObj ? activeSectionObj.sectionName : 'All Categories'}</span>
               <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 {filteredCategories.length} items
               </span>
@@ -882,7 +874,7 @@ export default function Categories() {
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          /* Sleek Compact Grid View (5-6 Columns, Small Cards, Understandable & Clear) */
+          /* Sleek Compact Grid View */
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {filteredCategories.map((cat) => {
               const secInfo = getSectionInfo(cat.section);
@@ -895,7 +887,7 @@ export default function Categories() {
                       : 'border-slate-200 dark:border-slate-800 opacity-60'
                   }`}
                 >
-                  {/* Top Image Showcase Banner - Compact (h-22 = 88px) */}
+                  {/* Top Image Showcase Banner */}
                   <div
                     className="relative w-full h-22 flex items-center justify-center overflow-hidden border-b border-slate-100 dark:border-slate-800/80 transition-colors"
                     style={{
@@ -904,9 +896,8 @@ export default function Categories() {
                   >
                     {/* Department Chip Top-Left */}
                     <div className="absolute top-1.5 left-1.5 z-10">
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-[9px] font-extrabold text-slate-700 dark:text-slate-200 shadow-2xs border border-black/5">
-                        <span>{secInfo.emoji}</span>
-                        <span className="truncate max-w-[65px]">{secInfo.name}</span>
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-[9px] font-extrabold text-slate-700 dark:text-slate-200 shadow-2xs border border-black/5">
+                        <span className="truncate max-w-[80px]">{secInfo.name}</span>
                       </span>
                     </div>
 
@@ -926,7 +917,7 @@ export default function Categories() {
                       </button>
                     </div>
 
-                    {/* Category Image or Big Emoji */}
+                    {/* Category Image or Clean SVG Package Icon Fallback */}
                     {cat.categoryImage ? (
                       <img
                         src={cat.categoryImage}
@@ -934,16 +925,16 @@ export default function Categories() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
                           e.target.style.display = 'none';
-                          if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
+                          if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
                         }}
                       />
                     ) : null}
-                    <span
-                      className="text-4xl transition-transform duration-300 group-hover:scale-110 select-none"
-                      style={{ display: cat.categoryImage ? 'none' : 'block' }}
+                    <div
+                      className="items-center justify-center transition-transform duration-300 group-hover:scale-110 select-none"
+                      style={{ display: cat.categoryImage ? 'none' : 'flex' }}
                     >
-                      {cat.emoji || '🛒'}
-                    </span>
+                      <Package className="h-8 w-8 text-slate-400 dark:text-slate-500 stroke-[1.5]" />
+                    </div>
                   </div>
 
                   {/* Body Content - Compact & Clean */}
@@ -1030,7 +1021,7 @@ export default function Categories() {
                                   className="h-full w-full object-cover"
                                 />
                               ) : (
-                                cat.emoji || '🛒'
+                                <Package className="h-4 w-4 text-slate-500 stroke-[1.5]" />
                               )}
                             </div>
                             <div>
@@ -1045,8 +1036,7 @@ export default function Categories() {
                         </td>
 
                         <td className="py-2.5 px-3">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            <span>{secInfo.emoji}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             <span>{secInfo.name}</span>
                           </span>
                         </td>
@@ -1190,28 +1180,6 @@ export default function Categories() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Emoji Icon ({secFormData.emoji})
-                </label>
-                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 max-h-20 overflow-y-auto custom-scrollbar">
-                  {PRESET_SECTION_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setSecFormData({ ...secFormData, emoji })}
-                      className={`h-8 w-8 flex items-center justify-center rounded-lg text-lg transition-transform cursor-pointer ${
-                        secFormData.emoji === emoji
-                          ? 'bg-emerald-600 text-white shadow-sm scale-105'
-                          : 'hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1306,7 +1274,7 @@ export default function Categories() {
                 >
                   {sections.map((sec) => (
                     <option key={sec._id || sec.slug} value={sec.slug}>
-                      {sec.emoji} {sec.sectionName} ({sec.slug})
+                      {sec.sectionName} ({sec.slug})
                     </option>
                   ))}
                 </select>
@@ -1364,38 +1332,24 @@ export default function Categories() {
                       onClick={() => handleSelectPreset(preset)}
                       className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 dark:border-slate-600 transition-colors cursor-pointer"
                     >
-                      {preset.emoji} {preset.name}
+                      {preset.name}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Emoji & Items count */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Emoji Avatar
-                  </label>
-                  <input
-                    type="text"
-                    value={catFormData.emoji}
-                    onChange={(e) => setCatFormData({ ...catFormData, emoji: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Items Count Label
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 50+ items"
-                    value={catFormData.itemCount}
-                    onChange={(e) => setCatFormData({ ...catFormData, itemCount: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
+              {/* Items count */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Items Count Label
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 50+ items"
+                  value={catFormData.itemCount}
+                  onChange={(e) => setCatFormData({ ...catFormData, itemCount: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                />
               </div>
 
               {/* Image Upload & Background Color */}

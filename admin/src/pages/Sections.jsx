@@ -19,17 +19,10 @@ import {
   ArrowRight,
   ExternalLink,
   Shield,
-  Eye,
   Check,
   X,
 } from 'lucide-react';
 import sectionApi from '../api/sectionApi';
-
-const PRESET_EMOJIS = [
-  '🥦', '🍳', '🏬', '🥗', '🍎', '🌾', '🥛', '🍞',
-  '🌿', '🌶️', '🥩', '☕', '🧴', '🛍️', '📦', '🍯',
-  '🥜', '🧃', '🍫', '✨', '⚡', '🔥', '🌟', '🛒'
-];
 
 const PRESET_COLORS = [
   { name: 'Emerald Green', hex: '#10B981' },
@@ -64,7 +57,6 @@ export default function Sections() {
     sectionName: '',
     slug: '',
     description: '',
-    emoji: '🌿',
     badge: '',
     color: '#10B981',
     order: 0,
@@ -100,66 +92,6 @@ export default function Sections() {
     loadSections();
   }, []);
 
-  // Filter sections
-  const filteredSections = useMemo(() => {
-    return sections.filter((sec) => {
-      const matchSearch =
-        sec.sectionName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sec.slug?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        sec.description?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchStatus =
-        statusFilter === 'all'
-          ? true
-          : statusFilter === 'active'
-          ? sec.isActive
-          : !sec.isActive;
-
-      return matchSearch && matchStatus;
-    });
-  }, [sections, searchTerm, statusFilter]);
-
-  // Total stats
-  const stats = useMemo(() => {
-    const total = sections.length;
-    const active = sections.filter((s) => s.isActive).length;
-    const totalCategories = sections.reduce((sum, s) => sum + (s.categoryCount || 0), 0);
-    return { total, active, totalCategories };
-  }, [sections]);
-
-  // Open Add Modal
-  const handleOpenAddModal = () => {
-    setFormData({
-      sectionName: '',
-      slug: '',
-      description: '',
-      emoji: '🥦',
-      badge: '',
-      color: '#10B981',
-      order: sections.length + 1,
-      isActive: true,
-    });
-    setEditingSection(null);
-    setIsAddModalOpen(true);
-  };
-
-  // Open Edit Modal
-  const handleOpenEditModal = (sec) => {
-    setFormData({
-      sectionName: sec.sectionName || '',
-      slug: sec.slug || '',
-      description: sec.description || '',
-      emoji: sec.emoji || '🌿',
-      badge: sec.badge || '',
-      color: sec.color || '#10B981',
-      order: typeof sec.order === 'number' ? sec.order : 0,
-      isActive: sec.isActive !== undefined ? sec.isActive : true,
-    });
-    setEditingSection(sec);
-    setIsAddModalOpen(true);
-  };
-
-  // Auto-generate slug when typing sectionName in Add mode
   const handleNameChange = (e) => {
     const name = e.target.value;
     if (!editingSection) {
@@ -174,11 +106,39 @@ export default function Sections() {
     }
   };
 
+  const handleOpenAddModal = () => {
+    setEditingSection(null);
+    setFormData({
+      sectionName: '',
+      slug: '',
+      description: '',
+      badge: '',
+      color: '#10B981',
+      order: sections.length + 1,
+      isActive: true,
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEditModal = (sec) => {
+    setEditingSection(sec);
+    setFormData({
+      sectionName: sec.sectionName || '',
+      slug: sec.slug || '',
+      description: sec.description || '',
+      badge: sec.badge || '',
+      color: sec.color || '#10B981',
+      order: typeof sec.order === 'number' ? sec.order : 0,
+      isActive: sec.isActive !== undefined ? sec.isActive : true,
+    });
+    setIsAddModalOpen(true);
+  };
+
   // Submit Section Form (Add or Edit)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.sectionName.trim()) {
-      showToast('Section name is required', 'error');
+      showToast('Section name is required.', 'error');
       return;
     }
 
@@ -194,7 +154,7 @@ export default function Sections() {
       if (editingSection) {
         const res = await sectionApi.updateSection(editingSection._id, payload);
         if (res.success) {
-          showToast(`Section "${res.data.sectionName}" updated successfully!`);
+          showToast(`Updated "${res.data.sectionName}"`);
           setIsAddModalOpen(false);
           loadSections();
         } else {
@@ -203,7 +163,7 @@ export default function Sections() {
       } else {
         const res = await sectionApi.createSection(payload);
         if (res.success) {
-          showToast(`Section "${res.data.sectionName}" created successfully!`);
+          showToast(`Created "${res.data.sectionName}"`);
           setIsAddModalOpen(false);
           loadSections();
         } else {
@@ -211,8 +171,7 @@ export default function Sections() {
         }
       }
     } catch (err) {
-      console.error('Section submission error:', err);
-      showToast(err.response?.data?.message || err.message || 'Action failed', 'error');
+      showToast(err.response?.data?.message || 'Action failed', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -225,15 +184,14 @@ export default function Sections() {
       setIsSubmitting(true);
       const res = await sectionApi.deleteSection(deletingSection._id);
       if (res.success) {
-        showToast(`Section "${deletingSection.sectionName}" deleted successfully`);
+        showToast(`Deleted section "${deletingSection.sectionName}"`);
         setDeletingSection(null);
         loadSections();
       } else {
-        showToast(res.message || 'Failed to delete section', 'error');
+        showToast(res.message || 'Delete failed', 'error');
       }
     } catch (err) {
-      console.error('Failed to delete section:', err);
-      showToast(err.response?.data?.message || err.message || 'Delete failed', 'error');
+      showToast(err.response?.data?.message || 'Delete failed', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -245,122 +203,149 @@ export default function Sections() {
       const updatedStatus = !sec.isActive;
       const res = await sectionApi.updateSection(sec._id, { isActive: updatedStatus });
       if (res.success) {
-        showToast(`Section is now ${updatedStatus ? 'Active' : 'Inactive'}`);
+        showToast(`Section ${updatedStatus ? 'Activated' : 'Disabled'}`);
         setSections((prev) =>
           prev.map((s) => (s._id === sec._id ? { ...s, isActive: updatedStatus } : s))
         );
       }
     } catch (err) {
-      showToast('Failed to change status', 'error');
+      showToast('Failed to toggle status', 'error');
     }
   };
 
+  const filteredSections = useMemo(() => {
+    return sections
+      .filter((sec) => {
+        const matchesSearch =
+          !searchTerm ||
+          sec.sectionName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sec.slug?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sec.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus =
+          statusFilter === 'all'
+            ? true
+            : statusFilter === 'active'
+            ? sec.isActive
+            : !sec.isActive;
+
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [sections, searchTerm, statusFilter]);
+
+  const activeCount = sections.filter((s) => s.isActive).length;
+  const totalCategoriesCount = sections.reduce((acc, s) => acc + (s.categoryCount || 0), 0);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Toast Notification */}
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${
+          className={`fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-2xl text-sm font-medium text-white transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
             toast.type === 'error'
-              ? 'bg-rose-600 text-white shadow-rose-500/20'
-              : 'bg-emerald-600 text-white shadow-emerald-500/20'
+              ? 'bg-rose-600 shadow-rose-500/25'
+              : 'bg-slate-950 dark:bg-emerald-600 shadow-black/30'
           }`}
         >
-          {toast.type === 'error' ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+          {toast.type === 'error' ? (
+            <AlertTriangle className="h-4 w-4" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          )}
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <FolderTree className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
-                Store Sections Management
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Manage high-level departments (e.g. GreenGrocc, Ready2Cook, SuperMall) and link categories to them.
-              </p>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Store Sections
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Sync
+            </span>
           </div>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Manage main store departments and showcase distinct catalog experiences
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={handleOpenAddModal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-emerald-500/25 transition-all duration-200 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Section</span>
-          </button>
-        </div>
+        <button
+          onClick={handleOpenAddModal}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer hover:shadow-lg hover:shadow-emerald-500/30"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Create Section</span>
+        </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Ribbon */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 p-5 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Sections</span>
-            <span className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-              <FolderTree className="h-4 w-4" />
-            </span>
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-4 backdrop-blur-sm shadow-2xs">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider">Total Sections</span>
+            <FolderTree className="h-5 w-5 text-emerald-500" />
           </div>
-          <p className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">{stats.total}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Departments configured in store</p>
+          <p className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{sections.length}</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 p-5 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Sections</span>
-            <span className="p-2 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400">
-              <CheckCircle2 className="h-4 w-4" />
-            </span>
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-4 backdrop-blur-sm shadow-2xs">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider">Active Departments</span>
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           </div>
-          <p className="mt-2 text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">{stats.active}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Live on customer store</p>
+          <p className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400">
+            {activeCount}
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 p-5 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Linked Categories</span>
-            <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
-              <Layers className="h-4 w-4" />
-            </span>
+        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-4 backdrop-blur-sm shadow-2xs">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider">Linked Categories</span>
+            <Layers className="h-5 w-5 text-blue-500" />
           </div>
-          <p className="mt-2 text-3xl font-extrabold text-blue-600 dark:text-blue-400">{stats.totalCategories}</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Categories associated across sections</p>
+          <p className="mt-2 text-3xl font-black text-blue-600 dark:text-blue-400">
+            {totalCategoriesCount}
+          </p>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 p-4 shadow-sm backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      {/* Controls Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/60 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 backdrop-blur-sm">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search section name, slug..."
+            placeholder="Search sections..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="w-full pl-9 pr-8 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Status filters & view switcher */}
-        <div className="flex items-center justify-between w-full md:w-auto gap-3">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+        <div className="flex items-center gap-2">
+          {/* Status Tabs */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl text-xs font-semibold">
             {['all', 'active', 'inactive'].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`px-3 py-1.5 rounded-lg font-semibold capitalize transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-lg capitalize transition-all cursor-pointer ${
                   statusFilter === status
-                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
                 }`}
               >
                 {status}
@@ -368,12 +353,13 @@ export default function Sections() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+          {/* Grid / Table View Switch */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
               }`}
               title="Grid View"
@@ -384,7 +370,7 @@ export default function Sections() {
               onClick={() => setViewMode('table')}
               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                 viewMode === 'table'
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
                   : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
               }`}
               title="Table View"
@@ -395,45 +381,47 @@ export default function Sections() {
         </div>
       </div>
 
-      {/* Content Area */}
+      {/* Main Content View */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <RefreshCw className="h-8 w-8 text-emerald-600 animate-spin" />
-          <p className="mt-3 text-sm text-slate-500">Loading store sections...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 py-8">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-56 rounded-3xl bg-slate-100 dark:bg-slate-800/50 animate-pulse border border-slate-200/50 dark:border-slate-800"
+            />
+          ))}
         </div>
       ) : filteredSections.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
           <FolderTree className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">No sections found</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No sections found</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm">
             {searchTerm || statusFilter !== 'all'
-              ? 'Try adjusting your search query or filter options.'
-              : 'Get started by creating your first store section or seeding the defaults.'}
+              ? 'No store sections match your search or filter parameters.'
+              : 'Create your first store department to group product categories.'}
           </p>
-          <div className="mt-4">
-            <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-500/20 cursor-pointer"
-            >
-              Create Section
-            </button>
-          </div>
+          <button
+            onClick={handleOpenAddModal}
+            className="mt-4 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
+          >
+            Create Section
+          </button>
         </div>
       ) : viewMode === 'grid' ? (
-        /* Grid View */
+        /* Grid Layout */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredSections.map((sec) => (
             <div
               key={sec._id}
-              className={`group relative rounded-2xl border bg-white dark:bg-slate-900 p-5 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
+              className={`group relative rounded-3xl border bg-white dark:bg-slate-900 p-5 shadow-2xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between ${
                 sec.isActive
-                  ? 'border-slate-200/80 dark:border-slate-800/80 hover:border-emerald-500/40'
-                  : 'border-slate-200 dark:border-slate-800 opacity-75'
+                  ? 'border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/50 hover:-translate-y-1'
+                  : 'border-slate-200 dark:border-slate-800 opacity-60'
               }`}
             >
-              {/* Color Accent Bar */}
+              {/* Color Bar Accent Top */}
               <div
-                className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl"
+                className="absolute top-0 left-6 right-6 h-1 rounded-b-full"
                 style={{ backgroundColor: sec.color || '#10B981' }}
               />
 
@@ -441,22 +429,19 @@ export default function Sections() {
               <div className="flex items-start justify-between gap-3 pt-2">
                 <div className="flex items-center gap-3">
                   <div
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl shadow-inner border border-black/5"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-inner border border-black/5"
                     style={{ backgroundColor: `${sec.color || '#10B981'}15` }}
                   >
-                    <span>{sec.emoji || '🌿'}</span>
+                    <FolderTree className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {sec.sectionName}
                     </h3>
-                    <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
-                      slug: {sec.slug}
-                    </span>
                   </div>
                 </div>
 
-                {/* Status Toggle Switch */}
+                {/* Status Toggle */}
                 <button
                   onClick={() => handleToggleStatus(sec)}
                   className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors cursor-pointer ${
@@ -464,89 +449,87 @@ export default function Sections() {
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-500/20'
                       : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-700/20'
                   }`}
-                  title="Click to toggle status"
                 >
-                  {sec.isActive ? 'Active' : 'Inactive'}
+                  {sec.isActive ? 'Active' : 'Disabled'}
                 </button>
               </div>
 
               {/* Description */}
-              <p className="mt-3 text-xs text-slate-600 dark:text-slate-400 line-clamp-2 min-h-[32px]">
-                {sec.description || 'No description provided.'}
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 line-clamp-2 min-h-[32px]">
+                {sec.description || 'No department description configured.'}
               </p>
 
-              {/* Badges & Meta */}
-              <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs">
-                {sec.badge && (
+              {/* Badges and Info */}
+              <div className="mt-4 flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
                   <span
-                    className="px-2.5 py-0.5 rounded-lg font-bold text-[10px] uppercase tracking-wider text-white shadow-xs"
+                    className="h-2.5 w-2.5 rounded-full border border-black/10"
                     style={{ backgroundColor: sec.color || '#10B981' }}
-                  >
-                    {sec.badge}
+                    title="Theme color"
+                  />
+                  {sec.badge && (
+                    <span
+                      className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white shadow-2xs"
+                      style={{ backgroundColor: sec.color || '#10B981' }}
+                    >
+                      {sec.badge}
+                    </span>
+                  )}
+                  <span className="text-[11px] font-mono font-bold text-slate-400">
+                    Order #{sec.order || 0}
                   </span>
-                )}
-
-                <button
-                  onClick={() => navigate(`/categories?section=${sec.slug}`)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px] hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-                >
-                  <Layers className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>{sec.categoryCount || 0} Categories</span>
-                  <ArrowRight className="h-3 w-3 opacity-60" />
-                </button>
-
-                <span className="ml-auto text-[11px] font-medium text-slate-400">
-                  Order: #{sec.order || 0}
-                </span>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="mt-4 flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80">
-                <button
-                  onClick={() => navigate(`/categories?section=${sec.slug}`)}
-                  className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Manage Categories</span>
-                  <ExternalLink className="h-3 w-3" />
-                </button>
+                </div>
 
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => handleOpenEditModal(sec)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white transition-colors cursor-pointer"
-                    title="Edit Section"
+                    onClick={() => navigate(`/categories?section=${sec.slug}`)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
+                    title="View linked categories"
                   >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setDeletingSection(sec)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                    title="Delete Section"
-                  >
-                    <Trash2 className="h-4 w-4" />
+                    <Layers className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>{sec.categoryCount || 0} Cats</span>
+                    <ArrowRight className="h-3 w-3 opacity-60" />
                   </button>
                 </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="mt-3 flex items-center justify-end gap-1.5">
+                <button
+                  onClick={() => handleOpenEditModal(sec)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                >
+                  <Edit2 className="h-3 w-3 text-slate-500" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  onClick={() => setDeletingSection(sec)}
+                  className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 dark:hover:bg-rose-950/40 text-slate-400 shadow-2xs transition-colors cursor-pointer"
+                  title="Delete Section"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        /* Table View */
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
+        /* Table Layout */
+        <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  <th className="py-3.5 px-4">Section</th>
+                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                  <th className="py-3.5 px-4">Section Name</th>
                   <th className="py-3.5 px-4">Slug</th>
-                  <th className="py-3.5 px-4">Badge & Color</th>
+                  <th className="py-3.5 px-4">Badge & Theme</th>
                   <th className="py-3.5 px-4 text-center">Order</th>
                   <th className="py-3.5 px-4 text-center">Categories</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
                 {filteredSections.map((sec) => (
                   <tr
                     key={sec._id}
@@ -554,7 +537,7 @@ export default function Sections() {
                   >
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{sec.emoji || '🌿'}</span>
+                        <FolderTree className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white">
                             {sec.sectionName}
@@ -565,74 +548,58 @@ export default function Sections() {
                         </div>
                       </div>
                     </td>
-
-                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600 dark:text-slate-300">
+                    <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">
                       {sec.slug}
                     </td>
-
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
                         <span
-                          className="h-3 w-3 rounded-full border border-black/10 shrink-0"
+                          className="h-3 w-3 rounded-full border border-black/10"
                           style={{ backgroundColor: sec.color || '#10B981' }}
                         />
-                        {sec.badge ? (
+                        {sec.badge && (
                           <span
                             className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"
                             style={{ backgroundColor: sec.color || '#10B981' }}
                           >
                             {sec.badge}
                           </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </div>
                     </td>
-
-                    <td className="py-3.5 px-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                    <td className="py-3.5 px-4 text-center font-bold text-slate-600 dark:text-slate-300">
                       #{sec.order || 0}
                     </td>
-
                     <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => navigate(`/categories?section=${sec.slug}`)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold text-xs hover:underline cursor-pointer"
-                      >
-                        <Layers className="h-3.5 w-3.5" />
-                        <span>{sec.categoryCount || 0}</span>
-                      </button>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        {sec.categoryCount || 0}
+                      </span>
                     </td>
-
                     <td className="py-3.5 px-4 text-center">
                       <button
                         onClick={() => handleToggleStatus(sec)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           sec.isActive
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
                         }`}
                       >
-                        {sec.isActive ? 'Active' : 'Inactive'}
+                        {sec.isActive ? 'Active' : 'Disabled'}
                       </button>
                     </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenEditModal(sec)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
-                          title="Edit"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingSection(sec)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <td className="py-3.5 px-4 text-right flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleOpenEditModal(sec)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingSection(sec)}
+                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -649,23 +616,11 @@ export default function Sections() {
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => !isSubmitting && setIsAddModalOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="relative z-10 w-full max-w-xl rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <FolderTree className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    {editingSection ? 'Edit Section' : 'Add New Section'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {editingSection
-                      ? 'Update department details and styling'
-                      : 'Define a new store section for organizing categories'}
-                  </p>
-                </div>
-              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {editingSection ? 'Edit Section' : 'Add New Section'}
+              </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
                 className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -675,7 +630,6 @@ export default function Sections() {
             </div>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              {/* Section Name & Slug */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
@@ -690,7 +644,6 @@ export default function Sections() {
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
                     Slug (URL identifier) *
@@ -706,10 +659,9 @@ export default function Sections() {
                 </div>
               </div>
 
-              {/* Description */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
-                  Description / Subtitle
+                  Description
                 </label>
                 <textarea
                   rows="2"
@@ -718,30 +670,6 @@ export default function Sections() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 />
-              </div>
-
-              {/* Emoji Picker */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <Smile className="h-4 w-4 text-emerald-500" />
-                  <span>Choose Emoji / Icon ({formData.emoji})</span>
-                </label>
-                <div className="flex flex-wrap gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 max-h-28 overflow-y-auto custom-scrollbar">
-                  {PRESET_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, emoji })}
-                      className={`h-9 w-9 flex items-center justify-center rounded-lg text-lg transition-all cursor-pointer ${
-                        formData.emoji === emoji
-                          ? 'bg-emerald-500 text-white shadow-md scale-110'
-                          : 'hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Theme Color Picker */}
