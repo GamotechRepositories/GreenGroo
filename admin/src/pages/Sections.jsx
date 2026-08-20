@@ -21,6 +21,11 @@ import {
   Shield,
   Check,
   X,
+  Leaf,
+  Utensils,
+  ShoppingBag,
+  Store,
+  Flame,
 } from 'lucide-react';
 import sectionApi from '../api/sectionApi';
 
@@ -34,6 +39,14 @@ const PRESET_COLORS = [
   { name: 'Cyan Teal', hex: '#06B6D4' },
   { name: 'Slate Gray', hex: '#64748B' },
 ];
+
+const renderSectionIcon = (slug = '', className = 'h-6 w-6') => {
+  const s = slug.toLowerCase();
+  if (s === 'greengrocc') return <Leaf className={className} />;
+  if (s === 'ready2cook') return <Utensils className={className} />;
+  if (s === 'supermall') return <ShoppingBag className={className} />;
+  return <FolderTree className={className} />;
+};
 
 export default function Sections() {
   const navigate = useNavigate();
@@ -432,7 +445,7 @@ export default function Sections() {
                     className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-inner border border-black/5"
                     style={{ backgroundColor: `${sec.color || '#10B981'}15` }}
                   >
-                    <FolderTree className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                    {renderSectionIcon(sec.slug, 'h-6 w-6 text-emerald-600 dark:text-emerald-400')}
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">

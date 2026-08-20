@@ -26,6 +26,12 @@ import {
   ImageIcon,
   Loader2,
   Link2,
+  Leaf,
+  Utensils,
+  ShoppingBag,
+  Store,
+  Flame,
+  ChefHat,
 } from 'lucide-react';
 import categoryApi from '../api/categoryApi';
 import sectionApi from '../api/sectionApi';
@@ -62,6 +68,15 @@ const PRESET_COLORS = [
   { name: 'Purple', hex: '#F3E8FF' },
   { name: 'Pink', hex: '#FFE8E8' },
 ];
+
+const renderDeptIcon = (slug = '', className = 'h-4 w-4') => {
+  const s = (slug || '').toLowerCase();
+  if (s === 'all') return <Layers className={className} />;
+  if (s === 'greengrocc') return <Leaf className={className} />;
+  if (s === 'ready2cook') return <Utensils className={className} />;
+  if (s === 'supermall') return <ShoppingBag className={className} />;
+  return <FolderTree className={className} />;
+};
 
 export default function Categories() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -581,171 +596,223 @@ export default function Categories() {
         </div>
       )}
 
-      {/* Main Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Catalog Management
-            </h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Sync
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure store departments & product categories efficiently
-          </p>
-        </div>
-
-        {/* Global Header Actions */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenAddSecModal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-2xs cursor-pointer"
-          >
-            <FolderTree className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>New Section</span>
-          </button>
-
-          <button
-            onClick={handleOpenAddCatModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>New Category</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Mini Stats Ribbon - Compact */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 shadow-2xs flex items-center justify-between">
+      {/* ================= MAIN PAGE HEADER & STATS (UNIFIED CARD) ================= */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-4">
+        {/* Top Row: Title, Subtitle, Live Sync, and Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Categories</span>
-            <p className="text-lg font-black text-slate-900 dark:text-white leading-tight">{metrics.total}</p>
-          </div>
-          <Package className="h-5 w-5 text-emerald-500/80 shrink-0" />
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Active in App</span>
-            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight">{metrics.active}</p>
-          </div>
-          <CheckCircle2 className="h-5 w-5 text-emerald-600/80 shrink-0" />
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Store Sections</span>
-            <p className="text-lg font-black text-blue-600 dark:text-blue-400 leading-tight">{metrics.totalSections}</p>
-          </div>
-          <FolderTree className="h-5 w-5 text-blue-500/80 shrink-0" />
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Sub-filters</span>
-            <p className="text-lg font-black text-amber-600 dark:text-amber-400 leading-tight">{metrics.subCount}</p>
-          </div>
-          <Tag className="h-5 w-5 text-amber-500/80 shrink-0" />
-        </div>
-      </div>
-
-      {/* ================= STORE SECTIONS BAR ================= */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
-            <FolderTree className="h-3 w-3" />
-            <span>Store Departments</span>
-          </span>
-          <span className="text-[11px] font-medium text-slate-400">
-            Select to filter view
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {/* "All Sections" Pill Card */}
-          <div
-            onClick={() => handleSectionFilterChange('all')}
-            className={`group relative rounded-xl p-2.5 cursor-pointer transition-all duration-200 border flex items-center justify-between gap-2 ${
-              selectedSectionFilter === 'all'
-                ? 'bg-slate-950 text-white dark:bg-emerald-950/80 dark:border-emerald-500 shadow-md ring-2 ring-slate-950/20 dark:ring-emerald-500/30'
-                : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200 shadow-2xs'
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Layers className="h-4 w-4 text-emerald-500 shrink-0" />
-              <div className="min-w-0">
-                <p className="font-black text-xs truncate">All Sections</p>
-                <p className={`text-[10px] truncate ${selectedSectionFilter === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>
-                  Full Catalog
-                </p>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                Catalog Management
+              </h1>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Sync
+              </span>
             </div>
-            <span
-              className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold shrink-0 ${
-                selectedSectionFilter === 'all'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              {categories.length}
-            </span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Configure store departments & product categories efficiently
+            </p>
           </div>
 
-          {/* Dynamic Section Cards */}
+          {/* Global Header Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenAddSecModal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-2xs cursor-pointer"
+            >
+              <FolderTree className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>New Section</span>
+            </button>
+
+            <button
+              onClick={handleOpenAddCatModal}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Category</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Row: 4 Metric Stats inside the same Card */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Categories</span>
+              <p className="text-lg font-black text-slate-900 dark:text-white leading-tight">{metrics.total}</p>
+            </div>
+            <Package className="h-5 w-5 text-emerald-500/80 shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Active in App</span>
+              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight">{metrics.active}</p>
+            </div>
+            <CheckCircle2 className="h-5 w-5 text-emerald-600/80 shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Store Sections</span>
+              <p className="text-lg font-black text-blue-600 dark:text-blue-400 leading-tight">{metrics.totalSections}</p>
+            </div>
+            <FolderTree className="h-5 w-5 text-blue-500/80 shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sub-filters</span>
+              <p className="text-lg font-black text-amber-600 dark:text-amber-400 leading-tight">{metrics.subCount}</p>
+            </div>
+            <Tag className="h-5 w-5 text-amber-500/80 shrink-0" />
+          </div>
+        </div>
+      </div>
+
+      {/* ================= STORE DEPARTMENTS (SINGLE UNIFIED CARD) ================= */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-2xs">
+        {/* Unified Card Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+              <FolderTree className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                <span>Store Departments</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  {sections.length} Active
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                Filter catalog categories by store department
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={handleOpenAddSecModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+              title="Create new store department"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Department</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Options inside the Single Card */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {/* All Departments Option */}
+          {(() => {
+            const isSelected = selectedSectionFilter === 'all';
+            return (
+              <div
+                onClick={() => handleSectionFilterChange('all')}
+                className={`group relative rounded-xl p-2.5 sm:p-3 cursor-pointer transition-all duration-200 border flex items-center justify-between gap-3 ${
+                  isSelected
+                    ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500/80 dark:border-emerald-500 text-slate-900 dark:text-white shadow-2xs ring-1 ring-emerald-500/30'
+                    : 'bg-slate-50/70 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white shadow-2xs'
+                    }`}
+                  >
+                    <Layers className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-xs sm:text-sm truncate">
+                      All Departments
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">
+                      /all-catalog
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums shrink-0 ${
+                    isSelected
+                      ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
+                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs'
+                  }`}
+                >
+                  {categories.length}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Dynamic Department Options */}
           {sections.map((sec) => {
             const isSelected = selectedSectionFilter.toLowerCase() === sec.slug.toLowerCase();
             const count = sectionCounts[sec.slug.toLowerCase()] || 0;
+
             return (
               <div
                 key={sec._id || sec.slug}
                 onClick={() => handleSectionFilterChange(sec.slug)}
-                className={`group relative rounded-xl p-2.5 cursor-pointer transition-all duration-200 border flex items-center justify-between gap-2 ${
+                className={`group relative rounded-xl p-2.5 sm:p-3 cursor-pointer transition-all duration-200 border flex items-center justify-between gap-3 ${
                   isSelected
-                    ? 'bg-emerald-50/90 dark:bg-emerald-950/60 border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
-                    : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
+                    ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500/80 dark:border-emerald-500 text-slate-900 dark:text-white shadow-2xs ring-1 ring-emerald-500/30'
+                    : 'bg-slate-50/70 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                {/* Accent top border bar */}
-                <div
-                  className="absolute top-0 left-3 right-3 h-0.5 rounded-b-full"
-                  style={{ backgroundColor: sec.color || '#10B981' }}
-                />
-
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <FolderTree className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <div
+                    className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white shadow-2xs'
+                    }`}
+                  >
+                    {renderDeptIcon(sec.slug, 'h-4 w-4')}
+                  </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                    <p className="font-bold text-xs sm:text-sm truncate">
                       {sec.sectionName}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-mono truncate">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">
                       /{sec.slug}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums shrink-0 ${
+                      isSelected
+                        ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
+                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs'
+                    }`}
+                  >
                     {count}
                   </span>
+
+                  {/* Quick Action buttons on hover */}
                   <div
-                    className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
                       onClick={() => handleOpenEditSecModal(sec)}
-                      className="p-1 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700"
-                      title="Edit Section"
+                      className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                      title="Edit department"
                     >
                       <Edit2 className="h-3 w-3" />
                     </button>
                     <button
                       onClick={() => setDeletingSection(sec)}
-                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40"
-                      title="Delete Section"
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
+                      title="Delete department"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
