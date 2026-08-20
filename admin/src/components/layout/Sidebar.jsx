@@ -9,11 +9,13 @@ import {
   ShieldCheck,
   Layers,
   FolderTree,
+  Package,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Products', href: '/products', icon: Package },
   { name: 'Sections & Categories', href: '/categories', icon: FolderTree },
 ];
 

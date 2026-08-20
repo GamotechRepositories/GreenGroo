@@ -15,6 +15,7 @@ import {
   List,
   FolderTree,
   ArrowUpDown,
+  ArrowLeft,
   Copy,
   ExternalLink,
   Tag,
@@ -581,6 +582,535 @@ export default function Categories() {
   };
 
   const activeSectionObj = sections.find((s) => s.slug.toLowerCase() === selectedSectionFilter.toLowerCase());
+
+  // ================= FULL-PAGE STEP-BY-STEP CATEGORY FORM VIEW =================
+  if (isAddCatModalOpen) {
+    return (
+      <div className="space-y-5 max-w-5xl mx-auto pb-16">
+        {/* Toast Notification */}
+        {toast && (
+          <div
+            className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-xl text-xs font-semibold text-white transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
+              toast.type === 'error' ? 'bg-rose-600 shadow-rose-500/25' : 'bg-slate-950 dark:bg-emerald-600 shadow-black/30'
+            }`}
+          >
+            {toast.type === 'error' ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+            <span>{toast.message}</span>
+          </div>
+        )}
+
+        {/* Top Header & Breadcrumb Bar */}
+        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCatModalOpen(false)}
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5 cursor-pointer font-bold text-slate-600 dark:text-slate-300"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Categories</span>
+                </button>
+                <span>/</span>
+                <span className="text-slate-900 dark:text-white font-semibold">
+                  {editingCategory ? `Edit: ${editingCategory.categoryName}` : 'Add Category'}
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {editingCategory ? `Edit Category: ${editingCategory.categoryName}` : 'Create Product Category'}
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Configure department, category details, visual styling, and customer visibility
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setIsAddCatModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitCategory}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>{editingCategory ? 'Update Category' : 'Publish Category'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmitCategory} className="grid grid-cols-1 lg:grid-cols-3 gap-5">          {/* Main Form: ONE Single Outer Container with Seamless Flat Color Bands (NO nested cards) */}
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden divide-y divide-slate-200/70 dark:divide-slate-800">
+
+            {/* STEP 1: Flat Seamless Band (Fresh Soft Sky Blue Tint) */}
+            <div className="bg-sky-50/50 dark:bg-sky-950/20 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-600 text-white font-bold text-xs shadow-xs">
+                  1
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    Department & Basic Details
+                  </h3>
+                  <p className="text-[11px] text-sky-800/80 dark:text-sky-300">
+                    Store section, category title, and URL identifier
+                  </p>
+                </div>
+              </div>
+
+              {/* Store Department Select */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Store Department <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={catFormData.section}
+                  onChange={(e) => {
+                    const chosenSlug = e.target.value;
+                    const chosenSec = sections.find((s) => s.slug.toLowerCase() === chosenSlug.toLowerCase());
+                    setCatFormData((prev) => ({
+                      ...prev,
+                      section: chosenSlug,
+                      sectionName: chosenSec ? chosenSec.sectionName : chosenSlug,
+                      storeType: chosenSlug === 'ready2cook' ? 'festive' : chosenSlug === 'supermall' ? 'mall' : 'main',
+                    }));
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 cursor-pointer shadow-2xs"
+                >
+                  {sections.map((sec) => (
+                    <option key={sec._id || sec.slug} value={sec.slug}>
+                      {sec.sectionName} (/{sec.slug})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Name & Slug */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Category Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Fresh Vegetables"
+                    value={catFormData.categoryName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!editingCategory) {
+                        setCatFormData((prev) => ({
+                          ...prev,
+                          categoryName: val,
+                          slug: val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+                        }));
+                      } else {
+                        setCatFormData((prev) => ({ ...prev, categoryName: val }));
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    URL Slug Identifier <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. fresh-vegetables"
+                    value={catFormData.slug}
+                    onChange={(e) => setCatFormData({ ...catFormData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '') })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              {/* Items count */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Items Count Label
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 50+ items"
+                  value={catFormData.itemCount}
+                  onChange={(e) => setCatFormData({ ...catFormData, itemCount: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 shadow-2xs"
+                />
+              </div>
+            </div>
+
+            {/* STEP 2: Flat Seamless Band (Soft Emerald Tint) */}
+            <div className="bg-emerald-50/40 dark:bg-emerald-950/20 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-xs shadow-xs">
+                  2
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    Media & Card Appearance
+                  </h3>
+                  <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300">
+                    Banner artwork and card glow background tint
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload / URL Toggle */}
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-white dark:bg-slate-800 border border-emerald-500/20 dark:border-slate-700 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setImageMode('upload')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    imageMode === 'upload'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>Upload Image</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageMode('url')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    imageMode === 'url'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  <span>Image URL</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Image Box */}
+                <div>
+                  {imageMode === 'upload' ? (
+                    <div>
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageFileChange(e.target.files?.[0])}
+                      />
+                      <div
+                        onDrop={handleImageDrop}
+                        onDragOver={(e) => e.preventDefault()}
+                        onClick={() => !imageUploading && imageInputRef.current?.click()}
+                        className="relative rounded-2xl border-2 border-dashed border-emerald-300/80 dark:border-emerald-700/60 hover:border-emerald-500 transition-colors cursor-pointer overflow-hidden bg-white dark:bg-slate-800 group h-36 flex items-center justify-center shadow-2xs"
+                      >
+                        {imageUploading ? (
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
+                            <span className="text-xs font-semibold text-emerald-600">Uploading to S3...</span>
+                          </div>
+                        ) : imagePreview || catFormData.categoryImage ? (
+                          <>
+                            <img
+                              src={imagePreview || catFormData.categoryImage}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <div className="text-white text-xs font-bold flex items-center gap-1.5">
+                                <Upload className="h-4 w-4" />
+                                Change Image
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1.5 p-4 text-center">
+                            <div className="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+                              <ImageIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              Click or drag image here
+                            </p>
+                            <p className="text-[11px] text-slate-400">JPG, PNG, WEBP max 10MB</p>
+                          </div>
+                        )}
+                      </div>
+                      {(imagePreview || catFormData.categoryImage) && !imageUploading && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setImagePreview('');
+                            setCatFormData((p) => ({ ...p, categoryImage: '' }));
+                          }}
+                          className="mt-1.5 text-xs text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" /> Remove image
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Direct Image URL
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="https://... or /categories/fruits.webp"
+                        value={catFormData.categoryImage}
+                        onChange={(e) => {
+                          setCatFormData({ ...catFormData, categoryImage: e.target.value });
+                          setImagePreview(e.target.value);
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Background Color Swatches */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Card Glow Background Color
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={catFormData.bg || '#E8F5E9'}
+                      onChange={(e) => setCatFormData({ ...catFormData, bg: e.target.value })}
+                      className="h-10 w-12 rounded-xl cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={catFormData.bg || '#E8F5E9'}
+                      onChange={(e) => setCatFormData({ ...catFormData, bg: e.target.value })}
+                      className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white shadow-2xs"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {PRESET_COLORS.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => setCatFormData({ ...catFormData, bg: c.hex })}
+                        className="h-7 w-7 rounded-lg border border-black/10 transition-transform hover:scale-110 cursor-pointer shadow-2xs"
+                        style={{ backgroundColor: c.hex }}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 3: Flat Seamless Band (Soft Amber Tint) */}
+            <div className="bg-amber-50/40 dark:bg-amber-950/20 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-white font-bold text-xs shadow-xs">
+                  3
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    Subcategories & Store Visibility
+                  </h3>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300">
+                    Product sub-filters and customer storefront visibility
+                  </p>
+                </div>
+              </div>
+
+              {/* Subcategories Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Subcategories / Sub-filters
+                </label>
+                <div className="flex gap-2 mb-2.5">
+                  <input
+                    type="text"
+                    placeholder="e.g. Leafy Greens, Roots (press Enter)"
+                    value={newSubcategoryInput}
+                    onChange={(e) => setNewSubcategoryInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSubcategory();
+                      }
+                    }}
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 shadow-2xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSubcategory}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {/* Subcategories Tag Pills */}
+                <div className="flex flex-wrap gap-1.5 p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-amber-500/20 dark:border-slate-700 min-h-[44px] items-center">
+                  {catFormData.subcategories.length === 0 ? (
+                    <span className="text-xs text-slate-400 italic">No subcategories added yet</span>
+                  ) : (
+                    catFormData.subcategories.map((sub, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-50/80 dark:bg-slate-700 text-xs font-semibold text-amber-900 dark:text-amber-200 border border-amber-500/30 dark:border-slate-600 shadow-2xs"
+                      >
+                        <span>{sub}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSubcategory(sub)}
+                          className="text-amber-600 hover:text-rose-600 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Display Order & Active Checkbox */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    value={catFormData.order}
+                    onChange={(e) => setCatFormData({ ...catFormData, order: parseInt(e.target.value, 10) || 0 })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 shadow-2xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2.5 pt-6">
+                  <input
+                    type="checkbox"
+                    id="catIsActive"
+                    checked={catFormData.isActive}
+                    onChange={(e) => setCatFormData({ ...catFormData, isActive: e.target.checked })}
+                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <label htmlFor="catIsActive" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                    Active & visible in customer app
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Live Card Preview Sticky */}
+          <div className="space-y-4">
+            <div className="sticky top-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Live Card Preview
+                </span>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                  Customer View
+                </span>
+              </div>
+
+              {/* Render Category Card Mock */}
+              <div
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 overflow-hidden transition-all shadow-sm"
+                style={{ backgroundColor: catFormData.bg || '#E8F5E9' }}
+              >
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300 shadow-2xs">
+                    {catFormData.sectionName || 'GreenGrocc'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
+                    {catFormData.isActive ? 'Active' : 'Draft'}
+                  </span>
+                </div>
+
+                {/* Card Image */}
+                <div className="h-32 rounded-xl overflow-hidden bg-white/50 dark:bg-slate-800/50 flex items-center justify-center mb-3">
+                  {imagePreview || catFormData.categoryImage ? (
+                    <img
+                      src={imagePreview || catFormData.categoryImage}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  ) : (
+                    <Package className="h-10 w-10 text-slate-400" />
+                  )}
+                </div>
+
+                {/* Title & Items count */}
+                <div className="bg-white/90 dark:bg-slate-900/90 rounded-xl p-3 shadow-2xs">
+                  <h4 className="font-black text-sm text-slate-900 dark:text-white truncate">
+                    {catFormData.categoryName || 'Category Name'}
+                  </h4>
+                  <p className="text-[11px] font-mono text-slate-400 truncate">
+                    /{catFormData.slug || 'slug-url'}
+                  </p>
+                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {catFormData.itemCount || '50+ items'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {catFormData.subcategories.length} sub-filters
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Actions inside Sidebar */}
+              <div className="pt-2 flex flex-col gap-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving Category...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>{editingCategory ? 'Update Category' : 'Save & Publish Category'}</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddCatModalOpen(false)}
+                  className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel & Return
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
@@ -1288,380 +1818,6 @@ export default function Categories() {
                   className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
                 >
                   {editingSection ? 'Save Changes' : 'Create Section'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: ADD / EDIT CATEGORY WITH LIVE PREVIEW ================= */}
-      {isAddCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
-            onClick={() => !isSubmitting && setIsAddCatModalOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-2xl rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-emerald-600" />
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                  {editingCategory ? 'Edit Product Category' : 'Add New Category'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsAddCatModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitCategory} className="mt-5 space-y-4">
-              {/* Department Target Selector */}
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-500/30">
-                <label className="block text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 mb-1 flex items-center gap-1.5">
-                  <FolderTree className="h-4 w-4 text-emerald-600" />
-                  <span>Choose Section (Department) *</span>
-                </label>
-                <select
-                  value={catFormData.section}
-                  onChange={(e) => {
-                    const chosenSlug = e.target.value;
-                    const chosenSec = sections.find((s) => s.slug.toLowerCase() === chosenSlug.toLowerCase());
-                    setCatFormData((prev) => ({
-                      ...prev,
-                      section: chosenSlug,
-                      sectionName: chosenSec ? chosenSec.sectionName : chosenSlug,
-                      storeType: chosenSlug === 'ready2cook' ? 'festive' : chosenSlug === 'supermall' ? 'mall' : 'main',
-                    }));
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-emerald-500/40 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 cursor-pointer shadow-xs"
-                >
-                  {sections.map((sec) => (
-                    <option key={sec._id || sec.slug} value={sec.slug}>
-                      {sec.sectionName} ({sec.slug})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Name & Slug */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Category Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Exotic Veggies"
-                    value={catFormData.categoryName}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (!editingCategory) {
-                        setCatFormData((prev) => ({ ...prev, categoryName: val, slug: val.toLowerCase().replace(/[^a-z0-9]+/g, '-') }));
-                      } else {
-                        setCatFormData((prev) => ({ ...prev, categoryName: val }));
-                      }
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Slug identifier *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. exotic-veggies"
-                    value={catFormData.slug}
-                    onChange={(e) => setCatFormData({ ...catFormData, slug: e.target.value.toLowerCase() })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-              </div>
-
-              {/* Quick Presets Picker */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  <span>Quick Presets</span>
-                </label>
-                <div className="flex flex-wrap gap-1 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 max-h-20 overflow-y-auto custom-scrollbar">
-                  {PRESET_ICONS_AND_IMAGES.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleSelectPreset(preset)}
-                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 dark:border-slate-600 transition-colors cursor-pointer"
-                    >
-                      {preset.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Items count */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Items Count Label
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 50+ items"
-                  value={catFormData.itemCount}
-                  onChange={(e) => setCatFormData({ ...catFormData, itemCount: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                />
-              </div>
-
-              {/* Image Upload & Background Color */}
-              <div className="space-y-3">
-                {/* Upload / URL Toggle */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 w-fit">
-                  <button
-                    type="button"
-                    onClick={() => setImageMode('upload')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      imageMode === 'upload'
-                        ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    Upload Image
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setImageMode('url')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      imageMode === 'url'
-                        ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    Paste URL
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Upload zone or URL input */}
-                  <div>
-                    {imageMode === 'upload' ? (
-                      <div>
-                        <input
-                          ref={imageInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleImageFileChange(e.target.files?.[0])}
-                        />
-                        <div
-                          onDrop={handleImageDrop}
-                          onDragOver={(e) => e.preventDefault()}
-                          onClick={() => !imageUploading && imageInputRef.current?.click()}
-                          className="relative rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500 transition-colors cursor-pointer overflow-hidden bg-slate-50 dark:bg-slate-800 group"
-                          style={{ minHeight: '130px' }}
-                        >
-                          {imageUploading ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                              <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
-                              <span className="text-xs font-semibold text-emerald-600">Uploading to S3...</span>
-                            </div>
-                          ) : imagePreview || catFormData.categoryImage ? (
-                            <>
-                              <img
-                                src={imagePreview || catFormData.categoryImage}
-                                alt="Preview"
-                                className="w-full h-full object-cover"
-                                style={{ maxHeight: '130px' }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="text-white text-xs font-bold flex items-center gap-1.5">
-                                  <Upload className="h-4 w-4" />
-                                  Change Image
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4">
-                              <div className="h-10 w-10 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                                <ImageIcon className="h-5 w-5 text-emerald-600" />
-                              </div>
-                              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 text-center">
-                                Click or drag & drop to upload
-                              </p>
-                              <p className="text-[11px] text-slate-400">JPG, PNG, WEBP — max 10 MB</p>
-                            </div>
-                          )}
-                        </div>
-                        {(imagePreview || catFormData.categoryImage) && !imageUploading && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setImagePreview('');
-                              setCatFormData((p) => ({ ...p, categoryImage: '' }));
-                            }}
-                            className="mt-1.5 text-[11px] text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
-                          >
-                            <X className="h-3 w-3" /> Remove image
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                          Image URL
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="https://... or /categories/fruits.webp"
-                          value={catFormData.categoryImage}
-                          onChange={(e) => {
-                            setCatFormData({ ...catFormData, categoryImage: e.target.value });
-                            setImagePreview(e.target.value);
-                          }}
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                        />
-                        {catFormData.categoryImage && (
-                          <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700" style={{ maxHeight: '80px' }}>
-                            <img
-                              src={catFormData.categoryImage}
-                              alt="URL Preview"
-                              className="w-full object-cover"
-                              style={{ maxHeight: '80px' }}
-                              onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Background Color */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Card Background Glow Color
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={catFormData.bg || '#E8F5E9'}
-                        onChange={(e) => setCatFormData({ ...catFormData, bg: e.target.value })}
-                        className="h-10 w-12 rounded-xl cursor-pointer border-0 bg-transparent"
-                      />
-                      <div className="flex flex-wrap gap-1 flex-1">
-                        {PRESET_COLORS.slice(0, 5).map((c) => (
-                          <button
-                            key={c.hex}
-                            type="button"
-                            onClick={() => setCatFormData({ ...catFormData, bg: c.hex })}
-                            className="h-7 w-7 rounded-lg border border-black/10 transition-transform hover:scale-110 cursor-pointer"
-                            style={{ backgroundColor: c.hex }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Subcategories */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Subcategories / Sub-filters
-                </label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Add subcategory and press Enter"
-                    value={newSubcategoryInput}
-                    onChange={(e) => setNewSubcategoryInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddSubcategory();
-                      }
-                    }}
-                    className="flex-1 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddSubcategory}
-                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-bold"
-                  >
-                    Add
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[40px]">
-                  {catFormData.subcategories.map((sub, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 shadow-2xs"
-                    >
-                      <span>{sub}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSubcategory(sub)}
-                        className="text-slate-400 hover:text-rose-600"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Order & Active Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-center">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Display Order
-                  </label>
-                  <input
-                    type="number"
-                    value={catFormData.order}
-                    onChange={(e) => setCatFormData({ ...catFormData, order: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2.5 pt-4">
-                  <input
-                    type="checkbox"
-                    id="catIsActive"
-                    checked={catFormData.isActive}
-                    onChange={(e) => setCatFormData({ ...catFormData, isActive: e.target.checked })}
-                    className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <label htmlFor="catIsActive" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                    Active & visible in customer app
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddCatModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
-                >
-                  {editingCategory ? 'Save Changes' : 'Create Category'}
                 </button>
               </div>
             </form>
