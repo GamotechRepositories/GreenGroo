@@ -101,7 +101,7 @@ if (!process.env.JWT_SECRET) {
   );
 }
 
-connectDB("greengrocc-backend").then(async () => {
+connectDB("server").then(async () => {
   await seedInitialData();
   initIncentiveCron();
   const server = http.createServer(app);

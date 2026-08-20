@@ -7,7 +7,7 @@ const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(uri, {
-      dbName: process.env.MONGODB_DB_NAME || "greengrocc-backend",
+      dbName: process.env.MONGODB_DB_NAME || "test",
     });
     console.log(
       `MongoDB connected: ${conn.connection.host} / ${conn.connection.name}`
