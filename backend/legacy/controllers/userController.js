@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
-import Vendor from "../models/vendor.js";
 import Admin from "../models/admin.js";
 import Order from "../models/order/Order.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
@@ -155,9 +154,8 @@ export const login = async (req, res) => {
       return loginWithPhoneCredentials(req, res, normalizedPhone, password);
     }
 
-    let user = await Vendor.findOne({ email: normalizedEmail }).select("+password");
+    let user = await User.findOne({ email: normalizedEmail }).select("+password");
     if (!user) user = await Admin.findOne({ email: normalizedEmail }).select("+password");
-    if (!user) user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
@@ -206,8 +204,7 @@ export const loginWithPhone = async (req, res) => {
 };
 
 async function loginWithPhoneCredentials(_req, res, phone, password) {
-  let user = await Vendor.findOne({ phone }).select("+password");
-  if (!user) user = await User.findOne({ phone }).select("+password");
+  let user = await User.findOne({ phone }).select("+password");
   if (!user) user = await Admin.findOne({ phone }).select("+password");
 
   if (!user) {
