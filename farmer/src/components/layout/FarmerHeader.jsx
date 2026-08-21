@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { logoutFarmer } from "../../store/farmerSlice";
+import { logoutFarmer, selectIsManager } from "../../store/farmerSlice";
 import { VERIFICATION_STATUS } from "../../utils/constants";
 import {
   EXCEL_BTN,
@@ -33,6 +33,7 @@ function VerificationPill({ status }) {
 function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceholder }) {
   const dispatch = useDispatch();
   const farmer = useSelector((s) => s.farmer.farmer);
+  const isManager = useSelector(selectIsManager);
 
   return (
     <header className="sticky top-0 z-30 border-b border-[#D4D4D4] bg-white">
@@ -58,13 +59,13 @@ function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceh
         </button>
 
         <Link
-          to="/farmer/profile"
+          to={isManager ? "/farmer/manager/profile" : "/farmer/profile"}
           className={`${EXCEL_BTN} hidden items-center gap-2 sm:inline-flex`}
         >
           <span className="flex h-6 w-6 items-center justify-center border border-[#D4D4D4] bg-[#F2F2F2] text-xs font-bold text-[#217346]">
-            {(farmer?.name || "F").charAt(0)}
+            {(farmer?.name || (isManager ? "M" : "F")).charAt(0)}
           </span>
-          <span className="text-xs font-semibold">{farmer?.name || "Farmer"}</span>
+          <span className="text-xs font-semibold">{farmer?.name || (isManager ? "Manager" : "Farmer")}</span>
         </Link>
 
         <button type="button" onClick={() => dispatch(logoutFarmer())} className={EXCEL_BTN_PRIMARY}>

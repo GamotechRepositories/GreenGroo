@@ -22,7 +22,12 @@ export const loginFarmer = createAsyncThunk("farmer/login", async (credentials) 
   return data;
 });
 
-export const fetchFarmerProfile = createAsyncThunk("farmer/fetchProfile", async () => {
+export const fetchFarmerProfile = createAsyncThunk("farmer/fetchProfile", async (_, { getState }) => {
+  const state = getState().farmer;
+  const role = state.role || state.farmer?.role;
+  if (role === "FARMER_MANAGER") {
+    return farmerApi.getManagerProfile();
+  }
   return farmerApi.getFarmerProfile();
 });
 
@@ -35,6 +40,7 @@ const farmerSlice = createSlice({
   initialState: {
     token: stored?.token || null,
     farmer: stored?.farmer || null,
+    role: stored?.farmer?.role || null,
     documents: [],
     sidebarCollapsed: false,
     status: "idle",
@@ -44,6 +50,7 @@ const farmerSlice = createSlice({
     logoutFarmer(state) {
       state.token = null;
       state.farmer = null;
+      state.role = null;
       state.documents = [];
       localStorage.removeItem(FARMER_STORAGE_KEY);
     },
@@ -75,6 +82,7 @@ const farmerSlice = createSlice({
         state.status = "succeeded";
         state.token = action.payload.token;
         state.farmer = action.payload.farmer;
+        state.role = action.payload.farmer?.role || null;
       })
       .addCase(loginFarmer.rejected, (state, action) => {
         state.status = "failed";
@@ -82,10 +90,13 @@ const farmerSlice = createSlice({
       })
       .addCase(fetchFarmerProfile.fulfilled, (state, action) => {
         state.farmer = action.payload;
+        if (action.payload?.role) {
+          state.role = action.payload.role;
+        }
       })
       .addCase(fetchDocuments.fulfilled, (state, action) => {
         state.documents = action.payload;
-        if (state.farmer) {
+        if (state.farmer && state.role !== "FARMER_MANAGER") {
           const required = action.payload.filter((d) =>
             ["aadhaar", "pan", "bank", "address"].includes(d.type)
           );
@@ -107,5 +118,9 @@ export const { logoutFarmer, toggleSidebar, setSidebarCollapsed, setFarmerProfil
 export const selectIsVerified = (state) =>
   state.farmer.farmer?.verificationStatus === VERIFICATION_STATUS.APPROVED ||
   state.farmer.farmer?.verificationRequired === false;
+
+export const selectUserRole = (state) => state.farmer.role;
+export const selectIsManager = (state) => state.farmer.role === "FARMER_MANAGER";
+export const selectIsFarmer = (state) => state.farmer.role === "FARMER" || (state.farmer.token && !state.farmer.role);
 
 export default farmerSlice.reducer;

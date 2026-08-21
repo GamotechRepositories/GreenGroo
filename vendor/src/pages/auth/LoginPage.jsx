@@ -33,9 +33,9 @@ export default function LoginPage() {
         onSubmit={onSubmit}
         className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm"
       >
-        <h1 className="text-xl font-bold text-gray-900">Product Manager</h1>
+        <h1 className="text-xl font-bold text-gray-900">Vendor & Product Manager</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Sign in with the account created by Admin or Segregation Manager
+          Sign in to your Vendor / Segregation Management Panel
         </p>
 
         {error ? (

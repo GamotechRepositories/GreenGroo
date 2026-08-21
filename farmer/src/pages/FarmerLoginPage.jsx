@@ -26,6 +26,7 @@ function FarmerLoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const token = useSelector((s) => s.farmer.token);
+  const role = useSelector((s) => s.farmer.role);
   const [submitting, setSubmitting] = useState(false);
   const {
     register,
@@ -37,15 +38,17 @@ function FarmerLoginPage() {
   });
 
   if (token) {
-    return <Navigate to="/farmer/dashboard" replace />;
+    return <Navigate to={role === "FARMER_MANAGER" ? "/farmer/manager/dashboard" : "/farmer/dashboard"} replace />;
   }
 
   const onSubmit = async (values) => {
     setSubmitting(true);
     try {
-      await dispatch(loginFarmer(values)).unwrap();
-      toast.success("Welcome to Farmer Panel");
-      navigate(location.state?.from || "/farmer/dashboard", { replace: true });
+      const result = await dispatch(loginFarmer(values)).unwrap();
+      const userRole = result?.farmer?.role;
+      toast.success("Welcome to " + (userRole === "FARMER_MANAGER" ? "Manager Panel" : "Farmer Panel"));
+      const defaultPath = userRole === "FARMER_MANAGER" ? "/farmer/manager/dashboard" : "/farmer/dashboard";
+      navigate(location.state?.from || defaultPath, { replace: true });
     } catch (err) {
       toast.error(err?.message || "Login failed");
     } finally {

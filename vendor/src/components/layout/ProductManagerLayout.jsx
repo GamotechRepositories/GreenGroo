@@ -6,40 +6,16 @@ import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
-  { to: '/catalog', label: 'Product Catalog', icon: 'box' },
-  { to: '/categories', label: 'Product Categories', icon: 'grid' },
-  { to: '/farmer-submissions', label: 'Farmer Submissions', icon: 'tractor' },
-  { to: '/incoming-products', label: 'Incoming Products', icon: 'download' },
-  { to: '/quality-inspection', label: 'Quality Inspection', icon: 'search' },
   {
-    id: 'grading',
-    label: 'Product Grading',
-    icon: 'tag',
+    id: 'farmer-manager',
+    label: 'Farmer Managers',
+    icon: 'user',
     children: [
-      { to: '/grading/grade-a', label: 'Grade A' },
-      { to: '/grading/grade-b', label: 'Grade B' },
-      { to: '/grading/grade-c', label: 'Grade C' },
-      { to: '/grading/rejected', label: 'Rejected' },
+      { to: '/vendor/farmer-managers', label: 'All Managers' },
+      { to: '/vendor/farmer-managers/add', label: 'Add Manager' },
     ],
   },
-  {
-    id: 'inventory',
-    label: 'Inventory',
-    icon: 'clipboard',
-    children: [
-      { to: '/inventory', label: 'All Inventory', end: true },
-      { to: '/inventory/ready-to-sell', label: 'Ready to Sell' },
-      { to: '/inventory/under-processing', label: 'Under Processing' },
-      { to: '/inventory/reserved', label: 'Reserved' },
-      { to: '/inventory/expired-damaged', label: 'Expired / Damaged' },
-    ],
-  },
-  { to: '/inventory-requests', label: 'Inventory Requests', icon: 'inbox' },
-  { to: '/delivery-managers', label: 'Delivery Managers', icon: 'user' },
-  { to: '/stock-transfers', label: 'Stock Transfers', icon: 'transfer' },
-  { to: '/pricing', label: 'Product Cost & Pricing', icon: 'currency' },
-  { to: '/reports', label: 'Inventory Reports', icon: 'chart' },
-  { to: '/history', label: 'Inventory History', icon: 'clock' },
+  { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
 ]
 
 const footerItems = [
@@ -137,7 +113,7 @@ export default function ProductManagerLayout() {
           </div>
           <div>
             <p className="text-sm font-bold leading-tight text-white">GreenGroo</p>
-            <p className="text-xs text-white/60">Product Segregation Panel</p>
+            <p className="text-xs text-white/60">Vendor Panel</p>
           </div>
         </div>
 

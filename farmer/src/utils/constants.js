@@ -98,6 +98,54 @@ export const SIDEBAR_ITEMS = [
   { to: "/farmer/profile", label: "Profile", icon: "profile" },
 ];
 
+export const MANAGER_SIDEBAR_ITEMS = [
+  { to: "/farmer/manager/dashboard", label: "Dashboard", icon: "dashboard" },
+  {
+    id: "farmers",
+    label: "Farmers",
+    icon: "community",
+    children: [
+      { to: "/farmer/manager/farmers", label: "All Farmers" },
+      { to: "/farmer/manager/farmers/add", label: "Add Farmer" },
+    ],
+  },
+  {
+    id: "products",
+    label: "Products",
+    icon: "products",
+    children: [
+      { to: "/farmer/manager/products", label: "All Products" },
+    ],
+  },
+  {
+    id: "inventory",
+    label: "Inventory",
+    icon: "inventory",
+    children: [
+      { to: "/farmer/manager/inventory", label: "All Inventory" },
+      { to: "/farmer/manager/inventory/history", label: "Inventory History" },
+    ],
+  },
+  {
+    id: "orders",
+    label: "Orders",
+    icon: "orders",
+    children: [
+      { to: "/farmer/manager/orders", label: "All Orders" },
+      { to: "/farmer/manager/orders/create", label: "Create Order" },
+    ],
+  },
+  { to: "/farmer/manager/earnings", label: "Earnings", icon: "earnings" },
+  { to: "/farmer/manager/documents", label: "Documents", icon: "documents" },
+  { to: "/farmer/manager/profile", label: "Profile", icon: "profile" },
+];
+
+export const ROLES = {
+  FARMER: "FARMER",
+  FARMER_MANAGER: "FARMER_MANAGER",
+  VENDOR: "VENDOR",
+};
+
 /** Selling routes require approved documents when verification is enforced */
 export const SELLING_ROUTE_PREFIXES = [
   "/farmer/products",

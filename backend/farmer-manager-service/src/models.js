@@ -1,5 +1,41 @@
 import mongoose from "mongoose";
 
+// ============================================================
+// VENDOR
+// ============================================================
+const vendorSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorCode: { type: String, default: "" },
+    vendorName: { type: String, default: "", trim: true },
+    ownerName: { type: String, required: true, trim: true },
+    mobile: { type: String, required: true, trim: true, unique: true },
+    email: { type: String, default: "", trim: true },
+    businessName: { type: String, default: "" },
+    businessAddress: { type: String, default: "" },
+    city: { type: String, default: "" },
+    state: { type: String, default: "" },
+    pincode: { type: String, default: "" },
+    profileImage: { type: String, default: "" },
+    gstNumber: { type: String, default: "" },
+    panNumber: { type: String, default: "" },
+    bank: {
+      accountHolder: { type: String, default: "" },
+      bankName: { type: String, default: "" },
+      accountNumber: { type: String, default: "" },
+      ifsc: { type: String, default: "" },
+    },
+    status: {
+      type: String,
+      enum: ["Pending", "Active", "Inactive", "Suspended"],
+      default: "Pending",
+    },
+    password: { type: String, default: "" },
+    role: { type: String, default: "VENDOR" },
+  },
+  { timestamps: true }
+);
+
 const farmerSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
@@ -41,6 +77,7 @@ const farmerSchema = new mongoose.Schema(
     loginEnabled: { type: Boolean, default: true },
     vendorId: { type: String, required: true, default: "vendor-1" },
     managerId: { type: String, default: "" },
+    role: { type: String, default: "FARMER" },
   },
   { timestamps: true }
 );
@@ -58,9 +95,11 @@ const farmerManagerSchema = new mongoose.Schema(
     state: { type: String, default: "" },
     pincode: { type: String, default: "" },
     location: { type: String, default: "" },
+    joiningDate: { type: String, default: "" },
     status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
     authType: { type: String, default: "password" },
     password: { type: String, default: "123456" },
+    role: { type: String, default: "FARMER_MANAGER" },
   },
   { timestamps: true }
 );
@@ -144,10 +183,15 @@ const farmerOrderSchema = new mongoose.Schema(
         total: { type: Number, default: 0 },
       },
     ],
+    harvestDate: { type: String, default: "" },
+    harvestTime: { type: String, default: "" },
+    day: { type: String, default: "" },
+    unit: { type: String, default: "Kg" },
+    rejectionQty: { type: Number, default: 0 },
     totalQuantity: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
     amount: { type: Number, default: 0 },
-    status: { type: String, default: "New" },
+    status: { type: String, default: "Confirmed" },
     deliveryStatus: { type: String, default: "Pending" },
     paymentStatus: { type: String, default: "Pending" },
     orderDate: { type: Date, default: Date.now },
@@ -230,6 +274,8 @@ const farmerHarvestOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+export const Vendor =
+  mongoose.models.Vendor || mongoose.model("Vendor", vendorSchema);
 export const Farmer =
   mongoose.models.Farmer || mongoose.model("Farmer", farmerSchema);
 export const FarmerManager =

@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
+  Vendor,
   Farmer,
   FarmerManager,
   FarmerProduct,
@@ -10,6 +11,11 @@ import {
   FarmerDocument,
   FarmerHarvestOrder,
 } from "./models.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
+function signToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || "7d" });
+}
 
 const DEFAULT_VENDOR_ID = "vendor-1";
 
@@ -27,6 +33,29 @@ function initials(name = "") {
 // ----------------------------------------------------
 export async function seedInitialData() {
   try {
+    // Seed default Vendor
+    if ((await Vendor.countDocuments()) === 0) {
+      const hashedVendorPwd = await bcrypt.hash("vendor123", 10);
+      await Vendor.create({
+        id: "vendor-1",
+        vendorCode: "VND-1001",
+        vendorName: "ABC Agro",
+        ownerName: "Vijay Sharma",
+        mobile: "9900000001",
+        email: "vendor@abcagro.com",
+        businessName: "ABC Agro Pvt Ltd",
+        businessAddress: "Plot 12, MIDC Industrial Area",
+        city: "Nashik",
+        state: "Maharashtra",
+        pincode: "422001",
+        gstNumber: "27AAAAA0000A1Z5",
+        panNumber: "AAAAA0000A",
+        status: "Active",
+        password: hashedVendorPwd,
+        role: "VENDOR",
+      }).catch(() => {});
+    }
+
     const managers = [
       {
         id: "mgr-1",
@@ -61,7 +90,9 @@ export async function seedInitialData() {
     ];
 
     if ((await FarmerManager.countDocuments()) === 0) {
-      await FarmerManager.insertMany(managers).catch(() => {});
+      const hashedMgrPwd = await bcrypt.hash("manager123", 10);
+      const managersWithHash = managers.map((m) => ({ ...m, password: hashedMgrPwd }));
+      await FarmerManager.insertMany(managersWithHash).catch(() => {});
     }
 
     const defaultHashedPassword = await bcrypt.hash("123456", 10);
@@ -532,7 +563,11 @@ export async function getFarmerById(req, res) {
 export async function createFarmer(req, res) {
   try {
     const payload = req.body;
-    const vendorId = payload.vendorId || DEFAULT_VENDOR_ID;
+    const vendorId = req.user?.vendorId || payload.vendorId || DEFAULT_VENDOR_ID;
+    const managerId =
+      req.user?.role === "FARMER_MANAGER"
+        ? req.user.managerId
+        : payload.managerId || "";
 
     if (!payload.name || !payload.mobile) {
       return res.status(400).json({ success: false, message: "Farmer name and mobile are required" });
@@ -560,7 +595,7 @@ export async function createFarmer(req, res) {
       id,
       farmerCode,
       vendorId,
-      managerId: payload.managerId || "",
+      managerId,
       name: payload.name.trim(),
       mobile: cleanMobile,
       email: payload.email || "",
@@ -732,8 +767,14 @@ export async function farmerLogin(req, res) {
       return res.status(401).json({ success: false, message: "Invalid mobile number or password" });
     }
 
-    const secret = process.env.JWT_SECRET || "greengrocc-farmer-secret-key-2026";
-    const token = jwt.sign({ id: farmer.id, farmerId: farmer.id, role: "farmer" }, secret, { expiresIn: "7d" });
+    const token = signToken({
+      id: farmer.id,
+      farmerId: farmer.id,
+      vendorId: farmer.vendorId,
+      managerId: farmer.managerId || "",
+      role: "FARMER",
+      name: farmer.name,
+    });
 
     const enriched = await enrichFarmerDoc(farmer);
 
@@ -1224,6 +1265,131 @@ export async function updateFarmerOrderStatus(req, res) {
   }
 }
 
+export async function createFarmerOrder(req, res) {
+  try {
+    const { farmerId } = req.params;
+    const {
+      customer,
+      products,
+      harvestDate = "",
+      harvestTime = "",
+      day = "",
+      unit = "Kg",
+      rejectionQty = 0,
+      status = "Confirmed",
+      paymentStatus = "Pending",
+      deliveryStatus = "Pending",
+    } = req.body;
+
+    const farmer = await Farmer.findOne({ id: farmerId });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const totalQuantity = (products || []).reduce((sum, p) => sum + Number(p.quantity || 0), 0);
+    const totalAmount = (products || []).reduce(
+      (sum, p) => sum + Number(p.total || (Number(p.price || 0) * Number(p.quantity || 1)) || 0),
+      0
+    );
+
+    const id = `fo-${Date.now()}`;
+    const order = new FarmerOrder({
+      id,
+      orderId: id,
+      vendorId: farmer.vendorId || req.user?.vendorId || DEFAULT_VENDOR_ID,
+      farmerId,
+      customer: {
+        name: customer?.name || "Daily Harvest / Store Order",
+        phone: customer?.phone || farmer.mobile || "",
+        address: customer?.address || farmer.farmLocation || "",
+      },
+      products: (products || []).map((p) => ({
+        id: p.id || p.productId || "",
+        name: p.name || "",
+        grade: p.grade || "Grade A",
+        quantity: Number(p.quantity || 1),
+        unit: p.unit || unit || "Kg",
+        price: Number(p.price || 0),
+        total: Number(p.total || (Number(p.price || 0) * Number(p.quantity || 1)) || 0),
+      })),
+      harvestDate: harvestDate || new Date().toISOString().split("T")[0],
+      harvestTime: harvestTime || new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      day: day || "Today",
+      unit: unit || "Kg",
+      rejectionQty: Number(rejectionQty || 0),
+      totalQuantity,
+      totalAmount,
+      amount: totalAmount,
+      status,
+      deliveryStatus,
+      paymentStatus,
+      orderDate: new Date(),
+      timeline: [
+        {
+          status: "Order Created",
+          at: new Date(),
+          note: `Harvest order recorded by ${req.user?.role === "FARMER_MANAGER" ? "Manager" : "Vendor"} for ${farmer.name}`,
+        },
+      ],
+    });
+
+    await order.save();
+
+    // Deduct stock from FarmerProduct grades if available
+    for (const item of products || []) {
+      const prodId = item.id || item.productId;
+      if (prodId) {
+        const prod = await FarmerProduct.findOne({ id: prodId, farmerId });
+        if (prod) {
+          const gradeItem = prod.grades?.find((g) => g.label === item.grade);
+          if (gradeItem) {
+            gradeItem.quantity = Math.max(0, Number(gradeItem.quantity || 0) - Number(item.quantity || 0));
+          }
+          prod.stock = Math.max(0, Number(prod.stock || 0) - Number(item.quantity || 0));
+          await prod.save();
+
+          // Log stock history
+          await FarmerStockHistory.create({
+            id: `sh-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            vendorId: farmer.vendorId || DEFAULT_VENDOR_ID,
+            managerId: farmer.managerId || "",
+            farmerId,
+            productId: prod.id,
+            productName: prod.name,
+            grade: item.grade || "All Grades",
+            action: "Order Deduction",
+            previousStock: Number(prod.stock || 0) + Number(item.quantity || 0),
+            changedQuantity: -Number(item.quantity || 0),
+            newStock: prod.stock,
+            reason: `Order #${id}`,
+            updatedBy: req.user?.role === "FARMER_MANAGER" ? "Manager" : "Vendor",
+            reference: id,
+            at: new Date(),
+          }).catch(() => {});
+        }
+      }
+    }
+
+    // Create Farmer Earning entry
+    await FarmerEarning.create({
+      id: `earn-${Date.now()}`,
+      vendorId: farmer.vendorId || DEFAULT_VENDOR_ID,
+      farmerId,
+      orderId: id,
+      date: new Date().toISOString().split("T")[0],
+      cropName: products?.[0]?.name || "Produce",
+      quantity: totalQuantity,
+      ratePerKg: totalQuantity > 0 ? Math.round(totalAmount / totalQuantity) : 0,
+      grossEarnings: totalAmount,
+      deductions: 0,
+      netEarnings: totalAmount,
+      status: paymentStatus === "Paid" ? "Paid" : "Pending",
+    }).catch(() => {});
+
+    res.status(201).json(order);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create order" });
+  }
+}
+
 // ----------------------------------------------------
 // EARNINGS CONTROLLERS
 // ----------------------------------------------------
@@ -1431,24 +1597,39 @@ export async function getManagerById(req, res) {
 export async function createManager(req, res) {
   try {
     const payload = req.body;
+    const vendorId = req.user?.vendorId || payload.vendorId || DEFAULT_VENDOR_ID;
     const id = `mgr-${Date.now()}`;
     const location = [payload.city, payload.state].filter(Boolean).join(", ") || payload.location || "";
 
+    if (!payload.name || !payload.mobile) {
+      return res.status(400).json({ message: "Manager name and mobile are required" });
+    }
+
+    const existing = await FarmerManager.findOne({ mobile: String(payload.mobile).trim(), vendorId });
+    if (existing) {
+      return res.status(409).json({ message: "A manager with this mobile number already exists" });
+    }
+
+    const rawPassword = payload.password || "manager123";
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
     const manager = new FarmerManager({
       id,
-      vendorId: payload.vendorId || DEFAULT_VENDOR_ID,
+      vendorId,
       name: payload.name,
       profileImage: payload.profileImage || "",
-      mobile: payload.mobile,
+      mobile: String(payload.mobile).trim(),
       email: payload.email || "",
       address: payload.address || "",
       city: payload.city || "",
       state: payload.state || "",
       pincode: payload.pincode || "",
       location,
+      joiningDate: payload.joiningDate || new Date().toISOString().split("T")[0],
       status: payload.status || "Active",
       authType: payload.authType || "password",
-      password: payload.password || "123456",
+      password: hashedPassword,
+      role: "FARMER_MANAGER",
     });
 
     await manager.save();
@@ -1512,6 +1693,299 @@ export async function deleteManager(req, res) {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to delete manager" });
+  }
+}
+
+// ----------------------------------------------------
+// VENDOR AUTH CONTROLLERS
+// ----------------------------------------------------
+export async function vendorLogin(req, res) {
+  try {
+    const { mobile, password } = req.body;
+    if (!mobile || !password) {
+      return res.status(400).json({ message: "Mobile and password are required" });
+    }
+    const vendor = await Vendor.findOne({ mobile: String(mobile).trim() });
+    if (!vendor) {
+      return res.status(401).json({ message: "Invalid mobile or password" });
+    }
+    if (vendor.status !== "Active") {
+      return res.status(403).json({ message: `Vendor account is ${vendor.status.toLowerCase()}` });
+    }
+    let isMatch = false;
+    if (vendor.password && (vendor.password.startsWith("$2a$") || vendor.password.startsWith("$2b$"))) {
+      isMatch = await bcrypt.compare(password, vendor.password);
+    } else {
+      isMatch = vendor.password === password;
+      if (isMatch) {
+        vendor.password = await bcrypt.hash(password, 10);
+        await vendor.save();
+      }
+    }
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid mobile or password" });
+    }
+    const token = signToken({
+      id: vendor.id,
+      vendorId: vendor.id,
+      role: "VENDOR",
+      name: vendor.ownerName,
+      vendorName: vendor.vendorName,
+    });
+    const { password: _pw, ...vendorData } = vendor.toObject();
+    res.json({ success: true, token, vendor: vendorData });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Vendor login failed" });
+  }
+}
+
+export async function getVendorMe(req, res) {
+  try {
+    const vendor = await Vendor.findOne({ id: req.user.vendorId }).lean();
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    const { password: _pw, ...vendorData } = vendor;
+    res.json(vendorData);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+export async function getVendors(req, res) {
+  try {
+    const vendors = await Vendor.find().lean();
+    res.json(vendors.map(({ password: _pw, ...v }) => v));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+export async function createVendor(req, res) {
+  try {
+    const payload = req.body;
+    const id = `vendor-${Date.now()}`;
+    const rawPassword = payload.password || "vendor123";
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    const vendor = new Vendor({
+      id,
+      vendorCode: `VND-${Math.floor(1000 + Math.random() * 9000)}`,
+      ...payload,
+      password: hashedPassword,
+      role: "VENDOR",
+    });
+    await vendor.save();
+    const { password: _pw, ...vendorData } = vendor.toObject();
+    res.status(201).json(vendorData);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create vendor" });
+  }
+}
+
+export async function updateVendor(req, res) {
+  try {
+    const { vendorId } = req.params;
+    const payload = req.body;
+    const vendor = await Vendor.findOne({ id: vendorId });
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    Object.assign(vendor, payload);
+    if (payload.password) vendor.password = await bcrypt.hash(payload.password, 10);
+    await vendor.save();
+    const { password: _pw, ...vendorData } = vendor.toObject();
+    res.json(vendorData);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update vendor" });
+  }
+}
+
+export async function getVendorDashboard(req, res) {
+  try {
+    const vendorId = req.user.vendorId;
+    const [farmers, managers, products, orders, earnings] = await Promise.all([
+      Farmer.find({ vendorId }).lean(),
+      FarmerManager.find({ vendorId }).lean(),
+      FarmerProduct.find({ vendorId }).lean(),
+      FarmerOrder.find({ vendorId }).sort({ orderDate: -1 }).lean(),
+      FarmerEarning.find({ vendorId }).lean(),
+    ]);
+    const totalEarnings = earnings.reduce((s, e) => s + Number(e.netEarnings || 0), 0);
+    const pendingEarnings = earnings.filter((e) => e.status === "Pending").reduce((s, e) => s + Number(e.netEarnings || 0), 0);
+    const recentOrders = orders.slice(0, 10).map(async (o) => {
+      const farmer = farmers.find((f) => f.id === o.farmerId);
+      return { ...o, farmerName: farmer?.name || "—" };
+    });
+    res.json({
+      totalFarmers: farmers.length,
+      activeFarmers: farmers.filter((f) => f.status === "Active").length,
+      totalManagers: managers.length,
+      activeManagers: managers.filter((m) => m.status === "Active").length,
+      totalProducts: products.length,
+      totalInventory: products.reduce((s, p) => s + (p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0)), 0),
+      totalOrders: orders.length,
+      pendingOrders: orders.filter((o) => ["New", "Confirmed", "Processing"].includes(o.status)).length,
+      totalEarnings,
+      pendingEarnings,
+      recentOrders: await Promise.all(recentOrders),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+// ----------------------------------------------------
+// MANAGER AUTH CONTROLLERS
+// ----------------------------------------------------
+export async function managerLogin(req, res) {
+  try {
+    const { mobile, password } = req.body;
+    if (!mobile || !password) {
+      return res.status(400).json({ message: "Mobile and password are required" });
+    }
+    const manager = await FarmerManager.findOne({ mobile: String(mobile).trim() });
+    if (!manager) {
+      return res.status(401).json({ message: "Invalid mobile or password" });
+    }
+    if (manager.status !== "Active") {
+      return res.status(403).json({ message: `Manager account is ${manager.status.toLowerCase()}` });
+    }
+    let isMatch = false;
+    if (manager.password && (manager.password.startsWith("$2a$") || manager.password.startsWith("$2b$"))) {
+      isMatch = await bcrypt.compare(password, manager.password);
+    } else {
+      isMatch = manager.password === password;
+      if (isMatch) {
+        manager.password = await bcrypt.hash(password, 10);
+        await manager.save();
+      }
+    }
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid mobile or password" });
+    }
+    const token = signToken({
+      id: manager.id,
+      managerId: manager.id,
+      vendorId: manager.vendorId,
+      role: "FARMER_MANAGER",
+      name: manager.name,
+    });
+    const { password: _pw, ...managerData } = manager.toObject();
+    res.json({
+      success: true,
+      token,
+      // Return in same shape as farmer login so the farmer app can handle it
+      farmer: {
+        ...managerData,
+        id: manager.id,
+        role: "FARMER_MANAGER",
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Manager login failed" });
+  }
+}
+
+export async function getManagerMe(req, res) {
+  try {
+    const manager = await FarmerManager.findOne({ id: req.user.managerId }).lean();
+    if (!manager) return res.status(404).json({ message: "Manager not found" });
+    const { password: _pw, ...managerData } = manager;
+    res.json(managerData);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+// ----------------------------------------------------
+// MANAGER-SCOPED CONTROLLERS
+// ----------------------------------------------------
+export async function getManagerFarmers(req, res) {
+  try {
+    const managerId = req.user.managerId;
+    const vendorId = req.user.vendorId;
+    const { q = "", status = "" } = req.query;
+    const query = { managerId, vendorId };
+    if (status) query.status = status;
+    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 });
+    let enriched = await Promise.all(farmerDocs.map(enrichFarmerDoc));
+    if (q.trim()) {
+      const needle = q.trim().toLowerCase();
+      enriched = enriched.filter(
+        (f) => f.name.toLowerCase().includes(needle) || f.mobile.includes(needle)
+      );
+    }
+    res.json(enriched);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch farmers" });
+  }
+}
+
+export async function getManagerDashboard(req, res) {
+  try {
+    const managerId = req.user.managerId;
+    const vendorId = req.user.vendorId;
+    const farmers = await Farmer.find({ managerId, vendorId }).lean();
+    const farmerIds = farmers.map((f) => f.id);
+    const [products, orders, earnings] = await Promise.all([
+      FarmerProduct.find({ farmerId: { $in: farmerIds } }).lean(),
+      FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean(),
+      FarmerEarning.find({ farmerId: { $in: farmerIds } }).lean(),
+    ]);
+    const totalEarnings = earnings.reduce((s, e) => s + Number(e.netEarnings || 0), 0);
+    const pendingEarnings = earnings.filter((e) => e.status === "Pending").reduce((s, e) => s + Number(e.netEarnings || 0), 0);
+    const totalInventory = products.reduce(
+      (s, p) => s + (p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0)), 0
+    );
+    const lowStock = products
+      .filter((p) => {
+        const total = p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0);
+        return total <= Number(p.lowStockLimit || 10);
+      })
+      .map((p) => ({
+        farmerId: p.farmerId,
+        farmerName: farmers.find((f) => f.id === p.farmerId)?.name || "—",
+        productName: p.name,
+        grades: p.grades,
+        currentStock: p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0),
+        status: "Low Stock",
+      }));
+    const recentOrders = orders.slice(0, 10).map((o) => ({
+      ...o,
+      farmerName: farmers.find((f) => f.id === o.farmerId)?.name || "—",
+    }));
+    res.json({
+      totalFarmers: farmers.length,
+      activeFarmers: farmers.filter((f) => f.status === "Active").length,
+      totalProducts: products.length,
+      totalInventory,
+      totalOrders: orders.length,
+      pendingOrders: orders.filter((o) => ["New", "Confirmed", "Processing"].includes(o.status)).length,
+      totalEarnings,
+      pendingEarnings,
+      recentOrders,
+      lowStock,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+export async function assignFarmerManager(req, res) {
+  try {
+    const { farmerId } = req.params;
+    const { managerId } = req.body;
+    const vendorId = req.user?.vendorId || DEFAULT_VENDOR_ID;
+    const farmer = await Farmer.findOne({ id: farmerId, vendorId });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    if (managerId) {
+      const manager = await FarmerManager.findOne({ id: managerId, vendorId });
+      if (!manager) return res.status(404).json({ message: "Manager not found" });
+    }
+    farmer.managerId = managerId || "";
+    await farmer.save();
+    await FarmerProduct.updateMany({ farmerId }, { managerId: managerId || "" });
+    await FarmerDocument.updateMany({ farmerId }, { managerId: managerId || "" });
+    const enriched = await enrichFarmerDoc(farmer);
+    res.json(enriched);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to assign manager" });
   }
 }
 

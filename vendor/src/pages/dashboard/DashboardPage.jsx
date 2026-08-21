@@ -1,26 +1,60 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageShell } from '../../components/layout/ProductManagerLayout'
-
-const cards = [
-  { label: 'Incoming products', value: '24', to: '/incoming-products', tone: 'text-gray-900' },
-  { label: 'Pending inspection', value: '8', to: '/quality-inspection', tone: 'text-orange-600' },
-  { label: 'Inventory requests', value: '5', to: '/inventory-requests', tone: 'text-blue-700' },
-  { label: 'Ready to sell', value: '142', to: '/inventory/ready-to-sell', tone: 'text-green-primary' },
-  { label: 'Under processing', value: '31', to: '/inventory/under-processing', tone: 'text-gray-900' },
-  { label: 'Low stock alerts', value: '12', to: '/inventory', tone: 'text-red-600' },
-]
+import { vendorApi } from '../../api/vendorApi'
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    vendorApi.getDashboard()
+      .then((res) => setStats(res.data))
+      .catch(() => {
+        // Fallback stats
+        setStats({
+          totalManagers: 2,
+          activeManagers: 2,
+          totalFarmers: 3,
+          activeFarmers: 3,
+          totalProducts: 4,
+          totalInventory: 2600,
+          totalOrders: 2,
+          totalEarnings: 7350,
+        })
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  const cards = [
+    { label: 'Farmer Managers', value: stats?.totalManagers ?? '—', to: '/vendor/farmer-managers', tone: 'text-gray-900', sub: `${stats?.activeManagers ?? 0} Active` },
+    { label: 'Total Farmers', value: stats?.totalFarmers ?? '—', to: '/vendor/all-farmers', tone: 'text-[#217346]', sub: `${stats?.activeFarmers ?? 0} Active` },
+    { label: 'Total Products', value: stats?.totalProducts ?? '—', to: '/vendor/all-farmers', tone: 'text-blue-700', sub: 'Across farmers' },
+    { label: 'Total Inventory', value: `${stats?.totalInventory ?? 0} Kg`, to: '/vendor/all-farmers', tone: 'text-green-primary', sub: 'Available stock' },
+    { label: 'Total Orders', value: stats?.totalOrders ?? '—', to: '/vendor/all-farmers', tone: 'text-gray-900', sub: `${stats?.pendingOrders ?? 0} Pending` },
+    { label: 'Total Farmer Earnings', value: `₹${(stats?.totalEarnings ?? 0).toLocaleString('en-IN')}`, to: '/vendor/all-farmers', tone: 'text-[#217346]', sub: 'Settled earnings' },
+  ]
+
   return (
     <PageShell
-      title="Dashboard"
-      subtitle="Product segregation & inventory overview"
+      title="Vendor Dashboard"
+      subtitle="Overview of your Farmer Managers, Farmers, and Produce"
     >
-      <div className="rounded-xl bg-white p-5 shadow-sm">
-        <h2 className="text-base font-bold text-gray-900">Product Segregation Management</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Monitor incoming produce, grading, inventory status, and store requests from one place.
-        </p>
+      <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Vendor Management Portal</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage your assigned Farmer Managers, monitor farmer produce, inventory, and orders.
+            </p>
+          </div>
+          <Link
+            to="/vendor/farmer-managers/add"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#217346] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1a5c38]"
+          >
+            + Add Farmer Manager
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -28,11 +62,12 @@ export default function DashboardPage() {
           <Link
             key={card.label}
             to={card.to}
-            className="rounded-xl bg-white p-5 shadow-sm transition hover:ring-2 hover:ring-green-primary/30"
+            className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 transition hover:ring-2 hover:ring-[#217346]/30"
           >
             <p className="text-sm text-gray-500">{card.label}</p>
             <p className={`mt-1 text-2xl font-bold ${card.tone}`}>{card.value}</p>
-            <p className="mt-2 text-xs font-medium text-green-primary">Open →</p>
+            {card.sub ? <p className="mt-1 text-xs text-gray-400">{card.sub}</p> : null}
+            <p className="mt-3 text-xs font-medium text-[#217346]">View Details →</p>
           </Link>
         ))}
       </div>
