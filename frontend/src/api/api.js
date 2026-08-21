@@ -109,6 +109,7 @@ function buildAddressPayload(data) {
     city,
     state,
     pincode,
+    location: data.location || null,
     isDefault: data.isDefault,
     name: fullName,
     phone: number,

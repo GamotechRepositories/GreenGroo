@@ -1,5 +1,5 @@
 export const DEFAULT_STORE_SETTINGS = {
-  minimumOrderValue: 3000,
+  minimumOrderValue: 0,
   minimumShippingCharge: 280,
   shippingSlabs: [
     { orderAmount: 3000, shippingCharge: 280 },
@@ -9,14 +9,12 @@ export const DEFAULT_STORE_SETTINGS = {
   ],
   cartNoticeEn: [
     "Please Verify Your Address Before Placing Your Order.",
-    "Minimum order value ₹{{minOrder}}",
     "Parcel opening video is must for return.",
     "Shipping depends on parcel weight minimum Rs {{minShipping}}.",
     "User have to pay shipping charges in advance.",
   ],
   cartNoticeHi: [
     "कृपया अपना पूरा पता ठीक से लिखें ऑर्डर करने से पहले। इसके बाद ऑर्डर करें।",
-    "न्यूनतम ऑर्डर मूल्य {{minOrder}}.",
     "पार्सल वापसी के लिए पार्सल खोलने का वीडियो अनिवार्य है।",
     "शिपिंग पार्सल के वजन पर निर्भर करता है न्यूनतम {{minShipping}}/",
     "उपयोगकर्ता को शिपिंग शुल्क अग्रिम रूप से देना होगा।",

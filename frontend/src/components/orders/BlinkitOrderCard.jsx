@@ -119,7 +119,7 @@ function BlinkitOrderCard({ order }) {
   return (
     <>
       <article className="overflow-hidden rounded-xl bg-white">
-        <Link to={`/orders/${order._id}`} className="block px-4 pb-0 pt-3.5">
+        <div onClick={() => navigate(`/orders/${order._id}`)} className="block px-4 pb-0 pt-3.5 cursor-pointer">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
@@ -188,7 +188,7 @@ function BlinkitOrderCard({ order }) {
               <StarRating rating={rating} />
             </div>
           ) : null}
-        </Link>
+        </div>
 
         <div className="mt-3.5 border-t border-border-light">
           {isDelivered && !rating ? (

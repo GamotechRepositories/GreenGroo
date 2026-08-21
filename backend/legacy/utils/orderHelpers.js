@@ -20,6 +20,7 @@ import { calculateOrderTotal } from "./gstHelpers.js";
 import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../../shared/store/giftHamper.js";
+import { dispatchDeliveryOrder } from "../services/deliveryDispatcher.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
@@ -142,6 +143,7 @@ export function addressToSnapshot(address) {
     city: (raw.city || "").trim(),
     state: (raw.state || "").trim(),
     pincode: String(raw.pincode || "").trim(),
+    location: raw.location ? { lat: raw.location.lat, lng: raw.location.lng } : undefined,
   };
 }
 
@@ -774,6 +776,7 @@ export async function finalizeOrder({
   });
 
   if (completed) {
+    void dispatchDeliveryOrder(completed).catch(err => console.error(err));
     return completed;
   }
 
@@ -811,6 +814,8 @@ export async function finalizeOrder({
   });
 
   await clearCartAfterCheckout(cart, checkoutMode, orderItems, userId);
+
+  void dispatchDeliveryOrder(order).catch(err => console.error(err));
 
   return order;
 }

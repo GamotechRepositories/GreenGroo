@@ -1,9 +1,9 @@
 import userRoutes from "./routes/userRoutes.js";
-import addressRoutes from "./routes/addressRoutes.js";
-import cartRoutes from "./routes/cartRoutes.js";
-import wishlistRoutes from "./routes/wishlistRoutes.js";
-import supportRoutes from "./routes/supportRoutes.js";
-import locationRoutes from "./routes/locationRoutes.js";
+import addressRoutes from "../../legacy/routes/addressRoutes.js";
+import cartRoutes from "../../legacy/routes/cartRoutes.js";
+import wishlistRoutes from "../../legacy/routes/wishlistRoutes.js";
+import supportRoutes from "../../legacy/routes/supportRoutes.js";
+import locationRoutes from "../../legacy/routes/locationRoutes.js";
 
 export default [
   { path: "/api/users", router: userRoutes },

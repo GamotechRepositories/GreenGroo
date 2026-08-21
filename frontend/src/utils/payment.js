@@ -3,6 +3,7 @@ export const ADVANCE_PAYMENT_PERCENT = 0.1;
 export const PAYMENT_PLAN = {
   ADVANCE: "cod_advance",
   FULL: "online",
+  COD: "cod",
 };
 
 export const PAYMENT_STATUS = {
@@ -31,6 +32,9 @@ export function calculatePayableAmount(total, paymentMode) {
   if (paymentMode === PAYMENT_PLAN.ADVANCE) {
     return calculateAdvanceAmount(amount);
   }
+  if (paymentMode === PAYMENT_PLAN.COD) {
+    return 0;
+  }
   return Math.round(amount * 100) / 100;
 }
 
@@ -39,5 +43,7 @@ export function getPaymentStatusLabel(status) {
 }
 
 export function getCheckoutPaymentMethod(paymentPlan) {
-  return paymentPlan === PAYMENT_PLAN.ADVANCE ? "cod" : "online";
+  if (paymentPlan === PAYMENT_PLAN.ADVANCE) return "cod";
+  if (paymentPlan === PAYMENT_PLAN.COD) return "cod";
+  return "online";
 }

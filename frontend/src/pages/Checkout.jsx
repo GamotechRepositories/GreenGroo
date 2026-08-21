@@ -11,6 +11,7 @@ import {
   getStoreSettings,
   createCheckoutAttempt,
   validateCoupon,
+  placeOrder,
 } from "../api/api";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
@@ -512,7 +513,30 @@ function Checkout() {
     await loadCart();
     try {
       await syncCheckoutAttempt();
-      await handleRazorpayPayment();
+      
+      if (paymentPlan === PAYMENT_PLAN.COD) {
+        const checkoutItemsPayload = checkoutItems.map((item) => ({
+          productId: item.productId || item._id,
+          quantity: item.quantity,
+          variantName: item.variantName || "",
+          colorName: item.colorName || "",
+        }));
+
+        await placeOrder({
+          addressId: selectedAddressId,
+          paymentMethod: "cod",
+          customerMessage: safeTrim(messageRef.current),
+          checkoutItems: checkoutItemsPayload,
+          checkoutMode: isBuyNow ? "buyNow" : "cart",
+          buyNow: isBuyNow,
+          attemptedOrderId: attemptedOrderIdRef.current,
+          couponCode: appliedCouponRef.current?.code || undefined,
+        });
+
+        await completeOrderSuccess("Order confirmed. Pay the full amount on delivery.");
+      } else {
+        await handleRazorpayPayment();
+      }
     } catch (err) {
       setOrderError(err.response?.data?.message || "Failed to start payment. Please try again.");
       setPlacingOrder(false);
@@ -555,9 +579,9 @@ function Checkout() {
 
   const addressFormInitial = {
     ...ADDRESS_FORM_FIELDS,
-    fullName: user.name || "",
-    number: user.phone || "",
-    email: user.email || "",
+    fullName: user?.name || "",
+    number: user?.phone || "",
+    email: user?.email || "",
   };
 
   if (!user) {
@@ -744,7 +768,44 @@ function Checkout() {
                     </label>
 
                     <label
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
+                      htmlFor="plan-cod"
+                      className={`relative flex cursor-pointer rounded-xl border p-4 transition-all ${
+                        paymentPlan === PAYMENT_PLAN.COD
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border-light hover:border-primary/40 hover:bg-surface-elevated"
+                      }`}
+                    >
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center pt-0.5">
+                        <input
+                          id="plan-cod"
+                          type="radio"
+                          name="paymentPlan"
+                          value={PAYMENT_PLAN.COD}
+                          checked={paymentPlan === PAYMENT_PLAN.COD}
+                          onChange={() => setPaymentPlan(PAYMENT_PLAN.COD)}
+                          className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <span className="block text-sm font-bold text-text-primary">
+                          Cash on Delivery
+                        </span>
+                        <span className="mt-1 block text-xs text-text-secondary">
+                          Pay fully on delivery
+                        </span>
+                      </div>
+                      {paymentPlan === PAYMENT_PLAN.COD && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                          <svg className="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </label>
+
+                    <label
+                      htmlFor="plan-full"
+                      className={`relative flex cursor-pointer rounded-xl border p-4 transition-all ${
                         paymentPlan === PAYMENT_PLAN.FULL
                           ? "border-primary bg-primary/5"
                           : "border-border-light hover:border-primary/40"

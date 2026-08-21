@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react";
+import { LocateFixed, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import {
   getLocationByPincode,
   getLocationCities,
@@ -18,6 +20,7 @@ export const ADDRESS_FORM_FIELDS = {
   city: "",
   state: "",
   pincode: "",
+  location: null,
 };
 
 const PHONE_PATTERN = /^[6789]\d{9}$/;
@@ -65,6 +68,59 @@ async function fetchList(apiCall) {
 function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false }) {
   const [form, setForm] = useState(initial || ADDRESS_FORM_FIELDS);
   const [validationError, setValidationError] = useState("");
+  const [isDetecting, setIsDetecting] = useState(false);
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setIsDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await response.json();
+          
+          if (data && data.address) {
+            const addr = data.address;
+            const city = addr.city || addr.town || addr.village || addr.county || "";
+            const state = addr.state || "";
+            const pincode = addr.postcode || "";
+            const fullAddress = data.display_name || "";
+            
+            setForm(prev => ({
+              ...prev,
+              city,
+              state,
+              pincode,
+              fullAddress: prev.fullAddress || fullAddress,
+              location: { lat, lng }
+            }));
+            toast.success("Location detected successfully!");
+          } else {
+            toast.error("Could not resolve address from location.");
+            setForm(prev => ({ ...prev, location: { lat, lng } }));
+          }
+        } catch (error) {
+          toast.error("Failed to fetch address details.");
+          setForm(prev => ({ ...prev, location: { lat, lng } }));
+        } finally {
+          setIsDetecting(false);
+        }
+      },
+      (error) => {
+        console.error(error);
+        toast.error("Failed to detect location. Please ensure location services are enabled.");
+        setIsDetecting(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -143,6 +199,7 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
       city: form.city.trim(),
       state: form.state.trim(),
       pincode: form.pincode.trim(),
+      location: form.location,
     });
   };
 
@@ -158,6 +215,20 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
       {validationError && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{validationError}</p>
       )}
+
+      <button
+        type="button"
+        onClick={handleDetectLocation}
+        disabled={isDetecting}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-70"
+      >
+        {isDetecting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <LocateFixed className="h-4 w-4" />
+        )}
+        {isDetecting ? "Detecting location..." : "Detect Live Location"}
+      </button>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input
