@@ -270,60 +270,65 @@ export default function Sections() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Store Sections
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Sync
+      {/* Header & Stats Strip */}
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                Store Sections
+              </h1>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Sync
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Manage main store departments and showcase distinct catalog experiences
+            </p>
+          </div>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Create Section</span>
+          </button>
+        </div>
+
+        {/* Simple & Professional Metric Stats Strip (No Separate Cards) */}
+        <div className="flex flex-wrap items-center gap-y-2.5 gap-x-6 sm:gap-x-8 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Total Sections:</span>
+            <span className="font-bold text-slate-900 dark:text-white tabular-nums px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs">
+              {sections.length}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage main store departments and showcase distinct catalog experiences
-          </p>
-        </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-sm font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer hover:shadow-lg hover:shadow-emerald-500/30"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Create Section</span>
-        </button>
-      </div>
+          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
 
-      {/* Stats Ribbon */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-4 backdrop-blur-sm shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Sections</span>
-            <FolderTree className="h-5 w-5 text-emerald-500" />
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              Active Departments:
+            </span>
+            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs">
+              {activeCount}
+            </span>
           </div>
-          <p className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{sections.length}</p>
-        </div>
 
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-4 backdrop-blur-sm shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Active Departments</span>
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-          </div>
-          <p className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-400">
-            {activeCount}
-          </p>
-        </div>
+          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
 
-        <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-4 backdrop-blur-sm shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Linked Categories</span>
-            <Layers className="h-5 w-5 text-blue-500" />
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+              Linked Categories:
+            </span>
+            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs">
+              {totalCategoriesCount}
+            </span>
           </div>
-          <p className="mt-2 text-3xl font-black text-blue-600 dark:text-blue-400">
-            {totalCategoriesCount}
-          </p>
         </div>
       </div>
 

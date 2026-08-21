@@ -262,6 +262,8 @@ const buildProductPayload = (body) => {
     variants: Array.isArray(body.variants)
       ? body.variants.map((variant) => ({
           name: variant.name?.trim(),
+          quantity: variant.quantity != null ? Number(variant.quantity) || 1 : 1,
+          unitType: (variant.unitType || "Piece").trim(),
           pricingType: variant.pricingType === "bulk" ? "bulk" : "single",
           bulkPricing:
             variant.pricingType === "bulk"
@@ -300,6 +302,29 @@ const buildProductPayload = (body) => {
     hotSelling: normalizeProductFlag(body.hotSelling),
     cardGlowColor: (body.cardGlowColor ?? body.glowColor)?.trim() ?? "",
     badge: body.badge?.trim() ?? "",
+    unit: body.unit?.trim() || "1 pc",
+    farmerName: body.farmerName?.trim() || body.farmerDetails?.name?.trim() || "",
+    farmerLocation: body.farmerLocation?.trim() || body.farmerDetails?.location?.trim() || "",
+    farmerImage: body.farmerImage?.trim() || body.farmerDetails?.farmerImage?.trim() || "",
+    farmImage: body.farmImage?.trim() || body.farmerDetails?.farmImage?.trim() || "",
+    harvestingDate: body.harvestingDate?.trim() || body.farmerDetails?.harvestingDate?.trim() || "",
+    farmerDetails: {
+      name: body.farmerDetails?.name?.trim() || body.farmerName?.trim() || "",
+      location: body.farmerDetails?.location?.trim() || body.farmerLocation?.trim() || "",
+      farmerImage: body.farmerDetails?.farmerImage?.trim() || body.farmerImage?.trim() || "",
+      farmImage: body.farmerDetails?.farmImage?.trim() || body.farmImage?.trim() || "",
+      totalArea: body.farmerDetails?.totalArea?.trim() || "",
+      cultivationArea: body.farmerDetails?.cultivationArea?.trim() || "",
+      cropCycle: body.farmerDetails?.cropCycle?.trim() || "",
+      agricultureMethod: body.farmerDetails?.agricultureMethod?.trim() || "",
+      lastCropTaken: body.farmerDetails?.lastCropTaken?.trim() || "",
+      currentCrop: body.farmerDetails?.currentCrop?.trim() || "",
+      waterSource: body.farmerDetails?.waterSource?.trim() || "",
+      soilType: body.farmerDetails?.soilType?.trim() || "",
+      farmTools: body.farmerDetails?.farmTools?.trim() || "",
+      harvestingDate: body.farmerDetails?.harvestingDate?.trim() || body.harvestingDate?.trim() || "",
+      bio: body.farmerDetails?.bio?.trim() || "",
+    },
   };
 };
 
