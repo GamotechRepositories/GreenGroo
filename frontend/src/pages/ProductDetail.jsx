@@ -34,6 +34,7 @@ import ProductShareMenu from "../components/product/ProductShareMenu";
 import ProductAdminShareMenu from "../components/product/ProductAdminShareMenu";
 import { updateProductShareMeta } from "../utils/productShare";
 import { tryOpenProductInApp } from "../utils/openMobileApp";
+import { getDummyProductById } from "../data/dummyCategoryProducts";
 
 const DEFAULT_MOQ = 1;
 const REVIEW_COUNT = 128;
@@ -726,10 +727,17 @@ function ProductDetail() {
       setLoading(true);
       setError("");
       try {
-        const dummy = getDummyProductById(id);
-        const nextProduct = dummy
-          ? dummy
-          : (await getProductById(id)).data.data;
+        const dummy = typeof getDummyProductById === "function" ? getDummyProductById(id) : null;
+        let nextProduct = dummy;
+        if (!nextProduct) {
+          const res = await getProductById(id);
+          nextProduct = res?.data?.data || res?.data;
+        }
+
+        if (!nextProduct || !nextProduct._id) {
+          throw new Error("Product not found");
+        }
+
         const initialVariant =
           nextProduct?.variantType === "multi"
             ? nextProduct.variants?.[0]?.name || ""
@@ -745,7 +753,8 @@ function ProductDetail() {
         if (nextProduct?._id && !String(nextProduct._id).startsWith("dummy-")) {
           addRecentlyViewed(nextProduct._id);
         }
-      } catch {
+      } catch (err) {
+        console.error("fetchProduct error:", err);
         setProduct(null);
         setSelectedVariant("");
         setSelectedColor("");

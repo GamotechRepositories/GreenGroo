@@ -60,6 +60,43 @@ const PRODUCT_GLOW_THEMES = [
   { name: 'Forest Jade', hex: '#059669', borderHex: '#059669' },
 ];
 
+// Helper functions for bulletproof hex color formatting
+const formatHexGlow = (raw) => {
+  if (!raw) return '';
+  let clean = String(raw).trim();
+  if (clean.startsWith('#')) {
+    clean = '#' + clean.slice(1).replace(/[^0-9A-Fa-f]/g, '').slice(0, 8);
+  } else if (/^[0-9A-Fa-f]+$/.test(clean)) {
+    clean = '#' + clean.slice(0, 8);
+  } else {
+    clean = clean.replace(/[^0-9A-Fa-f#]/g, '');
+    if (!clean.startsWith('#') && clean.length > 0) clean = '#' + clean;
+  }
+  return clean;
+};
+
+const getValidColorPickerHex = (raw) => {
+  if (!raw) return '#10B981';
+  const hex = formatHexGlow(raw);
+  if (/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+  if (/^#[0-9A-Fa-f]{3}$/.test(hex)) {
+    return `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  }
+  if (/^#[0-9A-Fa-f]{8}$/.test(hex)) {
+    return hex.slice(0, 7);
+  }
+  return '#10B981';
+};
+
+const getGlowBgStyle = (raw, alpha = '0D') => {
+  if (!raw) return undefined;
+  const hex = formatHexGlow(raw);
+  if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+    return `${hex}${alpha}`;
+  }
+  return hex;
+};
+
 export default function Products() {
   // Data state
   const [products, setProducts] = useState([]);
@@ -1480,19 +1517,36 @@ export default function Products() {
                     Custom Glow Hex Color
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={formData.cardGlowColor || '#10B981'}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, cardGlowColor: e.target.value }))}
-                      className="h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent p-0.5 shrink-0"
-                    />
-                    <input
-                      type="text"
-                      placeholder="#10B981"
-                      value={formData.cardGlowColor}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, cardGlowColor: e.target.value }))}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
-                    />
+                    {/* Modern Native Color Swatch */}
+                    <div className="relative h-8 w-8 rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden shadow-2xs cursor-pointer group shrink-0 hover:scale-105 transition-transform">
+                      <input
+                        type="color"
+                        value={getValidColorPickerHex(formData.cardGlowColor)}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, cardGlowColor: formatHexGlow(e.target.value) }))}
+                        className="absolute -inset-4 h-16 w-16 cursor-pointer opacity-0"
+                        title="Click to open color picker"
+                      />
+                      <div
+                        className="h-full w-full rounded-lg"
+                        style={{ backgroundColor: formData.cardGlowColor ? getValidColorPickerHex(formData.cardGlowColor) : '#10B981' }}
+                      />
+                    </div>
+
+                    {/* Clean Hex Input */}
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="#10B981"
+                        value={formData.cardGlowColor}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData((prev) => ({ ...prev, cardGlowColor: formatHexGlow(val) }));
+                        }}
+                        className="w-full px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs uppercase"
+                        maxLength={9}
+                      />
+                    </div>
+
                     {formData.cardGlowColor && (
                       <button
                         type="button"
@@ -1515,7 +1569,7 @@ export default function Products() {
                     {formData.badge && (
                       <span
                         className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-2xs"
-                        style={{ backgroundColor: formData.cardGlowColor || '#10B981' }}
+                        style={{ backgroundColor: formatHexGlow(formData.cardGlowColor) || '#10B981' }}
                       >
                         {formData.badge}
                       </span>
@@ -1566,14 +1620,10 @@ export default function Products() {
               <div
                 className="rounded-2xl border overflow-hidden transition-all duration-300"
                 style={{
-                  backgroundColor: formData.cardGlowColor
-                    ? (formData.cardGlowColor.startsWith('#') ? `${formData.cardGlowColor}0D` : formData.cardGlowColor)
-                    : undefined,
-                  borderColor: formData.cardGlowColor
-                    ? (formData.cardGlowColor.startsWith('#') ? `${formData.cardGlowColor}50` : formData.cardGlowColor)
-                    : undefined,
+                  backgroundColor: getGlowBgStyle(formData.cardGlowColor, '0D'),
+                  borderColor: getGlowBgStyle(formData.cardGlowColor, '45'),
                   boxShadow: formData.cardGlowColor
-                    ? `0 12px 32px -4px ${formData.cardGlowColor}35`
+                    ? `0 12px 32px -4px ${getGlowBgStyle(formData.cardGlowColor, '30')}`
                     : undefined,
                 }}
               >
@@ -1581,9 +1631,7 @@ export default function Products() {
                 <div
                   className="relative h-44 w-full flex items-center justify-center p-3 transition-colors overflow-hidden"
                   style={{
-                    backgroundColor: formData.cardGlowColor
-                      ? (formData.cardGlowColor.startsWith('#') ? `${formData.cardGlowColor}18` : formData.cardGlowColor)
-                      : undefined,
+                    backgroundColor: getGlowBgStyle(formData.cardGlowColor, '15'),
                   }}
                 >
                   {previewShowVideo && formData.videoUrl ? (
@@ -1629,7 +1677,7 @@ export default function Products() {
                       {formData.badge && (
                         <span
                           className="px-2 py-0.5 rounded-lg text-white font-bold text-[10px] shadow-xs tracking-wide"
-                          style={{ backgroundColor: formData.cardGlowColor || '#10B981' }}
+                          style={{ backgroundColor: formatHexGlow(formData.cardGlowColor) || '#10B981' }}
                         >
                           {formData.badge}
                         </span>
@@ -1964,8 +2012,8 @@ export default function Products() {
                           <div
                             className="h-10 w-10 rounded-lg border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden transition-colors"
                             style={{
-                              backgroundColor: p.cardGlowColor ? `${p.cardGlowColor}15` : undefined,
-                              borderColor: p.cardGlowColor ? `${p.cardGlowColor}40` : undefined,
+                              backgroundColor: getGlowBgStyle(p.cardGlowColor, '15'),
+                              borderColor: getGlowBgStyle(p.cardGlowColor, '40'),
                             }}
                           >
                             {img ? (
@@ -1979,7 +2027,7 @@ export default function Products() {
                               {p.cardGlowColor && (
                                 <span
                                   className="h-2 w-2 rounded-full shrink-0 shadow-2xs"
-                                  style={{ backgroundColor: p.cardGlowColor }}
+                                  style={{ backgroundColor: formatHexGlow(p.cardGlowColor) }}
                                   title={`Glow: ${p.cardGlowColor}`}
                                 />
                               )}
@@ -1987,7 +2035,7 @@ export default function Products() {
                               {p.badge && (
                                 <span
                                   className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-2xs shrink-0"
-                                  style={{ backgroundColor: p.cardGlowColor || '#10B981' }}
+                                  style={{ backgroundColor: formatHexGlow(p.cardGlowColor) || '#10B981' }}
                                 >
                                   {p.badge}
                                 </span>
@@ -2104,15 +2152,9 @@ export default function Products() {
             const img = Array.isArray(p.productImages) && p.productImages[0] ? p.productImages[0] : '';
             const dept = DEPARTMENT_OPTIONS.find((d) => d.slug === p.section) || DEPARTMENT_OPTIONS[0];
             const hasGlow = Boolean(p.cardGlowColor);
-            const cardBgStyle = hasGlow
-              ? (p.cardGlowColor.startsWith('#') ? `${p.cardGlowColor}0D` : p.cardGlowColor)
-              : undefined;
-            const cardBorderStyle = hasGlow
-              ? (p.cardGlowColor.startsWith('#') ? `${p.cardGlowColor}40` : p.cardGlowColor)
-              : undefined;
-            const imgBgStyle = hasGlow
-              ? (p.cardGlowColor.startsWith('#') ? `${p.cardGlowColor}15` : p.cardGlowColor)
-              : undefined;
+            const cardBgStyle = getGlowBgStyle(p.cardGlowColor, '0D');
+            const cardBorderStyle = getGlowBgStyle(p.cardGlowColor, '40');
+            const imgBgStyle = getGlowBgStyle(p.cardGlowColor, '15');
 
             return (
               <div
@@ -2122,7 +2164,7 @@ export default function Products() {
                 style={{
                   backgroundColor: cardBgStyle,
                   borderColor: cardBorderStyle,
-                  boxShadow: hasGlow ? `0 8px 24px -4px ${p.cardGlowColor}25` : undefined,
+                  boxShadow: hasGlow ? `0 8px 24px -4px ${getGlowBgStyle(p.cardGlowColor, '25')}` : undefined,
                 }}
               >
                 <div>
@@ -2149,7 +2191,7 @@ export default function Products() {
                         {p.badge && (
                           <span
                             className="px-1.5 py-0.5 rounded text-white font-bold text-[9px] shadow-xs tracking-wide"
-                            style={{ backgroundColor: p.cardGlowColor || '#10B981' }}
+                            style={{ backgroundColor: formatHexGlow(p.cardGlowColor) || '#10B981' }}
                           >
                             {p.badge}
                           </span>

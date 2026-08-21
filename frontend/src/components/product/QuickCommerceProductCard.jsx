@@ -155,11 +155,12 @@ function QuickCommerceProductCard({
     </div>
   );
 
-  const hasGlow = Boolean(product.cardGlowColor);
-  const glowColor = product.cardGlowColor;
-  const glowBg = hasGlow ? (glowColor.startsWith('#') ? `${glowColor}10` : glowColor) : undefined;
-  const glowBorder = hasGlow ? (glowColor.startsWith('#') ? `${glowColor}40` : glowColor) : undefined;
-  const glowShadow = hasGlow ? `0 6px 20px -2px ${glowColor}25` : undefined;
+  const rawGlow = product.cardGlowColor || product.glowColor || '';
+  const glowColor = rawGlow ? (String(rawGlow).trim().startsWith('#') ? String(rawGlow).trim() : `#${String(rawGlow).trim()}`) : '';
+  const hasGlow = Boolean(glowColor);
+  const glowBg = hasGlow ? (glowColor.length === 7 ? `${glowColor}10` : glowColor) : undefined;
+  const glowBorder = hasGlow ? (glowColor.length === 7 ? `${glowColor}40` : glowColor) : undefined;
+  const glowShadow = hasGlow ? `0 6px 20px -2px ${glowColor.slice(0, 7)}25` : undefined;
 
   return (
     <div className={widthClass}>
