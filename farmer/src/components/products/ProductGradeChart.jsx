@@ -31,19 +31,21 @@ function SearchIcon() {
 
 function getGradeData(row, gName) {
   if (Array.isArray(row.grades) && row.grades.length > 0) {
-    const gObj = row.grades.find((g) => g.name === gName);
+    const gObj = row.grades.find(
+      (g) => (g.name || g.label) === gName || (g.name || g.label)?.toLowerCase() === gName?.toLowerCase()
+    );
     const qty = gObj?.quantity != null ? Number(gObj.quantity) : 0;
-    const rate = gObj?.rate != null && gObj?.rate !== '' ? Number(gObj.rate) : null;
+    const rate = gObj?.rate != null && gObj?.rate !== "" ? Number(gObj.rate) : null;
     return { qty, rate, amount: qty * (rate || 0) };
   }
-  if (gName === "A Grade" || gName.startsWith("A")) {
+  if (gName === "Grade A" || gName === "A Grade" || gName.startsWith("A")) {
     const qty = Number(row.gradeAQty || 0);
-    const rate = row.gradeARate != null && row.gradeARate !== '' ? Number(row.gradeARate) : null;
+    const rate = row.gradeARate != null && row.gradeARate !== "" ? Number(row.gradeARate) : null;
     return { qty, rate, amount: qty * (rate || 0) };
   }
-  if (gName === "B Grade" || gName.startsWith("B")) {
+  if (gName === "Grade B" || gName === "B Grade" || gName.startsWith("B")) {
     const qty = Number(row.gradeBQty || 0);
-    const rate = row.gradeBRate != null && row.gradeBRate !== '' ? Number(row.gradeBRate) : null;
+    const rate = row.gradeBRate != null && row.gradeBRate !== "" ? Number(row.gradeBRate) : null;
     return { qty, rate, amount: qty * (rate || 0) };
   }
   return { qty: 0, rate: null, amount: 0 };
@@ -52,23 +54,28 @@ function getGradeData(row, gName) {
 function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
   const [query, setQuery] = useState("");
   const [dayFilter, setDayFilter] = useState("");
-  const [pageSize, setPageSize] = useState(24);
+  const [pageSize, setPageSize] = useState(50);
+
+  const hasProductCol = useMemo(() => {
+    return rows.some((r) => r.productName);
+  }, [rows]);
 
   const dynamicGrades = useMemo(() => {
     const set = new Set();
     rows.forEach((r) => {
       if (Array.isArray(r.grades) && r.grades.length > 0) {
         r.grades.forEach((g) => {
-          if (g.name) set.add(g.name);
+          if (g.name || g.label) set.add(g.name || g.label);
         });
       } else {
-        if (r.gradeAQty != null || r.gradeARate != null) set.add("A Grade");
-        if (r.gradeBQty != null || r.gradeBRate != null) set.add("B Grade");
+        if (r.gradeAQty != null || r.gradeARate != null) set.add("Grade A");
+        if (r.gradeBQty != null || r.gradeBRate != null) set.add("Grade B");
       }
     });
     if (set.size === 0) {
-      set.add("A Grade");
-      set.add("B Grade");
+      set.add("Grade A");
+      set.add("Grade B");
+      set.add("Grade C");
     }
     return Array.from(set);
   }, [rows]);
@@ -81,6 +88,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
         (row) =>
           formatDate(row.date).toLowerCase().includes(needle) ||
           row.weekday?.toLowerCase().includes(needle) ||
+          row.productName?.toLowerCase().includes(needle) ||
           String(row.srNo).includes(needle)
       );
     }
@@ -88,7 +96,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
       list = list.filter((row) => row.weekday === dayFilter);
     }
     return list;
-  }, [rows, query, dayFilter, formatDate]);
+  }, [rows, query, dayFilter]);
 
   const visibleRows = filteredRows.slice(0, pageSize);
   const days = [...new Set(rows.map((r) => r.weekday).filter(Boolean))];
@@ -107,7 +115,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
     return { gradeTotals, totalRejection, grandTotal };
   }, [filteredRows, dynamicGrades]);
 
-  const colSpanCount = 3 + dynamicGrades.length * 3 + 2;
+  const colSpanCount = (hasProductCol ? 4 : 3) + dynamicGrades.length * 3 + 2;
 
   return (
     <div className="border border-[#D4D4D4] bg-white">
@@ -117,7 +125,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
           <span>📊</span> Daily Chart — Dynamic Grades & Fixed Rejection (Statement)
         </p>
         <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-semibold text-white">
-          Read-Only View
+          {filteredRows.length} Harvest Records
         </span>
       </div>
 
@@ -131,7 +139,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search date or day..."
+            placeholder="Search product, date, day..."
             className="w-full border border-[#D4D4D4] bg-white py-1.5 pl-7 pr-2 text-xs text-[#1F2937] outline-none focus:border-[#217346]"
           />
         </div>
@@ -155,18 +163,19 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
           <option value={10}>10 / page</option>
           <option value={24}>24 / page</option>
           <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
         </select>
         <button
           type="button"
           onClick={() => {
-            const headerStr = ["Sr", "Date", "Day", ...dynamicGrades.flatMap(g => [`${g} Qty`, `${g} Rate`, `${g} Amt`]), "Rejection Qty", "Total"].join(",");
+            const headerStr = ["Sr", "Date", "Day", ...(hasProductCol ? ["Product"] : []), ...dynamicGrades.flatMap(g => [`${g} Qty`, `${g} Rate`, `${g} Amt`]), "Rejection Qty", "Total"].join(",");
             const csvData = rows.map((r, i) => {
               const gVals = dynamicGrades.flatMap(g => {
                 const data = getGradeData(r, g);
                 return [data.qty, data.rate, data.amount];
               });
               const rowTot = dynamicGrades.reduce((sum, g) => sum + getGradeData(r, g).amount, 0);
-              return [i + 1, r.date, r.weekday, ...gVals, r.rejectionQty || 0, rowTot].join(",");
+              return [i + 1, r.date, r.weekday, ...(hasProductCol ? [`"${r.productName || ""}"`] : []), ...gVals, r.rejectionQty || 0, rowTot].join(",");
             }).join("\n");
             const blob = new Blob([`${headerStr}\n${csvData}`], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
@@ -178,7 +187,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
           }}
           className="border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs font-medium text-[#1F2937] hover:bg-[#F3F4F6]"
         >
-          Export CSV
+          📥 Export CSV
         </button>
       </div>
 
@@ -189,11 +198,14 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
             <tr className="bg-[#E6F2EB] text-[#1F2937] text-[11px] font-bold">
               <th className="border border-[#D4D4D4] px-2 py-2 text-center w-10">Sr.</th>
               <th className="border border-[#D4D4D4] px-2 py-2 text-left w-20">Date</th>
-              <th className="border border-[#D4D4D4] px-2 py-2 text-left w-28">Day</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-left w-24">Day</th>
+              {hasProductCol && (
+                <th className="border border-[#D4D4D4] px-2 py-2 text-left w-36">Product</th>
+              )}
               {dynamicGrades.map((gName) => (
                 <FragmentGroup key={gName} gName={gName} unit={unit} />
               ))}
-              <th className="border border-[#D4D4D4] px-2 py-2 text-right text-red-600 w-20">Rejection Qty ({unit})</th>
+              <th className="border border-[#D4D4D4] px-2 py-2 text-right text-red-600 w-24">Rejection Qty</th>
               <th className="border border-[#D4D4D4] px-2 py-2 text-right text-[#DC2626] w-28">Total</th>
             </tr>
           </thead>
@@ -207,23 +219,30 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
             ) : (
               visibleRows.map((row, idx) => {
                 let rowTotal = 0;
+                const rUnit = row.unit || unit || "Kg";
+
                 return (
-                  <tr key={row.srNo || idx} className={idx % 2 === 0 ? "bg-white" : "bg-[#F9FBF9]"}>
+                  <tr key={row.id || row.srNo || idx} className={idx % 2 === 0 ? "bg-white" : "bg-[#F9FBF9]"}>
                     <td className="border border-[#D4D4D4] px-2 py-1.5 text-center font-bold text-[#6B7280] bg-[#F2F2F2]">
                       {idx + 1}
                     </td>
-                    <td className="border border-[#D4D4D4] px-2 py-1.5 font-medium">{formatDate(row.date)}</td>
+                    <td className="border border-[#D4D4D4] px-2 py-1.5 font-medium whitespace-nowrap">{formatDate(row.date)}</td>
                     <td className="border border-[#D4D4D4] px-2 py-1.5 text-[#6B7280]">{row.weekday || "—"}</td>
+                    {hasProductCol && (
+                      <td className="border border-[#D4D4D4] px-2 py-1.5 font-bold text-[#1F2937]">
+                        {row.productName || "Farm Produce"}
+                      </td>
+                    )}
                     {dynamicGrades.map((gName) => {
                       const gData = getGradeData(row, gName);
                       rowTotal += gData.amount;
                       return (
                         <tr key={gName} className="contents">
                           <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-medium">
-                            {gData.qty > 0 ? `${gData.qty} ${unit}` : "0"}
+                            {gData.qty > 0 ? `${gData.qty} ${rUnit}` : "0"}
                           </td>
                           <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-medium">
-                            {gData.rate !== null && gData.rate !== '' ? (
+                            {gData.rate !== null && gData.rate !== "" ? (
                               formatRupee(gData.rate)
                             ) : (
                               <span className="text-[#B48846] text-[11px] font-normal">Pending</span>
@@ -236,7 +255,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
                       );
                     })}
                     <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-red-600 tabular-nums bg-[#FEF2F2]">
-                      {row.rejectionQty || 0} {unit}
+                      {row.rejectionQty || 0} {rUnit}
                     </td>
                     <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-extrabold text-[#DC2626] tabular-nums bg-[#FEF2F2]">
                       {formatRupee(rowTotal)}
@@ -249,8 +268,8 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
           {visibleRows.length > 0 ? (
             <tfoot>
               <tr className="bg-[#E6F2EB] font-bold text-xs">
-                <td className="border border-[#D4D4D4] px-3 py-2 text-left" colSpan={3}>
-                  Total Summary
+                <td className="border border-[#D4D4D4] px-3 py-2 text-left" colSpan={hasProductCol ? 4 : 3}>
+                  Grand Total Summary:
                 </td>
                 {dynamicGrades.map((gName) => {
                   const gTot = totals.gradeTotals[gName] || { qty: 0, rate: 0, amount: 0 };
@@ -290,36 +309,29 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee }) {
 function FragmentGroup({ gName, unit }) {
   return (
     <>
-      <th className="border border-[#D4D4D4] px-2 py-2 text-right w-24">{gName} Qty ({unit})</th>
-      <th className="border border-[#D4D4D4] px-2 py-2 text-right w-20">{gName} Rate (₹)</th>
-      <th className="border border-[#D4D4D4] px-2 py-2 text-right w-24">{gName} Amount</th>
+      <th className="border border-[#D4D4D4] px-2 py-2 text-right w-24">{gName} Qty</th>
+      <th className="border border-[#D4D4D4] px-2 py-2 text-right w-20">{gName} Rate</th>
+      <th className="border border-[#D4D4D4] px-2 py-2 text-right w-24">{gName} Amt</th>
     </>
   );
 }
 
 function ProductGradeChart({
-  rows: initialRows = [],
-  summary = { totalRupees: 0, deposited: 0, balance: 0 },
-  title,
+  rows = [],
+  unit = "Kg",
+  summary = {
+    totalRupees: 0,
+    deposited: 0,
+    balance: 0,
+  },
 }) {
-  const chartRows = initialRows;
-  const unit = chartRows[0]?.unit || "Kg";
-
-  const totalRupees = summary.totalRupees || 0;
-  const deposited = summary.deposited || 0;
-  const balance = summary.balance || 0;
-
   return (
-    <section className="space-y-4">
-      {title ? <h2 className="text-sm font-bold text-[#1F2937]">{title}</h2> : null}
-
-      <DailyChartSection
-        rows={chartRows}
-        unit={unit}
-        formatDate={formatDate}
-        formatRupee={formatRupee}
-      />
-    </section>
+    <DailyChartSection
+      rows={rows}
+      unit={unit}
+      formatDate={formatDate}
+      formatRupee={formatRupee}
+    />
   );
 }
 

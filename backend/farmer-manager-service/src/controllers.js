@@ -2207,12 +2207,67 @@ export async function assignFarmerManager(req, res) {
 // ----------------------------------------------------
 export async function getHarvestOrders(req, res) {
   try {
-    const { farmerId } = req.query;
+    const farmerId = req.params.farmerId || req.query.farmerId || req.user?.farmerId || req.user?.id;
     const filter = {};
-    if (farmerId) filter.farmerId = farmerId;
-    const list = await FarmerHarvestOrder.find(filter).sort({ createdAt: -1 });
-    res.json(list);
+    if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
+      filter.farmerId = farmerId;
+    }
+
+    const [harvestOrders, farmerOrders] = await Promise.all([
+      FarmerHarvestOrder.find(filter).sort({ createdAt: -1 }).lean(),
+      FarmerOrder.find(filter).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    // Map farmer orders into standardized harvest order format
+    const mappedFarmerOrders = farmerOrders.flatMap((o) => {
+      const prods = o.products && o.products.length > 0
+        ? o.products
+        : [{ name: o.productName || "Farm Fresh Produce", quantity: o.totalQuantity || 0, grade: o.grade || "Grade A", unit: o.unit || "Kg" }];
+
+      return prods.map((p) => {
+        const gradesList = p.grades?.length
+          ? p.grades
+          : o.grades?.length
+          ? o.grades
+          : [{ name: p.grade || "Grade A", label: p.grade || "Grade A", quantity: Number(p.quantity || 0) }];
+
+        return {
+          id: o.id || o.orderId || String(o._id),
+          orderId: o.id || o.orderId,
+          vendorId: o.vendorId,
+          farmerId: o.farmerId,
+          farmerName: o.farmerName || "",
+          productId: p.id || p.productId || "",
+          productName: p.name || o.productName || "Farm Fresh Produce",
+          category: p.category || o.category || "Produce",
+          date: o.harvestDate || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
+          day: o.day || "",
+          unit: p.unit || o.unit || "Kg",
+          grades: gradesList,
+          rejectionQty: Number(o.rejectionQty || 0),
+          totalQuantity: Number(p.quantity || o.totalQuantity || 0),
+          totalAmount: Number(p.total || o.totalAmount || o.amount || 0),
+          status: o.status || "Approved",
+          createdAt: o.createdAt,
+        };
+      });
+    });
+
+    const idMap = new Map();
+    [...harvestOrders, ...mappedFarmerOrders].forEach((item) => {
+      const key = item.id || item.orderId || String(item._id);
+      if (!idMap.has(key)) {
+        idMap.set(key, item);
+      }
+    });
+
+    const combined = Array.from(idMap.values()).sort(
+      (a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0)
+    );
+
+    res.json(combined);
   } catch (err) {
+    console.error("Error in getHarvestOrders:", err);
     res.status(500).json({ message: err.message || "Failed to fetch harvest orders" });
   }
 }
