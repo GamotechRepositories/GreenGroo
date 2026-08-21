@@ -123,6 +123,11 @@ const productVariantSchema = new mongoose.Schema(
       min: [1, "Minimum order quantity must be at least 1"],
       default: null,
     },
+    maxOrderQuantity: {
+      type: Number,
+      min: [1, "Maximum order quantity must be at least 1"],
+      default: null,
+    },
     stepByQuantity: {
       type: Number,
       min: [1, "Step by quantity must be at least 1"],
@@ -235,6 +240,11 @@ const productSchema = new mongoose.Schema(
       min: [1, "Minimum order quantity must be at least 1"],
       default: null,
     },
+    maxOrderQuantity: {
+      type: Number,
+      min: [1, "Maximum order quantity must be at least 1"],
+      default: null,
+    },
     stepByQuantity: {
       type: Number,
       min: [1, "Step by quantity must be at least 1"],
@@ -302,6 +312,16 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true,
+    },
+    cardGlowColor: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    badge: {
+      type: String,
+      trim: true,
+      default: "",
     },
   },
   { timestamps: true }

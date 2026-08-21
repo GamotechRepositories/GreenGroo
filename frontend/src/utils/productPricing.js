@@ -57,6 +57,8 @@ export function getTotalProductStock(product) {
 export function getPricingSource(product, variantName = "") {
   const productMoq =
     product?.minOrderQuantity ?? product?.bulkPricing?.minOrderQuantity ?? null;
+  const productMax =
+    product?.maxOrderQuantity ?? product?.maxOrderQty ?? product?.bulkPricing?.maxOrderQuantity ?? null;
   const productStep =
     product?.stepByQuantity ?? product?.bulkPricing?.stepByQuantity ?? null;
 
@@ -74,6 +76,11 @@ export function getPricingSource(product, variantName = "") {
         variant.minOrderQuantity ??
         variant.bulkPricing?.minOrderQuantity ??
         null,
+      maxOrderQuantity:
+        productMax ??
+        variant.maxOrderQuantity ??
+        variant.bulkPricing?.maxOrderQuantity ??
+        null,
       stepByQuantity:
         productStep ??
         variant.stepByQuantity ??
@@ -88,6 +95,7 @@ export function getPricingSource(product, variantName = "") {
     price: product?.price,
     discountedPrice: product?.discountedPrice,
     minOrderQuantity: productMoq,
+    maxOrderQuantity: productMax,
     stepByQuantity: productStep,
   };
 }
@@ -129,6 +137,28 @@ export function getMinOrderQuantity(product, variantName = "", fallback = DEFAUL
   }
 
   return fallback;
+}
+
+export function getMaxOrderQuantity(product, variantName = "", fallback = 50) {
+  const source = getPricingSource(product, variantName);
+  const max = Number(source?.maxOrderQuantity ?? product?.maxOrderQuantity ?? product?.maxOrderQty);
+  if (Number.isFinite(max) && max > 0) {
+    return max;
+  }
+
+  const stock = Number(product?.stock);
+  if (Number.isFinite(stock) && stock > 0) {
+    return Math.min(stock, fallback);
+  }
+
+  return fallback;
+}
+
+export function hasConfiguredMaxOrderQuantity(product, variantName = "") {
+  const source = getPricingSource(product, variantName);
+  if (!source) return false;
+  const max = Number(source.maxOrderQuantity);
+  return Number.isFinite(max) && max > 0;
 }
 
 export function getQuantityStep(product, variantName = "", fallback = DEFAULT_SINGLE_MOQ) {

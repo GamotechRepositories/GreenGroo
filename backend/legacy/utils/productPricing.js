@@ -150,6 +150,8 @@ export function getTotalProductStock(product) {
 export function getPricingSource(product, variantName) {
   const productMoq =
     product?.minOrderQuantity ?? product?.bulkPricing?.minOrderQuantity ?? null;
+  const productMax =
+    product?.maxOrderQuantity ?? product?.maxOrderQty ?? product?.bulkPricing?.maxOrderQuantity ?? null;
   const productStep =
     product?.stepByQuantity ?? product?.bulkPricing?.stepByQuantity ?? null;
 
@@ -167,6 +169,11 @@ export function getPricingSource(product, variantName) {
         variant.minOrderQuantity ??
         variant.bulkPricing?.minOrderQuantity ??
         null,
+      maxOrderQuantity:
+        productMax ??
+        variant.maxOrderQuantity ??
+        variant.bulkPricing?.maxOrderQuantity ??
+        null,
       stepByQuantity:
         productStep ??
         variant.stepByQuantity ??
@@ -176,11 +183,12 @@ export function getPricingSource(product, variantName) {
   }
 
   return {
-    pricingType: product.pricingType,
-    bulkPricing: product.bulkPricing,
-    price: product.price,
-    discountedPrice: product.discountedPrice,
+    pricingType: product?.pricingType,
+    bulkPricing: product?.bulkPricing,
+    price: product?.price,
+    discountedPrice: product?.discountedPrice,
     minOrderQuantity: productMoq,
+    maxOrderQuantity: productMax,
     stepByQuantity: productStep,
   };
 }
@@ -222,6 +230,21 @@ export function getMinOrderQuantity(product, variantName = "") {
   }
 
   return 1;
+}
+
+export function getMaxOrderQuantity(product, variantName = "", fallback = 50) {
+  const source = getPricingSource(product, variantName);
+  const max = Number(source?.maxOrderQuantity ?? product?.maxOrderQuantity ?? product?.maxOrderQty);
+  if (Number.isFinite(max) && max > 0) {
+    return max;
+  }
+
+  const stock = Number(product?.stock);
+  if (Number.isFinite(stock) && stock > 0) {
+    return Math.min(stock, fallback);
+  }
+
+  return fallback;
 }
 
 export function getQuantityStep(product, variantName = "", fallback = 1) {
@@ -375,4 +398,4 @@ export function resolvePricingFields(payload) {
 }
 
 export const PRODUCT_PRICING_SELECT =
-  "name brandName price discountedPrice discountedPercent productImages stock inStock subcategory subcategories pricingType bulkPricing variantType variants colors minOrderQuantity stepByQuantity isActive";
+  "name brandName price discountedPrice discountedPercent productImages videoUrl stock inStock subcategory subcategories pricingType bulkPricing variantType variants colors minOrderQuantity maxOrderQuantity stepByQuantity cardGlowColor badge isActive";

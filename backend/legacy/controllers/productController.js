@@ -239,6 +239,9 @@ const buildProductPayload = (body) => {
     minOrderQuantity: normalizeOptionalQuantity(
       source.minOrderQuantity ?? source.bulkPricing?.minOrderQuantity
     ),
+    maxOrderQuantity: normalizeOptionalQuantity(
+      source.maxOrderQuantity ?? source.maxOrderQty ?? source.bulkPricing?.maxOrderQuantity
+    ),
     stepByQuantity: normalizeOptionalQuantity(
       source.stepByQuantity ?? source.bulkPricing?.stepByQuantity
     ),
@@ -295,6 +298,8 @@ const buildProductPayload = (body) => {
     isActive: body.isActive !== false,
     justArrived: normalizeProductFlag(body.justArrived),
     hotSelling: normalizeProductFlag(body.hotSelling),
+    cardGlowColor: (body.cardGlowColor ?? body.glowColor)?.trim() ?? "",
+    badge: body.badge?.trim() ?? "",
   };
 };
 
@@ -316,6 +321,7 @@ const resolveProductPricing = (payload) => {
     }
 
     const productMinOrderQuantity = normalizeOptionalQuantity(payload.minOrderQuantity);
+    const productMaxOrderQuantity = normalizeOptionalQuantity(payload.maxOrderQuantity);
     const productStepByQuantity = normalizeOptionalQuantity(payload.stepByQuantity);
     const resolvedVariants = [];
 
@@ -327,6 +333,8 @@ const resolveProductPricing = (payload) => {
         bulkPricing: variant.bulkPricing,
         minOrderQuantity:
           variant.pricingType === "bulk" ? productMinOrderQuantity : null,
+        maxOrderQuantity:
+          variant.pricingType === "bulk" ? productMaxOrderQuantity : null,
         stepByQuantity: null,
         price: variant.price,
         discountedPrice: variant.discountedPrice,
@@ -342,6 +350,7 @@ const resolveProductPricing = (payload) => {
         pricingType: pricing.pricingType,
         bulkPricing: pricing.bulkPricing,
         minOrderQuantity: null,
+        maxOrderQuantity: null,
         stepByQuantity: null,
         price: pricing.price,
         discountedPrice: pricing.discountedPrice,
@@ -369,6 +378,7 @@ const resolveProductPricing = (payload) => {
       pricingType: hasBulk ? "bulk" : "single",
       bulkPricing: { slabs: [] },
       minOrderQuantity: productMinOrderQuantity,
+      maxOrderQuantity: productMaxOrderQuantity,
       stepByQuantity: productStepByQuantity,
       price: maxPrice,
       discountedPrice: minDiscounted,
@@ -395,6 +405,7 @@ const resolveProductPricing = (payload) => {
     pricingType: pricing.pricingType,
     bulkPricing: pricing.bulkPricing,
     minOrderQuantity: pricing.minOrderQuantity,
+    maxOrderQuantity: normalizeOptionalQuantity(payload.maxOrderQuantity),
     stepByQuantity: pricing.stepByQuantity,
     price: pricing.price,
     discountedPrice: pricing.discountedPrice,
@@ -866,6 +877,7 @@ export const addProduct = async (req, res) => {
       pricingType: pricingFields.pricingType,
       bulkPricing: pricingFields.bulkPricing,
       minOrderQuantity: pricingFields.minOrderQuantity,
+      maxOrderQuantity: pricingFields.maxOrderQuantity,
       stepByQuantity: pricingFields.stepByQuantity,
       price: pricingFields.price,
       discountedPrice: pricingFields.discountedPrice,
@@ -883,6 +895,8 @@ export const addProduct = async (req, res) => {
       isActive: payload.isActive ?? true,
       justArrived: payload.justArrived,
       hotSelling: payload.hotSelling,
+      cardGlowColor: payload.cardGlowColor,
+      badge: payload.badge,
     });
 
     res.status(201).json({ success: true, data: product });
@@ -962,10 +976,22 @@ export const updateProduct = async (req, res) => {
         req.body.minOrderQuantity !== undefined
           ? req.body.minOrderQuantity
           : existing.minOrderQuantity,
+      maxOrderQuantity:
+        req.body.maxOrderQuantity !== undefined
+          ? req.body.maxOrderQuantity
+          : existing.maxOrderQuantity,
       stepByQuantity:
         req.body.stepByQuantity !== undefined
           ? req.body.stepByQuantity
           : existing.stepByQuantity,
+      cardGlowColor:
+        req.body.cardGlowColor !== undefined
+          ? req.body.cardGlowColor
+          : existing.cardGlowColor,
+      badge:
+        req.body.badge !== undefined
+          ? req.body.badge
+          : existing.badge,
     });
 
     const requiredError = validateRequiredFields(payload);
@@ -1004,6 +1030,7 @@ export const updateProduct = async (req, res) => {
         pricingType: pricingFields.pricingType,
         bulkPricing: pricingFields.bulkPricing,
         minOrderQuantity: pricingFields.minOrderQuantity,
+        maxOrderQuantity: pricingFields.maxOrderQuantity,
         stepByQuantity: pricingFields.stepByQuantity,
         price: pricingFields.price,
         discountedPrice: pricingFields.discountedPrice,
@@ -1021,6 +1048,8 @@ export const updateProduct = async (req, res) => {
         isActive: payload.isActive,
         justArrived: payload.justArrived,
         hotSelling: payload.hotSelling,
+        cardGlowColor: payload.cardGlowColor,
+        badge: payload.badge,
       },
       { new: true, runValidators: true }
     );

@@ -11,6 +11,7 @@ class PricingSource {
     required this.price,
     required this.discountedPrice,
     this.minOrderQuantity,
+    this.maxOrderQuantity,
     this.stepByQuantity,
   });
 
@@ -19,6 +20,7 @@ class PricingSource {
   final double price;
   final double discountedPrice;
   final int? minOrderQuantity;
+  final int? maxOrderQuantity;
   final int? stepByQuantity;
 }
 
@@ -90,6 +92,7 @@ List<ProductColor> getAvailableColors(Product product, [String variantName = '']
 
 PricingSource? getPricingSource(Product product, [String variantName = '']) {
   final productMoq = product.minOrderQuantity;
+  final productMax = product.maxOrderQuantity;
   final productStep = product.stepByQuantity;
 
   if (isMultiVariant(product)) {
@@ -101,6 +104,7 @@ PricingSource? getPricingSource(Product product, [String variantName = '']) {
       price: variant.price,
       discountedPrice: variant.discountedPrice,
       minOrderQuantity: productMoq ?? variant.minOrderQuantity,
+      maxOrderQuantity: productMax ?? variant.maxOrderQuantity,
       stepByQuantity: productStep ?? variant.stepByQuantity,
     );
   }
@@ -111,6 +115,7 @@ PricingSource? getPricingSource(Product product, [String variantName = '']) {
     price: product.price,
     discountedPrice: product.discountedPrice,
     minOrderQuantity: productMoq,
+    maxOrderQuantity: productMax,
     stepByQuantity: productStep,
   );
 }
@@ -423,13 +428,30 @@ String resolveActiveVariantName(Product product, String selectedVariant) {
   return product.variants.first.name;
 }
 
-int getMaxOrderQuantity(Product product, String variantName) {
+int getMaxOrderQuantity(Product product, String variantName, [int fallback = 50]) {
   final minOrderQuantity = getMinOrderQuantity(product, variantName);
+  final source = getPricingSource(product, variantName);
+  final configuredMax = source?.maxOrderQuantity ?? product.maxOrderQuantity;
   final variantStock = getVariantStock(product, variantName);
+
+  if (configuredMax != null && configuredMax > 0) {
+    if (variantStock > 0) {
+      final cap = variantStock < configuredMax ? variantStock : configuredMax;
+      return cap < minOrderQuantity ? minOrderQuantity : cap;
+    }
+    return configuredMax < minOrderQuantity ? minOrderQuantity : configuredMax;
+  }
+
   if (variantStock > 0) {
     return variantStock < minOrderQuantity ? minOrderQuantity : variantStock;
   }
   return minOrderQuantity;
+}
+
+bool hasConfiguredMaxOrderQuantity(Product product, [String variantName = '']) {
+  final source = getPricingSource(product, variantName);
+  final max = source?.maxOrderQuantity ?? product.maxOrderQuantity;
+  return max != null && max > 0;
 }
 
 CartDefaults resolveCartDefaults(Product product) {

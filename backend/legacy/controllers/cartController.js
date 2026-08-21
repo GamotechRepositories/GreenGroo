@@ -5,6 +5,7 @@ import {
   getAvailableColors,
   getCartAdjustStep,
   getMinOrderQuantity,
+  getMaxOrderQuantity,
   getVariant,
   getVariantStock,
   isMultiVariant,
@@ -27,12 +28,20 @@ const matchesCartItem = (item, productId, variantName, colorName) =>
 
 function validateCartQuantity(product, variantName, qty) {
   const moq = getMinOrderQuantity(product, variantName);
+  const maxQty = getMaxOrderQuantity(product, variantName);
   const step = getCartAdjustStep(product, variantName);
 
   if (qty < moq) {
     return {
       valid: false,
       message: `Minimum order quantity is ${moq}`,
+    };
+  }
+
+  if (maxQty && qty > maxQty) {
+    return {
+      valid: false,
+      message: `Maximum order quantity allowed is ${maxQty}`,
     };
   }
 

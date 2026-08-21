@@ -210,5 +210,25 @@ void main() {
       final qty6 = getProductListPriceInfo(product, '', 6);
       expect(qty6.salePrice, 520);
     });
+
+    test('respects configured maxOrderQuantity', () {
+      final product = Product.fromJson({
+        'id': 'moq-max',
+        'name': 'Organic Tomatoes',
+        'categories': ['Vegetables'],
+        'subcategory': 'Daily',
+        'brandName': 'GreenGrocc',
+        'price': 40,
+        'discountedPrice': 34,
+        'stock': 100,
+        'productImages': [],
+        'minOrderQuantity': 2,
+        'maxOrderQuantity': 10,
+      });
+
+      expect(getMinOrderQuantity(product), 2);
+      expect(getMaxOrderQuantity(product, ''), 10);
+      expect(hasConfiguredMaxOrderQuantity(product), isTrue);
+    });
   });
 }

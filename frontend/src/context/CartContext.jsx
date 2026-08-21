@@ -331,15 +331,22 @@ export function CartProvider({ children }) {
   const incrementCartItem = useCallback(
     ({ productId, variantName = "", colorName = "", step = 1, maxQuantity }) => {
       const safeStep = Number(step) || 1;
-      const maxQty = Number.isFinite(Number(maxQuantity)) ? Number(maxQuantity) : null;
 
       if (!user) {
         const line = findCartLine(itemsRef.current, productId, variantName, colorName);
         if (!line) return Promise.resolve({ success: false });
 
+        const effectiveMax = Number.isFinite(Number(maxQuantity))
+          ? Number(maxQuantity)
+          : Number.isFinite(Number(line.maxOrderQuantity)) && Number(line.maxOrderQuantity) > 0
+          ? Number(line.maxOrderQuantity)
+          : Number.isFinite(Number(line.stock)) && Number(line.stock) > 0
+          ? Number(line.stock)
+          : null;
+
         let nextQty = line.quantity + safeStep;
-        if (maxQty != null) {
-          nextQty = Math.min(maxQty, nextQty);
+        if (effectiveMax != null) {
+          nextQty = Math.min(effectiveMax, nextQty);
         }
         if (nextQty === line.quantity) return Promise.resolve({ success: true });
 
@@ -353,9 +360,17 @@ export function CartProvider({ children }) {
         const line = findCartLine(current, productId, variantName, colorName);
         if (!line) return null;
 
+        const effectiveMax = Number.isFinite(Number(maxQuantity))
+          ? Number(maxQuantity)
+          : Number.isFinite(Number(line.maxOrderQuantity)) && Number(line.maxOrderQuantity) > 0
+          ? Number(line.maxOrderQuantity)
+          : Number.isFinite(Number(line.stock)) && Number(line.stock) > 0
+          ? Number(line.stock)
+          : null;
+
         let nextQty = line.quantity + safeStep;
-        if (maxQty != null) {
-          nextQty = Math.min(maxQty, nextQty);
+        if (effectiveMax != null) {
+          nextQty = Math.min(effectiveMax, nextQty);
         }
         if (nextQty === line.quantity) return null;
 

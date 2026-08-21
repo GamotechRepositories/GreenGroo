@@ -34,6 +34,7 @@ export function mapCartItems(cart) {
         variantType: item.product.variantType,
         variants: item.product.variants,
         minOrderQuantity: item.product.minOrderQuantity,
+        maxOrderQuantity: item.product.maxOrderQuantity ?? item.product.maxOrderQty,
         stepByQuantity: item.product.stepByQuantity,
         productImages: item.product.productImages,
         stock: getVariantStock(item.product, variantName),
@@ -51,6 +52,7 @@ function pricingFromLine(item) {
     variantType: item.variantType,
     variants: item.variants,
     minOrderQuantity: item.minOrderQuantity,
+    maxOrderQuantity: item.maxOrderQuantity,
     stepByQuantity: item.stepByQuantity,
   };
 }
@@ -71,6 +73,7 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
     variantType: product.variantType,
     variants: product.variants,
     minOrderQuantity: product.minOrderQuantity,
+    maxOrderQuantity: product.maxOrderQuantity ?? product.maxOrderQty,
     stepByQuantity: product.stepByQuantity,
     productImages: product.productImages,
     stock: getVariantStock(product, variantName || ""),

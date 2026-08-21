@@ -26,7 +26,10 @@ class Product {
     this.colors = const [],
     this.specifications = const [],
     this.minOrderQuantity,
+    this.maxOrderQuantity,
     this.stepByQuantity,
+    this.cardGlowColor = '',
+    this.badge = '',
     this.purchaseCount = 0,
     this.createdAt,
   });
@@ -54,7 +57,10 @@ class Product {
   final List<ProductColor> colors;
   final List<ProductSpecification> specifications;
   final int? minOrderQuantity;
+  final int? maxOrderQuantity;
   final int? stepByQuantity;
+  final String cardGlowColor;
+  final String badge;
   final int purchaseCount;
   final DateTime? createdAt;
 
@@ -105,10 +111,16 @@ class Product {
         json['minOrderQuantity'],
         legacyBulk is Map<String, dynamic> ? legacyBulk['minOrderQuantity'] : null,
       ),
+      maxOrderQuantity: _parseOptionalQuantity(
+        json['maxOrderQuantity'],
+        json['maxOrderQty'] ?? (legacyBulk is Map<String, dynamic> ? legacyBulk['maxOrderQuantity'] : null),
+      ),
       stepByQuantity: _parseOptionalQuantity(
         json['stepByQuantity'],
         legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
       ),
+      cardGlowColor: json['cardGlowColor']?.toString() ?? json['glowColor']?.toString() ?? '',
+      badge: json['badge']?.toString() ?? '',
       purchaseCount: _toInt(json['purchaseCount']),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())

@@ -70,12 +70,23 @@ const PRESET_COLORS = [
   { name: 'Pink', hex: '#FFE8E8' },
 ];
 
+const SECTION_THEME_COLORS = [
+  { name: 'Emerald Green', hex: '#10B981' },
+  { name: 'Warm Orange', hex: '#EA580C' },
+  { name: 'Royal Blue', hex: '#2563EB' },
+  { name: 'Vibrant Purple', hex: '#8B5CF6' },
+  { name: 'Amber Gold', hex: '#F59E0B' },
+  { name: 'Rose Pink', hex: '#F43F5E' },
+  { name: 'Cyan Teal', hex: '#06B6D4' },
+  { name: 'Forest Green', hex: '#059669' },
+];
+
 const renderDeptIcon = (slug = '', className = 'h-4 w-4') => {
   const s = (slug || '').toLowerCase();
   if (s === 'all') return <Layers className={className} />;
-  if (s === 'greengrocc') return <Leaf className={className} />;
-  if (s === 'ready2cook') return <Utensils className={className} />;
-  if (s === 'supermall') return <ShoppingBag className={className} />;
+  if (s.includes('green') || s.includes('grocc') || s.includes('veg') || s.includes('farm') || s.includes('organic')) return <Leaf className={className} />;
+  if (s.includes('cook') || s.includes('kitchen') || s.includes('food') || s.includes('meal') || s.includes('bake')) return <Utensils className={className} />;
+  if (s.includes('mall') || s.includes('shop') || s.includes('super') || s.includes('store')) return <ShoppingBag className={className} />;
   return <FolderTree className={className} />;
 };
 
@@ -582,6 +593,393 @@ export default function Categories() {
   };
 
   const activeSectionObj = sections.find((s) => s.slug.toLowerCase() === selectedSectionFilter.toLowerCase());
+
+  // ================= FULL-PAGE SECTION FORM VIEW =================
+  if (isAddSecModalOpen) {
+    return (
+      <div className="space-y-5 max-w-5xl mx-auto pb-16">
+        {/* Toast Notification */}
+        {toast && (
+          <div
+            className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-xl text-xs font-semibold text-white transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
+              toast.type === 'error' ? 'bg-rose-600 shadow-rose-500/25' : 'bg-slate-950 dark:bg-emerald-600 shadow-black/30'
+            }`}
+          >
+            {toast.type === 'error' ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+            <span>{toast.message}</span>
+          </div>
+        )}
+
+        {/* Top Header & Breadcrumb Bar */}
+        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSecModalOpen(false)}
+                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5 cursor-pointer font-bold text-slate-600 dark:text-slate-300"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Categories & Departments</span>
+                </button>
+                <span>/</span>
+                <span className="text-slate-900 dark:text-white font-semibold">
+                  {editingSection ? `Edit: ${editingSection.sectionName}` : 'Add Department'}
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {editingSection ? `Edit Department: ${editingSection.sectionName}` : 'Create Store Department'}
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Configure store department title, URL slug, theme styling, and storefront visibility
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setIsAddSecModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitSection}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>{editingSection ? 'Update Department' : 'Publish Department'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Section Form Grid Layout */}
+        <form onSubmit={handleSubmitSection} className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Main Form Fields */}
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden divide-y divide-slate-200/70 dark:divide-slate-800">
+            {/* STEP 1: Basic Information */}
+            <div className="bg-emerald-50/40 dark:bg-emerald-950/20 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-xs shadow-xs">
+                  1
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    Department Identification
+                  </h3>
+                  <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300">
+                    Store section title, URL slug identifier, and tagline description
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Department Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Organic Farm"
+                    value={secFormData.sectionName}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      if (!editingSection) {
+                        const autoSlug = name
+                          .toLowerCase()
+                          .trim()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-+|-+$/g, '');
+                        setSecFormData((prev) => ({ ...prev, sectionName: name, slug: autoSlug }));
+                      } else {
+                        setSecFormData((prev) => ({ ...prev, sectionName: name }));
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Slug Identifier <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">
+                      /
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="organic-farm"
+                      value={secFormData.slug}
+                      onChange={(e) => setSecFormData((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                      className="w-full pl-6 pr-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Description / Subtitle
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Pure organic produce & farm-fresh essentials"
+                  value={secFormData.description}
+                  onChange={(e) => setSecFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                />
+              </div>
+            </div>
+
+            {/* STEP 2: Branding & Colors */}
+            <div className="bg-amber-50/40 dark:bg-amber-950/20 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-white font-bold text-xs shadow-xs">
+                  2
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    Branding & Theme Colors
+                  </h3>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300">
+                    Accent palette, promotional badge, and color customization
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Preset Color Themes
+                </label>
+                <div className="flex flex-wrap gap-2.5">
+                  {SECTION_THEME_COLORS.map((col) => {
+                    const isSelected = (secFormData.color || '#10B981').toLowerCase() === col.hex.toLowerCase();
+                    return (
+                      <button
+                        key={col.hex}
+                        type="button"
+                        onClick={() => setSecFormData((prev) => ({ ...prev, color: col.hex }))}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-slate-900 dark:border-white ring-2 ring-emerald-500/40 shadow-xs'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
+                        } bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200`}
+                      >
+                        <span
+                          className="h-3.5 w-3.5 rounded-full shadow-2xs shrink-0"
+                          style={{ backgroundColor: col.hex }}
+                        />
+                        <span>{col.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Badge Label (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 10 Mins / Express / Farm Fresh"
+                    value={secFormData.badge}
+                    onChange={(e) => setSecFormData((prev) => ({ ...prev, badge: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Custom Hex Color
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={secFormData.color || '#10B981'}
+                      onChange={(e) => setSecFormData((prev) => ({ ...prev, color: e.target.value }))}
+                      className="h-10 w-12 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer bg-white dark:bg-slate-800 p-1"
+                    />
+                    <input
+                      type="text"
+                      value={secFormData.color || '#10B981'}
+                      onChange={(e) => setSecFormData((prev) => ({ ...prev, color: e.target.value }))}
+                      className="flex-1 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 3: Display Order & Status */}
+            <div className="bg-indigo-50/40 dark:bg-indigo-950/20 p-5 sm:p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-1">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-xs shadow-xs">
+                  3
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    Display Order & Visibility
+                  </h3>
+                  <p className="text-[11px] text-indigo-800/80 dark:text-indigo-300">
+                    Sort sequence and customer app visibility
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Display Order Rank
+                  </label>
+                  <input
+                    type="number"
+                    value={secFormData.order}
+                    onChange={(e) => setSecFormData((prev) => ({ ...prev, order: parseInt(e.target.value, 10) || 0 }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 shadow-2xs"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Lower number appears earlier in department filter tabs.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Storefront Status
+                  </label>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setSecFormData((prev) => ({ ...prev, isActive: !prev.isActive }))}
+                      className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                        secFormData.isActive
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/20'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${secFormData.isActive ? 'bg-white animate-pulse' : 'bg-slate-400'}`} />
+                      <span>{secFormData.isActive ? 'Active in Consumer App' : 'Hidden / Inactive'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Live Interactive Department Card Preview */}
+          <div className="space-y-4">
+            <div className="sticky top-20 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                  Live Preview
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Storefront View
+                </span>
+              </div>
+
+              {/* Department Card Preview */}
+              <div
+                className="rounded-2xl border p-4 shadow-sm transition-all"
+                style={{
+                  borderColor: secFormData.color || '#10B981',
+                  backgroundColor: `${secFormData.color || '#10B981'}0A`,
+                }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-md shadow-black/5 shrink-0"
+                      style={{ backgroundColor: secFormData.color || '#10B981' }}
+                    >
+                      {renderDeptIcon(secFormData.slug, 'h-5 w-5')}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-slate-900 dark:text-white text-sm truncate">
+                        {secFormData.sectionName || 'Department Name'}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-mono truncate">
+                        /{secFormData.slug || 'department-slug'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className="px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0"
+                    style={{
+                      backgroundColor: `${secFormData.color || '#10B981'}20`,
+                      color: secFormData.color || '#10B981',
+                    }}
+                  >
+                    {secFormData.badge || 'Active'}
+                  </span>
+                </div>
+
+                {secFormData.description && (
+                  <p className="mt-3 text-xs text-slate-600 dark:text-slate-300 line-clamp-2 border-t border-slate-100 dark:border-slate-800/80 pt-2.5">
+                    {secFormData.description}
+                  </p>
+                )}
+
+                <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                  <span>Order Rank: #{secFormData.order || 0}</span>
+                  <span className={`font-bold ${secFormData.isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    ● {secFormData.isActive ? 'Published' : 'Draft'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleSubmitSection}
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving Department...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>{editingSection ? 'Update Department' : 'Create Department'}</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddSecModalOpen(false)}
+                  className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel & Return
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   // ================= FULL-PAGE STEP-BY-STEP CATEGORY FORM VIEW =================
   if (isAddCatModalOpen) {
@@ -1449,9 +1847,9 @@ export default function Categories() {
 
         {/* Content View */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 py-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5 py-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse border border-slate-200/50 dark:border-slate-800" />
+              <div key={i} className="h-56 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse border border-slate-200/50 dark:border-slate-800" />
             ))}
           </div>
         ) : filteredCategories.length === 0 ? (
@@ -1472,13 +1870,14 @@ export default function Categories() {
           </div>
         ) : viewMode === 'grid' ? (
           /* Sleek Compact Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5">
             {filteredCategories.map((cat) => {
               const secInfo = getSectionInfo(cat.section);
               return (
                 <div
                   key={cat._id || cat.slug}
-                  className={`group relative rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-2xs hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-200 flex flex-col justify-between ${
+                  onClick={() => handleOpenEditCatModal(cat)}
+                  className={`group relative rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-2xs hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-200 flex flex-col justify-between cursor-pointer ${
                     cat.isActive
                       ? 'border-slate-200 dark:border-slate-800 hover:border-emerald-500/60 hover:-translate-y-0.5'
                       : 'border-slate-200 dark:border-slate-800 opacity-60'
@@ -1486,30 +1885,32 @@ export default function Categories() {
                 >
                   {/* Top Image Showcase Banner */}
                   <div
-                    className="relative w-full h-22 flex items-center justify-center overflow-hidden border-b border-slate-100 dark:border-slate-800/80 transition-colors"
+                    className="relative w-full h-28 sm:h-32 flex items-center justify-center overflow-hidden border-b border-slate-100 dark:border-slate-800/80 transition-colors"
                     style={{
                       background: cat.bg || '#F1F5F9',
                     }}
                   >
-                    {/* Department Chip Top-Left */}
-                    <div className="absolute top-1.5 left-1.5 z-10">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-[9px] font-extrabold text-slate-700 dark:text-slate-200 shadow-2xs border border-black/5">
-                        <span className="truncate max-w-[80px]">{secInfo.name}</span>
+                    {/* Header Badges Responsive Overlay Bar */}
+                    <div className="absolute top-2 inset-x-2 z-10 flex items-center justify-between gap-1.5 pointer-events-none">
+                      {/* Department Chip */}
+                      <span className="pointer-events-auto inline-flex items-center px-2 py-0.5 rounded-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm text-[10px] font-bold text-slate-700 dark:text-slate-200 shadow-xs border border-black/5 min-w-0 max-w-[55%] truncate">
+                        <span className="truncate">{secInfo.name}</span>
                       </span>
-                    </div>
 
-                    {/* Active Toggle Dot/Button Top-Right */}
-                    <div className="absolute top-1.5 right-1.5 z-10">
+                      {/* Active Toggle Button */}
                       <button
-                        onClick={() => handleToggleCatStatus(cat)}
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold shadow-2xs backdrop-blur-xs transition-all active:scale-95 cursor-pointer ${
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleCatStatus(cat);
+                        }}
+                        className={`pointer-events-auto shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs backdrop-blur-sm transition-all active:scale-95 cursor-pointer ${
                           cat.isActive
                             ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                             : 'bg-slate-600 text-white hover:bg-slate-700'
                         }`}
                         title="Toggle Active Status"
                       >
-                        <span className={`h-1.5 w-1.5 rounded-full ${cat.isActive ? 'bg-emerald-200 animate-pulse' : 'bg-slate-300'}`} />
+                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cat.isActive ? 'bg-emerald-200 animate-pulse' : 'bg-slate-300'}`} />
                         <span>{cat.isActive ? 'Active' : 'Off'}</span>
                       </button>
                     </div>
@@ -1535,23 +1936,23 @@ export default function Categories() {
                   </div>
 
                   {/* Body Content - Compact & Clean */}
-                  <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2">
+                  <div className="p-3 flex-1 flex flex-col justify-between gap-2.5">
                     <div>
-                      <h3 className="font-black text-slate-900 dark:text-white text-xs leading-snug truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" title={cat.categoryName}>
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm leading-snug truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" title={cat.categoryName}>
                         {cat.categoryName}
                       </h3>
 
-                      <div className="mt-1 flex items-center justify-between gap-1 text-[10px] text-slate-400 font-mono">
-                        <span className="truncate">/{cat.slug}</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 rounded">
+                      <div className="mt-1 flex items-center justify-between gap-1 text-[10px] sm:text-[11px] text-slate-400 font-mono">
+                        <span className="truncate min-w-0">/{cat.slug}</span>
+                        <span className="shrink-0 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">
                           {cat.itemCount || '0 items'}
                         </span>
                       </div>
 
                       {/* Subcategories count badge if present */}
                       {Array.isArray(cat.subcategories) && cat.subcategories.length > 0 && (
-                        <div className="mt-1 flex items-center gap-1 text-[9px] text-slate-500 dark:text-slate-400 truncate">
-                          <Tag className="h-2.5 w-2.5 text-amber-500 shrink-0" />
+                        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 min-w-0">
+                          <Tag className="h-3 w-3 text-amber-500 shrink-0" />
                           <span className="truncate">{cat.subcategories.length} sub-filters ({cat.subcategories.slice(0, 2).join(', ')})</span>
                         </div>
                       )}
@@ -1559,21 +1960,21 @@ export default function Categories() {
 
                     {/* Compact Footer Actions */}
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold text-slate-400 font-mono">
+                      <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-400 font-mono">
                         #{cat.order || 0}
                       </span>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleOpenEditCatModal(cat)}
-                          className="p-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-slate-700 text-slate-600 transition-all cursor-pointer"
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-slate-700 text-slate-600 transition-all cursor-pointer"
                           title="Edit Category"
                         >
                           <Edit2 className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => setDeletingCategory(cat)}
-                          className="p-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-400 transition-all cursor-pointer"
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-400 transition-all cursor-pointer"
                           title="Delete Category"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -1604,7 +2005,11 @@ export default function Categories() {
                   {filteredCategories.map((cat) => {
                     const secInfo = getSectionInfo(cat.section);
                     return (
-                      <tr key={cat._id || cat.slug} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <tr
+                        key={cat._id || cat.slug}
+                        onClick={() => handleOpenEditCatModal(cat)}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+                      >
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2.5">
                             <div
@@ -1657,7 +2062,7 @@ export default function Categories() {
                           #{cat.order || 0}
                         </td>
 
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleToggleCatStatus(cat)}
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold cursor-pointer ${
@@ -1670,7 +2075,7 @@ export default function Categories() {
                           </button>
                         </td>
 
-                        <td className="py-2.5 px-3 text-right">
+                        <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => handleOpenEditCatModal(cat)}
@@ -1697,133 +2102,6 @@ export default function Categories() {
           </div>
         )}
       </div>
-
-      {/* ================= MODAL: ADD / EDIT SECTION ================= */}
-      {isAddSecModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
-            onClick={() => !isSubmitting && setIsAddSecModalOpen(false)}
-          />
-          <div className="relative z-10 w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <FolderTree className="h-5 w-5 text-emerald-600" />
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                  {editingSection ? 'Edit Store Section' : 'Create Store Section'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsAddSecModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitSection} className="mt-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Section Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Organic Farm"
-                    value={secFormData.sectionName}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      if (!editingSection) {
-                        const autoSlug = name
-                          .toLowerCase()
-                          .trim()
-                          .replace(/[^a-z0-9]+/g, '-')
-                          .replace(/^-+|-+$/g, '');
-                        setSecFormData((prev) => ({ ...prev, sectionName: name, slug: autoSlug }));
-                      } else {
-                        setSecFormData((prev) => ({ ...prev, sectionName: name }));
-                      }
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Slug identifier *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. organic-farm"
-                    value={secFormData.slug}
-                    onChange={(e) => setSecFormData({ ...secFormData, slug: e.target.value.toLowerCase() })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Description / Subtitle
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Pure organic produce & farm essentials"
-                  value={secFormData.description}
-                  onChange={(e) => setSecFormData({ ...secFormData, description: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Badge (optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 10 Mins"
-                    value={secFormData.badge}
-                    onChange={(e) => setSecFormData({ ...secFormData, badge: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Display Order
-                  </label>
-                  <input
-                    type="number"
-                    value={secFormData.order}
-                    onChange={(e) => setSecFormData({ ...secFormData, order: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddSecModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
-                >
-                  {editingSection ? 'Save Changes' : 'Create Section'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ================= MODAL: DELETE CATEGORY ================= */}
       {deletingCategory && (

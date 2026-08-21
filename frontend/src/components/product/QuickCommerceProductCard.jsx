@@ -155,20 +155,41 @@ function QuickCommerceProductCard({
     </div>
   );
 
+  const hasGlow = Boolean(product.cardGlowColor);
+  const glowColor = product.cardGlowColor;
+  const glowBg = hasGlow ? (glowColor.startsWith('#') ? `${glowColor}10` : glowColor) : undefined;
+  const glowBorder = hasGlow ? (glowColor.startsWith('#') ? `${glowColor}40` : glowColor) : undefined;
+  const glowShadow = hasGlow ? `0 6px 20px -2px ${glowColor}25` : undefined;
+
   return (
     <div className={widthClass}>
       <div className="relative flex h-full flex-col bg-white">
         {/* 1. Image + pink ADD */}
-        <div className="relative overflow-hidden rounded-xl border border-[#E5E5E5] bg-white">
+        <div
+          className="relative overflow-hidden rounded-xl border transition-all duration-300"
+          style={{
+            backgroundColor: glowBg || '#ffffff',
+            borderColor: glowBorder || '#E5E5E5',
+            boxShadow: glowShadow,
+          }}
+        >
           <Link to={productUrl} className="block">
             <ProductImageFrame
               src={image}
               fallbackSrc={fallbackImage}
               alt={product.name}
               fit="cover"
-              className="!aspect-square !bg-white"
+              className="!aspect-square !bg-transparent"
             />
           </Link>
+          {product.badge && (
+            <span
+              className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white shadow-xs tracking-wide uppercase"
+              style={{ backgroundColor: glowColor || '#10B981' }}
+            >
+              {product.badge}
+            </span>
+          )}
           {cartQuantity > 0 ? stepper : addButton}
         </div>
 

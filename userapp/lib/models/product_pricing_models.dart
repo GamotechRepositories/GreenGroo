@@ -79,6 +79,7 @@ class ProductVariant {
     this.stock = 0,
     this.colors = const [],
     this.minOrderQuantity,
+    this.maxOrderQuantity,
     this.stepByQuantity,
   });
 
@@ -90,6 +91,7 @@ class ProductVariant {
   final int stock;
   final List<ProductColor> colors;
   final int? minOrderQuantity;
+  final int? maxOrderQuantity;
   final int? stepByQuantity;
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
@@ -108,6 +110,10 @@ class ProductVariant {
       minOrderQuantity: _parseOptionalQuantity(
         json['minOrderQuantity'],
         legacyBulk is Map<String, dynamic> ? legacyBulk['minOrderQuantity'] : null,
+      ),
+      maxOrderQuantity: _parseOptionalQuantity(
+        json['maxOrderQuantity'],
+        json['maxOrderQty'] ?? (legacyBulk is Map<String, dynamic> ? legacyBulk['maxOrderQuantity'] : null),
       ),
       stepByQuantity: _parseOptionalQuantity(
         json['stepByQuantity'],

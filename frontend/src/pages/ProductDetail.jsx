@@ -11,8 +11,10 @@ import {
   getAvailableColors,
   getBulkTierRows,
   getMinOrderQuantity,
+  getMaxOrderQuantity,
   getCartAdjustStep,
   hasConfiguredMinOrderQuantity,
+  hasConfiguredMaxOrderQuantity,
   hasConfiguredQuantityStep,
   getUnitPriceForQuantity,
   getVariantStock,
@@ -909,9 +911,10 @@ function ProductDetail() {
     const line = getCartLine();
     const step = quantityStep;
     const variantStock = getVariantStock(product, activeVariantName);
+    const maxOrderQty = getMaxOrderQuantity(product, activeVariantName, 50);
     const maxQty =
       variantStock > 0
-        ? Math.max(variantStock, minOrderQuantity)
+        ? Math.min(variantStock, maxOrderQty)
         : minOrderQuantity;
 
     if (line) {
@@ -933,13 +936,13 @@ function ProductDetail() {
       <div className="min-h-screen bg-white pb-28 lg:pb-10">
         <div className="mx-auto w-full max-w-7xl px-3 pb-8 pt-4 sm:px-4 md:px-5 lg:px-6 xl:px-8">
           <div className="animate-pulse">
-            <div className="mb-6 hidden h-4 w-64 rounded bg-mobile-surface lg:block" />
-            <div className="grid gap-5 sm:gap-6 md:grid-cols-2 md:gap-8 lg:gap-10">
-              <div className="aspect-square max-h-[min(70vh,520px)] w-full animate-pulse rounded-lg border border-border-light bg-mobile-surface" />
+            <div className="h-6 w-32 rounded bg-slate-200" />
+            <div className="mt-4 grid grid-cols-1 gap-8 lg:grid-cols-2">
+              <div className="h-96 rounded-2xl bg-slate-200" />
               <div className="space-y-4">
-                <div className="h-7 w-3/4 rounded bg-mobile-surface sm:h-8" />
-                <div className="h-4 w-1/4 rounded bg-mobile-surface" />
-                <div className="h-10 w-1/3 rounded bg-mobile-surface" />
+                <div className="h-8 w-3/4 rounded bg-slate-200" />
+                <div className="h-6 w-1/4 rounded bg-slate-200" />
+                <div className="h-24 rounded bg-slate-200" />
               </div>
             </div>
           </div>
@@ -950,8 +953,8 @@ function ProductDetail() {
 
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-white pb-28 lg:pb-10">
-        <div className="mx-auto w-full max-w-7xl px-3 py-16 text-center sm:px-4 md:px-5 lg:px-6 xl:px-8">
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
           <p className="mb-6 text-text-secondary">{error || "Product not found."}</p>
           <Link to="/product" className="text-sm font-medium text-primary hover:underline">
             ← Back to products
@@ -965,8 +968,9 @@ function ProductDetail() {
   const variantStock = getVariantStock(product, activeVariantName);
   const inStock = variantStock > 0;
   const rating = product.ratings || 4.5;
+  const maxOrderQty = getMaxOrderQuantity(product, activeVariantName, 50);
   const maxQuantity = inStock
-    ? Math.max(variantStock, minOrderQuantity)
+    ? Math.min(variantStock, maxOrderQty)
     : minOrderQuantity;
   const unitLabel = product.sub || product.unit || product.weight || "1 pc";
   const priceInfo = getProductListPriceInfo(product, activeVariantName);
