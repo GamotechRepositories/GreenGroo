@@ -209,26 +209,62 @@ export default function ManagerFarmerDetailPage() {
 
         {tab === "Orders" && (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-[#F2F2F2] text-left">
-                  {["Order ID", "Customer", "Amount", "Status", "Date"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
-                  ))}
+                <tr className="bg-[#F2F2F2]">
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-center text-[#4B5563] w-12 font-semibold">Sr.</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-left text-[#1F2937] font-semibold">Date</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-left text-[#1F2937] font-semibold">Day</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-left text-[#1F2937] font-semibold">Product</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-left text-[#1F2937] font-semibold">Category</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-center text-[#1F2937] font-semibold">Unit</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-right text-[#1F2937] font-semibold">Grade A Qty</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-right text-[#DC2626] font-semibold">Rejection Qty</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-right text-[#1F2937] font-semibold">Amount</th>
+                  <th className="border border-[#D4D4D4] px-2.5 py-2 text-center text-[#1F2937] font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-4 text-center text-[#6B7280]">No orders</td></tr>
-                ) : orders.map((o) => (
-                  <tr key={o.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                    <td className="px-3 py-2.5 font-mono text-[#217346]">{o.id}</td>
-                    <td className="px-3 py-2.5">{o.customer?.name || "—"}</td>
-                    <td className="px-3 py-2.5 font-semibold">₹{(o.totalAmount || 0).toLocaleString("en-IN")}</td>
-                    <td className="px-3 py-2.5">{STATUS_BADGE(o.status)}</td>
-                    <td className="px-3 py-2.5 text-[#6B7280]">{o.orderDate ? new Date(o.orderDate).toLocaleDateString("en-IN") : "—"}</td>
-                  </tr>
-                ))}
+                  <tr><td colSpan={10} className="border border-[#D4D4D4] px-3 py-6 text-center text-[#6B7280]">No harvest orders found for this farmer</td></tr>
+                ) : orders.flatMap((o, oIdx) => {
+                  const prods = o.products && o.products.length ? o.products : [{
+                    name: o.productName || "Produce",
+                    category: o.category || "Produce",
+                    unit: o.unit || "Kg",
+                    grade: "Grade A",
+                    quantity: o.totalQuantity || 0,
+                    price: 0,
+                    total: o.totalAmount || o.amount || 0,
+                  }];
+                  const dateStr = o.harvestDate || (o.orderDate ? new Date(o.orderDate).toISOString().split("T")[0] : "—");
+                  const dayStr = o.day || "Today";
+
+                  return prods.map((p, pIdx) => (
+                    <tr key={`${o.id}-${pIdx}`} className="border border-[#D4D4D4] hover:bg-[#F9F9F9] transition-colors">
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-center text-[#6B7280]">{oIdx + 1}</td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 font-medium whitespace-nowrap">{dateStr}</td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-[#6B7280]">{dayStr}</td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 font-bold text-[#1F2937]">{p.name}</td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-[#6B7280]">{p.category || o.category || "Produce"}</td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-center text-[#6B7280]">{p.unit || o.unit || "Kg"}</td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-right font-bold text-[#1F2937] tabular-nums">
+                        {p.quantity || 0} {p.unit || o.unit || "Kg"}
+                      </td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-right font-bold text-[#DC2626] tabular-nums">
+                        {pIdx === 0 ? Number(o.rejectionQty || 0) : 0} {p.unit || o.unit || "Kg"}
+                      </td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-right font-semibold text-[#217346] tabular-nums">
+                        ₹{(p.total || o.totalAmount || 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="border border-[#D4D4D4] px-2.5 py-2 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center border border-[#217346] bg-[#E8F5E9] text-[#217346] px-1.5 py-0.5 text-[10px] font-bold uppercase rounded tracking-wide">
+                          {o.status || "Approved"}
+                        </span>
+                      </td>
+                    </tr>
+                  ));
+                })}
               </tbody>
             </table>
           </div>

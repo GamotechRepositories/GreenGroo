@@ -21,8 +21,10 @@ import {
   updateFarmerInventoryItem,
   getFarmerOrders,
   getFarmerOrderById,
+  updateFarmerOrder,
   updateFarmerOrderStatus,
   createFarmerOrder,
+  deleteFarmerOrder,
   getFarmerEarnings,
   getFarmerDocuments,
   uploadFarmerDocument,
@@ -95,9 +97,19 @@ farmerRouter.get("/:farmerId/stock-history", getStockHistory);
 
 // Orders
 farmerRouter.get("/:farmerId/orders", getFarmerOrders);
+farmerRouter.get("/farmers/:farmerId/orders", getFarmerOrders);
 farmerRouter.post("/:farmerId/orders", createFarmerOrder);
+farmerRouter.post("/farmers/:farmerId/orders", createFarmerOrder);
 farmerRouter.get("/:farmerId/orders/:orderId", getFarmerOrderById);
+farmerRouter.get("/farmers/:farmerId/orders/:orderId", getFarmerOrderById);
+farmerRouter.put("/:farmerId/orders/:orderId", updateFarmerOrder);
+farmerRouter.put("/farmers/:farmerId/orders/:orderId", updateFarmerOrder);
+farmerRouter.patch("/:farmerId/orders/:orderId", updateFarmerOrder);
+farmerRouter.patch("/farmers/:farmerId/orders/:orderId", updateFarmerOrder);
 farmerRouter.patch("/:farmerId/orders/:orderId/status", updateFarmerOrderStatus);
+farmerRouter.patch("/farmers/:farmerId/orders/:orderId/status", updateFarmerOrderStatus);
+farmerRouter.delete("/:farmerId/orders/:orderId", deleteFarmerOrder);
+farmerRouter.delete("/farmers/:farmerId/orders/:orderId", deleteFarmerOrder);
 
 // Earnings
 farmerRouter.get("/:farmerId/earnings", getFarmerEarnings);
@@ -187,6 +199,8 @@ vendorRouter.put("/farmers/:farmerId/manager", requireVendor, assignFarmerManage
 vendorRouter.get("/farmers/:farmerId/products", requireVendor, getFarmerProducts);
 vendorRouter.get("/farmers/:farmerId/orders", requireVendor, getFarmerOrders);
 vendorRouter.post("/farmers/:farmerId/orders", requireVendor, createFarmerOrder);
+vendorRouter.put("/farmers/:farmerId/orders/:orderId", requireVendor, updateFarmerOrder);
+vendorRouter.delete("/farmers/:farmerId/orders/:orderId", requireVendor, deleteFarmerOrder);
 vendorRouter.get("/farmers/:farmerId/earnings", requireVendor, getFarmerEarnings);
 vendorRouter.get("/farmers/:farmerId/documents", requireVendor, getFarmerDocuments);
 
@@ -224,9 +238,19 @@ managerRouter.post("/farmers/:farmerId/inventory/adjust", requireManager, adjust
 managerRouter.put("/farmers/:farmerId/inventory/:inventoryId", requireManager, updateFarmerInventoryItem);
 managerRouter.get("/farmers/:farmerId/stock-history", requireManager, getStockHistory);
 managerRouter.get("/farmers/:farmerId/orders", requireManager, getFarmerOrders);
+managerRouter.get("/:farmerId/orders", requireManager, getFarmerOrders);
 managerRouter.post("/farmers/:farmerId/orders", requireManager, createFarmerOrder);
+managerRouter.post("/:farmerId/orders", requireManager, createFarmerOrder);
 managerRouter.get("/farmers/:farmerId/orders/:orderId", requireManager, getFarmerOrderById);
+managerRouter.get("/:farmerId/orders/:orderId", requireManager, getFarmerOrderById);
+managerRouter.put("/farmers/:farmerId/orders/:orderId", requireManager, updateFarmerOrder);
+managerRouter.put("/:farmerId/orders/:orderId", requireManager, updateFarmerOrder);
+managerRouter.patch("/farmers/:farmerId/orders/:orderId", requireManager, updateFarmerOrder);
+managerRouter.patch("/:farmerId/orders/:orderId", requireManager, updateFarmerOrder);
 managerRouter.patch("/farmers/:farmerId/orders/:orderId/status", requireManager, updateFarmerOrderStatus);
+managerRouter.patch("/:farmerId/orders/:orderId/status", requireManager, updateFarmerOrderStatus);
+managerRouter.delete("/farmers/:farmerId/orders/:orderId", requireManager, deleteFarmerOrder);
+managerRouter.delete("/:farmerId/orders/:orderId", requireManager, deleteFarmerOrder);
 managerRouter.get("/farmers/:farmerId/earnings", requireManager, getFarmerEarnings);
 managerRouter.get("/farmers/:farmerId/documents", requireManager, getFarmerDocuments);
 managerRouter.patch("/farmers/:farmerId/documents/:documentId/status", requireManager, updateFarmerDocumentStatus);

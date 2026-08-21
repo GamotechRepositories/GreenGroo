@@ -195,6 +195,7 @@ const farmerOrderSchema = new mongoose.Schema(
     deliveryStatus: { type: String, default: "Pending" },
     paymentStatus: { type: String, default: "Pending" },
     orderDate: { type: Date, default: Date.now },
+    grades: [{ type: mongoose.Schema.Types.Mixed }],
     timeline: [
       {
         status: { type: String, default: "" },
@@ -203,7 +204,7 @@ const farmerOrderSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 const farmerEarningSchema = new mongoose.Schema(

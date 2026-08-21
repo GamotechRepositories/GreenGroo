@@ -538,5 +538,57 @@ export async function createManagerOrder(farmerId, payload) {
   });
 }
 
+export async function updateManagerFarmerOrder(farmerId, orderId, payload) {
+  const token = getStoredAuth()?.token;
+  const headers = { Authorization: `Bearer ${token}` };
+
+  try {
+    return await apiFetch(`/api/farmer-manager/farmers/${farmerId}/orders/${orderId}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    if (err?.message?.includes("404") || err?.message?.includes("not found") || err?.message?.includes("Route not found")) {
+      try {
+        return await apiFetch(`/api/farmers/${farmerId}/orders/${orderId}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Fallback to PATCH if PUT is blocked
+        return await apiFetch(`/api/farmer-manager/farmers/${farmerId}/orders/${orderId}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify(payload),
+        });
+      }
+    }
+    throw err;
+  }
+}
+
+export async function deleteManagerFarmerOrder(farmerId, orderId) {
+  const token = getStoredAuth()?.token;
+  const headers = { Authorization: `Bearer ${token}` };
+
+  try {
+    return await apiFetch(`/api/farmer-manager/farmers/${farmerId}/orders/${orderId}`, {
+      method: "DELETE",
+      headers,
+    });
+  } catch (err) {
+    if (err?.message?.includes("404") || err?.message?.includes("not found") || err?.message?.includes("Route not found")) {
+      return await apiFetch(`/api/farmers/${farmerId}/orders/${orderId}`, {
+        method: "DELETE",
+        headers,
+      });
+    }
+    throw err;
+  }
+}
+
+
 
 

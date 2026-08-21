@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
@@ -1319,6 +1320,73 @@ export async function updateFarmerOrderStatus(req, res) {
   }
 }
 
+export async function updateFarmerOrder(req, res) {
+  try {
+    const { farmerId, orderId } = req.params;
+    const {
+      products,
+      harvestDate,
+      day,
+      unit,
+      rejectionQty,
+      status,
+      grades,
+    } = req.body;
+
+    const query = {
+      farmerId,
+      $or: [{ id: orderId }, { orderId: orderId }],
+    };
+    if (mongoose.Types.ObjectId.isValid(orderId)) {
+      query.$or.push({ _id: orderId });
+    }
+
+    let order = await FarmerOrder.findOne(query);
+    if (!order) {
+      const harvestOrder = await FarmerHarvestOrder.findOne(query);
+      if (harvestOrder) {
+        if (harvestDate !== undefined) harvestOrder.harvestDate = harvestDate;
+        if (unit !== undefined) harvestOrder.unit = unit;
+        if (rejectionQty !== undefined) harvestOrder.rejectionQty = Number(rejectionQty || 0);
+        if (status !== undefined) harvestOrder.status = status;
+        if (grades !== undefined) harvestOrder.grades = grades;
+        await harvestOrder.save();
+        return res.json(harvestOrder);
+      }
+      return res.status(404).json({ message: "Harvest order not found" });
+    }
+
+    if (harvestDate !== undefined) order.harvestDate = harvestDate;
+    if (day !== undefined) order.day = day;
+    if (unit !== undefined) order.unit = unit;
+    if (rejectionQty !== undefined) order.rejectionQty = Number(rejectionQty || 0);
+    if (status !== undefined) order.status = status;
+    if (grades !== undefined) order.grades = grades;
+
+    if (Array.isArray(products) && products.length > 0) {
+      order.products = products.map((p) => ({
+        id: p.id || p.productId || "",
+        name: p.name || "",
+        grade: p.grade || "Grade A",
+        quantity: Number(p.quantity || 0),
+        unit: p.unit || order.unit || "Kg",
+        price: Number(p.price || 0),
+        total: Number(p.total || (Number(p.price || 0) * Number(p.quantity || 1)) || 0),
+        grades: p.grades || [],
+      }));
+      order.totalQuantity = order.products.reduce((sum, p) => sum + Number(p.quantity || 0), 0);
+    }
+
+    order.markModified("products");
+    order.markModified("grades");
+    await order.save();
+    return res.json(order);
+  } catch (err) {
+    console.error("Error updating harvest order:", err);
+    return res.status(500).json({ message: err.message || "Failed to update harvest order" });
+  }
+}
+
 export async function createFarmerOrder(req, res) {
   try {
     const { farmerId } = req.params;
@@ -1378,9 +1446,9 @@ export async function createFarmerOrder(req, res) {
       orderDate: new Date(),
       timeline: [
         {
-          status: "Order Created",
+          status,
           at: new Date(),
-          note: `Harvest order recorded by ${req.user?.role === "FARMER_MANAGER" ? "Manager" : "Vendor"} for ${farmer.name}`,
+          note: `Order created by ${req.user?.role === "FARMER_MANAGER" ? "Manager" : "Vendor"}`,
         },
       ],
     });
@@ -1441,6 +1509,27 @@ export async function createFarmerOrder(req, res) {
     res.status(201).json(order);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create order" });
+  }
+}
+
+export async function deleteFarmerOrder(req, res) {
+  try {
+    const { farmerId, orderId } = req.params;
+    const query = {
+      farmerId,
+      $or: [{ id: orderId }, { orderId: orderId }],
+    };
+    if (mongoose.Types.ObjectId.isValid(orderId)) {
+      query.$or.push({ _id: orderId });
+    }
+
+    await FarmerOrder.deleteMany(query);
+    await FarmerHarvestOrder.deleteMany(query).catch(() => {});
+    await FarmerEarning.deleteMany({ orderId }).catch(() => {});
+    return res.json({ success: true, message: "Harvest order deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting harvest order:", err);
+    return res.status(500).json({ message: err.message || "Failed to delete harvest order" });
   }
 }
 

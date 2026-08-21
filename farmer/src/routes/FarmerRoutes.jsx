@@ -33,6 +33,7 @@ import ManagerOrdersPage from "../pages/manager/ManagerOrdersPage";
 import ManagerCreateOrderPage from "../pages/manager/ManagerCreateOrderPage";
 import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
+import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
 
 function FarmerRoutes() {
   return (
@@ -69,6 +70,7 @@ function FarmerRoutes() {
           <Route path="manager/inventory" element={<ManagerInventoryPage />} />
           <Route path="manager/inventory/history" element={<ManagerInventoryHistoryPage />} />
           <Route path="manager/orders" element={<ManagerOrdersPage />} />
+          <Route path="manager/orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
           <Route path="manager/orders/create" element={<ManagerCreateOrderPage />} />
           <Route path="manager/earnings" element={<ManagerEarningsPage />} />
           <Route path="manager/documents" element={<ManagerDocumentsPage />} />
