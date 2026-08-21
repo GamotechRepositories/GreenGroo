@@ -274,6 +274,52 @@ const farmerHarvestOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Indexes for fast querying
+farmerSchema.index({ vendorId: 1 });
+farmerSchema.index({ managerId: 1, vendorId: 1 });
+farmerSchema.index({ mobile: 1 });
+farmerSchema.index({ status: 1 });
+farmerSchema.index({ createdAt: -1 });
+
+farmerManagerSchema.index({ vendorId: 1 });
+farmerManagerSchema.index({ mobile: 1 });
+farmerManagerSchema.index({ status: 1 });
+farmerManagerSchema.index({ createdAt: -1 });
+
+farmerProductSchema.index({ farmerId: 1 });
+farmerProductSchema.index({ vendorId: 1 });
+farmerProductSchema.index({ managerId: 1 });
+farmerProductSchema.index({ id: 1, farmerId: 1 });
+farmerProductSchema.index({ status: 1 });
+farmerProductSchema.index({ createdAt: -1 });
+
+farmerStockHistorySchema.index({ farmerId: 1 });
+farmerStockHistorySchema.index({ productId: 1 });
+farmerStockHistorySchema.index({ farmerId: 1, productId: 1 });
+farmerStockHistorySchema.index({ at: -1 });
+
+farmerOrderSchema.index({ farmerId: 1 });
+farmerOrderSchema.index({ vendorId: 1 });
+farmerOrderSchema.index({ id: 1, farmerId: 1 });
+farmerOrderSchema.index({ orderDate: -1 });
+farmerOrderSchema.index({ createdAt: -1 });
+farmerOrderSchema.index({ status: 1 });
+
+farmerEarningSchema.index({ farmerId: 1 });
+farmerEarningSchema.index({ vendorId: 1 });
+farmerEarningSchema.index({ status: 1 });
+farmerEarningSchema.index({ date: -1 });
+
+farmerDocumentSchema.index({ farmerId: 1 });
+farmerDocumentSchema.index({ vendorId: 1 });
+farmerDocumentSchema.index({ id: 1, farmerId: 1 });
+farmerDocumentSchema.index({ farmerId: 1, type: 1 });
+
+farmerHarvestOrderSchema.index({ farmerId: 1 });
+farmerHarvestOrderSchema.index({ vendorId: 1 });
+farmerHarvestOrderSchema.index({ managerId: 1 });
+farmerHarvestOrderSchema.index({ createdAt: -1 });
+
 export const Vendor =
   mongoose.models.Vendor || mongoose.model("Vendor", vendorSchema);
 export const Farmer =

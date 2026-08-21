@@ -108,11 +108,10 @@ export async function farmerLogin({ mobile, password }) {
 export async function getFarmerProfile() {
   const farmerId = getActiveFarmerId();
   const farmer = await apiFetch(`/api/farmers/${farmerId}`);
-  const docs = await apiFetch(`/api/farmers/${farmerId}/documents`).catch(() => []);
   return {
     ...farmer,
     role: farmer.role || "FARMER",
-    verificationStatus: computeVerificationStatus(docs),
+    verificationStatus: farmer.verificationStatus || "Approved",
   };
 }
 

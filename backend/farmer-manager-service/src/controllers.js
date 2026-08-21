@@ -477,16 +477,16 @@ export async function seedInitialData() {
   }
 }
 
-// Helper to enrich farmer object with calculated stats
+// Helper to enrich a single farmer object with calculated stats
 async function enrichFarmerDoc(farmerDoc) {
-  const f = farmerDoc.toObject ? farmerDoc.toObject() : farmerDoc;
+  const f = farmerDoc.toObject ? farmerDoc.toObject() : { ...farmerDoc };
   const farmerId = f.id;
 
-  const [manager, products, orders, earningsList] = await Promise.all([
-    f.managerId ? FarmerManager.findOne({ id: f.managerId }).lean() : null,
-    FarmerProduct.find({ farmerId }).lean(),
-    FarmerOrder.find({ farmerId }).lean(),
-    FarmerEarning.find({ farmerId }).lean(),
+  const [manager, products, ordersCount, earningsList] = await Promise.all([
+    f.managerId ? FarmerManager.findOne({ id: f.managerId }).select("name").lean() : null,
+    FarmerProduct.find({ farmerId }).select("stock grades").lean(),
+    FarmerOrder.countDocuments({ farmerId }),
+    FarmerEarning.find({ farmerId }).select("netEarnings").lean(),
   ]);
 
   const totalProducts = products.length;
@@ -494,7 +494,6 @@ async function enrichFarmerDoc(farmerDoc) {
     (sum, p) => sum + (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0)),
     0
   );
-  const totalOrders = orders.length;
   const totalEarnings = earningsList.reduce((sum, e) => sum + Number(e.netEarnings || 0), 0);
 
   delete f.password;
@@ -507,9 +506,62 @@ async function enrichFarmerDoc(farmerDoc) {
     totalProducts,
     totalStock,
     totalInventory: totalStock,
-    totalOrders,
+    totalOrders: ordersCount,
     totalEarnings,
   };
+}
+
+// Batch helper to enrich multiple farmers in 4 consolidated DB queries instead of 4N queries
+async function enrichFarmerDocsBatch(farmerDocs) {
+  if (!farmerDocs || !farmerDocs.length) return [];
+
+  const rawFarmers = farmerDocs.map((doc) => (doc.toObject ? doc.toObject() : { ...doc }));
+  const farmerIds = rawFarmers.map((f) => f.id).filter(Boolean);
+  const managerIds = Array.from(new Set(rawFarmers.map((f) => f.managerId).filter(Boolean)));
+
+  const [managers, products, orders, earnings] = await Promise.all([
+    managerIds.length ? FarmerManager.find({ id: { $in: managerIds } }).select("id name").lean() : [],
+    FarmerProduct.find({ farmerId: { $in: farmerIds } }).select("farmerId stock grades").lean(),
+    FarmerOrder.find({ farmerId: { $in: farmerIds } }).select("farmerId").lean(),
+    FarmerEarning.find({ farmerId: { $in: farmerIds } }).select("farmerId netEarnings").lean(),
+  ]);
+
+  const managerMap = new Map();
+  managers.forEach((m) => managerMap.set(m.id, m.name));
+
+  const productStats = new Map();
+  products.forEach((p) => {
+    const cur = productStats.get(p.farmerId) || { count: 0, stock: 0 };
+    cur.count += 1;
+    cur.stock += (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0));
+    productStats.set(p.farmerId, cur);
+  });
+
+  const orderStats = new Map();
+  orders.forEach((o) => {
+    orderStats.set(o.farmerId, (orderStats.get(o.farmerId) || 0) + 1);
+  });
+
+  const earningStats = new Map();
+  earnings.forEach((e) => {
+    earningStats.set(e.farmerId, (earningStats.get(e.farmerId) || 0) + Number(e.netEarnings || 0));
+  });
+
+  return rawFarmers.map((f) => {
+    delete f.password;
+    const pStat = productStats.get(f.id) || { count: 0, stock: 0 };
+    return {
+      ...f,
+      loginEnabled: f.loginEnabled !== false,
+      managerName: managerMap.get(f.managerId) || "—",
+      initials: initials(f.name),
+      totalProducts: pStat.count,
+      totalStock: pStat.stock,
+      totalInventory: pStat.stock,
+      totalOrders: orderStats.get(f.id) || 0,
+      totalEarnings: earningStats.get(f.id) || 0,
+    };
+  });
 }
 
 // ----------------------------------------------------
@@ -524,9 +576,9 @@ export async function getFarmers(req, res) {
     if (managerId) query.managerId = managerId;
     if (location) query.farmLocation = { $regex: location, $options: "i" };
 
-    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 });
+    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 }).lean();
 
-    let enriched = await Promise.all(farmerDocs.map(enrichFarmerDoc));
+    let enriched = await enrichFarmerDocsBatch(farmerDocs);
 
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
@@ -829,9 +881,11 @@ export async function updateFarmerLoginStatus(req, res) {
 export async function getFarmerDashboard(req, res) {
   try {
     const { farmerId } = req.params;
-    const products = await FarmerProduct.find({ farmerId }).lean();
-    const orders = await FarmerOrder.find({ farmerId }).sort({ orderDate: -1 }).lean();
-    const earningsList = await FarmerEarning.find({ farmerId }).lean();
+    const [products, orders, earningsList] = await Promise.all([
+      FarmerProduct.find({ farmerId }).lean(),
+      FarmerOrder.find({ farmerId }).sort({ orderDate: -1 }).lean(),
+      FarmerEarning.find({ farmerId }).lean(),
+    ]);
 
     const totalProducts = products.length;
     const availableStock = products.reduce(
@@ -1529,20 +1583,22 @@ export async function deleteFarmerDocument(req, res) {
 // MANAGER CONTROLLERS
 // ----------------------------------------------------
 async function enrichManagerDoc(mgrDoc) {
-  const m = mgrDoc.toObject ? mgrDoc.toObject() : mgrDoc;
-  const farmers = await Farmer.find({ managerId: m.id, vendorId: m.vendorId }).lean();
+  const m = mgrDoc.toObject ? mgrDoc.toObject() : { ...mgrDoc };
+  const farmers = await Farmer.find({ managerId: m.id, vendorId: m.vendorId }).select("id status").lean();
   const farmerIds = farmers.map((f) => f.id);
 
-  const [products, orders, earnings] = await Promise.all([
-    FarmerProduct.find({ farmerId: { $in: farmerIds } }).lean(),
-    FarmerOrder.find({ farmerId: { $in: farmerIds } }).lean(),
-    FarmerEarning.find({ farmerId: { $in: farmerIds } }).lean(),
+  const [products, ordersCount, earnings] = await Promise.all([
+    farmerIds.length ? FarmerProduct.find({ farmerId: { $in: farmerIds } }).select("stock grades").lean() : [],
+    farmerIds.length ? FarmerOrder.countDocuments({ farmerId: { $in: farmerIds } }) : 0,
+    farmerIds.length ? FarmerEarning.find({ farmerId: { $in: farmerIds } }).select("netEarnings").lean() : [],
   ]);
 
   const inventoryQty = products.reduce(
     (sum, p) => sum + (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0)),
     0
   );
+
+  delete m.password;
 
   return {
     ...m,
@@ -1551,9 +1607,77 @@ async function enrichManagerDoc(mgrDoc) {
     activeFarmers: farmers.filter((f) => f.status === "Active").length,
     totalProducts: products.length,
     totalInventory: inventoryQty,
-    totalOrders: orders.length,
+    totalOrders: ordersCount,
     totalEarnings: earnings.reduce((s, e) => s + Number(e.netEarnings || 0), 0),
   };
+}
+
+async function enrichManagerDocsBatch(mgrDocs) {
+  if (!mgrDocs || !mgrDocs.length) return [];
+
+  const rawManagers = mgrDocs.map((doc) => (doc.toObject ? doc.toObject() : { ...doc }));
+  const managerIds = rawManagers.map((m) => m.id).filter(Boolean);
+
+  const farmers = await Farmer.find({ managerId: { $in: managerIds } }).select("id managerId status").lean();
+  const farmerIds = farmers.map((f) => f.id);
+
+  const [products, orders, earnings] = await Promise.all([
+    farmerIds.length ? FarmerProduct.find({ farmerId: { $in: farmerIds } }).select("farmerId stock grades").lean() : [],
+    farmerIds.length ? FarmerOrder.find({ farmerId: { $in: farmerIds } }).select("farmerId").lean() : [],
+    farmerIds.length ? FarmerEarning.find({ farmerId: { $in: farmerIds } }).select("farmerId netEarnings").lean() : [],
+  ]);
+
+  const farmerToManager = new Map();
+  const managerFarmersMap = new Map();
+  farmers.forEach((f) => {
+    farmerToManager.set(f.id, f.managerId);
+    const list = managerFarmersMap.get(f.managerId) || [];
+    list.push(f);
+    managerFarmersMap.set(f.managerId, list);
+  });
+
+  const managerProductStats = new Map();
+  products.forEach((p) => {
+    const mgrId = farmerToManager.get(p.farmerId);
+    if (mgrId) {
+      const cur = managerProductStats.get(mgrId) || { count: 0, stock: 0 };
+      cur.count += 1;
+      cur.stock += (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0));
+      managerProductStats.set(mgrId, cur);
+    }
+  });
+
+  const managerOrderCount = new Map();
+  orders.forEach((o) => {
+    const mgrId = farmerToManager.get(o.farmerId);
+    if (mgrId) {
+      managerOrderCount.set(mgrId, (managerOrderCount.get(mgrId) || 0) + 1);
+    }
+  });
+
+  const managerEarnings = new Map();
+  earnings.forEach((e) => {
+    const mgrId = farmerToManager.get(e.farmerId);
+    if (mgrId) {
+      managerEarnings.set(mgrId, (managerEarnings.get(mgrId) || 0) + Number(e.netEarnings || 0));
+    }
+  });
+
+  return rawManagers.map((m) => {
+    delete m.password;
+    const fList = managerFarmersMap.get(m.id) || [];
+    const pStat = managerProductStats.get(m.id) || { count: 0, stock: 0 };
+    return {
+      ...m,
+      initials: initials(m.name),
+      totalFarmers: fList.length,
+      activeFarmers: fList.filter((f) => f.status === "Active").length,
+      totalProducts: pStat.count,
+      totalInventory: pStat.stock,
+      totalOrders: managerOrderCount.get(m.id) || 0,
+      totalEarnings: managerEarnings.get(m.id) || 0,
+    };
+  });
 }
 
 export async function getManagers(req, res) {
@@ -1562,8 +1686,8 @@ export async function getManagers(req, res) {
     const query = { vendorId };
     if (status) query.status = status;
 
-    const mgrDocs = await FarmerManager.find(query).sort({ createdAt: -1 });
-    let enriched = await Promise.all(mgrDocs.map(enrichManagerDoc));
+    const mgrDocs = await FarmerManager.find(query).sort({ createdAt: -1 }).lean();
+    let enriched = await enrichManagerDocsBatch(mgrDocs);
 
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
@@ -1903,8 +2027,8 @@ export async function getManagerFarmers(req, res) {
     const { q = "", status = "" } = req.query;
     const query = { managerId, vendorId };
     if (status) query.status = status;
-    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 });
-    let enriched = await Promise.all(farmerDocs.map(enrichFarmerDoc));
+    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 }).lean();
+    let enriched = await enrichFarmerDocsBatch(farmerDocs);
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
       enriched = enriched.filter(
