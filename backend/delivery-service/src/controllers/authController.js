@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreOrder from "../models/StoreOrder.js";
+import Shift from "../models/Shift.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
 import { getIO } from "../../../socket.js";
 import {
@@ -130,12 +131,13 @@ export const register = async (req, res, next) => {
     let targetStoreId = managerId ? String(managerId) : "";
 
     if (!targetManagerId && (area || cityId || city)) {
+      const escapedArea = area.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const mgr = await DeliveryManager.findOne({
         isActive: true,
         $or: [
+          ...(escapedArea ? [{ area: { $regex: new RegExp(`^${escapedArea}$`, "i") } }] : []),
           { cityId, area },
           { city, area },
-          { area },
         ],
       }).sort({ createdAt: -1 });
 
@@ -289,18 +291,22 @@ export const updateOnboarding = async (req, res, next) => {
       deliveryBoy.managerId = body.managerId;
       deliveryBoy.storeId = body.managerId.toString();
     } else if (deliveryBoy.area || deliveryBoy.cityId || deliveryBoy.city) {
+      const escapedArea = (deliveryBoy.area || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const mgr = await DeliveryManager.findOne({
         isActive: true,
         $or: [
+          ...(escapedArea ? [{ area: { $regex: new RegExp(`^${escapedArea}$`, "i") } }] : []),
           { cityId: deliveryBoy.cityId, area: deliveryBoy.area },
           { city: deliveryBoy.city, area: deliveryBoy.area },
-          { area: deliveryBoy.area },
         ],
       }).sort({ createdAt: -1 });
 
       if (mgr) {
         deliveryBoy.managerId = mgr._id;
         deliveryBoy.storeId = mgr._id.toString();
+      } else {
+        deliveryBoy.managerId = null;
+        deliveryBoy.storeId = "";
       }
     }
 
@@ -447,16 +453,15 @@ export const updateStatus = async (req, res, next) => {
       const lat = parseFloat(req.body.latitude || req.body.lat);
       const lng = parseFloat(req.body.longitude || req.body.lng);
 
+      const escapedRiderArea = (existing.area || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       let manager = await DeliveryManager.findOne({
         isActive: true,
         $or: [
+          ...(escapedRiderArea ? [{ area: { $regex: new RegExp(`^${escapedRiderArea}$`, "i") } }] : []),
           { cityId: existing.cityId, area: existing.area },
           { city: existing.city, area: existing.area },
         ],
       });
-      if (!manager) {
-        manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
-      }
 
       let storeLat = manager?.latitude ?? 18.559;
       let storeLng = manager?.longitude ?? 73.7868;
@@ -535,21 +540,25 @@ export const getAreaManager = async (req, res, next) => {
       }
     }
 
-    const queryFilter = queryArea
-      ? {
-          isActive: true,
-          $or: [
-            { area: { $regex: new RegExp(`^${queryArea}$`, "i") } },
-            { cityId: queryCityId, area: queryArea },
-          ],
-        }
-      : { isActive: true };
-
-    let manager = await DeliveryManager.findOne(queryFilter).sort({ createdAt: 1 });
-    if (!manager) {
-      // Fallback: search any active manager
-      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
+    if (!queryArea) {
+      return res.json({
+        success: true,
+        manager: null,
+        message: "No area specified",
+      });
     }
+
+    const escapedArea = queryArea.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    const queryFilter = {
+      isActive: true,
+      $or: [
+        { area: { $regex: new RegExp(`^${escapedArea}$`, "i") } },
+        ...(queryCityId ? [{ cityId: queryCityId, area: queryArea }] : []),
+      ],
+    };
+
+    const manager = await DeliveryManager.findOne(queryFilter).sort({ createdAt: 1 });
 
     if (!manager) {
       return res.json({
@@ -611,21 +620,30 @@ export const getActiveHubs = async (req, res, next) => {
 };
 
 /**
- * Heartbeat while online — keeps lastSeenAt fresh.
+ * Heartbeat while online — keeps lastSeenAt, location, and fcmToken fresh.
  * Call every ~30–60s from the app when status is online.
  */
 export const heartbeat = async (req, res, next) => {
   try {
     const now = new Date();
+    const updates = {
+      lastSeenAt: now,
+      status: "online",
+    };
+
+    if (req.body.fcmToken !== undefined) {
+      updates.fcmToken = String(req.body.fcmToken).trim();
+    }
+
+    const lat = Number(req.body.lat ?? req.body.latitude);
+    const lng = Number(req.body.lng ?? req.body.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      updates.currentLocation = { lat, lng, updatedAt: now };
+    }
+
     const deliveryBoy = await DeliveryBoy.findByIdAndUpdate(
       req.user.id,
-      {
-        $set: {
-          lastSeenAt: now,
-          // If they send heartbeat, treat as still online
-          status: "online",
-        },
-      },
+      { $set: updates },
       { new: true }
     );
 
@@ -644,3 +662,219 @@ export const heartbeat = async (req, res, next) => {
     next(error);
   }
 };
+
+/** Updates FCM registration token for push notifications */
+export const updateFcmToken = async (req, res, next) => {
+  try {
+    const fcmToken = String(req.body.fcmToken || "").trim();
+    const deliveryBoy = await DeliveryBoy.findByIdAndUpdate(
+      req.user.id,
+      { $set: { fcmToken } },
+      { new: true }
+    );
+    if (!deliveryBoy) {
+      return res.status(404).json({ success: false, message: "Delivery boy not found" });
+    }
+    return res.json({
+      success: true,
+      message: "FCM token updated successfully",
+      fcmToken: deliveryBoy.fcmToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Updates live GPS coordinates of rider */
+export const updateLocation = async (req, res, next) => {
+  try {
+    const lat = Number(req.body.lat ?? req.body.latitude);
+    const lng = Number(req.body.lng ?? req.body.longitude);
+    const now = new Date();
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, message: "Valid lat and lng are required" });
+    }
+
+    const deliveryBoy = await DeliveryBoy.findByIdAndUpdate(
+      req.user.id,
+      {
+        $set: {
+          currentLocation: { lat, lng, updatedAt: now },
+          lastSeenAt: now,
+        },
+      },
+      { new: true }
+    );
+
+    if (!deliveryBoy) {
+      return res.status(404).json({ success: false, message: "Delivery boy not found" });
+    }
+
+    try {
+      if (deliveryBoy.managerId) {
+        getIO().to(`store_${deliveryBoy.managerId}`).emit("rider_location_updated", {
+          riderId: deliveryBoy._id.toString(),
+          location: { lat, lng, updatedAt: now.toISOString() },
+        });
+      }
+    } catch (err) {}
+
+    return res.json({
+      success: true,
+      currentLocation: deliveryBoy.toSafeJSON().currentLocation,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Updates rating and total ratings count for rider */
+export const updateRiderRating = async (req, res, next) => {
+  try {
+    const { riderId } = req.params;
+    const newRating = Number(req.body.rating);
+
+    if (isNaN(newRating) || newRating < 1 || newRating > 5) {
+      return res.status(400).json({ success: false, message: "Rating must be between 1 and 5" });
+    }
+
+    const rider = await DeliveryBoy.findById(riderId);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found" });
+    }
+
+    const currentCount = rider.totalRatingsCount || 0;
+    const currentRating = rider.rating !== undefined ? rider.rating : 5;
+    const newCount = currentCount + 1;
+    const updatedRating = Math.round(((currentRating * currentCount + newRating) / newCount) * 10) / 10;
+
+    rider.rating = updatedRating;
+    rider.totalRatingsCount = newCount;
+    await rider.save();
+
+    return res.json({
+      success: true,
+      riderId: rider._id.toString(),
+      rating: rider.rating,
+      totalRatingsCount: rider.totalRatingsCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /home/progress (or GET /home-dashboard)
+ * Returns logged-in delivery partner's Today's Progress metrics.
+ */
+export const getTodayProgress = async (req, res, next) => {
+  try {
+    const riderId = req.user.id;
+    const rider = await DeliveryBoy.findById(riderId);
+
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner not found",
+      });
+    }
+
+    // Today's date in Indian Standard Time (IST, UTC+5:30)
+    const todayISTDateString = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    // Reset daily counters if date has changed in IST
+    if (rider.todayOnlineDate !== todayISTDateString) {
+      rider.todayEarnings = 0;
+      rider.todayCompletedOrders = 0;
+      rider.todayOrderCount = 0;
+      rider.todayOnlineMinutes = 0;
+      rider.todayOnlineDate = todayISTDateString;
+      await rider.save();
+    }
+
+    // Check if rider has any active booking pointer on the rider model itself
+    const hasRiderBookingPointer = Boolean(
+      (rider.currentBooking && rider.currentBooking.shiftId) ||
+      (rider.shiftBooking && rider.shiftBooking.bookingId)
+    );
+
+    // Query all Shift documents where this rider is booked
+    const riderIdStr = rider._id.toString();
+    const riderPhone = (rider.phone || "").trim();
+
+    const shiftsFound = await Shift.find({
+      $or: [
+        { "slots.bookings.deliveryPartnerId": rider._id },
+        { "slots.bookings.deliveryPartnerPhone": riderPhone },
+        ...(rider.currentBooking?.shiftId ? [{ _id: rider.currentBooking.shiftId }] : []),
+      ],
+    });
+
+    let bookedShiftsCount = 0;
+    let completedShiftsCount = 0;
+
+    for (const shift of shiftsFound) {
+      for (const slot of shift.slots || []) {
+        for (const booking of slot.bookings || []) {
+          const bRiderId = booking.deliveryPartnerId ? booking.deliveryPartnerId.toString() : "";
+          const bRiderPhone = (booking.deliveryPartnerPhone || "").trim();
+
+          const isRiderMatch =
+            bRiderId === riderIdStr ||
+            (riderPhone && bRiderPhone === riderPhone) ||
+            (rider.currentBooking?.bookingId && booking._id?.toString() === rider.currentBooking.bookingId.toString()) ||
+            (rider.shiftBooking?.bookingId && booking.bookingId === rider.shiftBooking.bookingId);
+
+          if (isRiderMatch) {
+            if (booking.status !== "CANCELLED") {
+              bookedShiftsCount++;
+            }
+            if (booking.status === "COMPLETED") {
+              completedShiftsCount++;
+            }
+          }
+        }
+      }
+    }
+
+    // Direct fallback: If rider has an active booking on rider model or in DB, ensure bookedShiftsCount >= 1
+    if (bookedShiftsCount === 0 && (hasRiderBookingPointer || shiftsFound.length > 0)) {
+      bookedShiftsCount = 1;
+    }
+
+    const todayEarnings = Math.max(0, Number(rider.todayEarnings || 0));
+    const completedTrips = Math.max(
+      0,
+      Number(rider.todayCompletedOrders || rider.todayOrderCount || 0)
+    );
+    const onlineMinutes = Math.max(0, Number(rider.todayOnlineMinutes || 0));
+
+    const hours = Math.floor(onlineMinutes / 60);
+    const mins = onlineMinutes % 60;
+    const onlineTime = `${hours}h ${mins}m`;
+
+    return res.json({
+      success: true,
+      data: {
+        todayEarnings,
+        completedTrips,
+        onlineMinutes,
+        onlineTime,
+        bookedShifts: bookedShiftsCount,
+        shiftsBooked: bookedShiftsCount,
+        bookedShiftsCount: bookedShiftsCount,
+        completedShifts: completedShiftsCount,
+        completedShiftsCount: completedShiftsCount,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

@@ -1027,7 +1027,8 @@ class AppLocalizationsTa extends AppLocalizations {
   String get verificationApprovedTitle => 'You are verified';
 
   @override
-  String get verificationApprovedToast => 'Verified! You can go online now.';
+  String get verificationApprovedToast =>
+      'சரிபார்க்கப்பட்டது! இப்போது ஆன்லைனில் செல்லலாம்.';
 
   @override
   String get verificationRejectedTitle => 'Verification rejected';
@@ -1037,13 +1038,13 @@ class AppLocalizationsTa extends AppLocalizations {
       'Contact your area delivery manager for help.';
 
   @override
-  String get myShifts => 'My Shifts';
+  String get myShifts => 'என் ஷிப்டுகள்';
 
   @override
   String get myShiftsSubtitle => 'Your booked and available delivery shifts';
 
   @override
-  String get availableShifts => 'Available Shifts';
+  String get availableShifts => 'கிடைக்கும் ஷிப்டுகள்';
 
   @override
   String get myProgress => 'My Progress';
@@ -1145,13 +1146,15 @@ class AppLocalizationsTa extends AppLocalizations {
   String get referAndEarn => 'Refer & Earn';
 
   @override
-  String get referAndEarnSubtitle => 'Invite friends and earn rewards';
+  String get referAndEarnSubtitle =>
+      'உங்கள் நண்பர்களை அழைத்து அற்புதமான பரிசுகளைப் பெறுங்கள்';
 
   @override
   String get earnBonus => 'Earn Bonus';
 
   @override
-  String get earnBonusSubtitle => 'Do extra to earn bonus';
+  String get earnBonusSubtitle =>
+      'மேலும் கிக்ஸை முடித்து உற்சாகமான போனஸ்களைப் பெறுங்கள்';
 
   @override
   String get viewWallet => 'View Wallet';
@@ -1204,4 +1207,200 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get continueDelivery => 'Continue Delivery';
+
+  @override
+  String get goOnlineToReceiveOrders =>
+      'டெலிவரி கோரிக்கைகளைப் பெற ஆன்லைனில் செல்லவும்';
+
+  @override
+  String get moreOrders => 'அதிக ஆர்டர்கள்';
+
+  @override
+  String get moreEarnings => 'அதிக வருமானம்';
+
+  @override
+  String get goOnline => 'ஆன்லைனில் செல்';
+
+  @override
+  String get goOffline => 'ஆஃப்லைனில் செல்';
+
+  @override
+  String get todaysProgress => 'இன்றைய முன்னேற்றம்';
+
+  @override
+  String get viewAll => 'அனைத்தையும் பார்';
+
+  @override
+  String get viewAllGigs => 'அனைத்து கிக்ஸையும் பார்';
+
+  @override
+  String get bookAndGoOnline => 'புக் செய்து ஆன்லைனில் செல்';
+
+  @override
+  String get trips => 'டிரிப்ஸ்';
+
+  @override
+  String get gigs => 'கிக்ஸ்';
+
+  @override
+  String get sessions => 'செஷன்கள்';
+
+  @override
+  String get shifts => 'ஷிப்டுகள்';
+
+  @override
+  String get incentiveSlabsBonusLevels =>
+      'இன்சென்டிவ் ஸ்லாப்கள் & போனஸ் நிலைகள்';
+
+  @override
+  String get earnBonusTitle => 'போனஸ் சம்பாதிக்கவும்';
+
+  @override
+  String get exploreBonuses => 'போனஸ்களை ஆராயுங்கள்';
+
+  @override
+  String get referAndEarnTitle => 'ரெஃபர் செய்து சம்பாதிக்கவும்';
+
+  @override
+  String get referNow => 'இப்போதே ரெஃபர் செய்';
+
+  @override
+  String get gigsAndIncentives => 'கிக்ஸ் & சலுகைகள்';
+
+  @override
+  String earnUpToExtra(Object bonus) {
+    return '₹$bonus வரை கூடுதல் சம்பாதிக்கவும்';
+  }
+
+  @override
+  String get lunchIncentive => 'மதிய உணவு சலுகை';
+
+  @override
+  String get dinnerIncentive => 'இரவு உணவு சலுகை';
+
+  @override
+  String get specialGigDesc =>
+      'சிறப்பு கிக் • நீங்கள் இப்போதும் ஆன்லைனில் செல்லலாம்';
+
+  @override
+  String get noShiftsBookedYet => 'இன்னும் ஷிப்டுகள் பதிவு செய்யப்படவில்லை';
+
+  @override
+  String get noShiftBookedForToday => 'இன்று ஷிப்ட் பதிவு செய்யப்படவில்லை';
+
+  @override
+  String get mandatoryBookShiftHint =>
+      'கட்டாயம்: ஆன்லைனில் செல்வதற்கும் ஆர்டர்களைப் பெறுவதற்கும் முன் இன்றைய ஷிப்டை நீங்கள் பதிவு செய்ய வேண்டும்.';
+
+  @override
+  String get bookShiftNow => 'இப்போதே ஷிப்ட் புக் செய் 📅';
+
+  @override
+  String get selectShiftSlotNow =>
+      'இப்போதே ஷிப்ட் ஸ்லாட்டைத் தேர்ந்தெடுக்கவும்';
+
+  @override
+  String get verifyLocationAndGoOnline =>
+      'இருப்பிடத்தைச் சரிபார்த்து ஆன்லைனில் செல் 🟢';
+
+  @override
+  String get upcomingShiftsTitle => 'வரவிருக்கும் ஷிப்டுகள்';
+
+  @override
+  String get bookMore => '+ மேலும் புக் செய்';
+
+  @override
+  String get noFutureUpcomingShifts =>
+      'எதிர்கால ஷிப்டுகள் எதுவும் பதிவு செய்யப்படவில்லை.';
+
+  @override
+  String get availableShiftSlots => 'கிடைக்கும் ஷிப்ட் ஸ்லாட்டுகள்';
+
+  @override
+  String get filterServerTimeHint =>
+      'முடிந்த மற்றும் நிறைந்த ஸ்லாட்டுகள் சர்வர் நேரத்தின்படி தானாகவே வடிகட்டப்படும்.';
+
+  @override
+  String get noActiveGigsTitle => 'செயலில் உள்ள கிக்ஸ் எதுவும் இல்லை';
+
+  @override
+  String get noActiveGigsSubtitle =>
+      'தற்போது உங்கள் ஸ்டோருக்கு செயலில் உள்ள கிக் சலுகைகள் எதுவும் இல்லை.';
+
+  @override
+  String get shiftStatusYourBooked => 'நீங்கள் பதிவு செய்த ஷிப்ட் ✓';
+
+  @override
+  String get shiftStatusEnded => 'ஷிப்ட் முடிந்தது';
+
+  @override
+  String get shiftStatusFull => 'முழுமையாக பதிவு செய்யப்பட்டது';
+
+  @override
+  String spotsLeftCount(int count) {
+    return '$count இடங்களே உள்ளன!';
+  }
+
+  @override
+  String spotsAvailableCount(int count) {
+    return '$count இடங்கள் கிடைக்கின்றன';
+  }
+
+  @override
+  String get badgeBooked => 'பதிவு செய்யப்பட்டது ✓';
+
+  @override
+  String get badgeEnded => 'முடிந்தது';
+
+  @override
+  String get badgeFull => 'நிறைந்தது';
+
+  @override
+  String get btnBook => 'புக் செய்';
+
+  @override
+  String get todayUpper => 'இன்று';
+
+  @override
+  String get confirmShiftTitle => 'ஷிப்டை உறுதிப்படுத்தவும்';
+
+  @override
+  String get workingHoursLabel => 'வேலை நேரம்';
+
+  @override
+  String get confirmBookQuestion =>
+      'இந்த ஷிப்ட் ஸ்லாட்டை நிச்சயம் பதிவு செய்ய விரும்புகிறீர்களா?';
+
+  @override
+  String get shiftBookedSuccessfully =>
+      '✓ ஷிப்ட் வெற்றிகரமாக பதிவு செய்யப்பட்டது';
+
+  @override
+  String get shiftConfirmedSubtitle => 'உங்கள் ஷிப்ட் உறுதி செய்யப்பட்டது.';
+
+  @override
+  String get verificationPendingBody =>
+      'உங்கள் சுயவிவரம் எங்கள் சரிபார்ப்புக் குழுவால் மதிப்பாய்வு செய்யப்படுகிறது. இது வழக்கமாக 24-48 மணிநேரம் ஆகும்.';
+
+  @override
+  String get verificationPendingDarkStoreHint =>
+      'உடனடி ஆஃப்லைன் சரிபார்ப்பிற்கு உங்கள் பதிவுசெய்த டார்க் ஸ்டோருக்குச் செல்லவும்.';
+
+  @override
+  String get verificationRejectedBody =>
+      'உங்கள் ஆவணச் சரிபார்ப்பு நிராகரிக்கப்பட்டது. செல்லுபடியாகும் ஆவணங்களை மீண்டும் பதிவேற்றவும்.';
+
+  @override
+  String get selectYourShift => 'உங்கள் ஷிப்டைத் தேர்ந்தெடுக்கவும்';
+
+  @override
+  String get noAvailableSlotsForDate =>
+      'இந்தத் தேதிக்கு ஸ்லாட்டுகள் எதுவும் கிடைக்கவில்லை';
+
+  @override
+  String get allSlotsBookedOrEnded =>
+      'இந்தத் தேதிக்கான அனைத்து ஸ்லாட்டுகளும் பதிவு செய்யப்பட்டன அல்லது முடிந்தன.';
+
+  @override
+  String get liveServerTime => 'நேரலை சர்வர் நேரம்';
 }

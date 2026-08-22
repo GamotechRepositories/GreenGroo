@@ -106,6 +106,7 @@ export const acceptOrderOffer = async (req, res, next) => {
 
     // Update rider state
     rider.status = "on_delivery";
+    rider.activeOrderId = order._id;
     rider.lastOrderAssignedAt = new Date();
     rider.lastStatusAt = new Date();
     await rider.save();
@@ -333,8 +334,18 @@ export const completeDelivery = async (req, res, next) => {
     // Update rider stats & set status back to online
     const rider = await DeliveryBoy.findById(riderId);
     if (rider) {
+      const totalAmount = (order.items || []).reduce(
+        (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+        0
+      );
+      const estimatedEarnings = Math.round(totalAmount * 0.12 + 45);
+
       rider.status = "online";
+      rider.activeOrderId = null;
       rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
+      rider.todayEarnings = (rider.todayEarnings || 0) + estimatedEarnings;
+      rider.walletBalance = (rider.walletBalance || 0) + estimatedEarnings;
+      rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + estimatedEarnings;
       rider.lastStatusAt = new Date();
       await rider.save();
     }

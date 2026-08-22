@@ -24,9 +24,9 @@ class DashboardCard extends StatelessWidget {
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
+        border: Border.all(color: AppColors.cardBorder),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
@@ -6,6 +7,7 @@ import { PageShell } from "../../components/layout/ManagerLayout";
 const EMPTY = { name: "", phone: "", password: "" };
 
 export default function DriversPage() {
+  const navigate = useNavigate();
   const { manager } = useAuth();
   const [riders, setRiders] = useState([]);
   const [form, setForm] = useState(EMPTY);
@@ -222,7 +224,11 @@ export default function DriversPage() {
               {riders.map((r) => {
                 const isOnline = r.status === "online";
                 return (
-                  <tr key={r.id || r._id} className="hover:bg-slate-50/60 transition">
+                  <tr
+                    key={r.id || r._id}
+                    onClick={() => navigate(`/drivers/${r.id || r._id}`)}
+                    className="hover:bg-emerald-50/60 cursor-pointer transition"
+                  >
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       <span>{r.name || "Delivery Partner"}</span>
                     </td>

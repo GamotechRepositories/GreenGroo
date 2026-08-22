@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../data/services/auth_service.dart';
 import '../../../data/services/shift_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class SelectShiftScreen extends StatefulWidget {
@@ -65,24 +65,24 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Confirm Shift',
+          AppLocalizations.of(context).confirmShiftTitle,
           style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDialogRow('Date', _slotsResponse?.date ?? _formatDateString(_selectedDate)),
+            _buildDialogRow(AppLocalizations.of(context).date, _slotsResponse?.date ?? _formatDateString(_selectedDate)),
             const SizedBox(height: 8),
-            _buildDialogRow('Shift', slot.shiftName),
+            _buildDialogRow(AppLocalizations.of(context).shifts, slot.shiftName),
             const SizedBox(height: 8),
-            _buildDialogRow('Working Hours', '${slot.startTime} – ${slot.endTime}'),
+            _buildDialogRow(AppLocalizations.of(context).workingHoursLabel, '${slot.startTime} – ${slot.endTime}'),
             const SizedBox(height: 8),
-            _buildDialogRow('Store', _slotsResponse?.storeName ?? 'Dark Store'),
+            _buildDialogRow(AppLocalizations.of(context).store, _slotsResponse?.storeName ?? 'Dark Store'),
             const SizedBox(height: 12),
-            const Text(
-              'Are you sure you want to book this shift slot?',
-              style: TextStyle(fontSize: 13, color: Colors.black87),
+            Text(
+              AppLocalizations.of(context).confirmBookQuestion,
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
             ),
           ],
         ),
@@ -100,7 +100,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
               Navigator.pop(ctx);
               await _processBooking(slot);
             },
-            child: const Text('Confirm Shift', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.of(context).confirmShiftTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -172,7 +172,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '✓ Shift Booked Successfully',
+                  AppLocalizations.of(context).shiftBookedSuccessfully,
                   style: GoogleFonts.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -181,7 +181,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Your shift has been confirmed.',
+                  AppLocalizations.of(context).shiftConfirmedSubtitle,
                   style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
@@ -308,9 +308,9 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'TODAY',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).todayUpper,
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
@@ -330,7 +330,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                               Text(
                                 _slotsResponse?.serverTime.isNotEmpty == true
                                     ? _slotsResponse!.serverTime.substring(11, 16)
-                                    : 'Live Server Time',
+                                    : AppLocalizations.of(context).liveServerTime,
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                             ],
@@ -369,7 +369,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                     final date = DateTime.now().add(Duration(days: index));
                     final isSelected = date.day == _selectedDate.day && date.month == _selectedDate.month;
                     final dayName = weekdayNames[date.weekday - 1];
-                    final label = index == 0 ? 'Today ($dayName)' : '$dayName ${date.day}/${date.month}';
+                    final label = index == 0 ? '${AppLocalizations.of(context).todayUpper} ($dayName)' : '$dayName ${date.day}/${date.month}';
 
                     return GestureDetector(
                       onTap: () {
@@ -379,9 +379,9 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary : Colors.white,
+                          color: isSelected ? AppColors.primary : AppColors.cardBackground,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+                          border: Border.all(color: isSelected ? AppColors.primary : AppColors.cardBorder),
                         ),
                         child: Center(
                           child: Text(
@@ -389,7 +389,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
-                              color: isSelected ? Colors.white : AppColors.textPrimary,
+                              color: isSelected ? Colors.white : AppColors.textSecondary,
                             ),
                           ),
                         ),
@@ -401,7 +401,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
 
               const SizedBox(height: 24),
               Text(
-                'Available Shift Slots',
+                AppLocalizations.of(context).availableShiftSlots,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -410,7 +410,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Past and full slots are automatically filtered by server time.',
+                AppLocalizations.of(context).filterServerTimeHint,
                 style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
@@ -443,21 +443,22 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardBackground,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.cardBorder),
                     ),
-                    child: const Column(
+                    child: Column(
                       children: [
-                        Icon(Icons.event_busy_rounded, color: Colors.grey, size: 48),
-                        SizedBox(height: 12),
+                        const Icon(Icons.event_busy_rounded, color: Colors.grey, size: 48),
+                        const SizedBox(height: 12),
                         Text(
-                          'No Available Slots for this date',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          AppLocalizations.of(context).noAvailableSlotsForDate,
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textPrimary),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          'All slots for this date are booked or ended.',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                          AppLocalizations.of(context).allSlotsBookedOrEnded,
+                          style: GoogleFonts.inter(color: AppColors.textSecondary, fontSize: 12),
                         ),
                       ],
                     ),
@@ -482,19 +483,15 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: isUserBooked
-                            ? const Color(0xFFF0FDF4)
-                            : isDisabled
-                                ? const Color(0xFFF9FAFB)
-                                : Colors.white,
+                            ? (ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFFF0FDF4))
+                            : (isDisabled ? AppColors.cardSubBg : AppColors.cardBackground),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isUserBooked
-                              ? const Color(0xFF22C55E)
-                              : isDisabled
-                                  ? Colors.grey.shade300
-                                  : isFew
-                                      ? const Color(0xFFFDE68A)
-                                      : AppColors.border,
+                              ? (ThemeController.instance.isDark ? const Color(0xFF10B981) : const Color(0xFF22C55E))
+                              : (isDisabled
+                                  ? AppColors.cardSubBorder
+                                  : (isFew ? const Color(0xFFF59E0B) : AppColors.cardBorder)),
                           width: isUserBooked ? 1.5 : 1.0,
                         ),
                       ),
@@ -540,14 +537,14 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                                   ),
                                   child: Text(
                                     isUserBooked
-                                        ? 'YOUR BOOKED SHIFT ✓'
+                                        ? AppLocalizations.of(context).shiftStatusYourBooked
                                         : isEnded
-                                            ? 'SHIFT ENDED'
+                                            ? AppLocalizations.of(context).shiftStatusEnded
                                             : isFull
-                                                ? 'FULLY BOOKED'
+                                                ? AppLocalizations.of(context).shiftStatusFull
                                                 : isFew
-                                                    ? '${slot.remainingCapacity} spots left!'
-                                                    : '${slot.remainingCapacity} spots available',
+                                                    ? AppLocalizations.of(context).spotsLeftCount(slot.remainingCapacity)
+                                                    : AppLocalizations.of(context).spotsAvailableCount(slot.remainingCapacity),
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
@@ -579,12 +576,12 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                                 : () => _onConfirmBooking(slot),
                             child: Text(
                               isUserBooked
-                                  ? 'Booked ✓'
+                                  ? AppLocalizations.of(context).badgeBooked
                                   : isEnded
-                                      ? 'Ended'
+                                      ? AppLocalizations.of(context).badgeEnded
                                       : isFull
-                                          ? 'Full'
-                                          : 'Book',
+                                          ? AppLocalizations.of(context).badgeFull
+                                          : AppLocalizations.of(context).btnBook,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: isUserBooked
@@ -612,7 +609,7 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          'Select Your Shift',
+          AppLocalizations.of(context).selectYourShift,
           style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
       ),

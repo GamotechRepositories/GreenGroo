@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/service_locations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
 import '../../../data/services/auth_service.dart';
-import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
 class AreaSelectionScreen extends StatefulWidget {
@@ -21,18 +19,33 @@ class AreaSelectionScreen extends StatefulWidget {
 
 class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
   String? _selectedArea;
-  final _searchController = TextEditingController();
   String _query = '';
+  final _searchController = TextEditingController();
   AreaManagerInfo? _darkStoreInfo;
   bool _loadingStore = false;
 
-  ServiceCity? get _city => ServiceLocations.byId(widget.cityId);
+  ServiceCity? get _city {
+    if (widget.cityId.isNotEmpty) {
+      final found = ServiceLocations.byId(widget.cityId);
+      if (found != null) return found;
+    }
+    return ServiceLocations.byId('pune');
+  }
 
   List<String> get _filtered {
     final areas = _city?.areas ?? const <String>[];
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return areas;
     return areas.where((a) => a.toLowerCase().contains(q)).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final areas = _city?.areas;
+    if (areas != null && areas.isNotEmpty) {
+      _onAreaSelect(areas.first);
+    }
   }
 
   @override
@@ -49,7 +62,7 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
     });
 
     final info = await AuthService.instance.fetchAreaManagerByLocation(
-      widget.cityId,
+      widget.cityId.isNotEmpty ? widget.cityId : 'pune',
       area,
     );
 
@@ -63,7 +76,6 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     final city = _city;
     final areas = _filtered;
 
@@ -75,125 +87,149 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
         leading: const AppBackButton(fallbackRoute: AppRoutes.selectCity),
       ),
       body: SafeArea(
-        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 8),
                   Text(
-                    l10n.selectArea,
+                    'Select Area',
                     style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
-                    city == null
-                        ? l10n.selectAreaSubtitle
-                        : '${l10n.selectAreaSubtitle} · ${city.name}',
+                    city != null
+                        ? 'Please select your area in ${city.name}'
+                        : 'Please select your area',
                     style: GoogleFonts.inter(
-                      fontSize: 15,
+                      fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // Search Bar
                   TextField(
                     controller: _searchController,
                     onChanged: (v) => setState(() => _query = v),
+                    style: GoogleFonts.inter(fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: l10n.searchArea,
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: 'Search area',
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF9CA3AF),
+                        size: 20,
+                      ),
                       filled: true,
-                      fillColor: AppColors.surfaceVariant,
-                      border: OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusMd),
-                        borderSide: BorderSide.none,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+
+            // Area List
             Expanded(
               child: areas.isEmpty
                   ? Center(
                       child: Text(
-                        l10n.noAreasFound,
+                        'No areas found',
                         style: GoogleFonts.inter(
+                          fontSize: 14,
                           color: AppColors.textSecondary,
                         ),
                       ),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
+                        horizontal: 24,
                         vertical: 8,
                       ),
                       itemCount: areas.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final area = areas[index];
-                        final selected = _selectedArea == area;
-                        return Material(
-                          color:
-                              selected ? AppColors.primaryLight : Colors.white,
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusMd),
-                          child: InkWell(
-                            onTap: () => _onAreaSelect(area),
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusMd),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
+                        final areaName = areas[index];
+                        final selected = _selectedArea == areaName;
+                        return InkWell(
+                          onTap: () => _onAreaSelect(areaName),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.primary
+                                    : const Color(0xFFE5E7EB),
+                                width: selected ? 1.5 : 1,
                               ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.radiusMd,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    areaName,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
                                 ),
-                                border: Border.all(
-                                  color: selected
-                                      ? AppColors.primary
-                                      : AppColors.border,
-                                  width: selected ? 2 : 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.place_outlined,
+                                Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
                                     color: selected
                                         ? AppColors.primary
-                                        : AppColors.textMuted,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      area,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
-                                      ),
+                                        : Colors.transparent,
+                                    border: Border.all(
+                                      color: selected
+                                          ? AppColors.primary
+                                          : AppColors.textMuted,
+                                      width: 1.5,
                                     ),
                                   ),
-                                  if (selected)
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: AppColors.primary,
-                                    ),
-                                ],
-                              ),
+                                  child: selected
+                                      ? const Icon(
+                                          Icons.check,
+                                          size: 14,
+                                          color: Colors.white,
+                                        )
+                                      : null,
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -204,12 +240,18 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
             // DARK STORE ADDRESS & MANAGER INFO CARD
             if (_selectedArea != null)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                  color: _darkStoreInfo != null
+                      ? const Color(0xFFF0FDF4)
+                      : const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _darkStoreInfo != null
+                        ? const Color(0xFFBBF7D0)
+                        : const Color(0xFFFDE68A),
+                  ),
                 ),
                 child: _loadingStore
                     ? const Row(
@@ -217,84 +259,164 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                           SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF059669)),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF059669),
+                            ),
                           ),
                           SizedBox(width: 12),
-                          Text('Fetching Dark Store location details...', style: TextStyle(fontSize: 13, color: Color(0xFF065F46))),
+                          Text(
+                            'Fetching Dark Store location details...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF065F46),
+                            ),
+                          ),
                         ],
                       )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.storefront_rounded, color: Color(0xFF059669), size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _darkStoreInfo?.storeName ?? '${_selectedArea!} Dark Store',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF064E3B),
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFDCFCE7),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'ACTIVE HUB',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF047857)),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
+                    : _darkStoreInfo != null
+                        ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.location_on_outlined, color: Color(0xFF047857), size: 16),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  _darkStoreInfo?.storeAddress ?? '${_selectedArea!}, ${city?.name ?? "City"}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: const Color(0xFF065F46),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.storefront_rounded,
+                                    color: Color(0xFF059669),
+                                    size: 20,
                                   ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _darkStoreInfo!.storeName,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF064E3B),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDCFCE7),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'ACTIVE HUB',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF047857),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.location_on_outlined,
+                                    color: Color(0xFF047857),
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      _darkStoreInfo!.storeAddress,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: const Color(0xFF065F46),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_darkStoreInfo!.phone.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.phone_outlined,
+                                      color: Color(0xFF047857),
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Store Manager Contact: ${_darkStoreInfo!.phone}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF047857),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.warning_amber_rounded,
+                                    color: Color(0xFFD97706),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'No Dark Store Registered',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF92400E),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'NO HUB REGISTERED',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'No delivery manager has registered a dark store hub in $_selectedArea yet.',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xFFB45309),
                                 ),
                               ),
                             ],
                           ),
-                          if (_darkStoreInfo?.phone.isNotEmpty == true) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.phone_outlined, color: Color(0xFF047857), size: 16),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Store Manager Contact: ${_darkStoreInfo!.phone}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF047857),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
               ),
 
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+              padding: const EdgeInsets.all(24),
               child: PrimaryButton(
-                label: l10n.continueButton,
+                label: 'Continue',
                 onPressed: _selectedArea == null || city == null
                     ? null
                     : () => goOnboardingStep(

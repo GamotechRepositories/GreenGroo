@@ -92,7 +92,7 @@ class _MainShellState extends State<MainShell> {
     Theme.of(context); // track Material themeMode changes too
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       extendBody: false,
       drawer: const AppDrawer(),
       appBar: _currentIndex == 0

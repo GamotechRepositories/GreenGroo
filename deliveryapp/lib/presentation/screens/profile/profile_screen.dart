@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/layout/custom_app_bar.dart';
@@ -56,6 +57,7 @@ class ProfileScreen extends StatelessWidget {
     if (embedded) return body;
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: CustomAppBar(
         title: l10n.profile,
         showBackButton: true,

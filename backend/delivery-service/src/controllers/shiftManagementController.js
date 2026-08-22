@@ -15,11 +15,22 @@ const getManager = async (req) => {
 };
 
 const formatDateString = (d) => {
-  const date = new Date(d);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const date = d ? new Date(d) : new Date();
+  if (isNaN(date.getTime())) {
+    const now = new Date();
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now);
+  }
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 };
 
 /** Default time slots generator for standard shift types */
@@ -196,12 +207,26 @@ export const createShift = async (req, res, next) => {
 export const listShifts = async (req, res, next) => {
   try {
     const manager = await getManager(req);
-    const dateInput = req.query.date || formatDateString(new Date());
+    const dateInput = req.query.date ? formatDateString(req.query.date) : formatDateString(new Date());
 
     const shifts = await Shift.find({
-      managerId: manager._id,
+      $or: [
+        { managerId: manager._id },
+        { storeId: manager._id.toString() },
+        { area: manager.area },
+        { cityId: manager.cityId },
+      ],
       dateString: dateInput,
     }).sort({ createdAt: 1 });
+
+    // Auto-bind managerId and storeId to any shifts in manager's hub
+    for (const shift of shifts) {
+      if (!shift.managerId || shift.managerId.toString() !== manager._id.toString()) {
+        shift.managerId = manager._id;
+        shift.storeId = manager._id.toString();
+        await shift.save().catch(() => {});
+      }
+    }
 
     const safeShifts = shifts.map((s) => s.toSafeJSON());
 

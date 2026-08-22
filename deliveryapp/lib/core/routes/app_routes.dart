@@ -1,11 +1,18 @@
 abstract final class AppRoutes {
   static const splash = '/';
   static const selectLanguage = '/select-language';
+  static const welcome = '/welcome';
   static const login = '/login';
+  static const register = '/register';
+  static const otpVerification = '/otp-verification';
   static const selectVehicle = '/select-vehicle';
+  static const selectState = '/select-state';
   static const selectCity = '/select-city';
   static const selectArea = '/select-area';
   static const uploadDocuments = '/upload-documents';
+  static const profileDetails = '/profile-details';
+  static const reviewSubmit = '/review-submit';
+  static const registrationSuccess = '/registration-success';
   static const takeSelfie = '/take-selfie';
   static const livenessCheck = '/liveness-check';
   static const home = '/home';
@@ -16,6 +23,7 @@ abstract final class AppRoutes {
   static const deliveryHistory = '/delivery-history';
   static const earnings = '/earnings';
   static const wallet = '/wallet';
+  static const gigs = '/gigs';
   static const attendance = '/attendance';
   static const performance = '/performance';
   static const notifications = '/notifications';

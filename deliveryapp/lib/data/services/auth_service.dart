@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/l10n/locale_controller.dart';
+import '../../core/routes/app_routes.dart';
 import 'rider_live_service.dart';
+import 'socket_service.dart';
 
 class DeliveryBoy {
   const DeliveryBoy({
@@ -21,6 +23,13 @@ class DeliveryBoy {
     this.vehicleType = '',
     this.status = 'offline',
     this.verificationStatus = 'pending',
+    this.rating = 5.0,
+    this.totalRatingsCount = 0,
+    this.walletBalance = 0.0,
+    this.totalLifetimeEarnings = 0.0,
+    this.todayEarnings = 0.0,
+    this.fcmToken = '',
+    this.activeOrderId,
   });
 
   final String id;
@@ -35,6 +44,13 @@ class DeliveryBoy {
   final bool onboardingComplete;
   final String onboardingStep;
   final String verificationStatus;
+  final double rating;
+  final int totalRatingsCount;
+  final double walletBalance;
+  final double totalLifetimeEarnings;
+  final double todayEarnings;
+  final String fcmToken;
+  final String? activeOrderId;
 
   bool get isOnline => status == 'online' || status == 'on_delivery';
   bool get isVerificationPending =>
@@ -55,6 +71,13 @@ class DeliveryBoy {
       onboardingComplete: json['onboardingComplete'] == true,
       onboardingStep: json['onboardingStep']?.toString() ?? 'vehicle',
       verificationStatus: json['verificationStatus']?.toString() ?? 'pending',
+      rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
+      totalRatingsCount: (json['totalRatingsCount'] as num?)?.toInt() ?? 0,
+      walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.0,
+      totalLifetimeEarnings: (json['totalLifetimeEarnings'] as num?)?.toDouble() ?? 0.0,
+      todayEarnings: (json['todayEarnings'] as num?)?.toDouble() ?? 0.0,
+      fcmToken: json['fcmToken']?.toString() ?? '',
+      activeOrderId: json['activeOrderId']?.toString(),
     );
   }
 
@@ -71,6 +94,13 @@ class DeliveryBoy {
         'onboardingComplete': onboardingComplete,
         'onboardingStep': onboardingStep,
         'verificationStatus': verificationStatus,
+        'rating': rating,
+        'totalRatingsCount': totalRatingsCount,
+        'walletBalance': walletBalance,
+        'totalLifetimeEarnings': totalLifetimeEarnings,
+        'todayEarnings': todayEarnings,
+        'fcmToken': fcmToken,
+        'activeOrderId': activeOrderId,
       };
 }
 
@@ -151,6 +181,9 @@ class AuthService {
         _deliveryBoy = DeliveryBoy.fromJson(
           jsonDecode(raw) as Map<String, dynamic>,
         );
+        if (_deliveryBoy != null && _deliveryBoy!.id.isNotEmpty) {
+          SocketService.instance.connect(_deliveryBoy!.id);
+        }
       } catch (_) {
         _deliveryBoy = null;
       }
@@ -158,22 +191,11 @@ class AuthService {
   }
 
   Future<void> saveLastRoute(String routeName) async {
-    const ignored = {
-      '/',
-      '/splash',
-      '/select-language',
-      '/login',
-      '/select-vehicle',
-      '/select-city',
-      '/select-area',
-      '/upload-documents',
-      '/take-selfie',
-      '/liveness-check',
-    };
-    if (ignored.contains(routeName)) return;
+    // Only save main shell /home as the persistent restart route
+    if (routeName != '/home' && routeName != AppRoutes.home) return;
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastRouteKey, routeName);
+    await prefs.setString(_lastRouteKey, AppRoutes.home);
   }
 
   Future<String?> getLastRoute() async {
@@ -187,9 +209,13 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_boyKey, jsonEncode(boy.toJson()));
+    if (boy.id.isNotEmpty) {
+      SocketService.instance.connect(boy.id);
+    }
   }
 
   Future<void> clearSession() async {
+    SocketService.instance.disconnect();
     _token = null;
     _deliveryBoy = null;
     final prefs = await SharedPreferences.getInstance();

@@ -61,22 +61,38 @@ const timeToMinutes = (timeStr) => {
 const getRiderManager = async (rider) => {
   if (!rider) return null;
   let manager = null;
+  const riderArea = (rider.area || "").trim().toLowerCase();
+
   if (rider.managerId) {
     manager = await DeliveryManager.findById(rider.managerId);
+    if (manager) {
+      const managerArea = (manager.area || "").trim().toLowerCase();
+      if (riderArea && managerArea && riderArea !== managerArea) {
+        manager = null;
+      }
+    }
   }
+
   if (!manager && (rider.cityId || rider.area || rider.city)) {
+    const escapedArea = (rider.area || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     manager = await DeliveryManager.findOne({
       isActive: true,
       $or: [
+        ...(escapedArea ? [{ area: { $regex: new RegExp(`^${escapedArea}$`, "i") } }] : []),
         { cityId: rider.cityId, area: rider.area },
         { city: rider.city, area: rider.area },
-        { area: rider.area },
       ],
     }).sort({ createdAt: -1 });
 
-    if (manager && !rider.managerId) {
-      rider.managerId = manager._id;
-      rider.storeId = manager._id.toString();
+    if (manager) {
+      if (!rider.managerId || rider.managerId.toString() !== manager._id.toString()) {
+        rider.managerId = manager._id;
+        rider.storeId = manager._id.toString();
+        await rider.save().catch(() => {});
+      }
+    } else if (rider.managerId) {
+      rider.managerId = null;
+      rider.storeId = "";
       await rider.save().catch(() => {});
     }
   }
@@ -196,10 +212,10 @@ export const bookSlot = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Delivery partner not found" });
     }
 
-    if (rider.verificationStatus !== "approved" || !rider.isActive) {
+    if (rider.isActive === false) {
       return res.status(403).json({
         success: false,
-        message: "Your profile is pending manager verification. You can book shifts after approval.",
+        message: "Your delivery partner profile is inactive.",
       });
     }
 
@@ -213,12 +229,9 @@ export const bookSlot = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
     }
 
-    // STRICT STORE ISOLATION CHECK: Ensure shift belongs to rider's dark store manager
-    if (manager && shiftDoc.managerId.toString() !== manager._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only book shifts at your assigned dark store location.",
-      });
+    if (manager && (!shiftDoc.managerId || shiftDoc.managerId.toString() !== manager._id.toString())) {
+      shiftDoc.managerId = manager._id;
+      shiftDoc.storeId = manager._id.toString();
     }
 
     const slotDoc = shiftDoc.slots.find(
@@ -301,11 +314,17 @@ export const bookSlot = async (req, res, next) => {
     if (freshSlot.bookedCount >= freshSlot.capacity) freshSlot.status = "FULL";
     await freshShift.save();
 
+    const bookedBookingObj = freshSlot.bookings[freshSlot.bookings.length - 1];
     rider.shiftBooking = {
       slot: `${slotDoc.startTime} - ${slotDoc.endTime}`,
       date: shiftDoc.date,
       bookedAt: newBookingObj.bookedAt,
       bookingId: newBookingObj.bookingId,
+    };
+    rider.currentBooking = {
+      shiftId: freshShift._id,
+      slotId: freshSlot._id,
+      bookingId: bookedBookingObj?._id || freshSlot._id,
     };
     await rider.save();
 

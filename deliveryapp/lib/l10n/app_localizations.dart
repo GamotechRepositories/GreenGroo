@@ -2311,7 +2311,7 @@ abstract class AppLocalizations {
   /// No description provided for @referAndEarnSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Invite friends and earn rewards'**
+  /// **'Invite your friends and earn amazing rewards'**
   String get referAndEarnSubtitle;
 
   /// No description provided for @earnBonus.
@@ -2323,7 +2323,7 @@ abstract class AppLocalizations {
   /// No description provided for @earnBonusSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Do extra to earn bonus'**
+  /// **'Complete more gigs and earn exciting bonuses'**
   String get earnBonusSubtitle;
 
   /// No description provided for @viewWallet.
@@ -2421,6 +2421,354 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue Delivery'**
   String get continueDelivery;
+
+  /// No description provided for @goOnlineToReceiveOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Go online to receive delivery requests'**
+  String get goOnlineToReceiveOrders;
+
+  /// No description provided for @moreOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'More orders'**
+  String get moreOrders;
+
+  /// No description provided for @moreEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'More earnings'**
+  String get moreEarnings;
+
+  /// No description provided for @goOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Online'**
+  String get goOnline;
+
+  /// No description provided for @goOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Offline'**
+  String get goOffline;
+
+  /// No description provided for @todaysProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Progress'**
+  String get todaysProgress;
+
+  /// No description provided for @viewAll.
+  ///
+  /// In en, this message translates to:
+  /// **'View All'**
+  String get viewAll;
+
+  /// No description provided for @viewAllGigs.
+  ///
+  /// In en, this message translates to:
+  /// **'View All Gigs'**
+  String get viewAllGigs;
+
+  /// No description provided for @bookAndGoOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Book & Go Online'**
+  String get bookAndGoOnline;
+
+  /// No description provided for @trips.
+  ///
+  /// In en, this message translates to:
+  /// **'Trips'**
+  String get trips;
+
+  /// No description provided for @gigs.
+  ///
+  /// In en, this message translates to:
+  /// **'Gigs'**
+  String get gigs;
+
+  /// No description provided for @sessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get sessions;
+
+  /// No description provided for @shifts.
+  ///
+  /// In en, this message translates to:
+  /// **'Shifts'**
+  String get shifts;
+
+  /// No description provided for @incentiveSlabsBonusLevels.
+  ///
+  /// In en, this message translates to:
+  /// **'INCENTIVE SLABS & BONUS LEVELS'**
+  String get incentiveSlabsBonusLevels;
+
+  /// No description provided for @earnBonusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn Bonus'**
+  String get earnBonusTitle;
+
+  /// No description provided for @exploreBonuses.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore Bonuses'**
+  String get exploreBonuses;
+
+  /// No description provided for @referAndEarnTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Refer & Earn'**
+  String get referAndEarnTitle;
+
+  /// No description provided for @referNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Refer Now'**
+  String get referNow;
+
+  /// No description provided for @gigsAndIncentives.
+  ///
+  /// In en, this message translates to:
+  /// **'Gigs & Incentives'**
+  String get gigsAndIncentives;
+
+  /// No description provided for @earnUpToExtra.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn up to ₹{bonus} extra'**
+  String earnUpToExtra(Object bonus);
+
+  /// No description provided for @lunchIncentive.
+  ///
+  /// In en, this message translates to:
+  /// **'Lunch Incentive'**
+  String get lunchIncentive;
+
+  /// No description provided for @dinnerIncentive.
+  ///
+  /// In en, this message translates to:
+  /// **'Dinner Incentive'**
+  String get dinnerIncentive;
+
+  /// No description provided for @specialGigDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Special Gig • You can go online even now'**
+  String get specialGigDesc;
+
+  /// No description provided for @noShiftsBookedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No Shifts Booked Yet'**
+  String get noShiftsBookedYet;
+
+  /// No description provided for @noShiftBookedForToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No Shift Booked For Today'**
+  String get noShiftBookedForToday;
+
+  /// No description provided for @mandatoryBookShiftHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mandatory: You must book today\'s shift before going online and receiving orders.'**
+  String get mandatoryBookShiftHint;
+
+  /// No description provided for @bookShiftNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Book Shift Now 📅'**
+  String get bookShiftNow;
+
+  /// No description provided for @selectShiftSlotNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Shift Slot Now'**
+  String get selectShiftSlotNow;
+
+  /// No description provided for @verifyLocationAndGoOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Location & Go Online 🟢'**
+  String get verifyLocationAndGoOnline;
+
+  /// No description provided for @upcomingShiftsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'UPCOMING SHIFTS'**
+  String get upcomingShiftsTitle;
+
+  /// No description provided for @bookMore.
+  ///
+  /// In en, this message translates to:
+  /// **'+ Book More'**
+  String get bookMore;
+
+  /// No description provided for @noFutureUpcomingShifts.
+  ///
+  /// In en, this message translates to:
+  /// **'No future upcoming shifts booked.'**
+  String get noFutureUpcomingShifts;
+
+  /// No description provided for @availableShiftSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Shift Slots'**
+  String get availableShiftSlots;
+
+  /// No description provided for @filterServerTimeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Past and full slots are automatically filtered by server time.'**
+  String get filterServerTimeHint;
+
+  /// No description provided for @noActiveGigsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Active Gigs'**
+  String get noActiveGigsTitle;
+
+  /// No description provided for @noActiveGigsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'There are no active gig incentives for your store right now.'**
+  String get noActiveGigsSubtitle;
+
+  /// No description provided for @shiftStatusYourBooked.
+  ///
+  /// In en, this message translates to:
+  /// **'YOUR BOOKED SHIFT ✓'**
+  String get shiftStatusYourBooked;
+
+  /// No description provided for @shiftStatusEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'SHIFT ENDED'**
+  String get shiftStatusEnded;
+
+  /// No description provided for @shiftStatusFull.
+  ///
+  /// In en, this message translates to:
+  /// **'FULLY BOOKED'**
+  String get shiftStatusFull;
+
+  /// No description provided for @spotsLeftCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} spots left!'**
+  String spotsLeftCount(int count);
+
+  /// No description provided for @spotsAvailableCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} spots available'**
+  String spotsAvailableCount(int count);
+
+  /// No description provided for @badgeBooked.
+  ///
+  /// In en, this message translates to:
+  /// **'Booked ✓'**
+  String get badgeBooked;
+
+  /// No description provided for @badgeEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get badgeEnded;
+
+  /// No description provided for @badgeFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get badgeFull;
+
+  /// No description provided for @btnBook.
+  ///
+  /// In en, this message translates to:
+  /// **'Book'**
+  String get btnBook;
+
+  /// No description provided for @todayUpper.
+  ///
+  /// In en, this message translates to:
+  /// **'TODAY'**
+  String get todayUpper;
+
+  /// No description provided for @confirmShiftTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Shift'**
+  String get confirmShiftTitle;
+
+  /// No description provided for @workingHoursLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Working Hours'**
+  String get workingHoursLabel;
+
+  /// No description provided for @confirmBookQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to book this shift slot?'**
+  String get confirmBookQuestion;
+
+  /// No description provided for @shiftBookedSuccessfully.
+  ///
+  /// In en, this message translates to:
+  /// **'✓ Shift Booked Successfully'**
+  String get shiftBookedSuccessfully;
+
+  /// No description provided for @shiftConfirmedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shift has been confirmed.'**
+  String get shiftConfirmedSubtitle;
+
+  /// No description provided for @verificationPendingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your profile is under review by our verification team. This usually takes 24-48 hours.'**
+  String get verificationPendingBody;
+
+  /// No description provided for @verificationPendingDarkStoreHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Visit your registered dark store for instant offline verification.'**
+  String get verificationPendingDarkStoreHint;
+
+  /// No description provided for @verificationRejectedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your document verification was rejected. Please re-upload valid documents.'**
+  String get verificationRejectedBody;
+
+  /// No description provided for @selectYourShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Your Shift'**
+  String get selectYourShift;
+
+  /// No description provided for @noAvailableSlotsForDate.
+  ///
+  /// In en, this message translates to:
+  /// **'No Available Slots for this date'**
+  String get noAvailableSlotsForDate;
+
+  /// No description provided for @allSlotsBookedOrEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'All slots for this date are booked or ended.'**
+  String get allSlotsBookedOrEnded;
+
+  /// No description provided for @liveServerTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Server Time'**
+  String get liveServerTime;
 }
 
 class _AppLocalizationsDelegate

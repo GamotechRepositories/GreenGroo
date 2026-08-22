@@ -39,9 +39,9 @@ class AppBottomNavigation extends StatelessWidget {
                 width: double.infinity,
                 padding: EdgeInsets.only(bottom: bottomPad),
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: AppColors.cardBackground,
                   border: Border(
-                    top: BorderSide(color: AppColors.border, width: 1),
+                    top: BorderSide(color: AppColors.cardBorder, width: 1),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -69,6 +69,7 @@ class AppBottomNavigation extends StatelessWidget {
                         Icons.notifications_outlined,
                         Icons.notifications,
                         l10n.notifications,
+                        badgeCount: 3,
                       ),
                     ],
                   ),
@@ -98,7 +99,7 @@ class AppBottomNavigation extends StatelessWidget {
                           ),
                         ],
                         border: Border.all(
-                          color: AppColors.background,
+                          color: AppColors.cardBackground,
                           width: 3,
                         ),
                       ),
@@ -131,13 +132,20 @@ class AppBottomNavigation extends StatelessWidget {
     );
   }
 
-  Widget _sideTab(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _sideTab(
+    int index,
+    IconData icon,
+    IconData activeIcon,
+    String label, {
+    int? badgeCount,
+  }) {
     return Expanded(
       child: _NavTab(
         icon: icon,
         activeIcon: activeIcon,
         label: label,
         isActive: currentIndex == index,
+        badgeCount: badgeCount,
         onTap: () => onTap(index),
       ),
     );
@@ -151,6 +159,7 @@ class _NavTab extends StatelessWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.badgeCount,
   });
 
   final IconData icon;
@@ -158,6 +167,7 @@ class _NavTab extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+  final int? badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -168,16 +178,51 @@ class _NavTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(isActive ? activeIcon : icon, size: 24, color: color),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(isActive ? activeIcon : icon, size: 24, color: color),
+              if (badgeCount != null && badgeCount! > 0)
+                Positioned(
+                  top: -2,
+                  right: -6,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFDC2626),
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 14,
+                      minHeight: 14,
+                    ),
+                    child: Text(
+                      '$badgeCount',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              fontSize: 10,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: color,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 2),

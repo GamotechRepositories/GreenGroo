@@ -12,6 +12,8 @@ import {
   listRiders,
   markDelivered,
   verifyDriver,
+  getDriverDetails,
+  toggleRiderActive,
   packOrder,
   createDemoStoreOrder,
 } from "../controllers/managerDashboardController.js";
@@ -54,7 +56,12 @@ router.get("/dashboard", getDashboardSummary);
 router.get("/orders", listIncomingOrders);
 router.get("/inventory", listInventory);
 router.get("/riders", listRiders);
+router.get("/drivers", listRiders);
 router.get("/riders/pending", listPendingDrivers);
+router.get("/riders/live", getLiveRiders);
+router.get("/drivers/:driverId", getDriverDetails);
+router.get("/riders/:driverId", getDriverDetails);
+router.post("/drivers/:driverId/toggle-active", toggleRiderActive);
 router.post("/riders", createDeliveryBoyByManager);
 router.post("/riders/:riderId/verify", verifyDriver);
 router.post("/orders/:orderId/inform-customer", informCustomer);
@@ -77,7 +84,6 @@ router.get("/gigs", listGigs);
 router.put("/gigs/:gigId", updateGig);
 router.delete("/gigs/:gigId", deleteGig);
 
-router.get("/riders/live", getLiveRiders);
 router.post("/peak-hours", setPeakHours);
 router.post("/riders/:riderId/document-status", updateRiderDocumentStatus);
 router.post("/order/assign", manualAssignOrder);

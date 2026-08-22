@@ -30,7 +30,7 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: colors.surface,
+      scaffoldBackgroundColor: colors.background,
       textTheme: baseText.copyWith(
         headlineLarge: baseText.headlineLarge?.copyWith(
           fontWeight: FontWeight.w700,

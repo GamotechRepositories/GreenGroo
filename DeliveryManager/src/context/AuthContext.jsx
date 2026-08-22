@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { managerApi, setAuthToken } from "../api/managerApi";
+import { connectSocket, disconnectSocket } from "../services/socket";
 
 const STORAGE_KEY = "greenrow_delivery_manager_auth";
 
@@ -18,9 +19,13 @@ export function AuthProvider({ children }) {
       STORAGE_KEY,
       JSON.stringify({ manager: authManager, token: authToken })
     );
+    if (authManager?.id) {
+      connectSocket(authManager.id);
+    }
   }, []);
 
   const clear = useCallback(() => {
+    disconnectSocket();
     setManager(null);
     setToken(null);
     setAuthToken(null);

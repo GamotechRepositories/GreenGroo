@@ -197,18 +197,27 @@ export const getPartnerGigs = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Delivery partner not found" });
     }
 
+    const riderArea = rider.area?.trim();
     let manager = null;
     if (rider.managerId) {
       manager = await DeliveryManager.findById(rider.managerId);
     }
-    if (!manager && (rider.cityId || rider.area || rider.city)) {
+
+    if (!manager && riderArea) {
+      const escapedArea = riderArea.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       manager = await DeliveryManager.findOne({
         isActive: true,
-        $or: [
-          { cityId: rider.cityId, area: rider.area },
-          { city: rider.city, area: rider.area },
-          { area: rider.area },
-        ],
+        area: new RegExp(`^${escapedArea}$`, "i"),
+      }).sort({ createdAt: -1 });
+    }
+
+    if (!manager && (rider.cityId || rider.city)) {
+      const cityOr = [];
+      if (rider.cityId) cityOr.push({ cityId: rider.cityId });
+      if (rider.city) cityOr.push({ city: rider.city });
+      manager = await DeliveryManager.findOne({
+        isActive: true,
+        $or: cityOr,
       }).sort({ createdAt: -1 });
     }
 
@@ -218,15 +227,36 @@ export const getPartnerGigs = async (req, res, next) => {
 
     const filterOr = [{ isActive: true }];
     if (manager) {
-      filterOr.push({ managerId: manager._id }, { storeId: manager._id.toString() });
-      if (manager.area) filterOr.push({ area: manager.area });
+      filterOr.push(
+        { managerId: manager._id },
+        { storeId: manager._id.toString() },
+        { storeId: manager._id }
+      );
+      if (manager.area) {
+        const escapedMgrArea = manager.area.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        filterOr.push({ area: new RegExp(`^${escapedMgrArea}$`, "i") });
+      }
     }
-    if (rider.area) filterOr.push({ area: rider.area });
+    if (rider.managerId) {
+      filterOr.push(
+        { managerId: rider.managerId },
+        { storeId: rider.managerId.toString() }
+      );
+    }
+    if (riderArea) {
+      const escapedRiderArea = riderArea.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filterOr.push({ area: new RegExp(`^${escapedRiderArea}$`, "i") });
+    }
 
-    const gigs = await Gig.find({
-      $or: filterOr,
+    let gigs = await Gig.find({
       isActive: true,
+      $or: filterOr,
     }).sort({ dateString: -1, createdAt: -1 });
+
+    // Fallback: If no area-specific gig matched, return active store gigs
+    if (gigs.length === 0) {
+      gigs = await Gig.find({ isActive: true }).sort({ dateString: -1, createdAt: -1 });
+    }
 
     return res.json({
       success: true,

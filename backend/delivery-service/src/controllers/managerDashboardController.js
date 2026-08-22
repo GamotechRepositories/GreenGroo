@@ -2,6 +2,7 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreInventory from "../models/StoreInventory.js";
 import StoreOrder from "../models/StoreOrder.js";
+import Shift from "../models/Shift.js";
 import { getIO } from "../../../socket.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
 
@@ -682,6 +683,131 @@ export const markDelivered = async (req, res, next) => {
     return res.json({
       success: true,
       order: order.toSafeJSON(stockMap),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /drivers/:driverId
+ * Returns complete aggregated driver details for manager view.
+ */
+export const getDriverDetails = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { driverId } = req.params;
+
+    const rider = await DeliveryBoy.findById(driverId);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+    }
+
+    // Today's date in Indian Standard Time (IST, UTC+5:30)
+    const todayISTDateString = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    // Query shifts for this rider
+    const shifts = await Shift.find({
+      "slots.bookings.deliveryPartnerId": rider._id,
+    }).sort({ dateString: -1 }).limit(30);
+
+    let bookedShiftsToday = 0;
+    let completedShiftsToday = 0;
+    const todayShifts = [];
+    const recentShifts = [];
+
+    for (const shift of shifts) {
+      for (const slot of shift.slots || []) {
+        for (const booking of slot.bookings || []) {
+          if (booking.deliveryPartnerId?.toString() === rider._id.toString()) {
+            const shiftItem = {
+              shiftId: shift._id.toString(),
+              shiftName: shift.name,
+              shiftType: shift.type,
+              dateString: shift.dateString,
+              date: shift.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              bookingStatus: booking.status,
+              bookedAt: booking.bookedAt,
+              completedAt: booking.completedAt,
+            };
+
+            if (shift.dateString === todayISTDateString) {
+              if (booking.status !== "CANCELLED") bookedShiftsToday++;
+              if (booking.status === "COMPLETED") completedShiftsToday++;
+              todayShifts.push(shiftItem);
+            }
+            recentShifts.push(shiftItem);
+          }
+        }
+      }
+    }
+
+    const onlineMins = rider.todayOnlineMinutes || 0;
+    const hours = Math.floor(onlineMins / 60);
+    const mins = onlineMins % 60;
+    const onlineTimeStr = `${hours}h ${mins}m`;
+
+    return res.json({
+      success: true,
+      data: {
+        driver: rider.toSafeJSON(),
+        todayPerformance: {
+          earnings: rider.todayEarnings || 0,
+          completedOrders: rider.todayCompletedOrders || rider.todayOrderCount || 0,
+          onlineMinutes: onlineMins,
+          onlineTime: onlineTimeStr,
+          shiftsBooked: bookedShiftsToday,
+          completedShifts: completedShiftsToday,
+        },
+        wallet: {
+          balance: rider.walletBalance || 0,
+          todayEarnings: rider.todayEarnings || 0,
+          lifetimeEarnings: rider.totalLifetimeEarnings || 0,
+        },
+        documents: rider.documents || {},
+        selfie: rider.selfie || {},
+        livenessPassed: rider.livenessPassed || false,
+        livenessPassedAt: rider.livenessPassedAt || null,
+        bankDetails: rider.bankDetails || {},
+        todayShifts,
+        recentShifts: recentShifts.slice(0, 10),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /drivers/:driverId/toggle-active
+ * Toggles isActive status of delivery partner.
+ */
+export const toggleRiderActive = async (req, res, next) => {
+  try {
+    const { driverId } = req.params;
+    const rider = await DeliveryBoy.findById(driverId);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+    }
+
+    rider.isActive = !rider.isActive;
+    if (!rider.isActive) {
+      rider.status = "offline";
+    }
+    await rider.save();
+
+    return res.json({
+      success: true,
+      message: `Driver status set to ${rider.isActive ? "Active" : "Inactive"}`,
+      isActive: rider.isActive,
+      driver: rider.toSafeJSON(),
     });
   } catch (error) {
     next(error);

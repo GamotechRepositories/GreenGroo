@@ -28,6 +28,7 @@ abstract final class ApiConfig {
   static const status = '/api/delivery-boys/status';
   static const heartbeat = '/api/delivery-boys/heartbeat';
   static const areaManager = '/api/delivery-boys/area-manager';
+  static const homeProgress = '/api/delivery-boys/home/progress';
   static const shifts = '/api/shifts';
   static const shiftBooking = '/api/delivery-boys/shift-booking';
   static const availableSlots = '/api/delivery-boys/available-slots';

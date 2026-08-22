@@ -43,45 +43,45 @@ class AppPalette {
   final Color shadow;
 
   static const light = AppPalette(
-    primary: Color(0xFF0C831F),
-    primaryDark: Color(0xFF086618),
-    primaryLight: Color(0xFFE6F4E9),
-    primarySoft: Color(0xFFC8E6CC),
+    primary: Color(0xFF16A34A),
+    primaryDark: Color(0xFF15803D),
+    primaryLight: Color(0xFFDCFCE7),
+    primarySoft: Color(0xFFF0FDF4),
     background: Color(0xFFFFFFFF),
-    surface: Color(0xFFF8FAFC),
-    surfaceVariant: Color(0xFFF1F5F9),
-    textPrimary: Color(0xFF0F172A),
-    textSecondary: Color(0xFF64748B),
-    textMuted: Color(0xFF94A3B8),
-    border: Color(0xFFE2E8F0),
+    surface: Color(0xFFFFFFFF),
+    surfaceVariant: Color(0xFFF8FAFC),
+    textPrimary: Color(0xFF111827),
+    textSecondary: Color(0xFF4B5563),
+    textMuted: Color(0xFF9CA3AF),
+    border: Color(0xFFE5E7EB),
     error: Color(0xFFEF4444),
     warning: Color(0xFFF59E0B),
     info: Color(0xFF3B82F6),
-    success: Color(0xFF0C831F),
-    offline: Color(0xFF64748B),
-    online: Color(0xFF0C831F),
-    shadow: Color(0x1A0F172A),
+    success: Color(0xFF16A34A),
+    offline: Color(0xFF6B7280),
+    online: Color(0xFF16A34A),
+    shadow: Color(0x0F000000),
   );
 
   static const dark = AppPalette(
-    primary: Color(0xFF0C831F),
-    primaryDark: Color(0xFF4ADE80),
-    primaryLight: Color(0xFF14301A),
-    primarySoft: Color(0xFF1A3D22),
-    background: Color(0xFF0F1410),
-    surface: Color(0xFF161C18),
-    surfaceVariant: Color(0xFF1E2620),
-    textPrimary: Color(0xFFF1F5F1),
-    textSecondary: Color(0xFFA3B0A6),
-    textMuted: Color(0xFF7A877E),
-    border: Color(0xFF2A342C),
+    primary: Color(0xFF10B981),
+    primaryDark: Color(0xFF34D399),
+    primaryLight: Color(0xFF064E3B),
+    primarySoft: Color(0xFF065F46),
+    background: Color(0xFF0B0F17),
+    surface: Color(0xFF1E293B),
+    surfaceVariant: Color(0xFF111827),
+    textPrimary: Color(0xFFF8FAFC),
+    textSecondary: Color(0xFF94A3B8),
+    textMuted: Color(0xFF64748B),
+    border: Color(0xFF334155),
     error: Color(0xFFF87171),
     warning: Color(0xFFFBBF24),
     info: Color(0xFF60A5FA),
-    success: Color(0xFF0C831F),
-    offline: Color(0xFF7A877E),
-    online: Color(0xFF4ADE80),
-    shadow: Color(0x66000000),
+    success: Color(0xFF10B981),
+    offline: Color(0xFF9CA3AF),
+    online: Color(0xFF34D399),
+    shadow: Color(0x40000000),
   );
 }
 
@@ -107,6 +107,11 @@ abstract final class AppColors {
   static Color get offline => _p.offline;
   static Color get online => _p.online;
   static Color get shadow => _p.shadow;
+
+  static Color get cardBackground => _p.surface;
+  static Color get cardBorder => _p.border;
+  static Color get cardSubBg => ThemeController.instance.isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+  static Color get cardSubBorder => ThemeController.instance.isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
 }
 
 class ThemeController extends ChangeNotifier {

@@ -47,7 +47,6 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
         leading: const AppBackButton(fallbackRoute: AppRoutes.uploadDocuments),
       ),
       body: SafeArea(
-        top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
           child: Column(
@@ -148,8 +147,9 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
                           try {
                             final selfie = await documentPayload(_selfie);
                             if (!mounted) return;
+                            final currentContext = context;
                             await goOnboardingStep(
-                              context,
+                              currentContext,
                               step: 'liveness',
                               route: AppRoutes.livenessCheck,
                               arguments: _selfie?.path,

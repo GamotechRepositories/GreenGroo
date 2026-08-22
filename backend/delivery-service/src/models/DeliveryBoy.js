@@ -84,6 +84,10 @@ const deliveryBoySchema = new mongoose.Schema(
       default: "",
     },
 
+    // Add near "rating" — right after vehicleType, before bankDetails
+    rating: { type: Number, default: 5, min: 0, max: 5 },
+    totalRatingsCount: { type: Number, default: 0 },
+
     bankDetails: {
       type: bankDetailsSchema,
       default: () => ({}),
@@ -132,6 +136,15 @@ const deliveryBoySchema = new mongoose.Schema(
     lastOfflineAt: {
       type: Date,
     },
+
+    // Add anywhere near status/lastSeenAt fields
+    fcmToken: { type: String, default: "" },
+    currentLocation: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      updatedAt: { type: Date, default: null },
+    },
+
     todayOnlineMinutes: {
       type: Number,
       default: 0,
@@ -152,6 +165,11 @@ const deliveryBoySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+
+    // Add near todayEarnings — right after it
+    walletBalance: { type: Number, default: 0 },
+    totalLifetimeEarnings: { type: Number, default: 0 },
+
     lastOrderAssignedAt: {
       type: Date,
     },
@@ -174,6 +192,13 @@ const deliveryBoySchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         default: null,
       },
+    },
+
+    // Add near currentBooking (similar "active reference" pattern)
+    activeOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      default: null,
     },
 
     isActive: {
@@ -239,6 +264,8 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     managerId: this.managerId ? this.managerId.toString() : "",
     storeId: this.storeId || (this.managerId ? this.managerId.toString() : ""),
     vehicleType: this.vehicleType,
+    rating: this.rating !== undefined ? this.rating : 5,
+    totalRatingsCount: this.totalRatingsCount || 0,
     bankDetails: this.bankDetails,
     documents: this.documents,
     selfie: this.selfie,
@@ -249,11 +276,22 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     lastSeenAt: this.lastSeenAt,
     lastOnlineAt: this.lastOnlineAt,
     lastOfflineAt: this.lastOfflineAt,
+    fcmToken: this.fcmToken || "",
+    currentLocation:
+      this.currentLocation?.lat != null && this.currentLocation?.lng != null
+        ? {
+            lat: this.currentLocation.lat,
+            lng: this.currentLocation.lng,
+            updatedAt: this.currentLocation.updatedAt,
+          }
+        : null,
     todayOnlineMinutes: this.todayOnlineMinutes || 0,
     todayOnlineDate: this.todayOnlineDate || "",
     todayCompletedOrders: this.todayCompletedOrders || 0,
     todayOrderCount: this.todayOrderCount || this.todayCompletedOrders || 0,
     todayEarnings: this.todayEarnings || 0,
+    walletBalance: this.walletBalance || 0,
+    totalLifetimeEarnings: this.totalLifetimeEarnings || 0,
     lastOrderAssignedAt: this.lastOrderAssignedAt || this.lastAssignedAt,
     lastAssignedAt: this.lastAssignedAt || this.lastOrderAssignedAt,
     currentBooking: this.currentBooking?.shiftId
@@ -263,6 +301,7 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
           bookingId: this.currentBooking.bookingId ? this.currentBooking.bookingId.toString() : "",
         }
       : null,
+    activeOrderId: this.activeOrderId ? this.activeOrderId.toString() : null,
     isActive: this.isActive,
     verificationStatus: this.verificationStatus || "pending",
     verifiedAt: this.verifiedAt,
@@ -289,4 +328,3 @@ try {
 } catch (e) {}
 
 export default DeliveryBoy;
-

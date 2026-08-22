@@ -1017,7 +1017,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get verificationApprovedTitle => 'You are verified';
 
   @override
-  String get verificationApprovedToast => 'Verified! You can go online now.';
+  String get verificationApprovedToast => 'सत्यापित! अब आप ऑनलाइन जा सकते हैं।';
 
   @override
   String get verificationRejectedTitle => 'Verification rejected';
@@ -1027,13 +1027,13 @@ class AppLocalizationsHi extends AppLocalizations {
       'Contact your area delivery manager for help.';
 
   @override
-  String get myShifts => 'My Shifts';
+  String get myShifts => 'मेरी शिफ़्ट';
 
   @override
   String get myShiftsSubtitle => 'Your booked and available delivery shifts';
 
   @override
-  String get availableShifts => 'Available Shifts';
+  String get availableShifts => 'उपलब्ध शिफ़्ट';
 
   @override
   String get myProgress => 'My Progress';
@@ -1135,13 +1135,14 @@ class AppLocalizationsHi extends AppLocalizations {
   String get referAndEarn => 'Refer & Earn';
 
   @override
-  String get referAndEarnSubtitle => 'Invite friends and earn rewards';
+  String get referAndEarnSubtitle =>
+      'अपने दोस्तों को आमंत्रित करें और अद्भुत पुरस्कार कमाएँ';
 
   @override
   String get earnBonus => 'Earn Bonus';
 
   @override
-  String get earnBonusSubtitle => 'Do extra to earn bonus';
+  String get earnBonusSubtitle => 'अधिक गिग्स पूरे करें और रोमांचक बोनस कमाएँ';
 
   @override
   String get viewWallet => 'View Wallet';
@@ -1194,4 +1195,196 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get continueDelivery => 'Continue Delivery';
+
+  @override
+  String get goOnlineToReceiveOrders =>
+      'डिलीवरी अनुरोध प्राप्त करने के लिए ऑनलाइन जाएँ';
+
+  @override
+  String get moreOrders => 'ज़्यादा ऑर्डर';
+
+  @override
+  String get moreEarnings => 'ज़्यादा कमाई';
+
+  @override
+  String get goOnline => 'ऑनलाइन जाएँ';
+
+  @override
+  String get goOffline => 'ऑफ़लाइन जाएँ';
+
+  @override
+  String get todaysProgress => 'आज की प्रगति';
+
+  @override
+  String get viewAll => 'सभी देखें';
+
+  @override
+  String get viewAllGigs => 'सभी गिग्स देखें';
+
+  @override
+  String get bookAndGoOnline => 'बुक करें और ऑनलाइन जाएँ';
+
+  @override
+  String get trips => 'ट्रिप्स';
+
+  @override
+  String get gigs => 'गिग्स';
+
+  @override
+  String get sessions => 'सेशन';
+
+  @override
+  String get shifts => 'शिफ़्ट';
+
+  @override
+  String get incentiveSlabsBonusLevels => 'प्रोत्साहन स्लैब और बोनस स्तर';
+
+  @override
+  String get earnBonusTitle => 'बोनस कमाएँ';
+
+  @override
+  String get exploreBonuses => 'बोनस देखें';
+
+  @override
+  String get referAndEarnTitle => 'रेफ़र करें और कमाएँ';
+
+  @override
+  String get referNow => 'अभी रेफ़र करें';
+
+  @override
+  String get gigsAndIncentives => 'गिग्स और प्रोत्साहन';
+
+  @override
+  String earnUpToExtra(Object bonus) {
+    return '₹$bonus तक अतिरिक्त कमाएँ';
+  }
+
+  @override
+  String get lunchIncentive => 'लंच इंसेंटिव';
+
+  @override
+  String get dinnerIncentive => 'डिनर इंसेंटिव';
+
+  @override
+  String get specialGigDesc => 'स्पेशल गिग • आप अभी भी ऑनलाइन जा सकते हैं';
+
+  @override
+  String get noShiftsBookedYet => 'अभी कोई शिफ़्ट बुक नहीं की गई';
+
+  @override
+  String get noShiftBookedForToday => 'आज के लिए कोई शिफ़्ट बुक नहीं है';
+
+  @override
+  String get mandatoryBookShiftHint =>
+      'अनिवार्य: ऑनलाइन जाने और ऑर्डर प्राप्त करने से पहले आपको आज की शिफ़्ट बुक करनी होगी।';
+
+  @override
+  String get bookShiftNow => 'अभी शिफ़्ट बुक करें 📅';
+
+  @override
+  String get selectShiftSlotNow => 'अभी शिफ़्ट स्लॉट चुनें';
+
+  @override
+  String get verifyLocationAndGoOnline =>
+      'स्थान सत्यापित करें और ऑनलाइन जाएँ 🟢';
+
+  @override
+  String get upcomingShiftsTitle => 'आगामी शिफ़्ट';
+
+  @override
+  String get bookMore => '+ और बुक करें';
+
+  @override
+  String get noFutureUpcomingShifts =>
+      'भविष्य की कोई शिफ़्ट बुक नहीं की गई है।';
+
+  @override
+  String get availableShiftSlots => 'उपलब्ध शिफ़्ट स्लॉट';
+
+  @override
+  String get filterServerTimeHint =>
+      'पुराने और भरे हुए स्लॉट सर्वर समय के अनुसार अपने आप फ़िल्टर हो जाते हैं।';
+
+  @override
+  String get noActiveGigsTitle => 'कोई सक्रिय गिग्स नहीं हैं';
+
+  @override
+  String get noActiveGigsSubtitle =>
+      'अभी आपके स्टोर के लिए कोई सक्रिय गिग प्रोत्साहन नहीं है।';
+
+  @override
+  String get shiftStatusYourBooked => 'आपकी बुक की गई शिफ़्ट ✓';
+
+  @override
+  String get shiftStatusEnded => 'शिफ़्ट समाप्त';
+
+  @override
+  String get shiftStatusFull => 'पूरी तरह से बुक';
+
+  @override
+  String spotsLeftCount(int count) {
+    return '$count स्थान शेष!';
+  }
+
+  @override
+  String spotsAvailableCount(int count) {
+    return '$count स्थान उपलब्ध';
+  }
+
+  @override
+  String get badgeBooked => 'बुक की गई ✓';
+
+  @override
+  String get badgeEnded => 'समाप्त';
+
+  @override
+  String get badgeFull => 'फुल';
+
+  @override
+  String get btnBook => 'बुक करें';
+
+  @override
+  String get todayUpper => 'आज';
+
+  @override
+  String get confirmShiftTitle => 'शिफ़्ट की पुष्टि करें';
+
+  @override
+  String get workingHoursLabel => 'काम के घंटे';
+
+  @override
+  String get confirmBookQuestion =>
+      'क्या आप वाकई यह शिफ़्ट स्लॉट बुक करना चाहते हैं?';
+
+  @override
+  String get shiftBookedSuccessfully => '✓ शिफ़्ट सफलतापूर्वक बुक की गई';
+
+  @override
+  String get shiftConfirmedSubtitle => 'आपकी शिफ़्ट की पुष्टि हो गई है।';
+
+  @override
+  String get verificationPendingBody =>
+      'आपकी प्रोफ़ाइल का हमारी सत्यापन टीम द्वारा पुनरीक्षण किया जा रहा है। इसमें आमतौर पर 24-48 घंटे लगते हैं।';
+
+  @override
+  String get verificationPendingDarkStoreHint =>
+      'त्वरित ऑफ़लाइन सत्यापन के लिए अपने पंजीकृत डार्क स्टोर पर जाएँ।';
+
+  @override
+  String get verificationRejectedBody =>
+      'आपका दस्तावेज़ सत्यापन अस्वीकृत कर दिया गया था। कृपया वैध दस्तावेज़ फिर से अपलोड करें।';
+
+  @override
+  String get selectYourShift => 'अपनी शिफ़्ट चुनें';
+
+  @override
+  String get noAvailableSlotsForDate =>
+      'इस तारीख के लिए कोई स्लॉट उपलब्ध नहीं है';
+
+  @override
+  String get allSlotsBookedOrEnded =>
+      'इस तारीख के सभी स्लॉट बुक या समाप्त हो चुके हैं।';
+
+  @override
+  String get liveServerTime => 'लाइव सर्वर समय';
 }

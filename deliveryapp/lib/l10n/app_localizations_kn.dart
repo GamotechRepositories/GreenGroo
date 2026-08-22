@@ -1020,7 +1020,8 @@ class AppLocalizationsKn extends AppLocalizations {
   String get verificationApprovedTitle => 'You are verified';
 
   @override
-  String get verificationApprovedToast => 'Verified! You can go online now.';
+  String get verificationApprovedToast =>
+      'ಪರಿಶೀಲಿಸಲಾಗಿದೆ! ಈಗ ನೀವು ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗಬಹುದು.';
 
   @override
   String get verificationRejectedTitle => 'Verification rejected';
@@ -1030,13 +1031,13 @@ class AppLocalizationsKn extends AppLocalizations {
       'Contact your area delivery manager for help.';
 
   @override
-  String get myShifts => 'My Shifts';
+  String get myShifts => 'ನನ್ನ ಶಿಫ್ಟ್‌ಗಳು';
 
   @override
   String get myShiftsSubtitle => 'Your booked and available delivery shifts';
 
   @override
-  String get availableShifts => 'Available Shifts';
+  String get availableShifts => 'ಲಭ್ಯವಿರುವ ಶಿಫ್ಟ್‌ಗಳು';
 
   @override
   String get myProgress => 'My Progress';
@@ -1138,13 +1139,15 @@ class AppLocalizationsKn extends AppLocalizations {
   String get referAndEarn => 'Refer & Earn';
 
   @override
-  String get referAndEarnSubtitle => 'Invite friends and earn rewards';
+  String get referAndEarnSubtitle =>
+      'ನಿಮ್ಮ ಸ್ನೇಹಿತರನ್ನು ಆಹ್ವಾನಿಸಿ ಮತ್ತು ಅದ್ಭುತ ಬಹುಮಾನಗಳನ್ನು ಗಳಿಸಿ';
 
   @override
   String get earnBonus => 'Earn Bonus';
 
   @override
-  String get earnBonusSubtitle => 'Do extra to earn bonus';
+  String get earnBonusSubtitle =>
+      'ಹೆಚ್ಚಿನ ಗಿಗ್‌ಗಳನ್ನು ಪೂರ್ಣಗೊಳಿಸಿ ಆಕರ್ಷಕ ಬೋನಸ್‌ಗಳನ್ನು ಗಳಿಸಿ';
 
   @override
   String get viewWallet => 'View Wallet';
@@ -1197,4 +1200,196 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get continueDelivery => 'Continue Delivery';
+
+  @override
+  String get goOnlineToReceiveOrders =>
+      'ಡೆಲಿವರಿ ವಿನಂತಿಗಳನ್ನು ಸ್ವೀಕರಿಸಲು ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗಿ';
+
+  @override
+  String get moreOrders => 'ಹೆಚ್ಚಿನ ಆರ್ಡರ್‌ಗಳು';
+
+  @override
+  String get moreEarnings => 'ಹೆಚ್ಚಿನ ಗಳಿಕೆ';
+
+  @override
+  String get goOnline => 'ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗಿ';
+
+  @override
+  String get goOffline => 'ಆಫ್‌ಲೈನ್‌ಗೆ ಹೋಗಿ';
+
+  @override
+  String get todaysProgress => 'ಇಂದಿನ ಪ್ರಗತಿ';
+
+  @override
+  String get viewAll => 'ಎಲ್ಲವನ್ನೂ ವೀಕ್ಷಿಸಿ';
+
+  @override
+  String get viewAllGigs => 'ಎಲ್ಲಾ ಗಿಗ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸಿ';
+
+  @override
+  String get bookAndGoOnline => 'ಬುಕ್ ಮಾಡಿ ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗಿ';
+
+  @override
+  String get trips => 'ಟ್ರಿಪ್‌ಗಳು';
+
+  @override
+  String get gigs => 'ಗಿಗ್‌ಗಳು';
+
+  @override
+  String get sessions => 'ಸೆಷನ್‌ಗಳು';
+
+  @override
+  String get shifts => 'ಶಿಫ್ಟ್‌ಗಳು';
+
+  @override
+  String get incentiveSlabsBonusLevels =>
+      'ಇನ್ಸೆಂಟಿವ್ ಸ್ಲ್ಯಾಬ್‌ಗಳು ಮತ್ತು ಬೋನಸ್ ಮಟ್ಟಗಳು';
+
+  @override
+  String get earnBonusTitle => 'ಬೋನಸ್ ಗಳಿಸಿ';
+
+  @override
+  String get exploreBonuses => 'ಬೋನಸ್‌ಗಳನ್ನು ಅನ್ವೇಷಿಸಿ';
+
+  @override
+  String get referAndEarnTitle => 'ರೆಫರ್ ಮಾಡಿ ಗಳಿಸಿ';
+
+  @override
+  String get referNow => 'ಈಗಲೇ ರೆಫರ್ ಮಾಡಿ';
+
+  @override
+  String get gigsAndIncentives => 'ಗಿಗ್‌ಗಳು ಮತ್ತು ಪ್ರೋತ್ಸಾಹಗಳು';
+
+  @override
+  String earnUpToExtra(Object bonus) {
+    return '₹$bonus ವರೆಗೆ ಹೆಚ್ಚುವರಿ ಗಳಿಸಿ';
+  }
+
+  @override
+  String get lunchIncentive => 'ಊಟದ ಇನ್ಸೆಂಟಿವ್';
+
+  @override
+  String get dinnerIncentive => 'ರಾತ್ರಿಯ ಊಟದ ಇನ್ಸೆಂಟಿವ್';
+
+  @override
+  String get specialGigDesc => 'ವಿಶೇಷ ಗಿಗ್ • ನೀವು ಈಗಲೂ ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗಬಹುದು';
+
+  @override
+  String get noShiftsBookedYet => 'ಇನ್ನೂ ಯಾವುದೇ ಶಿಫ್ಟ್‌ಗಳನ್ನು ಬುಕ್ ಮಾಡಲಾಗಿಲ್ಲ';
+
+  @override
+  String get noShiftBookedForToday => 'ಇಂದಿಗೆ ಯಾವುದೇ ಶಿಫ್ಟ್ ಬುಕ್ ಮಾಡಲಾಗಿಲ್ಲ';
+
+  @override
+  String get mandatoryBookShiftHint =>
+      'ಕಡ್ಡಾಯ: ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗುವ ಮೊದಲು ಮತ್ತು ಆರ್ಡರ್‌ಗಳನ್ನು ಸ್ವೀಕರಿಸುವ ಮೊದಲು ನೀವು ಇಂದಿನ ಶಿಫ್ಟ್ ಅನ್ನು ಬುಕ್ ಮಾಡಬೇಕು.';
+
+  @override
+  String get bookShiftNow => 'ಈಗಲೇ ಶಿಫ್ಟ್ ಬುಕ್ ಮಾಡಿ 📅';
+
+  @override
+  String get selectShiftSlotNow => 'ಈಗಲೇ ಶಿಫ್ಟ್ ಸ್ಲ್ಯಾಟ್ ಆಯ್ಕೆಮಾಡಿ';
+
+  @override
+  String get verifyLocationAndGoOnline => 'ಸ್ಥಳ ಪರಿಶೀಲಿಸಿ ಆನ್‌ಲೈನ್‌ಗೆ ಹೋಗಿ 🟢';
+
+  @override
+  String get upcomingShiftsTitle => 'ಬರಲಿರುವ ಶಿಫ್ಟ್‌ಗಳು';
+
+  @override
+  String get bookMore => '+ ಇನ್ನಷ್ಟು ಬುಕ್ ಮಾಡಿ';
+
+  @override
+  String get noFutureUpcomingShifts =>
+      'ಭವಿಷ್ಯದ ಯಾವುದೇ ಶಿಫ್ಟ್‌ಗಳನ್ನು ಬುಕ್ ಮಾಡಲಾಗಿಲ್ಲ.';
+
+  @override
+  String get availableShiftSlots => 'ಲಭ್ಯವಿರುವ ಶಿಫ್ಟ್ ಸ್ಲ್ಯಾಟ್‌ಗಳು';
+
+  @override
+  String get filterServerTimeHint =>
+      'ಕಳೆದ ಮತ್ತು ಭರ್ತಿಯಾದ ಸ್ಲ್ಯಾಟ್‌ಗಳು ಸರ್ವರ್ ಸಮಯದ ಪ್ರಕಾರ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಫಿಲ್ಟರ್ ಆಗುತ್ತವೆ.';
+
+  @override
+  String get noActiveGigsTitle => 'ಯಾವುದೇ ಸಕ್ರಿಯ ಗಿಗ್‌ಗಳಿಲ್ಲ';
+
+  @override
+  String get noActiveGigsSubtitle =>
+      'ಪ್ರಸ್ತುತ ನಿಮ್ಮ ಸ್ಟೋರ್‌ಗೆ ಯಾವುದೇ ಸಕ್ರಿಯ ಗಿಗ್ ಪ್ರೋತ್ಸಾಹಗಳಿಲ್ಲ.';
+
+  @override
+  String get shiftStatusYourBooked => 'ನಿಮ್ಮ ಬುಕ್ ಮಾಡಲಾದ ಶಿಫ್ಟ್ ✓';
+
+  @override
+  String get shiftStatusEnded => 'ಶಿಫ್ಟ್ ಮುಕ್ತಾಯಗೊಂಡಿದೆ';
+
+  @override
+  String get shiftStatusFull => 'ಸಂಪೂರ್ಣವಾಗಿ ಭರ್ತಿಯಾಗಿದೆ';
+
+  @override
+  String spotsLeftCount(int count) {
+    return '$count ಸ್ಥಳಗಳು ಬಾಕಿ ಇವೆ!';
+  }
+
+  @override
+  String spotsAvailableCount(int count) {
+    return '$count ಸ್ಥಳಗಳು ಲಭ್ಯವಿವೆ';
+  }
+
+  @override
+  String get badgeBooked => 'ಬುಕ್ ಆಗಿದೆ ✓';
+
+  @override
+  String get badgeEnded => 'ಮುಗಿಯಿತು';
+
+  @override
+  String get badgeFull => 'ಭರ್ತಿ';
+
+  @override
+  String get btnBook => 'ಬುಕ್ ಮಾಡಿ';
+
+  @override
+  String get todayUpper => 'ಇಂದು';
+
+  @override
+  String get confirmShiftTitle => 'ಶಿಫ್ಟ್ ಖಚಿತಪಡಿಸಿ';
+
+  @override
+  String get workingHoursLabel => 'ಕೆಲಸದ ಸಮಯ';
+
+  @override
+  String get confirmBookQuestion =>
+      'ನೀವು ಖಚಿತವಾಗಿ ಈ ಶಿಫ್ಟ್ ಸ್ಲ್ಯಾಟ್ ಬುಕ್ ಮಾಡಲು ಬಯಸುತ್ತೀರಾ?';
+
+  @override
+  String get shiftBookedSuccessfully => '✓ ಶಿಫ್ಟ್ ಯಶಸ್ವಿಯಾಗಿ ಬುಕ್ ಆಗಿದೆ';
+
+  @override
+  String get shiftConfirmedSubtitle => 'ನಿಮ್ಮ ಶಿಫ್ಟ್ ಖಚಿತವಾಗಿದೆ.';
+
+  @override
+  String get verificationPendingBody =>
+      'ನಿಮ್ಮ ಪ್ರೊಫೈಲ್ ಅನ್ನು ನಮ್ಮ ಪರಿಶೀಲನಾ ತಂಡವು ಪರಿಶೀಲಿಸುತ್ತಿದೆ. ಇದು ಸಾಮಾನ್ಯವಾಗಿ 24-48 ಗಂಟೆಗಳನ್ನು ತೆಗೆದುಕೊಳ್ಳುತ್ತದೆ.';
+
+  @override
+  String get verificationPendingDarkStoreHint =>
+      'ತಕ್ಷಣದ ಆಫ್‌ಲೈನ್ ಪರಿಶೀಲನೆಗಾಗಿ ನಿಮ್ಮ ನೋಂದಾಯಿತ ಡಾರ್ಕ್ ಸ್ಟೋರ್‌ಗೆ ಭೇಟಿ ನೀಡಿ.';
+
+  @override
+  String get verificationRejectedBody =>
+      'ನಿಮ್ಮ ಡಾಕ್ಯುಮೆಂಟ್ ಪರಿಶೀಲನೆಯನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಮಾನ್ಯ ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳನ್ನು ಮರು-ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.';
+
+  @override
+  String get selectYourShift => 'ನಿಮ್ಮ ಶಿಫ್ಟ್ ಆಯ್ಕೆಮಾಡಿ';
+
+  @override
+  String get noAvailableSlotsForDate =>
+      'ಈ ದಿನಾಂಕಕ್ಕೆ ಯಾವುದೇ ಸ್ಲ್ಯಾಟ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ';
+
+  @override
+  String get allSlotsBookedOrEnded =>
+      'ಈ ದಿನಾಂಕದ ಎಲ್ಲಾ ಸ್ಲ್ಯಾಟ್‌ಗಳು ಬುಕ್ ಆಗಿವೆ ಅಥವಾ ಮುಕ್ತಾಯಗೊಂಡಿವೆ.';
+
+  @override
+  String get liveServerTime => 'ಲೈವ್ ಸರ್ವರ್ ಸಮಯ';
 }

@@ -236,12 +236,12 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.cardBackground,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: AppColors.cardBorder),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: AppColors.shadow,
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -252,7 +252,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                     const Icon(Icons.event_busy_rounded, color: Colors.orange, size: 48),
                     const SizedBox(height: 12),
                     Text(
-                      'No Shifts Booked Yet',
+                      l10n.noShiftsBookedYet,
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -267,7 +267,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                     ),
                     const SizedBox(height: 18),
                     PrimaryButton(
-                      label: 'Book Shift Now 📅',
+                      label: l10n.bookShiftNow,
                       onPressed: () {
                         setState(() => _activeTab = 1);
                       },
@@ -280,9 +280,9 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
+                    color: ThemeController.instance.isDark ? const Color(0xFF451A1A) : const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                    border: Border.all(color: ThemeController.instance.isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCA5A5)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,24 +291,29 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                         children: [
                           const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 22),
                           const SizedBox(width: 8),
-                          Text(
-                            'No Shift Booked For Today',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                              color: const Color(0xFF991B1B),
+                          Expanded(
+                            child: Text(
+                              l10n.noShiftBookedForToday,
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: ThemeController.instance.isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Mandatory: You must book today\'s shift before going online and receiving orders.',
-                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF7F1D1D)),
+                        l10n.mandatoryBookShiftHint,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: ThemeController.instance.isDark ? const Color(0xFFFECACA) : const Color(0xFF7F1D1D),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       PrimaryButton(
-                        label: 'Select Shift Slot Now',
+                        label: l10n.selectShiftSlotNow,
                         onPressed: () {
                           setState(() => _activeTab = 1);
                         },
@@ -320,12 +325,15 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFBBF7D0), width: 1.5),
+                    border: Border.all(
+                      color: ThemeController.instance.isDark ? const Color(0xFF047857) : const Color(0xFFBBF7D0),
+                      width: 1.5,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: AppColors.shadow,
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -340,7 +348,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
+                              color: ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -348,7 +356,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF15803D),
+                                color: ThemeController.instance.isDark ? const Color(0xFF6EE7B7) : const Color(0xFF15803D),
                               ),
                             ),
                           ),
@@ -382,7 +390,7 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                       const SizedBox(height: 16),
 
                       PrimaryButton(
-                        label: 'Verify Location & Go Online 🟢',
+                        label: l10n.verifyLocationAndGoOnline,
                         onPressed: _goOnlineWithLocation,
                       ),
                     ],
@@ -394,20 +402,24 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'UPCOMING SHIFTS',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textSecondary,
-                      letterSpacing: 1.2,
+                  Expanded(
+                    child: Text(
+                      l10n.upcomingShiftsTitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   TextButton(
                     onPressed: () {
                       setState(() => _activeTab = 1);
                     },
-                    child: const Text('+ Book More', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: Text(l10n.bookMore, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ],
               ),
@@ -418,12 +430,12 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardBackground,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: AppColors.cardBorder),
                   ),
-                  child: const Center(
-                    child: Text('No future upcoming shifts booked.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  child: Center(
+                    child: Text(l10n.noFutureUpcomingShifts, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                   ),
                 )
               else
@@ -437,35 +449,30 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardBackground,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  b.dateString,
-                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${b.startTime} – ${b.endTime}',
-                                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800),
-                                ),
-                                Text(
-                                  b.storeName,
-                                  style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
-                                ),
-                              ],
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${b.startTime} – ${b.endTime}',
+                                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                b.storeName,
+                                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
+                              ),
+                            ],
                           ),
-                          IconButton(
+                          TextButton(
                             onPressed: () => _cancelBooking(b.id),
-                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                            child: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -478,85 +485,93 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
     );
     }
 
-    final body = Column(
-      children: [
-        Container(
-          color: AppColors.background,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _activeTab = 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _activeTab == 0 ? AppColors.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.assignment_turned_in_rounded,
-                            size: 18,
+    final segmentedTabBar = Container(
+      color: AppColors.background,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.cardSubBg,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _activeTab = 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _activeTab == 0 ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.assignment_turned_in_rounded,
+                          size: 18,
+                          color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          l10n.myShifts,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                             color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'My Shifts',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: _activeTab == 0 ? Colors.white : AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _activeTab = 1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _activeTab == 1 ? AppColors.primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.event_available_rounded,
-                            size: 18,
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _activeTab = 1),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _activeTab == 1 ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.event_available_rounded,
+                          size: 18,
+                          color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          l10n.availableShifts,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                             color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Available Shifts',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: _activeTab == 1 ? Colors.white : AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
+      ),
+    );
+
+    final body = Column(
+      children: [
+        segmentedTabBar,
         Expanded(child: tabView),
       ],
     );

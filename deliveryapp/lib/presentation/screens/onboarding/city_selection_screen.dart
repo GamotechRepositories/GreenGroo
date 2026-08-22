@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/constants/service_locations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/onboarding_nav.dart';
-import '../../../l10n/app_localizations.dart';
-import '../../widgets/buttons/primary_button.dart';
 
 class CitySelectionScreen extends StatefulWidget {
   const CitySelectionScreen({super.key});
@@ -17,9 +14,23 @@ class CitySelectionScreen extends StatefulWidget {
 }
 
 class _CitySelectionScreenState extends State<CitySelectionScreen> {
-  String? _selectedId;
-  final _searchController = TextEditingController();
+  String? _selectedCityId;
   String _query = '';
+  String? _selectedState;
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String && args.isNotEmpty) {
+        setState(() => _selectedState = args);
+      } else if (args is Map && args['state'] != null) {
+        setState(() => _selectedState = args['state'] as String);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -27,155 +38,196 @@ class _CitySelectionScreenState extends State<CitySelectionScreen> {
     super.dispose();
   }
 
+  List<ServiceCity> get _filteredCities {
+    return ServiceLocations.search(_query, state: _selectedState);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final filtered = ServiceLocations.search(_query);
+    final cities = _filteredCities;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: const AppBackButton(fallbackRoute: AppRoutes.selectVehicle),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.selectState),
       ),
       body: SafeArea(
-        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 8),
                   Text(
-                    l10n.selectCity,
+                    'Select City',
                     style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
-                    l10n.whereWillYouDeliver,
+                    _selectedState != null
+                        ? 'Please select your city in $_selectedState'
+                        : 'Please select your city',
                     style: GoogleFonts.inter(
-                      fontSize: 15,
+                      fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // Search Bar
                   TextField(
                     controller: _searchController,
                     onChanged: (v) => setState(() => _query = v),
+                    style: GoogleFonts.inter(fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: l10n.searchCity,
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: 'Search city',
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF9CA3AF),
+                        size: 20,
+                      ),
                       filled: true,
-                      fillColor: AppColors.surfaceVariant,
-                      border: OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusMd),
-                        borderSide: BorderSide.none,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
+
+            // City List
             Expanded(
-              child: ListView.separated(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                itemCount: filtered.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final city = filtered[index];
-                  final selected = _selectedId == city.id;
-                  return Material(
-                    color: selected ? AppColors.primaryLight : Colors.white,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    child: InkWell(
-                      onTap: () => setState(() => _selectedId = city.id),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusMd),
-                          border: Border.all(
-                            color: selected
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: selected ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.location_city_rounded,
-                              color: selected
-                                  ? AppColors.primary
-                                  : AppColors.textMuted,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    city.name,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  Text(
-                                    city.state,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (selected)
-                              Icon(Icons.check_circle,
-                                  color: AppColors.primary),
-                          ],
+              child: cities.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No cities found',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: PrimaryButton(
-                label: l10n.continueButton,
-                onPressed: _selectedId == null
-                    ? null
-                    : () => goOnboardingStep(
-                          context,
-                          step: 'area',
-                          route: AppRoutes.selectArea,
-                          arguments: _selectedId,
-                          data: {
-                            'city': ServiceLocations.byId(_selectedId!)?.name ??
-                                _selectedId,
-                            'cityId': _selectedId,
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 8,
+                      ),
+                      itemCount: cities.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final city = cities[index];
+                        final selected = _selectedCityId == city.id ||
+                            (_selectedCityId == null && index == 0 && _selectedState == 'Maharashtra' && city.name == 'Pune');
+                        return InkWell(
+                          onTap: () {
+                            setState(() => _selectedCityId = city.id);
+                            goOnboardingStep(
+                              context,
+                              step: 'area',
+                              route: AppRoutes.selectArea,
+                              arguments: city.id,
+                              data: {
+                                'city': city.name,
+                                'cityId': city.id,
+                                'state': city.state,
+                              },
+                            );
                           },
-                        ),
-              ),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.primary
+                                    : const Color(0xFFE5E7EB),
+                                width: selected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        city.name,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 15,
+                                          fontWeight: selected
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        city.state,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: selected
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                    border: Border.all(
+                                      color: selected
+                                          ? AppColors.primary
+                                          : AppColors.textMuted,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: selected
+                                      ? const Icon(
+                                          Icons.check,
+                                          size: 14,
+                                          color: Colors.white,
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

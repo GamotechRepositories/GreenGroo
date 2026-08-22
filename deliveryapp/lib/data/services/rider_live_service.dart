@@ -187,4 +187,65 @@ class RiderLiveService {
       _isPeak = body['isPeak'] as bool? ?? false;
     } catch (_) {}
   }
+
+  Future<TodayProgressData> fetchTodayProgress() async {
+    if (!AuthService.instance.isLoggedIn) return TodayProgressData.fallback;
+    try {
+      final res = await apiGet(
+        ApiConfig.homeProgress,
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        if (body['success'] == true && body['data'] != null) {
+          return TodayProgressData.fromJson(body['data'] as Map<String, dynamic>);
+        }
+      }
+    } catch (_) {}
+    return TodayProgressData.fallback;
+  }
+}
+
+class TodayProgressData {
+  const TodayProgressData({
+    this.todayEarnings = 0,
+    this.completedTrips = 0,
+    this.onlineMinutes = 0,
+    this.onlineTime = '0h 0m',
+    this.bookedShifts = 0,
+    this.completedShifts = 0,
+  });
+
+  final int todayEarnings;
+  final int completedTrips;
+  final int onlineMinutes;
+  final String onlineTime;
+  final int bookedShifts;
+  final int completedShifts;
+
+  factory TodayProgressData.fromJson(Map<String, dynamic> json) {
+    final mins = (json['onlineMinutes'] as num?)?.toInt() ?? 0;
+    final h = mins ~/ 60;
+    final m = mins % 60;
+    final timeStr = json['onlineTime']?.toString() ?? '${h}h ${m}m';
+
+    final booked = (json['bookedShifts'] as num?)?.toInt() ??
+        (json['shiftsBooked'] as num?)?.toInt() ??
+        (json['bookedShiftsCount'] as num?)?.toInt() ??
+        0;
+    final completed = (json['completedShifts'] as num?)?.toInt() ??
+        (json['completedShiftsCount'] as num?)?.toInt() ??
+        0;
+
+    return TodayProgressData(
+      todayEarnings: (json['todayEarnings'] as num?)?.toInt() ?? 0,
+      completedTrips: (json['completedTrips'] as num?)?.toInt() ?? 0,
+      onlineMinutes: mins,
+      onlineTime: timeStr,
+      bookedShifts: booked,
+      completedShifts: completed,
+    );
+  }
+
+  static const fallback = TodayProgressData();
 }

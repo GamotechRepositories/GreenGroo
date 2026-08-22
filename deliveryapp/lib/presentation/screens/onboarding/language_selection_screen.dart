@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/l10n/locale_controller.dart';
 import '../../../core/l10n/supported_locales.dart';
 import '../../../core/routes/app_routes.dart';
@@ -38,8 +37,6 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     await LocaleController.instance.setLocale(Locale(_selected!));
     if (!mounted) return;
 
-    // Only sync language to backend when already registered/logged in.
-    // First-time users go to Login/Register — no API call needed here.
     if (AuthService.instance.isLoggedIn) {
       try {
         await AuthService.instance.updateOnboarding(
@@ -55,18 +52,20 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
       return;
     }
 
-    Navigator.pushReplacementNamed(context, AppRoutes.login);
+    Navigator.pushReplacementNamed(context, AppRoutes.welcome);
   }
 
-  String _englishName(AppLocalizations l10n, String code) {
+  String _displayName(AppLocalizations l10n, String code) {
     return switch (code) {
-      'en' => l10n.languageEnglish,
-      'hi' => l10n.languageHindi,
-      'mr' => l10n.languageMarathi,
-      'ta' => l10n.languageTamil,
-      'te' => l10n.languageTelugu,
-      'kn' => l10n.languageKannada,
-      _ => SupportedLocales.displayName(code),
+      'en' => 'English',
+      'hi' => 'हिंदी (Hindi)',
+      'bn' => 'বাংলা (Bengali)',
+      'gu' => 'ગુજરાતી (Gujarati)',
+      'mr' => 'मराठी (Marathi)',
+      'ta' => 'தமிழ் (Tamil)',
+      'te' => 'తెలుగు (Telugu)',
+      'kn' => 'ಕನ್ನಡ (Kannada)',
+      _ => SupportedLocales.nativeName(code),
     };
   }
 
@@ -81,73 +80,120 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        // First-time (not from Settings): no back — splash already finished.
         leading: widget.fromSettings ? const AppBackButton() : null,
       ),
       body: SafeArea(
-        top: false,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(Icons.translate_rounded, color: AppColors.primary),
+            const SizedBox(height: 12),
+            // Header Graphic
+            Center(
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFDCFCE7),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.two_wheeler_rounded,
+                    size: 56,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    l10n.chooseLanguage,
-                    style: GoogleFonts.inter(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.selectLanguageSubtitle,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
+            Text(
+              'Select Language',
+              style: GoogleFonts.inter(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose your preferred language\nto continue',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 24),
             Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.45,
-                ),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 itemCount: SupportedLocales.codes.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
                   final code = SupportedLocales.codes[index];
                   final selected = _selected == code;
-                  return _LanguageBox(
-                    englishName: _englishName(l10n, code),
-                    nativeName: SupportedLocales.nativeName(code),
-                    selected: selected,
+                  return InkWell(
                     onTap: () => setState(() => _selected = code),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selected ? AppColors.primary : AppColors.border,
+                          width: selected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _displayName(l10n, code),
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: selected
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.primary
+                                    : AppColors.textMuted,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: selected
+                                ? const Icon(
+                                    Icons.check,
+                                    size: 14,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              padding: const EdgeInsets.all(24),
               child: PrimaryButton(
                 label: widget.fromSettings
                     ? l10n.saveLanguage
@@ -156,72 +202,6 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageBox extends StatelessWidget {
-  const _LanguageBox({
-    required this.englishName,
-    required this.nativeName,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String englishName;
-  final String nativeName;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.primaryLight : Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  const Spacer(),
-                  if (selected)
-                    Icon(Icons.check_circle, color: AppColors.primary, size: 22),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                englishName,
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                nativeName,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

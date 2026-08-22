@@ -1,9 +1,10 @@
 import axios from "axios";
 
-const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5001").replace(
-  /\/+$/,
-  ""
-);
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  "http://api.greengrocc.com"
+).replace(/\/+$/, "");
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -28,6 +29,8 @@ export const managerApi = {
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
   riders: () => api.get(`${BASE}/riders`),
+  getDriverDetails: (driverId) => api.get(`${BASE}/drivers/${driverId}`),
+  toggleRiderActive: (driverId) => api.post(`${BASE}/drivers/${driverId}/toggle-active`),
   createRider: (data) => api.post(`${BASE}/riders`, data),
   pendingRiders: () => api.get(`${BASE}/riders/pending`),
   verifyRider: (riderId, body) =>

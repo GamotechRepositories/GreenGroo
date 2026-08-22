@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -32,6 +33,23 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     // Depend on Theme so light/dark toggles rebuild this bar immediately.
     final theme = Theme.of(context);
+    final bool canPop = Navigator.canPop(context);
+
+    Widget? effectiveLeading = leading;
+    if (effectiveLeading == null && showBackButton) {
+      effectiveLeading = IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        color: AppColors.textPrimary,
+        onPressed: () {
+          if (canPop) {
+            Navigator.pop(context);
+          } else {
+            Navigator.pushReplacementNamed(context, AppRoutes.home);
+          }
+        },
+      );
+    }
+
     return AppBar(
       leadingWidth: leadingWidth,
       backgroundColor: AppColors.background,
@@ -39,8 +57,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: centerTitle,
-      automaticallyImplyLeading: showBackButton,
-      leading: leading,
+      automaticallyImplyLeading: false,
+      leading: effectiveLeading,
       iconTheme: IconThemeData(color: AppColors.textPrimary),
       title: !showTitle
           ? null

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/image_upload_utils.dart';
@@ -90,16 +89,25 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
             children: [
               Text(
                 l10n.uploadDocumentSheetTitle,
-                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700),
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+                leading: Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppColors.primary,
+                ),
                 title: Text(l10n.takePhoto),
                 onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
               ListTile(
-                leading: Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                leading: Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.primary,
+                ),
                 title: Text(l10n.chooseFromGallery),
                 onTap: () => Navigator.pop(context, ImageSource.gallery),
               ),
@@ -126,16 +134,16 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: const AppBackButton(fallbackRoute: AppRoutes.selectCity),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.selectArea),
       ),
       body: SafeArea(
-        top: false,
         child: Column(
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 children: [
+                  const SizedBox(height: 8),
                   Text(
                     l10n.uploadDocuments,
                     style: GoogleFonts.inter(
@@ -144,15 +152,17 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     l10n.uploadDocumentsSubtitle,
                     style: GoogleFonts.inter(
-                      fontSize: 15,
+                      fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
+
+                  // IDENTITY DOCUMENTS
                   _SectionTitle(title: l10n.identityDocuments),
                   const SizedBox(height: 10),
                   _DocumentUploadCard(
@@ -162,7 +172,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     file: _files['aadhaar'],
                     onTap: () => _pick('aadhaar'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _DocumentUploadCard(
                     title: l10n.panCard,
                     subtitle: l10n.panCardSubtitle,
@@ -170,7 +180,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     file: _files['pan'],
                     onTap: () => _pick('pan'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _DocumentUploadCard(
                     title: l10n.passportSizePhoto,
                     subtitle: l10n.passportSizePhotoSubtitle,
@@ -178,15 +188,17 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     file: _files['passport'],
                     onTap: () => _pick('passport'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _DocumentUploadCard(
                     title: l10n.drivingLicense,
                     subtitle: l10n.drivingLicenseSubtitle,
-                    icon: Icons.directions_car_filled_outlined,
+                    icon: Icons.subtitles_outlined,
                     file: _files['license'],
                     onTap: () => _pick('license'),
                   ),
                   const SizedBox(height: 24),
+
+                  // VEHICLE DOCUMENTS
                   _SectionTitle(title: l10n.vehicleDocuments),
                   const SizedBox(height: 10),
                   _DocumentUploadCard(
@@ -196,15 +208,17 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     file: _files['rc'],
                     onTap: () => _pick('rc'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _DocumentUploadCard(
                     title: l10n.insurance,
                     subtitle: l10n.insuranceSubtitle,
-                    icon: Icons.health_and_safety_outlined,
+                    icon: Icons.verified_user_outlined,
                     file: _files['insurance'],
                     onTap: () => _pick('insurance'),
                   ),
                   const SizedBox(height: 24),
+
+                  // BANK DETAILS
                   _SectionTitle(title: l10n.bankDetails),
                   const SizedBox(height: 10),
                   _InputField(
@@ -213,14 +227,14 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     hint: l10n.accountHolderNameHint,
                     icon: Icons.person_outline,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _InputField(
                     controller: _bankName,
                     label: l10n.bankName,
                     hint: l10n.bankNameHint,
                     icon: Icons.account_balance_outlined,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _InputField(
                     controller: _accountNumber,
                     label: l10n.accountNumber,
@@ -228,7 +242,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     icon: Icons.numbers_outlined,
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _InputField(
                     controller: _ifsc,
                     label: l10n.ifscCode,
@@ -237,6 +251,8 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     textCapitalization: TextCapitalization.characters,
                   ),
                   const SizedBox(height: 24),
+
+                  // UPI ID
                   _SectionTitle(title: l10n.upiId),
                   const SizedBox(height: 10),
                   _InputField(
@@ -245,11 +261,32 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                     hint: l10n.upiIdHint,
                     icon: Icons.payment_outlined,
                   ),
+
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.lock_outline,
+                        size: 16,
+                        color: Color(0xFF6B7280),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Your documents are safe and secure with us.',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              padding: const EdgeInsets.all(24),
               child: PrimaryButton(
                 label: _submitting ? 'Uploading…' : l10n.next,
                 onPressed: _canContinue && !_submitting
@@ -261,8 +298,9 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
                             docs[key] = await documentPayload(_files[key]);
                           }
                           if (!mounted) return;
+                          final currentContext = context;
                           await goOnboardingStep(
-                            context,
+                            currentContext,
                             step: 'selfie',
                             route: AppRoutes.takeSelfie,
                             data: {
@@ -300,7 +338,7 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: GoogleFonts.inter(
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: FontWeight.w700,
         color: AppColors.primary,
       ),
@@ -343,9 +381,27 @@ class _InputField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           textCapitalization: textCapitalization,
+          style: GoogleFonts.inter(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon),
+            prefixIcon: Icon(icon, color: const Color(0xFF9CA3AF), size: 20),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
+            ),
           ),
         ),
       ],
@@ -373,71 +429,84 @@ class _DocumentUploadCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final uploaded = file != null;
 
-    return Material(
-      color: uploaded ? AppColors.primaryLight : Colors.white,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: uploaded ? AppColors.primary : AppColors.border,
-              width: uploaded ? 2 : 1,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: uploaded ? AppColors.primary : const Color(0xFFE5E7EB),
+          width: uploaded ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: uploaded
+                ? Image.file(
+                    File(file!.path),
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    width: 48,
+                    height: 48,
+                    color: const Color(0xFFDCFCE7),
+                    child: Icon(icon, color: AppColors.primary, size: 24),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  uploaded ? l10n.uploadedTapToChange : subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: uploaded
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: uploaded
-                    ? Image.file(
-                        File(file!.path),
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        width: 56,
-                        height: 56,
-                        color: AppColors.primaryLight,
-                        child: Icon(icon, color: AppColors.primary, size: 28),
-                      ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      uploaded ? l10n.uploadedTapToChange : subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: uploaded ? AppColors.primary : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: uploaded ? const Color(0xFFDCFCE7) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.primary,
+                  width: 1.5,
                 ),
               ),
-              Icon(
-                uploaded ? Icons.check_circle : Icons.upload_rounded,
-                color: uploaded ? AppColors.primary : AppColors.textMuted,
+              child: Text(
+                uploaded ? 'Uploaded' : 'Upload',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

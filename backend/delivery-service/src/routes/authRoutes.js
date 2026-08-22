@@ -3,11 +3,15 @@ import { protect, optionalAuth } from "@greengrocc/shared";
 import {
   getAreaManager,
   getActiveHubs,
+  getTodayProgress,
   heartbeat,
   login,
   me,
   register,
+  updateFcmToken,
+  updateLocation,
   updateOnboarding,
+  updateRiderRating,
   updateStatus,
 } from "../controllers/authController.js";
 import {
@@ -40,11 +44,16 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, me);
+router.get("/home/progress", protect, getTodayProgress);
+router.get("/home-dashboard", protect, getTodayProgress);
 router.get("/area-manager", getAreaManager);
 router.get("/active-hubs", getActiveHubs);
 router.patch("/onboarding", protect, updateOnboarding);
 router.patch("/status", protect, updateStatus);
 router.post("/heartbeat", protect, heartbeat);
+router.post("/fcm-token", protect, updateFcmToken);
+router.post("/location", protect, updateLocation);
+router.post("/rider/:riderId/rate", updateRiderRating);
 router.post("/shift-booking", protect, bookSlot);
 router.get("/shift-booking/:riderId", protect, getMyBooking);
 router.get("/login-hours", protect, getLoginHours);

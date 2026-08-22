@@ -4,14 +4,21 @@ import '../../presentation/screens/active_delivery/active_delivery_screen.dart';
 import '../../presentation/screens/attendance/attendance_screen.dart';
 import '../../presentation/screens/documents/documents_screen.dart';
 import '../../presentation/screens/earnings/earnings_screen.dart';
+import '../../presentation/screens/gigs/all_gigs_screen.dart';
 import '../../presentation/screens/history/delivery_history_screen.dart';
 import '../../presentation/screens/login/login_screen.dart';
+import '../../presentation/screens/login/otp_verification_screen.dart';
+import '../../presentation/screens/login/welcome_screen.dart';
 import '../../presentation/screens/navigation/live_navigation_screen.dart';
 import '../../presentation/screens/notifications/notifications_screen.dart';
 import '../../presentation/screens/onboarding/area_selection_screen.dart';
 import '../../presentation/screens/onboarding/city_selection_screen.dart';
 import '../../presentation/screens/onboarding/language_selection_screen.dart';
 import '../../presentation/screens/onboarding/liveness_check_screen.dart';
+import '../../presentation/screens/onboarding/profile_details_screen.dart';
+import '../../presentation/screens/onboarding/registration_success_screen.dart';
+import '../../presentation/screens/onboarding/review_submit_screen.dart';
+import '../../presentation/screens/onboarding/state_selection_screen.dart';
 import '../../presentation/screens/onboarding/take_selfie_screen.dart';
 import '../../presentation/screens/onboarding/upload_documents_screen.dart';
 import '../../presentation/screens/onboarding/vehicle_selection_screen.dart';
@@ -43,13 +50,19 @@ class AppRouter {
           AppRoutes.selectLanguage => LanguageSelectionScreen(
             fromSettings: settings.arguments == true,
           ),
+          AppRoutes.welcome => const WelcomeScreen(),
           AppRoutes.login => const LoginScreen(),
+          AppRoutes.otpVerification => const OtpVerificationScreen(),
           AppRoutes.selectVehicle => const VehicleSelectionScreen(),
+          AppRoutes.selectState => const StateSelectionScreen(),
           AppRoutes.selectCity => const CitySelectionScreen(),
           AppRoutes.selectArea => AreaSelectionScreen(
               cityId: (settings.arguments as String?) ?? '',
             ),
           AppRoutes.uploadDocuments => const UploadDocumentsScreen(),
+          AppRoutes.profileDetails => const ProfileDetailsScreen(),
+          AppRoutes.reviewSubmit => const ReviewSubmitScreen(),
+          AppRoutes.registrationSuccess => const RegistrationSuccessScreen(),
           AppRoutes.takeSelfie => const TakeSelfieScreen(),
           AppRoutes.livenessCheck => LivenessCheckScreen(
               selfiePath: settings.arguments as String?,
@@ -62,6 +75,7 @@ class AppRouter {
           AppRoutes.deliveryHistory => const DeliveryHistoryScreen(),
           AppRoutes.earnings => const EarningsScreen(),
           AppRoutes.wallet => const WalletScreen(),
+          AppRoutes.gigs => const AllGigsScreen(),
           AppRoutes.attendance => const AttendanceScreen(),
           AppRoutes.performance => const PerformanceScreen(),
           AppRoutes.notifications => const NotificationsScreen(),

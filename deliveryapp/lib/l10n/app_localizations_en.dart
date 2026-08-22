@@ -1138,13 +1138,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referAndEarn => 'Refer & Earn';
 
   @override
-  String get referAndEarnSubtitle => 'Invite friends and earn rewards';
+  String get referAndEarnSubtitle =>
+      'Invite your friends and earn amazing rewards';
 
   @override
   String get earnBonus => 'Earn Bonus';
 
   @override
-  String get earnBonusSubtitle => 'Do extra to earn bonus';
+  String get earnBonusSubtitle =>
+      'Complete more gigs and earn exciting bonuses';
 
   @override
   String get viewWallet => 'View Wallet';
@@ -1197,4 +1199,193 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueDelivery => 'Continue Delivery';
+
+  @override
+  String get goOnlineToReceiveOrders =>
+      'Go online to receive delivery requests';
+
+  @override
+  String get moreOrders => 'More orders';
+
+  @override
+  String get moreEarnings => 'More earnings';
+
+  @override
+  String get goOnline => 'Go Online';
+
+  @override
+  String get goOffline => 'Go Offline';
+
+  @override
+  String get todaysProgress => 'Today\'s Progress';
+
+  @override
+  String get viewAll => 'View All';
+
+  @override
+  String get viewAllGigs => 'View All Gigs';
+
+  @override
+  String get bookAndGoOnline => 'Book & Go Online';
+
+  @override
+  String get trips => 'Trips';
+
+  @override
+  String get gigs => 'Gigs';
+
+  @override
+  String get sessions => 'Sessions';
+
+  @override
+  String get shifts => 'Shifts';
+
+  @override
+  String get incentiveSlabsBonusLevels => 'INCENTIVE SLABS & BONUS LEVELS';
+
+  @override
+  String get earnBonusTitle => 'Earn Bonus';
+
+  @override
+  String get exploreBonuses => 'Explore Bonuses';
+
+  @override
+  String get referAndEarnTitle => 'Refer & Earn';
+
+  @override
+  String get referNow => 'Refer Now';
+
+  @override
+  String get gigsAndIncentives => 'Gigs & Incentives';
+
+  @override
+  String earnUpToExtra(Object bonus) {
+    return 'Earn up to ₹$bonus extra';
+  }
+
+  @override
+  String get lunchIncentive => 'Lunch Incentive';
+
+  @override
+  String get dinnerIncentive => 'Dinner Incentive';
+
+  @override
+  String get specialGigDesc => 'Special Gig • You can go online even now';
+
+  @override
+  String get noShiftsBookedYet => 'No Shifts Booked Yet';
+
+  @override
+  String get noShiftBookedForToday => 'No Shift Booked For Today';
+
+  @override
+  String get mandatoryBookShiftHint =>
+      'Mandatory: You must book today\'s shift before going online and receiving orders.';
+
+  @override
+  String get bookShiftNow => 'Book Shift Now 📅';
+
+  @override
+  String get selectShiftSlotNow => 'Select Shift Slot Now';
+
+  @override
+  String get verifyLocationAndGoOnline => 'Verify Location & Go Online 🟢';
+
+  @override
+  String get upcomingShiftsTitle => 'UPCOMING SHIFTS';
+
+  @override
+  String get bookMore => '+ Book More';
+
+  @override
+  String get noFutureUpcomingShifts => 'No future upcoming shifts booked.';
+
+  @override
+  String get availableShiftSlots => 'Available Shift Slots';
+
+  @override
+  String get filterServerTimeHint =>
+      'Past and full slots are automatically filtered by server time.';
+
+  @override
+  String get noActiveGigsTitle => 'No Active Gigs';
+
+  @override
+  String get noActiveGigsSubtitle =>
+      'There are no active gig incentives for your store right now.';
+
+  @override
+  String get shiftStatusYourBooked => 'YOUR BOOKED SHIFT ✓';
+
+  @override
+  String get shiftStatusEnded => 'SHIFT ENDED';
+
+  @override
+  String get shiftStatusFull => 'FULLY BOOKED';
+
+  @override
+  String spotsLeftCount(int count) {
+    return '$count spots left!';
+  }
+
+  @override
+  String spotsAvailableCount(int count) {
+    return '$count spots available';
+  }
+
+  @override
+  String get badgeBooked => 'Booked ✓';
+
+  @override
+  String get badgeEnded => 'Ended';
+
+  @override
+  String get badgeFull => 'Full';
+
+  @override
+  String get btnBook => 'Book';
+
+  @override
+  String get todayUpper => 'TODAY';
+
+  @override
+  String get confirmShiftTitle => 'Confirm Shift';
+
+  @override
+  String get workingHoursLabel => 'Working Hours';
+
+  @override
+  String get confirmBookQuestion =>
+      'Are you sure you want to book this shift slot?';
+
+  @override
+  String get shiftBookedSuccessfully => '✓ Shift Booked Successfully';
+
+  @override
+  String get shiftConfirmedSubtitle => 'Your shift has been confirmed.';
+
+  @override
+  String get verificationPendingBody =>
+      'Your profile is under review by our verification team. This usually takes 24-48 hours.';
+
+  @override
+  String get verificationPendingDarkStoreHint =>
+      'Visit your registered dark store for instant offline verification.';
+
+  @override
+  String get verificationRejectedBody =>
+      'Your document verification was rejected. Please re-upload valid documents.';
+
+  @override
+  String get selectYourShift => 'Select Your Shift';
+
+  @override
+  String get noAvailableSlotsForDate => 'No Available Slots for this date';
+
+  @override
+  String get allSlotsBookedOrEnded =>
+      'All slots for this date are booked or ended.';
+
+  @override
+  String get liveServerTime => 'Live Server Time';
 }

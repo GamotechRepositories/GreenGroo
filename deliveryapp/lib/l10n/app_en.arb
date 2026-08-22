@@ -422,5 +422,86 @@
   "completed": "Completed",
   "myOrders": "My Orders",
   "thisWeekEarnings": "This Week",
-  "continueDelivery": "Continue Delivery"
+  "continueDelivery": "Continue Delivery",
+
+  "goOnlineToReceiveOrders": "Go online to receive delivery requests",
+  "moreOrders": "More orders",
+  "moreEarnings": "More earnings",
+  "goOnline": "Go Online",
+  "goOffline": "Go Offline",
+  "todaysProgress": "Today's Progress",
+  "viewAll": "View All",
+  "viewAllGigs": "View All Gigs",
+  "bookAndGoOnline": "Book & Go Online",
+  "trips": "Trips",
+  "gigs": "Gigs",
+  "sessions": "Sessions",
+  "shifts": "Shifts",
+  "incentiveSlabsBonusLevels": "INCENTIVE SLABS & BONUS LEVELS",
+  "earnBonusTitle": "Earn Bonus",
+  "earnBonusSubtitle": "Complete more gigs and earn exciting bonuses",
+  "exploreBonuses": "Explore Bonuses",
+  "referAndEarnTitle": "Refer & Earn",
+  "referAndEarnSubtitle": "Invite your friends and earn amazing rewards",
+  "referNow": "Refer Now",
+  "gigsAndIncentives": "Gigs & Incentives",
+  "earnUpToExtra": "Earn up to ₹{bonus} extra",
+  "@earnUpToExtra": {
+    "placeholders": {
+      "bonus": { "type": "Object" }
+    }
+  },
+
+  "lunchIncentive": "Lunch Incentive",
+  "dinnerIncentive": "Dinner Incentive",
+  "specialGigDesc": "Special Gig • You can go online even now",
+  "noShiftsBookedYet": "No Shifts Booked Yet",
+  "noShiftBookedForToday": "No Shift Booked For Today",
+  "mandatoryBookShiftHint": "Mandatory: You must book today's shift before going online and receiving orders.",
+  "bookShiftNow": "Book Shift Now 📅",
+  "selectShiftSlotNow": "Select Shift Slot Now",
+  "verifyLocationAndGoOnline": "Verify Location & Go Online 🟢",
+  "upcomingShiftsTitle": "UPCOMING SHIFTS",
+  "bookMore": "+ Book More",
+  "noFutureUpcomingShifts": "No future upcoming shifts booked.",
+  "availableShiftSlots": "Available Shift Slots",
+  "filterServerTimeHint": "Past and full slots are automatically filtered by server time.",
+  "noActiveGigsTitle": "No Active Gigs",
+  "noActiveGigsSubtitle": "There are no active gig incentives for your store right now.",
+
+  "shiftStatusYourBooked": "YOUR BOOKED SHIFT ✓",
+  "shiftStatusEnded": "SHIFT ENDED",
+  "shiftStatusFull": "FULLY BOOKED",
+  "spotsLeftCount": "{count} spots left!",
+  "@spotsLeftCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "spotsAvailableCount": "{count} spots available",
+  "@spotsAvailableCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "badgeBooked": "Booked ✓",
+  "badgeEnded": "Ended",
+  "badgeFull": "Full",
+  "btnBook": "Book",
+  "todayUpper": "TODAY",
+  "confirmShiftTitle": "Confirm Shift",
+  "workingHoursLabel": "Working Hours",
+  "confirmBookQuestion": "Are you sure you want to book this shift slot?",
+  "shiftBookedSuccessfully": "✓ Shift Booked Successfully",
+  "shiftConfirmedSubtitle": "Your shift has been confirmed.",
+  "verificationPendingBody": "Your profile is under review by our verification team. This usually takes 24-48 hours.",
+  "verificationPendingDarkStoreHint": "Visit your registered dark store for instant offline verification.",
+  "verificationRejectedBody": "Your document verification was rejected. Please re-upload valid documents.",
+
+  "myShifts": "My Shifts",
+  "availableShifts": "Available Shifts",
+  "selectYourShift": "Select Your Shift",
+  "noAvailableSlotsForDate": "No Available Slots for this date",
+  "allSlotsBookedOrEnded": "All slots for this date are booked or ended.",
+  "liveServerTime": "Live Server Time"
 }
