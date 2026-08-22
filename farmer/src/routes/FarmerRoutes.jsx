@@ -32,6 +32,7 @@ import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistor
 import ManagerOrdersPage from "../pages/manager/ManagerOrdersPage";
 import ManagerCreateOrderPage from "../pages/manager/ManagerCreateOrderPage";
 import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
+import ManagerFarmerEarningsSpreadsheetPage from "../pages/manager/ManagerFarmerEarningsSpreadsheetPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
 
@@ -73,6 +74,8 @@ function FarmerRoutes() {
           <Route path="manager/orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
           <Route path="manager/orders/create" element={<ManagerCreateOrderPage />} />
           <Route path="manager/earnings" element={<ManagerEarningsPage />} />
+          <Route path="manager/earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
+          <Route path="manager/earnings/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
           <Route path="manager/documents" element={<ManagerDocumentsPage />} />
           <Route path="manager/profile" element={<ProfilePage />} />
           <Route path="manager" element={<Navigate to="manager/dashboard" replace />} />

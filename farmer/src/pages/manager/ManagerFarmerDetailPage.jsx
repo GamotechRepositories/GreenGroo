@@ -271,31 +271,42 @@ export default function ManagerFarmerDetailPage() {
         )}
 
         {tab === "Earnings" && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-[#F2F2F2] text-left">
-                  {["Date", "Crop", "Quantity", "Gross", "Deductions", "Net", "Status"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {earnings.length === 0 ? (
-                  <tr><td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">No earnings</td></tr>
-                ) : earnings.map((e) => (
-                  <tr key={e.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                    <td className="px-3 py-2.5">{e.date}</td>
-                    <td className="px-3 py-2.5">{e.cropName}</td>
-                    <td className="px-3 py-2.5">{e.quantity} Kg</td>
-                    <td className="px-3 py-2.5">₹{(e.grossEarnings || 0).toLocaleString("en-IN")}</td>
-                    <td className="px-3 py-2.5 text-[#DC2626]">-₹{e.deductions || 0}</td>
-                    <td className="px-3 py-2.5 font-semibold text-[#217346]">₹{(e.netEarnings || 0).toLocaleString("en-IN")}</td>
-                    <td className="px-3 py-2.5">{STATUS_BADGE(e.status)}</td>
+          <div className="p-3 space-y-3">
+            <div className="flex justify-between items-center bg-[#F2F8F3] p-2.5 border border-[#D4D4D4]">
+              <span className="font-bold text-xs text-[#1F2937]">Detailed Farmer Produce & Earnings</span>
+              <Link
+                to={`/farmer/manager/earnings/farmer/${farmer.id}`}
+                className="border border-[#217346] bg-[#217346] px-3 py-1 text-xs font-bold text-white hover:bg-[#1a5c38]"
+              >
+                📊 Open Full Earning Spreadsheet ↗
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#F2F2F2] text-left">
+                    {["Date", "Crop", "Quantity", "Gross", "Deductions", "Net", "Status"].map((h) => (
+                      <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {earnings.length === 0 ? (
+                    <tr><td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">No earnings recorded</td></tr>
+                  ) : earnings.map((e) => (
+                    <tr key={e.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                      <td className="px-3 py-2.5">{e.date}</td>
+                      <td className="px-3 py-2.5">{e.cropName}</td>
+                      <td className="px-3 py-2.5">{e.quantity} Kg</td>
+                      <td className="px-3 py-2.5">₹{(e.grossEarnings || 0).toLocaleString("en-IN")}</td>
+                      <td className="px-3 py-2.5 text-[#DC2626]">-₹{e.deductions || 0}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[#217346]">₹{(e.netEarnings || 0).toLocaleString("en-IN")}</td>
+                      <td className="px-3 py-2.5">{STATUS_BADGE(e.status)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
