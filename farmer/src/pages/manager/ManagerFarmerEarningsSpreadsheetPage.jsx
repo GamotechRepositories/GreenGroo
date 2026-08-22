@@ -293,20 +293,20 @@ export default function ManagerFarmerEarningsSpreadsheetPage() {
 
       {/* 4. Product-Wise Earning Spreadsheet Section (Photo Replica) */}
       <section className={EXCEL_PANEL}>
-        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2 bg-[#F2F8F3]`}>
-          <div className="flex items-center gap-2">
+        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-3 bg-[#F2F8F3] px-3 py-2 border-b border-[#D4D4D4]`}>
+          <div className="flex items-center gap-2 shrink-0">
             <span className="font-extrabold text-[#1F2937] text-sm">Product-Wise Earning Spreadsheet</span>
             <span className="rounded bg-[#E8F5E9] px-2 py-0.5 text-[10px] font-bold text-[#217346]">
               {filteredOrders.length} Orders
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#6B7280]">Select Product:</span>
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <span className="text-xs font-semibold text-[#6B7280] whitespace-nowrap">Select Product:</span>
             <select
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
-              className={`${EXCEL_SELECT} text-black bg-white border border-[#D4D4D4] py-1 px-2 font-medium`}
+              className={`${EXCEL_SELECT} text-black bg-white border border-[#D4D4D4] py-1.5 px-2.5 font-medium rounded-xs shadow-xs focus:border-[#217346]`}
             >
               <option value="ALL">All Products ({orders.length})</option>
               {availableProducts.map((item) => (

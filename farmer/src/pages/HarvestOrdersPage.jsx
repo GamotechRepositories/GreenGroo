@@ -197,84 +197,69 @@ export default function HarvestOrdersPage() {
         </span>
       </div>
 
-      {/* 2. KPI Cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className={`${EXCEL_PANEL} p-3 rounded-xs shadow-xs`}>
-          <p className="text-[11px] font-semibold text-[#6B7280]">Total Harvest Qty</p>
-          <p className="text-lg font-bold text-[#217346]">{totalVolume.toLocaleString("en-IN")} Kg/L</p>
-        </div>
-        <div className={`${EXCEL_PANEL} p-3 rounded-xs shadow-xs`}>
-          <p className="text-[11px] font-semibold text-[#6B7280]">Rejection Volume</p>
-          <p className="text-lg font-bold text-[#DC2626]">{totalRejection.toLocaleString("en-IN")} Kg/L</p>
-        </div>
-        <div className={`${EXCEL_PANEL} p-3 rounded-xs shadow-xs`}>
-          <p className="text-[11px] font-semibold text-[#6B7280]">Approved Entries</p>
-          <p className="text-lg font-bold text-emerald-700">{approvedCount}</p>
-        </div>
-        <div className={`${EXCEL_PANEL} p-3 rounded-xs shadow-xs`}>
-          <p className="text-[11px] font-semibold text-[#6B7280]">Total Orders</p>
-          <p className="text-lg font-bold text-[#1F2937]">{spreadsheetRows.length}</p>
-        </div>
-      </div>
-
-      {/* 3. Harvest Order Spreadsheet Table */}
+      {/* Harvest Order Spreadsheet Table */}
       <section className={EXCEL_PANEL}>
-        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2 bg-[#F2F8F3]`}>
-          <span className="font-extrabold text-[#1F2937] text-sm">Harvest Order Details</span>
+        <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-3 bg-[#F2F8F3] px-3 py-2 border-b border-[#D4D4D4]`}>
+          {/* Left Group: Records Badge & Filter Produce Chips */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="rounded bg-[#E8F5E9] px-2 py-0.5 text-[10px] font-bold text-[#217346] whitespace-nowrap">
+              {spreadsheetRows.length} Records
+            </span>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#6B7280]">Select Product:</span>
+            {/* Produce Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+              <span className="text-[11px] font-bold text-[#6B7280] whitespace-nowrap">Filter Produce:</span>
+              <button
+                type="button"
+                onClick={() => setProductFilter("ALL")}
+                className={`shrink-0 rounded-xs border px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                  productFilter === "ALL"
+                    ? "border-[#217346] bg-[#217346] text-white shadow-xs"
+                    : "border-[#D4D4D4] bg-white text-[#4B5563] hover:bg-[#F2F2F2]"
+                }`}
+              >
+                All Products ({orders.length})
+              </button>
+              {uniqueProducts.map((pName) => {
+                const count = productCountMap.get(pName) || 0;
+                const isSel = productFilter === pName;
+                return (
+                  <button
+                    key={pName}
+                    type="button"
+                    onClick={() => setProductFilter(pName)}
+                    className={`shrink-0 inline-flex items-center gap-1.5 rounded-xs border px-2.5 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                      isSel
+                        ? "border-[#217346] bg-[#E8F5E9] text-[#217346] font-bold ring-1 ring-[#217346] shadow-xs"
+                        : "border-[#D4D4D4] bg-white text-[#1F2937] hover:border-[#217346] hover:bg-[#F9F9F9]"
+                    }`}
+                  >
+                    <span>{pName}</span>
+                    <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${isSel ? "bg-[#217346] text-white" : "bg-gray-100 text-gray-600"}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Group: Select Product Dropdown (Shifted Right) */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <span className="text-xs font-semibold text-[#6B7280] whitespace-nowrap">Select Product:</span>
             <select
               value={productFilter}
               onChange={(e) => setProductFilter(e.target.value)}
-              className={`${EXCEL_SELECT} text-black bg-white border border-[#D4D4D4] py-1 px-2 font-medium`}
+              className={`${EXCEL_SELECT} text-black bg-white border border-[#D4D4D4] py-1.5 px-2.5 font-medium rounded-xs shadow-xs focus:border-[#217346]`}
             >
-              <option value="ALL">All Products</option>
+              <option value="ALL">All Products ({orders.length})</option>
               {uniqueProducts.map((pName) => (
                 <option key={pName} value={pName}>
                   {pName} ({productCountMap.get(pName) || 0})
                 </option>
               ))}
             </select>
-            <span className="text-[11px] text-[#6B7280]">{spreadsheetRows.length} Records</span>
           </div>
-        </div>
-
-        {/* Quick Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto border-b border-[#D4D4D4] bg-[#FAFAFA] p-2.5">
-          <span className="shrink-0 text-[11px] font-bold text-[#6B7280]">Filter Produce:</span>
-          <button
-            type="button"
-            onClick={() => setProductFilter("ALL")}
-            className={`shrink-0 rounded-xs border px-2.5 py-0.5 text-[11px] font-bold transition-colors ${
-              productFilter === "ALL"
-                ? "border-[#217346] bg-[#217346] text-white"
-                : "border-[#D4D4D4] bg-white text-[#4B5563] hover:bg-[#F2F2F2]"
-            }`}
-          >
-            All Products ({orders.length})
-          </button>
-          {uniqueProducts.map((pName) => {
-            const count = productCountMap.get(pName) || 0;
-            const isSel = productFilter === pName;
-            return (
-              <button
-                key={pName}
-                type="button"
-                onClick={() => setProductFilter(pName)}
-                className={`shrink-0 inline-flex items-center gap-1 rounded-xs border px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
-                  isSel
-                    ? "border-[#217346] bg-[#E8F5E9] text-[#217346] font-bold ring-1 ring-[#217346]"
-                    : "border-[#D4D4D4] bg-white text-[#1F2937] hover:border-[#217346] hover:bg-[#F9F9F9]"
-                }`}
-              >
-                <span>{pName}</span>
-                <span className={`rounded-full px-1.5 py-0.2 text-[10px] ${isSel ? "bg-[#217346] text-white" : "bg-gray-100 text-gray-600"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
         </div>
 
         <div className="p-3">
