@@ -124,6 +124,13 @@ export default function ManagerPickupDetailPage() {
           {pickup.pickupConfirmed ? (
             <p className="font-semibold text-[#217346]">Picked up at {pickup.pickupConfirmedAt ? new Date(pickup.pickupConfirmedAt).toLocaleString("en-IN") : "—"}.</p>
           ) : null}
+          {(pickup.confirmationPhotos || []).length ? (
+            <div className="grid grid-cols-4 gap-2 pt-2">
+              {pickup.confirmationPhotos.map((src, i) => (
+                <img key={i} src={src} alt={`Pickup photo ${i + 1}`} className="h-16 w-full object-cover" />
+              ))}
+            </div>
+          ) : null}
           <Link to="/farmer/manager/pickups/ready" className={EXCEL_BTN}>Back</Link>
         </div>
       </section>

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useVendorAuth } from "../../context/VendorAuthContext";
+import { useDriverAuth } from "../../context/DriverAuthContext";
 
 export default function VendorLoginPage() {
-  const { login } = useVendorAuth();
+  const { login: vendorLogin, logout: vendorLogout } = useVendorAuth();
+  const { login: driverLogin, logout: driverLogout } = useDriverAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ mobile: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -16,35 +18,59 @@ export default function VendorLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.mobile || !form.password) { setError("Mobile and password are required"); return; }
-    setSubmitting(true);
-    try {
-      await login({ mobile: form.mobile.trim(), password: form.password });
-      navigate("/vendor/farmer-managers", { replace: true });
-    } catch (err) {
-      setError(err?.response?.data?.message || "Invalid credentials");
-    } finally {
-      setSubmitting(false);
+    if (!form.mobile || !form.password) {
+      setError("Mobile and password are required");
+      return;
     }
+    setSubmitting(true);
+    setError("");
+    const credentials = { mobile: form.mobile.trim(), password: form.password };
+    const [vendorResult, driverResult] = await Promise.allSettled([
+      vendorLogin(credentials),
+      driverLogin(credentials),
+    ]);
+    setSubmitting(false);
+
+    const vendorOk = vendorResult.status === "fulfilled";
+    const driverOk = driverResult.status === "fulfilled";
+
+    if (vendorOk && !driverOk) {
+      driverLogout();
+      navigate("/vendor/farmer-managers", { replace: true });
+      return;
+    }
+    if (driverOk && !vendorOk) {
+      vendorLogout();
+      navigate("/driver/assigned", { replace: true });
+      return;
+    }
+    if (vendorOk && driverOk) {
+      driverLogout();
+      navigate("/vendor/farmer-managers", { replace: true });
+      return;
+    }
+
+    const vendorErr = vendorResult.status === "rejected" ? vendorResult.reason : null;
+    const driverErr = driverResult.status === "rejected" ? driverResult.reason : null;
+    setError(vendorErr?.response?.data?.message || driverErr?.response?.data?.message || "Invalid credentials");
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAF9] px-4">
       <div className="w-full max-w-sm border border-[#D4D4D4] bg-white p-8 shadow-sm">
-        {/* Logo */}
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center bg-[#217346]">
-            <span className="text-xl font-bold text-white">V</span>
+            <span className="text-xl font-bold text-white">G</span>
           </div>
-          <h1 className="text-base font-bold text-[#1F2937]">Vendor Login</h1>
-          <p className="mt-1 text-xs text-[#6B7280]">Sign in to your Vendor Portal</p>
+          <h1 className="text-base font-bold text-[#1F2937]">Sign In</h1>
+          <p className="mt-1 text-xs text-[#6B7280]">Use your mobile and password</p>
         </div>
 
-        {error && (
+        {error ? (
           <div className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
             {error}
           </div>
-        )}
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -54,7 +80,7 @@ export default function VendorLoginPage() {
               name="mobile"
               value={form.mobile}
               onChange={handleChange}
-              placeholder="9900000001"
+              placeholder="Mobile number"
               className="w-full border border-[#D4D4D4] px-3 py-2 text-xs outline-none focus:border-[#217346]"
               autoComplete="tel"
             />
@@ -79,13 +105,6 @@ export default function VendorLoginPage() {
             {submitting ? "Signing in…" : "Sign In"}
           </button>
         </form>
-
-        <p className="mt-4 text-center text-[10px] text-[#6B7280]">
-          Default credentials: <code className="font-semibold text-[#1F2937]">9900000001 / vendor123</code>
-        </p>
-        <p className="mt-2 text-center text-[10px]">
-          <a href="/driver/login" className="text-[#217346]">Driver login</a>
-        </p>
       </div>
     </div>
   );

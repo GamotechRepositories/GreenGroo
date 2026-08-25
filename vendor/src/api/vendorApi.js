@@ -73,6 +73,17 @@ export const vendorApi = {
   getPickupReceipt: (id) => api.get(`/api/vendor/pickups/${id}/receipt`),
   getCollectionCentres: () => api.get("/api/vendor/collection-centres"),
   createCollectionCentre: (data) => api.post("/api/vendor/collection-centres", data),
+
+  // Quality & Grading
+  getQualityPending: (params) => api.get("/api/quality/pending", { params }),
+  getQuality: (orderId) => api.get(`/api/quality/${orderId}`),
+  startQuality: (orderId) => api.post(`/api/quality/${orderId}/start`),
+  uploadQualityPhotos: (orderId, data) => api.post(`/api/quality/${orderId}/photos`, data),
+  saveQualityParameters: (orderId, data) => api.patch(`/api/quality/${orderId}/parameters`, data),
+  saveQualityGrading: (orderId, data) => api.patch(`/api/quality/${orderId}/grading`, data),
+  confirmQuality: (orderId) => api.post(`/api/quality/${orderId}/confirm`),
+  getQualitySummary: (orderId) => api.get(`/api/quality/${orderId}/final-summary`),
+  verifyQualityQr: (data) => api.post("/api/quality/verify-qr", data),
 };
 
 export { VENDOR_STORAGE_KEY };

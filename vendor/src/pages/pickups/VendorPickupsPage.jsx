@@ -97,6 +97,15 @@ export default function VendorPickupsPage({ mode = "assignments" }) {
                     >
                       {mode === "assignments" && (p.status === "READY_FOR_PICKUP") ? "Assign Driver" : "Open"}
                     </button>
+                    {mode === "centre" && (p.receiving?.status === "RECEIVED" || p.status === "COLLECTION_CENTRE_RECEIVED") ? (
+                      <button
+                        type="button"
+                        className="ml-3 font-semibold text-[#217346]"
+                        onClick={() => navigate(`/vendor/quality/${p.orderId}`)}
+                      >
+                        Quality Check
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))

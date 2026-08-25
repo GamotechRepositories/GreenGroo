@@ -52,6 +52,8 @@ import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
 import ManagerPickupsPage from "../pages/manager/ManagerPickupsPage";
 import ManagerPickupDetailPage from "../pages/manager/ManagerPickupDetailPage";
+import ManagerQualityListPage from "../pages/manager/ManagerQualityListPage";
+import ManagerQualityInspectionPage from "../pages/manager/ManagerQualityInspectionPage";
 
 function FarmerRoutes() {
   return (
@@ -123,6 +125,12 @@ function FarmerRoutes() {
           <Route path="manager/pickups/completed" element={<ManagerPickupsPage mode="history" />} />
           <Route path="manager/pickups/history" element={<ManagerPickupsPage mode="history" />} />
           <Route path="manager/pickups/:pickupId" element={<ManagerPickupDetailPage />} />
+          <Route path="manager/quality" element={<Navigate to="/farmer/manager/quality/pending" replace />} />
+          <Route path="manager/quality/pending" element={<ManagerQualityListPage mode="pending" />} />
+          <Route path="manager/quality/inspection" element={<ManagerQualityListPage mode="inspection" />} />
+          <Route path="manager/quality/grading" element={<ManagerQualityListPage mode="grading" />} />
+          <Route path="manager/quality/completed" element={<ManagerQualityListPage mode="completed" />} />
+          <Route path="manager/quality/:orderId" element={<ManagerQualityInspectionPage />} />
           <Route path="manager/documents" element={<ManagerDocumentsPage />} />
           <Route path="manager/profile" element={<ProfilePage />} />
           <Route path="manager" element={<Navigate to="/farmer/manager/dashboard" replace />} />

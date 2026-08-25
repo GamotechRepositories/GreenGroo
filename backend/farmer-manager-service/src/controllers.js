@@ -1883,6 +1883,11 @@ const ORDER_STATUS_ALIASES = {
   IN_TRANSIT: "IN_TRANSIT",
   COLLECTION_CENTRE_RECEIVED: "COLLECTION_CENTRE_RECEIVED",
   RECEIVED_AT_COLLECTION_CENTRE: "COLLECTION_CENTRE_RECEIVED",
+  QUALITY_PENDING: "QUALITY_PENDING",
+  INSPECTION: "INSPECTION",
+  GRADING: "GRADING",
+  GRADE_CONFIRMED: "GRADE_CONFIRMED",
+  ORDER_COMPLETED: "ORDER_COMPLETED",
   COMPLETED: "COMPLETED",
   Completed: "COMPLETED",
   REJECTED: "REJECTED",
@@ -1895,7 +1900,7 @@ const ORDER_FILTERS = {
   new: ["NEW"],
   preparing: ["ACCEPTED", "PREPARING", "PACKING"],
   ready: ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"],
-  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"],
+  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "QUALITY_PENDING", "INSPECTION", "GRADING", "GRADE_CONFIRMED", "ORDER_COMPLETED"],
   rejected: ["REJECTED", "CANCELLED"],
 };
 
@@ -2031,6 +2036,7 @@ async function enrichOwnOrder(order, farmer) {
           pickupInstructions: pickup.pickupInstructions || "",
           qrPayload: pickup.qrPayload || "",
           timeline: pickup.timeline || [],
+          confirmationPhotos: pickup.confirmationPhotos || [],
         }
       : null,
     qrPayload: pickup?.qrPayload || "",

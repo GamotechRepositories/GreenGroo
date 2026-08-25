@@ -6,6 +6,6 @@ export default function DriverProtectedRoute() {
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-gray-500">Loading…</div>;
   }
-  if (!isAuthenticated) return <Navigate to="/driver/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/vendor/login" replace />;
   return <Outlet />;
 }

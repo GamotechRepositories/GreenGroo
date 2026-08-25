@@ -570,6 +570,7 @@ const pickupSchema = new mongoose.Schema(
     pickupConfirmedAt: { type: Date, default: null },
     confirmedQuantity: { type: Number, default: 0 },
     confirmedPackageCount: { type: Number, default: 0 },
+    confirmationPhotos: [{ type: String }],
     status: { type: String, default: "READY_FOR_PICKUP" },
     receiving: {
       status: { type: String, default: "" },
@@ -596,6 +597,77 @@ pickupSchema.index({ managerId: 1, createdAt: -1 });
 pickupSchema.index({ driverId: 1, status: 1 });
 pickupSchema.index({ orderId: 1 }, { unique: true });
 pickupSchema.index({ qrToken: 1 });
+
+const QUALITY_STATUSES = [
+  "QUALITY_PENDING",
+  "INSPECTION",
+  "GRADING",
+  "GRADE_CONFIRMED",
+  "ORDER_COMPLETED",
+];
+
+const qualityInspectionSchema = new mongoose.Schema(
+  {
+    inspectionId: { type: String, required: true, unique: true },
+    orderId: { type: String, required: true },
+    farmerId: { type: String, required: true },
+    productId: { type: String, default: "" },
+    batchId: { type: String, default: "" },
+    collectionCentreId: { type: String, default: "" },
+    pickupId: { type: String, default: "" },
+    vendorId: { type: String, default: "" },
+    inspectorId: { type: String, default: "" },
+    inspectorRole: { type: String, default: "" },
+    inspectorName: { type: String, default: "" },
+    qualityParameters: {
+      freshness: { type: String, default: "" },
+      size: { type: String, default: "" },
+      colour: { type: String, default: "" },
+      appearance: { type: String, default: "" },
+      cleanliness: { type: String, default: "" },
+      damage: { type: String, default: "" },
+      moisture: { type: String, default: "" },
+      weight: { type: String, default: "" },
+      overallQuality: { type: String, default: "" },
+    },
+    qualityRemarks: { type: String, default: "" },
+    qualityPhotos: [
+      {
+        url: { type: String, default: "" },
+        label: { type: String, default: "" },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    gradeAQuantity: { type: Number, default: 0 },
+    gradeBQuantity: { type: Number, default: 0 },
+    gradeCQuantity: { type: Number, default: 0 },
+    rejectedQuantity: { type: Number, default: 0 },
+    rejectionReason: { type: String, default: "" },
+    rejectionRemarks: { type: String, default: "" },
+    status: { type: String, enum: QUALITY_STATUSES, default: "QUALITY_PENDING" },
+    inspectionStartedAt: { type: Date, default: null },
+    inspectionCompletedAt: { type: Date, default: null },
+    gradingConfirmedAt: { type: Date, default: null },
+    lastActionBy: { type: String, default: "" },
+    lastActionRole: { type: String, default: "" },
+    lastActionAt: { type: Date, default: null },
+    actions: [
+      {
+        action: { type: String, default: "" },
+        userId: { type: String, default: "" },
+        role: { type: String, default: "" },
+        at: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+qualityInspectionSchema.index({ orderId: 1 }, { unique: true });
+qualityInspectionSchema.index({ vendorId: 1, status: 1, createdAt: -1 });
+qualityInspectionSchema.index({ farmerId: 1, status: 1 });
+qualityInspectionSchema.index({ pickupId: 1 });
+qualityInspectionSchema.index({ batchId: 1 });
 
 export const Vendor =
   mongoose.models.Vendor || mongoose.model("Vendor", vendorSchema);
@@ -625,6 +697,8 @@ export const CollectionCentre =
   mongoose.models.CollectionCentre || mongoose.model("CollectionCentre", collectionCentreSchema);
 export const Pickup =
   mongoose.models.Pickup || mongoose.model("Pickup", pickupSchema);
+export const QualityInspection =
+  mongoose.models.QualityInspection || mongoose.model("QualityInspection", qualityInspectionSchema);
 
 /**
  * Ensures all MongoDB indexes for farmer-manager service are created in background
@@ -646,6 +720,7 @@ export async function ensureFarmerIndexes() {
       PickupDriver,
       CollectionCentre,
       Pickup,
+      QualityInspection,
     ];
 
     await Promise.all(

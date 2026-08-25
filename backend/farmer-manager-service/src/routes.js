@@ -126,7 +126,18 @@ import {
   confirmDriverPickup,
   transitDriverPickup,
 } from "./pickupControllers.js";
-import { requireVendor, requireManager, requireFarmer, requireDriver } from "./middleware.js";
+import { requireVendor, requireManager, requireFarmer, requireDriver, requireVendorOrManager } from "./middleware.js";
+import {
+  listQualityPending,
+  getQualityInspection,
+  verifyQualityQr,
+  startQualityCheck,
+  saveQualityPhotos,
+  saveQualityParameters,
+  saveQualityGrading,
+  confirmQualityGrading,
+  getQualityFinalSummary,
+} from "./qualityControllers.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();
@@ -137,6 +148,7 @@ const managerAuthRouter = express.Router();
 const managerRouter = express.Router();
 const driverAuthRouter = express.Router();
 const driverRouter = express.Router();
+const qualityRouter = express.Router();
 
 // ------------------------------------
 // FARMER AUTH & COMMON API
@@ -412,6 +424,16 @@ driverRouter.post("/pickups/:pickupId/verify-qr", requireDriver, verifyDriverPic
 driverRouter.post("/pickups/:pickupId/confirm", requireDriver, confirmDriverPickup);
 driverRouter.post("/pickups/:pickupId/transit", requireDriver, transitDriverPickup);
 
+qualityRouter.get("/pending", requireVendorOrManager, listQualityPending);
+qualityRouter.post("/verify-qr", requireVendorOrManager, verifyQualityQr);
+qualityRouter.get("/:orderId/final-summary", requireVendorOrManager, getQualityFinalSummary);
+qualityRouter.get("/:orderId", requireVendorOrManager, getQualityInspection);
+qualityRouter.post("/:orderId/start", requireVendorOrManager, startQualityCheck);
+qualityRouter.post("/:orderId/photos", requireVendorOrManager, saveQualityPhotos);
+qualityRouter.patch("/:orderId/parameters", requireVendorOrManager, saveQualityParameters);
+qualityRouter.patch("/:orderId/grading", requireVendorOrManager, saveQualityGrading);
+qualityRouter.post("/:orderId/confirm", requireVendorOrManager, confirmQualityGrading);
+
 export default [
   { path: "/api/farmers", router: farmerRouter },
   { path: "/api/farmer", router: farmerRouter },
@@ -424,4 +446,5 @@ export default [
   { path: "/api/farmer-manager", router: managerRouter },
   { path: "/api/driver/auth", router: driverAuthRouter },
   { path: "/api/driver", router: driverRouter },
+  { path: "/api/quality", router: qualityRouter },
 ];

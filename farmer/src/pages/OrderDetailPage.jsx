@@ -126,6 +126,13 @@ function OrderDetailPage() {
             <Info label="Driver Status" value={order.pickup.driverStatus || order.pickup.status} />
           </div>
           <p className="px-3 pb-3 text-[11px] text-[#6B7280]">You can view driver and pickup status. You cannot assign a driver or confirm pickup.</p>
+          {(order.pickup.confirmationPhotos || []).length ? (
+            <div className="grid grid-cols-4 gap-2 px-3 pb-3">
+              {order.pickup.confirmationPhotos.map((src, i) => (
+                <img key={i} src={src} alt={`Pickup photo ${i + 1}`} className="h-16 w-full object-cover" />
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

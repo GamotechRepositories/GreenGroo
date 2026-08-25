@@ -287,6 +287,17 @@ export const MANAGER_SIDEBAR_ITEMS = [
       { to: "/farmer/manager/pickups/history", label: "Picked Up" },
     ],
   },
+  {
+    id: "quality",
+    label: "Quality & Grading",
+    icon: "quality",
+    children: [
+      { to: "/farmer/manager/quality/pending", label: "Pending Inspection" },
+      { to: "/farmer/manager/quality/inspection", label: "Quality Inspection" },
+      { to: "/farmer/manager/quality/grading", label: "Grading" },
+      { to: "/farmer/manager/quality/completed", label: "Completed" },
+    ],
+  },
   { to: "/farmer/manager/documents", label: "Documents", icon: "documents" },
   { to: "/farmer/manager/profile", label: "Profile", icon: "profile" },
 ];

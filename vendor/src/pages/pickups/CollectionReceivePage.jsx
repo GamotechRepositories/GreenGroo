@@ -270,7 +270,15 @@ export default function CollectionReceivePage() {
           <div className="mt-2"><Info label="Difference" value={`${difference} ${form.weightUnit}`} /></div>
           <div className="mt-2"><Info label="Packages" value={form.packageCount} /></div>
           <div className="mt-2"><Info label="Driver" value={`${pickup.driverName} · ${pickup.vehicleNumber}`} /></div>
-          <p className="mt-4 text-[10px] text-gray-400">Next: Quality Check & Grading (separate module).</p>
+          <p className="mt-4 text-[10px] text-gray-400">Next: Quality Check & Grading.</p>
+          {pickup.receiving?.status === "RECEIVED" ? (
+            <Link
+              to={`/vendor/quality/${pickup.orderId || pickup.orderDisplayId}`}
+              className="mt-3 inline-block bg-[#217346] px-3 py-1.5 text-xs font-semibold text-white"
+            >
+              Start Quality Check
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>

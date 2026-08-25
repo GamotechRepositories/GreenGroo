@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  BadgeCheck,
   FileText,
   Landmark,
   LayoutDashboard,
@@ -37,6 +38,7 @@ const ICONS = {
   profile: UserRound,
   farmers: Users,
   pickup: Truck,
+  quality: BadgeCheck,
 };
 
 function NavGroup({ item, collapsed }) {

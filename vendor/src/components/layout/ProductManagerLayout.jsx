@@ -2,12 +2,8 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
-import { useAuth } from '../../context/AuthContext'
-<<<<<<< Updated upstream
 import { useVendorAuth } from '../../context/VendorAuthContext'
-=======
 import { useInventoryRequests } from '../../hooks/useInventoryRequests'
->>>>>>> Stashed changes
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
@@ -21,7 +17,6 @@ const navItems = [
     ],
   },
   { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
-<<<<<<< Updated upstream
   {
     id: 'delivery-drivers',
     label: 'Delivery / Pickup',
@@ -35,9 +30,18 @@ const navItems = [
       { to: '/vendor/collection-centre', label: 'Collection Centre' },
     ],
   },
-=======
+  {
+    id: 'quality',
+    label: 'Quality & Grading',
+    icon: 'search',
+    children: [
+      { to: '/vendor/quality/pending', label: 'Pending Inspection' },
+      { to: '/vendor/quality/inspection', label: 'Quality Inspection' },
+      { to: '/vendor/quality/grading', label: 'Grading' },
+      { to: '/vendor/quality/completed', label: 'Completed' },
+    ],
+  },
   { to: '/inventory-requests', label: 'Inventory Requests', icon: 'box' },
->>>>>>> Stashed changes
 ]
 
 const footerItems = [
@@ -128,7 +132,6 @@ function NavGroup({ item }) {
 }
 
 export default function ProductManagerLayout() {
-  const { logout } = useAuth()
   const vendor = useVendorAuth()
   const navigate = useNavigate()
   const { requests } = useInventoryRequests(12000)
@@ -143,7 +146,7 @@ export default function ProductManagerLayout() {
           </div>
           <div>
             <p className="text-sm font-bold leading-tight text-white">GreenGroo</p>
-            <p className="text-xs text-white/60">Product Manager</p>
+            <p className="text-xs text-white/60">Vendor Panel</p>
           </div>
         </div>
 
@@ -182,13 +185,8 @@ export default function ProductManagerLayout() {
               <button
                 type="button"
                 onClick={() => {
-                  if (vendor.isAuthenticated) {
-                    vendor.logout()
-                    navigate('/vendor/login', { replace: true })
-                    return
-                  }
-                  logout()
-                  navigate('/login', { replace: true })
+                  vendor.logout()
+                  navigate('/vendor/login', { replace: true })
                 }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10"
               >

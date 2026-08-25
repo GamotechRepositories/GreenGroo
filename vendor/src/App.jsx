@@ -15,19 +15,17 @@ import AddManagerPage from './pages/farmer-managers/AddManagerPage'
 import ManagerDetailPage from './pages/farmer-managers/ManagerDetailPage'
 import AllFarmersPage from './pages/vendor-farmers/AllFarmersPage'
 import AddFarmerPage from './pages/vendor-farmers/AddFarmerPage'
-<<<<<<< Updated upstream
 import DriversPage from './pages/drivers/DriversPage'
 import DriverFormPage from './pages/drivers/DriverFormPage'
 import DriverDetailPage from './pages/drivers/DriverDetailPage'
 import VendorPickupsPage from './pages/pickups/VendorPickupsPage'
 import VendorPickupDetailPage from './pages/pickups/VendorPickupDetailPage'
 import CollectionReceivePage from './pages/pickups/CollectionReceivePage'
-import DriverLoginPage from './pages/drivers/DriverLoginPage'
+import QualityListPage from './pages/quality/QualityListPage'
+import QualityInspectionPage from './pages/quality/QualityInspectionPage'
 import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
-=======
 import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
->>>>>>> Stashed changes
 
 function App() {
   return (
@@ -38,7 +36,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/vendor/login" element={<VendorLoginPage />} />
-            <Route path="/driver/login" element={<DriverLoginPage />} />
+            <Route path="/driver/login" element={<Navigate to="/vendor/login" replace />} />
             <Route element={<DriverProtectedRoute />}>
               <Route element={<DriverLayout />}>
                 <Route path="/driver/assigned" element={<DriverDashboardPage mode="assigned" />} />
@@ -58,7 +56,6 @@ function App() {
                 <Route path="/vendor/farmer-managers/:managerId" element={<ManagerDetailPage />} />
                 <Route path="/vendor/all-farmers" element={<AllFarmersPage />} />
                 <Route path="/vendor/all-farmers/add" element={<AddFarmerPage />} />
-<<<<<<< Updated upstream
                 <Route path="/vendor/drivers" element={<DriversPage />} />
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
@@ -71,15 +68,19 @@ function App() {
                 <Route path="/vendor/pickups/:pickupId" element={<VendorPickupDetailPage />} />
                 <Route path="/vendor/collection-centre" element={<VendorPickupsPage mode="centre" />} />
                 <Route path="/vendor/collection-centre/:pickupId" element={<CollectionReceivePage />} />
-=======
+                <Route path="/vendor/quality" element={<Navigate to="/vendor/quality/pending" replace />} />
+                <Route path="/vendor/quality/pending" element={<QualityListPage mode="pending" />} />
+                <Route path="/vendor/quality/inspection" element={<QualityListPage mode="inspection" />} />
+                <Route path="/vendor/quality/grading" element={<QualityListPage mode="grading" />} />
+                <Route path="/vendor/quality/completed" element={<QualityListPage mode="completed" />} />
+                <Route path="/vendor/quality/:orderId" element={<QualityInspectionPage />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
->>>>>>> Stashed changes
                 <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Panel configuration" />} />
                 <Route path="/profile" element={<PlaceholderPage title="My Profile" subtitle="Your account details" />} />
               </Route>
             </Route>
-            <Route path="/" element={<Navigate to="/inventory-requests" replace />} />
-            <Route path="*" element={<Navigate to="/inventory-requests" replace />} />
+            <Route path="/" element={<Navigate to="/vendor/login" replace />} />
+            <Route path="*" element={<Navigate to="/vendor/login" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

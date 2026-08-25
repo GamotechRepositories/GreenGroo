@@ -926,6 +926,72 @@ export async function reassignManagerPickup(pickupId, driverId) {
   });
 }
 
+export async function listManagerQuality({ bucket = "pending" } = {}) {
+  const params = new URLSearchParams();
+  if (bucket) params.set("bucket", bucket);
+  return apiFetch(`/api/quality/pending?${params.toString()}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerQuality(orderId) {
+  return apiFetch(`/api/quality/${orderId}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function verifyManagerQualityQr(payload) {
+  return apiFetch("/api/quality/verify-qr", {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function startManagerQuality(orderId) {
+  return apiFetch(`/api/quality/${orderId}/start`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function uploadManagerQualityPhotos(orderId, payload) {
+  return apiFetch(`/api/quality/${orderId}/photos`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function saveManagerQualityParameters(orderId, payload) {
+  return apiFetch(`/api/quality/${orderId}/parameters`, {
+    method: "PATCH",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function saveManagerQualityGrading(orderId, payload) {
+  return apiFetch(`/api/quality/${orderId}/grading`, {
+    method: "PATCH",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmManagerQuality(orderId) {
+  return apiFetch(`/api/quality/${orderId}/confirm`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerQualitySummary(orderId) {
+  return apiFetch(`/api/quality/${orderId}/final-summary`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
 
 
 

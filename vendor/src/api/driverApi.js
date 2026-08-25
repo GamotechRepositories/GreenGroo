@@ -33,5 +33,5 @@ export const driverApi = {
   arrive: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/arrive`),
   checkOrder: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/check-order`),
   verifyQr: (id, payload) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/verify-qr`, payload),
-  confirm: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/confirm`),
+  confirm: (id, payload = {}) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/confirm`, payload),
 };

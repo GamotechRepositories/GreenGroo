@@ -317,6 +317,7 @@ async function enrichPickup(pickup) {
     packageCount: Number(plain.packageCount || order?.packingDetails?.packageCount || 0),
     unit: plain.unit || flat.unit || "Kg",
     pickupInstructions: plain.pickupInstructions || order?.packingDetails?.notes || "",
+    confirmationPhotos: Array.isArray(plain.confirmationPhotos) ? plain.confirmationPhotos : [],
     assignedAt: plain.assignedAt || null,
     dispatchStartedAt: plain.dispatchStartedAt || plain.startedAt || null,
     orderVerifiedAt: plain.orderVerifiedAt || null,
@@ -1149,6 +1150,14 @@ export async function verifyDriverPickupQr(req, res) {
   }
 }
 
+function sanitizeConfirmPhotos(photos) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .filter((p) => typeof p === "string" && p.length > 20 && p.length < 2_500_000)
+    .filter((p) => p.startsWith("data:image/") || p.startsWith("http://") || p.startsWith("https://"))
+    .slice(0, 4);
+}
+
 export async function confirmDriverPickup(req, res) {
   try {
     const pickup = await driverPickupOr404(req, res);
@@ -1156,6 +1165,10 @@ export async function confirmDriverPickup(req, res) {
     const driverId = req.user?.driverId || req.user?.id;
     if (pickup.driverId !== driverId) {
       return res.status(403).json({ message: "This pickup is not assigned to you." });
+    }
+    const photos = sanitizeConfirmPhotos(req.body?.photos || req.body?.confirmationPhotos);
+    if (!photos.length) {
+      return res.status(400).json({ message: "Take a live photo or upload a photo before confirming pickup." });
     }
     const confirmedQuantity = Number(pickup.packedQuantity || pickup.expectedQuantity || 0);
     const confirmedPackageCount = Number(pickup.packageCount || 0);
@@ -1177,6 +1190,7 @@ export async function confirmDriverPickup(req, res) {
           pickupConfirmedAt: now,
           confirmedQuantity,
           confirmedPackageCount,
+          confirmationPhotos: photos,
           qrVerifiedAt: pickup.qrVerifiedAt || now,
         },
         $push: { timeline: { status: "PICKED_UP", at: now, note: "Driver confirmed pickup from farmer." } },

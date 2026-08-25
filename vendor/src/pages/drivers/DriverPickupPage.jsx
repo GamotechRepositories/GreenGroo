@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { driverApi } from "../../api/driverApi";
 import PickupTimeline from "../../components/pickup/PickupTimeline";
+import ConfirmPickupPhotos from "../../components/pickup/ConfirmPickupPhotos";
 import { usePolling } from "../../hooks/usePolling";
 
 function Info({ label, value }) {
@@ -96,6 +97,7 @@ export default function DriverPickupPage() {
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmPhotos, setConfirmPhotos] = useState([]);
 
   const load = (silent = false) => {
     driverApi
@@ -227,17 +229,24 @@ export default function DriverPickupPage() {
             <Info label="Vehicle Number" value={pickup.vehicleNumber} />
           </div>
           {canConfirm ? (
-            <button type="button" disabled={busy} className="mt-4 bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60" onClick={() => setConfirmOpen(true)}>
+            <button type="button" disabled={busy} className="mt-4 bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60" onClick={() => { setConfirmPhotos([]); setConfirmOpen(true); }}>
               Confirm Pickup
             </button>
           ) : null}
           {pickup.pickupConfirmed ? <p className="mt-3 text-sm font-semibold text-[#217346]">Pickup Status = PICKED UP</p> : null}
+          {(pickup.confirmationPhotos || []).length ? (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {pickup.confirmationPhotos.map((src, i) => (
+                <img key={i} src={src} alt={`Confirm ${i + 1}`} className="h-16 w-full object-cover" />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {confirmOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md border border-gray-200 bg-white p-5">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto border border-gray-200 bg-white p-5">
             <p className="text-sm font-bold text-gray-900">Confirm Pickup</p>
             <p className="mt-2 text-xs text-gray-600">Confirm that you have received this order from the farmer?</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -249,15 +258,17 @@ export default function DriverPickupPage() {
               <Info label="Driver" value={pickup.driverName} />
               <Info label="Vehicle Number" value={pickup.vehicleNumber} />
             </div>
+            <ConfirmPickupPhotos photos={confirmPhotos} onChange={setConfirmPhotos} disabled={busy} />
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="border border-gray-200 px-3 py-1.5 text-xs" onClick={() => setConfirmOpen(false)}>Cancel</button>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || confirmPhotos.length === 0}
                 className="bg-[#217346] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
                 onClick={async () => {
-                  await run(() => driverApi.confirm(pickup.id), "Pickup confirmed. Status is PICKED UP.");
+                  await run(() => driverApi.confirm(pickup.id, { photos: confirmPhotos }), "Pickup confirmed. Status is PICKED UP.");
                   setConfirmOpen(false);
+                  setConfirmPhotos([]);
                 }}
               >
                 Confirm Pickup
