@@ -380,6 +380,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           child: _TopHeaderSection(
             name: _partnerName,
             isOnline: _isOnline,
+            isVerified: AuthService.instance.deliveryBoy?.isVerified ?? false,
             onProfileTap: () => Navigator.pushNamed(context, AppRoutes.profile),
             onDrawerTap: () => Scaffold.of(context).openDrawer(),
           ),
@@ -486,12 +487,14 @@ class _TopHeaderSection extends StatelessWidget {
   const _TopHeaderSection({
     required this.name,
     required this.isOnline,
+    required this.isVerified,
     required this.onProfileTap,
     required this.onDrawerTap,
   });
 
   final String name;
   final bool isOnline;
+  final bool isVerified;
   final VoidCallback onProfileTap;
   final VoidCallback onDrawerTap;
 
@@ -532,13 +535,15 @@ class _TopHeaderSection extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  // Verified Checkmark Tick Badge
-                  const Icon(
-                    Icons.verified_rounded,
-                    color: Color(0xFF059669),
-                    size: 19,
-                  ),
+                  if (isVerified) ...[
+                    const SizedBox(width: 6),
+                    // Verified Checkmark Tick Badge (Only shown when rider verification is approved)
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF059669),
+                      size: 19,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),

@@ -660,7 +660,7 @@ export const getAvailableSlots = async (req, res, next) => {
         }).catch((err) => console.error("Error auto-seeding shift:", err.message));
       }
 
-      shifts = await Shift.find({ dateString: queryDateStr }).sort({ createdAt: -1 });
+      shifts = await Shift.find({ managerId: manager._id, dateString: queryDateStr }).sort({ createdAt: -1 });
     }
 
     const now = new Date();
