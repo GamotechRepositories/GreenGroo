@@ -14,34 +14,25 @@ function hostnameOf(url) {
   }
 }
 
-function forceHttpsForLiveApi(url) {
-  if (!url || !/^http:\/\//i.test(url)) return url;
-  const host = hostnameOf(url);
-  if (!host || isLoopbackHost(host)) return url;
-  return stripSlash(url.replace(/^http:\/\//i, "https://"));
-}
-
 export function getApiBaseUrl() {
   const envUrl = stripSlash(import.meta.env.VITE_API_URL || "");
   const inBrowser = typeof window !== "undefined";
   const pageHost = inBrowser ? window.location.hostname : "";
   const onLocalPage = !pageHost || isLoopbackHost(pageHost);
-  const pageIsHttps = inBrowser && window.location.protocol === "https:";
 
-  let base = envUrl;
-
-  if (base && !onLocalPage && isLoopbackHost(hostnameOf(base))) {
-    base = "";
+  // HTTPS pages cannot call http:// (browser mixed-content block).
+  // Use the page origin so /api is proxied to the HTTP backend.
+  if (inBrowser && window.location.protocol === "https:") {
+    return window.location.origin;
   }
 
-  if (!base) {
-    if (!onLocalPage && inBrowser) return window.location.origin;
-    return "http://localhost:5001";
+  if (envUrl) {
+    const envHost = hostnameOf(envUrl);
+    if (onLocalPage || (envHost && !isLoopbackHost(envHost))) {
+      return envUrl;
+    }
   }
 
-  if (import.meta.env.PROD || pageIsHttps) {
-    base = forceHttpsForLiveApi(base);
-  }
-
-  return base;
+  if (!onLocalPage && inBrowser) return window.location.origin;
+  return envUrl || "http://localhost:5001";
 }
