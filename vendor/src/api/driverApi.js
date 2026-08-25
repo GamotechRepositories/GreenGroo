@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5001").replace(/\/+$/, "");
+import { API_URL } from "../config/env";
 export const DRIVER_STORAGE_KEY = "greengroo_driver_auth";
 
 export const driverHttp = axios.create({
