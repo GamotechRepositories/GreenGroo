@@ -1,14 +1,14 @@
 import axios from "axios";
-import { API_URL } from "../config/env";
+import { getApiBaseUrl } from "../config/env";
 
 export const api = axios.create({
-  baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
 
 const AUTH_STORAGE_KEY = "greengroo_product_manager_auth";
 
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   if (!config.headers.Authorization) {
     try {
       const raw = localStorage.getItem(AUTH_STORAGE_KEY);

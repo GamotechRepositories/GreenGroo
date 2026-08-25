@@ -1,9 +1,8 @@
 import axios from "axios";
-import { API_URL } from "../config/env";
+import { getApiBaseUrl } from "../config/env";
 const VENDOR_STORAGE_KEY = "greengroo_vendor_auth";
 
 export const api = axios.create({
-  baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -23,6 +22,7 @@ function getStoredVendorToken() {
 }
 
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = getStoredVendorToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   else delete config.headers.Authorization;

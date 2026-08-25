@@ -6,42 +6,42 @@ function isLoopbackHost(hostname) {
   return hostname === "localhost" || hostname === "127.0.0.1";
 }
 
-function toHttpsWhenPageIsSecure(url) {
-  if (!url || typeof window === "undefined") return url;
-  if (window.location.protocol !== "https:") return url;
+function hostnameOf(url) {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol === "http:" && !isLoopbackHost(parsed.hostname)) {
-      parsed.protocol = "https:";
-      return stripSlash(parsed.toString());
-    }
+    return new URL(url).hostname;
   } catch {
-    return url;
+    return "";
   }
-  return url;
+}
+
+function forceHttpsForLiveApi(url) {
+  if (!url || !/^http:\/\//i.test(url)) return url;
+  const host = hostnameOf(url);
+  if (!host || isLoopbackHost(host)) return url;
+  return stripSlash(url.replace(/^http:\/\//i, "https://"));
 }
 
 export function getApiBaseUrl() {
   const envUrl = stripSlash(import.meta.env.VITE_API_URL || "");
-  const pageHost = typeof window !== "undefined" ? window.location.hostname : "";
+  const inBrowser = typeof window !== "undefined";
+  const pageHost = inBrowser ? window.location.hostname : "";
   const onLocalPage = !pageHost || isLoopbackHost(pageHost);
+  const pageIsHttps = inBrowser && window.location.protocol === "https:";
 
-  if (envUrl) {
-    try {
-      const envHost = new URL(envUrl).hostname;
-      if (onLocalPage || !isLoopbackHost(envHost)) {
-        return toHttpsWhenPageIsSecure(envUrl);
-      }
-    } catch {
-      if (onLocalPage) return envUrl;
-    }
+  let base = envUrl;
+
+  if (base && !onLocalPage && isLoopbackHost(hostnameOf(base))) {
+    base = "";
   }
 
-  if (!onLocalPage && typeof window !== "undefined") {
-    return window.location.origin;
+  if (!base) {
+    if (!onLocalPage && inBrowser) return window.location.origin;
+    return "http://localhost:5001";
   }
 
-  return envUrl || "http://localhost:5001";
+  if (import.meta.env.PROD || pageIsHttps) {
+    base = forceHttpsForLiveApi(base);
+  }
+
+  return base;
 }
-
-export const API_URL = getApiBaseUrl();

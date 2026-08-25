@@ -1,9 +1,8 @@
 import axios from "axios";
-import { API_URL } from "../config/env";
+import { getApiBaseUrl } from "../config/env";
 export const DRIVER_STORAGE_KEY = "greengroo_driver_auth";
 
 export const driverHttp = axios.create({
-  baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -17,6 +16,7 @@ function getStoredDriverToken() {
 }
 
 driverHttp.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = getStoredDriverToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   else delete config.headers.Authorization;

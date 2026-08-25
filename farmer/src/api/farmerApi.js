@@ -1,5 +1,5 @@
 import { FARMER_STORAGE_KEY, VERIFICATION_STATUS } from "../utils/constants";
-import { API_BASE } from "../config/env";
+import { getApiBaseUrl } from "../config/env";
 
 function getStoredAuth() {
   try {
@@ -42,7 +42,7 @@ function getActiveManagerId() {
 }
 
 async function apiFetch(path, options = {}) {
-  const url = `${API_BASE}${path}`;
+  const url = `${getApiBaseUrl()}${path}`;
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
