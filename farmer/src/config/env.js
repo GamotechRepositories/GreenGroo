@@ -44,4 +44,4 @@ export function getApiBaseUrl() {
   return envUrl || "http://localhost:5001";
 }
 
-export const API_URL = getApiBaseUrl();
+export const API_BASE = getApiBaseUrl();

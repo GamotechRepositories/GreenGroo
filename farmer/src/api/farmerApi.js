@@ -1,6 +1,5 @@
 import { FARMER_STORAGE_KEY, VERIFICATION_STATUS } from "../utils/constants";
-
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5001").replace(/\/+$/, "");
+import { API_BASE } from "../config/env";
 
 function getStoredAuth() {
   try {
@@ -91,23 +90,20 @@ function computeVerificationStatus(docs) {
  */
 export async function farmerLogin({ mobile, password }) {
   const body = JSON.stringify({ mobile, password });
-  const [farmerResult, managerResult] = await Promise.allSettled([
-    apiFetch("/api/farmers/login", { method: "POST", body }),
-    apiFetch("/api/farmers/manager/login", { method: "POST", body }),
-  ]);
-
-  if (farmerResult.status === "fulfilled" && farmerResult.value?.token) {
-    return farmerResult.value;
+  try {
+    const farmer = await apiFetch("/api/farmers/login", { method: "POST", body });
+    if (farmer?.token) return farmer;
+  } catch (farmerErr) {
+    try {
+      const manager = await apiFetch("/api/farmers/manager/login", { method: "POST", body });
+      if (manager?.token) return manager;
+    } catch (managerErr) {
+      if (farmerErr?.status === 0) throw farmerErr;
+      if (managerErr?.status === 0) throw managerErr;
+      throw farmerErr;
+    }
   }
-  if (managerResult.status === "fulfilled" && managerResult.value?.token) {
-    return managerResult.value;
-  }
-
-  const farmerErr = farmerResult.status === "rejected" ? farmerResult.reason : null;
-  const managerErr = managerResult.status === "rejected" ? managerResult.reason : null;
-  if (farmerErr?.status === 0) throw farmerErr;
-  if (managerErr?.status === 0) throw managerErr;
-  throw managerErr || farmerErr || new Error("Invalid mobile number or password");
+  throw new Error("Invalid mobile number or password");
 }
 
 export async function registerFarmer(payload) {
