@@ -1,5 +1,6 @@
 import React from 'react';
-import { Leaf, ShieldCheck, User } from 'lucide-react';
+import { Leaf, ShieldCheck, Store, Package, FolderTree } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
@@ -27,6 +28,27 @@ export default function Dashboard() {
         </div>
 
         {/* Status Card */}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Link
+            to="/dark-stores"
+            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
+          >
+            <Store className="h-4 w-4 text-emerald-600" /> Dark Stores
+          </Link>
+          <Link
+            to="/products"
+            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
+          >
+            <Package className="h-4 w-4 text-emerald-600" /> Products
+          </Link>
+          <Link
+            to="/categories"
+            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
+          >
+            <FolderTree className="h-4 w-4 text-emerald-600" /> Categories
+          </Link>
+        </div>
+
         <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800/50 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm">
           <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>

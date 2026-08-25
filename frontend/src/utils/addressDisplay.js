@@ -6,10 +6,11 @@ export function formatAddressLine(addr) {
   if (!addr) return "";
 
   const parts = [
+    addr.shopNo,
     addr.shopName,
-    addr.shopNo ? `Shop ${addr.shopNo}` : "",
     addr.fullAddress,
-    addr.landmark,
+    addr.area,
+    addr.landmark && addr.landmark !== addr.area ? addr.landmark : "",
     [addr.city, addr.state, addr.pincode].filter(Boolean).join(", "),
   ].filter(Boolean);
 
@@ -41,6 +42,7 @@ export function mapAddressToForm(addr = {}) {
     shopName: addr.shopName || "",
     fullAddress: addr.fullAddress || addr.streetArea || "",
     landmark: addr.landmark || "",
+    area: addr.area || "",
     city: addr.city || "",
     state: addr.state || "",
     pincode: addr.pincode || "",

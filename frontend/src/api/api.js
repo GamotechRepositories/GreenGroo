@@ -1,5 +1,6 @@
 import axios from "axios";
 import { STORAGE_KEY } from "../utils/authStorage";
+import { storeLocationParams } from "../utils/deliveryLocation";
 
 function normalizeApiBaseUrl() {
   const raw = (import.meta.env.VITE_API_URL || "http://localhost:5001").trim();
@@ -39,6 +40,12 @@ api.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
+
+  const url = `${config.baseURL || ""}${config.url || ""}`;
+  if (/\/api\/products|\/api\/stores/.test(url)) {
+    config.params = { ...storeLocationParams(), ...(config.params || {}) };
+  }
+
   return config;
 });
 
@@ -61,6 +68,8 @@ export const getProducts = (params) => api.get("/api/products", { params });
 export const getProductById = (id) => api.get(`/api/products/${id}`);
 export const getSimilarProducts = (id, params) =>
   api.get(`/api/products/${id}/similar`, { params });
+export const getNearestStore = (params) =>
+  api.get("/api/stores/nearest", { params });
 
 export const getCart = () => api.get("/api/cart");
 export const addToCartItem = (data) => api.post("/api/cart", data);

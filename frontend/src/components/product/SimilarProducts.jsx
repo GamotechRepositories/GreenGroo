@@ -5,10 +5,12 @@ import HorizontalScrollRow from "../home/HorizontalScrollRow";
 import SectionHeader from "../mobile/SectionHeader";
 import DealProductCard from "./DealProductCard";
 import QuickCommerceProductCard from "./QuickCommerceProductCard";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 function SimilarProducts({ productId, categoryName = "" }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const locationKey = useDeliveryLocationKey();
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
@@ -58,7 +60,7 @@ function SimilarProducts({ productId, categoryName = "" }) {
     return () => {
       cancelled = true;
     };
-  }, [productId, categoryName]);
+  }, [productId, categoryName, locationKey]);
 
   const viewAllTo = categoryName
     ? `/product?categoryName=${encodeURIComponent(categoryName)}`

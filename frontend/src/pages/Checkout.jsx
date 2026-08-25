@@ -150,7 +150,7 @@ function Checkout() {
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
-  const [paymentPlan, setPaymentPlan] = useState(PAYMENT_PLAN.ADVANCE);
+  const [paymentPlan, setPaymentPlan] = useState(PAYMENT_PLAN.COD);
   const paymentMethod = getCheckoutPaymentMethod(paymentPlan);
   const [formError, setFormError] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
@@ -710,7 +710,7 @@ function Checkout() {
         />
       </CheckoutModal>
 
-      <section className="px-3 pb-24 pt-1 sm:px-4 sm:pb-14 lg:px-8 lg:pb-10 lg:pt-2">
+      <section className="px-3 pb-28 pt-1 sm:px-4 sm:pb-14 lg:px-8 lg:pb-10 lg:pt-2">
         <div className="mx-auto max-w-7xl">
           <nav className="mb-3 text-xs text-text-secondary sm:text-sm">
             <Link to="/" className="hover:text-primary">
@@ -724,7 +724,7 @@ function Checkout() {
             <span className="text-text-primary">Checkout</span>
           </nav>
 
-          <h1 className="mb-4 text-xl font-bold sm:mb-6 sm:text-2xl lg:text-3xl">Checkout</h1>
+          <h1 className="mb-4 text-xl font-bold tracking-tight text-slate-900 sm:mb-6 sm:text-2xl">Checkout</h1>
 
           {cartLoading && !isBuyNow ? (
             <div className="grid animate-pulse gap-6 lg:grid-cols-[1fr_380px]">
@@ -738,100 +738,7 @@ function Checkout() {
           ) : (
             <div className="grid items-start gap-3 sm:gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
               <div className="space-y-3 sm:space-y-4">
-                <StepSection title="Payment via Razorpay">
-                  <div className="space-y-3">
-                    <label
-                      className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition sm:gap-4 sm:rounded-xl sm:p-4 ${
-                        paymentPlan === PAYMENT_PLAN.ADVANCE
-                          ? "border-primary bg-primary/5"
-                          : "border-border-light hover:border-primary/40"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.ADVANCE}
-                        checked={paymentPlan === PAYMENT_PLAN.ADVANCE}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.ADVANCE)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-text-primary sm:text-base">
-                          Pay 10% now · balance on delivery
-                        </p>
-                        <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                          Pay {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now via Razorpay ·{" "}
-                          {formatPrice(Math.max(0, orderTotal - calculateAdvanceAmount(orderTotal)), 2)}{" "}
-                          on delivery
-                        </p>
-                      </div>
-                    </label>
-
-                    <label
-                      htmlFor="plan-cod"
-                      className={`relative flex cursor-pointer rounded-xl border p-4 transition-all ${
-                        paymentPlan === PAYMENT_PLAN.COD
-                          ? "border-primary bg-primary/5 shadow-sm"
-                          : "border-border-light hover:border-primary/40 hover:bg-surface-elevated"
-                      }`}
-                    >
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center pt-0.5">
-                        <input
-                          id="plan-cod"
-                          type="radio"
-                          name="paymentPlan"
-                          value={PAYMENT_PLAN.COD}
-                          checked={paymentPlan === PAYMENT_PLAN.COD}
-                          onChange={() => setPaymentPlan(PAYMENT_PLAN.COD)}
-                          className="h-4 w-4 border-gray-300 text-primary focus:ring-primary"
-                        />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <span className="block text-sm font-bold text-text-primary">
-                          Cash on Delivery
-                        </span>
-                        <span className="mt-1 block text-xs text-text-secondary">
-                          Pay fully on delivery
-                        </span>
-                      </div>
-                      {paymentPlan === PAYMENT_PLAN.COD && (
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          <svg className="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </label>
-
-                    <label
-                      htmlFor="plan-full"
-                      className={`relative flex cursor-pointer rounded-xl border p-4 transition-all ${
-                        paymentPlan === PAYMENT_PLAN.FULL
-                          ? "border-primary bg-primary/5"
-                          : "border-border-light hover:border-primary/40"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentPlan"
-                        value={PAYMENT_PLAN.FULL}
-                        checked={paymentPlan === PAYMENT_PLAN.FULL}
-                        onChange={() => setPaymentPlan(PAYMENT_PLAN.FULL)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-text-primary sm:text-base">
-                          Pay 100% now
-                        </p>
-                        <p className="mt-0.5 text-xs text-text-secondary sm:text-sm">
-                          Complete payment of {formatPrice(orderTotal, 2)} via Razorpay
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                </StepSection>
-
-                <StepSection title="Delivery Details">
+                <StepSection title="Delivery address">
                   {addressesLoading ? (
                     <div className="h-24 animate-pulse rounded-lg bg-mobile-surface" />
                   ) : selectedAddress ? (
@@ -871,7 +778,78 @@ function Checkout() {
                   )}
                 </StepSection>
 
-                <StepSection title="Order Notes (Optional)">
+                <StepSection title="Payment">
+                  <div className="space-y-2.5">
+                    <label
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                        paymentPlan === PAYMENT_PLAN.COD
+                          ? "border-[#0C831F] bg-emerald-50/60"
+                          : "border-slate-200 hover:border-emerald-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentPlan"
+                        value={PAYMENT_PLAN.COD}
+                        checked={paymentPlan === PAYMENT_PLAN.COD}
+                        onChange={() => setPaymentPlan(PAYMENT_PLAN.COD)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#0C831F]"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Pay on delivery</p>
+                        <p className="mt-0.5 text-xs text-slate-500">Cash or UPI when your order arrives</p>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                        paymentPlan === PAYMENT_PLAN.FULL
+                          ? "border-[#0C831F] bg-emerald-50/60"
+                          : "border-slate-200 hover:border-emerald-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentPlan"
+                        value={PAYMENT_PLAN.FULL}
+                        checked={paymentPlan === PAYMENT_PLAN.FULL}
+                        onChange={() => setPaymentPlan(PAYMENT_PLAN.FULL)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#0C831F]"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Pay online now</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {formatPrice(orderTotal, 2)} via Razorpay
+                        </p>
+                      </div>
+                    </label>
+
+                    <label
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition ${
+                        paymentPlan === PAYMENT_PLAN.ADVANCE
+                          ? "border-[#0C831F] bg-emerald-50/60"
+                          : "border-slate-200 hover:border-emerald-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentPlan"
+                        value={PAYMENT_PLAN.ADVANCE}
+                        checked={paymentPlan === PAYMENT_PLAN.ADVANCE}
+                        onChange={() => setPaymentPlan(PAYMENT_PLAN.ADVANCE)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#0C831F]"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Pay 10% now</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {formatPrice(calculateAdvanceAmount(orderTotal), 2)} now · rest on delivery
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </StepSection>
+
+                <StepSection title="Delivery instructions">
                   <div className="relative">
                     <textarea
                       id="orderMessage"
@@ -1045,7 +1023,7 @@ function Checkout() {
                   type="button"
                   disabled={!selectedAddressId || placingOrder || !minimumOrderMet}
                   onClick={handlePlaceOrder}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-5 sm:px-6 sm:py-3.5"
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0C831F] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#0a6e1a] disabled:cursor-not-allowed disabled:opacity-50 sm:mt-5"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path
@@ -1055,10 +1033,12 @@ function Checkout() {
                     />
                   </svg>
                   {placingOrder
-                    ? "Please wait..."
-                    : paymentPlan === PAYMENT_PLAN.ADVANCE
-                      ? `Pay ${formatPrice(payableNow, 2)} with Razorpay`
-                      : `Pay ${formatPrice(orderTotal, 2)} with Razorpay`}
+                    ? "Placing order…"
+                    : paymentPlan === PAYMENT_PLAN.COD
+                      ? "Place order · Pay on delivery"
+                      : paymentPlan === PAYMENT_PLAN.ADVANCE
+                      ? `Pay ${formatPrice(payableNow, 2)} now`
+                      : `Pay ${formatPrice(orderTotal, 2)} now`}
                 </button>
 
               </div>

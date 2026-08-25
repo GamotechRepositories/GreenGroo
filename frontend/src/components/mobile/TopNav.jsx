@@ -3,17 +3,20 @@ import { LOGO_URL } from "../layout/Header";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useLocation } from "../../context/LocationContext";
+import { useNearestStore } from "../../hooks/useNearestStore";
 import UserAccountDropdown from "../account/UserAccountDropdown";
 import DesktopSearchBar from "./DesktopSearchBar";
 
 function TopNav() {
   const { user, openAuthModal } = useAuth();
   const { cartCount } = useCart();
-  const { location } = useLocation();
+  const { location, hasLocation } = useLocation();
+  const { data: nearest } = useNearestStore();
 
-  const addressLine = [location.label, location.address, location.pincode]
-    .filter(Boolean)
-    .join(", ");
+  const addressLine = hasLocation
+    ? [location.area || location.label, location.city, location.pincode].filter(Boolean).join(", ")
+    : "Select your delivery location";
+  const storeName = nearest?.store?.storeName;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 hidden border-b border-[#F0F0F0] bg-white lg:block">
@@ -39,7 +42,7 @@ function TopNav() {
           </p>
           <span className="mt-0.5 flex min-w-0 items-center gap-1">
             <span className="truncate text-[13px] font-medium text-text-secondary group-hover:text-text-primary">
-              {addressLine || "Select your delivery location"}
+              {addressLine}
             </span>
             <svg
               className="h-3.5 w-3.5 shrink-0 text-text-primary"
@@ -52,6 +55,11 @@ function TopNav() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </span>
+          {storeName ? (
+            <span className="truncate text-[11px] font-medium text-text-muted">
+              From {storeName}
+            </span>
+          ) : null}
         </Link>
 
         {/* Search */}

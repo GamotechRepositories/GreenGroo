@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getProducts } from "../../api/api";
 import ProductImageFrame from "../product/ProductImageFrame";
 import ProductPriceDisplay from "../product/ProductPriceDisplay";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 const MAX_DISPLAY = 15;
 const GRID_COLS = 5;
@@ -54,6 +55,7 @@ function ProductCard({ product }) {
 function MostLikedProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const locationKey = useDeliveryLocationKey();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -79,7 +81,7 @@ function MostLikedProducts() {
     };
 
     fetchProducts();
-  }, []);
+  }, [locationKey]);
 
   return (
     <section className="bg-black px-5 sm:px-6 md:px-8 lg:px-12 py-10 md:py-12 border-t border-neutral-900">

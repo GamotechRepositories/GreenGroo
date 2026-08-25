@@ -143,6 +143,7 @@ export function addressToSnapshot(address) {
     city: (raw.city || "").trim(),
     state: (raw.state || "").trim(),
     pincode: String(raw.pincode || "").trim(),
+    area: (raw.area || raw.landmark || "").trim(),
     location: raw.location ? { lat: raw.location.lat, lng: raw.location.lng } : undefined,
   };
 }

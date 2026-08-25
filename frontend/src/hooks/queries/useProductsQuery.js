@@ -2,13 +2,16 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getProducts } from "../../api/api";
 import { getRecentlyViewedIds } from "../../utils/recentlyViewed";
 import { queryKeys } from "./queryKeys";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 const HOME_PRODUCT_LIMIT = 12;
 export const PRODUCTS_PAGE_SIZE = 50;
 
 export function useInfiniteProductsQuery(params, options = {}) {
+  const locationKey = useDeliveryLocationKey();
+
   return useInfiniteQuery({
-    queryKey: queryKeys.products.infiniteList(params),
+    queryKey: queryKeys.products.infiniteList({ ...params, locationKey }),
     queryFn: async ({ pageParam = 1 }) => {
       const { data } = await getProducts({
         ...params,
@@ -24,6 +27,7 @@ export function useInfiniteProductsQuery(params, options = {}) {
           total: data.data?.length || 0,
           totalPages: 1,
         },
+        store: data.store || null,
       };
     },
     initialPageParam: 1,
@@ -36,8 +40,10 @@ export function useInfiniteProductsQuery(params, options = {}) {
 }
 
 export function useProductsQuery(params, options = {}) {
+  const locationKey = useDeliveryLocationKey();
+
   return useQuery({
-    queryKey: queryKeys.products.list(params),
+    queryKey: queryKeys.products.list({ ...params, locationKey }),
     queryFn: async () => {
       const { data } = await getProducts(params);
       return data.data || [];
@@ -47,8 +53,10 @@ export function useProductsQuery(params, options = {}) {
 }
 
 export function useHotSellingProductsQuery(options = {}) {
+  const locationKey = useDeliveryLocationKey();
+
   return useQuery({
-    queryKey: queryKeys.products.hotSelling,
+    queryKey: [...queryKeys.products.hotSelling, locationKey],
     queryFn: async () => {
       const { data } = await getProducts({
         hotSelling: true,
@@ -63,9 +71,10 @@ export function useHotSellingProductsQuery(options = {}) {
 
 export function useRecentlyViewedProductsQuery(options = {}) {
   const ids = getRecentlyViewedIds().slice(0, HOME_PRODUCT_LIMIT);
+  const locationKey = useDeliveryLocationKey();
 
   return useQuery({
-    queryKey: queryKeys.products.recentlyViewed(ids),
+    queryKey: [...queryKeys.products.recentlyViewed(ids), locationKey],
     queryFn: async () => {
       if (!ids.length) return [];
 
@@ -86,3 +95,4 @@ export function useRecentlyViewedProductsQuery(options = {}) {
     ...options,
   });
 }
+

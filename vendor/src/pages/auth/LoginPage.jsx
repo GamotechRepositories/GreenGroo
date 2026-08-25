@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (!loading && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/inventory-requests" replace />;
   }
 
   const onSubmit = async (e) => {
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError("");
     try {
       await login(form);
-      navigate("/dashboard", { replace: true });
+      navigate("/inventory-requests", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     } finally {
@@ -33,9 +33,9 @@ export default function LoginPage() {
         onSubmit={onSubmit}
         className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm"
       >
-        <h1 className="text-xl font-bold text-gray-900">Vendor & Product Manager</h1>
+        <h1 className="text-xl font-bold text-gray-900">Product Manager</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Sign in to your Vendor / Segregation Management Panel
+          Review restock requests sent by dark stores
         </p>
 
         {error ? (
@@ -49,6 +49,8 @@ export default function LoginPage() {
           <input
             type="email"
             required
+            autoComplete="email"
+            placeholder="pm@greengroo.com"
             value={form.email}
             onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
             className="w-full rounded-lg border border-gray-200 px-3 py-2"

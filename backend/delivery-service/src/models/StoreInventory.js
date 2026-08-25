@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 
 /**
  * Per-store (per delivery manager) inventory.
- * Stock is reduced when an order is assigned / delivered from this store.
+ * Stock is reduced when a dark-store order is confirmed/packed.
+ * Restock happens when Product Manager approves an inventory request.
  */
 const storeInventorySchema = new mongoose.Schema(
   {

@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-
-const STORAGE_KEY = "greengrocc_delivery_location";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { queryClient } from "../lib/queryClient";
+import { DELIVERY_LOCATION_KEY, deliveryLocationKey } from "../utils/deliveryLocation";
 
 const LocationContext = createContext(null);
 
@@ -12,11 +12,19 @@ const DEFAULT_LOCATION = {
 
 function readStoredLocation() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(DELIVERY_LOCATION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
+}
+
+export function locationIsSet(location) {
+  if (!location) return false;
+  const lat = location.lat ?? location.latitude;
+  const lng = location.lng ?? location.longitude;
+  const hasCoords = lat != null && lat !== "" && lng != null && lng !== "";
+  return Boolean(hasCoords || location.pincode || location.city);
 }
 
 export function LocationProvider({ children }) {
@@ -24,7 +32,9 @@ export function LocationProvider({ children }) {
 
   const setLocation = useCallback((next) => {
     setLocationState(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(DELIVERY_LOCATION_KEY, JSON.stringify(next));
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["nearest-store"] });
   }, []);
 
   useEffect(() => {
@@ -33,11 +43,17 @@ export function LocationProvider({ children }) {
     }
   }, []);
 
-  return (
-    <LocationContext.Provider value={{ location, setLocation, hasLocation: Boolean(location?.pincode) }}>
-      {children}
-    </LocationContext.Provider>
+  const value = useMemo(
+    () => ({
+      location,
+      setLocation,
+      hasLocation: locationIsSet(location),
+      locationKey: deliveryLocationKey(location),
+    }),
+    [location, setLocation]
   );
+
+  return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
 }
 
 export function useLocation() {
@@ -46,4 +62,9 @@ export function useLocation() {
     throw new Error("useLocation must be used within LocationProvider");
   }
   return ctx;
+}
+
+export function useDeliveryLocationKey() {
+  const { locationKey } = useLocation();
+  return locationKey;
 }

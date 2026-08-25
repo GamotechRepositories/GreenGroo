@@ -1,14 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { SERVICE_LOCATIONS, citiesForState } from "../../constants/locations";
-
-// Unique sorted state list
-const ALL_STATES = [...new Set(SERVICE_LOCATIONS.map((l) => l.state))].sort();
+import { useCurrentStoreLocation } from "../../hooks/useCurrentStoreLocation";
 
 export default function RegisterPage() {
   const { isAuthenticated, loading, register } = useAuth();
   const navigate = useNavigate();
+  const { location, detecting, error: locationError, detect } = useCurrentStoreLocation({
+    auto: true,
+  });
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -24,27 +24,22 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const cities = useMemo(() => {
-    return citiesForState(formData.state).map((c) => c.name);
-  }, [formData.state]);
-
-  const areas = useMemo(() => {
-    if (!formData.city) return [];
-    const cityObj = citiesForState(formData.state).find((c) => c.name === formData.city);
-    return [...(cityObj?.areas || [])].sort();
-  }, [formData.state, formData.city]);
+  useEffect(() => {
+    if (!location) return;
+    setFormData((prev) => ({
+      ...prev,
+      state: location.state || prev.state,
+      city: location.city || prev.city,
+      area: location.area || prev.area,
+      storeAddress: location.address || prev.storeAddress,
+    }));
+  }, [location]);
 
   if (!loading && isAuthenticated) return <Navigate to="/dashboard" replace />;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      const updated = { ...prev, [name]: value };
-      // Reset downstream when parent changes
-      if (name === "state") { updated.city = ""; updated.area = ""; }
-      if (name === "city") { updated.area = ""; }
-      return updated;
-    });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const onSubmit = async (e) => {
@@ -55,8 +50,22 @@ export default function RegisterPage() {
       setError("Passwords do not match");
       return;
     }
-    if (!formData.state || !formData.city || !formData.area) {
-      setError("Please select state, city and area");
+
+    let storeLocation = location;
+    if (!storeLocation?.latitude || !storeLocation?.longitude) {
+      try {
+        storeLocation = await detect();
+      } catch (err) {
+        setError(err.message || "Allow current location to register this store");
+        return;
+      }
+    }
+
+    const state = formData.state || storeLocation.state;
+    const city = formData.city || storeLocation.city;
+    const area = formData.area || storeLocation.area;
+    if (!state || !city || !area) {
+      setError("State, city and area are required from your current location");
       return;
     }
 
@@ -67,13 +76,14 @@ export default function RegisterPage() {
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
-        state: formData.state,
-        city: formData.city,
-        area: formData.area,
+        state,
+        city,
+        area,
         storeName: formData.storeName,
-        storeAddress: formData.storeAddress,
+        storeAddress: formData.storeAddress || storeLocation.address,
+        latitude: storeLocation.latitude,
+        longitude: storeLocation.longitude,
       });
-      // After successful registration, go straight to dashboard
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Registration failed");
@@ -82,24 +92,50 @@ export default function RegisterPage() {
     }
   };
 
-  const selectClass =
-    "w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-green-primary bg-white disabled:bg-slate-50 disabled:text-slate-400";
   const inputClass =
     "w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-green-primary";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f3f7f4] px-4 py-8">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-green-primary">
             GreenGroo
           </p>
           <h1 className="mt-1 text-2xl font-bold text-gray-900">Register Your Store</h1>
-          <p className="mt-1 text-sm text-gray-500">Become a delivery manager partner</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Your current location becomes this dark store’s delivery hub
+          </p>
         </div>
 
         <form className="space-y-3" onSubmit={onSubmit}>
-          {/* Store Name */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Current location
+                </p>
+                {detecting ? (
+                  <p className="mt-1 text-sm font-semibold text-slate-700">Detecting…</p>
+                ) : location ? (
+                  <p className="mt-1 truncate text-sm font-bold text-slate-900">{location.label}</p>
+                ) : (
+                  <p className="mt-1 text-sm font-semibold text-rose-600">
+                    {locationError || "Allow location to set your store area"}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => detect().catch(() => {})}
+                disabled={detecting}
+                className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {detecting ? "Locating…" : "Use current location"}
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Store Name</label>
             <input
@@ -113,7 +149,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Manager Name */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Manager Name</label>
             <input
@@ -127,7 +162,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Email */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
             <input
@@ -141,7 +175,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Phone */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Phone Number</label>
             <input
@@ -156,77 +189,58 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* State */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">State</label>
-            <select
-              name="state"
-              required
-              value={formData.state}
-              onChange={handleChange}
-              className={selectClass}
-            >
-              <option value="">Select State</option>
-              {ALL_STATES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">State</label>
+              <input
+                type="text"
+                name="state"
+                required
+                value={formData.state}
+                onChange={handleChange}
+                placeholder="From current location"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
+              <input
+                type="text"
+                name="city"
+                required
+                value={formData.city}
+                onChange={handleChange}
+                placeholder="From current location"
+                className={inputClass}
+              />
+            </div>
           </div>
 
-          {/* City */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
-            <select
-              name="city"
-              required
-              value={formData.city}
-              onChange={handleChange}
-              disabled={!formData.state}
-              className={selectClass}
-            >
-              <option value="">
-                {formData.state ? "Select City" : "Select State first"}
-              </option>
-              {cities.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Area */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Area / Locality</label>
-            <select
+            <input
+              type="text"
               name="area"
               required
               value={formData.area}
               onChange={handleChange}
-              disabled={!formData.city}
-              className={selectClass}
-            >
-              <option value="">
-                {formData.city ? "Select Area" : "Select City first"}
-              </option>
-              {areas.map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
+              placeholder="From current location"
+              className={inputClass}
+            />
           </div>
 
-          {/* Store Address */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Store Address</label>
             <textarea
               name="storeAddress"
               value={formData.storeAddress}
               onChange={handleChange}
-              placeholder="Full store address"
+              placeholder="Filled from current location"
               rows="2"
               className={inputClass}
             />
           </div>
 
-          {/* Password */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
             <input
@@ -241,7 +255,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Confirm Password */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Confirm Password</label>
             <input
@@ -262,10 +275,10 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || detecting}
             className="w-full rounded-xl bg-green-dark py-3 text-sm font-semibold text-white hover:bg-green-primary disabled:opacity-60"
           >
-            {submitting ? "Registering…" : "Create Account"}
+            {submitting ? "Registering…" : "Create store at this location"}
           </button>
         </form>
 

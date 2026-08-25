@@ -5,43 +5,34 @@ import SectionHeader from "./SectionHeader";
 import DealProductCard from "../product/DealProductCard";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 const HOME_PRODUCT_LIMIT = 8;
-
-const FALLBACK_PRODUCTS = [
-  { _id: "1", name: "Fresh Apples", sub: "1 kg", price: 165, discountedPrice: 149 },
-  { _id: "2", name: "Organic Spinach", sub: "500 g", price: 49, discountedPrice: 39 },
-  { _id: "3", name: "Bananas", sub: "1 dozen", price: 89, discountedPrice: 79 },
-  { _id: "4", name: "Tomatoes", sub: "1 kg", price: 45, discountedPrice: 45 },
-  { _id: "5", name: "Carrots", sub: "500 g", price: 35, discountedPrice: 29 },
-  { _id: "6", name: "Broccoli", sub: "500 g", price: 79, discountedPrice: 69 },
-  { _id: "7", name: "Oranges", sub: "1 kg", price: 99, discountedPrice: 89 },
-  { _id: "8", name: "Onions", sub: "1 kg", price: 40, discountedPrice: 36 },
-];
 
 function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const locationKey = useDeliveryLocationKey();
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
       try {
         const { data } = await getProducts({ limit: HOME_PRODUCT_LIMIT });
-        const list = (data.data || []).slice(0, HOME_PRODUCT_LIMIT);
-        setProducts(list.length > 0 ? list : FALLBACK_PRODUCTS);
+        setProducts((data.data || []).slice(0, HOME_PRODUCT_LIMIT));
       } catch {
-        setProducts(FALLBACK_PRODUCTS);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProducts();
-  }, []);
+  }, [locationKey]);
 
-  const displayProducts = (loading ? FALLBACK_PRODUCTS : products).slice(0, HOME_PRODUCT_LIMIT);
+  const displayProducts = products.slice(0, HOME_PRODUCT_LIMIT);
 
   const cardProps = (product) => ({
     product,
@@ -57,6 +48,8 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
       className={`animate-pulse rounded-xl bg-[#f5f5f5] ${className}`}
     />
   );
+
+  if (!loading && displayProducts.length === 0) return null;
 
   return (
     <section className="px-4 py-4 sm:px-6 lg:px-6 lg:py-5 xl:px-8">

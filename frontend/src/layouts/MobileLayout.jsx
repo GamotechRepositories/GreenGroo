@@ -29,8 +29,9 @@ function MobileLayout({ children }) {
         <MobileHeader />
       )}
 
-      {/* Shop uses vertical category rail; skip horizontal CategoryNavbar */}
-      {!isHome && !isProductDetail && !isShop ? <CategoryNavbar /> : null}
+      {!isHome && !isProductDetail && !isShop && pathname !== "/cart" && pathname !== "/checkout" ? (
+        <CategoryNavbar />
+      ) : null}
 
       <main
         className={`mx-auto w-full flex-1 pt-0 lg:pt-[72px] ${
@@ -40,7 +41,7 @@ function MobileLayout({ children }) {
         {children}
       </main>
 
-      {isHome ? <FloatingCartBar /> : null}
+      {isHome || isShop || pathname === "/categories" ? <FloatingCartBar /> : null}
 
       <div className={isHome || isShop ? "hidden lg:block" : ""}>
         <Footer />

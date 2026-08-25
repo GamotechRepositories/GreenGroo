@@ -7,15 +7,16 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  Layers,
   FolderTree,
   Package,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Products', href: '/products', icon: Package },
+  { name: 'Dark Stores', href: '/dark-stores', icon: Store },
   { name: 'Sections & Categories', href: '/categories', icon: FolderTree },
 ];
 

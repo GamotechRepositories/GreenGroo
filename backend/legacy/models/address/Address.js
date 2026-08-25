@@ -73,6 +73,11 @@ export const addressFieldDefinitions = {
       message: "Pincode must be 6 digits",
     },
   },
+  area: {
+    type: String,
+    trim: true,
+    default: "",
+  },
   location: {
     lat: { type: Number },
     lng: { type: Number },

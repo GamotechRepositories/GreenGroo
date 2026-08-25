@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { getProducts } from "../../api/api";
 import HomeProductRow from "./HomeProductRow";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 const HOME_PRODUCT_LIMIT = 12;
 
 function JustArrived() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const locationKey = useDeliveryLocationKey();
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -24,7 +26,7 @@ function JustArrived() {
     };
 
     fetchProducts();
-  }, []);
+  }, [locationKey]);
 
   return (
     <HomeProductRow

@@ -64,6 +64,13 @@ export default function DashboardPage() {
       to: "/stock",
       urgent: (summary?.lowStockItems ?? 0) > 0,
     },
+    {
+      label: "Restock Requests",
+      value: summary?.pendingInventoryRequests ?? 0,
+      subtext: "Waiting on Product Manager",
+      to: "/stock",
+      urgent: (summary?.pendingInventoryRequests ?? 0) > 0,
+    },
   ];
 
   return (
@@ -172,7 +179,7 @@ export default function DashboardPage() {
         >
           <div>
             <p className="font-bold text-slate-900">Stock Inventory</p>
-            <p className="text-xs text-slate-500 mt-0.5">View & manage store stock</p>
+            <p className="text-xs text-slate-500 mt-0.5">Live stock · request restock from Product Manager</p>
           </div>
         </Link>
 

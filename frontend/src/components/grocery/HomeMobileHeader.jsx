@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useLocation } from "../../context/LocationContext";
 import { useAuth } from "../../context/AuthContext";
 import { buildProductSearchUrl } from "../../utils/productSearch";
+import { formatDeliveryLine } from "../../utils/detectCurrentLocation";
+import { useNearestStore } from "../../hooks/useNearestStore";
 import { resolveStoreTheme } from "./homeHeaderThemes";
 
 function SearchIcon({ className = "h-4 w-4" }) {
@@ -93,7 +95,8 @@ function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
 
 /** Delivery row + store tabs — scrolls away */
 export function HomeDeliveryBar() {
-  const { location } = useLocation();
+  const { location, hasLocation } = useLocation();
+  const { data: nearest } = useNearestStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const theme = resolveStoreTheme(currentStore);
@@ -108,7 +111,10 @@ export function HomeDeliveryBar() {
     setSearchParams(nextParams);
   };
 
-  const addressText = [location.label, location.address].filter(Boolean).join(" - ");
+  const addressText = hasLocation
+    ? formatDeliveryLine(location) || location.label
+    : "Select location to see nearby stock";
+  const storeName = nearest?.store?.storeName;
 
   return (
     <div className={`${theme.deliveryBg} px-4 pb-0 pt-2.5 sm:pt-3 transition-colors duration-300`}>
@@ -122,12 +128,17 @@ export function HomeDeliveryBar() {
           </div>
           <div className="mt-1 flex items-center gap-1">
             <span className={`max-w-[230px] sm:max-w-[320px] truncate text-[11px] font-semibold leading-tight ${theme.subTextColor}`}>
-              {addressText || "Hinjawadi Phase II - Gera, 3, Hinjawadi P..."}
+              {addressText}
             </span>
             <svg className={`h-3 w-3 shrink-0 ${theme.subTextColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
+          {storeName ? (
+            <p className={`mt-0.5 max-w-[280px] truncate text-[10px] font-medium ${theme.subTextColor}`}>
+              From {storeName}
+            </p>
+          ) : null}
         </Link>
         <ProfileButton theme={theme} />
       </div>

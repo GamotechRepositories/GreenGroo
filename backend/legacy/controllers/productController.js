@@ -4,6 +4,11 @@ import Order from "../models/order/Order.js";
 import mongoose from "mongoose";
 import { normalizeOptionalQuantity, resolvePricingFields } from "../utils/productPricing.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
+import {
+  attachStoreAvailability,
+  loadNearestStoreCatalog,
+  mergeStoreFilter,
+} from "../../delivery-service/src/services/nearestStoreCatalog.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
 
@@ -488,13 +493,14 @@ async function getPurchaseCountsByProductIds(productIds = []) {
 
 export const getProducts = async (req, res) => {
   try {
-    const filter = { isActive: true };
+    const catalog = await loadNearestStoreCatalog(req.query);
+    const filter = mergeStoreFilter({ isActive: true }, catalog);
 
-    if (req.query.justArrived === "true") {
+    if (!catalog.requested && req.query.justArrived === "true") {
       filter.justArrived = true;
     }
 
-    if (req.query.hotSelling === "true") {
+    if (!catalog.requested && req.query.hotSelling === "true") {
       filter.hotSelling = true;
     }
 
@@ -523,7 +529,7 @@ export const getProducts = async (req, res) => {
         MOST_PURCHASE_TAG.toLowerCase()
     ) {
       filter.categories = MOST_PURCHASE_TAG;
-    } else if (req.query.categoryName?.trim()) {
+    } else if (req.query.categoryName?.trim() && !catalog.requested) {
       filter.categories = req.query.categoryName.trim();
     }
 
@@ -591,17 +597,18 @@ export const getProducts = async (req, res) => {
       const purchaseCounts = await getPurchaseCountsByProductIds(
         products.map((item) => item._id)
       );
-      const data = products.map((item) => {
-        const product = item.toObject();
-        return {
-          ...product,
+      const data = attachStoreAvailability(
+        products.map((item) => ({
+          ...item.toObject(),
           purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-        };
-      });
+        })),
+        catalog
+      );
 
-      return res
-        .status(200)
-        .json(buildPaginatedResponse(data, total, page, limit));
+      return res.status(200).json({
+        ...buildPaginatedResponse(data, total, page, limit),
+        store: catalog.store,
+      });
     }
 
     let query = Product.find(filter).sort(sort);
@@ -613,14 +620,39 @@ export const getProducts = async (req, res) => {
 
     const products = await query;
     const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
-    const data = products.map((item) => {
-      const product = item.toObject();
-      return {
-        ...product,
+    let data = attachStoreAvailability(
+      products.map((item) => ({
+        ...item.toObject(),
         purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-      };
-    });
-    res.status(200).json({ success: true, data });
+      })),
+      catalog
+    );
+
+    if (!data.length && catalog.items?.length) {
+      const cats = [...new Set(catalog.items.map((item) => item.category).filter(Boolean))];
+      const loose = await Product.find({
+        isActive: true,
+        ...(req.query.categoryName?.trim()
+          ? { categories: req.query.categoryName.trim() }
+          : cats.length
+            ? { categories: { $in: cats } }
+            : {}),
+      })
+        .sort(sort)
+        .limit(80);
+      const looseCounts = await getPurchaseCountsByProductIds(loose.map((item) => item._id));
+      data = attachStoreAvailability(
+        loose.map((item) => ({
+          ...item.toObject(),
+          purchaseCount: looseCounts.get(String(item._id)) || 0,
+        })),
+        catalog
+      );
+      if (req.query.limit) {
+        data = data.slice(0, Math.min(parseInt(req.query.limit, 10) || 15, 50));
+      }
+    }
+    res.status(200).json({ success: true, data, store: catalog.store });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -739,13 +771,29 @@ export const getProductById = async (req, res) => {
         .json({ success: false, message: "Product not found" });
     }
 
+    const catalog = await loadNearestStoreCatalog(req.query);
     const purchaseCounts = await getPurchaseCountsByProductIds([product._id]);
+    const [decorated] = attachStoreAvailability(
+      [
+        {
+          ...product.toObject(),
+          purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+        },
+      ],
+      catalog
+    );
+
     res.status(200).json({
       success: true,
-      data: {
+      data: decorated || {
         ...product.toObject(),
         purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+        inStock: false,
+        stock: 0,
+        storeStock: 0,
+        storeName: catalog.store?.storeName,
       },
+      store: catalog.store,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -809,7 +857,8 @@ export const getSimilarProducts = async (req, res) => {
         .json({ success: false, message: "Product not found" });
     }
 
-    const baseFilter = { isActive: true };
+    const catalog = await loadNearestStoreCatalog(req.query);
+    const baseFilter = mergeStoreFilter({ isActive: true }, catalog);
     const excludeIds = [product._id];
     const similar = [];
     const subcategories = getRelevantSubcategories(product);
@@ -859,7 +908,11 @@ export const getSimilarProducts = async (req, res) => {
       similar.push(...matches);
     }
 
-    res.status(200).json({ success: true, data: similar });
+    res.status(200).json({
+      success: true,
+      data: attachStoreAvailability(similar, catalog),
+      store: catalog.store,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

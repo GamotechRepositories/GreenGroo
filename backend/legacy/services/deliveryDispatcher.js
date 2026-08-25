@@ -1,103 +1,164 @@
-import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
-import DeliveryOrder from "../../delivery-service/src/models/Order.js";
-import { autoAssignRider } from "../../delivery-service/src/controllers/orderController.js";
+import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
+import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
+import { resolveDarkStoreForAddress } from "../../delivery-service/src/services/darkStoreResolver.js";
+import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
+import { getIO } from "../../socket.js";
+import Product from "../models/Product.js";
+
+function formatCustomerAddress(address = {}) {
+  const parts = [];
+  if (address.shopNo) parts.push(address.shopNo);
+  if (address.shopName) parts.push(address.shopName);
+  if (address.fullAddress) parts.push(address.fullAddress);
+  if (address.landmark) parts.push(address.landmark);
+  if (address.area) parts.push(address.area);
+  if (address.city) parts.push(address.city);
+  if (address.state) parts.push(address.state);
+  if (address.pincode) parts.push(address.pincode);
+  return parts.join(", ");
+}
+
+function scoreNameMatch(productName, inventoryName) {
+  const a = String(productName || "").trim().toLowerCase();
+  const b = String(inventoryName || "").trim().toLowerCase();
+  if (!a || !b) return 0;
+  if (a === b) return 100;
+  if (a.includes(b) || b.includes(a)) return 70;
+  const aTokens = a.split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+  const hits = aTokens.filter((t) => b.includes(t)).length;
+  return hits ? 40 + hits * 5 : 0;
+}
+
+async function mapItemsToStoreCatalog(managerId, ecommerceItems = []) {
+  const inventory = await StoreInventory.find({ managerId, isActive: true });
+  const productIds = ecommerceItems
+    .map((item) => item.product?._id || item.product)
+    .filter(Boolean);
+  const products = productIds.length
+    ? await Product.find({ _id: { $in: productIds } }).select("sku name")
+    : [];
+  const productById = new Map(products.map((p) => [p._id.toString(), p]));
+
+  return ecommerceItems.map((item) => {
+    const productId = String(item.product?._id || item.product || "");
+    const product = productById.get(productId);
+    const productSku = String(product?.sku || item.sku || "").trim();
+    const productName = item.name || product?.name || "Item";
+
+    let match = null;
+    if (productSku) {
+      match = inventory.find(
+        (row) => String(row.sku).toLowerCase() === productSku.toLowerCase()
+      );
+    }
+    if (!match) {
+      match = inventory.reduce((best, row) => {
+        const score = scoreNameMatch(productName, row.name);
+        if (score < 40) return best;
+        if (!best || score > best.score) return { row, score };
+        return best;
+      }, null)?.row;
+    }
+
+    return {
+      sku: match?.sku || productSku || (productId ? `P-${productId.slice(-8)}` : `ITEM-${Date.now()}`),
+      name: match?.name || productName,
+      quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
+      unit: match?.unit || "pcs",
+      price: Number(item.price || match?.price || 0),
+    };
+  });
+}
 
 /**
- * Dispatches an e-commerce order to the delivery service by routing it
- * to the nearest store and assigning an available rider.
- * @param {Object} ecommerceOrder The confirmed e-commerce order object/document
+ * Route a confirmed customer order to the dark store that covers that address.
+ * Creates a StoreOrder so the correct Delivery Manager can confirm, deduct stock, and dispatch.
  */
 export async function dispatchDeliveryOrder(ecommerceOrder) {
   try {
+    if (ecommerceOrder?.status === "attempted") {
+      return null;
+    }
+
     const address = ecommerceOrder.deliveryAddress;
     if (!address) {
       console.error("[deliveryDispatcher] No delivery address found for order", ecommerceOrder._id);
       return null;
     }
 
-    // 1. Find the nearest store.
-    // We try to match by city first (case-insensitive).
-    let manager = null;
-    if (address.city) {
-      manager = await DeliveryManager.findOne({
-        city: new RegExp(`^${address.city}$`, "i"),
-        isActive: true,
-      });
+    if (ecommerceOrder._id) {
+      const alreadyRouted = await StoreOrder.findOne({ sourceOrderId: ecommerceOrder._id });
+      if (alreadyRouted) {
+        return alreadyRouted;
+      }
     }
 
-    // Fallback to any active store if no exact match is found
-    if (!manager) {
-      manager = await DeliveryManager.findOne({ isActive: true });
-    }
-
+    const { manager, reason, distanceKm } = await resolveDarkStoreForAddress(address);
     if (!manager) {
       console.warn(
-        "[deliveryDispatcher] No active delivery manager found to handle order",
-        ecommerceOrder._id
+        "[deliveryDispatcher] No dark store covers this address",
+        ecommerceOrder._id,
+        { city: address.city, reason }
       );
       return null;
     }
 
-    // Construct address string
-    const parts = [];
-    if (address.shopNo) parts.push(address.shopNo);
-    if (address.shopName) parts.push(address.shopName);
-    if (address.fullAddress) parts.push(address.fullAddress);
-    if (address.landmark) parts.push(address.landmark);
-    if (address.city) parts.push(address.city);
-    if (address.state) parts.push(address.state);
-    if (address.pincode) parts.push(address.pincode);
+    await seedManagerStore(manager);
 
-    const customerAddressString = parts.join(", ");
-    const customerName = address.fullName || "Customer";
-    const customerPhone = address.number || "0000000000";
-
-    // Transform items
-    const deliveryItems = (ecommerceOrder.items || []).map((item) => ({
-      productId: item.product?._id || item.product,
-      name: item.name,
-      qty: item.quantity,
-      price: item.price,
-    }));
-
-    // Calculate amount to collect
-    let amountToCollect = 0;
-    if (ecommerceOrder.paymentStatus === "unpaid") {
-      amountToCollect = ecommerceOrder.total;
-    } else if (ecommerceOrder.paymentStatus === "paid_10") {
-      amountToCollect = Math.max(0, ecommerceOrder.total - (ecommerceOrder.codAdvanceAmount || 0));
+    const customerAddress = formatCustomerAddress(address) || "Customer address";
+    const items = await mapItemsToStoreCatalog(manager._id, ecommerceOrder.items || []);
+    if (!items.length) {
+      console.warn("[deliveryDispatcher] Order has no items", ecommerceOrder._id);
+      return null;
     }
 
-    const deliveryMethod = ecommerceOrder.paymentMethod === "online" ? "online" : "COD";
+    const orderNum = ecommerceOrder.orderNumber
+      ? `CUST-${ecommerceOrder.orderNumber}`
+      : `CUST-${String(ecommerceOrder._id).slice(-8).toUpperCase()}`;
 
-    // 2. Create the delivery order
-    const deliveryOrder = await DeliveryOrder.create({
+    const storeOrder = await StoreOrder.create({
+      orderNumber: orderNum,
       managerId: manager._id,
-      storeId: manager._id,
-      pickupAddress: manager.storeAddress || "Store Pickup",
-      customerName,
-      customerAddress: customerAddressString,
-      customerPhone,
-      customerLocation: address.location && address.location.lat ? address.location : { lat: 18.5793, lng: 73.7712 }, // Fallback dummy location
-      items: deliveryItems,
-      totalAmount: ecommerceOrder.total,
-      paymentMethod: deliveryMethod,
-      amountToCollect,
-      deliveryFee: ecommerceOrder.deliveryCharges || 0,
-      deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
-      qrData: `ORDER_${manager._id}_${Date.now()}`,
-      qrCode: `ORDER_${manager._id}_${Date.now()}`,
-      status: "packed",
-      orderTimestamps: {
-        packedAt: new Date(),
-      },
+      sourceOrderId: ecommerceOrder._id || null,
+      city: manager.city || address.city || "",
+      cityId: manager.cityId || "",
+      area: manager.area || "",
+      customerName: address.fullName || "Customer",
+      customerPhone: address.number || "",
+      customerAddress,
+      customerLat: Number(address.location?.lat) || manager.latitude || 18.559,
+      customerLng: Number(address.location?.lng) || manager.longitude || 73.7868,
+      items,
+      status: "order_received",
+      darkStoreQrCode: `DARKSTORE_${manager._id}`,
+      otpCode: String(Math.floor(1000 + Math.random() * 9000)),
+      notes: `Customer order ${ecommerceOrder.orderNumber || ecommerceOrder._id} routed by ${reason}${
+        distanceKm != null ? ` (${distanceKm.toFixed(1)} km)` : ""
+      }`,
     });
 
-    // 3. Auto-assign rider
-    await autoAssignRider(deliveryOrder);
+    console.log(
+      `[deliveryDispatcher] Order ${orderNum} → ${manager.storeName || manager.area} (${reason})`
+    );
 
-    return deliveryOrder;
+    try {
+      getIO().to(`store_${manager._id}`).emit("new_order_received", {
+        orderId: storeOrder._id.toString(),
+        orderNumber: storeOrder.orderNumber,
+        customerName: storeOrder.customerName,
+        customerPhone: storeOrder.customerPhone,
+        itemsCount: storeOrder.items.length,
+        storeName: manager.storeName || `${manager.area} Store`,
+      });
+    } catch (err) {
+      console.warn("[deliveryDispatcher] socket emit failed:", err.message);
+    }
+
+    return storeOrder;
   } catch (error) {
+    if (error?.code === 11000 && ecommerceOrder?._id) {
+      return StoreOrder.findOne({ sourceOrderId: ecommerceOrder._id });
+    }
     console.error("[deliveryDispatcher] Failed to dispatch order", error);
     return null;
   }

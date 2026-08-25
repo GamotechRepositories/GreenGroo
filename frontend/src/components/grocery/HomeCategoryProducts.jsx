@@ -3,6 +3,7 @@ import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import { getProducts } from "../../api/api";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 function HomeCategoryProducts({ categoryName }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
@@ -10,6 +11,7 @@ function HomeCategoryProducts({ categoryName }) {
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const locationKey = useDeliveryLocationKey();
 
   useEffect(() => {
     let isMounted = true;
@@ -29,7 +31,7 @@ function HomeCategoryProducts({ categoryName }) {
     return () => {
       isMounted = false;
     };
-  }, [categoryName]);
+  }, [categoryName, locationKey]);
 
   const cardProps = (product) => ({
     product,

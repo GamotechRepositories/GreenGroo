@@ -8,9 +8,9 @@ import {
   isMultiVariant,
 } from "../../utils/productPricing";
 
-const ADD_PINK = "#C2185B";
-const PRICE_GREEN = "#2E7D32";
-const OFF_GREEN = "#2E7D32";
+const ADD_PINK = "#0C831F";
+const PRICE_GREEN = "#0C831F";
+const OFF_GREEN = "#0C831F";
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -103,7 +103,7 @@ function QuickCommerceProductCard({
       type="button"
       onClick={handleAdd}
       disabled={disabled}
-      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-gradient-to-b from-white to-[#FFF0F5] px-3 text-[12px] font-extrabold uppercase tracking-wide transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-white px-3 text-[12px] font-extrabold uppercase tracking-wide transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       style={{
         borderColor: ADD_PINK,
         color: ADD_PINK,
@@ -119,7 +119,7 @@ function QuickCommerceProductCard({
       className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[76px] items-stretch overflow-hidden rounded-lg transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
       style={{
         backgroundColor: ADD_PINK,
-        boxShadow: `2px 2px 0 0 #9A1248`,
+        boxShadow: `2px 2px 0 0 #086318`,
       }}
     >
       <button
@@ -165,7 +165,7 @@ function QuickCommerceProductCard({
   return (
     <div className={widthClass}>
       <div className="relative flex h-full flex-col bg-white">
-        {/* 1. Image + pink ADD */}
+        {/* Image + ADD */}
         <div
           className="relative overflow-hidden rounded-xl border transition-all duration-300"
           style={{

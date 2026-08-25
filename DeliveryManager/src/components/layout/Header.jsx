@@ -33,7 +33,7 @@ export default function Header({ onMobileMenuToggle }) {
             </span>
             <span className="text-slate-300">/</span>
             <span className="text-xs font-extrabold text-emerald-700">
-              {manager?.area || " Hub"}
+              {manager?.area || "Hub"}
             </span>
           </div>
           <p className="text-base font-extrabold text-slate-900 leading-tight">

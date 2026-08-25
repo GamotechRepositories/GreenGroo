@@ -88,3 +88,21 @@ export function pickRandomItems(inventoryDocs, count = 3) {
     price: p.price,
   }));
 }
+
+/** Pick items that exist in this dark store so confirm can actually deduct stock. */
+export function pickDemoOrderItems(inventoryDocs, count = 3) {
+  const stocked = (inventoryDocs || []).filter((d) => (d.stockCount || 0) >= 1);
+  const pool = [...(stocked.length ? stocked : inventoryDocs || [])].sort(
+    () => Math.random() - 0.5
+  );
+  return pool.slice(0, Math.max(1, Math.min(count, pool.length))).map((p) => {
+    const available = Math.max(1, p.stockCount || 1);
+    return {
+      sku: p.sku,
+      name: p.name,
+      quantity: Math.min(2, available),
+      unit: p.unit || "pcs",
+      price: p.price || 0,
+    };
+  });
+}

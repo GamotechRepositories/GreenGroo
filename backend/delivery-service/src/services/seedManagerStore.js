@@ -1,9 +1,5 @@
 import StoreInventory from "../models/StoreInventory.js";
-import StoreOrder from "../models/StoreOrder.js";
-import {
-  buildInventoryDocs,
-  pickRandomItems,
-} from "../data/storeProductCatalog.js";
+import { buildInventoryDocs } from "../data/storeProductCatalog.js";
 
 export async function seedManagerStore(manager) {
   const existing = await StoreInventory.countDocuments({

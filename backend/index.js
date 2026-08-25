@@ -19,6 +19,8 @@ import staffRoutes from "./staff-service/src/routes.js";
 import farmerManagerRoutes from "./farmer-manager-service/src/routes.js";
 import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
+import adminDarkStoreRoutes from "./delivery-service/src/routes/adminDarkStoreRoutes.js";
+import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -91,6 +93,9 @@ app.get("/health", (_req, res) => {
 for (const { path, router } of allRoutes) {
   app.use(path, router);
 }
+
+app.use("/api/admin/dark-stores", adminDarkStoreRoutes);
+app.use("/api/stores", storeCatalogRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

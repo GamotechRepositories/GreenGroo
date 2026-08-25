@@ -386,12 +386,12 @@ function Product() {
 
     if (categoryName) {
       const target = categoryName.toLowerCase();
-      const filtered = baseList.filter((p) => {
-        const pCats = Array.isArray(p.categories)
-          ? p.categories
-          : p.categoryName
-          ? [p.categoryName]
-          : [];
+      return baseList.filter((p) => {
+        const pCats = [
+          ...(Array.isArray(p.categories) ? p.categories : []),
+          p.categoryName,
+          p.storeCategory,
+        ].filter(Boolean);
         return pCats.some(
           (c) =>
             c?.toLowerCase() === target ||
@@ -399,7 +399,6 @@ function Product() {
             c?.toLowerCase().includes(target)
         );
       });
-      return filtered.length > 0 ? filtered : baseList;
     }
 
     return baseList;

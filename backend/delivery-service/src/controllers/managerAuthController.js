@@ -31,6 +31,56 @@ const authResponse = (manager, token) => ({
   manager: manager.toSafeJSON(),
 });
 
+const toCoord = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const citySlug = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+function readStoreLocation(body = {}) {
+  const latitude = toCoord(body.latitude ?? body.lat);
+  const longitude = toCoord(body.longitude ?? body.lng);
+  const state = String(body.state || "").trim();
+  const city = String(body.city || "").trim();
+  const area = String(body.area || "").trim();
+  const storeAddress = String(body.storeAddress || body.address || "").trim();
+  return { latitude, longitude, state, city, area, storeAddress };
+}
+
+function applyStoreLocation(manager, loc) {
+  if (!manager || !loc) return false;
+  let changed = false;
+  if (loc.latitude != null && loc.longitude != null) {
+    manager.latitude = loc.latitude;
+    manager.longitude = loc.longitude;
+    changed = true;
+  }
+  if (loc.state) {
+    manager.state = loc.state;
+    changed = true;
+  }
+  if (loc.city) {
+    manager.city = loc.city;
+    manager.cityId = citySlug(loc.city);
+    changed = true;
+  }
+  if (loc.area) {
+    manager.area = loc.area;
+    changed = true;
+  }
+  if (loc.storeAddress) {
+    manager.storeAddress = loc.storeAddress;
+    changed = true;
+  }
+  return changed;
+}
+
 export const register = async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
@@ -42,7 +92,8 @@ export const register = async (req, res, next) => {
     const cityId = String(req.body.cityId || "").trim().toLowerCase();
     const area = String(req.body.area || "").trim();
     const storeName = String(req.body.storeName || "").trim();
-    const storeAddress = String(req.body.storeAddress || "").trim();
+    const loc = readStoreLocation(req.body);
+    const storeAddress = loc.storeAddress;
 
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({
@@ -95,12 +146,14 @@ export const register = async (req, res, next) => {
       password,
       state,
       city,
-      cityId: cityId || city.toLowerCase().replace(/\s+/g, "-"),
+      cityId: cityId || citySlug(city),
       area,
       storeName: storeName || `${area} Store`,
       storeAddress:
         storeAddress ||
         `${storeName || `${area} Store`}, ${area}, ${city}, ${state}`,
+      latitude: loc.latitude ?? undefined,
+      longitude: loc.longitude ?? undefined,
     });
 
     const seeded = await seedManagerStore(manager);
@@ -143,6 +196,25 @@ export const login = async (req, res, next) => {
         success: false,
         message: "Account is deactivated",
       });
+    }
+
+    // Bind this dark store to the manager's current GPS so nearby orders route here.
+    const loc = readStoreLocation(req.body);
+    if (applyStoreLocation(manager, loc)) {
+      await DeliveryManager.updateOne(
+        { _id: manager._id },
+        {
+          $set: {
+            latitude: manager.latitude,
+            longitude: manager.longitude,
+            state: manager.state,
+            city: manager.city,
+            cityId: manager.cityId,
+            area: manager.area,
+            storeAddress: manager.storeAddress,
+          },
+        }
+      );
     }
 
     // Ensure store has inventory (e.g. older accounts)

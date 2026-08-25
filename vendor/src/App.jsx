@@ -15,6 +15,7 @@ import AddManagerPage from './pages/farmer-managers/AddManagerPage'
 import ManagerDetailPage from './pages/farmer-managers/ManagerDetailPage'
 import AllFarmersPage from './pages/vendor-farmers/AllFarmersPage'
 import AddFarmerPage from './pages/vendor-farmers/AddFarmerPage'
+<<<<<<< Updated upstream
 import DriversPage from './pages/drivers/DriversPage'
 import DriverFormPage from './pages/drivers/DriverFormPage'
 import DriverDetailPage from './pages/drivers/DriverDetailPage'
@@ -24,6 +25,9 @@ import CollectionReceivePage from './pages/pickups/CollectionReceivePage'
 import DriverLoginPage from './pages/drivers/DriverLoginPage'
 import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
+=======
+import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
+>>>>>>> Stashed changes
 
 function App() {
   return (
@@ -54,6 +58,7 @@ function App() {
                 <Route path="/vendor/farmer-managers/:managerId" element={<ManagerDetailPage />} />
                 <Route path="/vendor/all-farmers" element={<AllFarmersPage />} />
                 <Route path="/vendor/all-farmers/add" element={<AddFarmerPage />} />
+<<<<<<< Updated upstream
                 <Route path="/vendor/drivers" element={<DriversPage />} />
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
@@ -66,12 +71,15 @@ function App() {
                 <Route path="/vendor/pickups/:pickupId" element={<VendorPickupDetailPage />} />
                 <Route path="/vendor/collection-centre" element={<VendorPickupsPage mode="centre" />} />
                 <Route path="/vendor/collection-centre/:pickupId" element={<CollectionReceivePage />} />
+=======
+                <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
+>>>>>>> Stashed changes
                 <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Panel configuration" />} />
                 <Route path="/profile" element={<PlaceholderPage title="My Profile" subtitle="Your account details" />} />
               </Route>
             </Route>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/inventory-requests" replace />} />
+            <Route path="*" element={<Navigate to="/inventory-requests" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

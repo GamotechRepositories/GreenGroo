@@ -18,6 +18,10 @@ import {
   createDemoStoreOrder,
 } from "../controllers/managerDashboardController.js";
 import {
+  createInventoryRequest,
+  listMyInventoryRequests,
+} from "../controllers/inventoryRequestController.js";
+import {
   getLiveRiders,
 } from "../controllers/gigController.js";
 import {
@@ -55,6 +59,8 @@ router.get("/me", me);
 router.get("/dashboard", getDashboardSummary);
 router.get("/orders", listIncomingOrders);
 router.get("/inventory", listInventory);
+router.get("/inventory-requests", listMyInventoryRequests);
+router.post("/inventory-requests", createInventoryRequest);
 router.get("/riders", listRiders);
 router.get("/drivers", listRiders);
 router.get("/riders/pending", listPendingDrivers);

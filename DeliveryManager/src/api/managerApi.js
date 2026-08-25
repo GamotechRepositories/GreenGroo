@@ -28,6 +28,9 @@ export const managerApi = {
   dashboard: () => api.get(`${BASE}/dashboard`),
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
+  listInventoryRequests: (params) =>
+    api.get(`${BASE}/inventory-requests`, { params }),
+  requestInventory: (data) => api.post(`${BASE}/inventory-requests`, data),
   riders: () => api.get(`${BASE}/riders`),
   getDriverDetails: (driverId) => api.get(`${BASE}/drivers/${driverId}`),
   toggleRiderActive: (driverId) => api.post(`${BASE}/drivers/${driverId}/toggle-active`),

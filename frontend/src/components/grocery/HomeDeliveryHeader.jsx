@@ -1,8 +1,12 @@
 import { Link } from "react-router-dom";
 import { useLocation } from "../../context/LocationContext";
+import { useNearestStore } from "../../hooks/useNearestStore";
+import { formatDeliveryLine } from "../../utils/detectCurrentLocation";
 
 function HomeDeliveryHeader() {
-  const { location } = useLocation();
+  const { location, hasLocation } = useLocation();
+  const { data: nearest } = useNearestStore();
+  const storeName = nearest?.store?.storeName;
 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -12,14 +16,20 @@ function HomeDeliveryHeader() {
         </p>
         <div className="flex items-center gap-1">
           <p className="truncate text-sm font-bold text-text-primary">
-            {location.label}
+            {hasLocation ? location.label || location.city || "Current location" : "Select location"}
             {location.pincode ? ` · ${location.pincode}` : ""}
           </p>
           <svg className="h-4 w-4 shrink-0 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
-        <p className="truncate text-xs text-text-secondary">{location.address}</p>
+        <p className="truncate text-xs text-text-secondary">
+          {hasLocation
+            ? [formatDeliveryLine(location), storeName ? `From ${storeName}` : ""]
+                .filter(Boolean)
+                .join(" · ")
+            : "Use current location to see this store’s inventory"}
+        </p>
       </Link>
 
       <Link

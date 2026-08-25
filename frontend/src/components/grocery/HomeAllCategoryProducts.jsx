@@ -4,6 +4,7 @@ import SectionHeader from "../mobile/SectionHeader";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import { getProducts } from "../../api/api";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 import DealsStartingAt9Section from "../home/DealsStartingAt9Section";
 
@@ -12,6 +13,7 @@ export const HOME_PRODUCT_CATEGORIES = ["Vegetables", "Fruits", "Dairy", "Organi
 function CategoryProductSection({ categoryName, limit = 20 }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
+  const locationKey = useDeliveryLocationKey();
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ function CategoryProductSection({ categoryName, limit = 20 }) {
     return () => {
       isMounted = false;
     };
-  }, [categoryName, limit]);
+  }, [categoryName, limit, locationKey]);
 
   const cardProps = (product) => ({
     product,

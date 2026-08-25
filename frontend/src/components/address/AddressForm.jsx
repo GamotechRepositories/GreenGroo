@@ -17,6 +17,7 @@ export const ADDRESS_FORM_FIELDS = {
   shopName: "",
   fullAddress: "",
   landmark: "",
+  area: "",
   city: "",
   state: "",
   pincode: "",
@@ -46,10 +47,10 @@ export function validateAddressForm(form) {
   }
   if (!email) return "Email is required";
   if (!EMAIL_PATTERN.test(email)) return "Enter a valid email address";
-  if (!shopNo) return "Shop number is required";
-  if (!shopName) return "Shop name is required";
-  if (!fullAddress) return "Full address is required";
-  if (!landmark) return "Landmark is required";
+  if (!shopNo) return "House / flat number is required";
+  if (!shopName) return "Building / society name is required";
+  if (!fullAddress) return "Street address is required";
+  if (!form.area?.trim() && !landmark) return "Area or landmark is required";
   if (!city) return "City is required";
   if (!state) return "State is required";
   if (!pincode) return "Pincode is required";
@@ -91,6 +92,8 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
             const city = addr.city || addr.town || addr.village || addr.county || "";
             const state = addr.state || "";
             const pincode = addr.postcode || "";
+            const area =
+              addr.suburb || addr.neighbourhood || addr.quarter || addr.village || "";
             const fullAddress = data.display_name || "";
             
             setForm(prev => ({
@@ -98,6 +101,8 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
               city,
               state,
               pincode,
+              area: prev.area || area,
+              landmark: prev.landmark || area,
               fullAddress: prev.fullAddress || fullAddress,
               location: { lat, lng }
             }));
@@ -195,7 +200,8 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
       shopNo: form.shopNo.trim(),
       shopName: form.shopName.trim(),
       fullAddress: form.fullAddress.trim(),
-      landmark: form.landmark.trim(),
+      landmark: form.landmark.trim() || form.area.trim(),
+      area: form.area.trim() || form.landmark.trim(),
       city: form.city.trim(),
       state: form.state.trim(),
       pincode: form.pincode.trim(),
@@ -268,7 +274,7 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
           value={form.shopNo}
           onChange={handleChange}
           required
-          placeholder="Shop no."
+          placeholder="House / flat no."
           className={inputClass}
         />
         <input
@@ -276,7 +282,7 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
           value={form.shopName}
           onChange={handleChange}
           required
-          placeholder="Shop name"
+          placeholder="Building / society"
           className={inputClass}
         />
       </div>
@@ -287,18 +293,27 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
         onChange={handleChange}
         required
         rows={2}
-        placeholder="Full address"
+        placeholder="Street address"
         className={`${inputClass} resize-none`}
       />
 
-      <input
-        name="landmark"
-        value={form.landmark}
-        onChange={handleChange}
-        required
-        placeholder="Landmark"
-        className={inputClass}
-      />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <input
+          name="area"
+          value={form.area || ""}
+          onChange={handleChange}
+          required
+          placeholder="Area / locality"
+          className={inputClass}
+        />
+        <input
+          name="landmark"
+          value={form.landmark}
+          onChange={handleChange}
+          placeholder="Landmark (optional)"
+          className={inputClass}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <LocationAutocomplete

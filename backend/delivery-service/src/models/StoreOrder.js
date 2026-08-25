@@ -77,12 +77,21 @@ const storeOrderSchema = new mongoose.Schema(
     customerLng: { type: Number, default: 72.8777 },
     otpCode: { type: String, default: "4321" },
     packedAt: { type: Date },
+    stockDeductedAt: { type: Date },
     assignedAt: { type: Date },
     deliveredAt: { type: Date },
     notes: { type: String, default: "" },
+    sourceOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );
+
+storeOrderSchema.index({ managerId: 1, status: 1, createdAt: -1 });
+storeOrderSchema.index({ sourceOrderId: 1 }, { unique: true, sparse: true });
 
 storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
   const items = this.items.map((item) => {
@@ -129,9 +138,11 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     qrScannedAt: this.qrScannedAt,
     otpCode: this.otpCode || "4321",
     packedAt: this.packedAt,
+    stockDeductedAt: this.stockDeductedAt,
     assignedAt: this.assignedAt,
     deliveredAt: this.deliveredAt,
     notes: this.notes,
+    sourceOrderId: this.sourceOrderId ? this.sourceOrderId.toString() : null,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

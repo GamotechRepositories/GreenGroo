@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCategories, getProducts } from "../api/api";
 import { useProductCartActions } from "../hooks/useProductCartActions";
+import { useDeliveryLocationKey } from "../context/LocationContext";
 import {
   DesktopCategorySidebar,
   ProductResultsGrid,
@@ -69,6 +70,7 @@ function FeaturedProductsPage({
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("newest");
   const [showSort, setShowSort] = useState(false);
+  const locationKey = useDeliveryLocationKey();
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
 
@@ -97,7 +99,7 @@ function FeaturedProductsPage({
     };
 
     fetchData();
-  }, [filterType]);
+  }, [filterType, locationKey]);
 
   const sortedProducts = useMemo(() => {
     const list = [...products];

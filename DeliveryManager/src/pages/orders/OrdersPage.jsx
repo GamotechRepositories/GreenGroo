@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { Icon } from "../../components/ui/Icon";
 
 const STATUS_BADGE = {
   order_received: (
@@ -73,6 +73,7 @@ export default function OrdersPage() {
   const { manager } = useAuth();
   const [orders, setOrders] = useState([]);
   const [onlineRiders, setOnlineRiders] = useState([]);
+  const [pendingSkus, setPendingSkus] = useState([]);
   const [selectedRider, setSelectedRider] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState("");
@@ -80,6 +81,12 @@ export default function OrdersPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("active");
+  const [requestItem, setRequestItem] = useState(null);
+  const [requestQty, setRequestQty] = useState(20);
+  const [requestNote, setRequestNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const pendingSkuSet = useMemo(() => new Set(pendingSkus), [pendingSkus]);
 
   const load = useCallback(async () => {
     try {
@@ -90,6 +97,16 @@ export default function OrdersPage() {
       setOrders(ord.data.orders || []);
       setOnlineRiders((rid.data.riders || []).filter((r) => r.status === "online"));
       setError("");
+      try {
+        const req = await managerApi.listInventoryRequests({ status: "pending" });
+        setPendingSkus(
+          (req.data.requests || [])
+            .filter((r) => r.status === "pending")
+            .map((r) => r.sku)
+        );
+      } catch {
+        setPendingSkus([]);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load orders");
     } finally {
@@ -108,17 +125,57 @@ export default function OrdersPage() {
     setTimeout(() => setToast(""), 4000);
   };
 
+  const formatShortages = (shortages) =>
+    (shortages || [])
+      .map((s) => `${s.name} (need ${s.needed}, have ${s.available})`)
+      .join("; ");
+
   const onPackOrder = async (orderId) => {
     const key = `pack-${orderId}`;
     setBusyKey(key);
     try {
       const res = await managerApi.packOrder(orderId);
-      showToast(res.data.message || "Order packed! Auto-dispatch triggered.");
+      showToast(res.data.message || "Order confirmed — stock deducted from this dark store.");
       await load();
     } catch (err) {
-      showToast(err.response?.data?.message || "Pack order failed");
+      const shortages = formatShortages(err.response?.data?.shortages);
+      showToast(
+        shortages
+          ? `Cannot confirm: ${shortages}. Request inventory or inform the customer.`
+          : err.response?.data?.message || "Confirm order failed"
+      );
     } finally {
       setBusyKey("");
+    }
+  };
+
+  const openRequest = (item, orderNumber) => {
+    setRequestItem(item);
+    setRequestQty(Math.max(20, (item.quantity || 1) * 3));
+    setRequestNote(
+      `Need restock to confirm order #${orderNumber || ""} — currently ${item.availableStock ?? 0} ${item.unit || "pcs"} in this dark store`
+    );
+  };
+
+  const submitRequest = async (e) => {
+    e.preventDefault();
+    if (!requestItem) return;
+    setSubmitting(true);
+    try {
+      const res = await managerApi.requestInventory({
+        sku: requestItem.sku,
+        productName: requestItem.name,
+        unit: requestItem.unit,
+        quantity: Number(requestQty),
+        note: requestNote,
+      });
+      showToast(res.data.message || "Request sent to Product Manager");
+      setRequestItem(null);
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to send request");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -147,7 +204,12 @@ export default function OrdersPage() {
       setSelectedRider((prev) => { const n = { ...prev }; delete n[orderId]; return n; });
       await load();
     } catch (err) {
-      showToast(err.response?.data?.message || "Assignment failed");
+      const shortages = formatShortages(err.response?.data?.shortages);
+      showToast(
+        shortages
+          ? `Cannot assign: ${shortages}`
+          : err.response?.data?.message || "Assignment failed"
+      );
     } finally {
       setBusyKey("");
     }
@@ -241,6 +303,12 @@ export default function OrdersPage() {
             >
               ➕ Generate Incoming Order
             </button>
+            <Link
+              to="/stock"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+            >
+              View Inventory
+            </Link>
             <button
               type="button"
               onClick={load}
@@ -304,7 +372,6 @@ export default function OrdersPage() {
                 const oid = order.id || order._id;
                 const isInitial = ["incoming", "order_received", "stock_issue"].includes(order.status);
                 const isPacked = order.status === "packed";
-                const isOffered = order.status === "offered";
                 const allAvailable = (order.items || []).every(
                   (i) => i.stockStatus === "available" || i.customerInformed
                 );
@@ -328,19 +395,43 @@ export default function OrdersPage() {
                       <div className="space-y-1">
                         {(order.items || []).map((item) => {
                           const inStock = item.stockStatus === "available";
+                          const avail = item.availableStock ?? 0;
+                          const pending = pendingSkuSet.has(item.sku);
                           return (
-                            <div key={item.id || item._id} className="flex items-center gap-1.5 text-[11px]">
+                            <div key={item.id || item._id} className="flex flex-wrap items-center gap-1.5 text-[11px]">
                               <span className="font-semibold text-slate-800">{item.name}</span>
                               <span className="text-slate-400">x{item.quantity}</span>
+                              <span
+                                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                                  inStock
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`}
+                              >
+                                {inStock ? `${avail} in stock` : `only ${avail} left`}
+                              </span>
                               {!inStock && !item.customerInformed && (
-                                <button
-                                  type="button"
-                                  disabled={busyKey === `inform-${oid}-${item.id || item._id}`}
-                                  onClick={() => onInform(oid, item.id || item._id)}
-                                  className="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200"
-                                >
-                                  Inform Customer
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={busyKey === `inform-${oid}-${item.id || item._id}`}
+                                    onClick={() => onInform(oid, item.id || item._id)}
+                                    className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200"
+                                  >
+                                    Inform Customer
+                                  </button>
+                                  {pending ? (
+                                    <span className="text-[9px] font-bold text-amber-700">Requested</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => openRequest(item, order.orderNumber)}
+                                      className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-white"
+                                    >
+                                      Request Stock
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           );
@@ -364,16 +455,23 @@ export default function OrdersPage() {
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex flex-col items-end gap-2">
                         {isInitial && (
-                          <button
-                            type="button"
-                            disabled={!allAvailable || busyKey === `pack-${oid}`}
-                            onClick={() => onPackOrder(oid)}
-                            className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition"
-                          >
-                            {busyKey === `pack-${oid}` ? "Packing…" : "📦 Mark Packed"}
-                          </button>
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              type="button"
+                              disabled={!allAvailable || busyKey === `pack-${oid}`}
+                              onClick={() => onPackOrder(oid)}
+                              className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition"
+                            >
+                              {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
+                            </button>
+                            {!allAvailable && (
+                              <p className="text-[10px] text-rose-600 font-semibold max-w-[160px]">
+                                Out of stock — request inventory first
+                              </p>
+                            )}
+                          </div>
                         )}
                         {(isInitial || isPacked) && (
                           <div className="flex items-center gap-1">
@@ -408,6 +506,66 @@ export default function OrdersPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {requestItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+          <form
+            onSubmit={submitRequest}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4"
+          >
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Request inventory</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Sends a restock request to Product Manager for{" "}
+                <span className="font-semibold">{requestItem.name}</span>
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Current stock:{" "}
+              <strong>
+                {requestItem.availableStock ?? 0} {requestItem.unit || "pcs"}
+              </strong>{" "}
+              · SKU {requestItem.sku}
+            </div>
+            <label className="block text-xs font-bold text-slate-700">
+              Quantity to request
+              <input
+                type="number"
+                min={1}
+                required
+                value={requestQty}
+                onChange={(e) => setRequestQty(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500"
+              />
+            </label>
+            <label className="block text-xs font-bold text-slate-700">
+              Note for Product Manager
+              <textarea
+                rows={3}
+                value={requestNote}
+                onChange={(e) => setRequestNote(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500"
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRequestItem(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {submitting ? "Sending…" : "Send to Product Manager"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </PageShell>

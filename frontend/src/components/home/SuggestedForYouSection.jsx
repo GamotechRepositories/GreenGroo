@@ -4,6 +4,7 @@ import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import { getProducts } from "../../api/api";
+import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 export default function SuggestedForYouSection({
   title = "Suggested for You",
@@ -14,6 +15,7 @@ export default function SuggestedForYouSection({
     useProductCartActions();
 
   const [apiProducts, setApiProducts] = useState([]);
+  const locationKey = useDeliveryLocationKey();
 
   useEffect(() => {
     if (customProducts && customProducts.length > 0) return;
@@ -30,7 +32,7 @@ export default function SuggestedForYouSection({
     return () => {
       isMounted = false;
     };
-  }, [customProducts]);
+  }, [customProducts, locationKey]);
 
   const products =
     customProducts && customProducts.length > 0 ? customProducts : apiProducts;

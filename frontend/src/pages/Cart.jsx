@@ -28,14 +28,14 @@ const formatPrice = (amount, fractionDigits = 2) =>
 
 function QuantityControl({ quantity, onDecrease, onIncrease, disabled, compact = false }) {
   const btnClass = compact
-    ? "flex h-6 w-6 items-center justify-center text-sm text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40"
-    : "flex h-8 w-8 items-center justify-center text-text-secondary transition hover:bg-mobile-surface disabled:cursor-not-allowed disabled:opacity-40";
+    ? "flex h-7 w-7 items-center justify-center text-base font-semibold text-[#0C831F] transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+    : "flex h-8 w-8 items-center justify-center text-base font-semibold text-[#0C831F] transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40";
   const qtyClass = compact
-    ? "flex h-6 min-w-[1.5rem] items-center justify-center border-x border-border-light px-1 text-xs font-semibold text-text-primary"
-    : "flex h-8 min-w-[2rem] items-center justify-center border-x border-border-light px-2 text-sm font-semibold text-text-primary";
+    ? "flex h-7 min-w-[1.75rem] items-center justify-center border-x border-emerald-200 px-1 text-xs font-bold text-slate-900"
+    : "flex h-8 min-w-[2rem] items-center justify-center border-x border-emerald-200 px-2 text-sm font-bold text-slate-900";
 
   return (
-    <div className="inline-flex items-center overflow-hidden rounded-md border border-border-light bg-white">
+    <div className="inline-flex items-center overflow-hidden rounded-lg border border-emerald-200 bg-white">
       <button
         type="button"
         onClick={onDecrease}
@@ -63,12 +63,12 @@ function CartItemMobile({ item, loading, onRemove, onIncrease, onDecrease }) {
   const lineTotal = item.discountedPrice * item.quantity;
 
   return (
-    <article className="min-h-[9rem] rounded-xl border border-border-light bg-white p-3 shadow-sm sm:min-h-[10rem] sm:p-4">
-      <div className="relative flex items-stretch gap-3 sm:gap-4">
+    <article className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+      <div className="relative flex items-start gap-3">
         <button
           type="button"
           onClick={() => onRemove(item._id, item.variantName, item.colorName)}
-          className="absolute right-0 top-0 z-10 flex h-6 w-6 shrink-0 items-center justify-center text-lg leading-none text-text-muted transition hover:text-red-500"
+          className="absolute -right-1 -top-1 z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-50 hover:text-rose-500"
           aria-label="Remove item"
         >
           ×
@@ -76,7 +76,7 @@ function CartItemMobile({ item, loading, onRemove, onIncrease, onDecrease }) {
 
         <Link
           to={`/product/${item._id}`}
-          className="flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32"
+          className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-50 sm:h-24 sm:w-24"
         >
           {item.productImages?.[0] ? (
             <img
@@ -278,59 +278,35 @@ function OrderSummary({ items, storeSettings }) {
           <Link
             to="/checkout"
             onClick={() => clearBuyNowCheckout()}
-            className="mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm"
+            className="mt-4 flex w-full items-center justify-center rounded-xl bg-[#0C831F] px-3 py-3 text-sm font-bold text-white transition hover:bg-[#0a6e1a]"
           >
-            Proceed to Checkout
+            Proceed to checkout
           </Link>
         ) : (
           <button
             type="button"
             onClick={() => openAuthModal("login")}
-            className="mt-4 flex w-full items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white transition hover:brightness-110 sm:text-sm"
+            className="mt-4 flex w-full items-center justify-center rounded-xl bg-[#0C831F] px-3 py-3 text-sm font-bold text-white transition hover:bg-[#0a6e1a]"
           >
-            Login to Checkout
+            Login to checkout
           </button>
         )
       ) : (
         <button
           type="button"
           disabled
-          className="mt-4 flex w-full cursor-not-allowed items-center justify-center rounded-md bg-primary px-3 py-2.5 text-xs font-bold text-white opacity-50 sm:text-sm"
+          className="mt-4 flex w-full cursor-not-allowed items-center justify-center rounded-xl bg-[#0C831F] px-3 py-3 text-sm font-bold text-white opacity-50"
         >
-          Proceed to Checkout
+          Proceed to checkout
         </button>
       )}
 
-      <div className="mt-2 grid grid-cols-2 gap-1.5">
-        <Link
-          to="/product"
-          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-border-light px-2 py-1.5 text-[11px] font-bold leading-none text-text-primary transition hover:border-primary hover:text-primary sm:text-xs"
-        >
-          <svg className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
-            />
-          </svg>
-          Continue Shopping
-        </Link>
-
-        <Link
-          to="/support"
-          className="flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-primary px-2 py-1.5 text-[11px] font-bold leading-none text-primary transition hover:bg-primary/5 sm:text-xs"
-          title="Support"
-        >
-          <svg className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
-            />
-          </svg>
-          Support
-        </Link>
-      </div>
+      <Link
+        to="/"
+        className="mt-3 flex w-full items-center justify-center rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+      >
+        Continue shopping
+      </Link>
     </div>
   );
 }
@@ -345,7 +321,7 @@ function CartSidebar({ items, storeSettings }) {
 }
 
 function Cart() {
-  const { user } = useAuth();
+  const { user, openAuthModal } = useAuth();
   const { items, removeFromCart, incrementCartItem, decrementCartItem, loading, loadCart } =
     useCart();
   const [clearing, setClearing] = useState(false);
@@ -387,11 +363,20 @@ function Cart() {
     }
   };
 
-  const pageTitle = "Shopping Cart";
+  const pageTitle = "My Cart";
+
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.discountedPrice * item.quantity,
+    0
+  );
+  const shipping = calculateShippingCharge(subtotal, storeSettings);
+  const { total } = calculateOrderTotal(subtotal, shipping);
+  const canCheckout = items.length > 0 && meetsMinimumOrder(subtotal, storeSettings);
 
   return (
-    <div className="min-h-screen bg-mobile-bg text-text-primary">
-      <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-8">
+    <div className="min-h-screen bg-[#F4F6FB] text-slate-900">
+      <section className="px-3 pb-28 pt-4 sm:px-4 sm:pb-10 sm:pt-6 lg:px-8">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-4 flex items-center justify-between gap-3 sm:mb-6">
             <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">{pageTitle}</h1>
@@ -413,13 +398,17 @@ function Cart() {
               <div className="h-80 animate-pulse rounded-xl border border-border-light bg-white" />
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-xl border border-border-light bg-white py-16 text-center shadow-sm">
-              <p className="mb-6 text-text-secondary">Your cart is empty.</p>
+            <div className="rounded-2xl border border-slate-100 bg-white px-6 py-16 text-center shadow-sm">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-3xl">
+                🛒
+              </div>
+              <h2 className="text-lg font-bold text-slate-900">Your cart is empty</h2>
+              <p className="mt-1 text-sm text-slate-500">Add fresh items and they’ll show up here.</p>
               <Link
-                to="/product"
-                className="inline-block rounded-lg bg-primary px-8 py-3 text-sm font-bold tracking-wide text-white transition hover:brightness-110"
+                to="/"
+                className="mt-6 inline-flex rounded-xl bg-[#0C831F] px-8 py-3 text-sm font-bold text-white transition hover:bg-[#0a6e1a]"
               >
-                Browse Products
+                Start shopping
               </Link>
             </div>
           ) : (
@@ -451,6 +440,46 @@ function Cart() {
           )}
         </div>
       </section>
+
+      {items.length > 0 ? (
+        <div className="fixed inset-x-0 bottom-[56px] z-30 border-t border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-7xl items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-base font-bold text-slate-900">{formatPrice(total)}</p>
+              <p className="text-[11px] text-slate-500">
+                {itemCount} {itemCount === 1 ? "item" : "items"}
+              </p>
+            </div>
+            {canCheckout ? (
+              user ? (
+                <Link
+                  to="/checkout"
+                  onClick={() => clearBuyNowCheckout()}
+                  className="ml-auto rounded-xl bg-[#0C831F] px-5 py-2.5 text-sm font-bold text-white"
+                >
+                  Checkout
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openAuthModal("login")}
+                  className="ml-auto rounded-xl bg-[#0C831F] px-5 py-2.5 text-sm font-bold text-white"
+                >
+                  Login
+                </button>
+              )
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="ml-auto rounded-xl bg-[#0C831F] px-5 py-2.5 text-sm font-bold text-white opacity-50"
+              >
+                Checkout
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

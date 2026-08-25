@@ -5,6 +5,10 @@ import StoreOrder from "../models/StoreOrder.js";
 import Shift from "../models/Shift.js";
 import { getIO } from "../../../socket.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
+import InventoryRequest from "../models/InventoryRequest.js";
+import { deductOrderStock } from "../services/storeStockService.js";
+import { seedManagerStore } from "../services/seedManagerStore.js";
+import { pickDemoOrderItems } from "../data/storeProductCatalog.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
@@ -94,6 +98,7 @@ const serializeRider = (r) => ({
 export const getDashboardSummary = async (req, res, next) => {
   try {
     const manager = await getManager(req);
+    await seedManagerStore(manager);
     const [
       incoming,
       inventoryCount,
@@ -101,16 +106,22 @@ export const getDashboardSummary = async (req, res, next) => {
       ridersOnline,
       ridersTotal,
       pendingDrivers,
+      pendingInventoryRequests,
     ] = await Promise.all([
       StoreOrder.countDocuments({
         managerId: manager._id,
-        status: { $in: ["incoming", "stock_issue"] },
+        status: { $in: ["incoming", "order_received", "stock_issue"] },
       }),
       StoreInventory.countDocuments({ managerId: manager._id, isActive: true }),
       StoreInventory.countDocuments({
         managerId: manager._id,
         isActive: true,
-        stockCount: { $gt: 0, $lte: 10 },
+        $expr: {
+          $and: [
+            { $gt: ["$stockCount", 0] },
+            { $lte: ["$stockCount", { $ifNull: ["$lowStockThreshold", 10] }] },
+          ],
+        },
       }),
       DeliveryBoy.countDocuments(
         riderQuery(manager, { isActive: true, status: "online" })
@@ -123,6 +134,10 @@ export const getDashboardSummary = async (req, res, next) => {
           { verificationStatus: null },
         ],
       }),
+      InventoryRequest.countDocuments({
+        managerId: manager._id,
+        status: "pending",
+      }),
     ]);
 
     return res.json({
@@ -132,6 +147,7 @@ export const getDashboardSummary = async (req, res, next) => {
         incomingOrders: incoming,
         inventorySkus: inventoryCount,
         lowStockItems: lowStock,
+        pendingInventoryRequests,
         ridersOnline,
         ridersTotal,
         pendingDrivers,
@@ -145,6 +161,7 @@ export const getDashboardSummary = async (req, res, next) => {
 export const listIncomingOrders = async (req, res, next) => {
   try {
     const manager = await getManager(req);
+    await seedManagerStore(manager);
     const statusFilter = req.query.status
       ? String(req.query.status).split(",")
       : ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery"];
@@ -191,6 +208,22 @@ export const packOrder = async (req, res, next) => {
       });
     }
 
+    const stockResult = await deductOrderStock(manager._id, order);
+    if (stockResult.empty) {
+      return res.status(400).json({
+        success: false,
+        message: "No fulfilable items left on this order",
+      });
+    }
+    if (stockResult.shortages?.length) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot confirm order — some items are out of stock at this dark store. Request inventory or inform the customer.",
+        shortages: stockResult.shortages,
+      });
+    }
+
     order.status = "packed";
     order.packedAt = new Date();
     if (!order.darkStoreQrCode) {
@@ -205,8 +238,9 @@ export const packOrder = async (req, res, next) => {
     return res.json({
       success: true,
       message: dispatchResult.success
-        ? `Order packed & offered to rider ${dispatchResult.offeredRider?.name} (10s response window)`
-        : "Order packed. " + (dispatchResult.message || "Waiting for available online riders."),
+        ? `Order confirmed — stock deducted and offered to ${dispatchResult.offeredRider?.name} (10s window)`
+        : "Order confirmed and stock deducted. " +
+          (dispatchResult.message || "Waiting for available online riders."),
       dispatchResult,
       order: order.toSafeJSON(stockMap),
     });
@@ -240,13 +274,20 @@ export const createDemoStoreOrder = async (req, res, next) => {
       });
     }
 
-    const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
+    await seedManagerStore(manager);
+    const inventory = await StoreInventory.find({
+      managerId: manager._id,
+      isActive: true,
+    }).lean();
+    const demoItems = pickDemoOrderItems(inventory, 3);
+    if (demoItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No catalog items in this dark store to create an order",
+      });
+    }
 
-    const demoItems = [
-      { sku: "MILK-001", name: "Amul Taaza Toned Milk 500ml", quantity: 2, unit: "pkt", price: 27 },
-      { sku: "BREAD-001", name: "Britannia White Bread 400g", quantity: 1, unit: "pkt", price: 40 },
-      { sku: "EGG-001", name: "Farm Fresh Eggs (Pack of 6)", quantity: 1, unit: "pack", price: 55 },
-    ];
+    const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
 
     const newOrder = await StoreOrder.create({
       orderNumber: orderNum,
@@ -291,24 +332,15 @@ export const createDemoStoreOrder = async (req, res, next) => {
 export const listInventory = async (req, res, next) => {
   try {
     const manager = await getManager(req);
+    await seedManagerStore(manager);
     const items = await StoreInventory.find({
       managerId: manager._id,
       isActive: true,
-    }).sort({ category: 1, name: 1 }).lean();
+    }).sort({ category: 1, name: 1 });
 
     return res.json({
       success: true,
-      inventory: items.map((i) => ({
-        id: i._id ? i._id.toString() : "",
-        sku: i.sku,
-        name: i.name,
-        category: i.category || "General",
-        unit: i.unit || "unit",
-        price: i.price || 0,
-        stockCount: i.stockCount || 0,
-        isLowStock: (i.stockCount || 0) <= 10,
-        isActive: i.isActive !== false,
-      })),
+      inventory: items.map((i) => i.toSafeJSON()),
     });
   } catch (error) {
     next(error);
@@ -540,7 +572,7 @@ export const assignOrder = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    if (!["incoming", "stock_issue"].includes(order.status)) {
+    if (!["incoming", "order_received", "stock_issue", "packed"].includes(order.status)) {
       return res.status(400).json({
         success: false,
         message: `Order cannot be assigned (status: ${order.status})`,
@@ -557,38 +589,22 @@ export const assignOrder = async (req, res, next) => {
       });
     }
 
-    const stockMap = await stockMapForManager(manager._id);
-    const shortages = [];
-    for (const item of order.items) {
-      if (item.customerInformed) continue; // skipped item after customer informed
-      const stock = stockMap.get(item.sku);
-      const available = stock ? stock.stockCount : 0;
-      if (available < item.quantity) {
-        shortages.push({
-          sku: item.sku,
-          name: item.name,
-          needed: item.quantity,
-          available,
-        });
-      }
+    const stockResult = await deductOrderStock(manager._id, order);
+    if (stockResult.empty) {
+      order.status = "cancelled";
+      await order.save();
+      return res.status(400).json({
+        success: false,
+        message: "No fulfilable items left on this order",
+      });
     }
-
-    if (shortages.length > 0) {
+    if (stockResult.shortages?.length) {
       return res.status(400).json({
         success: false,
         message:
-          "Cannot assign — some items are out of stock. Inform customer or wait for restock.",
-        shortages,
+          "Cannot assign — some items are out of stock. Inform customer or request restock.",
+        shortages: stockResult.shortages,
       });
-    }
-
-    // Deduct stock for items still on the order
-    for (const item of order.items) {
-      if (item.customerInformed) continue;
-      await StoreInventory.findOneAndUpdate(
-        { managerId: manager._id, sku: item.sku },
-        { $inc: { stockCount: -item.quantity } }
-      );
     }
 
     // Remove informed OOS items from fulfilment

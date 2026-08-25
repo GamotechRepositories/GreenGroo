@@ -3,7 +3,11 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
 import { useAuth } from '../../context/AuthContext'
+<<<<<<< Updated upstream
 import { useVendorAuth } from '../../context/VendorAuthContext'
+=======
+import { useInventoryRequests } from '../../hooks/useInventoryRequests'
+>>>>>>> Stashed changes
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
@@ -17,6 +21,7 @@ const navItems = [
     ],
   },
   { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
+<<<<<<< Updated upstream
   {
     id: 'delivery-drivers',
     label: 'Delivery / Pickup',
@@ -30,6 +35,9 @@ const navItems = [
       { to: '/vendor/collection-centre', label: 'Collection Centre' },
     ],
   },
+=======
+  { to: '/inventory-requests', label: 'Inventory Requests', icon: 'box' },
+>>>>>>> Stashed changes
 ]
 
 const footerItems = [
@@ -37,7 +45,7 @@ const footerItems = [
   { to: '/profile', label: 'My Profile', icon: 'user' },
 ]
 
-function NavItem({ item }) {
+function NavItem({ item, badge }) {
   if (item.children) {
     return <NavGroup item={item} />
   }
@@ -57,6 +65,11 @@ function NavItem({ item }) {
       >
         <Icon name={item.icon} size="sm" />
         <span className="flex-1 text-left">{item.label}</span>
+        {badge > 0 ? (
+          <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
+            {badge}
+          </span>
+        ) : null}
       </NavLink>
     </li>
   )
@@ -118,6 +131,8 @@ export default function ProductManagerLayout() {
   const { logout } = useAuth()
   const vendor = useVendorAuth()
   const navigate = useNavigate()
+  const { requests } = useInventoryRequests(12000)
+  const pendingCount = requests.filter((request) => request.status === 'pending').length
 
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
@@ -128,14 +143,18 @@ export default function ProductManagerLayout() {
           </div>
           <div>
             <p className="text-sm font-bold leading-tight text-white">GreenGroo</p>
-            <p className="text-xs text-white/60">Vendor Panel</p>
+            <p className="text-xs text-white/60">Product Manager</p>
           </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
           <ul className="space-y-0.5">
             {navItems.map((item) => (
-              <NavItem key={item.to || item.id} item={item} />
+              <NavItem
+                key={item.to || item.id}
+                item={item}
+                badge={item.to === '/inventory-requests' ? pendingCount : 0}
+              />
             ))}
           </ul>
         </nav>
