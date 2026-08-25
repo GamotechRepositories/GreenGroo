@@ -7,7 +7,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmitPost }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("Ask Expert");
-  const [cropTag, setCropTag] = useState("Tomato (टोमॅटो)");
+  const [cropTag, setCropTag] = useState("");
   const [language, setLanguage] = useState("mr");
   const [isQuestion, setIsQuestion] = useState(true);
   const [imageUrl, setImageUrl] = useState("");
@@ -36,7 +36,7 @@ export default function CreatePostModal({ isOpen, onClose, onSubmitPost }) {
       author: "You (शेतकरी)",
       authorRole: "Farmer / Member",
       location: "Maharashtra, India",
-      authorAvatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
+      authorAvatar: "",
       timeAgo: "Just now",
       language,
       category,

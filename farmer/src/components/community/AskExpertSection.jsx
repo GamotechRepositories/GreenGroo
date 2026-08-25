@@ -40,7 +40,7 @@ export default function AskExpertSection({ onOpenAskModal }) {
         </div>
         <div className="flex items-center gap-1.5 font-semibold">
           <Users className="h-4 w-4 text-emerald-300" />
-          <span>10,000+ Farmers Community</span>
+          <span>Farmer Community</span>
         </div>
         <div className="flex items-center gap-1.5 font-semibold">
           <MessageSquarePlus className="h-4 w-4 text-amber-300" />

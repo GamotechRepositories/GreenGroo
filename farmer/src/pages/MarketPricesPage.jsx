@@ -1,21 +1,13 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Filter, RefreshCw, Search, Store, TrendingUp } from "lucide-react";
-import { CROP_CATEGORIES, CROP_MARKET_PRICES } from "../data/mandiMarketData";
+import { RefreshCw } from "lucide-react";
+import { CROP_MARKET_PRICES } from "../data/mandiMarketData";
 import CommodityMandiPriceTable from "../components/market/CommodityMandiPriceTable";
-import MarketPriceChart from "../components/market/MarketPriceChart";
-import CropGradePriceBreakdown from "../components/market/CropGradePriceBreakdown";
 import NearbyMarketComparison from "../components/market/NearbyMarketComparison";
-import StatCard from "../components/ui/StatCard";
 import {
   EXCEL_BTN,
-  EXCEL_BTN_PRIMARY,
-  EXCEL_INPUT,
   EXCEL_PAGE_SUB,
   EXCEL_PAGE_TITLE,
-  EXCEL_PANEL,
-  EXCEL_PANEL_HEAD,
-  EXCEL_SELECT,
 } from "../utils/excelStyles";
 
 export default function MarketPricesPage() {
@@ -29,27 +21,14 @@ export default function MarketPricesPage() {
       );
       if (match) return match.id;
     }
-    return CROP_MARKET_PRICES[0]?.id || "crop-1";
+    return CROP_MARKET_PRICES[0]?.id || "";
   });
 
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [lastRefreshed, setLastRefreshed] = useState("Today, 11:30 AM");
+  const [lastRefreshed, setLastRefreshed] = useState("");
 
   const activeCrop = useMemo(() => {
-    return CROP_MARKET_PRICES.find((c) => c.id === selectedCropId) || CROP_MARKET_PRICES[0];
+    return CROP_MARKET_PRICES.find((c) => c.id === selectedCropId) || CROP_MARKET_PRICES[0] || null;
   }, [selectedCropId]);
-
-  const filteredCrops = useMemo(() => {
-    return CROP_MARKET_PRICES.filter((crop) => {
-      const matchesCategory =
-        selectedCategory === "All" || crop.category === selectedCategory;
-      const matchesSearch =
-        crop.cropName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        crop.localName.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }, [selectedCategory, searchQuery]);
 
   const handleRefresh = () => {
     const time = new Date().toLocaleTimeString("en-US", {
@@ -69,7 +48,6 @@ export default function MarketPricesPage() {
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className={EXCEL_PAGE_TITLE}>Today's Mandi / APMC Market Prices</h1>
@@ -79,7 +57,7 @@ export default function MarketPricesPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[#6B7280]">Updated: {lastRefreshed}</span>
+          {lastRefreshed ? <span className="text-xs text-[#6B7280]">Updated: {lastRefreshed}</span> : null}
           <button
             type="button"
             onClick={handleRefresh}
@@ -92,11 +70,6 @@ export default function MarketPricesPage() {
         </div>
       </div>
 
-
-
-      {/* Live Mandi Commodity Price Table (Matching User Screenshot) */}
-
-      {/* Live Mandi Commodity Price Table (Matching User Screenshot - No Mobile App column) */}
       <CommodityMandiPriceTable
         onSelectCommodity={(name) => {
           const match = CROP_MARKET_PRICES.find(
@@ -108,11 +81,6 @@ export default function MarketPricesPage() {
         }}
       />
 
-
-
-
-
-      {/* Feature 3: Nearby Market & APMC Price Comparison */}
       <NearbyMarketComparison crop={activeCrop} />
     </div>
   );

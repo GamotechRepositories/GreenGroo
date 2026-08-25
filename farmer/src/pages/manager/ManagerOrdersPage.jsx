@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getManagerFarmers, getManagerFarmerOrders } from "../../api/farmerApi";
+import { getManagerAllHarvestOrders } from "../../api/farmerApi";
 import {
   EXCEL_PANEL,
   EXCEL_PANEL_HEAD,
@@ -25,23 +25,11 @@ export default function ManagerOrdersPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const fs = await getManagerFarmers().catch(() => []);
-      const farmerList = Array.isArray(fs) ? fs : [];
+      const data = await getManagerAllHarvestOrders();
+      const farmerList = Array.isArray(data?.farmers) ? data.farmers : [];
+      const orderList = Array.isArray(data?.orders) ? data.orders : [];
       setFarmers(farmerList);
-
-      const results = await Promise.all(
-        farmerList.map((f) =>
-          getManagerFarmerOrders(f.id)
-            .then((os) =>
-              (Array.isArray(os) ? os : []).map((o) => ({
-                ...o,
-                farmerId: f.id,
-              }))
-            )
-            .catch(() => [])
-        )
-      );
-      setOrders(results.flat());
+      setOrders(orderList);
     } catch {
       setFarmers([]);
       setOrders([]);

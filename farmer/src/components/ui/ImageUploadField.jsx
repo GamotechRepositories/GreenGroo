@@ -23,6 +23,7 @@ function ImageUploadField({
   error,
   className = "",
   disabled = false,
+  showPresets = true,
 }) {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -218,7 +219,7 @@ function ImageUploadField({
                   Set
                 </button>
               </div>
-            ) : (
+            ) : showPresets ? (
               <div className="flex items-center gap-1">
                 <span className="text-[9px] text-[#6B7280]">Quick Presets:</span>
                 {PRESET_IMAGES.map((img) => (
@@ -232,6 +233,8 @@ function ImageUploadField({
                   </button>
                 ))}
               </div>
+            ) : (
+              <p className="text-[10px] text-[#6B7280]">JPG or PNG. You can upload or capture from camera.</p>
             )}
           </div>
         )}

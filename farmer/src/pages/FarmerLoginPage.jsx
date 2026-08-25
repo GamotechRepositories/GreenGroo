@@ -86,6 +86,12 @@ function FarmerLoginPage() {
         </form>
 
         <p className={`mt-4 text-center ${EXCEL_PAGE_SUB}`}>
+          New farmer?{" "}
+          <Link to="/farmer/register" className="font-semibold text-[#217346] hover:underline">
+            Register here
+          </Link>
+        </p>
+        <p className={`mt-2 text-center ${EXCEL_PAGE_SUB}`}>
           <Link to="/" className="font-semibold text-[#217346] hover:underline">
             ← Back to marketplace
           </Link>

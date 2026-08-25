@@ -78,6 +78,54 @@ const farmerSchema = new mongoose.Schema(
     vendorId: { type: String, required: true, default: "vendor-1" },
     managerId: { type: String, default: "" },
     role: { type: String, default: "FARMER" },
+    dateOfBirth: { type: String, default: "" },
+    gender: { type: String, enum: ["", "Male", "Female", "Other"], default: "" },
+    referralCode: { type: String, default: "", trim: true },
+    registrationStatus: {
+      type: String,
+      enum: ["REGISTERED", "ACTIVE"],
+      default: "REGISTERED",
+    },
+    kycStatus: {
+      type: String,
+      enum: ["PENDING", "SUBMITTED", "APPROVED", "REJECTED"],
+      default: "PENDING",
+    },
+    preferredLanguage: { type: String, default: "" },
+    bankVerificationStatus: {
+      type: String,
+      enum: ["PENDING", "VERIFIED", "REJECTED"],
+      default: "PENDING",
+    },
+    farm: {
+      farmId: { type: String, default: "" },
+      farmName: { type: String, default: "" },
+      totalFarmArea: { type: Number, default: 0 },
+      totalFarmAreaUnit: { type: String, default: "Acre" },
+      cultivatedArea: { type: Number, default: 0 },
+      cultivatedAreaUnit: { type: String, default: "Acre" },
+      soilType: { type: String, default: "" },
+      irrigationType: { type: String, default: "" },
+      waterSource: { type: String, default: "" },
+      farmingMethod: { type: String, default: "" },
+      farmingType: { type: String, default: "" },
+      mainCrops: { type: String, default: "" },
+      farmPhotos: [{ type: String }],
+      farmVideos: [{ type: String }],
+    },
+    farmGeo: {
+      village: { type: String, default: "" },
+      taluka: { type: String, default: "" },
+      district: { type: String, default: "" },
+      pincode: { type: String, default: "" },
+      farmAddress: { type: String, default: "" },
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      confirmed: { type: Boolean, default: false },
+    },
+    // Extension point for future mobile OTP login without changing registration flow.
+    authType: { type: String, default: "direct" },
+    mobileVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
@@ -275,51 +323,60 @@ const farmerHarvestOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexes for fast querying
-farmerSchema.index({ vendorId: 1 });
+// ============================================================
+// COMPOUND & QUERY OPTIMIZATION INDEXES
+// ============================================================
+// Vendor Indexes
+vendorSchema.index({ status: 1 });
+
+// Farmer Indexes
 farmerSchema.index({ managerId: 1, vendorId: 1 });
+farmerSchema.index({ vendorId: 1, status: 1 });
 farmerSchema.index({ mobile: 1 });
 farmerSchema.index({ status: 1 });
 farmerSchema.index({ createdAt: -1 });
 
-farmerManagerSchema.index({ vendorId: 1 });
+// Farmer Manager Indexes
+farmerManagerSchema.index({ vendorId: 1, status: 1 });
 farmerManagerSchema.index({ mobile: 1 });
-farmerManagerSchema.index({ status: 1 });
 farmerManagerSchema.index({ createdAt: -1 });
 
-farmerProductSchema.index({ farmerId: 1 });
-farmerProductSchema.index({ vendorId: 1 });
-farmerProductSchema.index({ managerId: 1 });
+// Farmer Product Indexes
+farmerProductSchema.index({ farmerId: 1, createdAt: -1 });
 farmerProductSchema.index({ id: 1, farmerId: 1 });
-farmerProductSchema.index({ status: 1 });
-farmerProductSchema.index({ createdAt: -1 });
+farmerProductSchema.index({ managerId: 1, status: 1 });
+farmerProductSchema.index({ vendorId: 1, status: 1 });
+farmerProductSchema.index({ category: 1 });
 
-farmerStockHistorySchema.index({ farmerId: 1 });
-farmerStockHistorySchema.index({ productId: 1 });
-farmerStockHistorySchema.index({ farmerId: 1, productId: 1 });
+// Farmer Stock History Indexes
+farmerStockHistorySchema.index({ farmerId: 1, productId: 1, at: -1 });
+farmerStockHistorySchema.index({ farmerId: 1, at: -1 });
 farmerStockHistorySchema.index({ at: -1 });
 
-farmerOrderSchema.index({ farmerId: 1 });
-farmerOrderSchema.index({ vendorId: 1 });
+// Farmer Order Indexes
+farmerOrderSchema.index({ farmerId: 1, orderDate: -1 });
+farmerOrderSchema.index({ farmerId: 1, createdAt: -1 });
 farmerOrderSchema.index({ id: 1, farmerId: 1 });
-farmerOrderSchema.index({ orderDate: -1 });
-farmerOrderSchema.index({ createdAt: -1 });
+farmerOrderSchema.index({ vendorId: 1, status: 1 });
 farmerOrderSchema.index({ status: 1 });
 
-farmerEarningSchema.index({ farmerId: 1 });
-farmerEarningSchema.index({ vendorId: 1 });
-farmerEarningSchema.index({ status: 1 });
-farmerEarningSchema.index({ date: -1 });
+// Farmer Earning Indexes
+farmerEarningSchema.index({ farmerId: 1, date: -1 });
+farmerEarningSchema.index({ farmerId: 1, status: 1 });
+farmerEarningSchema.index({ vendorId: 1, status: 1 });
 
-farmerDocumentSchema.index({ farmerId: 1 });
-farmerDocumentSchema.index({ vendorId: 1 });
-farmerDocumentSchema.index({ id: 1, farmerId: 1 });
+// Farmer Document Indexes
 farmerDocumentSchema.index({ farmerId: 1, type: 1 });
+farmerDocumentSchema.index({ farmerId: 1, status: 1 });
+farmerDocumentSchema.index({ vendorId: 1 });
 
-farmerHarvestOrderSchema.index({ farmerId: 1 });
-farmerHarvestOrderSchema.index({ vendorId: 1 });
-farmerHarvestOrderSchema.index({ managerId: 1 });
-farmerHarvestOrderSchema.index({ createdAt: -1 });
+// Farmer Harvest Order Indexes
+farmerHarvestOrderSchema.index({ farmerId: 1, date: -1 });
+farmerHarvestOrderSchema.index({ farmerId: 1, createdAt: -1 });
+farmerHarvestOrderSchema.index({ farmerId: 1, productId: 1 });
+farmerHarvestOrderSchema.index({ managerId: 1, createdAt: -1 });
+farmerHarvestOrderSchema.index({ vendorId: 1, createdAt: -1 });
+farmerHarvestOrderSchema.index({ status: 1 });
 
 export const Vendor =
   mongoose.models.Vendor || mongoose.model("Vendor", vendorSchema);
@@ -339,3 +396,33 @@ export const FarmerDocument =
   mongoose.models.FarmerDocument || mongoose.model("FarmerDocument", farmerDocumentSchema);
 export const FarmerHarvestOrder =
   mongoose.models.FarmerHarvestOrder || mongoose.model("FarmerHarvestOrder", farmerHarvestOrderSchema);
+
+/**
+ * Ensures all MongoDB indexes for farmer-manager service are created in background
+ */
+export async function ensureFarmerIndexes() {
+  try {
+    const models = [
+      Vendor,
+      Farmer,
+      FarmerManager,
+      FarmerProduct,
+      FarmerStockHistory,
+      FarmerOrder,
+      FarmerEarning,
+      FarmerDocument,
+      FarmerHarvestOrder,
+    ];
+
+    await Promise.all(
+      models.map((model) =>
+        model.createIndexes().catch((err) => {
+          console.warn(`[Indexes] Non-critical warning on ${model.modelName}:`, err.message);
+        })
+      )
+    );
+    console.log("[Indexes] Farmer-Manager indexes ensured successfully.");
+  } catch (err) {
+    console.warn("[Indexes] Error creating farmer indexes:", err.message);
+  }
+}

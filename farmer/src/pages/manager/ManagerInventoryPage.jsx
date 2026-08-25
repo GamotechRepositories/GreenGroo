@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getManagerFarmers, getManagerFarmerInventory, adjustManagerFarmerStock } from "../../api/farmerApi";
+import { getManagerAllInventory, adjustManagerFarmerStock } from "../../api/farmerApi";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
 
@@ -99,21 +99,24 @@ export default function ManagerInventoryPage() {
   const [adjustTarget, setAdjustTarget] = useState(null); // { farmer, product, grade }
 
   const loadAll = async () => {
-    const fs = await getManagerFarmers().catch(() => []);
-    setFarmers(fs);
-    const results = await Promise.all(
-      fs.map((f) =>
-        getManagerFarmerInventory(f.id)
-          .then((inv) => ({ farmerId: f.id, inventory: inv }))
-          .catch(() => ({ farmerId: f.id, inventory: [] }))
-      )
-    );
-    const map = {};
-    results.forEach(({ farmerId, inventory }) => {
-      map[farmerId] = inventory;
-    });
-    setInventoryByFarmer(map);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const data = await getManagerAllInventory();
+      const fs = Array.isArray(data?.farmers) ? data.farmers : [];
+      const inventory = Array.isArray(data?.inventory) ? data.inventory : [];
+      setFarmers(fs);
+      const map = {};
+      inventory.forEach((item) => {
+        if (!map[item.farmerId]) map[item.farmerId] = [];
+        map[item.farmerId].push(item);
+      });
+      setInventoryByFarmer(map);
+    } catch {
+      setFarmers([]);
+      setInventoryByFarmer({});
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadAll(); }, []);

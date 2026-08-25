@@ -2,9 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
-  getManagerFarmers,
-  getManagerFarmerOrders,
-  getHarvestOrders,
+  getManagerAllHarvestOrders,
 } from "../../api/farmerApi";
 import StatCard from "../../components/ui/StatCard";
 import LoadingState from "../../components/ui/LoadingState";
@@ -40,63 +38,10 @@ export default function ManagerEarningsPage() {
     (async () => {
       setLoading(true);
       try {
-        const farmerList = await getManagerFarmers().catch(() => []);
-        const safeFarmers = Array.isArray(farmerList) ? farmerList : [];
+        const data = await getManagerAllHarvestOrders().catch(() => ({ farmers: [], orders: [] }));
+        const safeFarmers = Array.isArray(data?.farmers) ? data.farmers : [];
+        const combinedOrders = Array.isArray(data?.orders) ? data.orders : [];
         setFarmers(safeFarmers);
-
-        // Fetch orders across all assigned farmers
-        const farmerDataPromises = safeFarmers.map(async (f) => {
-          const ordersRes = await getManagerFarmerOrders(f.id).catch(() => []);
-          const orders = Array.isArray(ordersRes) ? ordersRes : [];
-
-          return {
-            farmer: f,
-            orders: orders.map((o) => ({
-              ...o,
-              farmerId: f.id,
-              farmerName: f.name,
-              farmerMobile: f.mobile,
-            })),
-          };
-        });
-
-        // Also fetch general harvest orders if available
-        const generalHarvestOrdersPromise = getHarvestOrders().catch(() => []);
-
-        const [farmerResults, generalHarvestOrders] = await Promise.all([
-          Promise.all(farmerDataPromises),
-          generalHarvestOrdersPromise,
-        ]);
-
-        const combinedOrders = [];
-        const seenOrderIds = new Set();
-
-        farmerResults.forEach(({ orders }) => {
-          orders.forEach((o) => {
-            const key = o.id || o.orderId || String(o._id);
-            if (key && !seenOrderIds.has(key)) {
-              seenOrderIds.add(key);
-              combinedOrders.push(o);
-            }
-          });
-        });
-
-        const safeGeneralHO = Array.isArray(generalHarvestOrders) ? generalHarvestOrders : [];
-        safeGeneralHO.forEach((ho) => {
-          const key = ho.id || ho.orderId || String(ho._id);
-          if (key && !seenOrderIds.has(key)) {
-            seenOrderIds.add(key);
-            const matchedFarmer = safeFarmers.find(
-              (f) => f.id === ho.farmerId || f.name === ho.farmerName
-            );
-            combinedOrders.push({
-              ...ho,
-              farmerId: ho.farmerId || matchedFarmer?.id || "",
-              farmerName: ho.farmerName || matchedFarmer?.name || "Farmer",
-            });
-          }
-        });
-
         setAllHarvestOrders(combinedOrders);
       } catch (err) {
         toast.error(err?.message || "Failed to load farmer statements & earnings");

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import toast from "react-hot-toast";
-import { getEarnings, getProducts, getHarvestOrders, getOrders } from "../api/farmerApi";
+import { getEarnings, getProducts, getHarvestOrders } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
 import LoadingState from "../components/ui/LoadingState";
 import ProductGradeChart from "../components/products/ProductGradeChart";
@@ -24,27 +24,16 @@ function EarningsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [earningsRes, productsRes, harvestOrdersRes, farmerOrdersRes] = await Promise.all([
+        const [earningsRes, productsRes, harvestOrdersRes] = await Promise.all([
           getEarnings().catch(() => ({ totalEarnings: 0, availableBalance: 0, pendingPayments: 0, transactions: [] })),
           getProducts().catch(() => []),
           getHarvestOrders().catch(() => []),
-          getOrders().catch(() => []),
         ]);
 
         const prodList = Array.isArray(productsRes) ? productsRes : (productsRes?.products || []);
         const hoList = Array.isArray(harvestOrdersRes) ? harvestOrdersRes : [];
-        const foList = Array.isArray(farmerOrdersRes) ? farmerOrdersRes : [];
 
-        // Combine all orders and harvest orders
-        const idMap = new Map();
-        [...hoList, ...foList].forEach((o) => {
-          const key = o.id || o.orderId || String(o._id);
-          if (!idMap.has(key)) {
-            idMap.set(key, o);
-          }
-        });
-
-        const allCombinedOrders = Array.from(idMap.values()).sort(
+        const allCombinedOrders = [...hoList].sort(
           (a, b) => new Date(b.harvestDate || b.date || b.createdAt || 0) - new Date(a.harvestDate || a.date || a.createdAt || 0)
         );
 

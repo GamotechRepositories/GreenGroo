@@ -106,7 +106,7 @@ export default function FarmerCommunityPage() {
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Active Discussions" value={posts.length} />
         <StatCard title="Expert Answers" value={posts.reduce((acc, p) => acc + (p.comments?.filter(c => c.isExpert).length || 0), 0)} />
-        <StatCard title="Community Farmers" value="10,000+ Active" />
+        <StatCard title="Community Farmers" value={new Set(posts.map((p) => p.author)).size} />
         <StatCard title="Languages Supported" value="मराठी • English • हिंदी" />
       </div>
 
@@ -173,7 +173,9 @@ export default function FarmerCommunityPage() {
         <div className="p-3 space-y-3.5">
           {filteredPosts.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-500">
-              No community posts match your selected filter or language.
+              {posts.length === 0
+                ? "No community posts yet. Ask a question to start a discussion."
+                : "No community posts match your selected filter or language."}
             </div>
           ) : (
             filteredPosts.map((post) => (

@@ -1,5 +1,12 @@
 const STATUS_STYLES = {
   pending: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
+  PENDING: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
+  SUBMITTED: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
+  APPROVED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
+  REJECTED: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
+  VERIFIED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
+  Pending: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
+  Verified: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   approved: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   rejected: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
   not_uploaded: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",

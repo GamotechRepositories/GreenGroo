@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import toast from "react-hot-toast";
-import { getHarvestOrders, getOrders, getProducts } from "../api/farmerApi";
+import { getHarvestOrders } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
 import StatusBadge from "../components/ui/StatusBadge";
 import {
@@ -36,15 +36,9 @@ export default function HarvestOrdersPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [hoData, farmerOrdersData] = await Promise.all([
-          getHarvestOrders().catch(() => []),
-          getOrders().catch(() => []),
-        ]);
+        const hoData = await getHarvestOrders().catch(() => []);
 
-        const rawList = [
-          ...(Array.isArray(hoData) ? hoData : []),
-          ...(Array.isArray(farmerOrdersData) ? farmerOrdersData : []),
-        ];
+        const rawList = Array.isArray(hoData) ? hoData : [];
 
         // Deduplicate
         const idMap = new Map();

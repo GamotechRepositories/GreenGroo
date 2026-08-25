@@ -14,13 +14,22 @@ function getStoredAuth() {
 function getActiveFarmerId() {
   try {
     const stored = getStoredAuth();
-    if (stored?.farmer?.role !== "FARMER_MANAGER" && stored?.farmer?.id) {
+    if (stored?.farmer?.id && stored?.farmer?.role !== "FARMER_MANAGER") {
       return stored.farmer.id;
     }
   } catch {
     // ignore parse error
   }
-  return "farmer-1";
+  return "";
+}
+
+function authHeaders() {
+  const token = getStoredAuth()?.token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function managerAuthHeaders() {
+  return authHeaders();
 }
 
 function getActiveManagerId() {
@@ -81,38 +90,75 @@ function computeVerificationStatus(docs) {
  * Both return { token, farmer: { ...userData, role } }
  */
 export async function farmerLogin({ mobile, password }) {
-  // Try farmer login first
-  try {
-    const data = await apiFetch("/api/farmers/login", {
-      method: "POST",
-      body: JSON.stringify({ mobile, password }),
-    });
-    if (data.token) return data;
-  } catch (err) {
-    // If 401, credentials wrong (not a role mismatch — rethrow)
-    if (err.status === 401 || err.status === 403) {
-      // Try manager login before giving up
-    } else if (err.status === 0) {
-      throw err; // Server not running
-    }
+  const body = JSON.stringify({ mobile, password });
+  const [farmerResult, managerResult] = await Promise.allSettled([
+    apiFetch("/api/farmers/login", { method: "POST", body }),
+    apiFetch("/api/farmers/manager/login", { method: "POST", body }),
+  ]);
+
+  if (farmerResult.status === "fulfilled" && farmerResult.value?.token) {
+    return farmerResult.value;
+  }
+  if (managerResult.status === "fulfilled" && managerResult.value?.token) {
+    return managerResult.value;
   }
 
-  // Try manager login
-  const managerData = await apiFetch("/api/farmers/manager/login", {
+  const farmerErr = farmerResult.status === "rejected" ? farmerResult.reason : null;
+  const managerErr = managerResult.status === "rejected" ? managerResult.reason : null;
+  if (farmerErr?.status === 0) throw farmerErr;
+  if (managerErr?.status === 0) throw managerErr;
+  throw managerErr || farmerErr || new Error("Invalid mobile number or password");
+}
+
+export async function registerFarmer(payload) {
+  return apiFetch("/api/farmers/register", {
     method: "POST",
-    body: JSON.stringify({ mobile, password }),
+    body: JSON.stringify(payload),
   });
-  return managerData;
+}
+
+export async function submitFarmerKyc() {
+  const farmerId = getActiveFarmerId();
+  if (!farmerId) throw new Error("Farmer session not found");
+  return apiFetch(`/api/farmers/${farmerId}/kyc/submit`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function getFarmerProfile() {
+  const stored = getStoredAuth();
+  if (stored?.farmer?.role === "FARMER_MANAGER") {
+    return getManagerProfile();
+  }
   const farmerId = getActiveFarmerId();
-  const farmer = await apiFetch(`/api/farmers/${farmerId}`);
-  return {
-    ...farmer,
-    role: farmer.role || "FARMER",
-    verificationStatus: farmer.verificationStatus || "Approved",
-  };
+  if (!farmerId && !stored?.token) {
+    if (stored?.farmer) {
+      return {
+        ...stored.farmer,
+        role: stored.farmer.role || "FARMER",
+        verificationStatus: stored.farmer.verificationStatus || "Approved",
+      };
+    }
+    throw new Error("Farmer session not found");
+  }
+  try {
+    const farmer = await apiFetch("/api/farmers/me", { headers: authHeaders() });
+    return {
+      ...farmer,
+      role: farmer.role || "FARMER",
+      verificationStatus: farmer.verificationStatus || "Approved",
+    };
+  } catch (err) {
+    if (stored?.farmer) {
+      return {
+        ...stored.farmer,
+        role: stored.farmer.role || "FARMER",
+        verificationStatus: stored.farmer.verificationStatus || "Approved",
+      };
+    }
+    throw err;
+  }
 }
 
 export async function getManagerProfile() {
@@ -131,9 +177,33 @@ export async function getManagerProfile() {
 }
 
 export async function updateFarmerProfile(payload) {
-  const farmerId = getActiveFarmerId();
-  return apiFetch(`/api/farmers/${farmerId}`, {
+  return apiFetch("/api/farmers/me/profile", {
     method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateFarmProfile(payload) {
+  return apiFetch("/api/farmers/me/farm", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateFarmLocation(payload) {
+  return apiFetch("/api/farmers/me/farm-location", {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmFarmLocation(payload) {
+  return apiFetch("/api/farmers/me/farm-location/confirm", {
+    method: "POST",
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 }
@@ -154,6 +224,7 @@ export async function getDocuments() {
   const role = stored?.farmer?.role;
   if (role === "FARMER_MANAGER") return []; // Managers don't have personal documents
   const farmerId = getActiveFarmerId();
+  if (!farmerId) return [];
   const docs = await apiFetch(`/api/farmers/${farmerId}/documents`);
   return docs.map((d) => ({
     ...d,
@@ -202,11 +273,13 @@ export async function submitDocumentsForVerification() {
 
 export async function getDashboardStats() {
   const farmerId = getActiveFarmerId();
+  if (!farmerId) return {};
   return apiFetch(`/api/farmers/${farmerId}/dashboard`);
 }
 
 export async function getProducts({ q = "", status = "", sort = "newest", page = 1, limit = 10 } = {}) {
   const farmerId = getActiveFarmerId();
+  if (!farmerId) return { products: [], total: 0, page: 1, totalPages: 1 };
   const list = await apiFetch(`/api/farmers/${farmerId}/products`);
   let filtered = [...list];
   if (q) {
@@ -268,6 +341,7 @@ export async function getProductGradeChart(productId) {
 
 export async function getDashboardCharts() {
   const farmerId = getActiveFarmerId();
+  if (!farmerId) return { stats: {}, all: { rows: [] }, products: [] };
   const [stats, products] = await Promise.all([
     apiFetch(`/api/farmers/${farmerId}/dashboard`),
     apiFetch(`/api/farmers/${farmerId}/products`),
@@ -399,7 +473,15 @@ export async function getEarnings() {
 }
 
 export async function getHarvestOrders() {
+  const stored = getStoredAuth();
+  if (stored?.farmer?.role === "FARMER_MANAGER") {
+    const data = await apiFetch("/api/farmer-manager/harvest-orders", {
+      headers: managerAuthHeaders(),
+    });
+    return Array.isArray(data) ? data : data?.orders || [];
+  }
   const farmerId = getActiveFarmerId();
+  if (!farmerId) return [];
   return apiFetch(`/api/farmers/${farmerId}/harvest-orders`);
 }
 
@@ -410,16 +492,62 @@ export async function getHarvestOrders() {
 
 export async function getManagerDashboard() {
   return apiFetch("/api/farmer-manager/dashboard", {
-    headers: { Authorization: `Bearer ${getStoredAuth()?.token}` },
+    headers: managerAuthHeaders(),
   });
 }
 
-export async function getManagerFarmers({ q = "", status = "" } = {}) {
+export async function getManagerFarmers({ q = "", status = "", lite = false } = {}) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (status) params.set("status", status);
+  if (lite) params.set("lite", "1");
   return apiFetch(`/api/farmer-manager/farmers?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${getStoredAuth()?.token}` },
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllProducts() {
+  return apiFetch("/api/farmer-manager/products", {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllOrders() {
+  return apiFetch("/api/farmer-manager/orders", {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllInventory() {
+  return apiFetch("/api/farmer-manager/inventory", {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllDocuments() {
+  return apiFetch("/api/farmer-manager/documents", {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllStockHistory({ farmerId = "" } = {}) {
+  const params = new URLSearchParams();
+  if (farmerId) params.set("farmerId", farmerId);
+  const qs = params.toString();
+  return apiFetch(`/api/farmer-manager/stock-history${qs ? `?${qs}` : ""}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllHarvestOrders() {
+  return apiFetch("/api/farmer-manager/harvest-orders", {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerAllEarnings() {
+  return apiFetch("/api/farmer-manager/earnings", {
+    headers: managerAuthHeaders(),
   });
 }
 

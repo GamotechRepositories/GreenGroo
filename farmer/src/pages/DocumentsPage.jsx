@@ -47,9 +47,9 @@ function DocumentsPage() {
     return DOCUMENT_TYPES.map((t) => ({
       ...t,
       ...(map[t.id] || {
-        status: VERIFICATION_STATUS.APPROVED,
-        fileName: "Uploaded by Vendor Manager",
-        uploadedAt: new Date(),
+        status: VERIFICATION_STATUS.NOT_UPLOADED,
+        fileName: "",
+        uploadedAt: null,
         adminRemarks: "",
       }),
     }));
@@ -86,7 +86,7 @@ function DocumentsPage() {
                       Updated: {formatDate(doc.uploadedAt)}
                     </p>
                   </div>
-                  <StatusBadge status={doc.status || "Approved"} />
+                  <StatusBadge status={doc.status || VERIFICATION_STATUS.NOT_UPLOADED} />
                 </div>
 
                 {doc.adminRemarks ? (
@@ -113,8 +113,8 @@ function DocumentsPage() {
       <Modal open={Boolean(viewDoc)} title={viewDoc?.name || "Document Status"} onClose={() => setViewDoc(null)}>
         <div className="space-y-2 text-xs">
           <p className="font-semibold text-[#1F2937]">Document: {viewDoc?.name}</p>
-          <p className="text-[#6B7280]">File Name: {viewDoc?.fileName || "Uploaded & Verified"}</p>
-          <p className="text-[#6B7280]">Verification Status: Approved</p>
+          <p className="text-[#6B7280]">File Name: {viewDoc?.fileName || "No document file uploaded"}</p>
+          <p className="text-[#6B7280]">Verification Status: {viewDoc?.status || "Not Uploaded"}</p>
           <p className="text-[#6B7280]">Document modifications are controlled by your assigned Vendor / Farmer Manager.</p>
         </div>
       </Modal>

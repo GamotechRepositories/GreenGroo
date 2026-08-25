@@ -90,7 +90,10 @@ function ProductListTable({
   };
 
   useEffect(() => {
-    load();
+    const t = setTimeout(() => {
+      load();
+    }, search ? 300 : 0);
+    return () => clearTimeout(t);
   }, [search, status, sort, page]);
 
   const handleStatusChange = async (productId, newStatus, currentStatus) => {

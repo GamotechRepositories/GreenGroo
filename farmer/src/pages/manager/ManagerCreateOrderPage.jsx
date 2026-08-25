@@ -47,7 +47,7 @@ export default function ManagerCreateOrderPage() {
 
   // Load Farmers
   useEffect(() => {
-    getManagerFarmers()
+    getManagerFarmers({ lite: true })
       .then((fs) => {
         const list = Array.isArray(fs) ? fs : [];
         setFarmers(list);

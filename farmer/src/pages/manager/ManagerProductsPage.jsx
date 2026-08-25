@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getManagerFarmers, getManagerFarmerProducts } from "../../api/farmerApi";
+import { getManagerAllProducts } from "../../api/farmerApi";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
 export default function ManagerProductsPage() {
@@ -14,21 +14,14 @@ export default function ManagerProductsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const fs = await getManagerFarmers();
-      const farmerList = Array.isArray(fs) ? fs : [];
+      const data = await getManagerAllProducts();
+      const farmerList = Array.isArray(data?.farmers) ? data.farmers : [];
+      const products = Array.isArray(data?.products) ? data.products : [];
       setFarmers(farmerList);
-
-      const results = await Promise.all(
-        farmerList.map((f) =>
-          getManagerFarmerProducts(f.id)
-            .then((prods) => ({ farmerId: f.id, products: Array.isArray(prods) ? prods : [] }))
-            .catch(() => ({ farmerId: f.id, products: [] }))
-        )
-      );
-
       const map = {};
-      results.forEach(({ farmerId, products }) => {
-        map[farmerId] = products;
+      products.forEach((p) => {
+        if (!map[p.farmerId]) map[p.farmerId] = [];
+        map[p.farmerId].push(p);
       });
       setProductsByFarmer(map);
     } catch {

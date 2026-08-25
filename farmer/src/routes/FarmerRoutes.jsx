@@ -3,6 +3,9 @@ import { Provider } from "react-redux";
 import { farmerStore } from "../store/farmerStore";
 import FarmerLayout from "../components/layout/FarmerLayout";
 import FarmerLoginPage from "../pages/FarmerLoginPage";
+import FarmerRegisterPage from "../pages/FarmerRegisterPage";
+import FarmerRegistrationSuccessPage from "../pages/FarmerRegistrationSuccessPage";
+import FarmerKycPage from "../pages/FarmerKycPage";
 import DocumentsPage from "../pages/DocumentsPage";
 import DashboardPage from "../pages/DashboardPage";
 import MarketPricesPage from "../pages/MarketPricesPage";
@@ -20,6 +23,9 @@ import OrderDetailPage from "../pages/OrderDetailPage";
 import HarvestOrdersPage from "../pages/HarvestOrdersPage";
 import EarningsPage from "../pages/EarningsPage";
 import ProfilePage from "../pages/ProfilePage";
+import FarmerProfilePage from "../pages/FarmerProfilePage";
+import FarmProfilePage from "../pages/FarmProfilePage";
+import FarmLocationPage from "../pages/FarmLocationPage";
 
 // Manager Pages
 import ManagerDashboardPage from "../pages/manager/ManagerDashboardPage";
@@ -41,9 +47,12 @@ function FarmerRoutes() {
     <Provider store={farmerStore}>
       <Routes>
         <Route path="login" element={<FarmerLoginPage />} />
+        <Route path="register" element={<FarmerRegisterPage />} />
+        <Route path="register/success" element={<FarmerRegistrationSuccessPage />} />
         <Route element={<FarmerLayout />}>
           {/* ────────── FARMER ROUTES ────────── */}
           <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="kyc" element={<FarmerKycPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="market-prices" element={<MarketPricesPage />} />
@@ -60,7 +69,9 @@ function FarmerRoutes() {
           <Route path="orders" element={<OrdersPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="earnings" element={<EarningsPage />} />
-          <Route path="profile" element={<ProfilePage />} />
+          <Route path="profile" element={<FarmerProfilePage />} />
+          <Route path="farm-profile" element={<FarmProfilePage />} />
+          <Route path="farm-location" element={<FarmLocationPage />} />
 
           {/* ────────── MANAGER ROUTES ────────── */}
           <Route path="manager/dashboard" element={<ManagerDashboardPage />} />

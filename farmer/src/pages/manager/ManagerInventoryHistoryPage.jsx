@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getManagerFarmers, getManagerFarmerStockHistory } from "../../api/farmerApi";
+import { getManagerAllStockHistory } from "../../api/farmerApi";
 import { EXCEL_PANEL, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_INPUT } from "../../utils/excelStyles";
 
 const ACTION_COLORS = {
@@ -16,27 +16,24 @@ export default function ManagerInventoryHistoryPage() {
   const [farmerFilter, setFarmerFilter] = useState("");
 
   useEffect(() => {
-    getManagerFarmers().then(setFarmers).catch(() => {});
-  }, []);
-
-  useEffect(() => {
     setLoading(true);
-    const farmerIds = farmerFilter ? [farmerFilter] : farmers.map((f) => f.id);
-    if (farmerIds.length === 0) { setLoading(false); return; }
-
-    Promise.all(
-      farmerIds.map((fid) =>
-        getManagerFarmerStockHistory(fid)
-          .then((h) => h.map((entry) => ({ ...entry, _farmerName: farmers.find((f) => f.id === fid)?.name || fid })))
-          .catch(() => [])
-      )
-    )
-      .then((results) => {
-        const merged = results.flat().sort((a, b) => new Date(b.at || b.createdAt) - new Date(a.at || a.createdAt));
-        setHistory(merged);
+    getManagerAllStockHistory({ farmerId: farmerFilter })
+      .then((data) => {
+        const fs = Array.isArray(data?.farmers) ? data.farmers : [];
+        const rows = Array.isArray(data?.history) ? data.history : [];
+        setFarmers(fs);
+        setHistory(
+          rows.map((entry) => ({
+            ...entry,
+            _farmerName: entry.farmerName || fs.find((f) => f.id === entry.farmerId)?.name || entry.farmerId,
+          }))
+        );
+      })
+      .catch(() => {
+        setHistory([]);
       })
       .finally(() => setLoading(false));
-  }, [farmerFilter, farmers]);
+  }, [farmerFilter]);
 
   return (
     <div className="space-y-4">

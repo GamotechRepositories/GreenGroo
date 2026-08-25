@@ -7,6 +7,13 @@ import {
   deleteFarmer,
   setFarmerStatus,
   farmerLogin,
+  registerFarmer,
+  submitFarmerKyc,
+  getFarmerMe,
+  updateFarmerSelfProfile,
+  updateFarmerFarmProfile,
+  updateFarmerFarmLocation,
+  confirmFarmerFarmLocation,
   updateFarmerPassword,
   updateFarmerLoginStatus,
   getFarmerDashboard,
@@ -52,9 +59,16 @@ import {
   getManagerMe,
   getManagerFarmers,
   getManagerDashboard,
+  getManagerAllProducts,
+  getManagerAllOrders,
+  getManagerAllInventory,
+  getManagerAllDocuments,
+  getManagerAllStockHistory,
+  getManagerAllHarvestOrders,
+  getManagerAllEarnings,
   assignFarmerManager,
 } from "./controllers.js";
-import { requireVendor, requireManager } from "./middleware.js";
+import { requireVendor, requireManager, requireFarmer } from "./middleware.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();
@@ -68,6 +82,12 @@ const managerRouter = express.Router();
 // FARMER AUTH & COMMON API
 // ------------------------------------
 farmerRouter.post("/login", farmerLogin);
+farmerRouter.post("/register", registerFarmer);
+farmerRouter.get("/me", requireFarmer, getFarmerMe);
+farmerRouter.put("/me/profile", requireFarmer, updateFarmerSelfProfile);
+farmerRouter.put("/me/farm", requireFarmer, updateFarmerFarmProfile);
+farmerRouter.put("/me/farm-location", requireFarmer, updateFarmerFarmLocation);
+farmerRouter.post("/me/farm-location/confirm", requireFarmer, confirmFarmerFarmLocation);
 farmerRouter.get("/", getFarmers);
 farmerRouter.post("/", createFarmer);
 farmerRouter.get("/:farmerId", getFarmerById);
@@ -124,6 +144,7 @@ farmerRouter.delete("/:farmerId/harvest-orders/:id", deleteHarvestOrder);
 // Documents
 farmerRouter.get("/:farmerId/documents", getFarmerDocuments);
 farmerRouter.post("/:farmerId/documents", uploadFarmerDocument);
+farmerRouter.post("/:farmerId/kyc/submit", submitFarmerKyc);
 farmerRouter.patch("/:farmerId/documents/:documentId/status", updateFarmerDocumentStatus);
 farmerRouter.delete("/:farmerId/documents/:documentId", deleteFarmerDocument);
 
@@ -227,6 +248,13 @@ managerAuthRouter.get("/me", requireManager, getManagerMe);
 // ------------------------------------
 managerRouter.get("/dashboard", requireManager, getManagerDashboard);
 managerRouter.get("/farmers", requireManager, getManagerFarmers);
+managerRouter.get("/products", requireManager, getManagerAllProducts);
+managerRouter.get("/orders", requireManager, getManagerAllOrders);
+managerRouter.get("/inventory", requireManager, getManagerAllInventory);
+managerRouter.get("/documents", requireManager, getManagerAllDocuments);
+managerRouter.get("/stock-history", requireManager, getManagerAllStockHistory);
+managerRouter.get("/harvest-orders", requireManager, getManagerAllHarvestOrders);
+managerRouter.get("/earnings", requireManager, getManagerAllEarnings);
 managerRouter.post("/farmers", requireManager, createFarmer);
 managerRouter.get("/farmers/:farmerId", requireManager, getFarmerById);
 managerRouter.delete("/farmers/:farmerId", requireManager, deleteFarmer);

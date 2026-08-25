@@ -29,11 +29,22 @@ export default function CommunityPostCard({ post, onLikePost, onAddComment }) {
       {/* Post Author Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-[#F9F9F9] p-3">
         <div className="flex items-center gap-2.5">
-          <img
-            src={post.authorAvatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80"}
-            alt={post.author}
-            className="h-9 w-9 rounded-full object-cover border border-slate-300"
-          />
+          {post.authorAvatar ? (
+            <img
+              src={post.authorAvatar}
+              alt={post.author}
+              className="h-9 w-9 rounded-full object-cover border border-slate-300"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-emerald-100 text-xs font-bold text-emerald-800">
+              {(post.author || "F")
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((p) => p[0]?.toUpperCase())
+                .join("")}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs text-slate-900">{post.author}</span>

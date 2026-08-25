@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
@@ -11,6 +12,7 @@ import {
   FarmerEarning,
   FarmerDocument,
   FarmerHarvestOrder,
+  ensureFarmerIndexes,
 } from "./models.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
@@ -29,474 +31,218 @@ function initials(name = "") {
     .join("");
 }
 
+async function generateUniqueFarmerId() {
+  for (let i = 0; i < 6; i++) {
+    const id = `farmer-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const exists = await Farmer.exists({ id });
+    if (!exists) return id;
+  }
+  return `farmer-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function defaultKycDocumentShells({ farmerId, vendorId, managerId }) {
+  const types = [
+    { type: "aadhaar", name: "Aadhaar / ID Proof" },
+    { type: "pan", name: "PAN" },
+    { type: "address", name: "Address Proof" },
+    { type: "bank", name: "Bank Details" },
+    { type: "other", name: "Other Documents" },
+  ];
+  return types.map((d) => ({
+    id: `doc-${farmerId}-${d.type}`,
+    vendorId,
+    managerId: managerId || "",
+    farmerId,
+    name: d.name,
+    type: d.type,
+    fileName: "",
+    uploadedAt: null,
+    status: "Not Uploaded",
+  }));
+}
+
+function isAdult(dateOfBirth) {
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return false;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 18);
+  return dob <= cutoff;
+}
+
+async function resolveReferralCode(code) {
+  const referralCode = String(code || "").trim();
+  if (!referralCode) return { referralCode: "", managerId: "", vendorId: "" };
+  const manager = await FarmerManager.findOne({
+    $or: [{ id: referralCode }, { mobile: referralCode }],
+  })
+    .select("id vendorId")
+    .lean();
+  return {
+    referralCode,
+    managerId: manager?.id || "",
+    vendorId: manager?.vendorId || "",
+  };
+}
+
 // ----------------------------------------------------
-// SEED INITIAL DATA IF DB IS EMPTY
+// REMOVE KNOWN DEMO RECORDS (no dummy seed)
 // ----------------------------------------------------
 export async function seedInitialData() {
   try {
-    // Seed default Vendor
-    if ((await Vendor.countDocuments()) === 0) {
-      const hashedVendorPwd = await bcrypt.hash("vendor123", 10);
-      await Vendor.create({
-        id: "vendor-1",
-        vendorCode: "VND-1001",
-        vendorName: "ABC Agro",
-        ownerName: "Vijay Sharma",
-        mobile: "9900000001",
-        email: "vendor@abcagro.com",
-        businessName: "ABC Agro Pvt Ltd",
-        businessAddress: "Plot 12, MIDC Industrial Area",
-        city: "Nashik",
-        state: "Maharashtra",
-        pincode: "422001",
-        gstNumber: "27AAAAA0000A1Z5",
-        panNumber: "AAAAA0000A",
-        status: "Active",
-        password: hashedVendorPwd,
-        role: "VENDOR",
-      }).catch(() => {});
-    }
-
-    const managers = [
-      {
-        id: "mgr-1",
-        vendorId: DEFAULT_VENDOR_ID,
-        name: "Rahul Patil",
-        mobile: "9876501234",
-        email: "rahul.manager@greengroo.com",
-        address: "12 Market Road",
-        city: "Nashik",
-        state: "Maharashtra",
-        pincode: "422001",
-        location: "Nashik, Maharashtra",
-        status: "Active",
-        authType: "password",
-        password: "manager123",
-      },
-      {
-        id: "mgr-2",
-        vendorId: DEFAULT_VENDOR_ID,
-        name: "Sneha Deshmukh",
-        mobile: "9876505678",
-        email: "sneha.manager@greengroo.com",
-        address: "45 Farm Lane",
-        city: "Pune",
-        state: "Maharashtra",
-        pincode: "411001",
-        location: "Pune, Maharashtra",
-        status: "Active",
-        authType: "otp",
-        password: "",
-      },
+    const dummyFarmerIds = ["farmer-1", "farmer-2", "farmer-3"];
+    const dummyManagerIds = ["mgr-1", "mgr-2"];
+    const dummyProductIds = ["fp-1", "fp-2", "fp-3"];
+    const dummyOrderIds = ["fo-101", "fo-102"];
+    const dummyEarningIds = ["earn-1", "earn-2"];
+    const dummyStockIds = ["sh-1", "sh-2"];
+    const dummyDocIds = [
+      "doc-farmer-1-aadhaar",
+      "doc-farmer-1-pan",
+      "doc-farmer-1-bank",
+      "doc-farmer-1-address",
     ];
 
-    if ((await FarmerManager.countDocuments()) === 0) {
-      const hashedMgrPwd = await bcrypt.hash("manager123", 10);
-      const managersWithHash = managers.map((m) => ({ ...m, password: hashedMgrPwd }));
-      await FarmerManager.insertMany(managersWithHash).catch(() => {});
-    }
+    await Promise.all([
+      Farmer.deleteMany({ id: { $in: dummyFarmerIds } }),
+      FarmerManager.deleteMany({ id: { $in: dummyManagerIds } }),
+      FarmerProduct.deleteMany({ id: { $in: dummyProductIds } }),
+      FarmerOrder.deleteMany({ id: { $in: dummyOrderIds } }),
+      FarmerEarning.deleteMany({ id: { $in: dummyEarningIds } }),
+      FarmerStockHistory.deleteMany({ id: { $in: dummyStockIds } }),
+      FarmerDocument.deleteMany({ id: { $in: dummyDocIds } }),
+    ]);
 
-    const defaultHashedPassword = await bcrypt.hash("123456", 10);
+    await Promise.all([
+      FarmerProduct.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
+      FarmerOrder.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
+      FarmerEarning.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
+      FarmerStockHistory.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
+      FarmerDocument.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
+      FarmerHarvestOrder.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
+    ]);
 
-    const farmers = [
-      {
-        id: "farmer-1",
-        farmerCode: "FRM-1001",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        name: "Ramesh Patil",
-        mobile: "9876543210",
-        email: "ramesh.farmer@greengroo.com",
-        password: defaultHashedPassword,
-        loginEnabled: true,
-        farmName: "Patil Organic Farm",
-        farmLocation: "Nashik, Maharashtra",
-        farmAddress: "Survey No. 42, Sinnar Road, Nashik - 422103",
-        farmArea: "8 acres",
-        farmType: "Organic",
-        address: {
-          village: "Sinnar",
-          taluka: "Sinnar",
-          district: "Nashik",
-          state: "Maharashtra",
-          pincode: "422103",
-        },
-        status: "Active",
-        verificationStatus: "Approved",
-        bank: {
-          accountHolder: "Ramesh Patil",
-          bankName: "State Bank of India",
-          accountNumber: "XXXXXXXX4521",
-          ifsc: "SBIN0001234",
-        },
-      },
-      {
-        id: "farmer-2",
-        farmerCode: "FRM-1002",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        name: "Suresh Jadhav",
-        mobile: "9876543211",
-        email: "suresh.farmer@greengroo.com",
-        password: defaultHashedPassword,
-        loginEnabled: true,
-        farmName: "Jadhav Fresh Farm",
-        farmLocation: "Sinnar, Maharashtra",
-        farmAddress: "Gut No. 18, Sinnar",
-        farmArea: "5 acres",
-        farmType: "Mixed",
-        address: {
-          village: "Sinnar",
-          taluka: "Sinnar",
-          district: "Nashik",
-          state: "Maharashtra",
-          pincode: "422103",
-        },
-        status: "Active",
-        verificationStatus: "Approved",
-        bank: {
-          accountHolder: "Suresh Jadhav",
-          bankName: "HDFC Bank",
-          accountNumber: "XXXXXXXX7788",
-          ifsc: "HDFC0001234",
-        },
-      },
-      {
-        id: "farmer-3",
-        farmerCode: "FRM-1003",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-2",
-        name: "Mahesh Shinde",
-        mobile: "9876543212",
-        email: "mahesh.farmer@greengroo.com",
-        password: defaultHashedPassword,
-        loginEnabled: true,
-        farmName: "Shinde Agro",
-        farmLocation: "Niphad, Maharashtra",
-        farmAddress: "Village Niphad",
-        farmArea: "12 acres",
-        farmType: "Conventional",
-        address: {
-          village: "Niphad",
-          taluka: "Niphad",
-          district: "Nashik",
-          state: "Maharashtra",
-          pincode: "422303",
-        },
-        status: "Pending",
-        verificationStatus: "Pending",
-        bank: {
-          accountHolder: "Mahesh Shinde",
-          bankName: "Bank of Maharashtra",
-          accountNumber: "XXXXXXXX9900",
-          ifsc: "MAHB0001234",
-        },
-      },
-    ];
-
-    if ((await Farmer.countDocuments()) === 0) {
-      await Farmer.insertMany(farmers).catch(() => {});
-    }
-
-    const products = [
-      {
-        id: "fp-1",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        sku: "FRM-1001-TOM",
-        name: "Fresh Red Tomatoes",
-        category: "Vegetables",
-        subCategory: "Fresh Produce",
-        description: "Farm-fresh organic red tomatoes harvested daily.",
-        image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=400&q=80",
-        images: ["https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=400&q=80"],
-        unit: "Kg",
-        harvestDate: "2026-07-25",
-        produceType: "organic",
-        farmLocation: "Nashik, Maharashtra",
-        status: "Approved",
-        sellingPrice: 35,
-        mrp: 45,
-        lowStockLimit: 20,
-        stock: 350,
-        availableQuantity: 350,
-        gradeAQty: 200,
-        gradeBQty: 150,
-        grades: [
-          { id: "g-a", label: "Grade A", quantity: 200 },
-          { id: "g-b", label: "Grade B", quantity: 150 },
-        ],
-      },
-      {
-        id: "fp-2",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        sku: "FRM-1001-ONN",
-        name: "Nashik Red Onions",
-        category: "Vegetables",
-        subCategory: "Fresh Produce",
-        description: "Premium quality Nashik red onions with long shelf life.",
-        image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=400&q=80",
-        images: ["https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=400&q=80"],
-        unit: "Kg",
-        harvestDate: "2026-07-20",
-        produceType: "conventional",
-        farmLocation: "Nashik, Maharashtra",
-        status: "Approved",
-        sellingPrice: 28,
-        mrp: 35,
-        lowStockLimit: 50,
-        stock: 800,
-        availableQuantity: 800,
-        gradeAQty: 500,
-        gradeBQty: 300,
-        grades: [
-          { id: "g-a", label: "Grade A", quantity: 500 },
-          { id: "g-b", label: "Grade B", quantity: 300 },
-        ],
-      },
-      {
-        id: "fp-3",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-2",
-        sku: "FRM-1002-POT",
-        name: "Fresh Potatoes",
-        category: "Vegetables",
-        subCategory: "Fresh Produce",
-        description: "High quality fresh potatoes suitable for all cooking.",
-        image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=400&q=80",
-        images: ["https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=400&q=80"],
-        unit: "Kg",
-        harvestDate: "2026-07-22",
-        produceType: "organic",
-        farmLocation: "Sinnar, Maharashtra",
-        status: "Approved",
-        sellingPrice: 22,
-        mrp: 30,
-        lowStockLimit: 30,
-        stock: 450,
-        availableQuantity: 450,
-        gradeAQty: 300,
-        gradeBQty: 150,
-        grades: [
-          { id: "g-a", label: "Grade A", quantity: 300 },
-          { id: "g-b", label: "Grade B", quantity: 150 },
-        ],
-      },
-    ];
-
-    if ((await FarmerProduct.countDocuments()) === 0) {
-      await FarmerProduct.insertMany(products).catch(() => {});
-    }
-
-    const stockHistory = [
-      {
-        id: "sh-1",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        productId: "fp-1",
-        productName: "Fresh Red Tomatoes",
-        grade: "Grade A",
-        action: "Stock Added",
-        previousStock: 0,
-        changedQuantity: 200,
-        newStock: 200,
-        reason: "Initial Harvest",
-        updatedBy: "Farmer",
-        reference: "HARV-001",
-        at: new Date("2026-07-25T08:00:00.000Z"),
-      },
-      {
-        id: "sh-2",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        productId: "fp-1",
-        productName: "Fresh Red Tomatoes",
-        grade: "Grade B",
-        action: "Stock Added",
-        previousStock: 0,
-        changedQuantity: 150,
-        newStock: 150,
-        reason: "Initial Harvest",
-        updatedBy: "Farmer",
-        reference: "HARV-001",
-        at: new Date("2026-07-25T08:05:00.000Z"),
-      },
-    ];
-
-    if ((await FarmerStockHistory.countDocuments()) === 0) {
-      await FarmerStockHistory.insertMany(stockHistory).catch(() => {});
-    }
-
-    const orders = [
-      {
-        id: "fo-101",
-        orderId: "FO-1001",
-        vendorId: DEFAULT_VENDOR_ID,
-        farmerId: "farmer-1",
-        customer: { name: "GreenGroo Central Hub", phone: "9876543000", address: "Andheri Hub, Mumbai" },
-        products: [
-          { id: "fp-1", name: "Fresh Red Tomatoes", grade: "Grade A", quantity: 50, unit: "Kg", price: 35, total: 1750 },
-        ],
-        totalQuantity: 50,
-        totalAmount: 1750,
-        amount: 1750,
-        status: "Confirmed",
-        deliveryStatus: "Pending",
-        paymentStatus: "Paid",
-        orderDate: new Date("2026-07-26T10:00:00.000Z"),
-        timeline: [
-          { status: "New", at: new Date("2026-07-26T10:00:00.000Z"), note: "Order placed" },
-          { status: "Confirmed", at: new Date("2026-07-26T10:30:00.000Z"), note: "Order confirmed" },
-        ],
-      },
-      {
-        id: "fo-102",
-        orderId: "FO-1002",
-        vendorId: DEFAULT_VENDOR_ID,
-        farmerId: "farmer-1",
-        customer: { name: "Reliance Smart", phone: "9876543001", address: "Thane Distribution Depot" },
-        products: [
-          { id: "fp-2", name: "Nashik Red Onions", grade: "Grade A", quantity: 200, unit: "Kg", price: 28, total: 5600 },
-        ],
-        totalQuantity: 200,
-        totalAmount: 5600,
-        amount: 5600,
-        status: "Completed",
-        deliveryStatus: "Delivered",
-        paymentStatus: "Paid",
-        orderDate: new Date("2026-07-24T09:00:00.000Z"),
-        timeline: [
-          { status: "New", at: new Date("2026-07-24T09:00:00.000Z"), note: "Order placed" },
-          { status: "Completed", at: new Date("2026-07-24T16:00:00.000Z"), note: "Delivered & payment settled" },
-        ],
-      },
-    ];
-
-    if ((await FarmerOrder.countDocuments()) === 0) {
-      await FarmerOrder.insertMany(orders).catch(() => {});
-    }
-
-    const earnings = [
-      {
-        id: "earn-1",
-        vendorId: DEFAULT_VENDOR_ID,
-        farmerId: "farmer-1",
-        orderId: "fo-102",
-        date: "2026-07-24",
-        cropName: "Nashik Red Onions",
-        quantity: 200,
-        ratePerKg: 28,
-        grossEarnings: 5600,
-        deductions: 200,
-        netEarnings: 5400,
-        status: "Paid",
-      },
-      {
-        id: "earn-2",
-        vendorId: DEFAULT_VENDOR_ID,
-        farmerId: "farmer-1",
-        orderId: "fo-101",
-        date: "2026-07-26",
-        cropName: "Fresh Red Tomatoes",
-        quantity: 50,
-        ratePerKg: 35,
-        grossEarnings: 1750,
-        deductions: 50,
-        netEarnings: 1700,
-        status: "Pending",
-      },
-    ];
-
-    if ((await FarmerEarning.countDocuments()) === 0) {
-      await FarmerEarning.insertMany(earnings).catch(() => {});
-    }
-
-    const documents = [
-      {
-        id: "doc-farmer-1-aadhaar",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        name: "Aadhaar / ID Proof",
-        type: "aadhaar",
-        fileName: "aadhaar_ramesh_patil.pdf",
-        fileUrl: "https://example.com/docs/aadhaar.pdf",
-        uploadedAt: new Date("2026-07-02T10:00:00.000Z"),
-        status: "Approved",
-      },
-      {
-        id: "doc-farmer-1-pan",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        name: "PAN",
-        type: "pan",
-        fileName: "pan_ramesh_patil.pdf",
-        fileUrl: "https://example.com/docs/pan.pdf",
-        uploadedAt: new Date("2026-07-02T10:05:00.000Z"),
-        status: "Approved",
-      },
-      {
-        id: "doc-farmer-1-bank",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        name: "Bank Details",
-        type: "bank",
-        fileName: "passbook_ramesh.pdf",
-        fileUrl: "https://example.com/docs/passbook.pdf",
-        uploadedAt: new Date("2026-07-02T10:10:00.000Z"),
-        status: "Approved",
-      },
-      {
-        id: "doc-farmer-1-address",
-        vendorId: DEFAULT_VENDOR_ID,
-        managerId: "mgr-1",
-        farmerId: "farmer-1",
-        name: "Address Proof",
-        type: "address",
-        fileName: "7_12_extract.pdf",
-        fileUrl: "https://example.com/docs/7_12.pdf",
-        uploadedAt: new Date("2026-07-02T10:15:00.000Z"),
-        status: "Approved",
-      },
-    ];
-
-    if ((await FarmerDocument.countDocuments()) === 0) {
-      await FarmerDocument.insertMany(documents).catch(() => {});
-    }
-
-    console.log("Farmer Manager database seeded successfully!");
+    ensureFarmerIndexes().catch(() => {});
   } catch (err) {
-    console.error("Failed to seed initial Farmer Manager data:", err);
+    console.error("Failed to clean dummy Farmer Manager data:", err);
   }
+}
+
+function toPlain(doc) {
+  if (!doc) return doc;
+  return doc.toObject ? doc.toObject() : { ...doc };
+}
+
+async function aggFarmerStats(farmerIds) {
+  if (!farmerIds?.length) {
+    return { productStats: new Map(), orderStats: new Map(), earningStats: new Map() };
+  }
+
+  const [products, orders, earnings] = await Promise.all([
+    FarmerProduct.aggregate([
+      { $match: { farmerId: { $in: farmerIds } } },
+      { $group: { _id: "$farmerId", count: { $sum: 1 }, stock: { $sum: { $ifNull: ["$stock", 0] } } } },
+    ]),
+    FarmerOrder.aggregate([
+      { $match: { farmerId: { $in: farmerIds } } },
+      { $group: { _id: "$farmerId", count: { $sum: 1 } } },
+    ]),
+    FarmerEarning.aggregate([
+      { $match: { farmerId: { $in: farmerIds } } },
+      { $group: { _id: "$farmerId", total: { $sum: { $ifNull: ["$netEarnings", 0] } } } },
+    ]),
+  ]);
+
+  return {
+    productStats: new Map(products.map((r) => [r._id, { count: r.count, stock: r.stock }])),
+    orderStats: new Map(orders.map((r) => [r._id, r.count])),
+    earningStats: new Map(earnings.map((r) => [r._id, r.total])),
+  };
+}
+
+function assignedFarmerQuery(req) {
+  return { managerId: req.user.managerId, vendorId: req.user.vendorId };
+}
+
+async function getAssignedFarmers(req, select = "-password") {
+  return Farmer.find(assignedFarmerQuery(req)).select(select).sort({ createdAt: -1 }).lean();
+}
+
+function enrichProductRow(p, farmerName = "") {
+  const totalQty = p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0);
+  const gradesSummary = p.grades?.map((g) => `${g.label} - ${g.quantity} ${p.unit || "Kg"}`).join(", ") || "";
+  return {
+    ...p,
+    totalQuantity: totalQty,
+    stock: totalQty,
+    availableQuantity: totalQty,
+    gradesSummary,
+    farmerName: farmerName || p.farmerName || "",
+  };
+}
+
+function mapFarmerOrdersToHarvest(farmerOrders) {
+  return farmerOrders.flatMap((o) => {
+    const prods =
+      o.products && o.products.length > 0
+        ? o.products
+        : [{ name: o.productName || "Farm Fresh Produce", quantity: o.totalQuantity || 0, grade: o.grade || "Grade A", unit: o.unit || "Kg" }];
+
+    return prods.map((p) => {
+      const gradesList = p.grades?.length
+        ? p.grades
+        : o.grades?.length
+        ? o.grades
+        : [{ name: p.grade || "Grade A", label: p.grade || "Grade A", quantity: Number(p.quantity || 0) }];
+
+      return {
+        id: o.id || o.orderId || String(o._id),
+        orderId: o.id || o.orderId,
+        vendorId: o.vendorId,
+        farmerId: o.farmerId,
+        farmerName: o.farmerName || "",
+        productId: p.id || p.productId || "",
+        productName: p.name || o.productName || "Farm Fresh Produce",
+        category: p.category || o.category || "Produce",
+        date: o.harvestDate || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
+        day: o.day || "",
+        unit: p.unit || o.unit || "Kg",
+        grades: gradesList,
+        rejectionQty: Number(o.rejectionQty || 0),
+        totalQuantity: Number(p.quantity || o.totalQuantity || 0),
+        totalAmount: Number(p.total || o.totalAmount || o.amount || 0),
+        status: o.status || "Approved",
+        createdAt: o.createdAt,
+        products: o.products,
+        harvestDate: o.harvestDate,
+        amount: o.amount,
+        orderDate: o.orderDate,
+      };
+    });
+  });
+}
+
+function mergeHarvestLists(harvestOrders, mappedFarmerOrders) {
+  const idMap = new Map();
+  [...harvestOrders, ...mappedFarmerOrders].forEach((item) => {
+    const key = item.id || item.orderId || String(item._id);
+    if (key && !idMap.has(key)) idMap.set(key, item);
+  });
+  return Array.from(idMap.values()).sort(
+    (a, b) => new Date(b.date || b.orderDate || b.createdAt || 0) - new Date(a.date || a.orderDate || a.createdAt || 0)
+  );
 }
 
 // Helper to enrich a single farmer object with calculated stats
 async function enrichFarmerDoc(farmerDoc) {
-  const f = farmerDoc.toObject ? farmerDoc.toObject() : { ...farmerDoc };
+  const f = toPlain(farmerDoc);
   const farmerId = f.id;
 
-  const [manager, products, ordersCount, earningsList] = await Promise.all([
+  const [manager, stats] = await Promise.all([
     f.managerId ? FarmerManager.findOne({ id: f.managerId }).select("name").lean() : null,
-    FarmerProduct.find({ farmerId }).select("stock grades").lean(),
-    FarmerOrder.countDocuments({ farmerId }),
-    FarmerEarning.find({ farmerId }).select("netEarnings").lean(),
+    aggFarmerStats([farmerId]),
   ]);
 
-  const totalProducts = products.length;
-  const totalStock = products.reduce(
-    (sum, p) => sum + (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0)),
-    0
-  );
-  const totalEarnings = earningsList.reduce((sum, e) => sum + Number(e.netEarnings || 0), 0);
-
+  const pStat = stats.productStats.get(farmerId) || { count: 0, stock: 0 };
   delete f.password;
 
   return {
@@ -504,53 +250,32 @@ async function enrichFarmerDoc(farmerDoc) {
     loginEnabled: f.loginEnabled !== false,
     managerName: manager?.name || "—",
     initials: initials(f.name),
-    totalProducts,
-    totalStock,
-    totalInventory: totalStock,
-    totalOrders: ordersCount,
-    totalEarnings,
+    totalProducts: pStat.count,
+    totalStock: pStat.stock,
+    totalInventory: pStat.stock,
+    totalOrders: stats.orderStats.get(farmerId) || 0,
+    totalEarnings: stats.earningStats.get(farmerId) || 0,
   };
 }
 
-// Batch helper to enrich multiple farmers in 4 consolidated DB queries instead of 4N queries
+// Batch helper: 3 aggregations + 1 manager lookup instead of loading every related document
 async function enrichFarmerDocsBatch(farmerDocs) {
   if (!farmerDocs || !farmerDocs.length) return [];
 
-  const rawFarmers = farmerDocs.map((doc) => (doc.toObject ? doc.toObject() : { ...doc }));
+  const rawFarmers = farmerDocs.map(toPlain);
   const farmerIds = rawFarmers.map((f) => f.id).filter(Boolean);
   const managerIds = Array.from(new Set(rawFarmers.map((f) => f.managerId).filter(Boolean)));
 
-  const [managers, products, orders, earnings] = await Promise.all([
+  const [managers, stats] = await Promise.all([
     managerIds.length ? FarmerManager.find({ id: { $in: managerIds } }).select("id name").lean() : [],
-    FarmerProduct.find({ farmerId: { $in: farmerIds } }).select("farmerId stock grades").lean(),
-    FarmerOrder.find({ farmerId: { $in: farmerIds } }).select("farmerId").lean(),
-    FarmerEarning.find({ farmerId: { $in: farmerIds } }).select("farmerId netEarnings").lean(),
+    aggFarmerStats(farmerIds),
   ]);
 
-  const managerMap = new Map();
-  managers.forEach((m) => managerMap.set(m.id, m.name));
-
-  const productStats = new Map();
-  products.forEach((p) => {
-    const cur = productStats.get(p.farmerId) || { count: 0, stock: 0 };
-    cur.count += 1;
-    cur.stock += (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0));
-    productStats.set(p.farmerId, cur);
-  });
-
-  const orderStats = new Map();
-  orders.forEach((o) => {
-    orderStats.set(o.farmerId, (orderStats.get(o.farmerId) || 0) + 1);
-  });
-
-  const earningStats = new Map();
-  earnings.forEach((e) => {
-    earningStats.set(e.farmerId, (earningStats.get(e.farmerId) || 0) + Number(e.netEarnings || 0));
-  });
+  const managerMap = new Map(managers.map((m) => [m.id, m.name]));
 
   return rawFarmers.map((f) => {
     delete f.password;
-    const pStat = productStats.get(f.id) || { count: 0, stock: 0 };
+    const pStat = stats.productStats.get(f.id) || { count: 0, stock: 0 };
     return {
       ...f,
       loginEnabled: f.loginEnabled !== false,
@@ -559,8 +284,8 @@ async function enrichFarmerDocsBatch(farmerDocs) {
       totalProducts: pStat.count,
       totalStock: pStat.stock,
       totalInventory: pStat.stock,
-      totalOrders: orderStats.get(f.id) || 0,
-      totalEarnings: earningStats.get(f.id) || 0,
+      totalOrders: stats.orderStats.get(f.id) || 0,
+      totalEarnings: stats.earningStats.get(f.id) || 0,
     };
   });
 }
@@ -577,7 +302,7 @@ export async function getFarmers(req, res) {
     if (managerId) query.managerId = managerId;
     if (location) query.farmLocation = { $regex: location, $options: "i" };
 
-    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 }).lean();
+    let farmerDocs = await Farmer.find(query).select("-password").sort({ createdAt: -1 }).lean();
 
     let enriched = await enrichFarmerDocsBatch(farmerDocs);
 
@@ -842,6 +567,424 @@ export async function farmerLogin(req, res) {
   }
 }
 
+const SELF_REGISTER_GENDERS = ["Male", "Female", "Other"];
+
+export async function registerFarmer(req, res) {
+  try {
+    const payload = req.body || {};
+    const name = String(payload.name || "").trim();
+    const dateOfBirth = String(payload.dateOfBirth || "").trim();
+    const gender = String(payload.gender || "").trim();
+    const cleanMobile = String(payload.mobile || "").replace(/\D/g, "");
+    const village = String(payload.village || payload.address?.village || "").trim();
+    const taluka = String(payload.taluka || payload.address?.taluka || "").trim();
+    const district = String(payload.district || payload.address?.district || "").trim();
+    const pincode = String(payload.pincode || payload.address?.pincode || "").trim();
+    const profileImage = String(payload.profileImage || payload.photo || "").trim();
+    const state = String(payload.state || payload.address?.state || "Maharashtra").trim();
+
+    if (!name || name.length < 3) {
+      return res.status(400).json({ success: false, message: "Enter farmer full name (min 3 characters)" });
+    }
+    if (!dateOfBirth || !isAdult(dateOfBirth)) {
+      return res.status(400).json({ success: false, message: "Enter a valid date of birth. Farmer must be 18 or older." });
+    }
+    if (!SELF_REGISTER_GENDERS.includes(gender)) {
+      return res.status(400).json({ success: false, message: "Select a valid gender" });
+    }
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      return res.status(400).json({ success: false, message: "Enter a valid 10-digit mobile number" });
+    }
+    if (!village || !taluka || !district) {
+      return res.status(400).json({ success: false, message: "Village, taluka and district are required" });
+    }
+    if (!/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({ success: false, message: "Enter a valid 6-digit pincode" });
+    }
+    if (!profileImage) {
+      return res.status(400).json({ success: false, message: "Farmer photo is required" });
+    }
+    const rawPassword = String(payload.password || "");
+    if (rawPassword.length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+    }
+
+    const existing = await Farmer.findOne({ mobile: cleanMobile }).select("id").lean();
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: "A farmer account already exists with this mobile number.",
+      });
+    }
+
+    const referral = await resolveReferralCode(payload.referralCode || payload.agentCode);
+    const vendorId = referral.vendorId || DEFAULT_VENDOR_ID;
+    const farmerId = await generateUniqueFarmerId();
+    const farmerCode = `FRM-${farmerId.slice(-6).toUpperCase()}`;
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    const farmLocation = [village, district, state].filter(Boolean).join(", ");
+
+    const farmer = new Farmer({
+      id: farmerId,
+      farmerCode,
+      vendorId,
+      managerId: referral.managerId,
+      name,
+      mobile: cleanMobile,
+      email: payload.email || "",
+      password: hashedPassword,
+      loginEnabled: true,
+      profileImage,
+      farmName: payload.farmName || "",
+      farmLocation,
+      farmAddress: [village, taluka, district, state, pincode].filter(Boolean).join(", "),
+      farmArea: payload.farmArea || "",
+      farmType: payload.farmType || "Organic",
+      dateOfBirth,
+      gender,
+      referralCode: referral.referralCode,
+      preferredLanguage: payload.preferredLanguage || "",
+      bankVerificationStatus: "PENDING",
+      farm: {
+        farmId: `farm-${farmerId}`,
+        farmName: payload.farmName || "",
+        totalFarmAreaUnit: "Acre",
+        cultivatedAreaUnit: "Acre",
+        farmingType: payload.farmType || "",
+      },
+      farmGeo: {
+        village,
+        taluka,
+        district,
+        pincode,
+        farmAddress: [village, taluka, district, state, pincode].filter(Boolean).join(", "),
+      },
+      address: {
+        village,
+        taluka,
+        district,
+        state,
+        pincode,
+      },
+      status: "Active",
+      verificationStatus: "Pending",
+      verificationRequired: false,
+      registrationStatus: "REGISTERED",
+      kycStatus: "PENDING",
+      authType: "direct",
+      mobileVerified: false,
+      role: "FARMER",
+      bank: {
+        accountHolder: name,
+        bankName: "",
+        accountNumber: "",
+        ifsc: "",
+      },
+    });
+
+    await farmer.save();
+    await FarmerDocument.insertMany(
+      defaultKycDocumentShells({
+        farmerId: farmer.id,
+        vendorId,
+        managerId: farmer.managerId,
+      })
+    );
+
+    const token = signToken({
+      id: farmer.id,
+      farmerId: farmer.id,
+      vendorId: farmer.vendorId,
+      managerId: farmer.managerId || "",
+      role: "FARMER",
+      name: farmer.name,
+    });
+
+    const { password: _pw, ...farmerData } = farmer.toObject();
+
+    res.status(201).json({
+      success: true,
+      message: "Registration successful",
+      token,
+      farmer: {
+        ...farmerData,
+        farmerId: farmer.id,
+        role: "FARMER",
+        registrationStatus: "REGISTERED",
+        kycStatus: "PENDING",
+        initials: initials(farmer.name),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Registration failed" });
+  }
+}
+
+function authFarmerId(req) {
+  return req.user?.farmerId || req.user?.id || "";
+}
+
+function areaInAcres(value, unit) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return String(unit).toLowerCase() === "hectare" ? n * 2.47105 : n;
+}
+
+function publicFarmLocation(farmer) {
+  const geo = farmer.farmGeo || {};
+  return {
+    village: geo.village || farmer.address?.village || "",
+    taluka: geo.taluka || farmer.address?.taluka || "",
+    district: geo.district || farmer.address?.district || "",
+    pincode: geo.pincode || farmer.address?.pincode || "",
+    farmAddress: geo.farmAddress || farmer.farmAddress || "",
+    latitude: geo.latitude ?? null,
+    longitude: geo.longitude ?? null,
+    hasPin: geo.latitude != null && geo.longitude != null,
+    confirmed: Boolean(geo.confirmed),
+  };
+}
+
+async function buildSelfFarmerPayload(farmer) {
+  const enriched = await enrichFarmerDoc(farmer);
+  const bankDoc = await FarmerDocument.findOne({ farmerId: farmer.id, type: "bank" }).select("status").lean();
+  let bankVerificationStatus = farmer.bankVerificationStatus || "PENDING";
+  if (bankDoc?.status === "Approved" || bankDoc?.status === "approved") bankVerificationStatus = "VERIFIED";
+  if (bankDoc?.status === "Rejected" || bankDoc?.status === "rejected") bankVerificationStatus = "REJECTED";
+
+  return {
+    ...enriched,
+    farmerId: farmer.id,
+    farm: farmer.farm || {},
+    farmLocation: publicFarmLocation(farmer),
+    bankVerificationStatus,
+    kycStatus: farmer.kycStatus || "PENDING",
+  };
+}
+
+export async function getFarmerMe(req, res) {
+  try {
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    res.json(await buildSelfFarmerPayload(farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load farmer profile" });
+  }
+}
+
+export async function updateFarmerSelfProfile(req, res) {
+  try {
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const payload = req.body || {};
+    const name = String(payload.name || "").trim();
+    const cleanMobile = String(payload.mobile || farmer.mobile || "").replace(/\D/g, "");
+    const village = String(payload.village || payload.address?.village || "").trim();
+    const taluka = String(payload.taluka || payload.address?.taluka || "").trim();
+    const district = String(payload.district || payload.address?.district || "").trim();
+    const pincode = String(payload.pincode || payload.address?.pincode || "").trim();
+    const preferredLanguage = String(payload.preferredLanguage || "").trim();
+
+    if (!name || name.length < 3) {
+      return res.status(400).json({ message: "Farmer name is required" });
+    }
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      return res.status(400).json({ message: "Enter a valid 10-digit mobile number" });
+    }
+    if (!village) return res.status(400).json({ message: "Village is required" });
+    if (!taluka) return res.status(400).json({ message: "Taluka is required" });
+    if (!district) return res.status(400).json({ message: "District is required" });
+    if (!/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({ message: "Enter a valid 6-digit pincode" });
+    }
+    if (!preferredLanguage) {
+      return res.status(400).json({ message: "Preferred language is required" });
+    }
+
+    if (cleanMobile !== farmer.mobile) {
+      const taken = await Farmer.findOne({ mobile: cleanMobile, id: { $ne: farmer.id } }).select("id").lean();
+      if (taken) {
+        return res.status(409).json({ message: "A farmer account already exists with this mobile number." });
+      }
+    }
+
+    farmer.name = name;
+    farmer.mobile = cleanMobile;
+    farmer.preferredLanguage = preferredLanguage;
+    if (payload.profileImage !== undefined) farmer.profileImage = payload.profileImage;
+    farmer.address = {
+      ...(farmer.address || {}),
+      village,
+      taluka,
+      district,
+      pincode,
+      state: farmer.address?.state || "Maharashtra",
+    };
+
+    await farmer.save();
+    res.json(await buildSelfFarmerPayload(farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update farmer profile" });
+  }
+}
+
+export async function updateFarmerFarmProfile(req, res) {
+  try {
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const payload = req.body || {};
+    const farmName = String(payload.farmName || "").trim();
+    const totalFarmArea = Number(payload.totalFarmArea);
+    const cultivatedArea = Number(payload.cultivatedArea);
+    const totalFarmAreaUnit = payload.totalFarmAreaUnit === "Hectare" ? "Hectare" : "Acre";
+    const cultivatedAreaUnit = payload.cultivatedAreaUnit === "Hectare" ? "Hectare" : "Acre";
+    const soilType = String(payload.soilType || "").trim();
+    const irrigationType = String(payload.irrigationType || "").trim();
+    const waterSource = String(payload.waterSource || "").trim();
+    const farmingMethod = String(payload.farmingMethod || "").trim();
+    const farmingType = String(payload.farmingType || "").trim();
+    const mainCrops = String(payload.mainCrops || "").trim();
+
+    if (!farmName) return res.status(400).json({ message: "Farm name is required" });
+    if (!Number.isFinite(totalFarmArea) || totalFarmArea <= 0) {
+      return res.status(400).json({ message: "Total farm area must be greater than 0" });
+    }
+    if (!Number.isFinite(cultivatedArea) || cultivatedArea <= 0) {
+      return res.status(400).json({ message: "Cultivated area must be greater than 0" });
+    }
+    if (areaInAcres(cultivatedArea, cultivatedAreaUnit) > areaInAcres(totalFarmArea, totalFarmAreaUnit) + 0.0001) {
+      return res.status(400).json({ message: "Cultivated area cannot be greater than total farm area" });
+    }
+    if (!soilType) return res.status(400).json({ message: "Soil type is required" });
+    if (!irrigationType) return res.status(400).json({ message: "Irrigation type is required" });
+    if (!waterSource) return res.status(400).json({ message: "Water source is required" });
+    if (!farmingMethod) return res.status(400).json({ message: "Farming method is required" });
+    if (!farmingType) return res.status(400).json({ message: "Farming type is required" });
+
+    const farmPhotos = Array.isArray(payload.farmPhotos) ? payload.farmPhotos.filter(Boolean).slice(0, 4) : farmer.farm?.farmPhotos || [];
+    const farmVideos = Array.isArray(payload.farmVideos) ? payload.farmVideos.filter(Boolean).slice(0, 2) : farmer.farm?.farmVideos || [];
+
+    farmer.farm = {
+      farmId: farmer.farm?.farmId || `farm-${farmer.id}`,
+      farmName,
+      totalFarmArea,
+      totalFarmAreaUnit,
+      cultivatedArea,
+      cultivatedAreaUnit,
+      soilType,
+      irrigationType,
+      waterSource,
+      farmingMethod,
+      farmingType,
+      mainCrops,
+      farmPhotos,
+      farmVideos,
+    };
+    farmer.farmName = farmName;
+    farmer.farmArea = `${totalFarmArea} ${totalFarmAreaUnit}`;
+    farmer.farmType = farmingType || farmer.farmType;
+    farmer.markModified("farm");
+    await farmer.save();
+
+    res.json(await buildSelfFarmerPayload(farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update farm profile" });
+  }
+}
+
+function validateFarmLocationPayload(payload, farmer, requirePin) {
+  const village = String(payload.village || "").trim();
+  const taluka = String(payload.taluka || "").trim();
+  const district = String(payload.district || "").trim();
+  const pincode = String(payload.pincode || "").trim();
+  const farmAddress = String(payload.farmAddress || "").trim();
+  const latitude = payload.latitude != null ? Number(payload.latitude) : farmer.farmGeo?.latitude;
+  const longitude = payload.longitude != null ? Number(payload.longitude) : farmer.farmGeo?.longitude;
+
+  if (!village) return { error: "Village is required" };
+  if (!taluka) return { error: "Taluka is required" };
+  if (!district) return { error: "District is required" };
+  if (!/^\d{6}$/.test(pincode)) return { error: "Enter a valid 6-digit pincode" };
+  if (!farmAddress) return { error: "Farm address is required" };
+  if (requirePin && (!Number.isFinite(latitude) || !Number.isFinite(longitude))) {
+    return { error: "Select and confirm the farm location on the map" };
+  }
+  return { village, taluka, district, pincode, farmAddress, latitude, longitude };
+}
+
+export async function updateFarmerFarmLocation(req, res) {
+  try {
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const parsed = validateFarmLocationPayload(req.body || {}, farmer, false);
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    farmer.farmGeo = {
+      ...(farmer.farmGeo || {}),
+      village: parsed.village,
+      taluka: parsed.taluka,
+      district: parsed.district,
+      pincode: parsed.pincode,
+      farmAddress: parsed.farmAddress,
+      latitude: Number.isFinite(parsed.latitude) ? parsed.latitude : farmer.farmGeo?.latitude ?? null,
+      longitude: Number.isFinite(parsed.longitude) ? parsed.longitude : farmer.farmGeo?.longitude ?? null,
+      confirmed: false,
+    };
+    farmer.farmAddress = parsed.farmAddress;
+    farmer.farmLocation = [parsed.village, parsed.district].filter(Boolean).join(", ");
+    farmer.address = {
+      ...(farmer.address || {}),
+      village: parsed.village,
+      taluka: parsed.taluka,
+      district: parsed.district,
+      pincode: parsed.pincode,
+    };
+    farmer.markModified("farmGeo");
+    await farmer.save();
+    res.json(await buildSelfFarmerPayload(farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to save farm location" });
+  }
+}
+
+export async function confirmFarmerFarmLocation(req, res) {
+  try {
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const parsed = validateFarmLocationPayload(req.body || {}, farmer, true);
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    farmer.farmGeo = {
+      village: parsed.village,
+      taluka: parsed.taluka,
+      district: parsed.district,
+      pincode: parsed.pincode,
+      farmAddress: parsed.farmAddress,
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      confirmed: true,
+    };
+    farmer.farmAddress = parsed.farmAddress;
+    farmer.farmLocation = [parsed.village, parsed.district].filter(Boolean).join(", ");
+    farmer.address = {
+      ...(farmer.address || {}),
+      village: parsed.village,
+      taluka: parsed.taluka,
+      district: parsed.district,
+      pincode: parsed.pincode,
+    };
+    farmer.markModified("farmGeo");
+    await farmer.save();
+    res.json(await buildSelfFarmerPayload(farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to confirm farm location" });
+  }
+}
+
 export async function updateFarmerPassword(req, res) {
   try {
     const { farmerId } = req.params;
@@ -882,37 +1025,56 @@ export async function updateFarmerLoginStatus(req, res) {
 export async function getFarmerDashboard(req, res) {
   try {
     const { farmerId } = req.params;
-    const [products, orders, earningsList] = await Promise.all([
-      FarmerProduct.find({ farmerId }).lean(),
-      FarmerOrder.find({ farmerId }).sort({ orderDate: -1 }).lean(),
-      FarmerEarning.find({ farmerId }).lean(),
+    const [productAgg, orderAgg, earningAgg, recentOrders, lowStockProducts, recentEarnings] = await Promise.all([
+      FarmerProduct.aggregate([
+        { $match: { farmerId } },
+        { $group: { _id: null, totalProducts: { $sum: 1 }, availableStock: { $sum: { $ifNull: ["$stock", 0] } } } },
+      ]),
+      FarmerOrder.aggregate([
+        { $match: { farmerId } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "Confirmed", "Processing"]] }, 1, 0] } },
+            completedOrders: { $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] } },
+          },
+        },
+      ]),
+      FarmerEarning.aggregate([
+        { $match: { farmerId } },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: { $ifNull: ["$netEarnings", 0] } },
+            pendingEarnings: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, { $ifNull: ["$netEarnings", 0] }, 0] } },
+          },
+        },
+      ]),
+      FarmerOrder.find({ farmerId }).sort({ orderDate: -1 }).limit(5).lean(),
+      FarmerProduct.find({ farmerId })
+        .select("id name stock lowStockLimit grades unit")
+        .lean()
+        .then((rows) => rows.filter((p) => Number(p.stock || 0) <= Number(p.lowStockLimit || 10))),
+      FarmerEarning.find({ farmerId }).sort({ date: -1 }).limit(5).lean(),
     ]);
 
-    const totalProducts = products.length;
-    const availableStock = products.reduce(
-      (sum, p) => sum + (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0)),
-      0
-    );
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter((o) => ["New", "Confirmed", "Processing"].includes(o.status)).length;
-    const completedOrders = orders.filter((o) => o.status === "Completed").length;
-    const totalEarnings = earningsList.reduce((sum, e) => sum + Number(e.netEarnings || 0), 0);
-    const pendingEarnings = earningsList
-      .filter((e) => e.status === "Pending")
-      .reduce((sum, e) => sum + Number(e.netEarnings || 0), 0);
+    const p = productAgg[0] || { totalProducts: 0, availableStock: 0 };
+    const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0, completedOrders: 0 };
+    const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
 
     res.json({
-      totalProducts,
-      availableStock,
-      totalInventory: availableStock,
-      totalOrders,
-      pendingOrders,
-      completedOrders,
-      totalEarnings,
-      pendingEarnings,
-      recentOrders: orders.slice(0, 5),
-      lowStockProducts: products.filter((p) => (p.stock || 0) <= (p.lowStockLimit || 10)),
-      recentEarnings: earningsList.slice(0, 5),
+      totalProducts: p.totalProducts,
+      availableStock: p.availableStock,
+      totalInventory: p.availableStock,
+      totalOrders: o.totalOrders,
+      pendingOrders: o.pendingOrders,
+      completedOrders: o.completedOrders,
+      totalEarnings: e.totalEarnings,
+      pendingEarnings: e.pendingEarnings,
+      recentOrders,
+      lowStockProducts,
+      recentEarnings,
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch dashboard" });
@@ -925,18 +1087,8 @@ export async function getFarmerDashboard(req, res) {
 export async function getFarmerProducts(req, res) {
   try {
     const { farmerId } = req.params;
-    const products = await FarmerProduct.find({ farmerId }).sort({ createdAt: -1 }).lean();
-    const enriched = products.map((p) => {
-      const totalQty = p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0);
-      const gradesSummary = p.grades?.map((g) => `${g.label} - ${g.quantity} ${p.unit || "Kg"}`).join(", ") || "";
-      return {
-        ...p,
-        totalQuantity: totalQty,
-        stock: totalQty,
-        availableQuantity: totalQty,
-        gradesSummary,
-      };
-    });
+    const products = await FarmerProduct.find({ farmerId }).select("-images").sort({ createdAt: -1 }).lean();
+    const enriched = products.map((p) => enrichProductRow(p));
     res.json(enriched);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch products" });
@@ -1118,7 +1270,7 @@ export async function deleteFarmerProduct(req, res) {
 export async function getFarmerInventory(req, res) {
   try {
     const { farmerId } = req.params;
-    const products = await FarmerProduct.find({ farmerId }).lean();
+    const products = await FarmerProduct.find({ farmerId }).select("-images -description").lean();
     const inventoryList = [];
 
     products.forEach((p) => {
@@ -1611,6 +1763,43 @@ export async function uploadFarmerDocument(req, res) {
   }
 }
 
+export async function submitFarmerKyc(req, res) {
+  try {
+    const { farmerId } = req.params;
+    const farmer = await Farmer.findOne({ id: farmerId });
+    if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
+
+    const docs = await FarmerDocument.find({ farmerId }).lean();
+    const required = ["aadhaar", "pan", "address", "bank"];
+    const missing = required.filter((type) => {
+      const doc = docs.find((d) => d.type === type);
+      return !doc || doc.status === "Not Uploaded" || !doc.fileName;
+    });
+
+    if (missing.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Upload all required KYC documents before submitting",
+        missing,
+      });
+    }
+
+    farmer.kycStatus = "SUBMITTED";
+    farmer.verificationStatus = "Pending";
+    await farmer.save();
+
+    const { password: _pw, ...farmerData } = farmer.toObject();
+    res.json({
+      success: true,
+      message: "KYC submitted for verification",
+      kycStatus: farmer.kycStatus,
+      farmer: { ...farmerData, farmerId: farmer.id, role: farmer.role || "FARMER" },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to submit KYC" });
+  }
+}
+
 export async function updateFarmerDocumentStatus(req, res) {
   try {
     const { farmerId, documentId } = req.params;
@@ -1672,20 +1861,22 @@ export async function deleteFarmerDocument(req, res) {
 // MANAGER CONTROLLERS
 // ----------------------------------------------------
 async function enrichManagerDoc(mgrDoc) {
-  const m = mgrDoc.toObject ? mgrDoc.toObject() : { ...mgrDoc };
+  const m = toPlain(mgrDoc);
   const farmers = await Farmer.find({ managerId: m.id, vendorId: m.vendorId }).select("id status").lean();
   const farmerIds = farmers.map((f) => f.id);
+  const stats = await aggFarmerStats(farmerIds);
 
-  const [products, ordersCount, earnings] = await Promise.all([
-    farmerIds.length ? FarmerProduct.find({ farmerId: { $in: farmerIds } }).select("stock grades").lean() : [],
-    farmerIds.length ? FarmerOrder.countDocuments({ farmerId: { $in: farmerIds } }) : 0,
-    farmerIds.length ? FarmerEarning.find({ farmerId: { $in: farmerIds } }).select("netEarnings").lean() : [],
-  ]);
-
-  const inventoryQty = products.reduce(
-    (sum, p) => sum + (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0)),
-    0
-  );
+  let totalProducts = 0;
+  let inventoryQty = 0;
+  let totalOrders = 0;
+  let totalEarnings = 0;
+  farmerIds.forEach((fid) => {
+    const p = stats.productStats.get(fid) || { count: 0, stock: 0 };
+    totalProducts += p.count;
+    inventoryQty += p.stock;
+    totalOrders += stats.orderStats.get(fid) || 0;
+    totalEarnings += stats.earningStats.get(fid) || 0;
+  });
 
   delete m.password;
 
@@ -1694,27 +1885,22 @@ async function enrichManagerDoc(mgrDoc) {
     initials: initials(m.name),
     totalFarmers: farmers.length,
     activeFarmers: farmers.filter((f) => f.status === "Active").length,
-    totalProducts: products.length,
+    totalProducts,
     totalInventory: inventoryQty,
-    totalOrders: ordersCount,
-    totalEarnings: earnings.reduce((s, e) => s + Number(e.netEarnings || 0), 0),
+    totalOrders,
+    totalEarnings,
   };
 }
 
 async function enrichManagerDocsBatch(mgrDocs) {
   if (!mgrDocs || !mgrDocs.length) return [];
 
-  const rawManagers = mgrDocs.map((doc) => (doc.toObject ? doc.toObject() : { ...doc }));
+  const rawManagers = mgrDocs.map(toPlain);
   const managerIds = rawManagers.map((m) => m.id).filter(Boolean);
 
   const farmers = await Farmer.find({ managerId: { $in: managerIds } }).select("id managerId status").lean();
   const farmerIds = farmers.map((f) => f.id);
-
-  const [products, orders, earnings] = await Promise.all([
-    farmerIds.length ? FarmerProduct.find({ farmerId: { $in: farmerIds } }).select("farmerId stock grades").lean() : [],
-    farmerIds.length ? FarmerOrder.find({ farmerId: { $in: farmerIds } }).select("farmerId").lean() : [],
-    farmerIds.length ? FarmerEarning.find({ farmerId: { $in: farmerIds } }).select("farmerId netEarnings").lean() : [],
-  ]);
+  const stats = await aggFarmerStats(farmerIds);
 
   const farmerToManager = new Map();
   const managerFarmersMap = new Map();
@@ -1726,30 +1912,19 @@ async function enrichManagerDocsBatch(mgrDocs) {
   });
 
   const managerProductStats = new Map();
-  products.forEach((p) => {
-    const mgrId = farmerToManager.get(p.farmerId);
-    if (mgrId) {
-      const cur = managerProductStats.get(mgrId) || { count: 0, stock: 0 };
-      cur.count += 1;
-      cur.stock += (p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0));
-      managerProductStats.set(mgrId, cur);
-    }
-  });
-
   const managerOrderCount = new Map();
-  orders.forEach((o) => {
-    const mgrId = farmerToManager.get(o.farmerId);
-    if (mgrId) {
-      managerOrderCount.set(mgrId, (managerOrderCount.get(mgrId) || 0) + 1);
-    }
-  });
-
   const managerEarnings = new Map();
-  earnings.forEach((e) => {
-    const mgrId = farmerToManager.get(e.farmerId);
-    if (mgrId) {
-      managerEarnings.set(mgrId, (managerEarnings.get(mgrId) || 0) + Number(e.netEarnings || 0));
-    }
+
+  farmerIds.forEach((fid) => {
+    const mgrId = farmerToManager.get(fid);
+    if (!mgrId) return;
+    const p = stats.productStats.get(fid) || { count: 0, stock: 0 };
+    const cur = managerProductStats.get(mgrId) || { count: 0, stock: 0 };
+    cur.count += p.count;
+    cur.stock += p.stock;
+    managerProductStats.set(mgrId, cur);
+    managerOrderCount.set(mgrId, (managerOrderCount.get(mgrId) || 0) + (stats.orderStats.get(fid) || 0));
+    managerEarnings.set(mgrId, (managerEarnings.get(mgrId) || 0) + (stats.earningStats.get(fid) || 0));
   });
 
   return rawManagers.map((m) => {
@@ -1775,7 +1950,7 @@ export async function getManagers(req, res) {
     const query = { vendorId };
     if (status) query.status = status;
 
-    const mgrDocs = await FarmerManager.find(query).sort({ createdAt: -1 }).lean();
+    const mgrDocs = await FarmerManager.find(query).select("-password").sort({ createdAt: -1 }).lean();
     let enriched = await enrichManagerDocsBatch(mgrDocs);
 
     if (q.trim()) {
@@ -2012,31 +2187,53 @@ export async function updateVendor(req, res) {
 export async function getVendorDashboard(req, res) {
   try {
     const vendorId = req.user.vendorId;
-    const [farmers, managers, products, orders, earnings] = await Promise.all([
-      Farmer.find({ vendorId }).lean(),
-      FarmerManager.find({ vendorId }).lean(),
-      FarmerProduct.find({ vendorId }).lean(),
-      FarmerOrder.find({ vendorId }).sort({ orderDate: -1 }).lean(),
-      FarmerEarning.find({ vendorId }).lean(),
+    const [farmers, managers, productAgg, orderAgg, earningAgg, recentOrders] = await Promise.all([
+      Farmer.find({ vendorId }).select("id name status").lean(),
+      FarmerManager.find({ vendorId }).select("id status").lean(),
+      FarmerProduct.aggregate([
+        { $match: { vendorId } },
+        { $group: { _id: null, totalProducts: { $sum: 1 }, totalInventory: { $sum: { $ifNull: ["$stock", 0] } } } },
+      ]),
+      FarmerOrder.aggregate([
+        { $match: { vendorId } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "Confirmed", "Processing"]] }, 1, 0] } },
+          },
+        },
+      ]),
+      FarmerEarning.aggregate([
+        { $match: { vendorId } },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: { $ifNull: ["$netEarnings", 0] } },
+            pendingEarnings: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, { $ifNull: ["$netEarnings", 0] }, 0] } },
+          },
+        },
+      ]),
+      FarmerOrder.find({ vendorId }).sort({ orderDate: -1 }).limit(10).select("id farmerId products totalQuantity totalAmount status orderDate").lean(),
     ]);
-    const totalEarnings = earnings.reduce((s, e) => s + Number(e.netEarnings || 0), 0);
-    const pendingEarnings = earnings.filter((e) => e.status === "Pending").reduce((s, e) => s + Number(e.netEarnings || 0), 0);
-    const recentOrders = orders.slice(0, 10).map(async (o) => {
-      const farmer = farmers.find((f) => f.id === o.farmerId);
-      return { ...o, farmerName: farmer?.name || "—" };
-    });
+
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const p = productAgg[0] || { totalProducts: 0, totalInventory: 0 };
+    const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0 };
+    const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
+
     res.json({
       totalFarmers: farmers.length,
       activeFarmers: farmers.filter((f) => f.status === "Active").length,
       totalManagers: managers.length,
       activeManagers: managers.filter((m) => m.status === "Active").length,
-      totalProducts: products.length,
-      totalInventory: products.reduce((s, p) => s + (p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0)), 0),
-      totalOrders: orders.length,
-      pendingOrders: orders.filter((o) => ["New", "Confirmed", "Processing"].includes(o.status)).length,
-      totalEarnings,
-      pendingEarnings,
-      recentOrders: await Promise.all(recentOrders),
+      totalProducts: p.totalProducts,
+      totalInventory: p.totalInventory,
+      totalOrders: o.totalOrders,
+      pendingOrders: o.pendingOrders,
+      totalEarnings: e.totalEarnings,
+      pendingEarnings: e.pendingEarnings,
+      recentOrders: recentOrders.map((ord) => ({ ...ord, farmerName: farmerNameMap.get(ord.farmerId) || "—" })),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed" });
@@ -2111,13 +2308,18 @@ export async function getManagerMe(req, res) {
 // ----------------------------------------------------
 export async function getManagerFarmers(req, res) {
   try {
-    const managerId = req.user.managerId;
-    const vendorId = req.user.vendorId;
-    const { q = "", status = "" } = req.query;
-    const query = { managerId, vendorId };
+    const { q = "", status = "", lite = "" } = req.query;
+    const query = assignedFarmerQuery(req);
     if (status) query.status = status;
-    let farmerDocs = await Farmer.find(query).sort({ createdAt: -1 }).lean();
-    let enriched = await enrichFarmerDocsBatch(farmerDocs);
+    const farmerDocs = await Farmer.find(query).select("-password").sort({ createdAt: -1 }).lean();
+    const isLite = lite === "1" || lite === "true";
+    let enriched = isLite
+      ? farmerDocs.map((f) => ({
+          ...f,
+          loginEnabled: f.loginEnabled !== false,
+          initials: initials(f.name),
+        }))
+      : await enrichFarmerDocsBatch(farmerDocs);
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
       enriched = enriched.filter(
@@ -2132,51 +2334,245 @@ export async function getManagerFarmers(req, res) {
 
 export async function getManagerDashboard(req, res) {
   try {
-    const managerId = req.user.managerId;
-    const vendorId = req.user.vendorId;
-    const farmers = await Farmer.find({ managerId, vendorId }).lean();
+    const farmers = await Farmer.find(assignedFarmerQuery(req)).select("id name status").lean();
     const farmerIds = farmers.map((f) => f.id);
-    const [products, orders, earnings] = await Promise.all([
-      FarmerProduct.find({ farmerId: { $in: farmerIds } }).lean(),
-      FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean(),
-      FarmerEarning.find({ farmerId: { $in: farmerIds } }).lean(),
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+
+    if (!farmerIds.length) {
+      return res.json({
+        totalFarmers: 0,
+        activeFarmers: 0,
+        totalProducts: 0,
+        totalInventory: 0,
+        totalOrders: 0,
+        pendingOrders: 0,
+        totalEarnings: 0,
+        pendingEarnings: 0,
+        recentOrders: [],
+        lowStock: [],
+      });
+    }
+
+    const [productAgg, orderAgg, earningAgg, recentOrders, lowStockProducts] = await Promise.all([
+      FarmerProduct.aggregate([
+        { $match: { farmerId: { $in: farmerIds } } },
+        { $group: { _id: null, totalProducts: { $sum: 1 }, totalInventory: { $sum: { $ifNull: ["$stock", 0] } } } },
+      ]),
+      FarmerOrder.aggregate([
+        { $match: { farmerId: { $in: farmerIds } } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "Confirmed", "Processing"]] }, 1, 0] } },
+          },
+        },
+      ]),
+      FarmerEarning.aggregate([
+        { $match: { farmerId: { $in: farmerIds } } },
+        {
+          $group: {
+            _id: null,
+            totalEarnings: { $sum: { $ifNull: ["$netEarnings", 0] } },
+            pendingEarnings: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, { $ifNull: ["$netEarnings", 0] }, 0] } },
+          },
+        },
+      ]),
+      FarmerOrder.find({ farmerId: { $in: farmerIds } })
+        .sort({ orderDate: -1 })
+        .limit(10)
+        .select("id farmerId products totalQuantity totalAmount status orderDate")
+        .lean(),
+      FarmerProduct.find({ farmerId: { $in: farmerIds } })
+        .select("farmerId name grades stock lowStockLimit")
+        .lean()
+        .then((rows) => rows.filter((p) => Number(p.stock || 0) <= Number(p.lowStockLimit || 10)).slice(0, 20)),
     ]);
-    const totalEarnings = earnings.reduce((s, e) => s + Number(e.netEarnings || 0), 0);
-    const pendingEarnings = earnings.filter((e) => e.status === "Pending").reduce((s, e) => s + Number(e.netEarnings || 0), 0);
-    const totalInventory = products.reduce(
-      (s, p) => s + (p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0)), 0
-    );
-    const lowStock = products
-      .filter((p) => {
-        const total = p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0);
-        return total <= Number(p.lowStockLimit || 10);
-      })
-      .map((p) => ({
-        farmerId: p.farmerId,
-        farmerName: farmers.find((f) => f.id === p.farmerId)?.name || "—",
-        productName: p.name,
-        grades: p.grades,
-        currentStock: p.grades?.reduce((gs, g) => gs + Number(g.quantity || 0), 0) || Number(p.stock || 0),
-        status: "Low Stock",
-      }));
-    const recentOrders = orders.slice(0, 10).map((o) => ({
-      ...o,
-      farmerName: farmers.find((f) => f.id === o.farmerId)?.name || "—",
-    }));
+
+    const p = productAgg[0] || { totalProducts: 0, totalInventory: 0 };
+    const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0 };
+    const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
+
     res.json({
       totalFarmers: farmers.length,
       activeFarmers: farmers.filter((f) => f.status === "Active").length,
-      totalProducts: products.length,
-      totalInventory,
-      totalOrders: orders.length,
-      pendingOrders: orders.filter((o) => ["New", "Confirmed", "Processing"].includes(o.status)).length,
-      totalEarnings,
-      pendingEarnings,
-      recentOrders,
-      lowStock,
+      totalProducts: p.totalProducts,
+      totalInventory: p.totalInventory,
+      totalOrders: o.totalOrders,
+      pendingOrders: o.pendingOrders,
+      totalEarnings: e.totalEarnings,
+      pendingEarnings: e.pendingEarnings,
+      recentOrders: recentOrders.map((ord) => ({
+        ...ord,
+        farmerName: farmerNameMap.get(ord.farmerId) || "—",
+      })),
+      lowStock: lowStockProducts.map((prod) => ({
+        farmerId: prod.farmerId,
+        farmerName: farmerNameMap.get(prod.farmerId) || "—",
+        productName: prod.name,
+        grades: prod.grades,
+        currentStock: prod.stock || 0,
+        status: "Low Stock",
+      })),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+function attachFarmerMeta(farmers) {
+  return farmers.map((f) => ({
+    ...f,
+    loginEnabled: f.loginEnabled !== false,
+    initials: initials(f.name),
+  }));
+}
+
+export async function getManagerAllProducts(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    if (!farmerIds.length) return res.json({ farmers, products: [] });
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const products = await FarmerProduct.find({ farmerId: { $in: farmerIds } })
+      .select("-images")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({
+      farmers,
+      products: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch products" });
+  }
+}
+
+export async function getManagerAllOrders(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    if (!farmerIds.length) return res.json({ farmers, orders: [] });
+    const farmerMap = new Map(farmers.map((f) => [f.id, f]));
+    const orders = await FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean();
+    res.json({
+      farmers,
+      orders: orders.map((o) => {
+        const f = farmerMap.get(o.farmerId);
+        return {
+          ...o,
+          farmerName: f?.name || "—",
+          farmerMobile: f?.mobile || "",
+          farmerLocation: f?.farmLocation || "",
+        };
+      }),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch orders" });
+  }
+}
+
+export async function getManagerAllInventory(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    if (!farmerIds.length) return res.json({ farmers, inventory: [] });
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const products = await FarmerProduct.find({ farmerId: { $in: farmerIds } })
+      .select("-images -description")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({
+      farmers,
+      inventory: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch inventory" });
+  }
+}
+
+export async function getManagerAllDocuments(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    if (!farmerIds.length) return res.json({ farmers, documents: [] });
+    const documents = await FarmerDocument.find({ farmerId: { $in: farmerIds } }).lean();
+    res.json({ farmers, documents });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch documents" });
+  }
+}
+
+export async function getManagerAllStockHistory(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    const { farmerId } = req.query;
+    const ids = farmerId && farmerIds.includes(farmerId) ? [farmerId] : farmerIds;
+    if (!ids.length) return res.json({ farmers, history: [] });
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const history = await FarmerStockHistory.find({ farmerId: { $in: ids } })
+      .sort({ at: -1 })
+      .limit(500)
+      .lean();
+    res.json({
+      farmers,
+      history: history.map((h) => ({ ...h, farmerName: farmerNameMap.get(h.farmerId) || h.farmerId })),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch stock history" });
+  }
+}
+
+export async function getManagerAllHarvestOrders(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    if (!farmerIds.length) return res.json({ farmers, orders: [] });
+    const farmerMap = new Map(farmers.map((f) => [f.id, f]));
+    const [harvestOrders, farmerOrders] = await Promise.all([
+      FarmerHarvestOrder.find({ farmerId: { $in: farmerIds } }).sort({ createdAt: -1 }).lean(),
+      FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean(),
+    ]);
+    const mapped = mapFarmerOrdersToHarvest(farmerOrders).map((o) => {
+      const f = farmerMap.get(o.farmerId);
+      return {
+        ...o,
+        farmerName: o.farmerName || f?.name || "—",
+        farmerMobile: f?.mobile || "",
+      };
+    });
+    const harvestWithNames = harvestOrders.map((o) => {
+      const f = farmerMap.get(o.farmerId);
+      return { ...o, farmerName: o.farmerName || f?.name || "—", farmerMobile: f?.mobile || "" };
+    });
+    res.json({ farmers, orders: mergeHarvestLists(harvestWithNames, mapped) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch harvest orders" });
+  }
+}
+
+export async function getManagerAllEarnings(req, res) {
+  try {
+    const farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const farmerIds = farmers.map((f) => f.id);
+    if (!farmerIds.length) return res.json({ farmers, earnings: [], transactions: [] });
+    const earnings = await FarmerEarning.find({ farmerId: { $in: farmerIds } }).sort({ date: -1 }).lean();
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const transactions = earnings.map((e) => ({ ...e, farmerName: farmerNameMap.get(e.farmerId) || "—" }));
+    const totalEarnings = transactions.reduce((s, r) => s + Number(r.netEarnings || 0), 0);
+    const paidEarnings = transactions.filter((r) => r.status === "Paid").reduce((s, r) => s + Number(r.netEarnings || 0), 0);
+    const pendingEarnings = transactions.filter((r) => r.status === "Pending").reduce((s, r) => s + Number(r.netEarnings || 0), 0);
+    res.json({
+      farmers,
+      transactions,
+      earnings: transactions,
+      summary: { totalEarnings, paidEarnings, pendingEarnings },
+      totalEarnings,
+      paidEarnings,
+      pendingEarnings,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch earnings" });
   }
 }
 
@@ -2215,56 +2611,10 @@ export async function getHarvestOrders(req, res) {
 
     const [harvestOrders, farmerOrders] = await Promise.all([
       FarmerHarvestOrder.find(filter).sort({ createdAt: -1 }).lean(),
-      FarmerOrder.find(filter).sort({ createdAt: -1 }).lean(),
+      FarmerOrder.find(filter).sort({ orderDate: -1, createdAt: -1 }).lean(),
     ]);
 
-    // Map farmer orders into standardized harvest order format
-    const mappedFarmerOrders = farmerOrders.flatMap((o) => {
-      const prods = o.products && o.products.length > 0
-        ? o.products
-        : [{ name: o.productName || "Farm Fresh Produce", quantity: o.totalQuantity || 0, grade: o.grade || "Grade A", unit: o.unit || "Kg" }];
-
-      return prods.map((p) => {
-        const gradesList = p.grades?.length
-          ? p.grades
-          : o.grades?.length
-          ? o.grades
-          : [{ name: p.grade || "Grade A", label: p.grade || "Grade A", quantity: Number(p.quantity || 0) }];
-
-        return {
-          id: o.id || o.orderId || String(o._id),
-          orderId: o.id || o.orderId,
-          vendorId: o.vendorId,
-          farmerId: o.farmerId,
-          farmerName: o.farmerName || "",
-          productId: p.id || p.productId || "",
-          productName: p.name || o.productName || "Farm Fresh Produce",
-          category: p.category || o.category || "Produce",
-          date: o.harvestDate || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
-          day: o.day || "",
-          unit: p.unit || o.unit || "Kg",
-          grades: gradesList,
-          rejectionQty: Number(o.rejectionQty || 0),
-          totalQuantity: Number(p.quantity || o.totalQuantity || 0),
-          totalAmount: Number(p.total || o.totalAmount || o.amount || 0),
-          status: o.status || "Approved",
-          createdAt: o.createdAt,
-        };
-      });
-    });
-
-    const idMap = new Map();
-    [...harvestOrders, ...mappedFarmerOrders].forEach((item) => {
-      const key = item.id || item.orderId || String(item._id);
-      if (!idMap.has(key)) {
-        idMap.set(key, item);
-      }
-    });
-
-    const combined = Array.from(idMap.values()).sort(
-      (a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0)
-    );
-
+    const combined = mergeHarvestLists(harvestOrders, mapFarmerOrdersToHarvest(farmerOrders));
     res.json(combined);
   } catch (err) {
     console.error("Error in getHarvestOrders:", err);

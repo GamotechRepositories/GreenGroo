@@ -13,6 +13,34 @@ export const FARMER_COLORS = {
 
 export const FARMER_STORAGE_KEY = "greengroo_farmer_auth";
 
+export const REGISTRATION_STATUS = {
+  REGISTERED: "REGISTERED",
+  ACTIVE: "ACTIVE",
+};
+
+export const KYC_STATUS = {
+  PENDING: "PENDING",
+  SUBMITTED: "SUBMITTED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+};
+
+export const GENDER_OPTIONS = ["Male", "Female", "Other"];
+
+export const PREFERRED_LANGUAGES = ["Marathi", "Hindi", "English"];
+
+export const AREA_UNITS = ["Acre", "Hectare"];
+
+export const SOIL_TYPES = ["Black Soil", "Red Soil", "Sandy", "Loamy", "Laterite", "Other"];
+
+export const IRRIGATION_TYPES = ["Drip", "Sprinkler", "Flood", "Rainfed", "Canal"];
+
+export const WATER_SOURCES = ["Borewell", "Well", "Canal", "River", "Pond", "Rainwater"];
+
+export const FARMING_METHODS = ["Conventional", "Mixed", "Natural"];
+
+export const FARMING_TYPES = ["Organic", "Conventional"];
+
 export const DOCUMENT_TYPES = [
   { id: "aadhaar", name: "Aadhaar / ID Proof", required: false },
   { id: "pan", name: "PAN Card", required: false },
@@ -95,7 +123,16 @@ export const SIDEBAR_ITEMS = [
   { to: "/farmer/harvest-orders", label: "Harvest Order", icon: "harvest" },
   { to: "/farmer/earnings", label: "Earning", icon: "earnings" },
   { to: "/farmer/documents", label: "Document", icon: "documents" },
-  { to: "/farmer/profile", label: "Profile", icon: "profile" },
+  {
+    id: "profile",
+    label: "Profile",
+    icon: "profile",
+    children: [
+      { to: "/farmer/profile", label: "Farmer Profile" },
+      { to: "/farmer/farm-profile", label: "Farm Profile" },
+      { to: "/farmer/farm-location", label: "Farm Location" },
+    ],
+  },
 ];
 
 export const MANAGER_SIDEBAR_ITEMS = [

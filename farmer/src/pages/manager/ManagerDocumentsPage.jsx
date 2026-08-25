@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getManagerFarmers, getManagerFarmerDocuments, updateManagerFarmerDocumentStatus } from "../../api/farmerApi";
+import { getManagerAllDocuments, updateManagerFarmerDocumentStatus } from "../../api/farmerApi";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
 
@@ -19,23 +19,26 @@ export default function ManagerDocumentsPage() {
 
   const loadDocs = async () => {
     setLoading(true);
-    const fs = await getManagerFarmers().catch(() => []);
-    setFarmers(fs);
-    const ids = farmerFilter ? [farmerFilter] : fs.map((f) => f.id);
-    const results = await Promise.all(
-      ids.map((fid) =>
-        getManagerFarmerDocuments(fid)
-          .then((docs) => ({ farmerId: fid, docs }))
-          .catch(() => ({ farmerId: fid, docs: [] }))
-      )
-    );
-    const map = {};
-    results.forEach(({ farmerId, docs }) => { map[farmerId] = docs; });
-    setDocsByFarmer(map);
-    setLoading(false);
+    try {
+      const data = await getManagerAllDocuments();
+      const fs = Array.isArray(data?.farmers) ? data.farmers : [];
+      const docs = Array.isArray(data?.documents) ? data.documents : [];
+      setFarmers(fs);
+      const map = {};
+      docs.forEach((doc) => {
+        if (!map[doc.farmerId]) map[doc.farmerId] = [];
+        map[doc.farmerId].push(doc);
+      });
+      setDocsByFarmer(map);
+    } catch {
+      setFarmers([]);
+      setDocsByFarmer({});
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { loadDocs(); }, [farmerFilter]);
+  useEffect(() => { loadDocs(); }, []);
 
   const handleStatusChange = async (farmerId, docId, status) => {
     try {

@@ -22,6 +22,15 @@ export const loginFarmer = createAsyncThunk("farmer/login", async (credentials) 
   return data;
 });
 
+export const registerFarmerAccount = createAsyncThunk("farmer/register", async (payload) => {
+  const data = await farmerApi.registerFarmer(payload);
+  localStorage.setItem(
+    FARMER_STORAGE_KEY,
+    JSON.stringify({ token: data.token, farmer: data.farmer })
+  );
+  return data;
+});
+
 export const fetchFarmerProfile = createAsyncThunk("farmer/fetchProfile", async (_, { getState }) => {
   const state = getState().farmer;
   const role = state.role || state.farmer?.role;
@@ -85,6 +94,20 @@ const farmerSlice = createSlice({
         state.role = action.payload.farmer?.role || null;
       })
       .addCase(loginFarmer.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.error.message;
+      })
+      .addCase(registerFarmerAccount.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(registerFarmerAccount.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.token = action.payload.token;
+        state.farmer = action.payload.farmer;
+        state.role = action.payload.farmer?.role || "FARMER";
+      })
+      .addCase(registerFarmerAccount.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.error.message;
       })

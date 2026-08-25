@@ -71,12 +71,12 @@ export default function GovernmentSchemesPage() {
           value={GOVERNMENT_SCHEMES.filter((s) => s.statusBadge === "active").length}
         />
         <StatCard
-          title="Max Irrigation Subsidy"
-          value="80% (Up to ₹85,000)"
+          title="Closing Soon"
+          value={GOVERNMENT_SCHEMES.filter((s) => s.statusBadge === "closing").length}
         />
         <StatCard
-          title="Solar Pump Subsidy"
-          value="90% (PM-KUSUM)"
+          title="Upcoming"
+          value={GOVERNMENT_SCHEMES.filter((s) => s.statusBadge === "upcoming").length}
         />
       </div>
 
@@ -133,7 +133,9 @@ export default function GovernmentSchemesPage() {
         <div className="p-3.5">
           {filteredSchemes.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-500">
-              No government schemes match your search filter.
+              {GOVERNMENT_SCHEMES.length === 0
+                ? "No government schemes available yet."
+                : "No government schemes match your search filter."}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">

@@ -20,7 +20,7 @@ export default function ManagerFarmersPage() {
 
   const loadFarmers = () => {
     setLoading(true);
-    getManagerFarmers({ q, status: statusFilter })
+    getManagerFarmers()
       .then(setFarmers)
       .catch(() => setFarmers([]))
       .finally(() => setLoading(false));
@@ -28,7 +28,19 @@ export default function ManagerFarmersPage() {
 
   useEffect(() => {
     loadFarmers();
-  }, [q, statusFilter]);
+  }, []);
+
+  const displayedFarmers = farmers.filter((f) => {
+    if (statusFilter && f.status !== statusFilter) return false;
+    if (!q.trim()) return true;
+    const needle = q.trim().toLowerCase();
+    return (
+      f.name?.toLowerCase().includes(needle) ||
+      f.mobile?.includes(needle) ||
+      f.farmName?.toLowerCase().includes(needle) ||
+      f.farmerCode?.toLowerCase().includes(needle)
+    );
+  });
 
   const handleDelete = async (farmer) => {
     const ok = window.confirm(`Are you sure you want to delete farmer "${farmer.name}" (${farmer.mobile})?\nAll products, orders, and records for this farmer will be removed.`);
@@ -97,10 +109,10 @@ export default function ManagerFarmersPage() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={10} className="px-3 py-6 text-center text-[#6B7280]">Loading…</td></tr>
-              ) : farmers.length === 0 ? (
+              ) : displayedFarmers.length === 0 ? (
                 <tr><td colSpan={10} className="px-3 py-6 text-center text-[#6B7280]">No farmers found</td></tr>
               ) : (
-                farmers.map((f) => (
+                displayedFarmers.map((f) => (
                   <tr key={f.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
