@@ -24,6 +24,8 @@ function ImageUploadField({
   className = "",
   disabled = false,
   showPresets = true,
+  maxSizeMb,
+  accept = "image/*",
 }) {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -41,7 +43,11 @@ function ImageUploadField({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Please select a valid image file.");
+      alert("Please select a valid image file (JPG, PNG, or WebP).");
+      return;
+    }
+    if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
+      alert(`Image must be under ${maxSizeMb} MB.`);
       return;
     }
 
@@ -243,14 +249,14 @@ function ImageUploadField({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={accept}
           className="hidden"
           onChange={handleFileChange}
         />
         <input
           ref={cameraInputRef}
           type="file"
-          accept="image/*"
+          accept={accept}
           capture="environment"
           className="hidden"
           onChange={handleFileChange}

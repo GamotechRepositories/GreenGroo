@@ -14,6 +14,30 @@ import {
   updateFarmerFarmProfile,
   updateFarmerFarmLocation,
   confirmFarmerFarmLocation,
+  listFarmerCrops,
+  getFarmerCrop,
+  createFarmerCrop,
+  updateFarmerCrop,
+  deleteFarmerCrop,
+  listFarmerCropPlans,
+  getFarmerCropPlan,
+  createFarmerCropPlan,
+  updateFarmerCropPlan,
+  listMyProducts,
+  getMyProduct,
+  createMyProduct,
+  updateMyProduct,
+  deleteMyProduct,
+  patchMyProductPrice,
+  patchMyProductStock,
+  patchMyProductStatus,
+  listMyOrders,
+  getMyOrder,
+  acceptMyOrder,
+  rejectMyOrder,
+  prepareMyOrder,
+  packMyOrder,
+  readyMyOrder,
   updateFarmerPassword,
   updateFarmerLoginStatus,
   getFarmerDashboard,
@@ -68,7 +92,41 @@ import {
   getManagerAllEarnings,
   assignFarmerManager,
 } from "./controllers.js";
-import { requireVendor, requireManager, requireFarmer } from "./middleware.js";
+import {
+  listVendorDrivers,
+  createVendorDriver,
+  getVendorDriver,
+  updateVendorDriver,
+  setVendorDriverStatus,
+  listVendorPickups,
+  getVendorPickup,
+  assignVendorPickupDriver,
+  reassignVendorPickupDriver,
+  startVendorPickup,
+  arriveVendorPickup,
+  listVendorCentres,
+  createVendorCentre,
+  receiveVendorPickup,
+  getVendorPickupReceipt,
+  listManagerPickups,
+  getManagerPickup,
+  verifyManagerPickupQr,
+  confirmManagerPickup,
+  listManagerDrivers,
+  assignManagerPickupDriver,
+  reassignManagerPickupDriver,
+  driverLogin,
+  getDriverMe,
+  listDriverPickups,
+  getDriverPickup,
+  startDriverPickup,
+  arriveDriverPickup,
+  checkDriverPickupOrder,
+  verifyDriverPickupQr,
+  confirmDriverPickup,
+  transitDriverPickup,
+} from "./pickupControllers.js";
+import { requireVendor, requireManager, requireFarmer, requireDriver } from "./middleware.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();
@@ -77,6 +135,8 @@ const vendorAuthRouter = express.Router();
 const vendorRouter = express.Router();
 const managerAuthRouter = express.Router();
 const managerRouter = express.Router();
+const driverAuthRouter = express.Router();
+const driverRouter = express.Router();
 
 // ------------------------------------
 // FARMER AUTH & COMMON API
@@ -88,6 +148,30 @@ farmerRouter.put("/me/profile", requireFarmer, updateFarmerSelfProfile);
 farmerRouter.put("/me/farm", requireFarmer, updateFarmerFarmProfile);
 farmerRouter.put("/me/farm-location", requireFarmer, updateFarmerFarmLocation);
 farmerRouter.post("/me/farm-location/confirm", requireFarmer, confirmFarmerFarmLocation);
+farmerRouter.get("/crops", requireFarmer, listFarmerCrops);
+farmerRouter.post("/crops", requireFarmer, createFarmerCrop);
+farmerRouter.get("/crops/:cropId", requireFarmer, getFarmerCrop);
+farmerRouter.put("/crops/:cropId", requireFarmer, updateFarmerCrop);
+farmerRouter.delete("/crops/:cropId", requireFarmer, deleteFarmerCrop);
+farmerRouter.get("/crop-plans", requireFarmer, listFarmerCropPlans);
+farmerRouter.post("/crop-plans", requireFarmer, createFarmerCropPlan);
+farmerRouter.get("/crop-plans/:planId", requireFarmer, getFarmerCropPlan);
+farmerRouter.put("/crop-plans/:planId", requireFarmer, updateFarmerCropPlan);
+farmerRouter.get("/products", requireFarmer, listMyProducts);
+farmerRouter.post("/products", requireFarmer, createMyProduct);
+farmerRouter.get("/products/:productId", requireFarmer, getMyProduct);
+farmerRouter.put("/products/:productId", requireFarmer, updateMyProduct);
+farmerRouter.delete("/products/:productId", requireFarmer, deleteMyProduct);
+farmerRouter.patch("/products/:productId/price", requireFarmer, patchMyProductPrice);
+farmerRouter.patch("/products/:productId/stock", requireFarmer, patchMyProductStock);
+farmerRouter.patch("/products/:productId/status", requireFarmer, patchMyProductStatus);
+farmerRouter.get("/orders", requireFarmer, listMyOrders);
+farmerRouter.get("/orders/:orderId", requireFarmer, getMyOrder);
+farmerRouter.patch("/orders/:orderId/accept", requireFarmer, acceptMyOrder);
+farmerRouter.patch("/orders/:orderId/reject", requireFarmer, rejectMyOrder);
+farmerRouter.patch("/orders/:orderId/prepare", requireFarmer, prepareMyOrder);
+farmerRouter.patch("/orders/:orderId/ready-for-pickup", requireFarmer, readyMyOrder);
+farmerRouter.patch("/orders/:orderId/packing", requireFarmer, packMyOrder);
 farmerRouter.get("/", getFarmers);
 farmerRouter.post("/", createFarmer);
 farmerRouter.get("/:farmerId", getFarmerById);
@@ -205,6 +289,8 @@ vendorManagerRouter.patch("/:managerId/status", setManagerStatus);
 // ------------------------------------
 vendorAuthRouter.post("/login", vendorLogin);
 vendorAuthRouter.get("/me", requireVendor, getVendorMe);
+vendorAuthRouter.post("/driver/login", driverLogin);
+vendorAuthRouter.get("/driver/me", requireDriver, getDriverMe);
 
 // ------------------------------------
 // VENDOR PANEL ROUTES (protected)
@@ -236,6 +322,31 @@ vendorRouter.get("/vendors", getVendors);
 vendorRouter.post("/vendors", createVendor);
 vendorRouter.put("/vendors/:vendorId", requireVendor, updateVendor);
 
+vendorRouter.get("/drivers", requireVendor, listVendorDrivers);
+vendorRouter.post("/drivers", requireVendor, createVendorDriver);
+vendorRouter.get("/drivers/:driverId", requireVendor, getVendorDriver);
+vendorRouter.put("/drivers/:driverId", requireVendor, updateVendorDriver);
+vendorRouter.patch("/drivers/:driverId/status", requireVendor, setVendorDriverStatus);
+vendorRouter.get("/pickups", requireVendor, listVendorPickups);
+vendorRouter.get("/pickups/:pickupId", requireVendor, getVendorPickup);
+vendorRouter.post("/pickups/:pickupId/assign", requireVendor, assignVendorPickupDriver);
+vendorRouter.post("/pickups/:pickupId/reassign", requireVendor, reassignVendorPickupDriver);
+vendorRouter.post("/pickups/:pickupId/start", requireVendor, startVendorPickup);
+vendorRouter.post("/pickups/:pickupId/arrive", requireVendor, arriveVendorPickup);
+vendorRouter.post("/pickups/:pickupId/receive", requireVendor, receiveVendorPickup);
+vendorRouter.get("/pickups/:pickupId/receipt", requireVendor, getVendorPickupReceipt);
+vendorRouter.get("/collection-centres", requireVendor, listVendorCentres);
+vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
+
+vendorRouter.get("/driver-desk/pickups", requireDriver, listDriverPickups);
+vendorRouter.get("/driver-desk/pickups/:pickupId", requireDriver, getDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/start", requireDriver, startDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/arrive", requireDriver, arriveDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/check-order", requireDriver, checkDriverPickupOrder);
+vendorRouter.post("/driver-desk/pickups/:pickupId/verify-qr", requireDriver, verifyDriverPickupQr);
+vendorRouter.post("/driver-desk/pickups/:pickupId/confirm", requireDriver, confirmDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/transit", requireDriver, transitDriverPickup);
+
 
 // ------------------------------------
 // MANAGER AUTH ROUTES
@@ -255,6 +366,13 @@ managerRouter.get("/documents", requireManager, getManagerAllDocuments);
 managerRouter.get("/stock-history", requireManager, getManagerAllStockHistory);
 managerRouter.get("/harvest-orders", requireManager, getManagerAllHarvestOrders);
 managerRouter.get("/earnings", requireManager, getManagerAllEarnings);
+managerRouter.get("/pickups", requireManager, listManagerPickups);
+managerRouter.get("/pickups/:pickupId", requireManager, getManagerPickup);
+managerRouter.post("/pickups/:pickupId/verify-qr", requireManager, verifyManagerPickupQr);
+managerRouter.post("/pickups/:pickupId/confirm", requireManager, confirmManagerPickup);
+managerRouter.get("/drivers", requireManager, listManagerDrivers);
+managerRouter.post("/pickups/:pickupId/assign", requireManager, assignManagerPickupDriver);
+managerRouter.post("/pickups/:pickupId/reassign", requireManager, reassignManagerPickupDriver);
 managerRouter.post("/farmers", requireManager, createFarmer);
 managerRouter.get("/farmers/:farmerId", requireManager, getFarmerById);
 managerRouter.delete("/farmers/:farmerId", requireManager, deleteFarmer);
@@ -283,6 +401,16 @@ managerRouter.get("/farmers/:farmerId/earnings", requireManager, getFarmerEarnin
 managerRouter.get("/farmers/:farmerId/documents", requireManager, getFarmerDocuments);
 managerRouter.patch("/farmers/:farmerId/documents/:documentId/status", requireManager, updateFarmerDocumentStatus);
 
+driverAuthRouter.post("/login", driverLogin);
+driverAuthRouter.get("/me", requireDriver, getDriverMe);
+driverRouter.get("/pickups", requireDriver, listDriverPickups);
+driverRouter.get("/pickups/:pickupId", requireDriver, getDriverPickup);
+driverRouter.post("/pickups/:pickupId/start", requireDriver, startDriverPickup);
+driverRouter.post("/pickups/:pickupId/arrive", requireDriver, arriveDriverPickup);
+driverRouter.post("/pickups/:pickupId/check-order", requireDriver, checkDriverPickupOrder);
+driverRouter.post("/pickups/:pickupId/verify-qr", requireDriver, verifyDriverPickupQr);
+driverRouter.post("/pickups/:pickupId/confirm", requireDriver, confirmDriverPickup);
+driverRouter.post("/pickups/:pickupId/transit", requireDriver, transitDriverPickup);
 
 export default [
   { path: "/api/farmers", router: farmerRouter },
@@ -294,4 +422,6 @@ export default [
   { path: "/api/vendor", router: vendorRouter },
   { path: "/api/farmer-manager/auth", router: managerAuthRouter },
   { path: "/api/farmer-manager", router: managerRouter },
+  { path: "/api/driver/auth", router: driverAuthRouter },
+  { path: "/api/driver", router: driverRouter },
 ];

@@ -23,9 +23,12 @@ function getStoredVendorToken() {
   } catch { return null; }
 }
 
-// Auto-restore token on import
-const storedToken = getStoredVendorToken();
-if (storedToken) setVendorToken(storedToken);
+api.interceptors.request.use((config) => {
+  const token = getStoredVendorToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  else delete config.headers.Authorization;
+  return config;
+});
 
 export const vendorApi = {
   // Auth
@@ -51,6 +54,25 @@ export const vendorApi = {
   deleteFarmer: (id) => api.delete(`/api/vendor/farmers/${id}`),
   setFarmerStatus: (id, status) => api.patch(`/api/vendor/farmers/${id}/status`, { status }),
   assignFarmerManager: (farmerId, managerId) => api.put(`/api/vendor/farmers/${farmerId}/manager`, { managerId }),
+
+  // Drivers
+  getDrivers: (params) => api.get("/api/vendor/drivers", { params }),
+  getDriverById: (id) => api.get(`/api/vendor/drivers/${id}`),
+  createDriver: (data) => api.post("/api/vendor/drivers", data),
+  updateDriver: (id, data) => api.put(`/api/vendor/drivers/${id}`, data),
+  setDriverStatus: (id, status) => api.patch(`/api/vendor/drivers/${id}/status`, { status }),
+
+  // Pickups
+  getPickups: (params) => api.get("/api/vendor/pickups", { params }),
+  getPickup: (id) => api.get(`/api/vendor/pickups/${id}`),
+  assignPickupDriver: (id, driverId) => api.post(`/api/vendor/pickups/${id}/assign`, { driverId }),
+  reassignPickupDriver: (id, driverId) => api.post(`/api/vendor/pickups/${id}/reassign`, { driverId }),
+  startPickup: (id, driverId) => api.post(`/api/vendor/pickups/${id}/start`, { driverId }),
+  arrivePickup: (id, driverId) => api.post(`/api/vendor/pickups/${id}/arrive`, { driverId }),
+  receivePickup: (id, data) => api.post(`/api/vendor/pickups/${id}/receive`, data),
+  getPickupReceipt: (id) => api.get(`/api/vendor/pickups/${id}/receipt`),
+  getCollectionCentres: () => api.get("/api/vendor/collection-centres"),
+  createCollectionCentre: (data) => api.post("/api/vendor/collection-centres", data),
 };
 
 export { VENDOR_STORAGE_KEY };

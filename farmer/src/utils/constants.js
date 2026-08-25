@@ -41,6 +41,42 @@ export const FARMING_METHODS = ["Conventional", "Mixed", "Natural"];
 
 export const FARMING_TYPES = ["Organic", "Conventional"];
 
+export const CROP_OPTIONS = [
+  "Tomato",
+  "Onion",
+  "Potato",
+  "Capsicum",
+  "Brinjal",
+  "Cabbage",
+  "Cauliflower",
+  "Okra",
+  "Chilli",
+  "Cotton",
+  "Soybean",
+  "Wheat",
+  "Rice",
+  "Sugarcane",
+  "Grapes",
+  "Pomegranate",
+  "Banana",
+  "Maize",
+  "Groundnut",
+  "Turmeric",
+  "Other",
+];
+
+export const CROP_UNITS = ["Kg", "Quintal", "Ton"];
+
+export const CROP_STATUSES = ["Planned", "Growing", "Ready for Harvest", "Harvested", "Completed"];
+
+export const CROP_STATUS_FLOW = {
+  Planned: ["Planned", "Growing"],
+  Growing: ["Growing", "Ready for Harvest"],
+  "Ready for Harvest": ["Ready for Harvest", "Harvested"],
+  Harvested: ["Harvested", "Completed"],
+  Completed: ["Completed"],
+};
+
 export const DOCUMENT_TYPES = [
   { id: "aadhaar", name: "Aadhaar / ID Proof", required: false },
   { id: "pan", name: "PAN Card", required: false },
@@ -59,11 +95,27 @@ export const VERIFICATION_STATUS = {
 export const PRODUCT_STATUS = [
   "Draft",
   "Pending Approval",
+  "Active",
   "Approved",
   "Rejected",
   "Out of Stock",
+  "Low Stock",
+  "Paused",
   "Inactive",
 ];
+
+export const FARMER_PRODUCT_STATUSES = [
+  "Draft",
+  "Pending Approval",
+  "Active",
+  "Low Stock",
+  "Out of Stock",
+  "Paused",
+];
+
+export const FARMER_PRODUCT_UNITS = ["Kg", "Quintal", "Ton"];
+
+export const PRODUCT_GRADE_OPTIONS = ["A", "B", "C"];
 
 /** Status options shown on add / edit product form */
 export const FARMER_PRODUCT_FORM_STATUS = [
@@ -108,6 +160,25 @@ export const ORDER_STATUS = [
   "Cancelled",
 ];
 
+export const FARMER_ORDER_FILTERS = [
+  { id: "new", label: "New Orders", to: "/farmer/orders/new" },
+  { id: "preparing", label: "Preparing", to: "/farmer/orders/preparing" },
+  { id: "ready", label: "Ready for Pickup", to: "/farmer/orders/ready" },
+  { id: "completed", label: "Completed", to: "/farmer/orders/completed" },
+  { id: "rejected", label: "Rejected", to: "/farmer/orders/rejected" },
+];
+
+export const ORDER_REJECTION_REASONS = [
+  "Stock Unavailable",
+  "Product Unavailable",
+  "Quality Issue",
+  "Pickup Issue",
+  "Quantity Issue",
+  "Other",
+];
+
+export const ORDER_PACKAGE_TYPES = ["Crate", "Bag", "Box", "Bundle", "Sack", "Other"];
+
 export const PAYMENT_STATUS = ["Pending", "Processing", "Paid", "Failed"];
 
 export const STOCK_REASONS = ["Sale", "Harvest", "Damage", "Manual Update", "Other"];
@@ -119,7 +190,38 @@ export const SIDEBAR_ITEMS = [
   { to: "/farmer/market-prices", label: "Market Prices", icon: "market" },
   { to: "/farmer/community", label: "Farmer Community", icon: "community" },
   { to: "/farmer/schemes", label: "Govt Schemes", icon: "schemes" },
-  { to: "/farmer/products", label: "Product", icon: "products" },
+  {
+    id: "crops",
+    label: "Crops",
+    icon: "crops",
+    children: [
+      { to: "/farmer/crops", label: "My Crops", end: true },
+      { to: "/farmer/crops/add", label: "Add Crop" },
+      { to: "/farmer/crop-planning", label: "Crop Planning" },
+    ],
+  },
+  {
+    id: "products",
+    label: "Products",
+    icon: "products",
+    children: [
+      { to: "/farmer/products", label: "My Products", end: true },
+      { to: "/farmer/products/add", label: "Add Product" },
+      { to: "/farmer/products/details", label: "Product Details" },
+    ],
+  },
+  {
+    id: "orders",
+    label: "Orders",
+    icon: "orders",
+    children: [
+      { to: "/farmer/orders/new", label: "New Orders" },
+      { to: "/farmer/orders/preparing", label: "Preparing" },
+      { to: "/farmer/orders/ready", label: "Ready for Pickup" },
+      { to: "/farmer/orders/completed", label: "Completed" },
+      { to: "/farmer/orders/rejected", label: "Rejected" },
+    ],
+  },
   { to: "/farmer/harvest-orders", label: "Harvest Order", icon: "harvest" },
   { to: "/farmer/earnings", label: "Earning", icon: "earnings" },
   { to: "/farmer/documents", label: "Document", icon: "documents" },
@@ -173,6 +275,18 @@ export const MANAGER_SIDEBAR_ITEMS = [
     ],
   },
   { to: "/farmer/manager/earnings", label: "Earnings", icon: "earnings" },
+  {
+    id: "pickup",
+    label: "Pickup / Driver",
+    icon: "pickup",
+    children: [
+      { to: "/farmer/manager/pickups/ready", label: "Ready for Pickup" },
+      { to: "/farmer/manager/pickups/assigned", label: "Assigned Pickups" },
+      { to: "/farmer/manager/pickups/today", label: "Today's Pickups" },
+      { to: "/farmer/manager/pickups/active", label: "Active Pickups" },
+      { to: "/farmer/manager/pickups/history", label: "Picked Up" },
+    ],
+  },
   { to: "/farmer/manager/documents", label: "Documents", icon: "documents" },
   { to: "/farmer/manager/profile", label: "Profile", icon: "profile" },
 ];
@@ -181,6 +295,7 @@ export const ROLES = {
   FARMER: "FARMER",
   FARMER_MANAGER: "FARMER_MANAGER",
   VENDOR: "VENDOR",
+  DRIVER: "DRIVER",
 };
 
 /** Selling routes require approved documents when verification is enforced */

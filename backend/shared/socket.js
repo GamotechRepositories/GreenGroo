@@ -33,6 +33,19 @@ export function initSocket(server) {
       console.log(`[socket] ${socket.id} joined ${room}`);
     });
 
+    const joinNamed = (event, prefix, key) => {
+      socket.on(event, (payload = {}) => {
+        const id = payload?.[key] ? String(payload[key]) : "";
+        if (!id) return;
+        const room = `${prefix}_${id}`;
+        socket.join(room);
+      });
+    };
+    joinNamed("join_farmer_room", "farmer", "farmerId");
+    joinNamed("join_manager_room", "manager", "managerId");
+    joinNamed("join_driver_room", "driver", "driverId");
+    joinNamed("join_vendor_room", "vendor", "vendorId");
+
     socket.on("disconnect", (reason) => {
       console.log("[socket] disconnected:", socket.id, reason);
     });

@@ -1,125 +1,212 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getProductById, getProductGradeChart } from "../api/farmerApi";
+import { deleteMyProduct, getMyProduct, updateMyProductStatus } from "../api/farmerApi";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
-import { EXCEL_BTN_PRIMARY, EXCEL_PAGE_TITLE } from "../utils/excelStyles";
-import ProductGradeChart from "../components/products/ProductGradeChart";
-
-function formatHarvestDate(dateStr) {
-  if (!dateStr) return "—";
-  const parts = String(dateStr).split("-");
-  if (parts.length !== 3) return dateStr;
-  const [yyyy, mm, dd] = parts;
-  return `${mm}/${dd}/${yyyy}`;
-}
+import EmptyState from "../components/ui/EmptyState";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import { canProductAction, formatProductPrice, primaryGradeLabel } from "../utils/productActions";
+import { formatCropDate } from "../utils/cropLinks";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_DANGER,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+  EXCEL_PANEL,
+  EXCEL_PANEL_HEAD,
+} from "../utils/excelStyles";
 
 function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
-  const [gradeRows, setGradeRows] = useState([]);
-  const [gradeSummary, setGradeSummary] = useState({
-    totalRupees: 0,
-    deposited: 0,
-    balance: 0,
-  });
   const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      setProduct(await getMyProduct(id));
+    } catch (err) {
+      setProduct(null);
+      toast.error(err.message || "Product not found");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [productData, chartData] = await Promise.all([
-          getProductById(id),
-          getProductGradeChart(id),
-        ]);
-        setProduct(productData);
-        setGradeRows(chartData.rows || []);
-        setGradeSummary(
-          chartData.summary || { totalRupees: 0, deposited: 0, balance: 0 }
-        );
-      } catch (err) {
-        toast.error(err.message || "Product not found");
-        navigate("/farmer/products");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id, navigate]);
+    load();
+  }, [id]);
 
-  if (loading) return <LoadingState />;
-  if (!product) return null;
+  const onStatus = async (status) => {
+    try {
+      setProduct(await updateMyProductStatus(id, status));
+      toast.success(status === "Paused" ? "Product paused" : "Product activated");
+    } catch (err) {
+      toast.error(err.message || "Failed to update status");
+    }
+  };
 
-  const imageSrc = product.imageUrl || product.images?.[0] || "/categories/grocery.webp";
+  if (loading) return <LoadingState rows={8} />;
+  if (!product) {
+    return (
+      <EmptyState
+        title="Product not found"
+        description="This product may have been deleted or does not belong to your account."
+        action={
+          <Link to="/farmer/products" className={EXCEL_BTN_PRIMARY}>
+            Back to My Products
+          </Link>
+        }
+      />
+    );
+  }
+
+  const media = product.media || {};
+  const photos = [media.mainPhoto, ...(media.farmPhotos || []), ...(media.cropPhotos || []), ...(media.harvestPhotos || [])].filter(Boolean);
+  const status = product.status;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
-          <Link
-            to="/farmer/products"
-            className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-[#6B7280] hover:text-[#2E7D32]"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path
-                fillRule="evenodd"
-                d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-            Back to products
+    <div className="mx-auto max-w-4xl space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className={EXCEL_PAGE_TITLE}>{product.productName || product.name}</h1>
+          <p className={EXCEL_PAGE_SUB}>
+            {product.cropName || "Crop"} • {product.variety || "—"} • {product.farmName || "Farm"}
+            {product.farmLocation ? ` • ${product.farmLocation}` : ""}
+          </p>
+        </div>
+        <StatusBadge status={product.stockStatus || status} />
+      </div>
+
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Product Details</h2>
+        <div className="grid gap-3 p-3 sm:grid-cols-2 text-xs">
+          <Info label="Product Name" value={product.productName || product.name} />
+          <Info label="Crop" value={product.cropName} />
+          <Info label="Variety" value={product.variety} />
+          <Info label="Available Quantity" value={`${product.availableQuantity} ${product.unit}`} />
+          <Info label="Selling Price" value={formatProductPrice(product.pricePerKg, product.unit)} />
+          <Info label="MOQ" value={`${product.minimumOrderQuantity} ${product.unit}`} />
+          <Info label="Harvest Date" value={formatCropDate(product.harvestDate)} />
+          <Info label="Grade" value={primaryGradeLabel(product)} />
+          <Info label="Organic / Conventional" value={product.farmingType} />
+          <Info label="Available From" value={formatCropDate(product.availableFrom)} />
+          <Info label="Available Until" value={formatCropDate(product.availableUntil)} />
+          <Info label="Status" value={status} />
+        </div>
+      </section>
+
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Grades & Stock</h2>
+        <div className="grid gap-2 p-3 sm:grid-cols-3 text-xs">
+          {(product.grades || []).map((grade) => (
+            <div key={grade.grade || grade.label} className="border border-[#D4D4D4] p-2">
+              <p className="font-semibold">{grade.label || `Grade ${grade.grade}`}</p>
+              <p>
+                {grade.quantity} {product.unit}
+              </p>
+              <p>{formatProductPrice(grade.price || product.pricePerKg, product.unit)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Farm & Crop</h2>
+        <div className="grid gap-3 p-3 sm:grid-cols-2 text-xs">
+          <Info label="Farm Name" value={product.farmName} />
+          <Info label="Farm Location" value={product.farmLocation} />
+          <Info label="Crop Harvest" value={formatCropDate(product.crop?.expectedHarvestDate)} />
+          <Info label="Estimated Crop Qty" value={product.crop ? `${product.crop.estimatedQuantity} ${product.crop.unit}` : "—"} />
+        </div>
+      </section>
+
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Product Photos & Media</h2>
+        <div className="grid gap-2 p-3 sm:grid-cols-2 md:grid-cols-4">
+          {photos.length ? (
+            photos.map((src, i) => (
+              <img key={i} src={src} alt={`${product.productName} ${i + 1}`} className="h-28 w-full rounded border border-[#D4D4D4] object-cover" />
+            ))
+          ) : (
+            <p className="p-2 text-xs text-[#6B7280]">No photos uploaded.</p>
+          )}
+        </div>
+        {(media.videos || []).filter(Boolean).length ? (
+          <div className="grid gap-2 p-3 sm:grid-cols-2">
+            {media.videos.filter(Boolean).map((src, i) => (
+              <video key={i} src={src} controls className="h-40 w-full bg-black object-contain" />
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <div className="flex flex-wrap gap-2">
+        {canProductAction(status, "edit") ? (
+          <Link to={`/farmer/products/${id}/edit`} className={EXCEL_BTN}>
+            Edit
           </Link>
-          <span className="hidden h-4 w-px bg-[#E5E7EB] sm:block" aria-hidden="true" />
-          <h1 className={`truncate ${EXCEL_PAGE_TITLE}`}>{product.name}</h1>
-          <StatusBadge status={product.status} />
-          {product.category ? (
-            <span className="text-sm text-[#6B7280]">{product.category}</span>
-          ) : null}
-        </div>
-        <Link
-          to={`/farmer/products/${id}/edit`}
-          className={`shrink-0 ${EXCEL_BTN_PRIMARY}`}
-        >
-          Edit Product
+        ) : null}
+        <Link to={`/farmer/products/${id}/media`} className={EXCEL_BTN}>
+          Photos & Media
         </Link>
+        {canProductAction(status, "stock") || canProductAction(status, "edit") ? (
+          <Link to={`/farmer/products/${id}/stock`} className={EXCEL_BTN}>
+            Update Stock
+          </Link>
+        ) : null}
+        {canProductAction(status, "price") || canProductAction(status, "edit") ? (
+          <Link to={`/farmer/products/${id}/stock`} className={EXCEL_BTN_PRIMARY}>
+            Update Price
+          </Link>
+        ) : null}
+        {canProductAction(status, "pause") ? (
+          <button type="button" className={EXCEL_BTN} onClick={() => onStatus("Paused")}>
+            Pause
+          </button>
+        ) : null}
+        {canProductAction(status, "activate") ? (
+          <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => onStatus("Active")}>
+            Activate
+          </button>
+        ) : null}
+        {canProductAction(status, "delete") ? (
+          <button type="button" className={EXCEL_BTN_DANGER} onClick={() => setConfirmDelete(true)}>
+            Delete
+          </button>
+        ) : null}
       </div>
 
-      {/* Product Summary Header Card */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-[#D4D4D4] bg-white p-4 shadow-sm">
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#FAFAFA]">
-          <img
-            src={imageSrc}
-            alt={product.name}
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = "/categories/grocery.webp";
-            }}
-          />
-        </div>
-        <div className="grid flex-1 grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-          <div>
-            <span className="block font-semibold text-[#6B7280]">Harvest Date</span>
-            <span className="font-medium text-[#1F2937]">{formatHarvestDate(product.harvestDate)}</span>
-          </div>
-          <div>
-            <span className="block font-semibold text-[#6B7280]">Farm Location</span>
-            <span className="font-medium text-[#1F2937]">{product.farmLocation || "—"}</span>
-          </div>
-          <div>
-            <span className="block font-semibold text-[#6B7280]">Type</span>
-            <span className="font-medium text-[#1F2937]">
-              {product.produceType === "non-organic" || product.organic === false ? "Non-Organic" : "Organic"}
-            </span>
-          </div>
-          <div>
-            <span className="block font-semibold text-[#6B7280]">Available Qty</span>
-            <span className="font-medium text-[#1F2937]">{product.availableQuantity ?? product.stock ?? 0} {product.unit || "Kg"}</span>
-          </div>
-        </div>
-      </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete product?"
+        message="This draft product will be removed."
+        confirmLabel="Delete"
+        danger
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          try {
+            await deleteMyProduct(id);
+            toast.success("Product deleted");
+            navigate("/farmer/products");
+          } catch (err) {
+            toast.error(err.message || "Failed to delete product");
+          }
+        }}
+      />
+    </div>
+  );
+}
 
-      <ProductGradeChart rows={gradeRows} summary={gradeSummary} />
+function Info({ label, value }) {
+  return (
+    <div>
+      <p className="font-semibold text-[#6B7280]">{label}</p>
+      <p className="mt-0.5 font-semibold text-[#1F2937]">{value || "—"}</p>
     </div>
   );
 }

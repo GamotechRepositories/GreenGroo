@@ -15,17 +15,26 @@ import ProductsPage from "../pages/ProductsPage";
 import ProductAddPage from "../pages/ProductAddPage";
 import ProductEditPage from "../pages/ProductEditPage";
 import ProductDetailPage from "../pages/ProductDetailPage";
+import ProductMediaPage from "../pages/ProductMediaPage";
+import ProductPriceStockPage from "../pages/ProductPriceStockPage";
+import ProductDetailsHubPage from "../pages/ProductDetailsHubPage";
 import InventoryPage from "../pages/InventoryPage";
 import InventoryAddPage from "../pages/InventoryAddPage";
 import InventoryViewPage from "../pages/InventoryViewPage";
 import OrdersPage from "../pages/OrdersPage";
 import OrderDetailPage from "../pages/OrderDetailPage";
+import OrderPreparePage from "../pages/OrderPreparePage";
 import HarvestOrdersPage from "../pages/HarvestOrdersPage";
 import EarningsPage from "../pages/EarningsPage";
 import ProfilePage from "../pages/ProfilePage";
 import FarmerProfilePage from "../pages/FarmerProfilePage";
 import FarmProfilePage from "../pages/FarmProfilePage";
 import FarmLocationPage from "../pages/FarmLocationPage";
+import CropsPage from "../pages/CropsPage";
+import CropFormPage from "../pages/CropFormPage";
+import CropDetailPage from "../pages/CropDetailPage";
+import CropPlanPage from "../pages/CropPlanPage";
+import CropPlanningPage from "../pages/CropPlanningPage";
 
 // Manager Pages
 import ManagerDashboardPage from "../pages/manager/ManagerDashboardPage";
@@ -41,6 +50,8 @@ import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
 import ManagerFarmerEarningsSpreadsheetPage from "../pages/manager/ManagerFarmerEarningsSpreadsheetPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
+import ManagerPickupsPage from "../pages/manager/ManagerPickupsPage";
+import ManagerPickupDetailPage from "../pages/manager/ManagerPickupDetailPage";
 
 function FarmerRoutes() {
   return (
@@ -51,7 +62,7 @@ function FarmerRoutes() {
         <Route path="register/success" element={<FarmerRegistrationSuccessPage />} />
         <Route element={<FarmerLayout />}>
           {/* ────────── FARMER ROUTES ────────── */}
-          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route index element={<Navigate to="/farmer/dashboard" replace />} />
           <Route path="kyc" element={<FarmerKycPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -60,18 +71,33 @@ function FarmerRoutes() {
           <Route path="schemes" element={<GovernmentSchemesPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/add" element={<ProductAddPage />} />
-          <Route path="products/:id" element={<Navigate to="/farmer/products" replace />} />
+          <Route path="products/details" element={<ProductDetailsHubPage />} />
           <Route path="products/:id/edit" element={<ProductEditPage />} />
+          <Route path="products/:id/media" element={<ProductMediaPage />} />
+          <Route path="products/:id/stock" element={<ProductPriceStockPage />} />
+          <Route path="products/:id" element={<ProductDetailPage />} />
           <Route path="harvest-orders" element={<HarvestOrdersPage />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/add" element={<InventoryAddPage />} />
           <Route path="inventory/:id" element={<InventoryViewPage />} />
-          <Route path="orders" element={<OrdersPage />} />
+          <Route path="orders" element={<Navigate to="/farmer/orders/new" replace />} />
+          <Route path="orders/new" element={<OrdersPage filter="new" />} />
+          <Route path="orders/preparing" element={<OrdersPage filter="preparing" />} />
+          <Route path="orders/ready" element={<OrdersPage filter="ready" />} />
+          <Route path="orders/completed" element={<OrdersPage filter="completed" />} />
+          <Route path="orders/rejected" element={<OrdersPage filter="rejected" />} />
+          <Route path="orders/:id/prepare" element={<OrderPreparePage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="earnings" element={<EarningsPage />} />
           <Route path="profile" element={<FarmerProfilePage />} />
           <Route path="farm-profile" element={<FarmProfilePage />} />
           <Route path="farm-location" element={<FarmLocationPage />} />
+          <Route path="crops" element={<CropsPage />} />
+          <Route path="crops/add" element={<CropFormPage />} />
+          <Route path="crops/:cropId/edit" element={<CropFormPage />} />
+          <Route path="crops/:cropId/plan" element={<CropPlanPage />} />
+          <Route path="crops/:cropId" element={<CropDetailPage />} />
+          <Route path="crop-planning" element={<CropPlanningPage />} />
 
           {/* ────────── MANAGER ROUTES ────────── */}
           <Route path="manager/dashboard" element={<ManagerDashboardPage />} />
@@ -87,11 +113,21 @@ function FarmerRoutes() {
           <Route path="manager/earnings" element={<ManagerEarningsPage />} />
           <Route path="manager/earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
           <Route path="manager/earnings/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
+          <Route path="manager/pickups" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
+          <Route path="manager/pickups/requests" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
+          <Route path="manager/pickups/ready" element={<ManagerPickupsPage mode="ready" />} />
+          <Route path="manager/pickups/assigned" element={<ManagerPickupsPage mode="assigned" />} />
+          <Route path="manager/pickups/today" element={<ManagerPickupsPage mode="today" />} />
+          <Route path="manager/pickups/active" element={<ManagerPickupsPage mode="active" />} />
+          <Route path="manager/pickups/qr" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
+          <Route path="manager/pickups/completed" element={<ManagerPickupsPage mode="history" />} />
+          <Route path="manager/pickups/history" element={<ManagerPickupsPage mode="history" />} />
+          <Route path="manager/pickups/:pickupId" element={<ManagerPickupDetailPage />} />
           <Route path="manager/documents" element={<ManagerDocumentsPage />} />
           <Route path="manager/profile" element={<ProfilePage />} />
-          <Route path="manager" element={<Navigate to="manager/dashboard" replace />} />
+          <Route path="manager" element={<Navigate to="/farmer/manager/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/farmer/dashboard" replace />} />
         </Route>
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </Provider>
   );

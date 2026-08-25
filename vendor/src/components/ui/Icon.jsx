@@ -101,6 +101,12 @@ export function Icon({ name, size = 'md', className = '' }) {
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 17a2 2 0 104 0m8 0a2 2 0 104 0M7 17h6m-6 0V9h4l2 3h3v5" />
       </svg>
     ),
+    truck: (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={STROKE}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10h2m8-1h4.5a1.5 1.5 0 001.5-1.5V10l-3-4h-3v10z" />
+      </svg>
+    ),
   }
 
   return icons[name] ?? icons.box

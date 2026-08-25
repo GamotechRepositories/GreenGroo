@@ -7,10 +7,8 @@ import { FarmerToaster } from "../ui/FarmerToaster";
 import {
   fetchDocuments,
   fetchFarmerProfile,
-  selectIsVerified,
   selectIsManager,
 } from "../../store/farmerSlice";
-import { SELLING_ROUTE_PREFIXES } from "../../utils/constants";
 import "../../styles/farmer.css";
 
 function FarmerLayout() {
@@ -18,8 +16,7 @@ function FarmerLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const token = useSelector((s) => s.farmer.token);
-  const farmer = useSelector((s) => s.farmer.farmer);
-  const isVerified = useSelector(selectIsVerified);
+  const role = useSelector((s) => s.farmer.role);
   const isManager = useSelector(selectIsManager);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -32,24 +29,20 @@ function FarmerLayout() {
     }
   }, [dispatch, token, isManager]);
 
-  // Role-based routing guard
   useEffect(() => {
-    if (!token || !farmer) return;
+    if (!token) return;
     const path = location.pathname;
     const isManagerRoute = path.startsWith("/farmer/manager");
-    const isFarmerOnlyRoute = !isManagerRoute && path.startsWith("/farmer/") && path !== "/farmer/login";
 
-    if (isManager && isFarmerOnlyRoute) {
-      // Manager trying to access farmer-only routes → redirect to manager dashboard
+    if (isManager && !isManagerRoute && path !== "/farmer/manager/dashboard") {
       navigate("/farmer/manager/dashboard", { replace: true });
-    } else if (!isManager && isManagerRoute) {
-      // Farmer trying to access manager routes → redirect to farmer dashboard
+    } else if (!isManager && isManagerRoute && path !== "/farmer/dashboard") {
       navigate("/farmer/dashboard", { replace: true });
     }
-  }, [token, farmer, isManager, location.pathname, navigate]);
+  }, [token, role, isManager, location.pathname, navigate]);
 
   if (!token) {
-    return <Navigate to="/farmer/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/farmer/login" replace />;
   }
 
   return (

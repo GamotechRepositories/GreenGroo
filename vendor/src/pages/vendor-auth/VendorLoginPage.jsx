@@ -83,6 +83,9 @@ export default function VendorLoginPage() {
         <p className="mt-4 text-center text-[10px] text-[#6B7280]">
           Default credentials: <code className="font-semibold text-[#1F2937]">9900000001 / vendor123</code>
         </p>
+        <p className="mt-2 text-center text-[10px]">
+          <a href="/driver/login" className="text-[#217346]">Driver login</a>
+        </p>
       </div>
     </div>
   );

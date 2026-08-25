@@ -12,6 +12,8 @@ import {
   Package,
   ShoppingCart,
   TrendingUp,
+  Sprout,
+  Truck,
   UserRound,
   Users,
   Wallet,
@@ -27,12 +29,14 @@ const ICONS = {
   community: Users,
   schemes: Landmark,
   products: Package,
+  crops: Sprout,
   harvest: ClipboardList,
   inventory: ClipboardList,
   orders: ShoppingCart,
   earnings: Wallet,
   profile: UserRound,
   farmers: Users,
+  pickup: Truck,
 };
 
 function NavGroup({ item, collapsed }) {

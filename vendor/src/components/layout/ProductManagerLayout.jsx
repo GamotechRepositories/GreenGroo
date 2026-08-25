@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
 import { useAuth } from '../../context/AuthContext'
+import { useVendorAuth } from '../../context/VendorAuthContext'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
@@ -16,6 +17,19 @@ const navItems = [
     ],
   },
   { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
+  {
+    id: 'delivery-drivers',
+    label: 'Delivery / Pickup',
+    icon: 'truck',
+    children: [
+      { to: '/vendor/drivers', label: 'Drivers', end: true },
+      { to: '/vendor/pickups/assigned', label: 'Assigned Pickups' },
+      { to: '/vendor/pickups/today', label: "Today's Pickups" },
+      { to: '/vendor/pickups/active', label: 'Active Pickups' },
+      { to: '/vendor/pickups/history', label: 'Pickup History' },
+      { to: '/vendor/collection-centre', label: 'Collection Centre' },
+    ],
+  },
 ]
 
 const footerItems = [
@@ -102,6 +116,7 @@ function NavGroup({ item }) {
 
 export default function ProductManagerLayout() {
   const { logout } = useAuth()
+  const vendor = useVendorAuth()
   const navigate = useNavigate()
 
   return (
@@ -148,6 +163,11 @@ export default function ProductManagerLayout() {
               <button
                 type="button"
                 onClick={() => {
+                  if (vendor.isAuthenticated) {
+                    vendor.logout()
+                    navigate('/vendor/login', { replace: true })
+                    return
+                  }
                   logout()
                   navigate('/login', { replace: true })
                 }}

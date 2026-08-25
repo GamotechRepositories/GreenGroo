@@ -13,7 +13,11 @@ import {
   FarmerDocument,
   FarmerHarvestOrder,
   ensureFarmerIndexes,
+  FarmerCrop,
+  FarmerCropPlan,
+  Pickup,
 } from "./models.js";
+import { ensurePickupForOrder } from "./pickupControllers.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -985,6 +989,1293 @@ export async function confirmFarmerFarmLocation(req, res) {
   }
 }
 
+const CROP_STATUS_FLOW = {
+  Planned: ["Planned", "Growing"],
+  Growing: ["Growing", "Ready for Harvest"],
+  "Ready for Harvest": ["Ready for Harvest", "Harvested"],
+  Harvested: ["Harvested", "Completed"],
+  Completed: ["Completed"],
+};
+
+function sanitizeCropPhotos(photos) {
+  if (!Array.isArray(photos)) return [];
+  return photos
+    .filter((p) => typeof p === "string" && p.length > 20 && p.length < 2_500_000)
+    .filter((p) => p.startsWith("data:image/") || p.startsWith("http://") || p.startsWith("https://"))
+    .slice(0, 4);
+}
+
+function deriveCropStatus(sowingDate, harvestDate) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (harvestDate && harvestDate <= today) return "Ready for Harvest";
+  if (sowingDate && sowingDate <= today) return "Growing";
+  return "Planned";
+}
+
+function validateCropPayload(payload) {
+  const cropName = String(payload.cropName || payload.crop || "").trim();
+  const variety = String(payload.variety || "").trim();
+  const area = Number(payload.area);
+  const areaUnit = payload.areaUnit === "Hectare" ? "Hectare" : "Acre";
+  const sowingDate = String(payload.sowingDate || "").trim();
+  const expectedHarvestDate = String(payload.expectedHarvestDate || "").trim();
+  const estimatedQuantity = Number(payload.estimatedQuantity);
+  const unit = ["Kg", "Quintal", "Ton"].includes(payload.unit) ? payload.unit : "";
+  const farmingMethod = String(payload.farmingMethod || "").trim();
+  const farmingType = String(payload.farmingType || "").trim();
+
+  if (!cropName) return { error: "Crop name is required" };
+  if (!variety) return { error: "Variety is required" };
+  if (!Number.isFinite(area) || area <= 0) return { error: "Area must be greater than 0" };
+  if (!sowingDate) return { error: "Sowing date is required" };
+  if (!expectedHarvestDate) return { error: "Expected harvest date is required" };
+  if (expectedHarvestDate < sowingDate) return { error: "Expected harvest date cannot be before sowing date" };
+  if (!Number.isFinite(estimatedQuantity) || estimatedQuantity <= 0) {
+    return { error: "Estimated quantity must be greater than 0" };
+  }
+  if (!unit) return { error: "Unit is required" };
+  if (!farmingMethod) return { error: "Farming method is required" };
+
+  return {
+    cropName,
+    variety,
+    area,
+    areaUnit,
+    sowingDate,
+    expectedHarvestDate,
+    estimatedQuantity,
+    unit,
+    farmingMethod,
+    farmingType,
+    photos: sanitizeCropPhotos(payload.photos),
+  };
+}
+
+function farmSummary(farmer) {
+  return {
+    farmId: farmer.farm?.farmId || `farm-${farmer.id}`,
+    farmName: farmer.farm?.farmName || farmer.farmName || "",
+    farmLocation: farmer.farmLocation || farmer.farmGeo?.farmAddress || farmer.farmAddress || "",
+  };
+}
+
+function publicCrop(crop, farmer) {
+  const plain = toPlain(crop);
+  return {
+    ...plain,
+    cropId: plain.cropId || plain.id,
+    ...farmSummary(farmer),
+  };
+}
+
+function publicPlan(plan, crop) {
+  const plain = toPlain(plan);
+  return {
+    ...plain,
+    planId: plain.planId || plain.id,
+    cropName: crop?.cropName || "",
+    variety: crop?.variety || "",
+    farmingMethod: crop?.farmingMethod || "",
+    farmingType: crop?.farmingType || "",
+  };
+}
+
+async function upsertCropPlan(farmerId, crop) {
+  const existing = await FarmerCropPlan.findOne({ farmerId, cropId: crop.id });
+  if (existing) {
+    existing.harvestDate = crop.expectedHarvestDate;
+    existing.estimatedProduction = crop.estimatedQuantity;
+    existing.unit = crop.unit;
+    if (Number(existing.suggestedSaleQuantity) > Number(existing.estimatedProduction)) {
+      existing.suggestedSaleQuantity = existing.estimatedProduction;
+    }
+    await existing.save();
+    return existing;
+  }
+  const planId = `plan-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+  return FarmerCropPlan.create({
+    id: planId,
+    planId,
+    farmerId,
+    cropId: crop.id,
+    harvestDate: crop.expectedHarvestDate,
+    estimatedProduction: crop.estimatedQuantity,
+    expectedDemand: 0,
+    suggestedSaleQuantity: 0,
+    unit: crop.unit,
+    status: "Planned",
+  });
+}
+
+async function loadOwnCrop(req, res) {
+  const farmerId = authFarmerId(req);
+  const cropId = req.params.cropId;
+  const crop = await FarmerCrop.findOne({ farmerId, $or: [{ id: cropId }, { cropId }] });
+  if (!crop) {
+    res.status(404).json({ message: "Crop not found" });
+    return null;
+  }
+  return crop;
+}
+
+export async function listFarmerCrops(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const farmer = await Farmer.findOne({ id: farmerId });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crops = await FarmerCrop.find({ farmerId }).sort({ createdAt: -1 }).lean();
+    res.json(crops.map((c) => publicCrop(c, farmer)));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crops" });
+  }
+}
+
+export async function getFarmerCrop(req, res) {
+  try {
+    const crop = await loadOwnCrop(req, res);
+    if (!crop) return;
+    const farmer = await Farmer.findOne({ id: crop.farmerId });
+    const plan = await FarmerCropPlan.findOne({ farmerId: crop.farmerId, cropId: crop.id }).lean();
+    res.json({ ...publicCrop(crop, farmer), plan: plan ? publicPlan(plan, crop) : null });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crop" });
+  }
+}
+
+export async function createFarmerCrop(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const farmer = await Farmer.findOne({ id: farmerId });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const parsed = validateCropPayload(req.body || {});
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    const cropId = `crop-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const crop = await FarmerCrop.create({
+      id: cropId,
+      cropId,
+      farmerId,
+      farmId: farmSummary(farmer).farmId,
+      cropName: parsed.cropName,
+      variety: parsed.variety,
+      area: parsed.area,
+      areaUnit: parsed.areaUnit,
+      sowingDate: parsed.sowingDate,
+      expectedHarvestDate: parsed.expectedHarvestDate,
+      estimatedQuantity: parsed.estimatedQuantity,
+      unit: parsed.unit,
+      farmingMethod: parsed.farmingMethod,
+      farmingType: parsed.farmingType,
+      photos: parsed.photos,
+      status: deriveCropStatus(parsed.sowingDate, parsed.expectedHarvestDate),
+    });
+    const plan = await upsertCropPlan(farmerId, crop);
+    res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create crop" });
+  }
+}
+
+export async function updateFarmerCrop(req, res) {
+  try {
+    const crop = await loadOwnCrop(req, res);
+    if (!crop) return;
+    const parsed = validateCropPayload({ ...toPlain(crop), ...(req.body || {}) });
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    const nextStatus = String(req.body?.status || crop.status);
+    const allowed = CROP_STATUS_FLOW[crop.status] || [crop.status];
+    if (!allowed.includes(nextStatus)) {
+      return res.status(400).json({ message: `Cannot change status from ${crop.status} to ${nextStatus}` });
+    }
+
+    crop.cropName = parsed.cropName;
+    crop.variety = parsed.variety;
+    crop.area = parsed.area;
+    crop.areaUnit = parsed.areaUnit;
+    crop.sowingDate = parsed.sowingDate;
+    crop.expectedHarvestDate = parsed.expectedHarvestDate;
+    crop.estimatedQuantity = parsed.estimatedQuantity;
+    crop.unit = parsed.unit;
+    crop.farmingMethod = parsed.farmingMethod;
+    crop.farmingType = parsed.farmingType;
+    crop.photos = parsed.photos;
+    crop.status = nextStatus;
+    await crop.save();
+    const plan = await upsertCropPlan(crop.farmerId, crop);
+    const farmer = await Farmer.findOne({ id: crop.farmerId });
+    res.json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update crop" });
+  }
+}
+
+export async function deleteFarmerCrop(req, res) {
+  try {
+    const crop = await loadOwnCrop(req, res);
+    if (!crop) return;
+    await FarmerCropPlan.deleteMany({ farmerId: crop.farmerId, cropId: crop.id });
+    await FarmerCrop.deleteOne({ id: crop.id });
+    res.json({ success: true, message: "Crop deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete crop" });
+  }
+}
+
+export async function listFarmerCropPlans(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const plans = await FarmerCropPlan.find({ farmerId }).sort({ createdAt: -1 }).lean();
+    const cropIds = plans.map((p) => p.cropId);
+    const crops = await FarmerCrop.find({ farmerId, id: { $in: cropIds } }).lean();
+    const cropMap = new Map(crops.map((c) => [c.id, c]));
+    res.json(plans.map((p) => publicPlan(p, cropMap.get(p.cropId))));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crop plans" });
+  }
+}
+
+export async function getFarmerCropPlan(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const planId = req.params.planId;
+    const plan = await FarmerCropPlan.findOne({ farmerId, $or: [{ id: planId }, { planId }, { cropId: planId }] });
+    if (!plan) return res.status(404).json({ message: "Crop plan not found" });
+    const crop = await FarmerCrop.findOne({ farmerId, id: plan.cropId });
+    res.json(publicPlan(plan, crop));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crop plan" });
+  }
+}
+
+export async function createFarmerCropPlan(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const cropId = String(req.body?.cropId || "").trim();
+    const crop = await FarmerCrop.findOne({ farmerId, $or: [{ id: cropId }, { cropId }] });
+    if (!crop) return res.status(404).json({ message: "Crop not found" });
+    const plan = await upsertCropPlan(farmerId, crop);
+    if (req.body?.expectedDemand != null || req.body?.suggestedSaleQuantity != null) {
+      await updatePlanFields(plan, req.body, crop, res);
+      return;
+    }
+    res.status(201).json(publicPlan(plan, crop));
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || "Failed to create crop plan" });
+    }
+  }
+}
+
+async function updatePlanFields(plan, payload, crop, res) {
+  const estimatedProduction = Number(payload.estimatedProduction ?? plan.estimatedProduction);
+  const expectedDemand = Number(payload.expectedDemand ?? plan.expectedDemand);
+  const suggestedSaleQuantity = Number(payload.suggestedSaleQuantity ?? plan.suggestedSaleQuantity);
+  if (!Number.isFinite(estimatedProduction) || estimatedProduction <= 0) {
+    res.status(400).json({ message: "Estimated production must be greater than 0" });
+    return;
+  }
+  if (!Number.isFinite(expectedDemand) || expectedDemand < 0) {
+    res.status(400).json({ message: "Expected demand cannot be negative" });
+    return;
+  }
+  if (!Number.isFinite(suggestedSaleQuantity) || suggestedSaleQuantity < 0) {
+    res.status(400).json({ message: "Suggested sale quantity cannot be negative" });
+    return;
+  }
+  if (suggestedSaleQuantity > estimatedProduction) {
+    res.status(400).json({ message: "Suggested sale quantity cannot be greater than estimated production" });
+    return;
+  }
+  plan.estimatedProduction = estimatedProduction;
+  plan.expectedDemand = expectedDemand;
+  plan.suggestedSaleQuantity = suggestedSaleQuantity;
+  if (payload.harvestDate) plan.harvestDate = String(payload.harvestDate);
+  if (payload.unit && ["Kg", "Quintal", "Ton"].includes(payload.unit)) plan.unit = payload.unit;
+  plan.status = "Updated";
+  const saved = await plan.save();
+  res.json(publicPlan(saved, crop));
+}
+
+export async function updateFarmerCropPlan(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const planId = req.params.planId;
+    const plan = await FarmerCropPlan.findOne({ farmerId, $or: [{ id: planId }, { planId }, { cropId: planId }] });
+    if (!plan) return res.status(404).json({ message: "Crop plan not found" });
+    const crop = await FarmerCrop.findOne({ farmerId, id: plan.cropId });
+    await updatePlanFields(plan, req.body || {}, crop, res);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || "Failed to update crop plan" });
+    }
+  }
+}
+
+const PRODUCT_STATUS_ALIASES = {
+  DRAFT: "Draft",
+  Draft: "Draft",
+  PENDING_APPROVAL: "Pending Approval",
+  "Pending Approval": "Pending Approval",
+  ACTIVE: "Active",
+  Active: "Active",
+  Approved: "Active",
+  LOW_STOCK: "Low Stock",
+  "Low Stock": "Low Stock",
+  OUT_OF_STOCK: "Out of Stock",
+  "Out of Stock": "Out of Stock",
+  PAUSED: "Paused",
+  Paused: "Paused",
+  Inactive: "Paused",
+};
+
+const PRODUCT_UNITS_ALLOWED = ["Kg", "Quintal", "Ton"];
+const LIFECYCLE_LOCKED = ["Draft", "Pending Approval", "Paused"];
+
+function normalizeProductStatus(status) {
+  return PRODUCT_STATUS_ALIASES[status] || status || "Draft";
+}
+
+function sanitizeProductImages(list, max = 4) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((p) => typeof p === "string" && p.length > 20 && p.length < 2_500_000)
+    .filter((p) => p.startsWith("data:image/") || p.startsWith("http://") || p.startsWith("https://") || p.startsWith("/"))
+    .slice(0, max);
+}
+
+function sanitizeProductVideos(list, max = 2) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((p) => typeof p === "string" && p.length > 20 && p.length < 20_000_000)
+    .filter((p) => p.startsWith("data:video/") || p.startsWith("http://") || p.startsWith("https://"))
+    .slice(0, max);
+}
+
+function normalizeProductGrades(grades = []) {
+  const source = Array.isArray(grades) && grades.length ? grades : [];
+  return source.map((g, idx) => {
+    const raw = String(g.grade || g.label || "").replace(/grade\s*/i, "").trim() || String.fromCharCode(65 + idx);
+    const grade = raw.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || String.fromCharCode(65 + idx);
+    return {
+      id: g.id || `g-${grade.toLowerCase()}-${idx}`,
+      grade,
+      label: g.label || `Grade ${grade}`,
+      quantity: Number(g.quantity) || 0,
+      price: Number(g.price ?? g.pricePerKg ?? 0) || 0,
+    };
+  });
+}
+
+function totalGradeQty(grades) {
+  return (grades || []).reduce((sum, g) => sum + Number(g.quantity || 0), 0);
+}
+
+function applyStockDrivenStatus(currentStatus, quantity, lowStockLimit) {
+  const lifecycle = normalizeProductStatus(currentStatus);
+  if (LIFECYCLE_LOCKED.includes(lifecycle)) return lifecycle;
+  const qty = Number(quantity) || 0;
+  const limit = Number(lowStockLimit) || 10;
+  if (qty <= 0) return "Out of Stock";
+  if (qty <= limit) return "Low Stock";
+  return "Active";
+}
+
+function stockStatusOf(product) {
+  const lifecycle = normalizeProductStatus(product.status);
+  if (lifecycle === "Paused") return "Paused";
+  const qty = Math.max(
+    0,
+    Number(product.availableQuantity ?? product.stock ?? 0) - Number(product.reservedQuantity || 0)
+  );
+  const limit = Number(product.lowStockLimit || 10);
+  if (qty <= 0) return "Out of Stock";
+  if (qty <= limit) return "Low Stock";
+  return lifecycle === "Draft" || lifecycle === "Pending Approval" ? lifecycle : "Active";
+}
+
+function farmingTypeOf(product) {
+  if (product.farmingType) return product.farmingType;
+  if (product.produceType === "non-organic") return "Conventional";
+  if (product.produceType === "organic") return "Organic";
+  return "";
+}
+
+function publicMyProduct(product, farmer, crop) {
+  const plain = toPlain(product);
+  const grades = normalizeProductGrades(plain.grades);
+  const quantity = grades.length ? totalGradeQty(grades) : Number(plain.availableQuantity ?? plain.stock ?? 0);
+  const status = normalizeProductStatus(plain.status);
+  const media = plain.media || {};
+  const mainPhoto = media.mainPhoto || plain.image || plain.images?.[0] || "";
+  return {
+    ...plain,
+    productId: plain.productId || plain.id,
+    productName: plain.productName || plain.name,
+    cropName: plain.cropName || crop?.cropName || "",
+    variety: plain.variety || crop?.variety || "",
+    availableQuantity: quantity,
+    stock: quantity,
+    reservedQuantity: Number(plain.reservedQuantity || 0),
+    sellableQuantity: Math.max(0, quantity - Number(plain.reservedQuantity || 0)),
+    pricePerKg: Number(plain.pricePerKg || plain.sellingPrice || 0),
+    sellingPrice: Number(plain.pricePerKg || plain.sellingPrice || 0),
+    minimumOrderQuantity: Number(plain.minimumOrderQuantity || 1),
+    farmingType: farmingTypeOf(plain),
+    grades,
+    media: {
+      mainPhoto,
+      farmPhotos: media.farmPhotos || [],
+      cropPhotos: media.cropPhotos || [],
+      harvestPhotos: media.harvestPhotos || [],
+      videos: media.videos || [],
+    },
+    image: mainPhoto,
+    images: [mainPhoto, ...(plain.images || [])].filter(Boolean),
+    status,
+    stockStatus: stockStatusOf({ ...plain, status, availableQuantity: quantity }),
+    farmId: plain.farmId || farmer?.farm?.farmId || "",
+    farmName: farmer?.farm?.farmName || farmer?.farmName || "",
+    farmLocation: plain.farmLocation || farmer?.farmLocation || farmer?.farmGeo?.farmAddress || "",
+    crop: crop
+      ? {
+          cropId: crop.cropId || crop.id,
+          cropName: crop.cropName,
+          variety: crop.variety,
+          expectedHarvestDate: crop.expectedHarvestDate,
+          estimatedQuantity: crop.estimatedQuantity,
+          unit: crop.unit,
+          farmingType: crop.farmingType,
+          photos: crop.photos || [],
+        }
+      : null,
+  };
+}
+
+async function loadOwnProduct(req, res) {
+  const farmerId = authFarmerId(req);
+  const productId = req.params.productId;
+  const product = await FarmerProduct.findOne({
+    farmerId,
+    $or: [{ id: productId }, { productId }],
+  });
+  if (!product) {
+    res.status(404).json({ message: "Product not found" });
+    return null;
+  }
+  return product;
+}
+
+function parseProductMedia(payload, existing = {}) {
+  const media = payload.media || {};
+  const mainPhoto = sanitizeProductImages(
+    [media.mainPhoto || payload.image || payload.imageUrl || existing.mainPhoto || ""].filter(Boolean),
+    1
+  )[0] || "";
+  return {
+    mainPhoto,
+    farmPhotos: sanitizeProductImages(media.farmPhotos ?? existing.farmPhotos, 4),
+    cropPhotos: sanitizeProductImages(media.cropPhotos ?? existing.cropPhotos, 4),
+    harvestPhotos: sanitizeProductImages(media.harvestPhotos ?? existing.harvestPhotos, 4),
+    videos: sanitizeProductVideos(media.videos ?? existing.videos, 2),
+  };
+}
+
+function validateMyProductPayload(payload, { publish } = {}) {
+  const productName = String(payload.productName || payload.name || "").trim();
+  const cropId = String(payload.cropId || "").trim();
+  const cropName = String(payload.cropName || payload.crop || "").trim();
+  const variety = String(payload.variety || "").trim();
+  const unit = PRODUCT_UNITS_ALLOWED.includes(payload.unit) ? payload.unit : "";
+  const grades = normalizeProductGrades(payload.grades);
+  const availableQuantity = grades.length ? totalGradeQty(grades) : Number(payload.availableQuantity);
+  const pricePerKg = Number(payload.pricePerKg ?? payload.sellingPrice);
+  const minimumOrderQuantity = Number(payload.minimumOrderQuantity);
+  const harvestDate = String(payload.harvestDate || "").trim();
+  const farmingType = String(payload.farmingType || "").trim();
+  const availableFrom = String(payload.availableFrom || "").trim();
+  const availableUntil = String(payload.availableUntil || "").trim();
+  const media = parseProductMedia(payload);
+
+  if (!productName) return { error: "Product name is required" };
+  if (!cropId && !cropName) return { error: "Crop is required" };
+
+  if (publish) {
+    if (!variety) return { error: "Variety is required" };
+    if (!Number.isFinite(availableQuantity) || availableQuantity <= 0) return { error: "Quantity must be greater than 0" };
+    if (!unit) return { error: "Unit is required" };
+    if (!Number.isFinite(pricePerKg) || pricePerKg <= 0) return { error: "Price per Kg is required" };
+    if (!Number.isFinite(minimumOrderQuantity) || minimumOrderQuantity <= 0) return { error: "Minimum order quantity is required" };
+    if (!harvestDate) return { error: "Harvest date is required" };
+    if (!grades.length) return { error: "Add at least one grade" };
+    if (!farmingType) return { error: "Farming type is required" };
+    if (!availableFrom) return { error: "Available from date is required" };
+    if (!availableUntil) return { error: "Available until date is required" };
+    if (availableUntil && availableFrom && availableUntil < availableFrom) {
+      return { error: "Available until cannot be before available from" };
+    }
+    if (!media.mainPhoto) return { error: "Main product photo is required" };
+  }
+
+  return {
+    productName,
+    cropId,
+    cropName,
+    variety,
+    unit: unit || "Kg",
+    grades,
+    availableQuantity: Number.isFinite(availableQuantity) ? availableQuantity : 0,
+    pricePerKg: Number.isFinite(pricePerKg) ? pricePerKg : 0,
+    minimumOrderQuantity: Number.isFinite(minimumOrderQuantity) && minimumOrderQuantity > 0 ? minimumOrderQuantity : 1,
+    harvestDate,
+    farmingType,
+    availableFrom,
+    availableUntil,
+    media,
+    lowStockLimit: Number(payload.lowStockLimit) > 0 ? Number(payload.lowStockLimit) : 10,
+  };
+}
+
+function applyProductFields(product, parsed, farmer, crop) {
+  product.productName = parsed.productName;
+  product.name = parsed.productName;
+  product.cropId = parsed.cropId || crop?.id || product.cropId || "";
+  product.cropName = parsed.cropName || crop?.cropName || product.cropName || "";
+  product.variety = parsed.variety || crop?.variety || product.variety || "";
+  product.unit = parsed.unit;
+  product.grades = parsed.grades;
+  product.availableQuantity = parsed.availableQuantity;
+  product.stock = parsed.availableQuantity;
+  product.gradeAQty = Number(parsed.grades[0]?.quantity) || 0;
+  product.gradeBQty = Number(parsed.grades[1]?.quantity) || 0;
+  product.pricePerKg = parsed.pricePerKg;
+  product.sellingPrice = parsed.pricePerKg;
+  product.minimumOrderQuantity = parsed.minimumOrderQuantity;
+  product.harvestDate = parsed.harvestDate;
+  product.farmingType = parsed.farmingType;
+  product.produceType = parsed.farmingType === "Conventional" ? "non-organic" : "organic";
+  product.availableFrom = parsed.availableFrom;
+  product.availableUntil = parsed.availableUntil;
+  product.media = parsed.media;
+  product.image = parsed.media.mainPhoto || "";
+  product.images = [parsed.media.mainPhoto, ...(parsed.media.cropPhotos || [])].filter(Boolean);
+  product.lowStockLimit = parsed.lowStockLimit;
+  product.farmId = product.farmId || farmer?.farm?.farmId || `farm-${farmer?.id || ""}`;
+  product.farmLocation = product.farmLocation || farmer?.farmLocation || farmer?.farmGeo?.farmAddress || "";
+  product.markModified("grades");
+  product.markModified("media");
+}
+
+export async function listMyProducts(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const farmer = await Farmer.findOne({ id: farmerId });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const products = await FarmerProduct.find({ farmerId }).sort({ createdAt: -1 });
+    const cropIds = [...new Set(products.map((p) => p.cropId).filter(Boolean))];
+    const crops = cropIds.length
+      ? await FarmerCrop.find({ farmerId, $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }] }).lean()
+      : [];
+    const cropMap = new Map(crops.map((c) => [c.id, c]));
+    crops.forEach((c) => cropMap.set(c.cropId, c));
+    res.json(products.map((p) => publicMyProduct(p, farmer, cropMap.get(p.cropId))));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load products" });
+  }
+}
+
+export async function getMyProduct(req, res) {
+  try {
+    const product = await loadOwnProduct(req, res);
+    if (!product) return;
+    const farmer = await Farmer.findOne({ id: product.farmerId });
+    const crop = product.cropId
+      ? await FarmerCrop.findOne({ farmerId: product.farmerId, $or: [{ id: product.cropId }, { cropId: product.cropId }] })
+      : null;
+    res.json(publicMyProduct(product, farmer, crop));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load product" });
+  }
+}
+
+export async function createMyProduct(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const farmer = await Farmer.findOne({ id: farmerId });
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const publish = Boolean(req.body?.publish);
+    const parsed = validateMyProductPayload(req.body || {}, { publish });
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    let crop = null;
+    if (parsed.cropId) {
+      crop = await FarmerCrop.findOne({ farmerId, $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }] });
+      if (!crop) return res.status(400).json({ message: "Selected crop was not found on your farm" });
+      parsed.cropId = crop.id;
+      parsed.cropName = parsed.cropName || crop.cropName;
+      parsed.variety = parsed.variety || crop.variety;
+    }
+
+    const id = `fp-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const status = publish ? "Pending Approval" : "Draft";
+    const product = new FarmerProduct({
+      id,
+      productId: id,
+      vendorId: farmer.vendorId,
+      managerId: farmer.managerId,
+      farmerId,
+      sku: `FRM-${farmerId.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      status,
+    });
+    applyProductFields(product, parsed, farmer, crop);
+    if (!publish) {
+      product.status = "Draft";
+    }
+    await product.save();
+    res.status(201).json(publicMyProduct(product, farmer, crop));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create product" });
+  }
+}
+
+export async function updateMyProduct(req, res) {
+  try {
+    const product = await loadOwnProduct(req, res);
+    if (!product) return;
+    const current = normalizeProductStatus(product.status);
+    if (current === "Pending Approval") {
+      return res.status(400).json({ message: "Product is pending approval and cannot be edited" });
+    }
+
+    const publish = Boolean(req.body?.publish);
+    const parsed = validateMyProductPayload({ ...toPlain(product), ...(req.body || {}), media: req.body?.media || product.media }, { publish });
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    const farmer = await Farmer.findOne({ id: product.farmerId });
+    let crop = null;
+    if (parsed.cropId) {
+      crop = await FarmerCrop.findOne({ farmerId: product.farmerId, $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }] });
+      if (!crop) return res.status(400).json({ message: "Selected crop was not found on your farm" });
+      parsed.cropId = crop.id;
+    }
+
+    applyProductFields(product, parsed, farmer, crop);
+    if (publish) {
+      product.status = "Pending Approval";
+    } else if (req.body?.status) {
+      const next = normalizeProductStatus(req.body.status);
+      if (next === "Pending Approval") {
+        const published = validateMyProductPayload({ ...toPlain(product), ...parsed, media: parsed.media }, { publish: true });
+        if (published.error) return res.status(400).json({ message: published.error });
+        product.status = "Pending Approval";
+      }
+    } else if (!LIFECYCLE_LOCKED.includes(current)) {
+      product.status = applyStockDrivenStatus(current, parsed.availableQuantity, parsed.lowStockLimit);
+    }
+    await product.save();
+    res.json(publicMyProduct(product, farmer, crop));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update product" });
+  }
+}
+
+export async function deleteMyProduct(req, res) {
+  try {
+    const product = await loadOwnProduct(req, res);
+    if (!product) return;
+    const status = normalizeProductStatus(product.status);
+    if (status !== "Draft") {
+      return res.status(400).json({ message: "Only draft products can be deleted" });
+    }
+    await FarmerProduct.deleteOne({ id: product.id, farmerId: product.farmerId });
+    await FarmerStockHistory.deleteMany({ productId: product.id, farmerId: product.farmerId });
+    res.json({ success: true, message: "Product deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete product" });
+  }
+}
+
+export async function patchMyProductPrice(req, res) {
+  try {
+    const product = await loadOwnProduct(req, res);
+    if (!product) return;
+    const status = normalizeProductStatus(product.status);
+    if (status === "Pending Approval") {
+      return res.status(400).json({ message: "Price cannot be updated while pending approval" });
+    }
+    const pricePerKg = Number(req.body?.pricePerKg ?? req.body?.sellingPrice);
+    if (!Number.isFinite(pricePerKg) || pricePerKg <= 0) {
+      return res.status(400).json({ message: "Selling price must be greater than 0" });
+    }
+    const nextGrades = req.body?.grades
+      ? normalizeProductGrades(req.body.grades).map((g, idx) => ({
+          ...(product.grades[idx] ? toPlain(product.grades[idx]) : {}),
+          ...g,
+          quantity: Number(product.grades[idx]?.quantity ?? g.quantity) || 0,
+        }))
+      : normalizeProductGrades(product.grades).map((g) => ({
+          ...g,
+          price: Number(req.body?.grades?.find?.((x) => x.grade === g.grade)?.price ?? g.price) || 0,
+        }));
+
+    product.priceHistory = [
+      ...(product.priceHistory || []),
+      { pricePerKg: product.pricePerKg || product.sellingPrice || 0, grades: normalizeProductGrades(product.grades), at: new Date() },
+    ].slice(-20);
+    product.pricePerKg = pricePerKg;
+    product.sellingPrice = pricePerKg;
+    if (req.body?.grades) {
+      product.grades = normalizeProductGrades(req.body.grades).map((g, idx) => ({
+        ...g,
+        quantity: Number(product.grades[idx]?.quantity ?? g.quantity) || 0,
+      }));
+      product.markModified("grades");
+    } else if (product.grades?.length) {
+      product.grades = product.grades.map((g) => {
+        const row = toPlain(g);
+        return { ...row, price: row.price || pricePerKg };
+      });
+      product.markModified("grades");
+    }
+    product.markModified("priceHistory");
+    await product.save();
+    const farmer = await Farmer.findOne({ id: product.farmerId });
+    res.json(publicMyProduct(product, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update price" });
+  }
+}
+
+export async function patchMyProductStock(req, res) {
+  try {
+    const product = await loadOwnProduct(req, res);
+    if (!product) return;
+    const status = normalizeProductStatus(product.status);
+    if (status === "Pending Approval") {
+      return res.status(400).json({ message: "Stock cannot be updated while pending approval" });
+    }
+
+    let grades = normalizeProductGrades(product.grades);
+    if (Array.isArray(req.body?.grades) && req.body.grades.length) {
+      grades = normalizeProductGrades(req.body.grades);
+    } else if (req.body?.availableQuantity != null) {
+      const qty = Number(req.body.availableQuantity);
+      if (!Number.isFinite(qty) || qty < 0) return res.status(400).json({ message: "Available quantity cannot be negative" });
+      if (grades.length) {
+        grades[0].quantity = qty;
+        grades = grades.map((g, idx) => (idx === 0 ? g : { ...g, quantity: 0 }));
+      } else {
+        grades = [{ id: "g-a", grade: "A", label: "Grade A", quantity: qty, price: product.pricePerKg || 0 }];
+      }
+    }
+    if (grades.some((g) => g.quantity < 0)) {
+      return res.status(400).json({ message: "Grade quantity cannot be negative" });
+    }
+
+    const previous = Number(product.availableQuantity || product.stock || 0);
+    const nextQty = totalGradeQty(grades);
+    product.grades = grades;
+    product.availableQuantity = nextQty;
+    product.stock = nextQty;
+    product.gradeAQty = Number(grades[0]?.quantity) || 0;
+    product.gradeBQty = Number(grades[1]?.quantity) || 0;
+    if (req.body?.lowStockLimit != null) {
+      const limit = Number(req.body.lowStockLimit);
+      if (!Number.isFinite(limit) || limit < 0) return res.status(400).json({ message: "Low stock threshold cannot be negative" });
+      product.lowStockLimit = limit;
+    }
+    if (req.body?.availableFrom) product.availableFrom = String(req.body.availableFrom);
+    if (req.body?.availableUntil) product.availableUntil = String(req.body.availableUntil);
+    if (req.body?.minimumOrderQuantity != null) {
+      const moq = Number(req.body.minimumOrderQuantity);
+      if (!Number.isFinite(moq) || moq <= 0) return res.status(400).json({ message: "Minimum order quantity must be greater than 0" });
+      product.minimumOrderQuantity = moq;
+    }
+    product.status = applyStockDrivenStatus(status, nextQty, product.lowStockLimit);
+    product.markModified("grades");
+    await product.save();
+
+    if (previous !== nextQty) {
+      await FarmerStockHistory.create({
+        id: `sh-${Date.now()}-${crypto.randomBytes(2).toString("hex")}`,
+        vendorId: product.vendorId,
+        managerId: product.managerId,
+        farmerId: product.farmerId,
+        productId: product.id,
+        productName: product.name,
+        grade: "All Grades",
+        action: nextQty > previous ? "Stock Added" : "Stock Reduced",
+        previousStock: previous,
+        changedQuantity: nextQty - previous,
+        newStock: nextQty,
+        reason: "Manual Update",
+        updatedBy: "Farmer",
+        reference: "STOCK",
+      });
+    }
+
+    const farmer = await Farmer.findOne({ id: product.farmerId });
+    res.json(publicMyProduct(product, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update stock" });
+  }
+}
+
+export async function patchMyProductStatus(req, res) {
+  try {
+    const product = await loadOwnProduct(req, res);
+    if (!product) return;
+    const current = normalizeProductStatus(product.status);
+    const next = normalizeProductStatus(req.body?.status);
+    const allowed = {
+      Draft: ["Draft", "Pending Approval"],
+      "Pending Approval": ["Pending Approval"],
+      Active: ["Active", "Paused"],
+      "Low Stock": ["Low Stock", "Paused", "Active"],
+      "Out of Stock": ["Out of Stock", "Paused"],
+      Paused: ["Paused", "Active"],
+    };
+    if (!(allowed[current] || []).includes(next)) {
+      return res.status(400).json({ message: `Cannot change status from ${current} to ${next}` });
+    }
+    if (next === "Pending Approval") {
+      const parsed = validateMyProductPayload({ ...toPlain(product), media: product.media }, { publish: true });
+      if (parsed.error) return res.status(400).json({ message: parsed.error });
+    }
+    if (next === "Active") {
+      product.status = applyStockDrivenStatus("Active", product.availableQuantity, product.lowStockLimit);
+    } else {
+      product.status = next;
+    }
+    await product.save();
+    const farmer = await Farmer.findOne({ id: product.farmerId });
+    res.json(publicMyProduct(product, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update status" });
+  }
+}
+
+const ORDER_STATUS_ALIASES = {
+  NEW: "NEW",
+  New: "NEW",
+  ACCEPTED: "ACCEPTED",
+  Accepted: "ACCEPTED",
+  Confirmed: "ACCEPTED",
+  PREPARING: "PREPARING",
+  Preparing: "PREPARING",
+  Processing: "PREPARING",
+  READY_FOR_PICKUP: "READY_FOR_PICKUP",
+  "Ready for Pickup": "READY_FOR_PICKUP",
+  PACKING: "PACKING",
+  Packing: "PACKING",
+  DRIVER_ASSIGNED: "DRIVER_ASSIGNED",
+  PICKUP_SCHEDULED: "DRIVER_ASSIGNED",
+  DISPATCHED: "DISPATCHED",
+  Dispatched: "DISPATCHED",
+  DRIVER_ARRIVED: "DRIVER_ARRIVED",
+  ARRIVED: "DRIVER_ARRIVED",
+  ORDER_VERIFIED: "ORDER_VERIFIED",
+  QR_VERIFIED: "QR_VERIFIED",
+  PICKUP_CONFIRMED: "PICKED_UP",
+  PICKED_UP: "PICKED_UP",
+  IN_TRANSIT: "IN_TRANSIT",
+  COLLECTION_CENTRE_RECEIVED: "COLLECTION_CENTRE_RECEIVED",
+  RECEIVED_AT_COLLECTION_CENTRE: "COLLECTION_CENTRE_RECEIVED",
+  COMPLETED: "COMPLETED",
+  Completed: "COMPLETED",
+  REJECTED: "REJECTED",
+  Rejected: "REJECTED",
+  CANCELLED: "CANCELLED",
+  Cancelled: "CANCELLED",
+};
+
+const ORDER_FILTERS = {
+  new: ["NEW"],
+  preparing: ["ACCEPTED", "PREPARING", "PACKING"],
+  ready: ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"],
+  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"],
+  rejected: ["REJECTED", "CANCELLED"],
+};
+
+const REJECTION_REASONS = [
+  "Stock Unavailable",
+  "Product Unavailable",
+  "Quality Issue",
+  "Pickup Issue",
+  "Quantity Issue",
+  "Other",
+];
+
+function normalizeOrderStatus(status) {
+  return ORDER_STATUS_ALIASES[status] || status || "NEW";
+}
+
+function productSellable(product) {
+  const physical = Number(product?.availableQuantity ?? product?.stock ?? 0);
+  const reserved = Number(product?.reservedQuantity || 0);
+  return Math.max(0, physical - reserved);
+}
+
+function flattenOrderFields(order) {
+  const plain = toPlain(order);
+  const first = plain.products?.[0] || {};
+  const orderedQuantity = Number(plain.orderedQuantity || first.quantity || plain.totalQuantity || 0);
+  const price = Number(plain.price || first.price || 0);
+  const orderValue = Number(plain.orderValue || first.total || plain.totalAmount || plain.amount || orderedQuantity * price);
+  return {
+    productId: plain.productId || first.id || first.productId || "",
+    productName: plain.productName || first.name || "",
+    variety: plain.variety || "",
+    grade: plain.grade || first.grade || "",
+    orderedQuantity,
+    unit: plain.unit || first.unit || "Kg",
+    price,
+    orderValue,
+  };
+}
+
+function publicMyOrder(order, extra = {}) {
+  const plain = toPlain(order);
+  const flat = flattenOrderFields(plain);
+  const status = normalizeOrderStatus(plain.status);
+  return {
+    ...plain,
+    ...flat,
+    orderId: plain.orderId || plain.id,
+    status,
+    customerName: plain.customer?.name || "Customer",
+    customerDeliveryArea: plain.customerDeliveryArea || plain.customer?.address || "",
+    requiredDate: plain.requiredDate || plain.harvestDate || "",
+    pickupDate: plain.pickupDate || "",
+    collectionCentre: plain.collectionCentre || "",
+    reservedQuantity: Number(plain.reservedQuantity || 0),
+    packedQuantity: Number(plain.packedQuantity || 0),
+    preparationStatus: plain.preparationStatus || (status === "NEW" ? "NOT_STARTED" : status === "READY_FOR_PICKUP" ? "READY_FOR_PICKUP" : status === "PACKING" ? "PACKING" : status === "PREPARING" || status === "ACCEPTED" ? "PREPARING" : "NOT_STARTED"),
+    packingDetails: plain.packingDetails || {},
+    qrPayload: extra.qrPayload || extra.pickup?.qrPayload || "",
+    ...extra,
+  };
+}
+
+async function loadOwnOrder(req, res) {
+  const farmerId = authFarmerId(req);
+  const orderId = req.params.orderId;
+  const order = await FarmerOrder.findOne({
+    farmerId,
+    $or: [{ id: orderId }, { orderId }],
+  });
+  if (!order) {
+    res.status(404).json({ message: "Order not found" });
+    return null;
+  }
+  return order;
+}
+
+function pushOrderTimeline(order, status, note) {
+  order.timeline = [...(order.timeline || []), { status, at: new Date(), note }];
+}
+
+async function loadOrderProduct(order) {
+  const flat = flattenOrderFields(order);
+  if (!flat.productId) return null;
+  return FarmerProduct.findOne({
+    farmerId: order.farmerId,
+    $or: [{ id: flat.productId }, { productId: flat.productId }],
+  });
+}
+
+async function enrichOwnOrder(order, farmer) {
+  const product = await loadOrderProduct(order);
+  const sellable = productSellable(product);
+  const pickup = await Pickup.findOne({
+    $or: [{ orderId: order.id }, { orderId: order.orderId }],
+  }).lean();
+  return publicMyOrder(order, {
+    farmerName: farmer?.name || "",
+    harvestDate: order.harvestDate || product?.harvestDate || "",
+    availableStock: sellable,
+    productStock: product
+      ? {
+          productId: product.id,
+          productName: product.productName || product.name,
+          availableQuantity: Number(product.availableQuantity ?? product.stock ?? 0),
+          reservedQuantity: Number(product.reservedQuantity || 0),
+          sellableQuantity: sellable,
+          unit: product.unit || "Kg",
+        }
+      : null,
+    pickup: pickup
+      ? {
+          pickupId: pickup.pickupId || pickup.id,
+          status: pickup.status,
+          driverStatus: pickup.driverStatus || "",
+          driverId: pickup.driverId || "",
+          driverName: pickup.driverName || "",
+          driverMobile: pickup.driverMobile || "",
+          vehicleNumber: pickup.vehicleNumber || "",
+          pickupDate: pickup.pickupDate || pickup.scheduledDate || "",
+          pickupTime: pickup.pickupTime || pickup.scheduledTime || "",
+          pickupLocation: pickup.pickupLocation || "",
+          packageCount: pickup.packageCount || 0,
+          packedQuantity: pickup.packedQuantity || 0,
+          collectionCentreId: pickup.collectionCentreId || "",
+          pickupConfirmed: Boolean(pickup.pickupConfirmed),
+          assignedAt: pickup.assignedAt || null,
+          dispatchStartedAt: pickup.dispatchStartedAt || pickup.startedAt || null,
+          arrivedAt: pickup.arrivedAt || null,
+          orderVerifiedAt: pickup.orderVerifiedAt || null,
+          qrVerifiedAt: pickup.qrVerifiedAt || null,
+          pickupConfirmedAt: pickup.pickupConfirmedAt || null,
+          pickupInstructions: pickup.pickupInstructions || "",
+          qrPayload: pickup.qrPayload || "",
+          timeline: pickup.timeline || [],
+        }
+      : null,
+    qrPayload: pickup?.qrPayload || "",
+  });
+}
+
+export async function listMyOrders(req, res) {
+  try {
+    const farmerId = authFarmerId(req);
+    const filter = String(req.query.filter || "").toLowerCase();
+    const q = String(req.query.q || "").trim().toLowerCase();
+    const orders = await FarmerOrder.find({ farmerId }).sort({ createdAt: -1 });
+    const farmer = await Farmer.findOne({ id: farmerId }).select("name farmName farmLocation").lean();
+    let rows = [];
+    for (const order of orders) {
+      const status = normalizeOrderStatus(order.status);
+      if (filter && ORDER_FILTERS[filter] && !ORDER_FILTERS[filter].includes(status)) continue;
+      const row = await enrichOwnOrder(order, farmer);
+      if (q) {
+        const hay = `${row.orderId} ${row.productName} ${row.customerName} ${row.variety}`.toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      rows.push(row);
+    }
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load orders" });
+  }
+}
+
+export async function getMyOrder(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    res.json(await enrichOwnOrder(order, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load order" });
+  }
+}
+
+export async function acceptMyOrder(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const current = normalizeOrderStatus(order.status);
+    if (current !== "NEW") {
+      return res.status(400).json({ message: "Only new orders can be accepted" });
+    }
+
+    const flat = flattenOrderFields(order);
+    const qty = Number(flat.orderedQuantity || 0);
+    if (!(qty > 0)) return res.status(400).json({ message: "Ordered quantity is invalid" });
+
+    const product = await loadOrderProduct(order);
+    if (!product) {
+      return res.status(400).json({ message: "Ordered product was not found on your farm" });
+    }
+
+    const gradeTotal = (product.grades || []).reduce((sum, g) => sum + Number(g.quantity || 0), 0);
+    const physical = Math.max(Number(product.availableQuantity || 0), Number(product.stock || 0), gradeTotal);
+    if (physical !== Number(product.availableQuantity || 0)) {
+      product.availableQuantity = physical;
+      product.stock = physical;
+      await product.save();
+    }
+
+    const updated = await FarmerProduct.findOneAndUpdate(
+      {
+        _id: product._id,
+        farmerId: order.farmerId,
+        $expr: {
+          $gte: [
+            { $subtract: [{ $ifNull: ["$availableQuantity", 0] }, { $ifNull: ["$reservedQuantity", 0] }] },
+            qty,
+          ],
+        },
+      },
+      { $inc: { reservedQuantity: qty } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(400).json({ message: "Insufficient available stock for this order." });
+    }
+
+    try {
+      order.status = "PREPARING";
+      order.reservedQuantity = qty;
+      order.productId = flat.productId || product.id;
+      order.productName = flat.productName || product.productName || product.name;
+      order.variety = order.variety || product.variety || "";
+      order.grade = flat.grade;
+      order.orderedQuantity = qty;
+      order.price = flat.price;
+      order.orderValue = flat.orderValue;
+      order.unit = flat.unit;
+      order.acceptedAt = new Date();
+      order.preparationStatus = "PREPARING";
+      order.preparedAt = new Date();
+      if (!order.qrToken) order.qrToken = crypto.randomBytes(12).toString("hex");
+      pushOrderTimeline(order, "ACCEPTED", "Order accepted. Stock reserved.");
+      pushOrderTimeline(order, "PREPARING", "Preparation started.");
+      await order.save();
+    } catch (saveErr) {
+      await FarmerProduct.updateOne({ _id: product._id }, { $inc: { reservedQuantity: -qty } });
+      throw saveErr;
+    }
+
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    res.json(await enrichOwnOrder(order, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to accept order" });
+  }
+}
+
+export async function rejectMyOrder(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const current = normalizeOrderStatus(order.status);
+    if (current !== "NEW") {
+      return res.status(400).json({ message: "Only new orders can be rejected" });
+    }
+    const reason = String(req.body?.rejectionReason || "").trim();
+    const note = String(req.body?.rejectionNote || "").trim();
+    if (!REJECTION_REASONS.includes(reason)) {
+      return res.status(400).json({ message: "Select a valid rejection reason" });
+    }
+    if (reason === "Other" && !note) {
+      return res.status(400).json({ message: "Enter the other rejection reason" });
+    }
+
+    order.status = "REJECTED";
+    order.rejectionReason = reason;
+    order.rejectionNote = note;
+    order.rejectedBy = "FARMER";
+    order.rejectedAt = new Date();
+    pushOrderTimeline(order, "REJECTED", `${reason}${note ? ` — ${note}` : ""}`);
+    await order.save();
+
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    res.json(await enrichOwnOrder(order, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to reject order" });
+  }
+}
+
+export async function prepareMyOrder(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const current = normalizeOrderStatus(order.status);
+    if (!["ACCEPTED", "PREPARING", "PACKING"].includes(current)) {
+      return res.status(400).json({ message: "Order must be accepted before preparation" });
+    }
+    order.status = "PREPARING";
+    order.preparationStatus = "PREPARING";
+    order.preparedAt = order.preparedAt || new Date();
+    if (req.body?.packedQuantity != null) {
+      const packed = Number(req.body.packedQuantity);
+      const cap = Number(order.reservedQuantity || flattenOrderFields(order).orderedQuantity || 0);
+      if (!Number.isFinite(packed) || packed < 0) {
+        return res.status(400).json({ message: "Packed quantity cannot be negative" });
+      }
+      if (packed > cap) {
+        return res.status(400).json({ message: "Packed quantity cannot exceed the reserved quantity" });
+      }
+      order.packedQuantity = packed;
+    }
+    pushOrderTimeline(order, "PREPARING", req.body?.note || "Preparation updated.");
+    await order.save();
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    res.json(await enrichOwnOrder(order, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update preparation" });
+  }
+}
+
+export async function packMyOrder(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const current = normalizeOrderStatus(order.status);
+    if (!["ACCEPTED", "PREPARING", "PACKING"].includes(current)) {
+      return res.status(400).json({ message: "Packing can be added after the order is accepted" });
+    }
+    const packedQuantity = Number(req.body?.packedQuantity ?? order.packedQuantity ?? 0);
+    const cap = Number(order.reservedQuantity || flattenOrderFields(order).orderedQuantity || 0);
+    if (!Number.isFinite(packedQuantity) || packedQuantity < 0) {
+      return res.status(400).json({ message: "Packed quantity cannot be negative" });
+    }
+    if (packedQuantity > cap) {
+      return res.status(400).json({ message: "Packed quantity cannot exceed the reserved quantity" });
+    }
+    const details = req.body?.packingDetails || req.body || {};
+    order.packedQuantity = packedQuantity;
+    order.packingDetails = {
+      packageCount: Number(details.packageCount || 0),
+      packageType: String(details.packageType || "").trim(),
+      packageWeight: Number(details.packageWeight || 0),
+      packingDate: String(details.packingDate || "").trim(),
+      notes: String(details.notes || details.packingNotes || "").trim(),
+    };
+    order.status = "PACKING";
+    order.preparationStatus = "PACKING";
+    order.markModified("packingDetails");
+    pushOrderTimeline(order, "PACKING", "Packing details saved.");
+    await order.save();
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    res.json(await enrichOwnOrder(order, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to save packing details" });
+  }
+}
+
+export async function readyMyOrder(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const current = normalizeOrderStatus(order.status);
+    if (!["PREPARING", "PACKING", "ACCEPTED"].includes(current)) {
+      return res.status(400).json({ message: "Order must be in preparation before marking ready for pickup" });
+    }
+    const packed = Number(order.packedQuantity || req.body?.packedQuantity || 0);
+    const cap = Number(order.reservedQuantity || flattenOrderFields(order).orderedQuantity || 0);
+    if (!(packed > 0)) {
+      return res.status(400).json({ message: "Add packing details and packed quantity before marking ready" });
+    }
+    if (packed > cap) {
+      return res.status(400).json({ message: "Packed quantity cannot exceed the reserved quantity" });
+    }
+    order.status = "READY_FOR_PICKUP";
+    order.preparationStatus = "READY_FOR_PICKUP";
+    order.readyForPickupAt = new Date();
+    pushOrderTimeline(order, "READY_FOR_PICKUP", "Order marked ready for pickup.");
+    await order.save();
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    await ensurePickupForOrder(order, farmer);
+    res.json(await enrichOwnOrder(order, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to mark order ready for pickup" });
+  }
+}
+
 export async function updateFarmerPassword(req, res) {
   try {
     const { farmerId } = req.params;
@@ -1144,6 +2435,8 @@ export async function createFarmerProduct(req, res) {
       harvestDate: payload.harvestDate || new Date().toISOString().split("T")[0],
       produceType: payload.produceType || "organic",
       farmLocation: payload.farmLocation || farmer.farmLocation || "",
+      cropId: payload.cropId || "",
+      variety: payload.variety || "",
       status: payload.status || "Approved",
       sellingPrice: Number(payload.sellingPrice) || 0,
       mrp: Number(payload.mrp) || 0,
@@ -1607,6 +2900,8 @@ export async function createFarmerOrder(req, res) {
 
     await order.save();
 
+    const createdAsNew = ["NEW", "New"].includes(String(status));
+    if (!createdAsNew) {
     // Deduct stock from FarmerProduct grades if available
     for (const item of products || []) {
       const prodId = item.id || item.productId;
@@ -1640,6 +2935,7 @@ export async function createFarmerOrder(req, res) {
           }).catch(() => {});
         }
       }
+    }
     }
 
     // Create Farmer Earning entry

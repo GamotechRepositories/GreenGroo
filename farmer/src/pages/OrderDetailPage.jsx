@@ -1,19 +1,16 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getOrderById, updateOrderStatus } from "../api/farmerApi";
+import { acceptMyOrder, getMyOrder, rejectMyOrder } from "../api/farmerApi";
+import PickupTimeline from "../components/pickup/PickupTimeline";
+import { usePolling } from "../hooks/usePolling";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
+import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
-
-const ACTIONS = [
-  { label: "Accept Order", status: "Confirmed", from: ["New"] },
-  { label: "Reject Order", status: "Cancelled", from: ["New"], danger: true },
-  { label: "Mark Processing", status: "Processing", from: ["Confirmed"] },
-  { label: "Mark Ready for Pickup", status: "Ready for Pickup", from: ["Processing"] },
-  { label: "Cancel Order", status: "Cancelled", from: ["Confirmed", "Processing"], danger: true },
-];
-
+import RejectOrderModal from "../components/orders/RejectOrderModal";
+import OrderQrCode from "../components/orders/OrderQrCode";
+import { canAccept, canPrepare, canReject, formatMoney, formatOrderDate } from "../utils/orderDisplay";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -29,138 +26,210 @@ function OrderDetailPage() {
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [pendingStatus, setPendingStatus] = useState(null);
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const load = async () => {
-    try {
-      setOrder(await getOrderById(id));
-    } catch (err) {
-      toast.error(err.message || "Order not found");
-      navigate("/farmer/orders");
-    } finally {
-      setLoading(false);
-    }
-  };
+  usePolling(() => {
+    getMyOrder(id)
+      .then((data) => {
+        setOrder(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [id], 5000);
 
-  useEffect(() => {
-    load();
-  }, [id]);
+  if (loading) return <LoadingState rows={8} />;
+  if (!order) {
+    return (
+      <EmptyState
+        title="Order not found"
+        description="This order may not belong to your farm."
+        action={
+          <Link to="/farmer/orders/new" className={EXCEL_BTN_PRIMARY}>
+            Back to New Orders
+          </Link>
+        }
+      />
+    );
+  }
 
-  if (loading) return <LoadingState />;
-  if (!order) return null;
-
-  const availableActions = ACTIONS.filter((a) => a.from.includes(order.status));
+  const stock = order.productStock;
+  const sellable = order.availableStock ?? stock?.sellableQuantity ?? 0;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className={EXCEL_PAGE_TITLE}>Order {order.id}</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <StatusBadge status={order.status} />
-            <span className="text-xs text-[#6B7280]">
-              {new Date(order.orderDate).toLocaleString("en-IN")}
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {availableActions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => setPendingStatus(action)}
-              className={action.danger ? EXCEL_BTN_DANGER : EXCEL_BTN_PRIMARY}
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className={EXCEL_PANEL}>
-          <h2 className={EXCEL_PANEL_HEAD}>Customer details</h2>
-          <div className="space-y-1 p-3 text-xs">
-          <p>{order.customer.name}</p>
-          <p className="text-[#6B7280]">{order.customer.mobile}</p>
-          <p className="text-[#6B7280]">{order.customer.email}</p>
-          <h3 className="pt-2 font-bold">Delivery address</h3>
-          <p className="text-[#6B7280]">{order.address}</p>
-          <p className="pt-1">
-            Delivery type: <strong>{order.deliveryType}</strong>
+          <h1 className={EXCEL_PAGE_TITLE}>Order {order.orderId || order.id}</h1>
+          <p className={EXCEL_PAGE_SUB}>
+            {order.productName} • {order.variety || "—"} • {order.grade || "—"}
           </p>
-          </div>
-        </section>
-
-        <section className={EXCEL_PANEL}>
-          <h2 className={EXCEL_PANEL_HEAD}>Ordered products</h2>
-          <ul className="divide-y divide-[#D4D4D4] p-0">
-            {order.products.map((p) => (
-              <li key={p.productId} className="flex justify-between border border-[#D4D4D4] px-2 py-1.5 text-xs">
-                <span>
-                  {p.name} × {p.quantity}
-                </span>
-                <span className="font-semibold">₹{p.price * p.quantity}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="border-t border-[#D4D4D4] p-2 text-right text-xs font-bold">
-            Total: ₹{order.amount}
-          </p>
-        </section>
+        </div>
+        <StatusBadge status={order.status} />
       </div>
 
       <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>Order timeline</h2>
-        <ol className="space-y-0 p-0">
-          {order.timeline.map((item, idx) => (
-            <li key={`${item.status}-${idx}`} className="flex gap-2 border-b border-[#D4D4D4] px-2 py-1.5 text-xs">
-              <span className="mt-0.5 h-2 w-2 shrink-0 bg-[#217346]" />
-              <div>
-                <p className="font-semibold">
-                  {item.status}{" "}
-                  <span className="font-normal text-[#6B7280]">
-                    · {new Date(item.at).toLocaleString("en-IN")}
-                  </span>
-                </p>
-                <p className="text-[#6B7280]">{item.note}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <h2 className={EXCEL_PANEL_HEAD}>Order Details</h2>
+        <div className="grid gap-3 p-3 text-xs sm:grid-cols-2">
+          <Info label="Order ID" value={order.orderId || order.id} />
+          <Info label="Product" value={order.productName} />
+          <Info label="Variety" value={order.variety} />
+          <Info label="Grade" value={order.grade} />
+          <Info label="Quantity" value={`${order.orderedQuantity} ${order.unit}`} />
+          <Info label="Price" value={formatMoney(order.price)} />
+          <Info label="Order Value" value={formatMoney(order.orderValue)} />
+          <Info label="Customer" value={order.customerName} />
+          <Info label="Customer Delivery Area" value={order.customerDeliveryArea} />
+          <Info label="Required Date" value={formatOrderDate(order.requiredDate)} />
+          <Info label="Pickup Date" value={formatOrderDate(order.pickupDate)} />
+          <Info label="Collection Centre" value={order.collectionCentre} />
+          <Info label="Order Status" value={order.status} />
+        </div>
       </section>
 
+      {order.pickup ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Pickup Details</h2>
+          <div className="grid gap-3 p-3 text-xs sm:grid-cols-2">
+            <Info label="Order ID" value={order.orderId || order.id} />
+            <Info label="Product" value={order.productName} />
+            <Info label="Variety" value={order.variety} />
+            <Info label="Grade" value={order.grade} />
+            <Info label="Ordered Quantity" value={`${order.orderedQuantity} ${order.unit}`} />
+            <Info label="Packed Quantity" value={`${order.pickup.packedQuantity || order.packedQuantity || 0} ${order.unit}`} />
+            <Info label="Number of Packages" value={order.pickup.packageCount || order.packingDetails?.packageCount || 0} />
+            <Info label="Pickup Date" value={formatOrderDate(order.pickup.pickupDate || order.pickupDate)} />
+            <Info label="Pickup Time" value={order.pickup.pickupTime || "—"} />
+            <Info label="Pickup Location" value={order.pickup.pickupLocation} />
+            <Info label="Collection Centre" value={order.collectionCentre} />
+            <Info label="Pickup Status" value={order.pickup.status} />
+            <Info label="Assigned Driver" value={order.pickup.driverName || "Not assigned"} />
+            <Info label="Driver Name" value={order.pickup.driverName} />
+            <Info label="Vehicle Number" value={order.pickup.vehicleNumber} />
+            <Info label="Pickup Date/Time" value={`${formatOrderDate(order.pickup.pickupDate || order.pickupDate)} ${order.pickup.pickupTime || ""}`.trim()} />
+          </div>
+          <div className="px-3 pb-3">
+            <PickupTimeline status={order.pickup.status || order.status} />
+          </div>
+        </section>
+      ) : null}
+
+      {order.pickup ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Driver Details</h2>
+          <div className="grid gap-3 p-3 text-xs sm:grid-cols-2">
+            <Info label="Assigned Driver" value={order.pickup.driverName || "Not assigned"} />
+            <Info label="Driver Name" value={order.pickup.driverName} />
+            <Info label="Driver Mobile" value={order.pickup.driverMobile} />
+            <Info label="Vehicle Number" value={order.pickup.vehicleNumber} />
+            <Info label="Driver Status" value={order.pickup.driverStatus || order.pickup.status} />
+          </div>
+          <p className="px-3 pb-3 text-[11px] text-[#6B7280]">You can view driver and pickup status. You cannot assign a driver or confirm pickup.</p>
+        </section>
+      ) : null}
+
+      <section className={EXCEL_PANEL}>
+        <h2 className={EXCEL_PANEL_HEAD}>Available Stock</h2>
+        <div className="grid gap-3 p-3 text-xs sm:grid-cols-3">
+          <Info label="Physical Stock" value={`${stock?.availableQuantity ?? "—"} ${order.unit}`} />
+          <Info label="Reserved" value={`${stock?.reservedQuantity ?? order.reservedQuantity ?? 0} ${order.unit}`} />
+          <Info label="Available to Sell" value={`${sellable} ${order.unit}`} />
+        </div>
+        {canAccept(order.status) && sellable < Number(order.orderedQuantity) ? (
+          <p className="px-3 pb-3 text-xs font-semibold text-[#DC2626]">Insufficient available stock for this order.</p>
+        ) : null}
+      </section>
+
+      {order.pickup?.qrPayload || order.qrPayload ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Farmer QR</h2>
+          <div className="p-3">
+            <p className="mb-2 text-[11px] text-[#6B7280]">Show this QR to the driver at pickup. It identifies this farmer, order, and pickup without storing personal data in the code.</p>
+            <OrderQrCode value={order.pickup?.qrPayload || order.qrPayload} />
+          </div>
+        </section>
+      ) : null}
+
+      {order.status === "REJECTED" ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Rejection</h2>
+          <div className="grid gap-3 p-3 text-xs sm:grid-cols-2">
+            <Info label="Reason" value={order.rejectionReason} />
+            <Info label="Note" value={order.rejectionNote} />
+          </div>
+        </section>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {canAccept(order.status) ? (
+          <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => setAcceptOpen(true)}>
+            Accept Order
+          </button>
+        ) : null}
+        {canReject(order.status) ? (
+          <button type="button" className={EXCEL_BTN_DANGER} onClick={() => setRejectOpen(true)}>
+            Reject Order
+          </button>
+        ) : null}
+        {canPrepare(order.status) ? (
+          <Link to={`/farmer/orders/${id}/prepare`} className={EXCEL_BTN_PRIMARY}>
+            Order Preparation
+          </Link>
+        ) : null}
+        <Link to="/farmer/orders/new" className={EXCEL_BTN}>
+          Back
+        </Link>
+      </div>
+
       <ConfirmDialog
-        open={Boolean(pendingStatus)}
-        title={pendingStatus?.label || "Update status"}
-        message={
-          pendingStatus?.status === "Ready for Pickup"
-            ? "This will notify the delivery/operations system that the order is ready."
-            : `Change order status to "${pendingStatus?.status}"?`
-        }
-        confirmLabel="Confirm"
-        danger={pendingStatus?.danger}
+        open={acceptOpen}
+        title="Accept order?"
+        message={`Confirm acceptance of this ${order.productName || "product"} order?`}
+        confirmLabel="Confirm Accept"
         loading={busy}
-        onClose={() => setPendingStatus(null)}
+        onClose={() => setAcceptOpen(false)}
         onConfirm={async () => {
           setBusy(true);
           try {
-            const updated = await updateOrderStatus(order.id, pendingStatus.status);
-            setOrder(updated);
-            toast.success(
-              pendingStatus.status === "Ready for Pickup"
-                ? "Marked ready — delivery notified"
-                : "Order updated"
-            );
-            setPendingStatus(null);
+            setOrder(await acceptMyOrder(id));
+            toast.success("Order accepted. Stock reserved.");
+            setAcceptOpen(false);
+            navigate(`/farmer/orders/${id}/prepare`);
           } catch (err) {
-            toast.error(err.message || "Update failed");
+            toast.error(err.message || "Insufficient available stock.");
           } finally {
             setBusy(false);
           }
         }}
       />
+
+      <RejectOrderModal
+        open={rejectOpen}
+        loading={busy}
+        onClose={() => setRejectOpen(false)}
+        onConfirm={async (payload) => {
+          setBusy(true);
+          try {
+            setOrder(await rejectMyOrder(id, payload));
+            toast.success("Order rejected");
+            setRejectOpen(false);
+          } catch (err) {
+            toast.error(err.message || "Failed to reject order");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+function Info({ label, value }) {
+  return (
+    <div>
+      <p className="font-semibold text-[#6B7280]">{label}</p>
+      <p className="mt-0.5 font-semibold text-[#1F2937]">{value || "—"}</p>
     </div>
   );
 }

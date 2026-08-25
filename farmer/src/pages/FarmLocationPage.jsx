@@ -116,7 +116,7 @@ function FarmLocationPage() {
       const data = await confirmFarmLocation(locationPayload());
       dispatch(setFarmerProfile(data));
       toast.success("Farm location confirmed");
-      navigate("/farmer/products");
+      navigate("/farmer/crops");
     } catch (err) {
       toast.error(err.message || "Failed to confirm location");
     } finally {

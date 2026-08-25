@@ -208,6 +208,53 @@ export async function confirmFarmLocation(payload) {
   });
 }
 
+export async function getCrops() {
+  return apiFetch("/api/farmer/crops", { headers: authHeaders() });
+}
+
+export async function getCrop(cropId) {
+  return apiFetch(`/api/farmer/crops/${cropId}`, { headers: authHeaders() });
+}
+
+export async function createCrop(payload) {
+  return apiFetch("/api/farmer/crops", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCrop(cropId, payload) {
+  return apiFetch(`/api/farmer/crops/${cropId}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCrop(cropId) {
+  return apiFetch(`/api/farmer/crops/${cropId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
+
+export async function getCropPlans() {
+  return apiFetch("/api/farmer/crop-plans", { headers: authHeaders() });
+}
+
+export async function getCropPlan(planId) {
+  return apiFetch(`/api/farmer/crop-plans/${planId}`, { headers: authHeaders() });
+}
+
+export async function updateCropPlan(planId, payload) {
+  return apiFetch(`/api/farmer/crop-plans/${planId}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function changeFarmerPassword({ currentPassword, newPassword }) {
   if (!currentPassword || String(newPassword || "").length < 6) {
     throw new Error("Password must be at least 6 characters");
@@ -412,6 +459,61 @@ export async function deleteProduct(id) {
   });
 }
 
+export async function getMyProducts() {
+  return apiFetch("/api/farmer/products", { headers: authHeaders() });
+}
+
+export async function getMyProduct(productId) {
+  return apiFetch(`/api/farmer/products/${productId}`, { headers: authHeaders() });
+}
+
+export async function createMyProduct(payload) {
+  return apiFetch("/api/farmer/products", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateMyProduct(productId, payload) {
+  return apiFetch(`/api/farmer/products/${productId}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMyProduct(productId) {
+  return apiFetch(`/api/farmer/products/${productId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
+
+export async function updateMyProductPrice(productId, payload) {
+  return apiFetch(`/api/farmer/products/${productId}/price`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateMyProductStock(productId, payload) {
+  return apiFetch(`/api/farmer/products/${productId}/stock`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateMyProductStatus(productId, status) {
+  return apiFetch(`/api/farmer/products/${productId}/status`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+}
+
 export async function getInventory() {
   const farmerId = getActiveFarmerId();
   return apiFetch(`/api/farmers/${farmerId}/inventory`);
@@ -444,6 +546,58 @@ export async function getStockHistory(productId) {
     newStock: entry.newStock ?? entry.stockAfter,
     previousStock: entry.previousStock ?? (entry.newStock - (entry.changedQuantity || 0)),
   }));
+}
+
+export async function getMyOrders({ filter = "", q = "" } = {}) {
+  const params = new URLSearchParams();
+  if (filter) params.set("filter", filter);
+  if (q) params.set("q", q);
+  const query = params.toString();
+  return apiFetch(`/api/farmer/orders${query ? `?${query}` : ""}`, { headers: authHeaders() });
+}
+
+export async function getMyOrder(orderId) {
+  return apiFetch(`/api/farmer/orders/${orderId}`, { headers: authHeaders() });
+}
+
+export async function acceptMyOrder(orderId) {
+  return apiFetch(`/api/farmer/orders/${orderId}/accept`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({}),
+  });
+}
+
+export async function rejectMyOrder(orderId, payload) {
+  return apiFetch(`/api/farmer/orders/${orderId}/reject`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function prepareMyOrder(orderId, payload = {}) {
+  return apiFetch(`/api/farmer/orders/${orderId}/prepare`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function packMyOrder(orderId, payload) {
+  return apiFetch(`/api/farmer/orders/${orderId}/packing`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function readyMyOrder(orderId) {
+  return apiFetch(`/api/farmer/orders/${orderId}/ready-for-pickup`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({}),
+  });
 }
 
 export async function getOrders({ status = "", q = "" } = {}) {
@@ -716,6 +870,62 @@ export async function deleteManagerFarmerOrder(farmerId, orderId) {
     throw err;
   }
 }
+
+export async function getManagerPickups({ filter = "requests" } = {}) {
+  const params = new URLSearchParams();
+  if (filter) params.set("filter", filter);
+  return apiFetch(`/api/farmer-manager/pickups?${params.toString()}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerPickup(pickupId) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function verifyManagerPickupQr(pickupId, payload) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}/verify-qr`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmManagerPickup(pickupId, payload = {}) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}/confirm`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getManagerDrivers({ q = "", status = "" } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  return apiFetch(`/api/farmer-manager/drivers?${params.toString()}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function assignManagerPickup(pickupId, driverId) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}/assign`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify({ driverId }),
+  });
+}
+
+export async function reassignManagerPickup(pickupId, driverId) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}/reassign`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify({ driverId }),
+  });
+}
+
 
 
 
