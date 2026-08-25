@@ -13,7 +13,7 @@ function DataTable({
   if (!rows?.length) {
     return (
       <div
-        className={`${embedded ? "border-t border-[#D4D4D4]" : EXCEL_WRAP} px-3 py-8 text-center text-xs text-[#6B7280]`}
+        className={`${embedded ? "border-t border-slate-100" : EXCEL_WRAP} px-4 py-10 text-center text-sm text-slate-500`}
       >
         {emptyMessage}
       </div>
@@ -21,10 +21,10 @@ function DataTable({
   }
 
   const cellClass = compact
-    ? "border border-[#D4D4D4] px-1 py-0.5 text-[10px] leading-tight text-[#1F2937]"
+    ? "border-b border-slate-100 px-2 py-1.5 text-xs leading-tight text-slate-700"
     : EXCEL_CELL;
   const headClass = compact
-    ? "border border-[#D4D4D4] bg-[#F2F2F2] px-1 py-0.5 text-[10px] font-semibold leading-tight text-[#1F2937]"
+    ? "border-b border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
     : EXCEL_HEAD;
 
   const handleRowClick = (row, event) => {
@@ -34,7 +34,7 @@ function DataTable({
   };
 
   const table = (
-    <table className={`${EXCEL_TABLE} ${compact ? "table-fixed w-full" : ""}`}>
+    <table className={`${EXCEL_TABLE} ${compact ? "table-fixed w-full min-w-0" : ""}`}>
       <thead>
         <tr>
           {columns.map((col) => (
@@ -53,8 +53,8 @@ function DataTable({
           <tr
             key={row[keyField]}
             onClick={(event) => handleRowClick(row, event)}
-            className={`hover:bg-[#F9F9F9] ${onRowClick ? "cursor-pointer" : ""} ${
-              selectedRowId && row[keyField] === selectedRowId ? "bg-[#E8F5E9]" : ""
+            className={`transition hover:bg-emerald-50/40 ${onRowClick ? "cursor-pointer" : ""} ${
+              selectedRowId && row[keyField] === selectedRowId ? "bg-emerald-50" : ""
             }`}
           >
             {columns.map((col) => (

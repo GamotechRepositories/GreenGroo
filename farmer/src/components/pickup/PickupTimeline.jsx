@@ -24,8 +24,8 @@ export default function PickupTimeline({ status }) {
         return (
           <li
             key={step}
-            className={`border px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wide ${
-              done ? "border-[#217346] bg-[#E8F5E9] text-[#217346]" : "border-[#D4D4D4] bg-[#F9FAFB] text-[#6B7280]"
+            className={`rounded-xl border px-2 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide ${
+              done ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-500"
             }`}
           >
             {step.replace(/_/g, " ")}

@@ -20,8 +20,8 @@ function FarmerRegistrationSuccessPage() {
   const farmerId = farmer.farmerId || farmer.id;
 
   return (
-    <div className="farmer-panel flex min-h-screen items-center justify-center bg-white px-4">
-      <div className={`w-full max-w-md ${EXCEL_PANEL} p-5 text-center`}>
+    <div className="farmer-panel farmer-auth-shell flex min-h-dvh items-center justify-center px-4 py-8">
+      <div className={`w-full max-w-md ${EXCEL_PANEL} p-5 text-center sm:p-7`}>
         <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">Registration Success</p>
         <h1 className={`mt-2 ${EXCEL_PAGE_TITLE}`}>Farmer account created</h1>
         <p className={`mt-1 ${EXCEL_PAGE_SUB}`}>

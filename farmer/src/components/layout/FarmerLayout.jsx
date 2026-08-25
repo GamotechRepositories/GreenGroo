@@ -41,12 +41,16 @@ function FarmerLayout() {
     }
   }, [token, role, isManager, location.pathname, navigate]);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
   if (!token) {
     return <Navigate to="/farmer/login" replace />;
   }
 
   return (
-    <div className="farmer-panel flex min-h-screen bg-white text-[#1F2937]">
+    <div className="farmer-panel flex min-h-dvh bg-[#f3f6f4] text-slate-900">
       <FarmerSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <FarmerHeader
@@ -54,7 +58,7 @@ function FarmerLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
-        <main className="farmer-scrollbar flex-1 bg-white p-3 lg:p-4">
+        <main className="farmer-scrollbar flex-1 overflow-x-hidden p-3 sm:p-5 lg:p-6">
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>

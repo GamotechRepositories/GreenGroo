@@ -20,23 +20,23 @@ function Modal({ open, title, onClose, children, footer, size = "md" }) {
   const width = size === "lg" ? "max-w-2xl" : size === "sm" ? "max-w-md" : "max-w-lg";
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
         aria-label="Close dialog"
         onClick={onClose}
       />
-      <div className={`relative w-full ${width} ${EXCEL_PANEL}`} role="dialog" aria-modal="true">
-        <div className={`${EXCEL_PANEL_HEAD} flex items-center justify-between`}>
-          <h3 className="text-xs font-semibold">{title}</h3>
-          <button type="button" onClick={onClose} className={EXCEL_BTN} aria-label="Close">
+      <div className={`relative w-full ${width} ${EXCEL_PANEL} rounded-t-2xl sm:rounded-2xl`} role="dialog" aria-modal="true">
+        <div className={`${EXCEL_PANEL_HEAD} flex items-center justify-between rounded-t-2xl`}>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <button type="button" onClick={onClose} className={`${EXCEL_BTN} min-h-8 px-2.5 py-1`} aria-label="Close">
             ✕
           </button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-3 py-3 text-xs">{children}</div>
+        <div className="max-h-[70vh] overflow-y-auto px-4 py-4 text-sm">{children}</div>
         {footer ? (
-          <div className="flex justify-end gap-2 border-t border-[#D4D4D4] px-3 py-2">{footer}</div>
+          <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:justify-end">{footer}</div>
         ) : null}
       </div>
     </div>

@@ -1,18 +1,31 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
 .farmer-panel {
-  --farmer-border: #D4D4D4;
-  --farmer-header: #F2F2F2;
-  --farmer-bg: #FFFFFF;
-  --farmer-text: #1F2937;
-  --farmer-muted: #6B7280;
-  --farmer-primary: #217346;
+  --farmer-border: #e2e8f0;
+  --farmer-header: #f8fafc;
+  --farmer-bg: #f3f6f4;
+  --farmer-surface: #ffffff;
+  --farmer-text: #0f172a;
+  --farmer-muted: #64748b;
+  --farmer-primary: #15803d;
+  --farmer-primary-soft: #ecfdf3;
+  --farmer-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.04);
+  --farmer-radius: 16px;
   color: var(--farmer-text);
   background: var(--farmer-bg);
-  font-family: "Segoe UI", Calibri, system-ui, sans-serif;
-  font-size: 12px;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
 .farmer-panel * {
   box-sizing: border-box;
+}
+
+.farmer-panel img,
+.farmer-panel video,
+.farmer-panel canvas {
+  max-width: 100%;
 }
 
 .farmer-scrollbar::-webkit-scrollbar {
@@ -21,9 +34,45 @@
 }
 
 .farmer-scrollbar::-webkit-scrollbar-thumb {
-  background: #c5c9d0;
+  background: #cbd5e1;
+  border-radius: 999px;
 }
 
 .farmer-scrollbar::-webkit-scrollbar-track {
-  background: #f2f2f2;
+  background: transparent;
+}
+
+.farmer-auth-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #dcfce7 0%, transparent 55%),
+    radial-gradient(900px 400px at 110% 10%, #e0f2fe 0%, transparent 50%),
+    #f3f6f4;
+}
+
+.farmer-panel main {
+  min-width: 0;
+}
+
+.farmer-panel .overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .farmer-panel {
+    font-size: 13px;
+  }
+
+  .farmer-panel input,
+  .farmer-panel select,
+  .farmer-panel textarea,
+  .farmer-panel button {
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .farmer-panel main > * {
+    max-width: 1440px;
+  }
 }

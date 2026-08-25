@@ -34,7 +34,7 @@ function ConfirmDialog({
         </>
       }
     >
-      <p className="text-xs leading-relaxed text-[#6B7280]">{message}</p>
+      <p className="text-sm leading-relaxed text-slate-500">{message}</p>
     </Modal>
   );
 }

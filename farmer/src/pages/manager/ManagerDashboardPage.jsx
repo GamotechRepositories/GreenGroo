@@ -16,7 +16,7 @@ const STATUS_COLORS = {
 
 function StatCard({ label, value, sub, to, color = "text-[#1F2937]" }) {
   const inner = (
-    <div className={`${EXCEL_PANEL} p-4`}>
+    <div className={`${EXCEL_PANEL} p-4 sm:p-5`}>
       <p className="text-xs text-[#6B7280]">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${color}`}>{value ?? "—"}</p>
       {sub && <p className="mt-1 text-[10px] text-[#6B7280]">{sub}</p>}
@@ -52,7 +52,7 @@ export default function ManagerDashboardPage() {
       {loading ? (
         <p className="text-xs text-[#6B7280]">Loading dashboard…</p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Total Farmers" value={stats?.totalFarmers} to="/farmer/manager/farmers" />
           <StatCard label="Active Farmers" value={stats?.activeFarmers} color="text-[#217346]" to="/farmer/manager/farmers" />
           <StatCard label="Total Products" value={stats?.totalProducts} to="/farmer/manager/products" />
@@ -66,13 +66,13 @@ export default function ManagerDashboardPage() {
 
       {/* Recent Orders */}
       <div className={EXCEL_PANEL}>
-        <div className="border-b border-[#D4D4D4] px-4 py-2.5">
-          <p className="text-xs font-bold text-[#1F2937]">Recent Orders</p>
+        <div className="border-b border-slate-100 px-4 py-3">
+          <p className="text-sm font-semibold text-slate-900">Recent Orders</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="bg-[#F2F2F2] text-left">
+              <tr className="bg-slate-50 text-left">
                 {["Order ID", "Farmer", "Product", "Qty", "Amount", "Status", "Date"].map((h) => (
                   <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
                 ))}
@@ -85,7 +85,7 @@ export default function ManagerDashboardPage() {
                 </tr>
               ) : (
                 stats.recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                  <tr key={order.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td className="px-3 py-2 font-mono text-[#217346]">{order.id}</td>
                     <td className="px-3 py-2">{order.farmerName || "—"}</td>
                     <td className="px-3 py-2">{order.products?.[0]?.name || "—"}</td>
@@ -110,13 +110,13 @@ export default function ManagerDashboardPage() {
       {/* Low Stock Alerts */}
       {(stats?.lowStock || []).length > 0 && (
         <div className={EXCEL_PANEL}>
-          <div className="border-b border-[#D4D4D4] px-4 py-2.5">
-            <p className="text-xs font-bold text-[#DC2626]">⚠ Low Stock Alerts</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-[#F2F2F2] text-left">
+        <div className="border-b border-slate-100 px-4 py-3">
+          <p className="text-sm font-semibold text-red-600">⚠ Low Stock Alerts</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-left">
                   {["Farmer", "Product", "Grade", "Current Stock", "Status"].map((h) => (
                     <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
                   ))}
@@ -124,7 +124,7 @@ export default function ManagerDashboardPage() {
               </thead>
               <tbody>
                 {stats.lowStock.map((item, i) => (
-                  <tr key={i} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                  <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td className="px-3 py-2">{item.farmerName}</td>
                     <td className="px-3 py-2">{item.productName}</td>
                     <td className="px-3 py-2">

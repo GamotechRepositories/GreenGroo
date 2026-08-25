@@ -74,8 +74,8 @@ function FarmerRegisterPage() {
   };
 
   return (
-    <div className="farmer-panel min-h-screen bg-white px-4 py-8">
-      <div className={`mx-auto w-full max-w-2xl ${EXCEL_PANEL} p-4 sm:p-5`}>
+    <div className="farmer-panel farmer-auth-shell min-h-dvh px-4 py-8 sm:py-12">
+      <div className={`mx-auto w-full max-w-2xl ${EXCEL_PANEL} p-5 sm:p-7`}>
         <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">Farmer Registration</p>
         <h1 className={`mt-1 ${EXCEL_PAGE_TITLE}`}>Create your farmer account</h1>
         <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>

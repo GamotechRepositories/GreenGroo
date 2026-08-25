@@ -61,9 +61,9 @@ function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className={EXCEL_PAGE_TITLE}>Farmer Dashboard</h1>
-        <span className="rounded bg-[#E8F5E9] px-2 py-0.5 text-xs font-bold text-[#217346]">
+        <span className="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
           Dynamic Backend Connected
         </span>
       </div>

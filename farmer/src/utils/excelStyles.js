@@ -1,23 +1,25 @@
-export const EXCEL_CELL = "border border-[#D4D4D4] px-2 py-1.5 text-xs text-[#1F2937]";
-export const EXCEL_HEAD = "border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-xs font-semibold text-[#1F2937]";
-export const EXCEL_WRAP = "overflow-x-auto border border-[#D4D4D4] bg-white";
+export const EXCEL_CELL = "border-b border-slate-100 px-3 py-2.5 text-sm text-slate-700";
+export const EXCEL_HEAD =
+  "border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500";
+export const EXCEL_WRAP = "overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm";
 export const EXCEL_TABLE = "w-full border-collapse text-left";
-export const EXCEL_PANEL = "border border-[#D4D4D4] bg-white";
+export const EXCEL_PANEL = "rounded-2xl border border-slate-200/80 bg-white shadow-sm";
 export const EXCEL_PANEL_HEAD =
-  "border-b border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-xs font-semibold text-[#1F2937]";
+  "border-b border-slate-100 bg-slate-50/80 px-4 py-3 text-sm font-semibold text-slate-800";
 export const EXCEL_INPUT =
-  "w-full border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs text-[#1F2937] outline-none focus:border-[#217346]";
+  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-50";
 export const EXCEL_SELECT =
-  "border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs text-[#1F2937] outline-none focus:border-[#217346]";
+  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-50";
 export const EXCEL_BTN =
-  "border border-[#D4D4D4] bg-[#F2F2F2] px-2 py-1.5 text-xs font-medium text-[#1F2937] hover:bg-[#E7E7E7] disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60";
 export const EXCEL_BTN_PRIMARY =
-  "border border-[#217346] bg-[#217346] px-2 py-1.5 text-xs font-semibold text-white hover:bg-[#1a5c38] disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center rounded-xl border border-emerald-700 bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-60";
 export const EXCEL_BTN_DANGER =
-  "border border-[#DC2626] bg-[#DC2626] px-2 py-1.5 text-xs font-semibold text-white hover:bg-[#B91C1C] disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center rounded-xl border border-red-600 bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60";
 export const EXCEL_BTN_OUTLINE =
-  "border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs font-medium text-[#1F2937] hover:bg-[#F2F2F2] disabled:opacity-60";
-export const EXCEL_PAGE_TITLE = "text-sm font-bold text-[#1F2937]";
-export const EXCEL_PAGE_SUB = "text-xs text-[#6B7280]";
-export const EXCEL_SECTION = "border border-[#D4D4D4] bg-white p-3";
-export const EXCEL_ROW = "border border-[#D4D4D4] bg-white px-2 py-1.5 text-xs hover:bg-[#F9F9F9]";
+  "inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60";
+export const EXCEL_PAGE_TITLE = "text-xl font-bold tracking-tight text-slate-900 sm:text-2xl";
+export const EXCEL_PAGE_SUB = "text-sm text-slate-500";
+export const EXCEL_SECTION = "rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5";
+export const EXCEL_ROW =
+  "rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-sm transition hover:bg-slate-50";
