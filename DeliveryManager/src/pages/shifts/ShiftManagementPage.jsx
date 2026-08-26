@@ -103,6 +103,7 @@ export default function ShiftManagementPage() {
   const [editStatus, setEditStatus] = useState("AVAILABLE");
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Pagination state
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -272,11 +273,21 @@ export default function ShiftManagementPage() {
     }
   };
 
-  const handleDeleteSlot = async (slotId) => {
-    if (!window.confirm("Are you sure you want to delete this shift?")) return;
+  const handleDeleteSlot = (slot, shift) => {
+    setDeleteTarget({
+      slotId: slot.id || slot.slotId,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      dateString: shift.dateString,
+    });
+  };
+
+  const confirmDeleteSlot = async (scope) => {
+    if (!deleteTarget?.slotId) return;
     try {
-      const res = await managerApi.deleteSlotDateWise(slotId);
+      const res = await managerApi.deleteSlotDateWise(deleteTarget.slotId, { scope });
       showToast(res.data.message || "Shift removed");
+      setDeleteTarget(null);
       await loadShifts();
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to delete shift");
@@ -439,7 +450,7 @@ export default function ShiftManagementPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteSlot(slot.id || slot.slotId)}
+                              onClick={() => handleDeleteSlot(slot, shift)}
                               className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 transition"
                             >
                               Delete
@@ -966,6 +977,45 @@ export default function ShiftManagementPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-900">Delete this shift slot?</h3>
+            <p className="text-sm text-slate-600">
+              {deleteTarget.startTime} – {deleteTarget.endTime}
+              {deleteTarget.dateString ? ` on ${deleteTarget.dateString}` : ""}.
+              Drivers who booked it will be told the slot was cancelled.
+            </p>
+            <p className="text-xs font-semibold text-slate-500">
+              Delete only this date, or the same slot on all available weeks it was added?
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => confirmDeleteSlot("this_date")}
+                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                Only this date
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeleteSlot("all_weeks")}
+                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100"
+              >
+                All available weeks
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

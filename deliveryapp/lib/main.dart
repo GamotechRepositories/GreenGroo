@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/config/api_config.dart';
 import 'core/l10n/locale_controller.dart';
 import 'core/routes/app_router.dart';
 import 'core/theme/app_colors.dart';
@@ -14,7 +15,7 @@ import 'presentation/screens/splash/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
-  debugPrint('GreenRow API base URL: ${dotenv.env['API_BASE_URL']}');
+  debugPrint('GreenRow API base URL: ${ApiConfig.baseUrl}');
   await LocaleController.instance.loadSavedLocale();
   await AuthService.instance.loadSession();
   runApp(const GreenRowDeliveryApp());

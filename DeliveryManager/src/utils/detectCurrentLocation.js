@@ -90,3 +90,36 @@ export async function detectCurrentLocation() {
     };
   }
 }
+
+const NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search";
+
+export async function geocodePlace({ area, city, state } = {}) {
+  const q = [area, city, state, "India"].filter(Boolean).join(", ");
+  if (!q.trim()) return null;
+  try {
+    const params = new URLSearchParams({
+      format: "json",
+      q,
+      addressdetails: "1",
+      limit: "1",
+      countrycodes: "in",
+    });
+    const response = await fetch(`${NOMINATIM_SEARCH}?${params}`, {
+      headers: { Accept: "application/json", "Accept-Language": "en" },
+    });
+    if (!response.ok) return null;
+    const rows = await response.json();
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) return null;
+    const addr = row.address || {};
+    const pincode = String(addr.postcode || "").replace(/\D/g, "").slice(0, 6);
+    return {
+      latitude: Number(row.lat),
+      longitude: Number(row.lon),
+      pincode,
+      address: row.display_name || q,
+    };
+  } catch {
+    return null;
+  }
+}

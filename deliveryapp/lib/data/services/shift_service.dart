@@ -149,7 +149,10 @@ class ShiftService {
 
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final rawSlots = body['slots'] as List? ?? [];
-      final slotsList = rawSlots.map((s) => ShiftSlotInfo.fromJson(s as Map<String, dynamic>)).toList();
+      final slotsList = rawSlots
+          .map((s) => ShiftSlotInfo.fromJson(s as Map<String, dynamic>))
+          .where((s) => s.status.toUpperCase() != 'CANCELLED')
+          .toList();
 
       final activeBookingJson = body['activeBooking'] as Map<String, dynamic>?;
 
@@ -352,4 +355,39 @@ class GigInfo {
       isActive: json['isActive'] == true,
     );
   }
+
+  /// True when this gig is happening right now (today + within start/end).
+  bool get isLiveNow {
+    final now = DateTime.now();
+    final today =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (dateString.isNotEmpty && dateString != today) return false;
+    final start = _timeToMinutes(startTime);
+    final end = _timeToMinutes(endTime);
+    if (start == null || end == null) {
+      return dateString.isEmpty || dateString == today;
+    }
+    final nowMin = now.hour * 60 + now.minute;
+    if (end > start) return nowMin >= start && nowMin < end;
+    return nowMin >= start || nowMin < end;
+  }
+}
+
+int? _timeToMinutes(String time) {
+  final t = time.trim();
+  final ampm = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', caseSensitive: false);
+  final m1 = ampm.firstMatch(t);
+  if (m1 != null) {
+    var h = int.parse(m1.group(1)!);
+    final min = int.parse(m1.group(2)!);
+    final ap = m1.group(3)!.toUpperCase();
+    if (ap == 'PM' && h != 12) h += 12;
+    if (ap == 'AM' && h == 12) h = 0;
+    return h * 60 + min;
+  }
+  final m2 = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(t);
+  if (m2 != null) {
+    return int.parse(m2.group(1)!) * 60 + int.parse(m2.group(2)!);
+  }
+  return null;
 }

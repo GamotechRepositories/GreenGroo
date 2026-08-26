@@ -31,7 +31,7 @@ function WishlistButton({ product, className = "", size = "sm" }) {
     await toggleWishlist(product, { flySource: e.currentTarget });
   };
 
-  if (!product?._id || product._id.length < 10) {
+  if (!product?._id || product._id.length < 10 || String(product._id).startsWith("deal-")) {
     return null;
   }
 

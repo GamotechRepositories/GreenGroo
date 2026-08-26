@@ -692,6 +692,23 @@ const DEAL_PRODUCTS = {
   ],
 };
 
+export function getDealProductById(id) {
+  const key = String(id || "");
+  if (!key.startsWith("deal-")) return null;
+  for (const list of Object.values(DEAL_PRODUCTS)) {
+    const found = (list || []).find((item) => String(item._id) === key);
+    if (found) {
+      return {
+        ...found,
+        variantType: found.variantType || "single",
+        discountedPrice: found.salePrice ?? found.discountedPrice,
+        isActive: true,
+      };
+    }
+  }
+  return null;
+}
+
 export default function DealsStartingAt9Section() {
   const [activeTier, setActiveTier] = useState("best");
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =

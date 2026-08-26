@@ -763,6 +763,10 @@ export const getAllProducts = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
     const product = await Product.findById(req.params.id);
 
     if (!product) {

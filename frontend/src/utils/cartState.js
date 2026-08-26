@@ -67,7 +67,12 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
     name: product.name,
     brandName: product.brandName,
     price: product.price,
-    discountedPrice: getUnitPriceForQuantity(product, qty, variantName),
+    discountedPrice:
+      getUnitPriceForQuantity(product, qty, variantName) ||
+      product.salePrice ||
+      product.discountedPrice ||
+      product.price ||
+      0,
     pricingType: product.pricingType,
     bulkPricing: product.bulkPricing,
     variantType: product.variantType,
@@ -75,7 +80,10 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
     minOrderQuantity: product.minOrderQuantity,
     maxOrderQuantity: product.maxOrderQuantity ?? product.maxOrderQty,
     stepByQuantity: product.stepByQuantity,
-    productImages: product.productImages,
+    productImages:
+      (Array.isArray(product.productImages) && product.productImages.length
+        ? product.productImages
+        : product.productImages) || [],
     stock: getVariantStock(product, variantName || ""),
     quantity: qty,
   };

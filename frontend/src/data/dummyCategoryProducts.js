@@ -1,3 +1,4 @@
+import { getDealProductById } from "../components/home/DealsStartingAt9Section";
 import { GROCERY_CATEGORIES } from "./groceryCategories";
 
 const SHOP_SIDEBAR_IMAGES = {
@@ -29,6 +30,6 @@ export function getAllDummyProducts() {
   return [];
 }
 
-export function getDummyProductById() {
-  return null;
+export function getDummyProductById(id) {
+  return getDealProductById(id);
 }

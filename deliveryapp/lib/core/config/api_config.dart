@@ -1,13 +1,23 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 import 'platform_api_host.dart';
 
-/// Backend API config — base URL comes from `.env` (`API_BASE_URL`) or local Wi-Fi LAN IP.
+/// Backend API config — debug uses LAN/local `.env` URL; release uses live API.
 abstract final class ApiConfig {
   static String get baseUrl {
-    final fromEnv = dotenv.env['API_BASE_URL']?.trim() ?? '';
-    String url = fromEnv.isNotEmpty ? fromEnv : 'http://127.0.0.1:5001';
+    final local = dotenv.env['API_BASE_URL']?.trim() ?? '';
+    final live =
+        dotenv.env['API_LIVE_URL']?.trim() ?? 'http://api.greengrocc.com';
+    final useLive =
+        dotenv.env['USE_LIVE_API']?.trim().toLowerCase() == 'true';
+    String url;
+    if (kReleaseMode || useLive) {
+      url = live.isNotEmpty ? live : 'http://api.greengrocc.com';
+    } else {
+      url = local.isNotEmpty ? local : 'http://127.0.0.1:5001';
+    }
 
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
@@ -24,6 +34,7 @@ abstract final class ApiConfig {
   static const register = '/api/delivery-boys/register';
   static const login = '/api/delivery-boys/login';
   static const me = '/api/delivery-boys/me';
+  static const slotAlertsAck = '/api/delivery-boys/slot-alerts/ack';
   static const onboarding = '/api/delivery-boys/onboarding';
   static const status = '/api/delivery-boys/status';
   static const heartbeat = '/api/delivery-boys/heartbeat';
@@ -52,8 +63,8 @@ abstract final class ApiConfig {
 String _timeoutMessage(String url) =>
     'Could not connect to server.\n\nURL tried: $url\n\n'
     'Fix: Make sure your phone and PC are on the same WiFi, '
-    'then update API_BASE_URL in deliveryapp/.env to your PC\'s LAN IP '
-    '(e.g. http://192.168.x.x:5001).\n'
+    'then update API_BASE_URL in deliveryapp/.env to your PC\'s ipconfig IPv4 '
+    '(e.g. http://192.168.1.56:5001).\n'
     'For emulators use: http://10.0.2.2:5001';
 
 Future<http.Response> apiPost(

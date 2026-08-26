@@ -102,6 +102,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _loadLiveData();
     _loadGigsData();
     _fetchTodayProgress();
+    _showSlotCancellationAlerts();
     _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_verificationPending ||
           _lastVerificationStatus == 'pending' ||
@@ -189,6 +190,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
   }
 
+  Future<void> _showSlotCancellationAlerts() async {
+    final msgs = await AuthService.instance.consumeSlotCancellationAlerts();
+    if (!mounted || msgs.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msgs.join('\n')),
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _loadLiveData() async {
     await RiderLiveService.instance.refreshLoginHours();
     if (mounted) {
@@ -217,7 +230,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _heartbeat = null;
   }
 
-  Future<void> _onStatusToggle() async {
+  Future<void> _onStatusToggle({bool fromGig = false}) async {
     if (_updatingStatus) return;
 
     final targetOnline = !_isOnline;
@@ -265,8 +278,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _isOnline = false;
           });
 
-          if (res.code == 'SHIFT_REQUIRED') {
-            _showShiftRequiredDialog(res.message);
+          if (res.code == 'SHIFT_REQUIRED' || res.code == 'NO_SHIFT_BOOKED') {
+            if (fromGig) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Gigs do not need booking. Go online when the gig is live to join automatically.',
+                  ),
+                ),
+              );
+            } else {
+              _showShiftRequiredDialog(res.message);
+            }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -429,15 +452,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   _FeaturedGigBannerCard(
                     gig: _homeGigs.first,
                     totalGigsCount: _homeGigs.length,
+                    isOnline: _isOnline,
                     onViewGigs: () => Navigator.pushNamed(context, AppRoutes.gigs),
-                    onBookAndGoOnline: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SelectShiftScreen(
-                          onBookingDone: _fetchTodayProgress,
-                        ),
-                      ),
-                    ).then((_) => _fetchTodayProgress()),
+                    onGoOnline: () {
+                      if (!_isOnline) _onStatusToggle(fromGig: true);
+                    },
                   ),
                   const SizedBox(height: 14),
                 ],
@@ -446,7 +465,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 _GoOnlineBannerCard(
                   isOnline: _isOnline,
                   updatingStatus: _updatingStatus,
-                  onStatusToggle: _onStatusToggle,
+                  onStatusToggle: () => _onStatusToggle(),
                 ),
                 const SizedBox(height: 18),
 
@@ -616,14 +635,16 @@ class _FeaturedGigBannerCard extends StatelessWidget {
   const _FeaturedGigBannerCard({
     required this.gig,
     required this.totalGigsCount,
+    required this.isOnline,
     required this.onViewGigs,
-    required this.onBookAndGoOnline,
+    required this.onGoOnline,
   });
 
   final GigInfo? gig;
   final int totalGigsCount;
+  final bool isOnline;
   final VoidCallback onViewGigs;
-  final VoidCallback onBookAndGoOnline;
+  final VoidCallback onGoOnline;
 
   @override
   Widget build(BuildContext context) {
@@ -780,7 +801,7 @@ class _FeaturedGigBannerCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: onBookAndGoOnline,
+                  onPressed: isOnline ? null : onGoOnline,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.center,
@@ -788,7 +809,9 @@ class _FeaturedGigBannerCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          AppLocalizations.of(context).bookAndGoOnline,
+                          isOnline
+                              ? AppLocalizations.of(context).youreOnline
+                              : AppLocalizations.of(context).goOnline,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,

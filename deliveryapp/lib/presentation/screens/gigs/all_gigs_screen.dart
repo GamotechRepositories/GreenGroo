@@ -5,8 +5,9 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../data/services/location_service.dart';
 import '../../../data/services/shift_service.dart';
-import '../shifts/select_shift_screen.dart';
 
 const _kRupee = '\u20B9';
 
@@ -19,7 +20,36 @@ class AllGigsScreen extends StatefulWidget {
 
 class _AllGigsScreenState extends State<AllGigsScreen> {
   bool _loading = true;
+  bool _goingOnline = false;
   List<GigInfo> _gigs = [];
+
+  bool get _isOnline => AuthService.instance.deliveryBoy?.isOnline ?? false;
+
+  Future<void> _goOnline() async {
+    if (_isOnline || _goingOnline) return;
+    setState(() => _goingOnline = true);
+    try {
+      final pos = await LocationService.instance.getCurrentLocation();
+      final lat = pos?.latitude ?? 18.559;
+      final lng = pos?.longitude ?? 73.7868;
+      final res = await ShiftService.instance.goOnlineWithLocation(lat, lng);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res.success
+                ? res.message
+                : (res.code == 'SHIFT_REQUIRED' || res.code == 'NO_SHIFT_BOOKED')
+                    ? 'Gigs do not need booking. Go online when the gig is live to join automatically.'
+                    : res.message,
+          ),
+        ),
+      );
+      setState(() {});
+    } finally {
+      if (mounted) setState(() => _goingOnline = false);
+    }
+  }
 
   @override
   void initState() {
@@ -110,7 +140,12 @@ class _AllGigsScreenState extends State<AllGigsScreen> {
                       itemCount: _gigs.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 16),
                       itemBuilder: (context, index) {
-                        return _GigDetailCard(gig: _gigs[index]);
+                        return _GigDetailCard(
+                          gig: _gigs[index],
+                          isOnline: _isOnline,
+                          goingOnline: _goingOnline,
+                          onGoOnline: _goOnline,
+                        );
                       },
                     ),
             ),
@@ -119,9 +154,17 @@ class _AllGigsScreenState extends State<AllGigsScreen> {
 }
 
 class _GigDetailCard extends StatelessWidget {
-  const _GigDetailCard({required this.gig});
+  const _GigDetailCard({
+    required this.gig,
+    required this.isOnline,
+    required this.goingOnline,
+    required this.onGoOnline,
+  });
 
   final GigInfo gig;
+  final bool isOnline;
+  final bool goingOnline;
+  final VoidCallback onGoOnline;
 
   @override
   Widget build(BuildContext context) {
@@ -274,17 +317,12 @@ class _GigDetailCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
-                );
-              },
+              onPressed: isOnline || goingOnline ? null : onGoOnline,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    l10n.bookAndGoOnline,
+                    isOnline ? l10n.youreOnline : l10n.goOnline,
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

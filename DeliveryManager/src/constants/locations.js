@@ -353,7 +353,7 @@ export const SERVICE_LOCATIONS = [
     name: "Pune",
     state: "Maharashtra",
     areas: [
-      "Hinjewadi Phase 1", "Hinjewadi Phase 2", "Hinjewadi Phase 3", "Marunji", "Mhalunge", "Wakad",
+      "Hinjewadi Phase 1", "Hinjewadi Phase 2", "Hinjewadi Phase 3", "Hinjawadi", "Marunji", "Mhalunge", "Wakad",
       "Balewadi", "Baner", "Aundh", "Pashan", "Sus", "Lavale", "Bhugaon", "Bavdhan", "Kothrud",
       "Karve Nagar", "Erandwane", "Deccan Gymkhana", "Shivajinagar", "FC Road", "JM Road",
       "Koregaon Park", "Kalyani Nagar", "Viman Nagar", "Yerwada", "Kharadi", "Wagholi", "Hadapsar",

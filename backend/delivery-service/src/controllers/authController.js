@@ -12,6 +12,8 @@ import {
   emitRiderStatusUpdated,
 } from "../services/riderSocketService.js";
 import { isS3Configured, uploadDataUrlToS3 } from "../services/s3Service.js";
+import { areaMatches, placesEqual } from "../utils/matchPlace.js";
+import { findLiveGigForManager } from "./gigManagementController.js";
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -209,6 +211,18 @@ export const login = async (req, res, next) => {
 
     const token = signToken(deliveryBoy);
     return res.json(authResponse(deliveryBoy, token));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const ackSlotAlerts = async (req, res, next) => {
+  try {
+    await DeliveryBoy.updateOne(
+      { _id: req.user.id },
+      { $set: { pendingSlotAlerts: [] } }
+    );
+    return res.json({ success: true });
   } catch (error) {
     next(error);
   }
@@ -438,15 +452,33 @@ export const updateStatus = async (req, res, next) => {
     });
 
     if (status === "online") {
-      // 1. Shift Booking Verification
+      // 1. Shift booking is required unless a store gig is live right now.
       if (!existing.currentBooking?.shiftId) {
-        return res.status(400).json({
-          success: false,
-          code: "NO_SHIFT_BOOKED",
-          message:
-            "Mandatory: You must select and book a shift slot for today before going online!",
-          deliveryBoy: existing.toSafeJSON(),
+        const escapedRiderArea = (existing.area || "")
+          .trim()
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const gigManager = await DeliveryManager.findOne({
+          isActive: true,
+          $or: [
+            ...(escapedRiderArea
+              ? [{ area: { $regex: new RegExp(`^${escapedRiderArea}$`, "i") } }]
+              : []),
+            { cityId: existing.cityId, area: existing.area },
+            { city: existing.city, area: existing.area },
+          ],
         });
+        const liveGig = gigManager
+          ? await findLiveGigForManager(gigManager._id)
+          : null;
+        if (!liveGig) {
+          return res.status(400).json({
+            success: false,
+            code: "NO_SHIFT_BOOKED",
+            message:
+              "Mandatory: You must select and book a shift slot for today before going online!",
+            deliveryBoy: existing.toSafeJSON(),
+          });
+        }
       }
 
       // 2. Geofence Location Verification (Near Store in Pune)
@@ -523,20 +555,41 @@ export const updateStatus = async (req, res, next) => {
   }
 };
 
+function toManagerPayload(manager) {
+  return {
+    storeId: manager._id.toString(),
+    name: manager.name || "Delivery Manager",
+    phone: manager.phone || "",
+    email: manager.email || "",
+    storeName: manager.storeName || `${manager.area || "Area"} Dark Store`,
+    storeAddress:
+      manager.storeAddress ||
+      `${manager.storeName || `${manager.area} Dark Store`}, ${manager.area}, ${manager.city}`,
+    state: manager.state || "",
+    city: manager.city || "",
+    area: manager.area || "",
+    pincode: manager.pincode || "",
+    darkStoreQrCode: `DARKSTORE_${manager._id}`,
+  };
+}
+
 /** Area delivery manager details for onboarding selection or offline verification visit. */
 export const getAreaManager = async (req, res, next) => {
   try {
     const area = String(req.query.area || req.body?.area || "").trim();
     const cityId = String(req.query.cityId || req.body?.cityId || "").trim();
+    const city = String(req.query.city || req.body?.city || "").trim();
 
     let queryArea = area;
     let queryCityId = cityId;
+    let queryCity = city;
 
     if (!queryArea && req.user?.id) {
       const deliveryBoy = await DeliveryBoy.findById(req.user.id);
       if (deliveryBoy) {
         queryArea = deliveryBoy.area;
         queryCityId = deliveryBoy.cityId;
+        queryCity = deliveryBoy.city || queryCity;
       }
     }
 
@@ -544,46 +597,40 @@ export const getAreaManager = async (req, res, next) => {
       return res.json({
         success: true,
         manager: null,
+        managers: [],
         message: "No area specified",
       });
     }
 
-    const escapedArea = queryArea.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    const queryFilter = {
-      isActive: true,
-      $or: [
-        { area: { $regex: new RegExp(`^${escapedArea}$`, "i") } },
-        ...(queryCityId ? [{ cityId: queryCityId, area: queryArea }] : []),
-      ],
+    const all = await DeliveryManager.find({ isActive: true }).lean();
+    const sameCity = (m) => {
+      if (queryCityId && placesEqual(m.cityId, queryCityId)) return true;
+      if (queryCity && placesEqual(m.city, queryCity)) return true;
+      return !queryCityId && !queryCity;
     };
+    const matched = all.filter(
+      (m) => areaMatches(m.area, queryArea) && sameCity(m)
+    );
 
-    const manager = await DeliveryManager.findOne(queryFilter).sort({ createdAt: 1 });
+    matched.sort(
+      (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+    );
 
-    if (!manager) {
+    if (!matched.length) {
       return res.json({
         success: true,
         manager: null,
-        message: "No delivery manager registered for your area yet",
+        managers: [],
+        message: "No darkstore registered",
       });
     }
 
+    const managers = matched.map(toManagerPayload);
     return res.json({
       success: true,
-      manager: {
-        storeId: manager._id.toString(),
-        name: manager.name || "Delivery Manager",
-        phone: manager.phone || "9876500001",
-        email: manager.email || "manager@greengroo.com",
-        storeName: manager.storeName || `${manager.area || "Baner"} Dark Store`,
-        storeAddress:
-          manager.storeAddress ||
-          `${manager.storeName || `${manager.area || "Baner"} Dark Store`}, ${manager.area || "Baner"}, ${manager.city || "Pune"}`,
-        state: manager.state || "Maharashtra",
-        city: manager.city || "Pune",
-        area: manager.area || "Baner",
-        darkStoreQrCode: `DARKSTORE_${manager._id}`,
-      },
+      manager: managers[0],
+      managers,
+      count: managers.length,
     });
   } catch (error) {
     next(error);
@@ -594,7 +641,7 @@ export const getAreaManager = async (req, res, next) => {
 export const getActiveHubs = async (req, res, next) => {
   try {
     const managers = await DeliveryManager.find({ isActive: true }).select(
-      "state city cityId area storeName storeAddress latitude longitude"
+      "state city cityId area storeName storeAddress latitude longitude pincode"
     );
 
     const activeHubs = managers.map((m) => ({
@@ -605,6 +652,7 @@ export const getActiveHubs = async (req, res, next) => {
       area: m.area || "General",
       storeName: m.storeName || `${m.area} Dark Store`,
       storeAddress: m.storeAddress || "",
+      pincode: m.pincode || "",
       latitude: m.latitude,
       longitude: m.longitude,
     }));

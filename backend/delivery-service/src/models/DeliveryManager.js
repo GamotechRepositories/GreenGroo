@@ -61,6 +61,11 @@ const deliveryManagerSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    pincode: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     latitude: {
       type: Number,
       default: 18.559,
@@ -108,6 +113,7 @@ deliveryManagerSchema.methods.toSafeJSON = function toSafeJSON() {
     storeAddress:
       this.storeAddress ||
       `${this.storeName || `${this.area} Store`}, ${this.area}, ${this.city}, ${this.state}`,
+    pincode: this.pincode || "",
     latitude: this.latitude ?? 18.559,
     longitude: this.longitude ?? 73.7868,
     geofenceRadius: this.geofenceRadius ?? 500,

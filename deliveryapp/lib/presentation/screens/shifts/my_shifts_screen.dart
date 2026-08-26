@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/shift_service.dart';
 import '../../../l10n/app_localizations.dart';
@@ -40,6 +41,15 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
         _upcomingBookings = (res['upcomingBookings'] as List<ShiftBookingInfo>?) ?? [];
         _loading = false;
       });
+      final msgs = await AuthService.instance.consumeSlotCancellationAlerts();
+      if (!mounted || msgs.isEmpty) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msgs.join('\n')),
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 

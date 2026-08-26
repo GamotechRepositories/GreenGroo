@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../../core/config/api_config.dart';
 
 import '../../../core/constants/service_locations.dart';
 import '../../../core/routes/app_routes.dart';
@@ -21,7 +24,8 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
   String? _selectedArea;
   String _query = '';
   final _searchController = TextEditingController();
-  AreaManagerInfo? _darkStoreInfo;
+  List<AreaManagerInfo> _darkStores = [];
+  String? _lookupError;
   bool _loadingStore = false;
 
   ServiceCity? get _city {
@@ -58,17 +62,25 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
     setState(() {
       _selectedArea = area;
       _loadingStore = true;
-      _darkStoreInfo = null;
+      _darkStores = [];
+      _lookupError = null;
     });
 
-    final info = await AuthService.instance.fetchAreaManagerByLocation(
-      widget.cityId.isNotEmpty ? widget.cityId : 'pune',
-      area,
-    );
-
-    if (mounted) {
+    try {
+      final stores = await AuthService.instance.fetchAreaManagersByLocation(
+        widget.cityId.isNotEmpty ? widget.cityId : 'pune',
+        area,
+        city: _city?.name,
+      );
+      if (!mounted) return;
       setState(() {
-        _darkStoreInfo = info;
+        _darkStores = stores;
+        _loadingStore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _lookupError = e.toString();
         _loadingStore = false;
       });
     }
@@ -243,12 +255,12 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: _darkStoreInfo != null
+                  color: _darkStores.isNotEmpty
                       ? const Color(0xFFF0FDF4)
                       : const Color(0xFFFFFBEB),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: _darkStoreInfo != null
+                    color: _darkStores.isNotEmpty
                         ? const Color(0xFFBBF7D0)
                         : const Color(0xFFFDE68A),
                   ),
@@ -274,7 +286,43 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                           ),
                         ],
                       )
-                    : _darkStoreInfo != null
+                    : _lookupError != null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.wifi_off_rounded,
+                                    color: Color(0xFFD97706),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Could not check dark stores',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF92400E),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                kDebugMode
+                                    ? 'API: ${ApiConfig.baseUrl}'
+                                    : 'Check your connection and try again.',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          )
+                    : _darkStores.isNotEmpty
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -288,7 +336,7 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _darkStoreInfo!.storeName,
+                                      _darkStores.first.storeName,
                                       style: GoogleFonts.inter(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -328,7 +376,7 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      _darkStoreInfo!.storeAddress,
+                                      _darkStores.first.storeAddress,
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: const Color(0xFF065F46),
@@ -337,7 +385,18 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                                   ),
                                 ],
                               ),
-                              if (_darkStoreInfo!.phone.isNotEmpty) ...[
+                              if (_darkStores.first.pincode.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'PIN ${_darkStores.first.pincode}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF047857),
+                                  ),
+                                ),
+                              ],
+                              if (_darkStores.first.phone.isNotEmpty) ...[
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
@@ -348,7 +407,7 @@ class _AreaSelectionScreenState extends State<AreaSelectionScreen> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Store Manager Contact: ${_darkStoreInfo!.phone}',
+                                      'Store Manager Contact: ${_darkStores.first.phone}',
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,

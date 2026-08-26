@@ -114,6 +114,7 @@ class AreaManagerInfo {
     this.email = '',
     this.city = '',
     this.area = '',
+    this.pincode = '',
   });
 
   final String name;
@@ -124,6 +125,7 @@ class AreaManagerInfo {
   final String storeId;
   final String city;
   final String area;
+  final String pincode;
 
   factory AreaManagerInfo.fromJson(Map<String, dynamic> json) {
     return AreaManagerInfo(
@@ -135,6 +137,7 @@ class AreaManagerInfo {
       storeId: json['storeId']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       area: json['area']?.toString() ?? '',
+      pincode: json['pincode']?.toString() ?? '',
     );
   }
 }
@@ -355,6 +358,39 @@ class AuthService {
     }
   }
 
+  Future<List<String>> consumeSlotCancellationAlerts() async {
+    if (!isLoggedIn) return [];
+    try {
+      final res = await apiGet(ApiConfig.me, headers: _authHeaders);
+      if (res.statusCode != 200) return [];
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final boy = body['deliveryBoy'];
+      if (boy is! Map<String, dynamic>) return [];
+      final raw = boy['pendingSlotAlerts'];
+      final messages = <String>[];
+      if (raw is List) {
+        for (final item in raw) {
+          if (item is Map && item['message'] != null) {
+            final msg = item['message'].toString().trim();
+            if (msg.isNotEmpty) messages.add(msg);
+          } else if (item is String && item.trim().isNotEmpty) {
+            messages.add(item);
+          }
+        }
+      }
+      if (messages.isNotEmpty) {
+        await apiPost(
+          ApiConfig.slotAlertsAck,
+          headers: _authHeaders,
+          body: jsonEncode({}),
+        );
+      }
+      return messages;
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<AreaManagerInfo?> fetchAreaManager() async {
     if (!isLoggedIn) return null;
     try {
@@ -370,17 +406,39 @@ class AuthService {
   }
 
   Future<AreaManagerInfo?> fetchAreaManagerByLocation(String cityId, String area) async {
-    try {
-      final path = '${ApiConfig.areaManager}?cityId=${Uri.encodeComponent(cityId)}&area=${Uri.encodeComponent(area)}';
-      final res = await apiGet(path, headers: isLoggedIn ? _authHeaders : null);
-      if (res.statusCode != 200) return null;
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final manager = body['manager'];
-      if (manager is! Map<String, dynamic>) return null;
-      return AreaManagerInfo.fromJson(manager);
-    } catch (_) {
-      return null;
+    final stores = await fetchAreaManagersByLocation(cityId, area);
+    return stores.isEmpty ? null : stores.first;
+  }
+
+  Future<List<AreaManagerInfo>> fetchAreaManagersByLocation(
+    String cityId,
+    String area, {
+    String? city,
+  }) async {
+    var path =
+        '${ApiConfig.areaManager}?cityId=${Uri.encodeComponent(cityId)}&area=${Uri.encodeComponent(area)}';
+    if (city != null && city.isNotEmpty) {
+      path += '&city=${Uri.encodeComponent(city)}';
     }
+    final res = await apiGet(path, headers: isLoggedIn ? _authHeaders : null);
+    if (res.statusCode != 200) return [];
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = <AreaManagerInfo>[];
+    final managers = body['managers'];
+    if (managers is List) {
+      for (final item in managers) {
+        if (item is Map<String, dynamic>) {
+          list.add(AreaManagerInfo.fromJson(item));
+        }
+      }
+    }
+    if (list.isEmpty) {
+      final manager = body['manager'];
+      if (manager is Map<String, dynamic>) {
+        list.add(AreaManagerInfo.fromJson(manager));
+      }
+    }
+    return list;
   }
 
   /// Keep online status live while the partner is working.

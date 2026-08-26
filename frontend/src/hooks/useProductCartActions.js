@@ -6,6 +6,7 @@ import {
   getDecreasedCartQuantityForProduct,
   resolveCartDefaults,
 } from "../utils/cartDefaults";
+import { isLocalProductId } from "../utils/localProductId";
 import { isMultiVariant } from "../utils/productPricing";
 
 function findCartLine(items, product) {
@@ -49,7 +50,8 @@ export function useProductCartActions() {
 
   const handleAdd = useCallback(
     async (product, flySource) => {
-      if (!product?._id || product._id.length < 10) return null;
+      if (!product?._id) return null;
+      if (product._id.length < 10 && !isLocalProductId(product._id)) return null;
 
       const { variantName, colorName, quantity } = resolveCartDefaults(product);
       const result = await addToCart(product, quantity, {
@@ -69,7 +71,8 @@ export function useProductCartActions() {
 
   const handleIncrease = useCallback(
     async (product, flySource) => {
-      if (!product?._id || product._id.length < 10) return null;
+      if (!product?._id) return null;
+      if (product._id.length < 10 && !isLocalProductId(product._id)) return null;
 
       const line = getCartLine(product);
       const { variantName, colorName, quantity } = resolveCartDefaults(product);

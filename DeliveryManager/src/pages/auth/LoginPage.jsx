@@ -20,28 +20,15 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    let storeLocation = location;
-    if (!storeLocation) {
-      try {
-        storeLocation = await detect();
-      } catch (err) {
-        setError(err.message || "Allow current location to sign in");
-        return;
-      }
+    const payload = { email, password };
+    if (location?.latitude != null && location?.longitude != null) {
+      payload.latitude = location.latitude;
+      payload.longitude = location.longitude;
     }
 
     setSubmitting(true);
     try {
-      await login({
-        email,
-        password,
-        latitude: storeLocation.latitude,
-        longitude: storeLocation.longitude,
-        state: storeLocation.state,
-        city: storeLocation.city,
-        area: storeLocation.area,
-        storeAddress: storeLocation.address,
-      });
+      await login(payload);
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Login failed");
@@ -59,7 +46,7 @@ export default function LoginPage() {
           </p>
           <h1 className="mt-1 text-2xl font-bold text-gray-900">Delivery Manager Login</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Sign in from the dark store. Current location is used to receive nearby orders.
+            Sign in to manage your dark store. Location is optional.
           </p>
         </div>
 
@@ -81,8 +68,8 @@ export default function LoginPage() {
                   </p>
                 </>
               ) : (
-                <p className="mt-1 text-sm font-semibold text-rose-600">
-                  {locationError || "Location is required to receive orders for this area"}
+                <p className="mt-1 text-sm font-semibold text-slate-600">
+                  {locationError || "Location is optional — you can sign in without it"}
                 </p>
               )}
             </div>
@@ -128,10 +115,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={submitting || detecting}
+            disabled={submitting}
             className="w-full rounded-xl bg-green-dark py-3 text-sm font-semibold text-white hover:bg-green-primary disabled:opacity-60"
           >
-            {submitting ? "Signing in…" : "Login with current location"}
+            {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
 

@@ -7,6 +7,7 @@ import {
   heartbeat,
   login,
   me,
+  ackSlotAlerts,
   register,
   updateFcmToken,
   updateLocation,
@@ -44,6 +45,7 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, me);
+router.post("/slot-alerts/ack", protect, ackSlotAlerts);
 router.get("/home/progress", protect, getTodayProgress);
 router.get("/home-dashboard", protect, getTodayProgress);
 router.get("/area-manager", getAreaManager);

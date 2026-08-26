@@ -93,7 +93,7 @@ export function getPricingSource(product, variantName = "") {
     pricingType: product?.pricingType,
     bulkPricing: product?.bulkPricing,
     price: product?.price,
-    discountedPrice: product?.discountedPrice,
+    discountedPrice: product?.discountedPrice ?? product?.salePrice,
     minOrderQuantity: productMoq,
     maxOrderQuantity: productMax,
     stepByQuantity: productStep,

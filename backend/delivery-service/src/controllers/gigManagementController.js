@@ -1,6 +1,37 @@
 import Gig from "../models/Gig.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
+import { formatDateStringIST, timeToMinutes } from "./shiftController.js";
+
+/** Active gig happening right now for this store (IST). */
+export async function findLiveGigForManager(managerId) {
+  if (!managerId) return null;
+  const todayStr = formatDateStringIST(new Date());
+  const gigs = await Gig.find({
+    isActive: true,
+    managerId,
+    dateString: todayStr,
+  });
+  if (!gigs.length) return null;
+
+  const nowIST = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  }).format(new Date());
+  const currentMin = timeToMinutes(nowIST);
+
+  return (
+    gigs.find((g) => {
+      if (!g.startTime || !g.endTime) return true;
+      const start = timeToMinutes(g.startTime);
+      const end = timeToMinutes(g.endTime);
+      if (end > start) return currentMin >= start && currentMin < end;
+      return currentMin >= start || currentMin < end;
+    }) || null
+  );
+}
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);

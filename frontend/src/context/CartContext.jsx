@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { addToCartItem, getCart, removeFromCartItem, updateCartItemQty } from "../api/api";
+import { isLocalProductId } from "../utils/localProductId";
 import { useAuth } from "./AuthContext";
 import AddedToCartToast from "../components/cart/AddedToCartToast";
 import FlyToCartOverlay from "../components/cart/FlyToCartOverlay";
@@ -91,20 +92,32 @@ export function CartProvider({ children }) {
     saveGuestCart(nextItems);
   }, []);
 
+  const mergeLocalCatalogLines = useCallback((baseItems) => {
+    const remote = (baseItems || []).filter((item) => !isLocalProductId(item._id));
+    const localFromMemory = itemsRef.current.filter((item) =>
+      isLocalProductId(item._id)
+    );
+    const localFromStorage = loadGuestCart().filter((item) =>
+      isLocalProductId(item._id)
+    );
+    const local = localFromMemory.length ? localFromMemory : localFromStorage;
+    return [...remote, ...local];
+  }, []);
+
   const syncCartFromServer = useCallback(async () => {
     if (!user) {
-      setItems([]);
+      setItems(loadGuestCart());
       return;
     }
 
     const { data } = await getCart();
-    setItems(mapCartItems(data.data));
-  }, [user]);
+    setItems(mergeLocalCatalogLines(mapCartItems(data.data)));
+  }, [user, mergeLocalCatalogLines]);
 
   const loadCart = useCallback(
     async ({ silent = false } = {}) => {
       if (!user) {
-        setItems([]);
+        setItems(loadGuestCart());
         return;
       }
 
@@ -115,21 +128,24 @@ export function CartProvider({ children }) {
       try {
         await syncCartFromServer();
       } catch {
-        setItems([]);
+        setItems(mergeLocalCatalogLines([]));
       } finally {
         if (!silent) {
           setLoading(false);
         }
       }
     },
-    [user, syncCartFromServer]
+    [user, syncCartFromServer, mergeLocalCatalogLines]
   );
 
   const mergeGuestCartToServer = useCallback(async () => {
     const guestItems = loadGuestCart();
     if (!guestItems.length) return;
 
-    for (const item of guestItems) {
+    const remoteGuest = guestItems.filter((item) => !isLocalProductId(item._id));
+    const localGuest = guestItems.filter((item) => isLocalProductId(item._id));
+
+    for (const item of remoteGuest) {
       await addToCartItem({
         productId: item._id,
         quantity: item.quantity,
@@ -138,7 +154,7 @@ export function CartProvider({ children }) {
       });
     }
 
-    clearGuestCart();
+    saveGuestCart(localGuest);
     await syncCartFromServer();
   }, [syncCartFromServer]);
 
@@ -222,6 +238,18 @@ export function CartProvider({ children }) {
     return task;
   }, [syncCartFromServer]);
 
+  const persistLocalCart = useCallback(
+    (nextItems) => {
+      setItems(nextItems);
+      if (!user) {
+        applyGuestCart(nextItems);
+        return;
+      }
+      saveGuestCart(nextItems.filter((item) => isLocalProductId(item._id)));
+    },
+    [user, applyGuestCart]
+  );
+
   const addToCart = useCallback(
     async (product, quantity, options = {}) => {
       const qty = Number(quantity);
@@ -229,7 +257,7 @@ export function CartProvider({ children }) {
         return { success: false };
       }
 
-      if (!user) {
+      if (isLocalProductId(product?._id) || !user) {
         const variantName = options.variantName || "";
         const colorName = options.colorName || "";
 
@@ -239,7 +267,7 @@ export function CartProvider({ children }) {
           showAddedToCartToast(product);
         }
 
-        applyGuestCart(
+        persistLocalCart(
           addOrMergeLine(itemsRef.current, product, qty, variantName, colorName)
         );
         return { success: true };
@@ -265,13 +293,13 @@ export function CartProvider({ children }) {
           }),
       }));
     },
-    [user, playFlyToCart, runCartMutation, showAddedToCartToast, applyGuestCart]
+    [user, playFlyToCart, runCartMutation, showAddedToCartToast, persistLocalCart]
   );
 
   const removeFromCart = useCallback(
     (productId, variantName = "", colorName = "") => {
-      if (!user) {
-        applyGuestCart(
+      if (!user || isLocalProductId(productId)) {
+        persistLocalCart(
           removeLine(itemsRef.current, productId, variantName, colorName)
         );
         return Promise.resolve({ success: true });
@@ -287,7 +315,7 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation, applyGuestCart]
+    [user, runCartMutation, applyGuestCart, persistLocalCart]
   );
 
   const updateQuantity = useCallback(
@@ -295,13 +323,13 @@ export function CartProvider({ children }) {
       const qty = Number(quantity);
       if (!Number.isFinite(qty)) return Promise.resolve({ success: false });
 
-      if (!user) {
+      if (!user || isLocalProductId(productId)) {
         if (qty < 1) {
-          applyGuestCart(
+          persistLocalCart(
             removeLine(itemsRef.current, productId, variantName, colorName)
           );
         } else {
-          applyGuestCart(
+          persistLocalCart(
             setLineQuantity(itemsRef.current, productId, variantName, colorName, qty)
           );
         }
@@ -325,14 +353,14 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation, applyGuestCart]
+    [user, runCartMutation, applyGuestCart, persistLocalCart]
   );
 
   const incrementCartItem = useCallback(
     ({ productId, variantName = "", colorName = "", step = 1, maxQuantity }) => {
       const safeStep = Number(step) || 1;
 
-      if (!user) {
+      if (!user || isLocalProductId(productId)) {
         const line = findCartLine(itemsRef.current, productId, variantName, colorName);
         if (!line) return Promise.resolve({ success: false });
 
@@ -350,7 +378,7 @@ export function CartProvider({ children }) {
         }
         if (nextQty === line.quantity) return Promise.resolve({ success: true });
 
-        applyGuestCart(
+        persistLocalCart(
           setLineQuantity(itemsRef.current, productId, variantName, colorName, nextQty)
         );
         return Promise.resolve({ success: true });
@@ -380,12 +408,12 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation, applyGuestCart]
+    [user, runCartMutation, applyGuestCart, persistLocalCart]
   );
 
   const decrementCartItem = useCallback(
     ({ productId, variantName = "", colorName = "", resolveNextQuantity }) => {
-      if (!user) {
+      if (!user || isLocalProductId(productId)) {
         const line = findCartLine(itemsRef.current, productId, variantName, colorName);
         if (!line) return Promise.resolve({ success: false });
 
@@ -399,11 +427,11 @@ export function CartProvider({ children }) {
         }
 
         if (nextQty < 1) {
-          applyGuestCart(
+          persistLocalCart(
             removeLine(itemsRef.current, productId, variantName, colorName)
           );
         } else {
-          applyGuestCart(
+          persistLocalCart(
             setLineQuantity(itemsRef.current, productId, variantName, colorName, nextQty)
           );
         }
@@ -434,7 +462,7 @@ export function CartProvider({ children }) {
         };
       });
     },
-    [user, runCartMutation, applyGuestCart]
+    [user, runCartMutation, applyGuestCart, persistLocalCart]
   );
 
   const resetCart = useCallback(() => {

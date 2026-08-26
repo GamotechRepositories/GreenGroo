@@ -201,6 +201,17 @@ const deliveryBoySchema = new mongoose.Schema(
       default: null,
     },
 
+    pendingSlotAlerts: [
+      {
+        message: { type: String, default: "" },
+        startTime: { type: String, default: "" },
+        endTime: { type: String, default: "" },
+        dateString: { type: String, default: "" },
+        seen: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
     isActive: {
       type: Boolean,
       default: true,
@@ -308,6 +319,15 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     verificationNote: this.verificationNote || "",
     onboardingComplete: this.onboardingComplete,
     onboardingStep: this.onboardingStep,
+    pendingSlotAlerts: (this.pendingSlotAlerts || [])
+      .filter((a) => !a.seen)
+      .map((a) => ({
+        message: a.message || "",
+        startTime: a.startTime || "",
+        endTime: a.endTime || "",
+        dateString: a.dateString || "",
+        createdAt: a.createdAt,
+      })),
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

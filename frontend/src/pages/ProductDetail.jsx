@@ -718,7 +718,7 @@ function ProductDetail() {
   const canViewPrice = useCanViewProductPrice(product);
 
   useEffect(() => {
-    if (!id || String(id).startsWith("dummy-")) return;
+    if (!id || String(id).startsWith("dummy-") || String(id).startsWith("deal-")) return;
     tryOpenProductInApp(id);
   }, [id]);
 
@@ -729,7 +729,7 @@ function ProductDetail() {
       try {
         const dummy = typeof getDummyProductById === "function" ? getDummyProductById(id) : null;
         let nextProduct = dummy;
-        if (!nextProduct) {
+        if (!nextProduct && !String(id).startsWith("deal-") && !String(id).startsWith("dummy-")) {
           const res = await getProductById(id);
           nextProduct = res?.data?.data || res?.data;
         }

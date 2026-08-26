@@ -1,5 +1,6 @@
 import Shift from "../models/Shift.js";
 import DeliveryManager from "../models/DeliveryManager.js";
+import DeliveryBoy from "../models/DeliveryBoy.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
@@ -228,7 +229,13 @@ export const listShifts = async (req, res, next) => {
       }
     }
 
-    const safeShifts = shifts.map((s) => s.toSafeJSON());
+    const safeShifts = shifts
+      .map((s) => {
+        const json = s.toSafeJSON();
+        json.slots = (json.slots || []).filter((sl) => sl.status !== "CANCELLED");
+        return json;
+      })
+      .filter((s) => (s.slots || []).length > 0);
 
     // Flatten all slots across shifts for slot-level API responses
     const allSlots = [];
@@ -306,10 +313,61 @@ export const updateSlotDateWise = async (req, res, next) => {
   }
 };
 
+async function notifyRidersSlotCancelled(slot, dateString) {
+  const activeBookings = (slot.bookings || []).filter(
+    (b) => String(b.status || "").toUpperCase() !== "CANCELLED"
+  );
+  if (!activeBookings.length) return 0;
+
+  const message = `Slot ${slot.startTime} – ${slot.endTime} on ${dateString} has been cancelled. Please book the next available slot.`;
+  let notified = 0;
+
+  for (const booking of activeBookings) {
+    const riderId = booking.deliveryPartnerId || booking.deliveryPartnerId;
+    if (!riderId) continue;
+    const rider = await DeliveryBoy.findById(riderId);
+    if (!rider) continue;
+
+    rider.pendingSlotAlerts = rider.pendingSlotAlerts || [];
+    rider.pendingSlotAlerts.push({
+      message,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      dateString,
+      seen: false,
+      createdAt: new Date(),
+    });
+
+    if (
+      rider.currentBooking?.slotId &&
+      rider.currentBooking.slotId.toString() === slot._id.toString()
+    ) {
+      rider.currentBooking = undefined;
+    }
+
+    await rider.save();
+    notified += 1;
+  }
+
+  return notified;
+}
+
+async function removeSlotFromShift(shift, slot) {
+  await notifyRidersSlotCancelled(slot, shift.dateString);
+  if (shift.slots.length <= 1) {
+    await Shift.deleteOne({ _id: shift._id });
+    return;
+  }
+  await Shift.updateOne({ _id: shift._id }, { $pull: { slots: { _id: slot._id } } });
+}
+
 export const deleteSlotDateWise = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     const { slotId } = req.params;
+    const scope = String(req.body?.scope || req.query?.scope || "this_date")
+      .trim()
+      .toLowerCase();
 
     const shift = await Shift.findOne({
       managerId: manager._id,
@@ -320,32 +378,49 @@ export const deleteSlotDateWise = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Shift slot not found" });
     }
 
-    const slot = shift.slots.find((s) => s._id.toString() === slotId || shift._id.toString() === slotId);
+    const slot = shift.slots.find(
+      (s) => s._id.toString() === slotId || shift._id.toString() === slotId
+    );
+    if (!slot) {
+      return res.status(404).json({ success: false, message: "Shift slot not found" });
+    }
 
-    if (slot && slot.bookedCount > 0) {
-      slot.status = "CANCELLED";
-      slot.bookings.forEach((b) => {
-        b.status = "CANCELLED";
+    const startTime = slot.startTime;
+    const endTime = slot.endTime;
+    const shiftType = shift.type;
+
+    if (scope === "all_weeks") {
+      const matchingShifts = await Shift.find({
+        managerId: manager._id,
+        type: shiftType,
+        dateString: { $gte: shift.dateString },
       });
-      await shift.save();
+
+      let removed = 0;
+      for (const s of matchingShifts) {
+        const matches = (s.slots || []).filter(
+          (sl) => sl.startTime === startTime && sl.endTime === endTime
+        );
+        for (const m of matches) {
+          await removeSlotFromShift(s, m);
+          removed += 1;
+        }
+      }
 
       return res.json({
         success: true,
-        message: `Shift slot cancelled. Registered delivery partners notified.`,
-        shift: shift.toSafeJSON(),
+        message: `Deleted this slot for ${removed} date(s) across available weeks.`,
+        scope: "all_weeks",
+        removedCount: removed,
       });
     }
 
-    if (shift.slots.length > 1 && slot) {
-      shift.slots = shift.slots.filter((s) => s._id.toString() !== slotId);
-      await shift.save();
-    } else {
-      await Shift.findByIdAndDelete(shift._id);
-    }
+    await removeSlotFromShift(shift, slot);
 
     return res.json({
       success: true,
       message: "Shift slot deleted for this date",
+      scope: "this_date",
     });
   } catch (error) {
     next(error);

@@ -1,16 +1,9 @@
 import { io } from "socket.io-client";
+import { getApiBaseUrl } from "../config/apiBase.js";
 
 let socket = null;
 let currentManagerId = null;
 const listeners = new Map();
-
-const getApiBaseUrl = () => {
-  const url =
-    import.meta.env.VITE_API_BASE_URL ||
-    import.meta.env.VITE_API_URL ||
-    "http://api.greengrocc.com";
-  return url.replace(/\/+$/, "");
-};
 
 export function connectSocket(managerId) {
   if (!managerId) return null;

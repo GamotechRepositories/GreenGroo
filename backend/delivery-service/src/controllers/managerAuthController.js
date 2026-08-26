@@ -50,10 +50,11 @@ function readStoreLocation(body = {}) {
   const city = String(body.city || "").trim();
   const area = String(body.area || "").trim();
   const storeAddress = String(body.storeAddress || body.address || "").trim();
-  return { latitude, longitude, state, city, area, storeAddress };
+  const pincode = String(body.pincode || "").replace(/\D/g, "").slice(0, 6);
+  return { latitude, longitude, state, city, area, storeAddress, pincode };
 }
 
-function applyStoreLocation(manager, loc) {
+function applyStoreLocation(manager, loc, { coordsOnly = false } = {}) {
   if (!manager || !loc) return false;
   let changed = false;
   if (loc.latitude != null && loc.longitude != null) {
@@ -61,6 +62,7 @@ function applyStoreLocation(manager, loc) {
     manager.longitude = loc.longitude;
     changed = true;
   }
+  if (coordsOnly) return changed;
   if (loc.state) {
     manager.state = loc.state;
     changed = true;
@@ -76,6 +78,10 @@ function applyStoreLocation(manager, loc) {
   }
   if (loc.storeAddress) {
     manager.storeAddress = loc.storeAddress;
+    changed = true;
+  }
+  if (loc.pincode) {
+    manager.pincode = loc.pincode;
     changed = true;
   }
   return changed;
@@ -94,6 +100,14 @@ export const register = async (req, res, next) => {
     const storeName = String(req.body.storeName || "").trim();
     const loc = readStoreLocation(req.body);
     const storeAddress = loc.storeAddress;
+    const pincode = loc.pincode;
+
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid 6-digit pincode",
+      });
+    }
 
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({
@@ -152,6 +166,7 @@ export const register = async (req, res, next) => {
       storeAddress:
         storeAddress ||
         `${storeName || `${area} Store`}, ${area}, ${city}, ${state}`,
+      pincode: pincode || "",
       latitude: loc.latitude ?? undefined,
       longitude: loc.longitude ?? undefined,
     });
@@ -200,18 +215,13 @@ export const login = async (req, res, next) => {
 
     // Bind this dark store to the manager's current GPS so nearby orders route here.
     const loc = readStoreLocation(req.body);
-    if (applyStoreLocation(manager, loc)) {
+    if (applyStoreLocation(manager, loc, { coordsOnly: true })) {
       await DeliveryManager.updateOne(
         { _id: manager._id },
         {
           $set: {
             latitude: manager.latitude,
             longitude: manager.longitude,
-            state: manager.state,
-            city: manager.city,
-            cityId: manager.cityId,
-            area: manager.area,
-            storeAddress: manager.storeAddress,
           },
         }
       );

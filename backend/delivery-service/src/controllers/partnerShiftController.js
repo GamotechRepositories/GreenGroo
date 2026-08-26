@@ -5,6 +5,7 @@ import { getIO } from "../../../socket.js";
 import { emitRiderStatusUpdated } from "../services/riderSocketService.js";
 import { checkInToBooking } from "./shiftController.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
+import { findLiveGigForManager } from "./gigManagementController.js";
 
 const formatDateString = (d) => {
   if (!d) {
@@ -143,6 +144,8 @@ export const getAvailableSlots = async (req, res, next) => {
       const shiftJson = shift.toSafeJSON();
 
       for (const slot of shiftJson.slots) {
+        if (slot.status === "CANCELLED") continue;
+
         const endMin = timeToMinutes(slot.endTime);
 
         // Check if rider already booked this slot
@@ -528,6 +531,7 @@ export const goOnline = async (req, res, next) => {
     }
 
     const todayStr = formatDateString(new Date());
+    const liveGig = await findLiveGigForManager(manager._id);
 
     const shift = await Shift.findOne({
       managerId: manager._id,
@@ -535,66 +539,64 @@ export const goOnline = async (req, res, next) => {
       "slots.bookings.deliveryPartnerId": rider._id,
     }).populate("managerId");
 
-    if (!shift) {
-      return res.status(400).json({
-        success: false,
-        code: "NO_SHIFT_BOOKED",
-        message: "Mandatory: You must select and book today's shift slot before going online!",
-      });
-    }
-
     let todayBooking = null;
     let targetSlot = null;
 
     const nowTime = new Date();
     const currentMinCheck = nowTime.getHours() * 60 + nowTime.getMinutes();
 
-    for (const slot of shift.slots) {
-      const slotEndMin = timeToMinutes(slot.endTime);
-      const isExpired = currentMinCheck >= slotEndMin;
+    if (shift) {
+      for (const slot of shift.slots) {
+        const slotEndMin = timeToMinutes(slot.endTime);
+        const isExpired = currentMinCheck >= slotEndMin;
 
-      const found = slot.bookings.find(
-        (b) =>
-          b.deliveryPartnerId.toString() === rider._id.toString() &&
-          b.status !== "CANCELLED" &&
-          b.status !== "EXPIRED" &&
-          !isExpired
-      );
-      if (found) {
-        todayBooking = found;
-        targetSlot = slot;
-        break;
+        const found = slot.bookings.find(
+          (b) =>
+            b.deliveryPartnerId.toString() === rider._id.toString() &&
+            b.status !== "CANCELLED" &&
+            b.status !== "EXPIRED" &&
+            !isExpired
+        );
+        if (found) {
+          todayBooking = found;
+          targetSlot = slot;
+          break;
+        }
       }
     }
 
     if (!todayBooking || !targetSlot) {
-      return res.status(400).json({
-        success: false,
-        code: "NO_SHIFT_BOOKED",
-        message: "Mandatory: You must select and book today's shift slot before going online!",
-      });
+      if (!liveGig) {
+        return res.status(400).json({
+          success: false,
+          code: "NO_SHIFT_BOOKED",
+          message: "Mandatory: You must select and book today's shift slot before going online!",
+        });
+      }
     }
 
     const now = new Date();
     const currentMin = now.getHours() * 60 + now.getMinutes();
-    const startMin = timeToMinutes(targetSlot.startTime);
-    const endMin = timeToMinutes(targetSlot.endTime);
+    const startMin = targetSlot ? timeToMinutes(targetSlot.startTime) : timeToMinutes(liveGig?.startTime);
+    const endMin = targetSlot ? timeToMinutes(targetSlot.endTime) : timeToMinutes(liveGig?.endTime);
 
-    const allowedEarlyMin = Math.max(0, startMin - 30);
-    if (currentMin < allowedEarlyMin) {
-      return res.status(400).json({
-        success: false,
-        code: "SHIFT_NOT_STARTED",
-        message: `Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) starts at ${targetSlot.startTime}. Online check-in opens 30 mins before start time.`,
-      });
-    }
+    if (todayBooking && targetSlot) {
+      const allowedEarlyMin = Math.max(0, startMin - 30);
+      if (currentMin < allowedEarlyMin) {
+        return res.status(400).json({
+          success: false,
+          code: "SHIFT_NOT_STARTED",
+          message: `Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) starts at ${targetSlot.startTime}. Online check-in opens 30 mins before start time.`,
+        });
+      }
 
-    if (currentMin >= endMin) {
-      return res.status(400).json({
-        success: false,
-        code: "SHIFT_EXPIRED",
-        message: `Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) has already ended for today.`,
-      });
+      if (currentMin >= endMin) {
+        return res.status(400).json({
+          success: false,
+          code: "SHIFT_EXPIRED",
+          message: `Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) has already ended for today.`,
+        });
+      }
     }
 
     let storeLat = manager?.latitude ?? 18.559;
@@ -651,19 +653,22 @@ export const goOnline = async (req, res, next) => {
     };
     await rider.save();
 
-    todayBooking.status = "ACTIVE";
-    todayBooking.onlineAt = new Date();
-    await shift.save();
-
-    // Call checkInToBooking & checkAndTrackIncentive triggers
-    await checkInToBooking(rider).catch(() => {});
+    if (todayBooking && shift) {
+      todayBooking.status = "ACTIVE";
+      todayBooking.onlineAt = new Date();
+      await shift.save();
+      await checkInToBooking(rider).catch(() => {});
+    }
     await checkAndTrackIncentive(rider._id, manager._id).catch(() => {});
 
     await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
 
-    const minutesUntilStart = startMin > currentMin ? startMin - currentMin : 0;
+    const minutesUntilStart =
+      targetSlot && startMin > currentMin ? startMin - currentMin : 0;
     let shiftMessage = "";
-    if (minutesUntilStart > 0) {
+    if (liveGig && !targetSlot) {
+      shiftMessage = `You're online for ${liveGig.title} (${liveGig.startTime} - ${liveGig.endTime}). No booking needed — stay online to earn the gig bonus.`;
+    } else if (minutesUntilStart > 0) {
       shiftMessage = `Location verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) starts in ${minutesUntilStart} minute${minutesUntilStart > 1 ? "s" : ""} at ${targetSlot.startTime}. You are checked in and ONLINE 🟢!`;
     } else {
       shiftMessage = `Location verified at ${manager?.storeName || "Store"} (${distanceMeters}m away)! Your shift (${targetSlot.startTime} - ${targetSlot.endTime}) is ACTIVE. You are now ONLINE 🟢 and ready to receive orders!`;
@@ -676,8 +681,8 @@ export const goOnline = async (req, res, next) => {
       distanceMeters,
       allowedRadius,
       minutesUntilStart,
-      startTime: targetSlot.startTime,
-      endTime: targetSlot.endTime,
+      startTime: targetSlot?.startTime || liveGig?.startTime,
+      endTime: targetSlot?.endTime || liveGig?.endTime,
       deliveryBoy: rider.toSafeJSON(),
     });
   } catch (error) {

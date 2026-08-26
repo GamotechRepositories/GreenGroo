@@ -1,10 +1,7 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../config/apiBase.js";
 
-const API_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "http://api.greengrocc.com"
-).replace(/\/+$/, "");
+const API_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -52,7 +49,8 @@ export const managerApi = {
   getShifts: () => api.get(`${BASE}/shifts`),
   getManagerSlots: (date) => api.get(`${BASE}/shifts/slots`, { params: { date } }),
   updateSlotDateWise: (slotId, data) => api.put(`${BASE}/shifts/slots/${slotId}`, data),
-  deleteSlotDateWise: (slotId) => api.delete(`${BASE}/shifts/slots/${slotId}`),
+  deleteSlotDateWise: (slotId, data = {}) =>
+    api.delete(`${BASE}/shifts/slots/${slotId}`, { data }),
   getSlotDetailsWithRiders: (slotId) => api.get(`${BASE}/shifts/slots/${slotId}/details`),
 
   // Gig & Incentive Management APIs

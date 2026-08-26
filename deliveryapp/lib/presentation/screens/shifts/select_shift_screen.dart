@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../data/services/shift_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
@@ -56,6 +57,15 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
           _error = 'Failed to load available shifts for this date';
         }
       });
+      final msgs = await AuthService.instance.consumeSlotCancellationAlerts();
+      if (!mounted || msgs.isEmpty) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msgs.join('\n')),
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
