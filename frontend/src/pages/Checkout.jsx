@@ -399,7 +399,7 @@ function Checkout() {
 
   useEffect(() => {
     const code = String(location.state?.applyCouponCode || "").trim().toUpperCase();
-    if (!code || authLoading || !user || subtotal <= 0) return;
+    if (!code || authLoading || subtotal <= 0) return;
 
     let active = true;
 
@@ -421,7 +421,7 @@ function Checkout() {
     return () => {
       active = false;
     };
-  }, [location.state?.applyCouponCode, authLoading, user, subtotal, navigate, location.pathname]);
+  }, [location.state?.applyCouponCode, authLoading, subtotal, navigate, location.pathname]);
 
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(

@@ -256,57 +256,38 @@ function Coupons() {
     const normalized = String(code || "").trim().toUpperCase();
     if (!normalized) return;
 
-    // Direct play activation for dummy offer test
-    const dummyMatch = HARIYALI_TEEJ_OFFERS.find((o) => o.code === normalized) || BANK_OFFERS.find((b) => b.code === normalized);
-    
-    if (dummyMatch) {
-      try {
-        await navigator.clipboard.writeText(normalized);
-      } catch {}
-
-      setActiveAppliedOffer({
-        code: normalized,
-        title: dummyMatch.title || dummyMatch.offer || `Code ${normalized} Activated`,
-        discount: dummyMatch.discount || dummyMatch.offer || "Special Discount Applied",
-      });
-      triggerToast(`🎉 Promo Code ${normalized} Activated Successfully!`);
-      return;
-    }
-
-    if (!user) {
-      openAuthModal("login");
-      return;
-    }
-
     setApplyingCode(normalized);
     setManualError("");
 
     try {
-      await validateCoupon({ code: normalized, subtotal });
+      const { data } = await validateCoupon({ code: normalized, subtotal });
+      const validatedCoupon = data?.data;
+
+      try {
+        await navigator.clipboard.writeText(normalized);
+      } catch {}
+
+      const discountLabel =
+        validatedCoupon?.discountType === "percentage"
+          ? `${validatedCoupon.discountValue}% OFF` +
+            (validatedCoupon.discountAmount ? ` (Save ₹${validatedCoupon.discountAmount})` : "")
+          : `Flat ₹${validatedCoupon?.discountValue || 0} OFF`;
+
       setActiveAppliedOffer({
         code: normalized,
-        title: `Coupon ${normalized} Applied`,
-        discount: "Discount Applied to Cart",
+        title: validatedCoupon?.title || `Coupon ${normalized} Applied`,
+        discount: discountLabel,
       });
-      triggerToast(`🎉 Coupon ${normalized} Applied!`);
+      triggerToast(`🎉 Coupon ${normalized} Applied Successfully!`);
     } catch (err) {
-      setManualError(err.response?.data?.message || "Invalid coupon code");
+      setManualError(err.response?.data?.message || "Invalid or ineligible coupon code");
     } finally {
       setApplyingCode("");
     }
   };
 
   const handlePlayOffer = (offer) => {
-    try {
-      navigator.clipboard.writeText(offer.code);
-    } catch {}
-
-    setActiveAppliedOffer({
-      code: offer.code,
-      title: offer.title || offer.offer,
-      discount: offer.discount || offer.offer,
-    });
-    triggerToast(`🎉 Offer ${offer.code} Activated! Code copied to clipboard.`);
+    applyCouponCode(offer.code);
   };
 
   const handleCouponAction = (coupon) => {

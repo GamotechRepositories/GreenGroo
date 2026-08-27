@@ -500,3 +500,121 @@ export const validateCoupon = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getCouponById = async (req, res) => {
+  try {
+    const coupon = await Coupon.findById(req.params.id);
+    if (!coupon) {
+      return res.status(404).json({ success: false, message: "Coupon not found" });
+    }
+    res.status(200).json({ success: true, data: coupon });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const DEFAULT_COUPONS = [
+  {
+    code: "GREEN10",
+    title: "10% Instant Discount on Fresh Produce",
+    discountType: "percentage",
+    discountValue: 10,
+    minOrderAmount: 199,
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    isActive: true,
+    appliesToAllProducts: true,
+    maxRedemptionsPerUser: null,
+    maxTotalRedemptions: null,
+  },
+  {
+    code: "FRESH50",
+    title: "Flat ₹50 OFF on Ready2Cook & Daily Veggies",
+    discountType: "fixed",
+    discountValue: 50,
+    minOrderAmount: 399,
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    isActive: true,
+    appliesToAllProducts: true,
+    maxRedemptionsPerUser: null,
+    maxTotalRedemptions: null,
+  },
+  {
+    code: "SUPER100",
+    title: "Flat ₹100 Mega Discount on SuperMall Pantry",
+    discountType: "fixed",
+    discountValue: 100,
+    minOrderAmount: 699,
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    isActive: true,
+    appliesToAllProducts: true,
+    maxRedemptionsPerUser: null,
+    maxTotalRedemptions: null,
+  },
+  {
+    code: "WELCOME20",
+    title: "Welcome Offer: 20% OFF on First Order",
+    discountType: "percentage",
+    discountValue: 20,
+    minOrderAmount: 299,
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    isActive: true,
+    appliesToAllProducts: true,
+    maxRedemptionsPerUser: 1,
+    maxTotalRedemptions: null,
+  },
+  {
+    code: "FESTIVE150",
+    title: "Festive Special: Flat ₹150 OFF on ₹999+",
+    discountType: "fixed",
+    discountValue: 150,
+    minOrderAmount: 999,
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    isActive: true,
+    appliesToAllProducts: true,
+    maxRedemptionsPerUser: null,
+    maxTotalRedemptions: null,
+  },
+];
+
+export async function seedDefaultCouponsIfEmpty() {
+  try {
+    const count = await Coupon.countDocuments();
+    if (count === 0) {
+      console.log("[CouponService] Seeding default coupons...");
+      await Coupon.insertMany(DEFAULT_COUPONS);
+      console.log(`[CouponService] Successfully seeded ${DEFAULT_COUPONS.length} default coupons`);
+    }
+  } catch (error) {
+    console.error("[CouponService] Failed to seed default coupons:", error.message);
+  }
+}
+
+export const seedCoupons = async (_req, res) => {
+  try {
+    const existing = await Coupon.find();
+    const existingCodes = new Set(existing.map((c) => c.code.toUpperCase()));
+
+    const toInsert = DEFAULT_COUPONS.filter(
+      (c) => !existingCodes.has(c.code.toUpperCase())
+    );
+
+    if (toInsert.length > 0) {
+      await Coupon.insertMany(toInsert);
+    }
+
+    const all = await Coupon.find().sort({ minOrderAmount: 1, discountValue: -1 });
+    res.status(200).json({
+      success: true,
+      message: `Seeded ${toInsert.length} new coupons`,
+      data: all,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

@@ -8,6 +8,7 @@ import Sections from './pages/Sections';
 import Categories from './pages/Categories';
 import Products from './pages/Products';
 import DarkStores from './pages/DarkStores';
+import Coupons from './pages/Coupons';
 import Login from './pages/Login';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
               <Route path="products" element={<Products />} />
               <Route path="dark-stores" element={<DarkStores />} />
               <Route path="categories" element={<Categories />} />
+              <Route path="coupons" element={<Coupons />} />
               <Route path="sections" element={<Navigate to="/categories" replace />} />
             </Route>
 

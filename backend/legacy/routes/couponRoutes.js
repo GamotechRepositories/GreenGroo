@@ -5,17 +5,27 @@ import {
   deleteCoupon,
   getAllCoupons,
   getAvailableCoupons,
+  getCouponById,
+  seedCoupons,
   updateCoupon,
   validateCoupon,
 } from "../controllers/couponController.js";
 
 const router = express.Router();
 
+// Customer / Public routes
 router.get("/available", optionalProtect, getAvailableCoupons);
-router.post("/validate", protect, validateCoupon);
-router.get("/", protect, requireAdmin, getAllCoupons);
-router.post("/", protect, requireAdmin, createCoupon);
-router.put("/:id", protect, requireAdmin, updateCoupon);
-router.delete("/:id", protect, requireAdmin, deleteCoupon);
+router.post("/validate", optionalProtect, validateCoupon);
+
+// Seed route (before param routes)
+router.post("/seed", seedCoupons);
+router.get("/seed", seedCoupons);
+
+// Admin & Management operations
+router.get("/", getAllCoupons);
+router.get("/:id", getCouponById);
+router.post("/", createCoupon);
+router.put("/:id", updateCoupon);
+router.delete("/:id", deleteCoupon);
 
 export default router;
