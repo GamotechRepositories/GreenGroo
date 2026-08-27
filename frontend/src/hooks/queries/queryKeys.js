@@ -1,4 +1,7 @@
 export const queryKeys = {
+  sections: {
+    all: ["sections"],
+  },
   categories: {
     all: ["categories"],
   },

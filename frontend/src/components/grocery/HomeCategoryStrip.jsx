@@ -130,70 +130,35 @@ function resolveActiveCategory(categories, categoryFromUrl) {
 }
 
 function HomeCategoryStrip() {
-  const { data: apiCategories = [] } = useCategoriesQuery();
   const [searchParams] = useSearchParams();
-
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const theme = resolveStoreTheme(currentStore);
 
+  const targetSection =
+    currentStore === "mall"
+      ? "supermall"
+      : currentStore === "festive"
+      ? "ready2cook"
+      : currentStore === "main"
+      ? "greengrocc"
+      : currentStore;
+
+  const { data: apiCategories = [] } = useCategoriesQuery({ section: targetSection });
+
   const categories = useMemo(() => {
-    const filtered = apiCategories.filter(
-      (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-    );
+    const list = [{ name: "All", slug: "" }];
 
-    const defaults = [
-      { name: "All", slug: "" },
-      { name: "Fruits", slug: "Fruits", image: "/fruits.png" },
-      { name: "Vegetables", slug: "Vegetables", image: "/vegetables.png" },
-      { name: "Organic", slug: "Organic", image: "/organic.png" },
-      { name: "Dairy", slug: "Dairy", image: "/dairy.png" },
-    ];
-
-    let baseList = defaults;
-
-    if (filtered.length) {
-      const fromApi = filtered.slice(0, 8).map((cat) => ({
-        name: cat.categoryName,
-        slug: cat.categoryName,
-        image: getCategoryImage(cat.categoryName, cat.categoryImage),
-      }));
-
-      const hasFruits = fromApi.some((cat) => isFruitsCategory(cat.name));
-      const hasVegetables = fromApi.some((cat) => isVegetablesCategory(cat.name));
-      const hasOrganic = fromApi.some((cat) => isOrganicCategory(cat.name));
-      const hasDairy = fromApi.some((cat) => isDairyCategory(cat.name));
-      const list = [{ name: "All", slug: "" }, ...fromApi];
-
-      if (!hasFruits) {
-        list.splice(1, 0, { name: "Fruits", slug: "Fruits", image: "/fruits.png" });
-      }
-      if (!hasVegetables) {
-        const insertAt = list.findIndex((cat) => isFruitsCategory(cat.name)) + 1 || 2;
-        list.splice(insertAt, 0, {
-          name: "Vegetables",
-          slug: "Vegetables",
-          image: "/vegetables.png",
-        });
-      }
-      if (!hasOrganic) {
-        const vegIndex = list.findIndex((cat) => isVegetablesCategory(cat.name));
-        const insertAt = vegIndex >= 0 ? vegIndex + 1 : list.length;
-        list.splice(insertAt, 0, {
-          name: "Organic",
-          slug: "Organic",
-          image: "/organic.png",
-        });
-      }
-      if (!hasDairy) {
-        const organicIndex = list.findIndex((cat) => isOrganicCategory(cat.name));
-        const insertAt = organicIndex >= 0 ? organicIndex + 1 : list.length;
-        list.splice(insertAt, 0, {
-          name: "Dairy",
-          slug: "Dairy",
-          image: "/dairy.png",
-        });
-      }
-      baseList = list;
+    if (Array.isArray(apiCategories) && apiCategories.length > 0) {
+      const fromApi = apiCategories
+        .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
+        .slice(0, 6)
+        .map((cat) => ({
+          name: cat.categoryName,
+          slug: cat.slug || cat.categoryName,
+          image: cat.categoryImage || getCategoryImage(cat.categoryName, null),
+        }));
+      list.push(...fromApi);
+      return list;
     }
 
     if (currentStore === "mall") {
@@ -207,13 +172,23 @@ function HomeCategoryStrip() {
       ];
     }
 
-    let finalCategories = applyLocalCategoryImages(baseList);
-
     if (currentStore === "festive") {
-      finalCategories = finalCategories.filter((cat) => !isDairyCategory(cat.name));
+      return [
+        { name: "All", slug: "" },
+        { name: "Chopped", slug: "Chopped", image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?auto=format&fit=crop&w=300&h=300&q=80" },
+        { name: "Cut & Sliced", slug: "Cut & Sliced", image: "https://images.unsplash.com/photo-1598170845058-12ef4a457c39?auto=format&fit=crop&w=300&h=300&q=80" },
+        { name: "Peeled & Cleaned", slug: "Peeled & Cleaned", image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&h=300&q=80" },
+        { name: "Cleaned Bhaji", slug: "Cleaned Bhaji", image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=300&h=300&q=80" },
+      ];
     }
 
-    return finalCategories.slice(0, 5);
+    return [
+      { name: "All", slug: "" },
+      { name: "Vegetables", slug: "Vegetables", image: "/categories/vegetables.webp" },
+      { name: "Fruits", slug: "Fruits", image: "/categories/fruits.webp" },
+      { name: "Dairy", slug: "Dairy", image: "/categories/dairy.webp" },
+      { name: "Organic", slug: "Organic", image: "/categories/organic.webp" },
+    ];
   }, [apiCategories, currentStore]);
 
   const categoryFromUrl = searchParams.get("categoryName")?.trim() || "";

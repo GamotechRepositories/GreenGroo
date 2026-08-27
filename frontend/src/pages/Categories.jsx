@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
+import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../hooks/queries/useSectionsQuery";
 import { GROCERY_CATEGORIES } from "../data/groceryCategories";
 import { SUPER_MALL_CATEGORIES } from "../data/superMallCategories";
 import { READY2COOK_SHOP_CATEGORIES } from "../components/home/FestiveStoreSection";
@@ -10,13 +11,88 @@ function Categories() {
   const [searchParams] = useSearchParams();
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
 
-  // Fetch dynamic categories from MongoDB
-  const { data: dbCategories = [] } = useCategoriesQuery();
+  const targetSection =
+    currentStore === "mall"
+      ? "supermall"
+      : currentStore === "festive"
+      ? "ready2cook"
+      : currentStore === "main"
+      ? "greengrocc"
+      : currentStore;
 
-  let title = "All Categories";
-  let subtitle = "Fresh picks for every kitchen need";
+  // Fetch dynamic categories from MongoDB for this department
+  const { data: dbCategories = [], isLoading: loadingCats } = useCategoriesQuery({
+    section: targetSection,
+  });
+  const { data: sections = DEFAULT_FALLBACK_SECTIONS } = useSectionsQuery();
+
+  const currentSecObj = useMemo(() => {
+    const s = sections.find(
+      (sec) =>
+        sec.slug?.toLowerCase() === targetSection.toLowerCase() ||
+        (targetSection === "greengrocc" && sec.slug === "greengrocc") ||
+        (targetSection === "ready2cook" && sec.slug === "ready2cook") ||
+        (targetSection === "supermall" && sec.slug === "supermall")
+    );
+    return s || null;
+  }, [sections, targetSection]);
+
+  const headerMeta = useMemo(() => {
+    if (currentSecObj) {
+      return {
+        badge: currentSecObj.badge || currentSecObj.sectionName,
+        title: `${currentSecObj.sectionName} Categories`,
+        subtitle: currentSecObj.description || "Browse all curated product categories",
+        color: currentSecObj.color || "#0C831F",
+      };
+    }
+    if (currentStore === "mall") {
+      return {
+        badge: "Super Mall Marketplace",
+        title: "Super Mall Categories",
+        subtitle: "Top brand groceries, essentials & packaged foods",
+        color: "#2563EB",
+      };
+    }
+    if (currentStore === "festive") {
+      return {
+        badge: "Ready2Cook Kitchen",
+        title: "Ready2Cook Categories",
+        subtitle: "Pre-washed, peeled & chopped ingredients for fast cooking",
+        color: "#EA580C",
+      };
+    }
+    return {
+      badge: "GreenGrocc Fresh",
+      title: "All Categories",
+      subtitle: "Fresh picks for every kitchen need",
+      color: "#0C831F",
+    };
+  }, [currentSecObj, currentStore]);
 
   const categoriesList = useMemo(() => {
+    // 1. Dynamic database categories
+    if (Array.isArray(dbCategories) && dbCategories.length > 0) {
+      return dbCategories.map((c) => ({
+        _id: c._id,
+        slug: c.slug || c.categoryName,
+        categoryName: c.categoryName,
+        name: c.categoryName,
+        categoryImage: c.categoryImage,
+        image: c.categoryImage,
+        itemCount:
+          c.itemCount || (c.productCount ? `${c.productCount}+ items` : "50+ items"),
+        items:
+          c.itemCount || (c.productCount ? `${c.productCount}+ items` : "50+ items"),
+        emoji: c.emoji,
+        bg: c.bg,
+        bgClass: c.bgClass,
+        subcategories: c.subcategories,
+        section: c.section,
+      }));
+    }
+
+    // 2. Fallbacks if database is loading or empty
     if (currentStore === "mall") {
       return SUPER_MALL_CATEGORIES.map((c) => ({
         slug: c.slug,
@@ -41,51 +117,24 @@ function Categories() {
       }));
     }
 
-    // Main Fresh Store: use dynamic categories from database with fallback
-    if (Array.isArray(dbCategories) && dbCategories.length > 0) {
-      return dbCategories.map((c) => ({
-        _id: c._id,
-        slug: c.slug || c.categoryName,
-        categoryName: c.categoryName,
-        name: c.categoryName,
-        categoryImage: c.categoryImage,
-        image: c.categoryImage,
-        itemCount: c.itemCount || (c.productCount ? `${c.productCount}+ items` : "50+ items"),
-        items: c.itemCount || (c.productCount ? `${c.productCount}+ items` : "50+ items"),
-        emoji: c.emoji,
-        bg: c.bg,
-        bgClass: c.bgClass,
-        subcategories: c.subcategories,
-      }));
-    }
-
     return GROCERY_CATEGORIES;
   }, [currentStore, dbCategories]);
-
-  if (currentStore === "mall") {
-    title = "Super Mall Categories";
-    subtitle = "Top brand groceries, essentials & packaged foods";
-  } else if (currentStore === "festive") {
-    title = "Ready2Cook Categories";
-    subtitle = "Pre-washed, peeled & chopped ingredients for fast cooking";
-  }
 
   return (
     <div className="min-h-screen bg-white pb-24 lg:pb-8">
       <div className="border-b border-border-light bg-gradient-to-br from-slate-50 via-white to-white px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         <div className="mx-auto max-w-7xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#0C831F] lg:text-sm">
-            {currentStore === "mall"
-              ? "Super Mall Marketplace"
-              : currentStore === "festive"
-              ? "Ready2Cook Kitchen"
-              : "GreenGrocc Fresh"}
+          <p
+            className="text-xs font-bold uppercase tracking-widest lg:text-sm"
+            style={{ color: headerMeta.color }}
+          >
+            {headerMeta.badge}
           </p>
           <h1 className="mt-1.5 text-2xl font-black text-slate-900 lg:text-4xl">
-            {title}
+            {headerMeta.title}
           </h1>
           <p className="mt-1 text-xs font-medium text-slate-500 lg:text-sm">
-            {subtitle}
+            {headerMeta.subtitle}
           </p>
         </div>
       </div>

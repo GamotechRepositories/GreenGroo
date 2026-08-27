@@ -1,5 +1,5 @@
 import productRoutes from "../../legacy/routes/productRoutes.js";
-import categoryRoutes from "../../legacy/routes/categoryRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
 import sectionRoutes from "./routes/sectionRoutes.js";
 import brandRoutes from "../../legacy/routes/brandRoutes.js";
 import heroBannerRoutes from "../../legacy/routes/heroBannerRoutes.js";

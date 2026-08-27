@@ -48,14 +48,10 @@ function ProfileButton({ theme }) {
   );
 }
 
-function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
-  const isActive = storeKey === currentStore;
-  const activeBgClass = theme.activeTabBg;
+import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../../hooks/queries/useSectionsQuery";
 
-  let activeBgHex = "#059669";
-  if (storeKey === "festive") activeBgHex = "#C2410C";
-  else if (storeKey === "mall") activeBgHex = "#312E81";
-  else if (storeKey === "main") activeBgHex = "#059669";
+function StoreTab({ storeKey, isCurrentActive, activeColor, onSelect, children }) {
+  const activeBgHex = activeColor || "#059669";
 
   return (
     <div className="relative flex-1 min-w-0">
@@ -63,15 +59,18 @@ function StoreTab({ storeKey, currentStore, theme, onSelect, children }) {
         type="button"
         onClick={() => onSelect(storeKey)}
         className={`relative w-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
-          isActive
-            ? `${activeBgClass} h-[60px] rounded-t-[20px] rounded-b-none px-2 z-10`
-            : "bg-white h-[54px] rounded-[18px] px-3 border border-black/10 mb-1 hover:bg-gray-50 z-0"
+          isCurrentActive
+            ? "h-[60px] rounded-t-[20px] rounded-b-none px-2 z-10 text-white font-black"
+            : "bg-white h-[54px] rounded-[18px] px-3 border border-black/10 mb-1 hover:bg-gray-50 z-0 text-slate-800 font-bold"
         }`}
+        style={{
+          backgroundColor: isCurrentActive ? activeBgHex : undefined,
+        }}
       >
         {children}
       </button>
 
-      {isActive && (
+      {isCurrentActive && (
         <>
           {/* Bottom-left concave fillet curve */}
           <span
@@ -98,16 +97,20 @@ export function HomeDeliveryBar() {
   const { location, hasLocation } = useLocation();
   const { data: nearest } = useNearestStore();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { data: sections = DEFAULT_FALLBACK_SECTIONS } = useSectionsQuery();
+
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const theme = resolveStoreTheme(currentStore);
 
   const setStore = (storeKey) => {
     const nextParams = new URLSearchParams(searchParams);
-    if (storeKey === "main") {
+    if (storeKey === "main" || storeKey === "greengrocc") {
       nextParams.delete("store");
     } else {
       nextParams.set("store", storeKey);
     }
+    // Also reset active category if switching store
+    nextParams.delete("categoryName");
     setSearchParams(nextParams);
   };
 
@@ -115,6 +118,8 @@ export function HomeDeliveryBar() {
     ? formatDeliveryLine(location) || location.label
     : "Select location to see nearby stock";
   const storeName = nearest?.store?.storeName;
+
+  const displaySections = sections && sections.length > 0 ? sections : DEFAULT_FALLBACK_SECTIONS;
 
   return (
     <div className={`${theme.deliveryBg} px-4 pb-0 pt-2.5 sm:pt-3 transition-colors duration-300`}>
@@ -143,42 +148,77 @@ export function HomeDeliveryBar() {
         <ProfileButton theme={theme} />
       </div>
 
-      <div className="mt-3 flex items-end gap-2.5 w-full pb-0">
-        {/* GreenGrocc tab */}
-        <StoreTab storeKey="main" currentStore={currentStore} theme={theme} onSelect={setStore}>
-          <img
-            src="/greengrocc-logo.png"
-            alt="GreenGrocc"
-            className="h-10 w-auto max-w-[135px] object-contain mx-auto"
-          />
-        </StoreTab>
+      <div className="mt-3 flex items-end gap-2.5 w-full pb-0 overflow-x-auto hide-scrollbar">
+        {displaySections.map((sec) => {
+          const secSlug = (sec.slug || "").toLowerCase();
+          const storeKey =
+            secSlug === "greengrocc" ? "main" :
+            secSlug === "ready2cook" ? "festive" :
+            secSlug === "supermall" ? "mall" : secSlug;
 
-        {/* Ready2Cook tab */}
-        <StoreTab storeKey="festive" currentStore={currentStore} theme={theme} onSelect={setStore}>
-          <div className="text-center leading-none">
-            <span className={`text-[15px] sm:text-[16px] font-black tracking-tight ${
-              currentStore === "festive" ? "text-white" : "text-[#EA580C]"
-            }`}>
-              Ready2Cook
-            </span>
-          </div>
-        </StoreTab>
+          const isCurrentActive =
+            currentStore === storeKey ||
+            (currentStore === "main" && (secSlug === "greengrocc" || storeKey === "main")) ||
+            (currentStore === "festive" && (secSlug === "ready2cook" || storeKey === "festive")) ||
+            (currentStore === "mall" && (secSlug === "supermall" || storeKey === "mall")) ||
+            currentStore === secSlug;
 
-        {/* Super Mall tab */}
-        <StoreTab storeKey="mall" currentStore={currentStore} theme={theme} onSelect={setStore}>
-          <div className="text-left leading-[1.1]">
-            <span className={`block text-[14px] sm:text-[15px] font-black ${
-              currentStore === "mall" ? "text-white" : "text-slate-900"
-            }`}>
-              Super
-            </span>
-            <span className={`block text-[14px] sm:text-[15px] font-black ${
-              currentStore === "mall" ? "text-white" : "text-[#2563EB]"
-            }`}>
-              Mall.
-            </span>
-          </div>
-        </StoreTab>
+          const activeColor =
+            sec.color ||
+            (storeKey === "festive" ? "#C2410C" : storeKey === "mall" ? "#312E81" : "#059669");
+
+          return (
+            <StoreTab
+              key={sec._id || sec.slug || storeKey}
+              storeKey={storeKey}
+              isCurrentActive={isCurrentActive}
+              activeColor={activeColor}
+              onSelect={setStore}
+            >
+              {secSlug === "greengrocc" || storeKey === "main" ? (
+                <img
+                  src="/greengrocc-logo.png"
+                  alt="GreenGrocc"
+                  className="h-10 w-auto max-w-[135px] object-contain mx-auto"
+                />
+              ) : secSlug === "ready2cook" || storeKey === "festive" ? (
+                <div className="text-center leading-none">
+                  <span
+                    className={`text-[15px] sm:text-[16px] font-black tracking-tight ${
+                      isCurrentActive ? "text-white" : "text-[#EA580C]"
+                    }`}
+                  >
+                    Ready2Cook
+                  </span>
+                </div>
+              ) : secSlug === "supermall" || storeKey === "mall" ? (
+                <div className="text-left leading-[1.1]">
+                  <span
+                    className={`block text-[14px] sm:text-[15px] font-black ${
+                      isCurrentActive ? "text-white" : "text-slate-900"
+                    }`}
+                  >
+                    Super
+                  </span>
+                  <span
+                    className={`block text-[14px] sm:text-[15px] font-black ${
+                      isCurrentActive ? "text-white" : "text-[#2563EB]"
+                    }`}
+                  >
+                    Mall.
+                  </span>
+                </div>
+              ) : (
+                <div className="text-center leading-tight truncate px-1">
+                  {sec.emoji && <span className="mr-1 text-sm">{sec.emoji}</span>}
+                  <span className="text-xs sm:text-sm font-black truncate">
+                    {sec.sectionName}
+                  </span>
+                </div>
+              )}
+            </StoreTab>
+          );
+        })}
       </div>
     </div>
   );

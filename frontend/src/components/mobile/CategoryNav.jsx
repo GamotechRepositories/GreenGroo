@@ -28,16 +28,18 @@ function useItemsPerSlide() {
 }
 
 const DEFAULT_CATEGORIES = [
-  { name: "Chargers", icon: "charger" },
-  { name: "Earphones", icon: "earphone" },
-  { name: "Cables", icon: "cable" },
-  { name: "Neckbands", icon: "neckband" },
-  { name: "Power Banks", icon: "powerbank" },
-  { name: "Smart Watches", icon: "watch" },
-  { name: "Bluetooth Speakers", icon: "speaker" },
-  { name: "Mobile Covers", icon: "cover" },
-  { name: "Tempered Glass", icon: "glass" },
-  { name: "Adapters", icon: "adapter" },
+  { name: "Vegetables", image: "/categories/vegetables.webp" },
+  { name: "Fruits", image: "/categories/fruits.webp" },
+  { name: "Dairy", image: "/categories/dairy.webp" },
+  { name: "Grains", image: "/categories/grains.webp" },
+  { name: "Pulses", image: "/categories/pulses.webp" },
+  { name: "Grocery", image: "/categories/grocery.webp" },
+  { name: "Oils", image: "/categories/oils.webp" },
+  { name: "Spices", image: "/categories/spices.webp" },
+  { name: "Dry Fruits", image: "/categories/dry_fruits.webp" },
+  { name: "Organic", image: "/categories/organic.webp" },
+  { name: "Beverages", image: "/categories/beverages.webp" },
+  { name: "Bakery", image: "/categories/bakery.webp" },
 ];
 
 const ICON_TYPES = [

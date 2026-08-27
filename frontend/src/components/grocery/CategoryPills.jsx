@@ -74,7 +74,7 @@ function CategoryPills() {
             </p>
           </div>
           <Link
-            to="/categories"
+            to={currentStore && currentStore !== "main" ? `/categories?store=${currentStore}` : "/categories"}
             className="text-sm font-semibold text-[#0C831F] hover:underline"
           >
             View All

@@ -8,13 +8,19 @@ export function useCategoriesQuery(paramsOrOptions = {}, maybeOptions = {}) {
   const params = isParams ? paramsOrOptions : {};
   const options = isParams ? maybeOptions : paramsOrOptions;
 
-  const sectionKey = params.section || "all";
+  const sectionKey = params.section || params.storeType || "all";
 
   return useQuery({
     queryKey: [...queryKeys.categories.all, sectionKey],
     queryFn: async () => {
-      const { data } = await getCategories(params);
-      return data.data || [];
+      try {
+        const res = await getCategories(params);
+        const list = res.data?.data || res.data;
+        return Array.isArray(list) ? list : [];
+      } catch (err) {
+        console.warn("Failed to fetch categories:", err.message);
+        return [];
+      }
     },
     staleTime: 5 * 60 * 1000,
     ...options,

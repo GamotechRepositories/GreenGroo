@@ -212,6 +212,22 @@ export default function Categories() {
     }
   };
 
+  const handleSeedDefaults = async () => {
+    try {
+      setIsSubmitting(true);
+      await Promise.all([
+        sectionApi.seedDefaultSections().catch(() => {}),
+        categoryApi.seedDefaultCategories().catch(() => {}),
+      ]);
+      showToast('Seeded default departments & categories successfully!');
+      await loadData();
+    } catch (err) {
+      showToast('Failed to seed defaults: ' + (err.message || ''), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -1949,14 +1965,26 @@ export default function Categories() {
             <p className="text-xs text-slate-400 mt-1 max-w-sm">
               {searchTerm || selectedSectionFilter !== 'all'
                 ? 'No catalog items match your search query or filters.'
-                : 'Get started by creating your first product category.'}
+                : 'Get started by creating your first product category or initialize with default catalog.'}
             </p>
-            <button
-              onClick={handleOpenAddCatModal}
-              className="mt-3 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
-            >
-              Add Category
-            </button>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={handleOpenAddCatModal}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
+              >
+                Add Category
+              </button>
+              {categories.length === 0 && (
+                <button
+                  onClick={handleSeedDefaults}
+                  disabled={isSubmitting}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Seed Default Catalog</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : viewMode === 'grid' ? (
           /* Sleek Compact Grid View */
