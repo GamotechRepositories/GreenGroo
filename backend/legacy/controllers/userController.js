@@ -1101,3 +1101,28 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export async function seedDefaultAdminIfEmpty() {
+  try {
+    const adminEmails = ["admin@greengrocc.com", "admin@greengrocc.in"];
+    for (const email of adminEmails) {
+      let existing = await User.findOne({ email: email.toLowerCase() });
+      if (!existing) {
+        existing = await Admin.findOne({ email: email.toLowerCase() });
+      }
+      if (!existing) {
+        await User.create({
+          name: "Super Admin",
+          email: email.toLowerCase(),
+          phone: email.includes(".com") ? "9876543210" : "9876543211",
+          password: "admin123",
+          role: "admin",
+        });
+        console.log(`Seeded default admin account (${email})`);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to seed default admin:", error.message);
+  }
+}
+

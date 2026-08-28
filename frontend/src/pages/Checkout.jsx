@@ -242,9 +242,11 @@ function Checkout() {
   const couponDiscount = appliedCoupon?.discountAmount || 0;
   const subtotalAfterCoupon = Math.max(0, subtotal - couponDiscount);
 
+  const rewardsActive = rewardSettings?.enabled === true;
+
   // Maximum reward points allowed for redemption on this cart
   const maxRedeemablePoints = useMemo(() => {
-    if (!rewardSettings?.enabled || !userRewardPoints) return 0;
+    if (!rewardsActive || !userRewardPoints) return 0;
     if (subtotal < (rewardSettings.minOrderAmountToRedeem || 0)) return 0;
     if (userRewardPoints < (rewardSettings.minPointsToRedeem || 0)) return 0;
 
@@ -257,9 +259,9 @@ function Checkout() {
       maxPoints = Math.min(maxPoints, rewardSettings.maxPointsPerOrder);
     }
     return Math.max(0, Math.min(userRewardPoints, maxPoints));
-  }, [rewardSettings, userRewardPoints, subtotal, subtotalAfterCoupon]);
+  }, [rewardsActive, rewardSettings, userRewardPoints, subtotal, subtotalAfterCoupon]);
 
-  const effectiveRewardPoints = useRewards ? Math.min(rewardPointsInput, maxRedeemablePoints) : 0;
+  const effectiveRewardPoints = rewardsActive && useRewards ? Math.min(rewardPointsInput, maxRedeemablePoints) : 0;
   const rewardDiscount =
     Math.round(effectiveRewardPoints * (rewardSettings?.pointValueInRupees || 1.0) * 100) / 100;
 
@@ -267,12 +269,12 @@ function Checkout() {
 
   // Reward points earned on this order
   const pointsToEarn = useMemo(() => {
-    if (!rewardSettings?.enabled) return 0;
-    if (subtotal < (rewardSettings.minOrderAmountToEarn || 0)) return 0;
-    const spend = rewardSettings.earningRate?.spendAmount || 100;
-    const rate = rewardSettings.earningRate?.pointsEarned || 10;
+    if (!rewardsActive) return 0;
+    if (subtotal < (rewardSettings?.minOrderAmountToEarn || 0)) return 0;
+    const spend = rewardSettings?.earningRate?.spendAmount || 100;
+    const rate = rewardSettings?.earningRate?.pointsEarned || 10;
     return Math.floor((subtotal / spend) * rate);
-  }, [rewardSettings, subtotal]);
+  }, [rewardsActive, rewardSettings, subtotal]);
 
   const discountedSubtotal = Math.max(0, subtotalAfterCoupon - rewardDiscount);
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
@@ -1035,7 +1037,7 @@ function Checkout() {
                   )}
 
                   {/* Reward Points Redemption Block */}
-                  {rewardSettings?.enabled !== false && (
+                  {rewardsActive && (
                     <div className="mt-3 border-t border-border-light pt-3">
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-1.5">
@@ -1141,7 +1143,7 @@ function Checkout() {
                       <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
                     </div>
                   ) : null}
-                  {rewardDiscount > 0 ? (
+                  {rewardsActive && rewardDiscount > 0 ? (
                     <div className="flex justify-between text-emerald-700">
                       <span>Reward Points discount ({effectiveRewardPoints} pts)</span>
                       <span className="font-bold">-{formatPrice(rewardDiscount)}</span>
@@ -1187,7 +1189,7 @@ function Checkout() {
                   You will save {formatPrice(savings)} on this order
                 </div>
 
-                {pointsToEarn > 0 && (
+                {rewardsActive && pointsToEarn > 0 && (
                   <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] font-semibold text-amber-900 border border-amber-200/80 sm:px-3 sm:py-2.5 sm:text-xs">
                     <span className="text-base">🪙</span>
                     <span>

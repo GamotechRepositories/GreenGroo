@@ -390,9 +390,21 @@ export default function RewardPoints() {
       )}
 
       {saveErrorMessage && (
-        <div className="flex items-center gap-3 rounded-xl bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/40">
-          <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
-          <span>{saveErrorMessage}</span>
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/40">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
+            <span>{saveErrorMessage}</span>
+          </div>
+          {saveErrorMessage.toLowerCase().includes('token') ||
+          saveErrorMessage.toLowerCase().includes('login') ||
+          saveErrorMessage.toLowerCase().includes('authorized') ? (
+            <a
+              href="/login"
+              className="shrink-0 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700 transition"
+            >
+              Sign In Again
+            </a>
+          ) : null}
         </div>
       )}
 
@@ -531,11 +543,24 @@ export default function RewardPoints() {
             <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Program Status
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Toggle whether customers can earn and redeem reward points across the platform
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Reward Points Service Status
+                    </h3>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        settings.enabled
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                      }`}
+                    >
+                      {settings.enabled ? 'Active / Visible' : 'Disabled / Hidden'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+                    {settings.enabled
+                      ? 'Reward points are active. Customers can view their wallet balance, check history, and apply discounts during checkout.'
+                      : 'Reward points are disabled. The rewards wallet card, passbook link, and checkout redemption options are completely hidden from all users.'}
                   </p>
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">

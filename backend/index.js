@@ -21,6 +21,7 @@ import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
 import { seedDefaultSectionsIfEmpty } from "./product-service/src/controllers/sectionController.js";
 import { seedDefaultCategoriesIfEmpty } from "./product-service/src/controllers/categoryController.js";
 import { seedDefaultCouponsIfEmpty } from "./legacy/controllers/couponController.js";
+import { seedDefaultAdminIfEmpty } from "./legacy/controllers/userController.js";
 import rewardRoutes from "./legacy/routes/rewardRoutes.js";
 import { seedDefaultRewardSettingsIfEmpty } from "./legacy/controllers/rewardController.js";
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
@@ -114,6 +115,7 @@ if (!process.env.JWT_SECRET) {
 
 connectDB("server").then(async () => {
   await seedInitialData();
+  await seedDefaultAdminIfEmpty();
   await seedDefaultSectionsIfEmpty();
   await seedDefaultCategoriesIfEmpty();
   await seedDefaultCouponsIfEmpty();

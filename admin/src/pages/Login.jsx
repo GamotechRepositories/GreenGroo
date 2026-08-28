@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, Lock, Mail, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { Leaf, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import apiClient from '../api/client';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,37 +10,62 @@ export default function Login() {
   const [email, setEmail] = useState('admin@greengrocc.com');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
     }
 
-    login(
-      {
-        name: 'Super Admin',
-        email,
-        role: 'superadmin',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      },
-      'greengrocc_admin_jwt_session'
-    );
-    navigate('/');
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await apiClient.post('/users/login', {
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (response.data?.success && response.data?.data?.token) {
+        const { user: authUser, token: authToken } = response.data.data;
+        login(authUser, authToken);
+        navigate('/');
+      } else {
+        setError(response.data?.message || 'Login failed. Please check credentials.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid email or password. Please verify your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleQuickDemoLogin = (roleName, roleEmail) => {
-    login(
-      {
-        name: roleName,
-        email: roleEmail,
-        role: roleName.toLowerCase().replace(' ', '_'),
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      },
-      'demo_session_token'
-    );
-    navigate('/');
+  const handleQuickDemoLogin = async (roleName, roleEmail) => {
+    setEmail(roleEmail);
+    setPassword('admin123');
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await apiClient.post('/users/login', {
+        email: roleEmail.trim().toLowerCase(),
+        password: 'admin123',
+      });
+
+      if (response.data?.success && response.data?.data?.token) {
+        const { user: authUser, token: authToken } = response.data.data;
+        login(authUser, authToken);
+        navigate('/');
+      } else {
+        setError(response.data?.message || 'Quick login failed.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed. Please ensure backend is running.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -107,9 +133,18 @@ export default function Login() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 py-3 font-bold text-white shadow-lg shadow-emerald-600/30 transition-all duration-200"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 py-3 font-bold text-white shadow-lg shadow-emerald-600/30 transition-all duration-200 disabled:opacity-60"
             >
-              Sign In to Command Center <ArrowRight className="h-4 w-4" />
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Authenticating...
+                </>
+              ) : (
+                <>
+                  Sign In to Command Center <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
 
