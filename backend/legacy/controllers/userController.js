@@ -33,6 +33,7 @@ const formatAuthUser = (user) => ({
   shopAddress: user.shopAddress || "",
   gstNumber: user.gstNumber || "",
   role: user.role,
+  rewardPoints: user.rewardPoints || 0,
 });
 
 function pickSignupProfileFields(body) {
@@ -536,6 +537,7 @@ export const getMe = async (req, res) => {
         shopAddress: req.user.shopAddress || "",
         gstNumber: req.user.gstNumber || "",
         role: req.user.role,
+        rewardPoints: req.user.rewardPoints || 0,
         createdAt: req.user.createdAt,
         updatedAt: req.user.updatedAt,
       },

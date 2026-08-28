@@ -319,6 +319,18 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                   <span>Item total</span>
                   <span className="font-semibold text-text-primary">{formatOrderPrice(order.subtotal)}</span>
                 </div>
+                {order.couponDiscount > 0 ? (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Coupon discount ({order.couponCode || "Applied"})</span>
+                    <span className="font-bold">-{formatOrderPrice(order.couponDiscount)}</span>
+                  </div>
+                ) : null}
+                {order.rewardDiscount > 0 ? (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Reward points discount ({order.rewardPointsUsed} pts)</span>
+                    <span className="font-bold">-{formatOrderPrice(order.rewardDiscount)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between text-text-secondary">
                   <span>Delivery fee</span>
                   <div className="flex items-center gap-2">
@@ -330,6 +342,12 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                     </span>
                   </div>
                 </div>
+                {order.rewardPointsEarned > 0 ? (
+                  <div className="flex justify-between text-amber-800 bg-amber-50/80 p-2 rounded-lg text-xs font-semibold">
+                    <span>Points earned on this order</span>
+                    <span className="font-bold">+{order.rewardPointsEarned} pts</span>
+                  </div>
+                ) : null}
               </div>
               <div className="my-4 border-t border-border-light" />
               <div className="flex items-center justify-between">

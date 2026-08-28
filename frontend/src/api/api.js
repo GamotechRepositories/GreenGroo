@@ -153,6 +153,10 @@ export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 export const validateCoupon = (data) => api.post("/api/coupons/validate", data);
 export const getAvailableCoupons = (params) => api.get("/api/coupons/available", { params });
 
+export const getRewardSettings = () => api.get("/api/rewards/settings");
+export const getMyRewardPoints = (params = {}) => api.get("/api/rewards/my-points", { params });
+export const calculateRewardDiscount = (data) => api.post("/api/rewards/calculate-discount", data);
+
 export const submitSupportMessage = (data) => api.post("/api/support", data);
 
 export const uploadImageFile = (file, folder) => {

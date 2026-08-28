@@ -77,8 +77,15 @@ export const createRazorpayOrder = async (req, res) => {
       });
     }
 
-    const { addressId, paymentMode = "online", checkoutItems, checkoutMode, buyNow, couponCode } =
-      req.body;
+    const {
+      addressId,
+      paymentMode = "online",
+      checkoutItems,
+      checkoutMode,
+      buyNow,
+      couponCode,
+      rewardPointsToUse,
+    } = req.body;
     if (!addressId) {
       return res.status(400).json({
         success: false,
@@ -98,6 +105,7 @@ export const createRazorpayOrder = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      rewardPointsToUse,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -180,6 +188,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       buyNow,
       attemptedOrderId,
       couponCode,
+      rewardPointsToUse,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -215,6 +224,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      rewardPointsToUse,
     });
 
     if (result.error) {
@@ -244,6 +254,9 @@ export const verifyRazorpayPayment = async (req, res) => {
       subtotal: result.subtotal,
       couponCode: result.couponCode,
       couponDiscount: result.couponDiscount,
+      rewardPointsUsed: result.rewardPointsUsed,
+      rewardDiscount: result.rewardDiscount,
+      rewardPointsEarned: result.rewardPointsEarned,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -290,6 +303,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       buyNow,
       attemptedOrderId,
       couponCode,
+      rewardPointsToUse,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
@@ -333,6 +347,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      rewardPointsToUse,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -355,6 +370,9 @@ export const submitUpiPaymentProof = async (req, res) => {
       subtotal: result.subtotal,
       couponCode: result.couponCode,
       couponDiscount: result.couponDiscount,
+      rewardPointsUsed: result.rewardPointsUsed,
+      rewardDiscount: result.rewardDiscount,
+      rewardPointsEarned: result.rewardPointsEarned,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,

@@ -21,6 +21,8 @@ import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
 import { seedDefaultSectionsIfEmpty } from "./product-service/src/controllers/sectionController.js";
 import { seedDefaultCategoriesIfEmpty } from "./product-service/src/controllers/categoryController.js";
 import { seedDefaultCouponsIfEmpty } from "./legacy/controllers/couponController.js";
+import rewardRoutes from "./legacy/routes/rewardRoutes.js";
+import { seedDefaultRewardSettingsIfEmpty } from "./legacy/controllers/rewardController.js";
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
 import adminDarkStoreRoutes from "./delivery-service/src/routes/adminDarkStoreRoutes.js";
 import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes.js";
@@ -99,6 +101,7 @@ for (const { path, router } of allRoutes) {
 
 app.use("/api/admin/dark-stores", adminDarkStoreRoutes);
 app.use("/api/stores", storeCatalogRoutes);
+app.use("/api/rewards", rewardRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -114,6 +117,7 @@ connectDB("server").then(async () => {
   await seedDefaultSectionsIfEmpty();
   await seedDefaultCategoriesIfEmpty();
   await seedDefaultCouponsIfEmpty();
+  await seedDefaultRewardSettingsIfEmpty();
   initIncentiveCron();
   const server = http.createServer(app);
   initSocket(server);

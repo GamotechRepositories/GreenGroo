@@ -12,9 +12,12 @@ import {
   createCheckoutAttempt,
   validateCoupon,
   placeOrder,
+  getMyRewardPoints,
+  getRewardSettings,
 } from "../api/api";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
+import RewardPointsModal from "../components/rewards/RewardPointsModal";
 import {
   clearBuyNowCheckout,
   getBuyNowCheckout,
@@ -166,6 +169,15 @@ function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  // Reward Points state
+  const [rewardSettings, setRewardSettings] = useState(null);
+  const [userRewardPoints, setUserRewardPoints] = useState(user?.rewardPoints || 0);
+  const [useRewards, setUseRewards] = useState(false);
+  const [rewardPointsInput, setRewardPointsInput] = useState(0);
+  const [showRewardTermsModal, setShowRewardTermsModal] = useState(false);
+  const rewardPointsToUseRef = useRef(0);
+
   const messageRef = useRef("");
   const attemptedOrderIdRef = useRef(null);
   const appliedCouponRef = useRef(null);
@@ -184,8 +196,9 @@ function Checkout() {
           colorName: item.colorName || "",
         })),
         couponCode: appliedCoupon?.code || "",
+        rewardPointsToUse: useRewards ? rewardPointsInput : 0,
       }),
-    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon]
+    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon, useRewards, rewardPointsInput]
   );
 
   useEffect(() => {
@@ -200,12 +213,68 @@ function Checkout() {
     appliedCouponRef.current = appliedCoupon;
   }, [appliedCoupon]);
 
+  // Load Reward Points and settings for the authenticated user
+  useEffect(() => {
+    if (!user) return;
+    setUserRewardPoints(user.rewardPoints || 0);
+    getMyRewardPoints()
+      .then(({ data }) => {
+        if (data?.data) {
+          setUserRewardPoints(data.data.points || 0);
+          if (data.data.settings) {
+            setRewardSettings(data.data.settings);
+          }
+        }
+      })
+      .catch(() => {
+        getRewardSettings()
+          .then(({ data }) => {
+            if (data?.data) setRewardSettings(data.data);
+          })
+          .catch(() => {});
+      });
+  }, [user]);
+
   const subtotal = checkoutItems.reduce(
     (sum, item) => sum + item.discountedPrice * item.quantity,
     0
   );
   const couponDiscount = appliedCoupon?.discountAmount || 0;
-  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+  const subtotalAfterCoupon = Math.max(0, subtotal - couponDiscount);
+
+  // Maximum reward points allowed for redemption on this cart
+  const maxRedeemablePoints = useMemo(() => {
+    if (!rewardSettings?.enabled || !userRewardPoints) return 0;
+    if (subtotal < (rewardSettings.minOrderAmountToRedeem || 0)) return 0;
+    if (userRewardPoints < (rewardSettings.minPointsToRedeem || 0)) return 0;
+
+    const pointValue = rewardSettings.pointValueInRupees || 1.0;
+    const maxDiscountAllowed =
+      (subtotalAfterCoupon * (rewardSettings.maxRedemptionPercent || 50)) / 100;
+    let maxPoints = Math.floor(maxDiscountAllowed / pointValue);
+
+    if (rewardSettings.maxPointsPerOrder > 0) {
+      maxPoints = Math.min(maxPoints, rewardSettings.maxPointsPerOrder);
+    }
+    return Math.max(0, Math.min(userRewardPoints, maxPoints));
+  }, [rewardSettings, userRewardPoints, subtotal, subtotalAfterCoupon]);
+
+  const effectiveRewardPoints = useRewards ? Math.min(rewardPointsInput, maxRedeemablePoints) : 0;
+  const rewardDiscount =
+    Math.round(effectiveRewardPoints * (rewardSettings?.pointValueInRupees || 1.0) * 100) / 100;
+
+  rewardPointsToUseRef.current = effectiveRewardPoints;
+
+  // Reward points earned on this order
+  const pointsToEarn = useMemo(() => {
+    if (!rewardSettings?.enabled) return 0;
+    if (subtotal < (rewardSettings.minOrderAmountToEarn || 0)) return 0;
+    const spend = rewardSettings.earningRate?.spendAmount || 100;
+    const rate = rewardSettings.earningRate?.pointsEarned || 10;
+    return Math.floor((subtotal / spend) * rate);
+  }, [rewardSettings, subtotal]);
+
+  const discountedSubtotal = Math.max(0, subtotalAfterCoupon - rewardDiscount);
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
   const { total: orderTotal } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
   const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
@@ -321,6 +390,7 @@ function Checkout() {
         checkoutMode: isBuyNow ? "buyNow" : "cart",
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
+        rewardPointsToUse: rewardPointsToUseRef.current || undefined,
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -449,6 +519,7 @@ function Checkout() {
       checkoutMode: isBuyNow ? "buyNow" : "cart",
       buyNow: isBuyNow,
       couponCode: appliedCouponRef.current?.code || undefined,
+      rewardPointsToUse: rewardPointsToUseRef.current || undefined,
     });
     const paymentData = data.data;
 
@@ -481,6 +552,7 @@ function Checkout() {
             buyNow: isBuyNow,
             attemptedOrderId: attemptedOrderIdRef.current,
             couponCode: appliedCouponRef.current?.code || undefined,
+            rewardPointsToUse: rewardPointsToUseRef.current || undefined,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -531,6 +603,7 @@ function Checkout() {
           buyNow: isBuyNow,
           attemptedOrderId: attemptedOrderIdRef.current,
           couponCode: appliedCouponRef.current?.code || undefined,
+          rewardPointsToUse: rewardPointsToUseRef.current || undefined,
         });
 
         await completeOrderSuccess("Order confirmed. Pay the full amount on delivery.");
@@ -960,6 +1033,101 @@ function Checkout() {
                       ) : null}
                     </div>
                   )}
+
+                  {/* Reward Points Redemption Block */}
+                  {rewardSettings?.enabled !== false && (
+                    <div className="mt-3 border-t border-border-light pt-3">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base">🪙</span>
+                          <span className="text-xs font-bold text-text-primary">Reward Points</span>
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                            Bal: {userRewardPoints} pts (₹{((userRewardPoints || 0) * (rewardSettings?.pointValueInRupees || 1.0)).toFixed(2)})
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowRewardTermsModal(true)}
+                          className="text-[11px] font-medium text-text-secondary hover:text-primary underline"
+                        >
+                          T&C
+                        </button>
+                      </div>
+
+                      {userRewardPoints <= 0 ? (
+                        <p className="text-[11px] text-text-secondary">
+                          Earn points on this order and redeem them on your next grocery delivery!
+                        </p>
+                      ) : subtotal < (rewardSettings?.minOrderAmountToRedeem || 0) ? (
+                        <p className="text-[11px] text-amber-700 bg-amber-50/70 p-2 rounded-lg">
+                          Minimum order of ₹{rewardSettings.minOrderAmountToRedeem} required to redeem reward points.
+                        </p>
+                      ) : userRewardPoints < (rewardSettings?.minPointsToRedeem || 0) ? (
+                        <p className="text-[11px] text-text-secondary">
+                          Minimum {rewardSettings.minPointsToRedeem} points required to start redeeming (You have {userRewardPoints} pts).
+                        </p>
+                      ) : (
+                        <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 space-y-2.5">
+                          <label className="flex items-start gap-2.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={useRewards}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setUseRewards(checked);
+                                setRewardPointsInput(checked ? maxRedeemablePoints : 0);
+                              }}
+                              className="mt-0.5 h-4 w-4 rounded accent-primary text-primary focus:ring-primary"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-text-primary">
+                                Redeem Reward Points for Instant Discount
+                              </p>
+                              <p className="text-[11px] text-text-secondary mt-0.5">
+                                Use up to {maxRedeemablePoints} points (Max {rewardSettings?.maxRedemptionPercent || 50}% of order).
+                              </p>
+                            </div>
+                          </label>
+
+                          {useRewards && (
+                            <div className="flex items-center gap-2 pt-1">
+                              <div className="relative flex-1">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={maxRedeemablePoints}
+                                  value={rewardPointsInput || ""}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(maxRedeemablePoints, Number(e.target.value)));
+                                    setRewardPointsInput(val);
+                                  }}
+                                  placeholder={`Points (max ${maxRedeemablePoints})`}
+                                  className="w-full rounded-lg border border-border-light bg-white px-3 py-1.5 text-xs font-bold text-text-primary outline-none focus:border-primary"
+                                />
+                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-text-muted">
+                                  pts
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setRewardPointsInput(maxRedeemablePoints)}
+                                className="shrink-0 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-200 transition"
+                              >
+                                Max ({maxRedeemablePoints})
+                              </button>
+                            </div>
+                          )}
+
+                          {useRewards && rewardDiscount > 0 && (
+                            <div className="flex items-center justify-between text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg">
+                              <span>Points Discount:</span>
+                              <span>-₹{rewardDiscount.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2.5 border-t border-border-light pt-4 text-sm">
@@ -971,6 +1139,12 @@ function Checkout() {
                     <div className="flex justify-between text-green-700">
                       <span>Coupon discount</span>
                       <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
+                    </div>
+                  ) : null}
+                  {rewardDiscount > 0 ? (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Reward Points discount ({effectiveRewardPoints} pts)</span>
+                      <span className="font-bold">-{formatPrice(rewardDiscount)}</span>
                     </div>
                   ) : null}
                   <div className="flex justify-between text-text-secondary">
@@ -1013,6 +1187,15 @@ function Checkout() {
                   You will save {formatPrice(savings)} on this order
                 </div>
 
+                {pointsToEarn > 0 && (
+                  <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] font-semibold text-amber-900 border border-amber-200/80 sm:px-3 sm:py-2.5 sm:text-xs">
+                    <span className="text-base">🪙</span>
+                    <span>
+                      You will earn <strong className="font-bold text-amber-800">+{pointsToEarn} Reward Points</strong> on this order!
+                    </span>
+                  </div>
+                )}
+
                 {orderError && (
                   <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-600">
                     {orderError}
@@ -1046,6 +1229,13 @@ function Checkout() {
           )}
         </div>
       </section>
+
+      {showRewardTermsModal && (
+        <RewardPointsModal
+          open={showRewardTermsModal}
+          onClose={() => setShowRewardTermsModal(false)}
+        />
+      )}
     </div>
   );
 }

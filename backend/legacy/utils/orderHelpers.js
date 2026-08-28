@@ -19,6 +19,12 @@ import {
 import { calculateOrderTotal } from "./gstHelpers.js";
 import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
+import {
+  getRewardSettings,
+  calculateEligibleRewardDiscount,
+  calculatePointsToEarn,
+  processOrderRewardPoints,
+} from "../controllers/rewardController.js";
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../../shared/store/giftHamper.js";
 import { dispatchDeliveryOrder } from "../services/deliveryDispatcher.js";
 
@@ -43,9 +49,36 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     couponDiscount = couponResult.couponDiscount;
   }
 
+  let rewardPointsUsed = 0;
+  let rewardDiscount = 0;
+
+  if (options.rewardPointsToUse && options.userId) {
+    const rewardSettings = await getRewardSettings();
+    const user = await User.findById(options.userId).select("rewardPoints");
+    const subtotalAfterCoupon = Math.max(0, subtotal - couponDiscount);
+    const rewardResult = calculateEligibleRewardDiscount(
+      user?.rewardPoints || 0,
+      options.rewardPointsToUse,
+      subtotalAfterCoupon,
+      rewardSettings
+    );
+    if (!rewardResult.valid) {
+      return {
+        error: rewardResult.reason || "Invalid reward points redemption",
+        status: 400,
+        code: "INVALID_REWARD_POINTS",
+      };
+    }
+    rewardPointsUsed = rewardResult.pointsToUse;
+    rewardDiscount = rewardResult.discount;
+  }
+
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount - rewardDiscount);
   const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
+
+  const rewardSettings = await getRewardSettings();
+  const rewardPointsEarned = calculatePointsToEarn(subtotal, rewardSettings);
 
   return {
     storeSettings,
@@ -54,6 +87,9 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     total,
     couponCode: resolvedCouponCode,
     couponDiscount,
+    rewardPointsUsed,
+    rewardDiscount,
+    rewardPointsEarned,
   };
 }
 
@@ -357,13 +393,23 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
+    rewardPointsToUse: options.rewardPointsToUse,
   });
   if (pricing.error) {
     return pricing;
   }
 
-  const { storeSettings, deliveryCharges, gstAmount, total, couponCode, couponDiscount } =
-    pricing;
+  const {
+    storeSettings,
+    deliveryCharges,
+    gstAmount,
+    total,
+    couponCode,
+    couponDiscount,
+    rewardPointsUsed,
+    rewardDiscount,
+    rewardPointsEarned,
+  } = pricing;
 
   if (!meetsMinimumOrder(subtotal, storeSettings)) {
     return {
@@ -403,6 +449,9 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     subtotal,
     couponCode,
     couponDiscount,
+    rewardPointsUsed: rewardPointsUsed || 0,
+    rewardDiscount: rewardDiscount || 0,
+    rewardPointsEarned: rewardPointsEarned || 0,
     deliveryCharges,
     gstAmount,
     total,
@@ -554,12 +603,22 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
     excludeOrderId: attemptedOrder?._id,
+    rewardPointsToUse: options.rewardPointsToUse,
   });
   if (pricing.error) {
     return pricing;
   }
 
-  const { deliveryCharges, gstAmount, total, couponCode, couponDiscount } = pricing;
+  const {
+    deliveryCharges,
+    gstAmount,
+    total,
+    couponCode,
+    couponDiscount,
+    rewardPointsUsed,
+    rewardDiscount,
+    rewardPointsEarned,
+  } = pricing;
 
   return {
     orderItems,
@@ -567,6 +626,9 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     subtotal,
     couponCode,
     couponDiscount,
+    rewardPointsUsed: rewardPointsUsed || 0,
+    rewardDiscount: rewardDiscount || 0,
+    rewardPointsEarned: rewardPointsEarned || 0,
     deliveryCharges,
     gstAmount,
     total,
@@ -583,6 +645,9 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     subtotal: prepared.subtotal,
     couponCode: prepared.couponCode || "",
     couponDiscount: prepared.couponDiscount || 0,
+    rewardPointsUsed: prepared.rewardPointsUsed || 0,
+    rewardDiscount: prepared.rewardDiscount || 0,
+    rewardPointsEarned: prepared.rewardPointsEarned || 0,
     deliveryCharges: prepared.deliveryCharges,
     gstAmount: prepared.gstAmount ?? 0,
     total: prepared.total,
@@ -663,6 +728,9 @@ export async function completeAttemptedOrder({
   subtotal,
   couponCode = "",
   couponDiscount = 0,
+  rewardPointsUsed = 0,
+  rewardDiscount = 0,
+  rewardPointsEarned = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -699,6 +767,9 @@ export async function completeAttemptedOrder({
   order.subtotal = subtotal;
   order.couponCode = couponCode || "";
   order.couponDiscount = couponDiscount > 0 ? couponDiscount : 0;
+  order.rewardPointsUsed = rewardPointsUsed > 0 ? rewardPointsUsed : 0;
+  order.rewardDiscount = rewardDiscount > 0 ? rewardDiscount : 0;
+  order.rewardPointsEarned = rewardPointsEarned > 0 ? rewardPointsEarned : 0;
   order.deliveryCharges = deliveryCharges;
   order.gstAmount = gstAmount > 0 ? gstAmount : 0;
   order.total = total;
@@ -717,6 +788,7 @@ export async function completeAttemptedOrder({
   if (status !== "attempted") {
     order.createdAt = new Date();
     order.giftHamper = await resolveGiftHamperSnapshot(total);
+    await processOrderRewardPoints(order, { rewardPointsUsed, userId });
   }
 
   await order.save();
@@ -732,6 +804,9 @@ export async function finalizeOrder({
   subtotal,
   couponCode = "",
   couponDiscount = 0,
+  rewardPointsUsed = 0,
+  rewardDiscount = 0,
+  rewardPointsEarned = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -758,6 +833,9 @@ export async function finalizeOrder({
     subtotal,
     couponCode,
     couponDiscount,
+    rewardPointsUsed,
+    rewardDiscount,
+    rewardPointsEarned,
     deliveryCharges,
     gstAmount,
     total,
@@ -794,6 +872,9 @@ export async function finalizeOrder({
     subtotal,
     couponCode: couponCode || "",
     couponDiscount: couponDiscount > 0 ? couponDiscount : 0,
+    rewardPointsUsed: rewardPointsUsed > 0 ? rewardPointsUsed : 0,
+    rewardDiscount: rewardDiscount > 0 ? rewardDiscount : 0,
+    rewardPointsEarned: rewardPointsEarned > 0 ? rewardPointsEarned : 0,
     deliveryCharges,
     gstAmount: gstAmount > 0 ? gstAmount : 0,
     total,
@@ -809,6 +890,11 @@ export async function finalizeOrder({
     ...(codAdvancePaidAt && { codAdvancePaidAt }),
     ...(paidAt && { paidAt }),
   });
+
+  if (status !== "attempted") {
+    await processOrderRewardPoints(order, { rewardPointsUsed, userId });
+    await order.save();
+  }
 
   await User.findByIdAndUpdate(userId, {
     $addToSet: { orders: order._id },

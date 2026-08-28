@@ -111,6 +111,11 @@ const userSchema = new mongoose.Schema(
         ref: "Order",
       },
     ],
+    rewardPoints: {
+      type: Number,
+      default: 0,
+      min: [0, "Reward points cannot be negative"],
+    },
   },
   { timestamps: true, collection: "users" }
 );

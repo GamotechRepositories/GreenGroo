@@ -4,6 +4,7 @@ import Category from "../models/Category.js";
 import User from "../models/user.js";
 import Payment from "../models/payment/Payment.js";
 import Coupon from "../models/Coupon.js";
+import { reverseOrderRewardPoints } from "./rewardController.js";
 import {
   enrichOrderForResponse,
   finalizeOrder,
@@ -424,13 +425,22 @@ function buildTopCategoriesChartData(categoriesAgg, yearOrderRevenue = 0) {
 
 export const createCheckoutAttempt = async (req, res) => {
   try {
-    const { addressId, checkoutItems, paymentMethod, checkoutMode, buyNow, couponCode } = req.body;
+    const {
+      addressId,
+      checkoutItems,
+      paymentMethod,
+      checkoutMode,
+      buyNow,
+      couponCode,
+      rewardPointsToUse,
+    } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
       checkoutItems,
       checkoutMode,
       buyNow,
       couponCode,
+      rewardPointsToUse,
     });
 
     if (prepared.error) {
@@ -565,8 +575,15 @@ export const adminPlaceOrder = async (req, res) => {
 
 export const placeOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod, attemptedOrderId, checkoutMode, buyNow, couponCode } =
-      req.body;
+    const {
+      addressId,
+      paymentMethod,
+      attemptedOrderId,
+      checkoutMode,
+      buyNow,
+      couponCode,
+      rewardPointsToUse,
+    } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
     if (!addressId) {
@@ -594,6 +611,7 @@ export const placeOrder = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      rewardPointsToUse,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -611,6 +629,9 @@ export const placeOrder = async (req, res) => {
       subtotal: result.subtotal,
       couponCode: result.couponCode,
       couponDiscount: result.couponDiscount,
+      rewardPointsUsed: result.rewardPointsUsed,
+      rewardDiscount: result.rewardDiscount,
+      rewardPointsEarned: result.rewardPointsEarned,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -725,6 +746,7 @@ export const cancelOrder = async (req, res) => {
     }
 
     await order.save();
+    await reverseOrderRewardPoints(order);
 
     res.status(200).json({
       success: true,

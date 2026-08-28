@@ -10,6 +10,7 @@ import {
 } from "../api/api";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import BuyAgainCard from "../components/product/BuyAgainCard";
+import RewardPointsModal from "../components/rewards/RewardPointsModal";
 import {
   formatAddressLine,
   getAddressFullName,
@@ -126,6 +127,7 @@ function Profile() {
   const [recentLoading, setRecentLoading] = useState(false);
   const [addressIndex, setAddressIndex] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRewardsModal, setShowRewardsModal] = useState(false);
   const addressesRef = useRef(null);
 
   const loadAddresses = async () => {
@@ -310,15 +312,42 @@ function Profile() {
           />
         </div>
 
-        <div className="flex rounded-2xl border border-primary/10 bg-[#FFF5ED] px-2 py-4">
-          <QuickLink
-            label="My Addresses"
-            onClick={scrollToAddresses}
-            icon={
-              <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        {/* Rewards Banner / Wallet Card */}
+        <button
+          type="button"
+          onClick={() => setShowRewardsModal(true)}
+          className="w-full text-left relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-500 p-4 text-white shadow-md transition hover:scale-[1.01] active:scale-[0.99] group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md text-2xl shadow-inner group-hover:rotate-12 transition-transform">
+                🪙
+              </div>
+              <div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide backdrop-blur-sm">
+                  <span>✨</span> GreenGrocc Rewards
+                </span>
+                <p className="text-xl font-black mt-0.5">
+                  {(user.rewardPoints || 0).toLocaleString("en-IN")}{" "}
+                  <span className="text-xs font-semibold opacity-95">Points (₹{(user.rewardPoints || 0).toFixed(2)})</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-sm shadow-sm group-hover:bg-white group-hover:text-amber-800 transition">
+              <span>View Passbook</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
+            </div>
+          </div>
+        </button>
+
+        <div className="grid grid-cols-4 gap-1 rounded-2xl border border-primary/10 bg-[#FFF5ED] px-2 py-3">
+          <QuickLink
+            label="My Rewards"
+            onClick={() => setShowRewardsModal(true)}
+            icon={
+              <span className="text-xl">🪙</span>
             }
           />
           <QuickLink
@@ -340,12 +369,12 @@ function Profile() {
             }
           />
           <QuickLink
-            label="Account Settings"
-            onClick={() => setShowSettings(true)}
+            label="Addresses"
+            onClick={scrollToAddresses}
             icon={
               <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             }
           />
@@ -538,6 +567,13 @@ function Profile() {
             </button>
           </div>
         </div>
+      )}
+
+      {showRewardsModal && (
+        <RewardPointsModal
+          open={showRewardsModal}
+          onClose={() => setShowRewardsModal(false)}
+        />
       )}
     </div>
   );

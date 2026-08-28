@@ -11,6 +11,7 @@ import {
   Package,
   Store,
   Ticket,
+  Coins,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Dark Stores', href: '/dark-stores', icon: Store },
   { name: 'Sections & Categories', href: '/categories', icon: FolderTree },
   { name: 'Coupons & Offers', href: '/coupons', icon: Ticket },
+  { name: 'Reward Points', href: '/rewards', icon: Coins },
 ];
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {
