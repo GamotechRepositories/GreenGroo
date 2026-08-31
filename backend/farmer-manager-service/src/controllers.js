@@ -2015,7 +2015,20 @@ async function enrichOwnOrder(order, farmer) {
       ? {
           pickupId: pickup.pickupId || pickup.id,
           status: pickup.status,
-          driverStatus: pickup.driverStatus || "",
+          driverStatus: pickup.driverStatus || pickup.status || "",
+          liveStatus:
+            {
+              DRIVER_ASSIGNED: "Assigned — waiting to leave",
+              PICKUP_SCHEDULED: "Assigned — waiting to leave",
+              DISPATCHED: "On the way to farm",
+              DRIVER_ARRIVED: "Reached the farm",
+              ORDER_VERIFIED: "Checking the order",
+              QR_VERIFIED: "QR verified — confirm pickup",
+              PICKED_UP: "Pickup confirmed",
+              IN_TRANSIT: "On the way to collection centre",
+              COLLECTION_CENTRE_RECEIVED: "Delivered at collection centre",
+              RECEIVED_AT_COLLECTION_CENTRE: "Delivered at collection centre",
+            }[pickup.status] || String(pickup.status || "").replace(/_/g, " "),
           driverId: pickup.driverId || "",
           driverName: pickup.driverName || "",
           driverMobile: pickup.driverMobile || "",

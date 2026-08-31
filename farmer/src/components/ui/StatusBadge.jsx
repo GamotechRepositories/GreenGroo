@@ -65,10 +65,22 @@ const STATUS_STYLES = {
   NOT_STARTED: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",
 };
 
+const STATUS_LABELS = {
+  DISPATCHED: "On the way to farm",
+  DRIVER_ARRIVED: "Reached the farm",
+  ARRIVED: "Reached the farm",
+  ORDER_VERIFIED: "Order checked",
+  QR_VERIFIED: "QR verified",
+  PICKED_UP: "Pickup confirmed",
+  IN_TRANSIT: "On the way to centre",
+  COLLECTION_CENTRE_RECEIVED: "At collection centre",
+  RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
+};
+
 function StatusBadge({ status, className = "" }) {
   const key = String(status || "");
   const style = STATUS_STYLES[key] || "border-[#D4D4D4] bg-[#F2F2F2] text-[#374151]";
-  const label = key === "not_uploaded" ? "Not Uploaded" : key.replace(/_/g, " ");
+  const label = key === "not_uploaded" ? "Not Uploaded" : STATUS_LABELS[key] || key.replace(/_/g, " ");
 
   return (
     <span

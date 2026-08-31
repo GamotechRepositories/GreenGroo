@@ -220,9 +220,9 @@ export const SIDEBAR_ITEMS = [
       { to: "/farmer/orders/ready", label: "Ready for Pickup" },
       { to: "/farmer/orders/completed", label: "Completed" },
       { to: "/farmer/orders/rejected", label: "Rejected" },
+      { to: "/farmer/harvest-orders", label: "Harvest Orders" },
     ],
   },
-  { to: "/farmer/harvest-orders", label: "Harvest Order", icon: "harvest" },
   { to: "/farmer/earnings", label: "Earning", icon: "earnings" },
   { to: "/farmer/documents", label: "Document", icon: "documents" },
   {

@@ -103,7 +103,7 @@ function OrderDetailPage() {
             <Info label="Pickup Time" value={order.pickup.pickupTime || "—"} />
             <Info label="Pickup Location" value={order.pickup.pickupLocation} />
             <Info label="Collection Centre" value={order.collectionCentre} />
-            <Info label="Pickup Status" value={order.pickup.status} />
+            <Info label="Pickup Status" value={order.pickup.liveStatus || order.pickup.status} />
             <Info label="Assigned Driver" value={order.pickup.driverName || "Not assigned"} />
             <Info label="Driver Name" value={order.pickup.driverName} />
             <Info label="Vehicle Number" value={order.pickup.vehicleNumber} />
@@ -123,7 +123,7 @@ function OrderDetailPage() {
             <Info label="Driver Name" value={order.pickup.driverName} />
             <Info label="Driver Mobile" value={order.pickup.driverMobile} />
             <Info label="Vehicle Number" value={order.pickup.vehicleNumber} />
-            <Info label="Driver Status" value={order.pickup.driverStatus || order.pickup.status} />
+            <Info label="Driver Status" value={order.pickup.liveStatus || order.pickup.driverStatus || order.pickup.status} />
           </div>
           <p className="px-3 pb-3 text-[11px] text-[#6B7280]">You can view driver and pickup status. You cannot assign a driver or confirm pickup.</p>
           {(order.pickup.confirmationPhotos || []).length ? (

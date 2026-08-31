@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 
 const COPY = {
   assigned: {
@@ -88,7 +89,7 @@ export default function VendorPickupsPage({ mode = "assignments" }) {
                   <td className="px-3 py-2">{p.scheduledDate || "—"} {p.scheduledTime || ""}</td>
                   <td className="px-3 py-2">{p.collectionCentreName || "—"}</td>
                   <td className="px-3 py-2">{p.driverName || "Unassigned"}</td>
-                  <td className="px-3 py-2">{String(p.status || "").replace(/_/g, " ")}</td>
+                  <td className="px-3 py-2">{p.liveStatus || pickupStatusLabel(p.status)}</td>
                   <td className="px-3 py-2">
                     <button
                       type="button"

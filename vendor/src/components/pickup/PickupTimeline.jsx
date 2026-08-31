@@ -6,6 +6,7 @@ const STEPS = [
   "ORDER_VERIFIED",
   "QR_VERIFIED",
   "PICKED_UP",
+  "IN_TRANSIT",
 ];
 
 const ALIAS = {
@@ -14,11 +15,31 @@ const ALIAS = {
   COMPLETED: "PICKED_UP",
 };
 
+export const PICKUP_STATUS_LABELS = {
+  READY_FOR_PICKUP: "Ready for pickup",
+  DRIVER_ASSIGNED: "Assigned",
+  PICKUP_SCHEDULED: "Assigned",
+  DISPATCHED: "On the way to farm",
+  DRIVER_ARRIVED: "Reached the farm",
+  ARRIVED: "Reached the farm",
+  ORDER_VERIFIED: "Order checked",
+  QR_VERIFIED: "QR verified",
+  PICKED_UP: "Pickup confirmed",
+  IN_TRANSIT: "On the way to centre",
+  COLLECTION_CENTRE_RECEIVED: "At collection centre",
+  RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
+};
+
+export function pickupStatusLabel(status) {
+  const key = String(status || "");
+  return PICKUP_STATUS_LABELS[key] || key.replace(/_/g, " ");
+}
+
 export default function PickupTimeline({ status }) {
   const current = ALIAS[status] || status;
   const idx = STEPS.indexOf(current);
   return (
-    <ol className="grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
+    <ol className="grid gap-2 sm:grid-cols-4 lg:grid-cols-8">
       {STEPS.map((step, i) => {
         const done = idx >= 0 && i <= idx;
         return (
@@ -28,7 +49,7 @@ export default function PickupTimeline({ status }) {
               done ? "border-[#217346] bg-[#E8F5E9] text-[#217346]" : "border-gray-200 bg-gray-50 text-gray-500"
             }`}
           >
-            {step.replace(/_/g, " ")}
+            {pickupStatusLabel(step)}
           </li>
         );
       })}

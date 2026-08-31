@@ -13,10 +13,22 @@ import { getIO } from "../../shared/socket.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 const ASSIGNED_STATUSES = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED"];
-const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"];
-const COMPLETED_PICKUP_STATUSES = ["PICKED_UP", "COMPLETED"];
-const ACTIVE_DRIVER_WORK = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"];
+const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
+const COMPLETED_PICKUP_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT"];
+const ACTIVE_DRIVER_WORK = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
 const ACTIVE_PICKUP_STATUSES = [...ACTIVE_DRIVER_WORK];
+const DRIVER_LIVE_STATUS = {
+  DRIVER_ASSIGNED: "Assigned — waiting to leave",
+  PICKUP_SCHEDULED: "Assigned — waiting to leave",
+  DISPATCHED: "On the way to farm",
+  DRIVER_ARRIVED: "Reached the farm",
+  ORDER_VERIFIED: "Checking the order",
+  QR_VERIFIED: "QR verified — confirm pickup",
+  PICKED_UP: "Pickup confirmed",
+  IN_TRANSIT: "On the way to collection centre",
+  COLLECTION_CENTRE_RECEIVED: "Delivered at collection centre",
+  RECEIVED_AT_COLLECTION_CENTRE: "Delivered at collection centre",
+};
 const HISTORY_PICKUP_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"];
 const ASSIGNABLE_DRIVER_STATUSES = ["Active", "On Duty", "Available"];
 const PRE_ASSIGN_STATUSES = ["READY_FOR_PICKUP"];
@@ -293,7 +305,8 @@ async function enrichPickup(pickup) {
     pickupDate: plain.pickupDate || plain.scheduledDate || "",
     pickupTime: plain.pickupTime || plain.scheduledTime || "",
     readyAt: order?.readyForPickupAt || null,
-    driverStatus: plain.driverStatus || "",
+    driverStatus: plain.driverStatus || plain.status || "",
+    liveStatus: DRIVER_LIVE_STATUS[plain.status] || DRIVER_LIVE_STATUS[plain.driverStatus] || String(plain.status || "").replace(/_/g, " "),
     driver: driver
       ? {
           id: driver.id,
@@ -1223,5 +1236,36 @@ export async function confirmDriverPickup(req, res) {
 }
 
 export async function transitDriverPickup(req, res) {
-  return res.status(400).json({ message: "Collection centre transport is a later module." });
+  try {
+    const pickup = await driverPickupOr404(req, res);
+    if (!pickup) return;
+    const received = ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(pickup.status);
+    if (received) {
+      return res.status(400).json({ message: "This pickup is already at the collection centre." });
+    }
+    if (pickup.status === "IN_TRANSIT") {
+      return res.json(await enrichDriverView(pickup));
+    }
+    const confirmed =
+      pickup.pickupConfirmed === true ||
+      ["PICKED_UP", "PICKUP_CONFIRMED", "COMPLETED"].includes(String(pickup.status || "").toUpperCase());
+    if (!confirmed) {
+      return res.status(400).json({
+        message: `Mark On the way after you confirm pickup from the farmer. Current status: ${pickup.status || "unknown"}.`,
+      });
+    }
+    pickup.status = "IN_TRANSIT";
+    pickup.driverStatus = "IN_TRANSIT";
+    pickup.inTransitAt = pickup.inTransitAt || new Date();
+    pushPickupTimeline(pickup, "IN_TRANSIT", "Driver is on the way to the collection centre.");
+    await pickup.save();
+    const order = await loadOrderForPickup(pickup);
+    await applyOrderStatus(order, "IN_TRANSIT", "Driver is on the way to the collection centre.");
+    const driver = await PickupDriver.findOne({ id: pickup.driverId });
+    if (driver) await refreshDriverAvailability(driver);
+    emitPickupUpdate(pickup, { event: "IN_TRANSIT" });
+    res.json(await enrichDriverView(pickup));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to mark on the way" });
+  }
 }

@@ -545,6 +545,7 @@ const pickupSchema = new mongoose.Schema(
     dispatchStartedAt: { type: Date, default: null },
     startedAt: { type: Date, default: null },
     arrivedAt: { type: Date, default: null },
+    inTransitAt: { type: Date, default: null },
     orderVerifiedAt: { type: Date, default: null },
     driverStatus: { type: String, default: "" },
     timeline: [

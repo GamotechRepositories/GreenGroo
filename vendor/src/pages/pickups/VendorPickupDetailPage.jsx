@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
-import PickupTimeline from "../../components/pickup/PickupTimeline";
+import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
 
 function Info({ label, value }) {
@@ -46,7 +46,7 @@ export default function VendorPickupDetailPage() {
           <p className="text-sm text-gray-500">Order {pickup.orderDisplayId} · {pickup.farmerName}</p>
         </div>
         <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase text-gray-700">
-          {String(pickup.status || "").replace(/_/g, " ")}
+          {pickup.liveStatus || pickupStatusLabel(pickup.status)}
         </span>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
