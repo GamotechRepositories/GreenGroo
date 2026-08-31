@@ -68,15 +68,21 @@ const deliveryManagerSchema = new mongoose.Schema(
     },
     latitude: {
       type: Number,
-      default: 18.559,
+      default: null,
     },
     longitude: {
       type: Number,
-      default: 73.7868,
+      default: null,
+    },
+    deliveryRadiusKm: {
+      type: Number,
+      default: 5,
+      min: 1,
+      max: 25,
     },
     geofenceRadius: {
       type: Number,
-      default: 500, // 500 meters allowed radius
+      default: 500, // 500 meters allowed radius for rider check-in
     },
     isActive: {
       type: Boolean,
@@ -114,8 +120,9 @@ deliveryManagerSchema.methods.toSafeJSON = function toSafeJSON() {
       this.storeAddress ||
       `${this.storeName || `${this.area} Store`}, ${this.area}, ${this.city}, ${this.state}`,
     pincode: this.pincode || "",
-    latitude: this.latitude ?? 18.559,
-    longitude: this.longitude ?? 73.7868,
+    latitude: this.latitude ?? null,
+    longitude: this.longitude ?? null,
+    deliveryRadiusKm: this.deliveryRadiusKm ?? 5,
     geofenceRadius: this.geofenceRadius ?? 500,
     isActive: this.isActive,
     createdAt: this.createdAt,

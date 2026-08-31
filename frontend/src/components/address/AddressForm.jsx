@@ -8,6 +8,7 @@ import {
   getLocationStates,
 } from "../../api/api";
 import LocationAutocomplete from "./LocationAutocomplete";
+import { detectCurrentLocation } from "../../utils/detectCurrentLocation";
 
 export const ADDRESS_FORM_FIELDS = {
   fullName: "",
@@ -71,60 +72,26 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
   const [validationError, setValidationError] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
 
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      return;
-    }
-
+  const handleDetectLocation = async () => {
     setIsDetecting(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        
-        try {
-          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-          const data = await response.json();
-          
-          if (data && data.address) {
-            const addr = data.address;
-            const city = addr.city || addr.town || addr.village || addr.county || "";
-            const state = addr.state || "";
-            const pincode = addr.postcode || "";
-            const area =
-              addr.suburb || addr.neighbourhood || addr.quarter || addr.village || "";
-            const fullAddress = data.display_name || "";
-            
-            setForm(prev => ({
-              ...prev,
-              city,
-              state,
-              pincode,
-              area: prev.area || area,
-              landmark: prev.landmark || area,
-              fullAddress: prev.fullAddress || fullAddress,
-              location: { lat, lng }
-            }));
-            toast.success("Location detected successfully!");
-          } else {
-            toast.error("Could not resolve address from location.");
-            setForm(prev => ({ ...prev, location: { lat, lng } }));
-          }
-        } catch (error) {
-          toast.error("Failed to fetch address details.");
-          setForm(prev => ({ ...prev, location: { lat, lng } }));
-        } finally {
-          setIsDetecting(false);
-        }
-      },
-      (error) => {
-        console.error(error);
-        toast.error("Failed to detect location. Please ensure location services are enabled.");
-        setIsDetecting(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    try {
+      const detected = await detectCurrentLocation();
+      setForm((prev) => ({
+        ...prev,
+        city: detected.city || prev.city,
+        state: detected.state || prev.state,
+        pincode: detected.pincode || prev.pincode,
+        area: prev.area || detected.area || "",
+        landmark: prev.landmark || detected.area || "",
+        fullAddress: prev.fullAddress || detected.address || "",
+        location: { lat: detected.lat, lng: detected.lng },
+      }));
+      toast.success("Location detected successfully!");
+    } catch (error) {
+      toast.error(error.message || "Failed to detect location");
+    } finally {
+      setIsDetecting(false);
+    }
   };
 
   const handleChange = (e) => {

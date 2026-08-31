@@ -1,6 +1,9 @@
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
-import { resolveDarkStoreForAddress } from "../../delivery-service/src/services/darkStoreResolver.js";
+import {
+  readCoords,
+  resolveDarkStoreForAddress,
+} from "../../delivery-service/src/services/darkStoreResolver.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { getIO } from "../../socket.js";
 import Product from "../models/Product.js";
@@ -96,9 +99,9 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     const { manager, reason, distanceKm } = await resolveDarkStoreForAddress(address);
     if (!manager) {
       console.warn(
-        "[deliveryDispatcher] No dark store covers this address",
+        "[deliveryDispatcher] No dark store within 5 km of this address",
         ecommerceOrder._id,
-        { city: address.city, reason }
+        { city: address.city, area: address.area, reason }
       );
       return null;
     }
@@ -116,24 +119,30 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       ? `CUST-${ecommerceOrder.orderNumber}`
       : `CUST-${String(ecommerceOrder._id).slice(-8).toUpperCase()}`;
 
+    const customerCoords = readCoords(address);
+    const roundedDistance =
+      distanceKm != null ? Math.round(distanceKm * 10) / 10 : null;
+
     const storeOrder = await StoreOrder.create({
       orderNumber: orderNum,
       managerId: manager._id,
+      darkStoreId: manager._id,
       sourceOrderId: ecommerceOrder._id || null,
       city: manager.city || address.city || "",
       cityId: manager.cityId || "",
-      area: manager.area || "",
+      area: address.area || manager.area || "",
       customerName: address.fullName || "Customer",
       customerPhone: address.number || "",
       customerAddress,
-      customerLat: Number(address.location?.lat) || manager.latitude || 18.559,
-      customerLng: Number(address.location?.lng) || manager.longitude || 73.7868,
+      customerLat: customerCoords?.lat ?? null,
+      customerLng: customerCoords?.lng ?? null,
+      distanceKm: roundedDistance,
       items,
       status: "order_received",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
       otpCode: String(Math.floor(1000 + Math.random() * 9000)),
       notes: `Customer order ${ecommerceOrder.orderNumber || ecommerceOrder._id} routed by ${reason}${
-        distanceKm != null ? ` (${distanceKm.toFixed(1)} km)` : ""
+        roundedDistance != null ? ` (${roundedDistance} km)` : ""
       }`,
     });
 
@@ -162,4 +171,30 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     console.error("[deliveryDispatcher] Failed to dispatch order", error);
     return null;
   }
+}
+
+/**
+ * Re-dispatch confirmed customer orders that never got a StoreOrder (e.g. after a deploy bug).
+ */
+export async function reconcileMissedDispatches({ sinceHours = 72 } = {}) {
+  const Order = (await import("../models/order/Order.js")).default;
+  const since = new Date(Date.now() - sinceHours * 60 * 60 * 1000);
+  const orders = await Order.find({
+    status: "confirm",
+    updatedAt: { $gte: since },
+  }).select("_id");
+
+  let created = 0;
+  for (const row of orders) {
+    const full = await Order.findById(row._id);
+    if (!full) continue;
+    const existing = await StoreOrder.findOne({ sourceOrderId: full._id });
+    if (existing) continue;
+    const result = await dispatchDeliveryOrder(full);
+    if (result) created += 1;
+  }
+  if (created) {
+    console.log(`[deliveryDispatcher] Reconciled ${created} missed store order(s).`);
+  }
+  return created;
 }

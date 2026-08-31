@@ -1,7 +1,10 @@
 import StoreInventory from "../models/StoreInventory.js";
 import { buildInventoryDocs } from "../data/storeProductCatalog.js";
+import { ensureStoreCatalogProducts } from "./ensureStoreCatalogProducts.js";
 
 export async function seedManagerStore(manager) {
+  await ensureStoreCatalogProducts();
+
   const existing = await StoreInventory.countDocuments({
     managerId: manager._id,
   });

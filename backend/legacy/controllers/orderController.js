@@ -433,6 +433,7 @@ export const createCheckoutAttempt = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
@@ -441,6 +442,7 @@ export const createCheckoutAttempt = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     });
 
     if (prepared.error) {
@@ -582,6 +584,7 @@ export const placeOrder = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      checkoutItems,
       rewardPointsToUse,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
@@ -611,7 +614,9 @@ export const placeOrder = async (req, res) => {
       checkoutMode,
       buyNow,
       couponCode,
+      checkoutItems,
       rewardPointsToUse,
+      customerLocation: req.body.customerLocation,
     });
     if (result.error) {
       return res.status(result.status).json({

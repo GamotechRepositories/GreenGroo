@@ -4,6 +4,7 @@ import {
   searchPincodes,
   searchStates,
 } from "../services/indiaLocationService.js";
+import { reverseGeocodeCoords } from "../services/reverseGeocodeService.js";
 
 export const getStates = async (req, res) => {
   try {
@@ -60,6 +61,30 @@ export const getPincodeDetails = async (req, res) => {
     const result = lookupPincode(req.params.pincode);
     if (result.error) {
       return res.status(404).json({ success: false, message: result.error });
+    }
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/** Reverse-geocode lat/lng with India pincode validation (fixes wrong OSM pincodes). */
+export const reverseGeocode = async (req, res) => {
+  try {
+    const lat = req.query.lat ?? req.query.latitude;
+    const lng = req.query.lng ?? req.query.longitude;
+
+    if (lat == null || lng == null) {
+      return res.status(400).json({
+        success: false,
+        message: "lat and lng query parameters are required",
+      });
+    }
+
+    const result = await reverseGeocodeCoords(lat, lng);
+    if (result.error) {
+      return res.status(400).json({ success: false, message: result.error });
     }
 
     res.status(200).json({ success: true, data: result });

@@ -30,6 +30,10 @@ export function isProductInStock(product, variantName = "") {
 const IN_STOCK_MAX_QTY = 9999;
 
 export function getVariantStock(product, variantName = "") {
+  const storeStock = Number(product?.storeStock);
+  if (Number.isFinite(storeStock) && storeStock >= 0) {
+    return storeStock;
+  }
   return isProductInStock(product, variantName) ? IN_STOCK_MAX_QTY : 0;
 }
 
@@ -43,6 +47,11 @@ export function getAvailableColors(product, variantName = "") {
 }
 
 export function getTotalProductStock(product) {
+  const storeStock = Number(product?.storeStock);
+  if (Number.isFinite(storeStock) && storeStock >= 0) {
+    return storeStock;
+  }
+
   if (isMultiVariant(product)) {
     return product.variants.some((variant) =>
       typeof variant.inStock === "boolean" ? variant.inStock : (variant.stock ?? 0) > 0

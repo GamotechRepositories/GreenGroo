@@ -5,6 +5,7 @@ import StoreOrder from "../models/StoreOrder.js";
 import Shift from "../models/Shift.js";
 import { getIO } from "../../../socket.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
+import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import InventoryRequest from "../models/InventoryRequest.js";
 import { deductOrderStock } from "../services/storeStockService.js";
 import { seedManagerStore } from "../services/seedManagerStore.js";
@@ -12,30 +13,18 @@ import { pickDemoOrderItems } from "../data/storeProductCatalog.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
+  if (!manager && (req.user.email || req.user.phone)) {
+    manager = await DeliveryManager.findOne({
+      $or: [
+        ...(req.user.email ? [{ email: req.user.email }] : []),
+        ...(req.user.phone ? [{ phone: req.user.phone }] : []),
+      ],
+    });
+  }
   if (!manager) {
-    if (req.user.email || req.user.phone) {
-      manager = await DeliveryManager.findOne({
-        $or: [{ email: req.user.email }, { phone: req.user.phone }],
-      });
-    }
-    if (!manager) {
-      manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
-    }
-    if (!manager) {
-      manager = await DeliveryManager.create({
-        name: "Baner Store Manager",
-        email: req.user.email || "manager@greengroo.com",
-        phone: req.user.phone || "9876500001",
-        password: "hashedpassword123",
-        storeName: "Baner Dark Store",
-        storeAddress: "Plot 14, Main Road, Baner, Pune",
-        city: "Pune",
-        cityId: "pune",
-        area: "Baner",
-        state: "Maharashtra",
-        isActive: true,
-      });
-    }
+    const err = new Error("Delivery manager not found");
+    err.statusCode = 404;
+    throw err;
   }
   return manager;
 };
@@ -171,13 +160,43 @@ export const listIncomingOrders = async (req, res, next) => {
       status: { $in: statusFilter },
     }).sort({ createdAt: -1 });
 
+    const riderIds = [
+      ...new Set(
+        orders.flatMap((o) =>
+          [o.assignedRiderId, o.currentOfferDriverId, o.offeredRiderId].filter(Boolean)
+        )
+      ),
+    ];
+    const riders = riderIds.length
+      ? await DeliveryBoy.find({ _id: { $in: riderIds } }).select("name phone status")
+      : [];
+    const riderMap = new Map(riders.map((r) => [r._id.toString(), r]));
+
     const stockMap = await stockMapForManager(manager._id);
 
     return res.json({
       success: true,
+      darkStoreId: manager._id.toString(),
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
       darkStoreName: manager.storeName || `${manager.area} Dark Store`,
-      orders: orders.map((o) => o.toSafeJSON(stockMap)),
+      orders: orders.map((o) => {
+        const json = o.toSafeJSON(stockMap);
+        const assigned = o.assignedRiderId
+          ? riderMap.get(o.assignedRiderId.toString())
+          : null;
+        const offered = o.currentOfferDriverId
+          ? riderMap.get(o.currentOfferDriverId.toString())
+          : null;
+        return {
+          ...json,
+          assignedRider: assigned
+            ? { id: assigned._id.toString(), name: assigned.name, phone: assigned.phone }
+            : null,
+          offeredRider: offered
+            ? { id: offered._id.toString(), name: offered.name, phone: offered.phone }
+            : null,
+        };
+      }),
     });
   } catch (error) {
     next(error);
@@ -225,22 +244,32 @@ export const packOrder = async (req, res, next) => {
     }
 
     order.status = "packed";
+    order.assignmentStatus = "SEARCHING_FOR_DRIVER";
     order.packedAt = new Date();
+    order.darkStoreId = manager._id;
     if (!order.darkStoreQrCode) {
       order.darkStoreQrCode = `DARKSTORE_${manager._id}`;
     }
     await order.save();
 
-    // Trigger automated Round-Robin dispatch to eligible riders
+    try {
+      getIO().to(`store_${manager._id}`).emit("order_packed", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: "packed",
+      });
+    } catch (err) {
+      console.warn("[pack] socket emit failed:", err.message);
+    }
+
     const dispatchResult = await dispatchNextRider(order._id);
 
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,
       message: dispatchResult.success
-        ? `Order confirmed — stock deducted and offered to ${dispatchResult.offeredRider?.name} (10s window)`
-        : "Order confirmed and stock deducted. " +
-          (dispatchResult.message || "Waiting for available online riders."),
+        ? `Order packed — offer sent to ${dispatchResult.offeredRider?.name} (${OFFER_TIMEOUT_SECONDS}s window)`
+        : "Order packed. " + (dispatchResult.message || "Waiting for nearby Delivery Partner..."),
       dispatchResult,
       order: order.toSafeJSON(stockMap),
     });

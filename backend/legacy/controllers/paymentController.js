@@ -8,6 +8,7 @@ import {
   prepareOrderData,
   upsertCheckoutAttemptOrder,
 } from "../utils/orderHelpers.js";
+import { dispatchDeliveryOrder } from "../services/deliveryDispatcher.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
 import {
@@ -85,6 +86,7 @@ export const createRazorpayOrder = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     } = req.body;
     if (!addressId) {
       return res.status(400).json({
@@ -106,6 +108,7 @@ export const createRazorpayOrder = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -189,6 +192,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       attemptedOrderId,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -225,6 +229,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     });
 
     if (result.error) {
@@ -304,6 +309,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       attemptedOrderId,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
@@ -348,6 +354,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      customerLocation,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -656,6 +663,12 @@ export const updatePaymentStatus = async (req, res) => {
 
       if (order) {
         void notifyPaymentSuccess(order, { source: "upi_manual" });
+        const confirmed = await Order.findById(payment.order);
+        if (confirmed) {
+          void dispatchDeliveryOrder(confirmed).catch((err) =>
+            console.error("[paymentController] dispatch failed:", err)
+          );
+        }
       }
     } else {
       await Order.findByIdAndUpdate(payment.order, {

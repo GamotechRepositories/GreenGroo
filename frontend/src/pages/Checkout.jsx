@@ -18,6 +18,8 @@ import {
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import RewardPointsModal from "../components/rewards/RewardPointsModal";
+import { readDeliveryLocation } from "../utils/deliveryLocation";
+import { isLocalProductId } from "../utils/localProductId";
 import {
   clearBuyNowCheckout,
   getBuyNowCheckout,
@@ -41,6 +43,27 @@ import {
 } from "../utils/payment";
 
 const MAX_ORDER_NOTE_LENGTH = 200;
+
+function checkoutCustomerLocation() {
+  const loc = readDeliveryLocation();
+  if (!loc) return undefined;
+  const lat = Number(loc.lat ?? loc.latitude);
+  const lng = Number(loc.lng ?? loc.longitude);
+  const payload = {
+    city: loc.city || "",
+    area: loc.area || "",
+    state: loc.state || "",
+    pincode: loc.pincode || "",
+    fullAddress: loc.address || "",
+  };
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    payload.lat = lat;
+    payload.lng = lng;
+    payload.location = { lat, lng };
+  }
+  if (!payload.city && !payload.area && payload.lat == null) return undefined;
+  return payload;
+}
 
 const formatPrice = (amount, fractionDigits = 0) =>
   new Intl.NumberFormat("en-IN", {
@@ -135,15 +158,28 @@ function Checkout() {
 
   const buyNowItem = getBuyNowCheckout();
   const isBuyNow = Boolean(buyNowItem);
-  const checkoutItems = isBuyNow ? [buyNowItem] : items;
+  const checkoutItems = isBuyNow ? [buyNowItem].filter(Boolean) : items;
   const checkoutItemsPayload = useMemo(
     () =>
-      checkoutItems.map((item) => ({
-        productId: item.productId || item._id,
-        quantity: item.quantity,
-        variantName: item.variantName || "",
-        colorName: item.colorName || "",
-      })),
+      checkoutItems.map((item) => {
+        const productId = item.productId || item._id;
+        const payload = {
+          productId,
+          quantity: item.quantity,
+          variantName: item.variantName || "",
+          colorName: item.colorName || "",
+        };
+
+        if (isLocalProductId(productId)) {
+          payload.name = item.name;
+          payload.price = item.price;
+          payload.discountedPrice = item.discountedPrice;
+          payload.brandName = item.brandName || "";
+          payload.image = item.productImages?.[0] || "";
+        }
+
+        return payload;
+      }),
     [checkoutItems]
   );
 
@@ -380,7 +416,13 @@ function Checkout() {
   ]);
 
   const syncCheckoutAttempt = useCallback(async () => {
-    if (authLoading || bootstrapping || !user || orderPlaced || checkoutItems.length === 0) {
+    if (
+      authLoading ||
+      bootstrapping ||
+      !user ||
+      orderPlaced ||
+      checkoutItems.length === 0
+    ) {
       return attemptedOrderIdRef.current;
     }
 
@@ -393,6 +435,7 @@ function Checkout() {
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
         rewardPointsToUse: rewardPointsToUseRef.current || undefined,
+        customerLocation: checkoutCustomerLocation(),
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -522,6 +565,7 @@ function Checkout() {
       buyNow: isBuyNow,
       couponCode: appliedCouponRef.current?.code || undefined,
       rewardPointsToUse: rewardPointsToUseRef.current || undefined,
+      customerLocation: checkoutCustomerLocation(),
     });
     const paymentData = data.data;
 
@@ -555,6 +599,7 @@ function Checkout() {
             attemptedOrderId: attemptedOrderIdRef.current,
             couponCode: appliedCouponRef.current?.code || undefined,
             rewardPointsToUse: rewardPointsToUseRef.current || undefined,
+            customerLocation: checkoutCustomerLocation(),
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -589,13 +634,6 @@ function Checkout() {
       await syncCheckoutAttempt();
       
       if (paymentPlan === PAYMENT_PLAN.COD) {
-        const checkoutItemsPayload = checkoutItems.map((item) => ({
-          productId: item.productId || item._id,
-          quantity: item.quantity,
-          variantName: item.variantName || "",
-          colorName: item.colorName || "",
-        }));
-
         await placeOrder({
           addressId: selectedAddressId,
           paymentMethod: "cod",
@@ -606,6 +644,7 @@ function Checkout() {
           attemptedOrderId: attemptedOrderIdRef.current,
           couponCode: appliedCouponRef.current?.code || undefined,
           rewardPointsToUse: rewardPointsToUseRef.current || undefined,
+          customerLocation: checkoutCustomerLocation(),
         });
 
         await completeOrderSuccess("Order confirmed. Pay the full amount on delivery.");
@@ -622,7 +661,15 @@ function Checkout() {
     setSavingAddress(true);
     setFormError("");
     try {
-      const { data } = await addAddress({ ...formData, isDefault: addresses.length === 0 });
+      const loc = readDeliveryLocation();
+      const lat = Number(loc?.lat ?? loc?.latitude);
+      const lng = Number(loc?.lng ?? loc?.longitude);
+      const payload = { ...formData, isDefault: addresses.length === 0 };
+      if (!payload.location?.lat && Number.isFinite(lat) && Number.isFinite(lng)) {
+        payload.location = { lat, lng };
+      }
+      if (!payload.area && loc?.area) payload.area = loc.area;
+      const { data } = await addAddress(payload);
       const newAddress = data.data;
       setAddresses((prev) => [newAddress, ...prev]);
       setSelectedAddressId(newAddress._id);

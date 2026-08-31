@@ -173,6 +173,16 @@ const deliveryBoySchema = new mongoose.Schema(
     lastOrderAssignedAt: {
       type: Date,
     },
+    lastOrderCompletedAt: {
+      type: Date,
+    },
+    onlineSince: {
+      type: Date,
+    },
+    roundRobinPosition: {
+      type: Number,
+      default: 0,
+    },
     lastAssignedAt: {
       type: Date,
     },

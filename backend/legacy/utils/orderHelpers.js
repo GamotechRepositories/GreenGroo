@@ -1,8 +1,11 @@
+import crypto from "crypto";
+import mongoose from "mongoose";
 import Cart from "../models/Cart.js";
 import Address from "../models/address/Address.js";
 import Order from "../models/order/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/user.js";
+import { isLocalProductId } from "./localProductId.js";
 import {
   getAvailableColors,
   getUnitPriceForQuantity,
@@ -165,10 +168,54 @@ export function enrichOrderForResponse(
   };
 }
 
-export function addressToSnapshot(address) {
-  const raw = typeof address.toObject === "function" ? address.toObject() : address;
+function toCoord(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
-  return {
+function coordsFromSource(source = {}) {
+  const lat = toCoord(
+    source.location?.lat ?? source.lat ?? source.latitude
+  );
+  const lng = toCoord(
+    source.location?.lng ?? source.lng ?? source.longitude
+  );
+  if (lat == null || lng == null) return null;
+  return { lat, lng };
+}
+
+export function mergeCustomerLocation(snapshot, customerLocation) {
+  if (!snapshot) return snapshot;
+  const next = { ...snapshot };
+  const fromSnapshot = coordsFromSource(next);
+  const fromCustomer = coordsFromSource(customerLocation || {});
+
+  if (!fromSnapshot && fromCustomer) {
+    next.location = fromCustomer;
+  } else if (fromSnapshot) {
+    next.location = fromSnapshot;
+  }
+
+  if (!next.area && customerLocation?.area) {
+    next.area = String(customerLocation.area).trim();
+  }
+  if (!next.city && customerLocation?.city) {
+    next.city = String(customerLocation.city).trim();
+  }
+  if (!next.state && customerLocation?.state) {
+    next.state = String(customerLocation.state).trim();
+  }
+  if (!next.pincode && customerLocation?.pincode) {
+    next.pincode = String(customerLocation.pincode).trim();
+  }
+  return next;
+}
+
+export function addressToSnapshot(address, customerLocation) {
+  const raw = typeof address.toObject === "function" ? address.toObject() : address;
+  const coords = coordsFromSource(raw);
+
+  const snapshot = {
     fullName: (raw.fullName || raw.name || "").trim(),
     number: String(raw.number || raw.phone || "").trim(),
     email: String(raw.email || "").trim().toLowerCase(),
@@ -180,8 +227,10 @@ export function addressToSnapshot(address) {
     state: (raw.state || "").trim(),
     pincode: String(raw.pincode || "").trim(),
     area: (raw.area || raw.landmark || "").trim(),
-    location: raw.location ? { lat: raw.location.lat, lng: raw.location.lng } : undefined,
+    ...(coords ? { location: coords } : {}),
   };
+
+  return mergeCustomerLocation(snapshot, customerLocation);
 }
 
 export function listUnavailableCartItems(items = []) {
@@ -228,6 +277,39 @@ export async function pruneUnavailableCartItems(cart) {
   return { removed: unavailable, changed: true };
 }
 
+function localCatalogProductId(localId) {
+  const hash = crypto.createHash("md5").update(String(localId)).digest("hex").slice(0, 24);
+  return new mongoose.Types.ObjectId(hash);
+}
+
+function buildCatalogProductFromEntry(entry) {
+  const localId = entry.productId || entry._id;
+  const unitPrice = Number(entry.discountedPrice ?? entry.price);
+  const name = String(entry.name || "").trim();
+
+  if (!localId || !name || !Number.isFinite(unitPrice) || unitPrice <= 0) {
+    return null;
+  }
+
+  const images = Array.isArray(entry.productImages)
+    ? entry.productImages.filter(Boolean)
+    : entry.image
+      ? [entry.image]
+      : [];
+
+  return {
+    _id: localCatalogProductId(localId),
+    name,
+    brandName: String(entry.brandName || "").trim(),
+    price: Number(entry.price ?? unitPrice),
+    discountedPrice: unitPrice,
+    isActive: true,
+    inStock: true,
+    stock: 9999,
+    productImages: images,
+  };
+}
+
 async function resolveCheckoutItems(rawItems, { skipStockCheck = false } = {}) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { error: "No items to checkout", status: 400 };
@@ -245,12 +327,21 @@ async function resolveCheckoutItems(rawItems, { skipStockCheck = false } = {}) {
       return { error: "Invalid checkout item", status: 400 };
     }
 
-    const product = await Product.findById(productId).select(PRODUCT_PRICING_SELECT);
-    if (!product || !product.isActive) {
-      return {
-        error: "One or more products are no longer available",
-        status: 404,
-      };
+    let product = null;
+
+    if (isLocalProductId(productId)) {
+      product = buildCatalogProductFromEntry(entry);
+      if (!product) {
+        return { error: "Invalid checkout item", status: 400 };
+      }
+    } else {
+      product = await Product.findById(productId).select(PRODUCT_PRICING_SELECT);
+      if (!product || !product.isActive) {
+        return {
+          error: "One or more products are no longer available",
+          status: 404,
+        };
+      }
     }
 
     if (isMultiVariant(product)) {
@@ -349,40 +440,12 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     return { error: "Address not found", status: 404 };
   }
 
-  const checkoutMode = resolveCheckoutMode(options);
-  let itemsToProcess = [];
-  let cart = null;
-
-  if (checkoutMode === "buyNow") {
-    const resolved = await resolveCheckoutItems(options.checkoutItems);
-    if (resolved.error) {
-      return { error: resolved.error, status: resolved.status };
-    }
-    itemsToProcess = resolved.items;
-    cart = await populateCart(Cart.findOne({ user: userId }));
-  } else {
-    cart = await populateCart(Cart.findOne({ user: userId }));
-    if (!cart?.items?.length) {
-      return { error: "Your cart is empty", status: 400 };
-    }
-
-    const { removed } = await pruneUnavailableCartItems(cart);
-    if (removed.length) {
-      const names = removed.map((item) => item.name).join(", ");
-      return {
-        error: `These items are no longer available: ${names}. They were removed from your cart. Please review and try again.`,
-        status: 400,
-        code: "CART_ITEMS_UNAVAILABLE",
-        removedItems: removed,
-      };
-    }
-
-    if (!cart.items.length) {
-      return { error: "Your cart is empty", status: 400 };
-    }
-
-    itemsToProcess = cart.items;
+  const resolvedItems = await resolveItemsForCheckout(userId, options);
+  if (resolvedItems.error) {
+    return resolvedItems;
   }
+
+  const { itemsToProcess, cart, checkoutMode } = resolvedItems;
 
   const built = buildOrderItemsFromResolved(itemsToProcess);
   if (built.error) {
@@ -420,7 +483,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     };
   }
 
-  const deliveryAddress = addressToSnapshot(address);
+  const deliveryAddress = addressToSnapshot(address, options.customerLocation);
   const requiredSnapshotFields = [
     "fullName",
     "number",
@@ -529,38 +592,58 @@ function buildPendingDeliveryAddress(user, address = null) {
 
 async function resolveItemsForCheckout(userId, options = {}) {
   const checkoutMode = resolveCheckoutMode(options);
-  let itemsToProcess = [];
-  let cart = null;
+  const clientItems = Array.isArray(options.checkoutItems) ? options.checkoutItems : [];
+  const cart = await populateCart(Cart.findOne({ user: userId }));
 
-  if (checkoutMode === "buyNow") {
-    const resolved = await resolveCheckoutItems(options.checkoutItems, {
+  if (checkoutMode === "buyNow" || clientItems.length > 0) {
+    const resolved = await resolveCheckoutItems(clientItems, {
       skipStockCheck: Boolean(options.skipStockCheck),
     });
     if (resolved.error) {
       return resolved;
     }
-    itemsToProcess = resolved.items;
-    cart = await populateCart(Cart.findOne({ user: userId }));
-  } else {
-    cart = await populateCart(Cart.findOne({ user: userId }));
-    if (!cart?.items?.length) {
-      return { error: "Your cart is empty", status: 400 };
-    }
+    return {
+      itemsToProcess: resolved.items,
+      cart,
+      checkoutMode,
+    };
+  }
 
-    const { unavailable, available } = listUnavailableCartItems(cart.items);
-    if (unavailable.length && !available.length) {
-      const names = unavailable.map((item) => item.name).join(", ");
+  if (!cart?.items?.length) {
+    return { error: "Your cart is empty", status: 400 };
+  }
+
+  if (!options.skipStockCheck) {
+    const { removed } = await pruneUnavailableCartItems(cart);
+    if (removed.length) {
+      const names = removed.map((item) => item.name).join(", ");
       return {
-        error: `These items are no longer available: ${names}`,
+        error: `These items are no longer available: ${names}. They were removed from your cart. Please review and try again.`,
         status: 400,
         code: "CART_ITEMS_UNAVAILABLE",
-        removedItems: unavailable,
+        removedItems: removed,
       };
     }
 
-    itemsToProcess = available.length ? available : cart.items;
+    if (!cart.items.length) {
+      return { error: "Your cart is empty", status: 400 };
+    }
+
+    return { itemsToProcess: cart.items, cart, checkoutMode };
   }
 
+  const { unavailable, available } = listUnavailableCartItems(cart.items);
+  if (unavailable.length && !available.length) {
+    const names = unavailable.map((item) => item.name).join(", ");
+    return {
+      error: `These items are no longer available: ${names}`,
+      status: 400,
+      code: "CART_ITEMS_UNAVAILABLE",
+      removedItems: unavailable,
+    };
+  }
+
+  const itemsToProcess = available.length ? available : cart.items;
   return { itemsToProcess, cart, checkoutMode };
 }
 
@@ -622,7 +705,10 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
 
   return {
     orderItems,
-    deliveryAddress: buildPendingDeliveryAddress(user, address),
+    deliveryAddress: mergeCustomerLocation(
+      buildPendingDeliveryAddress(user, address),
+      options.customerLocation
+    ),
     subtotal,
     couponCode,
     couponDiscount,

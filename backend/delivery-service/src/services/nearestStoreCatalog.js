@@ -1,6 +1,7 @@
 import StoreInventory from "../models/StoreInventory.js";
 import Product from "../../../legacy/models/Product.js";
 import { resolveDarkStoreForAddress } from "./darkStoreResolver.js";
+import { ensureStoreCatalogProducts } from "./ensureStoreCatalogProducts.js";
 
 const escapeRegex = (value) =>
   String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -17,6 +18,7 @@ const norm = (value) =>
     .trim();
 
 const CATEGORY_ALIASES = {
+  staples: ["staples", "grains"],
   grains: ["staples", "grains"],
   grocery: ["staples", "snacks", "household", "ready to cook", "grocery"],
   pulses: ["staples", "pulses"],
@@ -220,29 +222,37 @@ export function attachStoreAvailability(products, catalog) {
       const item = matchProductToItem(doc, catalog.items);
       if (!item) return null;
       const inStock = Number(item.stockCount) > 0;
+      const storeStock = Number(item.stockCount) || 0;
+      const storePrice = Number(item.price);
       const variants = Array.isArray(doc.variants)
         ? doc.variants.map((variant) => ({
             ...variant,
             inStock,
-            stock: item.stockCount,
+            stock: storeStock,
           }))
         : doc.variants;
       return {
         ...doc,
         variants,
         inStock,
-        stock: item.stockCount,
-        storeStock: item.stockCount,
+        stock: storeStock,
+        storeStock,
         storeSku: item.sku,
         storeCategory: item.category,
         storeId: catalog.store?.id,
         storeName: catalog.store?.storeName,
+        storeArea: catalog.store?.area,
+        ...(Number.isFinite(storePrice) && storePrice > 0
+          ? { discountedPrice: storePrice, price: Math.max(doc.price || storePrice, storePrice) }
+          : {}),
       };
     })
     .filter(Boolean);
 }
 
 export async function loadNearestStoreCatalog(query = {}) {
+  await ensureStoreCatalogProducts();
+
   const address = addressFromQuery(query);
   const needsLocation = !hasLocationHint(address);
 

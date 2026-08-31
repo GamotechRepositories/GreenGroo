@@ -169,6 +169,7 @@ export const register = async (req, res, next) => {
       pincode: pincode || "",
       latitude: loc.latitude ?? undefined,
       longitude: loc.longitude ?? undefined,
+      deliveryRadiusKm: 5,
     });
 
     const seeded = await seedManagerStore(manager);

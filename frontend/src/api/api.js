@@ -140,6 +140,8 @@ export const getLocationPincodes = (state, city, q = "") =>
   api.get("/api/location/pincodes", { params: { state, city, q, limit: 250 } });
 export const getLocationByPincode = (pincode) =>
   api.get(`/api/location/pincode/${pincode}`);
+export const reverseGeocodeLocation = (lat, lng) =>
+  api.get("/api/location/reverse", { params: { lat, lng } });
 
 export const placeOrder = (data) => api.post("/api/orders", data);
 export const createCheckoutAttempt = (data) => api.post("/api/orders/checkout-attempt", data);

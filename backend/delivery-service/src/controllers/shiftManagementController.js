@@ -3,10 +3,7 @@ import DeliveryManager from "../models/DeliveryManager.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 
 const getManager = async (req) => {
-  let manager = await DeliveryManager.findById(req.user.id);
-  if (!manager) {
-    manager = await DeliveryManager.findOne({ isActive: true }).sort({ createdAt: 1 });
-  }
+  const manager = await DeliveryManager.findById(req.user.id);
   if (!manager) {
     const err = new Error("Delivery manager not found");
     err.statusCode = 404;

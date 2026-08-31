@@ -674,9 +674,18 @@ export const getActiveHubs = async (req, res, next) => {
 export const heartbeat = async (req, res, next) => {
   try {
     const now = new Date();
+    const existing = await DeliveryBoy.findById(req.user.id);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery boy not found",
+      });
+    }
+
     const updates = {
       lastSeenAt: now,
-      status: "online",
+      // Keep on_delivery while an order is active — don't downgrade on heartbeat.
+      status: existing.activeOrderId ? "on_delivery" : "online",
     };
 
     if (req.body.fcmToken !== undefined) {
@@ -701,6 +710,19 @@ export const heartbeat = async (req, res, next) => {
         message: "Delivery boy not found",
       });
     }
+
+    try {
+      if (
+        deliveryBoy.status === "online" &&
+        !deliveryBoy.activeOrderId &&
+        deliveryBoy.managerId
+      ) {
+        const { retryWaitingAssignmentsForStore } = await import(
+          "../services/OrderAssignmentService.js"
+        );
+        retryWaitingAssignmentsForStore(deliveryBoy.managerId).catch(() => {});
+      }
+    } catch (err) {}
 
     return res.json({
       success: true,
@@ -765,6 +787,16 @@ export const updateLocation = async (req, res, next) => {
           riderId: deliveryBoy._id.toString(),
           location: { lat, lng, updatedAt: now.toISOString() },
         });
+      }
+      if (
+        deliveryBoy.status === "online" &&
+        !deliveryBoy.activeOrderId &&
+        deliveryBoy.managerId
+      ) {
+        const { retryWaitingAssignmentsForStore } = await import(
+          "../services/OrderAssignmentService.js"
+        );
+        retryWaitingAssignmentsForStore(deliveryBoy.managerId).catch(() => {});
       }
     } catch (err) {}
 

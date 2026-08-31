@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import PickupQrModal from "../../components/PickupQrModal";
+import { subscribeToSocketEvent } from "../../services/socket";
 
 const STATUS_BADGE = {
   order_received: (
@@ -24,7 +26,7 @@ const STATUS_BADGE = {
   ),
   offered: (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 border border-amber-300 animate-pulse">
-      ⏱ OFFERING RIDER
+      ⏱ SEARCHING DRIVER
     </span>
   ),
   assigned: (
@@ -84,7 +86,10 @@ export default function OrdersPage() {
   const [requestItem, setRequestItem] = useState(null);
   const [requestQty, setRequestQty] = useState(20);
   const [requestNote, setRequestNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [pickupQrOrderId, setPickupQrOrderId] = useState(null);
+  const [pickupQrLoading, setPickupQrLoading] = useState(false);
+  const [pickupQrError, setPickupQrError] = useState("");
+  const [pickupQrData, setPickupQrData] = useState(null);
 
   const pendingSkuSet = useMemo(() => new Set(pendingSkus), [pendingSkus]);
 
@@ -117,8 +122,41 @@ export default function OrdersPage() {
   useEffect(() => {
     load();
     const id = setInterval(load, 5000);
-    return () => clearInterval(id);
+    const unsubs = [
+      subscribeToSocketEvent("new_order_received", () => load()),
+      subscribeToSocketEvent("order_status_updated", () => load()),
+      subscribeToSocketEvent("driver_assigned", () => load()),
+      subscribeToSocketEvent("search_driver", () => load()),
+      subscribeToSocketEvent("dispatch_no_riders_available", () => load()),
+      subscribeToSocketEvent("pickup_verified", () => load()),
+      subscribeToSocketEvent("order_out_for_delivery", () => load()),
+    ];
+    return () => {
+      clearInterval(id);
+      unsubs.forEach((unsub) => unsub());
+    };
   }, [load]);
+
+  const openPickupQr = async (orderId) => {
+    setPickupQrOrderId(orderId);
+    setPickupQrLoading(true);
+    setPickupQrError("");
+    setPickupQrData(null);
+    try {
+      const res = await managerApi.getPickupQr(orderId);
+      setPickupQrData(res.data);
+    } catch (err) {
+      setPickupQrError(err.response?.data?.message || "Could not load pickup QR");
+    } finally {
+      setPickupQrLoading(false);
+    }
+  };
+
+  const closePickupQr = () => {
+    setPickupQrOrderId(null);
+    setPickupQrData(null);
+    setPickupQrError("");
+  };
 
   const showToast = (msg) => {
     setToast(msg);
@@ -244,7 +282,7 @@ export default function OrdersPage() {
   return (
     <PageShell
       title="Incoming Orders"
-      subtitle={`${manager?.storeName || "Dark Store"} · ${manager?.area || "Area"}, ${manager?.city || "City"}`}
+      subtitle={`${manager?.storeName || "Dark Store"} · ${manager?.area || "Area"}, ${manager?.city || "City"} · orders within ${manager?.deliveryRadiusKm || 5} km`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-50 p-3 text-sm font-bold text-emerald-800 flex items-center gap-2 animate-fade-in">
@@ -388,8 +426,13 @@ export default function OrdersPage() {
                       <div className="font-bold text-slate-900">{order.customerName || "Customer"}</div>
                       <div className="text-slate-500 text-[11px]">{order.customerPhone || "N/A"}</div>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate">
-                      {order.customerAddress || "Store Pickup"}
+                    <td className="py-3.5 px-4 text-slate-700 max-w-xs">
+                      <div className="truncate">{order.customerAddress || "Store Pickup"}</div>
+                      {order.distanceKm != null && (
+                        <div className="mt-0.5 text-[10px] font-semibold text-emerald-700">
+                          {Number(order.distanceKm).toFixed(1)} km from this store
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="space-y-1">
@@ -450,12 +493,32 @@ export default function OrdersPage() {
                         <span className="inline-flex items-center gap-1 font-bold text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full text-[11px]">
                           🛵 {order.assignedRider.name || order.assignedRider.phone}
                         </span>
+                      ) : order.offeredRider ? (
+                        <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full text-[11px] animate-pulse">
+                          ⏱ Offering {order.offeredRider.name || order.offeredRider.phone}
+                        </span>
+                      ) : order.assignmentStatus === "WAITING_FOR_DRIVER" ? (
+                        <span className="text-amber-700 italic text-[11px] font-semibold">
+                          Waiting for nearby Delivery Partner…
+                        </span>
                       ) : (
                         <span className="text-slate-400 italic text-[11px]">Unassigned</span>
                       )}
+                      {order.pickupVerified ? (
+                        <div className="mt-1 text-[10px] font-bold text-emerald-700">✓ Pickup verified</div>
+                      ) : null}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex flex-col items-end gap-2">
+                        {order.status === "assigned" && !order.pickupVerified && (
+                          <button
+                            type="button"
+                            onClick={() => openPickupQr(oid)}
+                            className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100"
+                          >
+                            Show Pickup QR
+                          </button>
+                        )}
                         {isInitial && (
                           <div className="flex flex-col items-end gap-1">
                             <button
@@ -508,6 +571,16 @@ export default function OrdersPage() {
           </table>
         </div>
       )}
+
+      <PickupQrModal
+        isOpen={Boolean(pickupQrOrderId)}
+        onClose={closePickupQr}
+        loading={pickupQrLoading}
+        error={pickupQrError}
+        orderNumber={pickupQrData?.orderNumber}
+        driverName={pickupQrData?.driverName}
+        pickupQrPayload={pickupQrData?.pickupQrPayload}
+      />
 
       {requestItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">

@@ -1,5 +1,8 @@
 import DeliveryManager from "../models/DeliveryManager.js";
 
+/** Customer orders route to a dark store only if it is inside this radius. */
+export const DEFAULT_DELIVERY_RADIUS_KM = 5;
+
 const toNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -12,7 +15,7 @@ const citySlug = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-function haversineKm(lat1, lng1, lat2, lng2) {
+export function haversineKm(lat1, lng1, lat2, lng2) {
   const toRad = (d) => (d * Math.PI) / 180;
   const R = 6371;
   const dLat = toRad(lat2 - lat1);
@@ -21,6 +24,29 @@ function haversineKm(lat1, lng1, lat2, lng2) {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+export function readCoords(source = {}) {
+  const lat = toNumber(
+    source.location?.lat ??
+      source.lat ??
+      source.latitude ??
+      source.customerLat
+  );
+  const lng = toNumber(
+    source.location?.lng ??
+      source.lng ??
+      source.longitude ??
+      source.customerLng
+  );
+  if (lat == null || lng == null) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+}
+
+function storeRadiusKm(manager) {
+  const custom = toNumber(manager?.deliveryRadiusKm);
+  return custom != null && custom > 0 ? custom : DEFAULT_DELIVERY_RADIUS_KM;
 }
 
 function addressHaystack(address = {}) {
@@ -57,52 +83,100 @@ function matchesArea(manager, address) {
   return Boolean(haystack) && haystack.includes(area);
 }
 
+function withDistance(manager, coords) {
+  const store = readCoords(manager);
+  if (!coords || !store) return { manager, distanceKm: null };
+  return {
+    manager,
+    distanceKm: haversineKm(coords.lat, coords.lng, store.lat, store.lng),
+  };
+}
+
+function pickNearest(rows) {
+  return [...rows].sort((a, b) => {
+    const da = a.distanceKm == null ? Number.POSITIVE_INFINITY : a.distanceKm;
+    const db = b.distanceKm == null ? Number.POSITIVE_INFINITY : b.distanceKm;
+    return da - db;
+  })[0] || null;
+}
+
 /**
  * Pick the dark store that should fulfil this customer address.
- * Never sends an order to another city when a city is known.
+ *
+ * Area (primary when set): the manager registered for that area — each area
+ *   has its own inventory on the customer site.
+ * GPS (when no area match): nearest active store within delivery radius.
  */
 export async function resolveDarkStoreForAddress(address = {}) {
   const city = String(address.city || "").trim();
-  const lat = toNumber(address.location?.lat ?? address.lat ?? address.customerLat);
-  const lng = toNumber(address.location?.lng ?? address.lng ?? address.customerLng);
+  const coords = readCoords(address);
+  const explicitArea = norm(address.area);
 
   const active = await DeliveryManager.find({ isActive: true });
   if (!active.length) {
-    return { manager: null, reason: "no_active_stores" };
+    return { manager: null, reason: "no_active_stores", city, distanceKm: null };
   }
 
-  let candidates = active;
-  let reason = "fallback_any_store";
+  const pickFromAreaMatches = (pool) => {
+    const inArea = pool.filter((m) => matchesArea(m, address));
+    if (!inArea.length) return null;
+    const picked = pickNearest(inArea.map((manager) => withDistance(manager, coords)));
+    return {
+      manager: picked?.manager || inArea[0],
+      reason: explicitArea ? "area_match" : city ? "city_area" : "area",
+      city,
+      distanceKm: picked?.distanceKm ?? null,
+    };
+  };
 
+  // 1. Area-first — show that area's delivery manager inventory on the frontend
+  if (explicitArea) {
+    let candidates = active;
+    if (city) {
+      const inCity = active.filter((m) => matchesCity(m, city));
+      if (inCity.length) candidates = inCity;
+    }
+    const areaMatch = pickFromAreaMatches(candidates);
+    if (areaMatch) return areaMatch;
+  }
+
+  // 2. GPS — nearest store within delivery radius
+  if (coords) {
+    const inRadius = active
+      .map((manager) => withDistance(manager, coords))
+      .filter(
+        (row) =>
+          row.distanceKm != null && row.distanceKm <= storeRadiusKm(row.manager)
+      );
+
+    const nearest = pickNearest(inRadius);
+    if (nearest) {
+      return {
+        manager: nearest.manager,
+        reason: "within_radius",
+        city,
+        distanceKm: nearest.distanceKm,
+      };
+    }
+  }
+
+  // 3. City + area text fallback
+  let candidates = active;
   if (city) {
     const inCity = active.filter((m) => matchesCity(m, city));
-    if (!inCity.length) {
-      return { manager: null, reason: "no_store_in_city", city };
+    if (!inCity.length && !coords) {
+      return { manager: null, reason: "no_store_in_city", city, distanceKm: null };
     }
-    candidates = inCity;
-    reason = "city";
+    if (inCity.length) candidates = inCity;
   }
 
-  const inArea = candidates.filter((m) => matchesArea(m, address));
-  if (inArea.length) {
-    candidates = inArea;
-    reason = city ? "city_area" : "area";
-  }
+  const areaMatch = pickFromAreaMatches(candidates);
+  if (areaMatch) return areaMatch;
 
-  if (lat != null && lng != null && candidates.length) {
-    candidates = [...candidates].sort((a, b) => {
-      const da = haversineKm(lat, lng, a.latitude ?? 0, a.longitude ?? 0);
-      const db = haversineKm(lat, lng, b.latitude ?? 0, b.longitude ?? 0);
-      return da - db;
-    });
-    reason = `${reason}_nearest`;
-  }
-
-  const manager = candidates[0] || null;
-  const distanceKm =
-    manager && lat != null && lng != null
-      ? haversineKm(lat, lng, manager.latitude ?? 0, manager.longitude ?? 0)
-      : null;
-
-  return { manager, reason, city, distanceKm };
+  return {
+    manager: null,
+    reason: coords ? "no_store_within_radius" : "no_store_in_area",
+    city,
+    distanceKm: null,
+  };
 }

@@ -79,7 +79,10 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">Store Dashboard</h1>
-          <p className="text-xs md:text-sm text-slate-500">Live operational overview for {manager?.storeName || "Dark Store"}</p>
+          <p className="text-xs md:text-sm text-slate-500">
+            Live operations for {manager?.storeName || "Dark Store"} · {manager?.area || "your area"}
+            {manager?.deliveryRadiusKm ? ` · ${manager.deliveryRadiusKm} km radius` : ""}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link

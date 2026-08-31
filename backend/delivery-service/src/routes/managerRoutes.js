@@ -18,6 +18,10 @@ import {
   createDemoStoreOrder,
 } from "../controllers/managerDashboardController.js";
 import {
+  getManagerOrderPickupQr,
+  verifyPickupByManager,
+} from "../controllers/riderOrderController.js";
+import {
   createInventoryRequest,
   listMyInventoryRequests,
 } from "../controllers/inventoryRequestController.js";
@@ -72,6 +76,8 @@ router.post("/riders", createDeliveryBoyByManager);
 router.post("/riders/:riderId/verify", verifyDriver);
 router.post("/orders/:orderId/inform-customer", informCustomer);
 router.post("/orders/:orderId/pack", packOrder);
+router.get("/orders/:orderId/pickup-qr", getManagerOrderPickupQr);
+router.post("/orders/:orderId/verify-pickup", verifyPickupByManager);
 router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);

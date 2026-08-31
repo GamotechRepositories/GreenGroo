@@ -24,7 +24,7 @@ export function locationIsSet(location) {
   const lat = location.lat ?? location.latitude;
   const lng = location.lng ?? location.longitude;
   const hasCoords = lat != null && lat !== "" && lng != null && lng !== "";
-  return Boolean(hasCoords || location.pincode || location.city);
+  return Boolean(hasCoords || location.pincode || location.city || location.area);
 }
 
 export function LocationProvider({ children }) {

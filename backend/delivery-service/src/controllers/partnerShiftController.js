@@ -646,12 +646,20 @@ export const goOnline = async (req, res, next) => {
 
     rider.status = "online";
     rider.lastOnlineAt = new Date();
+    rider.onlineSince = rider.onlineSince || new Date();
     rider.currentLocation = {
-      latitude: partnerLat,
-      longitude: partnerLng,
+      lat: partnerLat,
+      lng: partnerLng,
       updatedAt: new Date(),
     };
     await rider.save();
+
+    const { retryWaitingAssignmentsForStore } = await import(
+      "../services/OrderAssignmentService.js"
+    );
+    if (manager?._id) {
+      retryWaitingAssignmentsForStore(manager._id).catch(() => {});
+    }
 
     if (todayBooking && shift) {
       todayBooking.status = "ACTIVE";

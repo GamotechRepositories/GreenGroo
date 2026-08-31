@@ -43,6 +43,9 @@ export const managerApi = {
     api.post(`${BASE}/orders/${orderId}/assign`, { riderId }),
   markDelivered: (orderId) =>
     api.patch(`${BASE}/orders/${orderId}/delivered`),
+  getPickupQr: (orderId) => api.get(`${BASE}/orders/${orderId}/pickup-qr`),
+  verifyPickup: (orderId, qrPayload) =>
+    api.post(`${BASE}/orders/${orderId}/verify-pickup`, { qrPayload }),
 
   // Shift & Slot Management APIs
   createShift: (data) => api.post(`${BASE}/shifts`, data),

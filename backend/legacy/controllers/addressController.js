@@ -14,7 +14,15 @@ const REQUIRED_FIELDS = [
   "pincode",
 ];
 
+function coordsFromBody(body = {}) {
+  const lat = Number(body.location?.lat ?? body.lat ?? body.latitude);
+  const lng = Number(body.location?.lng ?? body.lng ?? body.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return { lat, lng };
+}
+
 function normalizeAddressBody(body) {
+  const location = coordsFromBody(body);
   return {
     fullName: (body.fullName || body.name || "").trim(),
     number: String(body.number || body.phone || "").trim(),
@@ -23,9 +31,11 @@ function normalizeAddressBody(body) {
     shopName: (body.shopName || "").trim(),
     fullAddress: (body.fullAddress || body.streetArea || "").trim(),
     landmark: (body.landmark || "").trim(),
+    area: (body.area || body.landmark || "").trim(),
     city: (body.city || "").trim(),
     state: (body.state || "").trim(),
     pincode: String(body.pincode || "").trim(),
+    ...(location ? { location } : {}),
     isDefault: body.isDefault,
   };
 }
@@ -187,6 +197,8 @@ export const updateAddressForUser = async (req, res) => {
     REQUIRED_FIELDS.forEach((field) => {
       address[field] = normalized[field];
     });
+    if (normalized.area !== undefined) address.area = normalized.area;
+    if (normalized.location) address.location = normalized.location;
     if (isDefault !== undefined) address.isDefault = isDefault;
 
     await address.save();
@@ -228,7 +240,8 @@ export const updateAddress = async (req, res) => {
     REQUIRED_FIELDS.forEach((field) => {
       address[field] = normalized[field];
     });
-
+    if (normalized.area !== undefined) address.area = normalized.area;
+    if (normalized.location) address.location = normalized.location;
     if (isDefault !== undefined) address.isDefault = isDefault;
 
     await address.save();
