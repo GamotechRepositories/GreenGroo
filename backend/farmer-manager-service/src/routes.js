@@ -415,6 +415,7 @@ managerRouter.delete("/farmers/:farmerId/orders/:orderId", requireManager, delet
 managerRouter.delete("/:farmerId/orders/:orderId", requireManager, deleteFarmerOrder);
 managerRouter.get("/farmers/:farmerId/earnings", requireManager, getFarmerEarnings);
 managerRouter.get("/farmers/:farmerId/documents", requireManager, getFarmerDocuments);
+managerRouter.post("/farmers/:farmerId/documents", requireManager, uploadFarmerDocument);
 managerRouter.patch("/farmers/:farmerId/documents/:documentId/status", requireManager, updateFarmerDocumentStatus);
 
 driverAuthRouter.post("/login", driverLogin);

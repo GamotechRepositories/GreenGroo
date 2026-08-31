@@ -802,6 +802,18 @@ export async function getManagerFarmerDocuments(farmerId) {
   });
 }
 
+export async function uploadManagerFarmerDocument(farmerId, type, fileMeta) {
+  return apiFetch(`/api/farmer-manager/farmers/${farmerId}/documents`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getStoredAuth()?.token}` },
+    body: JSON.stringify({
+      type,
+      fileName: fileMeta.name,
+      fileUrl: fileMeta.url || "",
+    }),
+  });
+}
+
 export async function updateManagerFarmerDocumentStatus(farmerId, documentId, status, rejectionReason = "") {
   return apiFetch(`/api/farmer-manager/farmers/${farmerId}/documents/${documentId}/status`, {
     method: "PATCH",

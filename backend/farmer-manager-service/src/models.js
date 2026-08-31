@@ -343,6 +343,7 @@ const farmerDocumentSchema = new mongoose.Schema(
     fileName: { type: String, default: "" },
     fileUrl: { type: String, default: "" },
     uploadedAt: { type: Date, default: null },
+    uploadedBy: { type: String, default: "" },
     status: {
       type: String,
       enum: ["Pending", "Approved", "Rejected", "Not Uploaded"],

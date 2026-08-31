@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   getManagerFarmerById,
   getManagerFarmerProducts,
@@ -7,8 +8,38 @@ import {
   getManagerFarmerOrders,
   getManagerFarmerEarnings,
   getManagerFarmerDocuments,
+  uploadManagerFarmerDocument,
 } from "../../api/farmerApi";
-import { EXCEL_PANEL, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN } from "../../utils/excelStyles";
+import { DOCUMENT_TYPES } from "../../utils/constants";
+import FileUpload from "../../components/ui/FileUpload";
+import {
+  EXCEL_PANEL,
+  EXCEL_PAGE_TITLE,
+  EXCEL_PAGE_SUB,
+} from "../../utils/excelStyles";
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function mergeFarmerDocs(docs = []) {
+  const list = Array.isArray(docs) ? docs : [];
+  const map = Object.fromEntries(list.map((d) => [d.type, d]));
+  return DOCUMENT_TYPES.map((t) => ({
+    id: map[t.id]?.id || `missing-${t.id}`,
+    type: t.id,
+    name: t.name,
+    fileName: map[t.id]?.fileName || "",
+    fileUrl: map[t.id]?.fileUrl || "",
+    uploadedAt: map[t.id]?.uploadedAt || null,
+    status: map[t.id]?.status || "Not Uploaded",
+  }));
+}
 
 const TABS = ["Overview", "Products", "Inventory", "Orders", "Earnings", "Documents"];
 
@@ -38,6 +69,12 @@ export default function ManagerFarmerDetailPage() {
   const [earnings, setEarnings] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingType, setUploadingType] = useState("");
+
+  const loadDocuments = () =>
+    getManagerFarmerDocuments(farmerId)
+      .then((res) => setDocuments(Array.isArray(res) ? res : res?.documents || []))
+      .catch(() => setDocuments([]));
 
   useEffect(() => {
     setLoading(true);
@@ -56,8 +93,27 @@ export default function ManagerFarmerDetailPage() {
         .then((res) => setEarnings(Array.isArray(res) ? res : (Array.isArray(res?.transactions) ? res.transactions : [])))
         .catch(() => setEarnings([]));
     }
-    if (tab === "Documents") getManagerFarmerDocuments(farmerId).then(setDocuments).catch(() => {});
+    if (tab === "Documents") loadDocuments();
   }, [tab, farmerId]);
+
+  const handleUploadDocument = async (type, file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File must be 5MB or smaller");
+      return;
+    }
+    setUploadingType(type);
+    try {
+      const url = await fileToDataUrl(file);
+      await uploadManagerFarmerDocument(farmerId, type, { name: file.name, url });
+      toast.success(`${file.name} uploaded`);
+      await loadDocuments();
+    } catch (err) {
+      toast.error(err?.message || "Failed to upload document");
+    } finally {
+      setUploadingType("");
+    }
+  };
 
   if (loading) return <p className="text-xs text-[#6B7280] p-4">Loading farmer details…</p>;
   if (!farmer) return <p className="text-xs text-[#DC2626] p-4">Farmer not found</p>;
@@ -311,37 +367,40 @@ export default function ManagerFarmerDetailPage() {
         )}
 
         {tab === "Documents" && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-[#F2F2F2] text-left">
-                  {["Document", "Type", "File", "Uploaded", "Status"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {documents.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-4 text-center text-[#6B7280]">No documents</td></tr>
-                ) : documents.map((d) => (
-                  <tr key={d.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                    <td className="px-3 py-2.5 font-semibold">{d.name}</td>
-                    <td className="px-3 py-2.5 capitalize">{d.type}</td>
-                    <td className="px-3 py-2.5">
-                      {d.fileUrl ? (
-                        <a href={d.fileUrl} target="_blank" rel="noreferrer" className="text-[#217346] underline">
-                          {d.fileName}
-                        </a>
-                      ) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-[#6B7280]">
-                      {d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString("en-IN") : "—"}
-                    </td>
-                    <td className="px-3 py-2.5">{STATUS_BADGE(d.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-4 space-y-3">
+            <p className="text-xs text-[#6B7280]">
+              Upload KYC documents for this farmer. Files can also be replaced later.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {mergeFarmerDocs(documents).map((d) => (
+                <div key={d.type} className="border border-[#D4D4D4] p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-bold text-[#1F2937]">{d.name}</p>
+                      <p className="mt-0.5 text-[10px] text-[#6B7280]">
+                        {d.fileUrl ? (
+                          <a href={d.fileUrl} target="_blank" rel="noreferrer" className="text-[#217346] underline">
+                            {d.fileName}
+                          </a>
+                        ) : (
+                          "Not uploaded yet"
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-[#6B7280]">
+                        {d.uploadedAt ? `Uploaded ${new Date(d.uploadedAt).toLocaleDateString("en-IN")}` : "—"}
+                      </p>
+                    </div>
+                    {STATUS_BADGE(d.status)}
+                  </div>
+                  <FileUpload
+                    label=""
+                    currentFileName={d.fileName || ""}
+                    disabled={uploadingType === d.type}
+                    onSelect={(file) => handleUploadDocument(d.type, file)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

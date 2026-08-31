@@ -3049,19 +3049,43 @@ export async function uploadFarmerDocument(req, res) {
   try {
     const { farmerId } = req.params;
     const { type, fileName, fileUrl } = req.body;
+    if (!type) return res.status(400).json({ message: "Document type is required" });
+    if (!fileName && !fileUrl) return res.status(400).json({ message: "Choose a file to upload" });
 
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
 
-    let doc = await FarmerDocument.findOne({ farmerId, type });
+    if (req.user?.role === "FARMER_MANAGER") {
+      const managerId = req.user.managerId || req.user.id;
+      const assigned = await Farmer.findOne({
+        id: farmerId,
+        managerId,
+        vendorId: req.user.vendorId,
+      }).select("id").lean();
+      if (!assigned) {
+        return res.status(403).json({ message: "This farmer is not assigned to you" });
+      }
+    }
+
+    const allowed = ["aadhaar", "pan", "bank", "address", "other"];
+    const docType = allowed.includes(String(type)) ? String(type) : "other";
+    const names = {
+      aadhaar: "Aadhaar / ID Proof",
+      pan: "PAN Card",
+      bank: "Bank Details",
+      address: "Address Proof",
+      other: "Other Documents",
+    };
+
+    let doc = await FarmerDocument.findOne({ farmerId, type: docType });
     if (!doc) {
       doc = new FarmerDocument({
-        id: `doc-${farmerId}-${type}`,
+        id: `doc-${farmerId}-${docType}`,
         vendorId: farmer.vendorId,
         managerId: farmer.managerId,
         farmerId,
-        name: type === "aadhaar" ? "Aadhaar / ID Proof" : type === "pan" ? "PAN" : type.toUpperCase(),
-        type,
+        name: names[docType] || docType.toUpperCase(),
+        type: docType,
       });
     }
 
@@ -3070,6 +3094,7 @@ export async function uploadFarmerDocument(req, res) {
     doc.uploadedAt = new Date();
     doc.status = "Pending";
     doc.rejectionReason = "";
+    doc.uploadedBy = req.user?.role || "FARMER";
 
     await doc.save();
     res.json(doc);
