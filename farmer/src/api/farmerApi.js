@@ -57,7 +57,24 @@ async function apiFetch(path, options = {}) {
     throw error;
   }
 
-  const data = await response.json().catch(() => ({}));
+  const contentType = response.headers.get("content-type") || "";
+  const raw = await response.text();
+  if (!raw || contentType.includes("text/html")) {
+    const error = new Error(
+      "Cannot reach the API from this site. On Render, add a Rewrite /api/* → http://api.greengrocc.com/api/* or run farmer as a Web Service with npm start."
+    );
+    error.status = 0;
+    throw error;
+  }
+
+  let data = {};
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    const error = new Error("API returned an invalid response. Check Render /api rewrite to http://api.greengrocc.com.");
+    error.status = 0;
+    throw error;
+  }
 
   if (!response.ok) {
     const error = new Error(data.message || "API request failed");
@@ -919,6 +936,20 @@ export async function reassignManagerPickup(pickupId, driverId) {
     method: "POST",
     headers: managerAuthHeaders(),
     body: JSON.stringify({ driverId }),
+  });
+}
+
+export async function receiveManagerPickup(pickupId, payload = {}) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}/receive`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getManagerPickupReceipt(pickupId) {
+  return apiFetch(`/api/farmer-manager/pickups/${pickupId}/receipt`, {
+    headers: managerAuthHeaders(),
   });
 }
 

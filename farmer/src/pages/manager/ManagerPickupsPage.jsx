@@ -24,6 +24,7 @@ const COPY = {
   requests: { title: "Ready for Pickup", sub: "Orders from your assigned farmers waiting for a driver.", filter: "ready", empty: "No ready-for-pickup orders yet." },
   today: { title: "Today's Pickups", sub: "Scheduled for today.", filter: "today", empty: "No pickups scheduled today." },
   active: { title: "Active Pickups", sub: "In-progress pickups for your farmers.", filter: "active", empty: "No active pickups." },
+  incoming: { title: "Incoming at Centre", sub: "Driver is on the way. Receive, weigh, and confirm at the collection centre.", filter: "incoming", empty: "No incoming pickups yet." },
   completed: { title: "Picked Up", sub: "Confirmed pickups.", filter: "history", empty: "No completed pickups yet." },
   history: { title: "Picked Up", sub: "Completed pickup history for your farmers.", filter: "history", empty: "No pickup history yet." },
 };
@@ -58,6 +59,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   }, [meta.filter], 5000);
 
   const isReady = meta.filter === "ready";
+  const isIncoming = meta.filter === "incoming";
 
   return (
     <div className="space-y-5">
@@ -123,8 +125,12 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                           <td className={EXCEL_CELL}>{p.scheduledDate || "—"} {p.scheduledTime || ""}</td>
                           <td className={EXCEL_CELL}><StatusBadge status={p.status} /></td>
                           <td className={EXCEL_CELL}>
-                            <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => navigate(`/farmer/manager/pickups/${p.id}`)}>
-                              Open
+                            <button
+                              type="button"
+                              className={EXCEL_BTN_PRIMARY}
+                              onClick={() => navigate(isIncoming ? `/farmer/manager/pickups/${p.id}/receive` : `/farmer/manager/pickups/${p.id}`)}
+                            >
+                              {isIncoming ? "Receive" : "Open"}
                             </button>
                           </td>
                         </>

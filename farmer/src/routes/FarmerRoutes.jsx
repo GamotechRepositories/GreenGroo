@@ -52,6 +52,7 @@ import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
 import ManagerPickupsPage from "../pages/manager/ManagerPickupsPage";
 import ManagerPickupDetailPage from "../pages/manager/ManagerPickupDetailPage";
+import ManagerReceivePage from "../pages/manager/ManagerReceivePage";
 import ManagerQualityListPage from "../pages/manager/ManagerQualityListPage";
 import ManagerQualityInspectionPage from "../pages/manager/ManagerQualityInspectionPage";
 
@@ -121,9 +122,11 @@ function FarmerRoutes() {
           <Route path="manager/pickups/assigned" element={<ManagerPickupsPage mode="assigned" />} />
           <Route path="manager/pickups/today" element={<ManagerPickupsPage mode="today" />} />
           <Route path="manager/pickups/active" element={<ManagerPickupsPage mode="active" />} />
+          <Route path="manager/pickups/incoming" element={<ManagerPickupsPage mode="incoming" />} />
           <Route path="manager/pickups/qr" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
           <Route path="manager/pickups/completed" element={<ManagerPickupsPage mode="history" />} />
           <Route path="manager/pickups/history" element={<ManagerPickupsPage mode="history" />} />
+          <Route path="manager/pickups/:pickupId/receive" element={<ManagerReceivePage />} />
           <Route path="manager/pickups/:pickupId" element={<ManagerPickupDetailPage />} />
           <Route path="manager/quality" element={<Navigate to="/farmer/manager/quality/pending" replace />} />
           <Route path="manager/quality/pending" element={<ManagerQualityListPage mode="pending" />} />

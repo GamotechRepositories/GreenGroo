@@ -49,6 +49,7 @@ export default function ManagerPickupDetailPage() {
 
   const canAssign = pickup.status === "READY_FOR_PICKUP";
   const canReassign = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED"].includes(pickup.status) && !pickup.pickupConfirmed;
+  const canReceive = ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"].includes(pickup.status);
   const available = pickup.availableDrivers || [];
 
   const assign = async () => {
@@ -116,11 +117,26 @@ export default function ManagerPickupDetailPage() {
         </section>
       ) : null}
 
+      {canReceive ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>Collection Centre Receiving</h2>
+          <div className="space-y-2 p-3">
+            <p className="text-xs text-[#6B7280]">
+              Driver status: <span className="font-semibold text-[#1F2937]">{pickup.liveStatus || pickup.status}</span>
+            </p>
+            <p className="text-xs text-[#6B7280]">Mark arrived, unload, verify weight, then confirm received. Quality check starts after this.</p>
+            <Link to={`/farmer/manager/pickups/${pickupId}/receive`} className={EXCEL_BTN_PRIMARY}>
+              Receive at collection centre
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
       <section className={EXCEL_PANEL}>
         <h2 className={EXCEL_PANEL_HEAD}>Pickup Status</h2>
         <div className="space-y-2 p-3 text-xs text-[#6B7280]">
-          <p>The assigned driver starts pickup, marks arrived, checks the order, scans the Farmer QR, and confirms pickup.</p>
-          <p>Farmer managers cannot confirm pickup or scan QR.</p>
+          <p>The assigned driver starts pickup, marks arrived, checks the order, scans the Farmer QR, confirms pickup, then marks on the way to the centre.</p>
+          <p>Farmer managers cannot confirm pickup. After the driver is on the way, you receive the order at the collection centre.</p>
           {pickup.pickupConfirmed ? (
             <p className="font-semibold text-[#217346]">Picked up at {pickup.pickupConfirmedAt ? new Date(pickup.pickupConfirmedAt).toLocaleString("en-IN") : "—"}.</p>
           ) : null}

@@ -112,6 +112,8 @@ import {
   getManagerPickup,
   verifyManagerPickupQr,
   confirmManagerPickup,
+  receiveManagerPickup,
+  getManagerPickupReceipt,
   listManagerDrivers,
   assignManagerPickupDriver,
   reassignManagerPickupDriver,
@@ -385,6 +387,8 @@ managerRouter.post("/pickups/:pickupId/confirm", requireManager, confirmManagerP
 managerRouter.get("/drivers", requireManager, listManagerDrivers);
 managerRouter.post("/pickups/:pickupId/assign", requireManager, assignManagerPickupDriver);
 managerRouter.post("/pickups/:pickupId/reassign", requireManager, reassignManagerPickupDriver);
+managerRouter.post("/pickups/:pickupId/receive", requireManager, receiveManagerPickup);
+managerRouter.get("/pickups/:pickupId/receipt", requireManager, getManagerPickupReceipt);
 managerRouter.post("/farmers", requireManager, createFarmer);
 managerRouter.get("/farmers/:farmerId", requireManager, getFarmerById);
 managerRouter.delete("/farmers/:farmerId", requireManager, deleteFarmer);

@@ -718,55 +718,65 @@ export async function createVendorCentre(req, res) {
   }
 }
 
+async function applyPickupReceiving(req, pickup) {
+  if (![...CENTRE_STATUSES, "PICKUP_CONFIRMED"].includes(pickup.status)) {
+    const err = new Error("Pickup must be confirmed or on the way to the collection centre before receiving");
+    err.status = 400;
+    throw err;
+  }
+  const body = req.body || {};
+  const unit = body.weightUnit || pickup.receiving?.weightUnit || pickup.unit || "Kg";
+  const expected = body.expectedWeight != null ? Number(body.expectedWeight) : Number(pickup.expectedQuantity || pickup.packedQuantity || 0);
+  const actual = body.actualWeight != null ? Number(body.actualWeight) : Number(pickup.receiving?.actualWeight || 0);
+  const accepted = body.acceptedWeight != null ? Number(body.acceptedWeight) : Number(pickup.receiving?.acceptedWeight || 0);
+  if (expected < 0 || actual < 0 || accepted < 0) {
+    const err = new Error("Weight values cannot be negative");
+    err.status = 400;
+    throw err;
+  }
+  const difference = actual - expected;
+  const nextReceiving = body.receivingStatus || pickup.receiving?.status || "ARRIVED";
+  const allowed = ["ARRIVED", "UNLOADING", "WEIGHT_CHECK", "RECEIVED"];
+  if (nextReceiving && !allowed.includes(nextReceiving)) {
+    const err = new Error("Invalid receiving status");
+    err.status = 400;
+    throw err;
+  }
+  pickup.receiving = {
+    ...(pickup.receiving?.toObject?.() || pickup.receiving || {}),
+    status: nextReceiving,
+    expectedWeight: expected,
+    actualWeight: actual,
+    acceptedWeight: accepted,
+    difference,
+    weightUnit: unit,
+    photos: Array.isArray(body.photos) ? body.photos : pickup.receiving?.photos || [],
+    receiptId: pickup.receiving?.receiptId || "",
+    receivedAt: pickup.receiving?.receivedAt || null,
+    receivedBy: pickup.receiving?.receivedBy || "",
+  };
+  if (body.packageCount != null) pickup.packageCount = Number(body.packageCount);
+  if (nextReceiving === "RECEIVED") {
+    if (!pickup.receiving.receiptId) pickup.receiving.receiptId = `RCV-${Date.now()}`;
+    pickup.receiving.receivedAt = new Date();
+    pickup.receiving.receivedBy = req.user?.name || req.user?.id || "MANAGER";
+    pickup.status = "COLLECTION_CENTRE_RECEIVED";
+    pickup.driverStatus = "COLLECTION_CENTRE_RECEIVED";
+    const order = await loadOrderForPickup(pickup);
+    await applyOrderStatus(order, "COLLECTION_CENTRE_RECEIVED", "Received at collection centre.");
+    pushPickupTimeline(pickup, "COLLECTION_CENTRE_RECEIVED", "Received at collection centre.");
+  }
+  await pickup.save();
+  return enrichPickup(pickup);
+}
+
 export async function receiveVendorPickup(req, res) {
   try {
     const pickup = await vendorPickupOr404(req, res);
     if (!pickup) return;
-    if (![...CENTRE_STATUSES, "PICKUP_CONFIRMED"].includes(pickup.status)) {
-      return res.status(400).json({ message: "Pickup must be confirmed before collection centre receiving" });
-    }
-    const body = req.body || {};
-    const unit = body.weightUnit || pickup.receiving?.weightUnit || pickup.unit || "Kg";
-    const expected = body.expectedWeight != null ? Number(body.expectedWeight) : Number(pickup.expectedQuantity || pickup.packedQuantity || 0);
-    const actual = body.actualWeight != null ? Number(body.actualWeight) : Number(pickup.receiving?.actualWeight || 0);
-    const accepted = body.acceptedWeight != null ? Number(body.acceptedWeight) : Number(pickup.receiving?.acceptedWeight || 0);
-    if (expected < 0 || actual < 0 || accepted < 0) {
-      return res.status(400).json({ message: "Weight values cannot be negative" });
-    }
-    const difference = actual - expected;
-    const nextReceiving = body.receivingStatus || pickup.receiving?.status || "ARRIVED";
-    const allowed = ["ARRIVED", "UNLOADING", "WEIGHT_CHECK", "RECEIVED"];
-    if (nextReceiving && !allowed.includes(nextReceiving)) {
-      return res.status(400).json({ message: "Invalid receiving status" });
-    }
-    pickup.receiving = {
-      ...(pickup.receiving?.toObject?.() || pickup.receiving || {}),
-      status: nextReceiving,
-      expectedWeight: expected,
-      actualWeight: actual,
-      acceptedWeight: accepted,
-      difference,
-      weightUnit: unit,
-      photos: Array.isArray(body.photos) ? body.photos : pickup.receiving?.photos || [],
-      receiptId: pickup.receiving?.receiptId || "",
-      receivedAt: pickup.receiving?.receivedAt || null,
-      receivedBy: pickup.receiving?.receivedBy || "",
-    };
-    if (body.packageCount != null) pickup.packageCount = Number(body.packageCount);
-    if (nextReceiving === "RECEIVED") {
-      if (!pickup.receiving.receiptId) pickup.receiving.receiptId = `RCV-${Date.now()}`;
-      pickup.receiving.receivedAt = new Date();
-      pickup.receiving.receivedBy = req.user?.name || req.user?.id || "VENDOR";
-      pickup.status = "COLLECTION_CENTRE_RECEIVED";
-      const order = await loadOrderForPickup(pickup);
-      await applyOrderStatus(order, "COLLECTION_CENTRE_RECEIVED", "Received at collection centre.");
-    } else if (pickup.status === "PICKED_UP" || pickup.status === "PICKUP_CONFIRMED") {
-      pickup.status = "PICKED_UP";
-    }
-    await pickup.save();
-    res.json(await enrichPickup(pickup));
+    res.json(await applyPickupReceiving(req, pickup));
   } catch (err) {
-    res.status(500).json({ message: err.message || "Failed to update receiving" });
+    res.status(err.status || 500).json({ message: err.message || "Failed to update receiving" });
   }
 }
 
@@ -819,6 +829,8 @@ export async function listManagerPickups(req, res) {
       filter.status = { $in: ACTIVE_PICKUP_STATUSES };
     } else if (filterKey === "completed" || filterKey === "history" || filterKey === "picked") {
       filter.status = { $in: HISTORY_PICKUP_STATUSES };
+    } else if (filterKey === "incoming" || filterKey === "centre") {
+      filter.status = { $in: ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"] };
     }
     const pickups = await Pickup.find(filter).sort({ updatedAt: -1 }).lean();
     const enriched = await Promise.all(pickups.map((p) => enrichPickup(p)));
@@ -873,6 +885,34 @@ export async function verifyManagerPickupQr(req, res) {
 
 export async function confirmManagerPickup(req, res) {
   return res.status(403).json({ message: "Pickup is confirmed by the assigned driver after QR verification." });
+}
+
+export async function receiveManagerPickup(req, res) {
+  try {
+    const pickup = await managerPickupOr404(req, res);
+    if (!pickup) return;
+    res.json(await applyPickupReceiving(req, pickup));
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || "Failed to update receiving" });
+  }
+}
+
+export async function getManagerPickupReceipt(req, res) {
+  try {
+    const pickup = await managerPickupOr404(req, res);
+    if (!pickup) return;
+    const data = await enrichPickup(pickup);
+    if (data.status !== "COLLECTION_CENTRE_RECEIVED" && data.status !== "RECEIVED_AT_COLLECTION_CENTRE" && !data.receiving?.receiptId) {
+      return res.status(400).json({ message: "Receipt is available after receiving is confirmed" });
+    }
+    res.json({
+      receiptId: data.receiving.receiptId || `RCV-${data.pickupId}`,
+      generatedAt: data.receiving.receivedAt || new Date(),
+      pickup: data,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load receipt" });
+  }
 }
 
 export { toKg, fromKg };

@@ -20,8 +20,10 @@ export function getApiBaseUrl() {
   const pageHost = inBrowser ? window.location.hostname : "";
   const onLocalPage = !pageHost || isLoopbackHost(pageHost);
 
-  // HTTPS pages cannot call http:// (browser mixed-content block).
-  // Use the page origin so /api is proxied to the HTTP backend.
+  if (envUrl.startsWith("https://")) {
+    return envUrl;
+  }
+
   if (inBrowser && window.location.protocol === "https:") {
     return window.location.origin;
   }

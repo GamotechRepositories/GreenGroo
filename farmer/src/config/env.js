@@ -20,9 +20,12 @@ export function getApiBaseUrl() {
   const pageHost = inBrowser ? window.location.hostname : "";
   const onLocalPage = !pageHost || isLoopbackHost(pageHost);
 
-  // HTTPS pages cannot call http:// (browser mixed-content block).
-  // Use the page origin so the request stays https://greengroo.onrender.com/api/...
-  // and the farmer server / Render rewrite proxies to the HTTP API.
+  if (envUrl.startsWith("https://")) {
+    return envUrl;
+  }
+
+  // HTTPS pages cannot call http:// APIs (mixed content).
+  // Use this site origin so /api can be rewritten/proxied to http://api.greengrocc.com.
   if (inBrowser && window.location.protocol === "https:") {
     return window.location.origin;
   }

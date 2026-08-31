@@ -284,6 +284,7 @@ export const MANAGER_SIDEBAR_ITEMS = [
       { to: "/farmer/manager/pickups/assigned", label: "Assigned Pickups" },
       { to: "/farmer/manager/pickups/today", label: "Today's Pickups" },
       { to: "/farmer/manager/pickups/active", label: "Active Pickups" },
+      { to: "/farmer/manager/pickups/incoming", label: "Incoming at Centre" },
       { to: "/farmer/manager/pickups/history", label: "Picked Up" },
     ],
   },
