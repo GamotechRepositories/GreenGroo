@@ -7,6 +7,7 @@ import '../../core/config/api_config.dart';
 import '../../core/l10n/locale_controller.dart';
 import '../../core/routes/app_routes.dart';
 import 'rider_live_service.dart';
+import 'location_service.dart';
 import 'socket_service.dart';
 
 class DeliveryBoy {
@@ -445,10 +446,16 @@ class AuthService {
   Future<void> sendHeartbeat() async {
     if (!isLoggedIn) return;
     try {
+      final pos = await LocationService.instance.getCurrentLocation();
+      final payload = <String, dynamic>{};
+      if (pos != null) {
+        payload['lat'] = pos.latitude;
+        payload['lng'] = pos.longitude;
+      }
       final res = await apiPost(
         ApiConfig.heartbeat,
         headers: _authHeaders,
-        body: jsonEncode({}),
+        body: jsonEncode(payload),
       );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;

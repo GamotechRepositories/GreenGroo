@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/order_service.dart';
+import '../../../data/services/socket_service.dart';
+import '../../../utils/map_navigation.dart';
 import '../../widgets/buttons/primary_button.dart';
-import '../../widgets/buttons/secondary_button.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/chips/status_chip.dart';
 import '../../widgets/layout/custom_app_bar.dart';
+import 'pickup_qr_scan_screen.dart';
 
 class ActiveDeliveryScreen extends StatefulWidget {
   const ActiveDeliveryScreen({super.key});
@@ -21,6 +23,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   ActiveDeliveryData? _delivery;
   bool _isLoading = true;
   Timer? _refreshTimer;
+  StreamSubscription<Map<String, dynamic>>? _pickupSub;
   final TextEditingController _otpController = TextEditingController(text: '4321');
 
   @override
@@ -28,11 +31,13 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     super.initState();
     _loadDelivery();
     _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) => _loadDelivery());
+    _pickupSub = SocketService.instance.onPickupVerified.listen((_) => _loadDelivery());
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _pickupSub?.cancel();
     _otpController.dispose();
     super.dispose();
   }
@@ -47,103 +52,26 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     }
   }
 
-  void _showScanQrDialog() {
-    final qrController = TextEditingController(
-      text: _delivery?.darkStoreQrCode.isNotEmpty == true
-          ? _delivery!.darkStoreQrCode
-          : 'DARKSTORE_DEMO',
-    );
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.qr_code_scanner, color: Color(0xFF059669)),
-            SizedBox(width: 8),
-            Text('Scan Store QR Code', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
+  Future<void> _openPickupQrScanner() async {
+    if (_delivery == null) return;
+    final verified = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PickupQrScanScreen(
+          orderId: _delivery!.id,
+          orderNumber: _delivery!.orderNumber,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Position your camera to scan the Dark Store QR Code at the pickup counter.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              height: 140,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade900,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF059669), width: 2),
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.crop_free, size: 48, color: Color(0xFF10B981)),
-                    SizedBox(height: 8),
-                    Text('Camera Scanner Active', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: qrController,
-              decoration: InputDecoration(
-                labelText: 'Store QR Code String',
-                hintText: 'e.g. DARKSTORE_...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.qr_code),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () async {
-              final code = qrController.text.trim();
-              Navigator.pop(ctx);
-              if (_delivery != null && code.isNotEmpty) {
-                final messenger = ScaffoldMessenger.of(context);
-                final success = await OrderService.instance.scanStoreQr(_delivery!.id, code);
-                if (success) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('✅ Dark Store QR Verified! Customer address & map unlocked.'),
-                      backgroundColor: Color(0xFF059669),
-                    ),
-                  );
-                  _loadDelivery();
-                } else {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('❌ Invalid Dark Store QR Code'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('VERIFY & UNLOCK MAP'),
-          ),
-        ],
       ),
     );
+    if (verified == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pickup verified! Customer address unlocked.'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
+      await _loadDelivery();
+    }
   }
 
   void _showCompleteDialog() {
@@ -216,6 +144,32 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _navigateToDarkStore(ActiveDeliveryData d) async {
+    final ok = await openMapsNavigation(
+      destLat: d.darkStoreLat,
+      destLng: d.darkStoreLng,
+      fallbackAddress: d.darkStoreAddress,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps. Install Maps or try again.')),
+      );
+    }
+  }
+
+  Future<void> _navigateToCustomer(ActiveDeliveryData d) async {
+    final ok = await openMapsNavigation(
+      destLat: d.customerLat,
+      destLng: d.customerLng,
+      fallbackAddress: d.customerAddress,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps. Install Maps or try again.')),
+      );
+    }
   }
 
   @override
@@ -317,8 +271,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                     child: Text(
                       isLocked
-                        ? '🔑 SCAN DARK STORE QR CODE AT PICKUP DESK'
-                        : '✅ STORE QR VERIFIED — OUT FOR DELIVERY',
+                        ? 'At the store, ask the manager to open Show Pickup QR, then scan it below.'
+                        : '✅ PICKUP VERIFIED — OUT FOR DELIVERY',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -335,9 +289,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // CUSTOMER LOCATION CARD (LOCKED VS UNLOCKED)
             DashboardCard(
               child: isLocked
-                  ? Column(
+                  ? const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
                             Icon(Icons.lock, color: Colors.amber, size: 28),
                             SizedBox(width: 12),
@@ -345,9 +300,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('CUSTOMER ADDRESS & MAP LOCKED', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
+                                  Text('CUSTOMER ADDRESS LOCKED', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber)),
                                   Text(
-                                    'Scan Dark Store QR Code on arrival to unlock customer address & live route map guidance.',
+                                    'Customer delivery address unlocks after you scan the Pickup QR at the Dark Store.',
                                     style: TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
                                 ],
@@ -355,86 +310,27 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF059669),
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 44),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: const Icon(Icons.qr_code_scanner),
-                          label: const Text('SCAN DARK STORE QR CODE', style: TextStyle(fontWeight: FontWeight.bold)),
-                          onPressed: _showScanQrDialog,
-                        ),
                       ],
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(AppSpacing.md),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDBEAFE),
-                                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                              ),
-                              child: Icon(Icons.person_outline, color: AppColors.info),
-                            ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('CUSTOMER (UNLOCKED ✅)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
-                                  Text(d.customerName, style: Theme.of(context).textTheme.titleMedium),
-                                  Text(d.customerPhone, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                                  Text(d.customerAddress, style: Theme.of(context).textTheme.bodyMedium),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        const Text('PICKUP VERIFIED ✓', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                        const SizedBox(height: 8),
+                        const Text('DELIVER TO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                        const SizedBox(height: 8),
+                        Text(d.customerName, style: Theme.of(context).textTheme.titleMedium),
+                        Text(d.customerAddress, style: Theme.of(context).textTheme.bodyMedium),
                         const SizedBox(height: 16),
-                        // Interactive Map Guidance Box
                         Container(
-                          height: 160,
+                          height: 120,
                           width: double.infinity,
                           decoration: BoxDecoration(
                             color: const Color(0xFF1E293B),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFF334155)),
                           ),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: CustomPaint(
-                                    painter: MapGuidancePainter(),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                top: 12,
-                                left: 12,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.7),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(Icons.navigation, color: Color(0xFF10B981), size: 14),
-                                      SizedBox(width: 4),
-                                      Text('LIVE ROUTE GUIDANCE: 1.8 KM', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: const Center(
+                            child: Icon(Icons.navigation, color: Color(0xFF10B981), size: 40),
                           ),
                         ),
                       ],
@@ -474,15 +370,21 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             children: [
               if (isLocked) ...[
                 PrimaryButton(
-                  label: 'SCAN DARK STORE QR CODE',
+                  label: 'SCAN PICKUP QR',
                   icon: Icons.qr_code_scanner,
-                  onPressed: _showScanQrDialog,
+                  onPressed: _openPickupQrScanner,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                PrimaryButton(
+                  label: 'NAVIGATE TO DARK STORE',
+                  icon: Icons.storefront_outlined,
+                  onPressed: () => _navigateToDarkStore(d),
                 ),
               ] else ...[
-                SecondaryButton(
-                  label: 'CALL CUSTOMER (${d.customerPhone})',
-                  icon: Icons.phone_outlined,
-                  onPressed: () {},
+                PrimaryButton(
+                  label: 'NAVIGATE TO CUSTOMER',
+                  icon: Icons.navigation,
+                  onPressed: () => _navigateToCustomer(d),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 PrimaryButton(

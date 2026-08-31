@@ -44,9 +44,14 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
   @override
   void initState() {
     super.initState();
-    _remainingSeconds = widget.offer.remainingSeconds > 0 ? widget.offer.remainingSeconds : 10;
+    _remainingSeconds = widget.offer.remainingSeconds > 0
+        ? widget.offer.remainingSeconds
+        : widget.offer.timeoutSeconds;
     _startTimer();
   }
+
+  int get _totalSeconds =>
+      widget.offer.timeoutSeconds > 0 ? widget.offer.timeoutSeconds : 20;
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -71,7 +76,7 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _remainingSeconds / 10.0;
+    final progress = _remainingSeconds / _totalSeconds;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -135,7 +140,7 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
 
             // Order Number & Store
             Text(
-              'ORDER #${widget.offer.orderNumber}',
+              'NEW DELIVERY REQUEST',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 4),

@@ -72,8 +72,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     } catch (_) {}
   }
 
-  bool get _hasActiveOrder =>
-      AuthService.instance.deliveryBoy?.status == 'on_delivery';
+  bool get _hasActiveOrder {
+    final boy = AuthService.instance.deliveryBoy;
+    return boy?.status == 'on_delivery' ||
+        ((boy?.activeOrderId?.isNotEmpty ?? false)) ||
+        OrderService.instance.activeDelivery != null;
+  }
 
   bool get _verificationPending {
     final boy = AuthService.instance.deliveryBoy;
@@ -99,6 +103,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       _startOfferPoll();
     }
     _refreshVerificationInfo();
+    _restoreActiveDelivery();
     _loadLiveData();
     _loadGigsData();
     _fetchTodayProgress();
@@ -207,6 +212,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     if (mounted) {
       await RiderLiveService.instance.refreshPeakHours('store_1');
       setState(() {});
+    }
+  }
+
+  Future<void> _restoreActiveDelivery() async {
+    await AuthService.instance.fetchMe();
+    await OrderService.instance.fetchActiveDelivery();
+    if (!mounted) return;
+    final hasDelivery = _hasActiveOrder;
+    setState(() {
+      _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? _isOnline;
+    });
+    if (hasDelivery && _isOnline) {
+      _startHeartbeat();
     }
   }
 

@@ -23,6 +23,8 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _peakHoursController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _pickupVerifiedController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<Map<String, dynamic>> get onOrderAssigned =>
       _orderAssignedController.stream;
@@ -34,6 +36,8 @@ class SocketService {
       _documentReviewController.stream;
   Stream<Map<String, dynamic>> get onPeakHoursActive =>
       _peakHoursController.stream;
+  Stream<Map<String, dynamic>> get onPickupVerified =>
+      _pickupVerifiedController.stream;
 
   void connect(String riderId) {
     if (riderId.isEmpty) return;
@@ -84,6 +88,27 @@ class SocketService {
       debugPrint('[Socket] Event order_offer_received: $data');
       if (data is Map) {
         _orderOfferController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('driver_order_offer', (data) {
+      debugPrint('[Socket] Event driver_order_offer: $data');
+      if (data is Map) {
+        _orderOfferController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('pickup_verified', (data) {
+      debugPrint('[Socket] Event pickup_verified: $data');
+      if (data is Map) {
+        _pickupVerifiedController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('customer_address_unlocked', (data) {
+      debugPrint('[Socket] Event customer_address_unlocked: $data');
+      if (data is Map) {
+        _pickupVerifiedController.add(Map<String, dynamic>.from(data));
       }
     });
 

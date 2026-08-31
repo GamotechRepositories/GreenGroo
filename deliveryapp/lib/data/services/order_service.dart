@@ -15,6 +15,7 @@ class OrderOffer {
     required this.estimatedEarnings,
     required this.distanceKm,
     required this.remainingSeconds,
+    this.timeoutSeconds = 20,
   });
 
   final String orderId;
@@ -26,6 +27,7 @@ class OrderOffer {
   final int estimatedEarnings;
   final String distanceKm;
   final int remainingSeconds;
+  final int timeoutSeconds;
 
   factory OrderOffer.fromJson(Map<String, dynamic> json) => OrderOffer(
         orderId: json['orderId'] as String? ?? '',
@@ -35,8 +37,9 @@ class OrderOffer {
         itemCount: json['itemCount'] as int? ?? 1,
         itemsSummary: json['itemsSummary'] as String? ?? '',
         estimatedEarnings: json['estimatedEarnings'] as int? ?? 50,
-        distanceKm: json['distanceKm'] as String? ?? '1.5 km',
-        remainingSeconds: json['remainingSeconds'] as int? ?? 10,
+        distanceKm: json['distanceKm'] as String? ?? 'nearby',
+        remainingSeconds: json['remainingSeconds'] as int? ?? 20,
+        timeoutSeconds: json['timeoutSeconds'] as int? ?? 20,
       );
 }
 
@@ -50,9 +53,13 @@ class ActiveDeliveryData {
     required this.darkStoreQrCode,
     required this.items,
     required this.isCustomerLocationLocked,
+    required this.customerAddressUnlocked,
     required this.customerName,
     required this.customerPhone,
     required this.customerAddress,
+    this.pickupQrPayload,
+    this.darkStoreLat,
+    this.darkStoreLng,
     this.customerLat,
     this.customerLng,
     this.otpCode,
@@ -66,9 +73,13 @@ class ActiveDeliveryData {
   final String darkStoreQrCode;
   final List<dynamic> items;
   final bool isCustomerLocationLocked;
+  final bool customerAddressUnlocked;
   final String customerName;
   final String customerPhone;
   final String customerAddress;
+  final String? pickupQrPayload;
+  final double? darkStoreLat;
+  final double? darkStoreLng;
   final double? customerLat;
   final double? customerLng;
   final String? otpCode;
@@ -82,9 +93,13 @@ class ActiveDeliveryData {
         darkStoreQrCode: json['darkStoreQrCode'] as String? ?? '',
         items: json['items'] as List<dynamic>? ?? const [],
         isCustomerLocationLocked: json['isCustomerLocationLocked'] as bool? ?? true,
+        customerAddressUnlocked: json['customerAddressUnlocked'] as bool? ?? false,
         customerName: json['customerName'] as String? ?? 'Customer',
         customerPhone: json['customerPhone'] as String? ?? 'Locked',
         customerAddress: json['customerAddress'] as String? ?? 'Scan Store QR to Unlock',
+        pickupQrPayload: json['pickupQrPayload'] as String?,
+        darkStoreLat: json['darkStoreLat'] != null ? (json['darkStoreLat'] as num).toDouble() : null,
+        darkStoreLng: json['darkStoreLng'] != null ? (json['darkStoreLng'] as num).toDouble() : null,
         customerLat: json['customerLat'] != null ? (json['customerLat'] as num).toDouble() : null,
         customerLng: json['customerLng'] != null ? (json['customerLng'] as num).toDouble() : null,
         otpCode: json['otpCode'] as String?,
@@ -178,6 +193,24 @@ class OrderService extends ChangeNotifier {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<bool> scanPickupQr(String orderId, String qrPayload) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.scanPickupQr(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'qrPayload': qrPayload}),
+      );
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 
