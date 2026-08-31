@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../utils/map_navigation.dart';
+import '../../widgets/buttons/delivery_action_button.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/chips/status_chip.dart';
@@ -164,6 +165,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       destLat: d.customerLat,
       destLng: d.customerLng,
       fallbackAddress: d.customerAddress,
+      preferAddress: true,
     );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -321,16 +323,39 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         const SizedBox(height: 8),
                         Text(d.customerName, style: Theme.of(context).textTheme.titleMedium),
                         Text(d.customerAddress, style: Theme.of(context).textTheme.bodyMedium),
-                        const SizedBox(height: 16),
-                        Container(
-                          height: 120,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.navigation, color: Color(0xFF10B981), size: 40),
+                        const SizedBox(height: 14),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: SizedBox(
+                            height: 130,
+                            width: double.infinity,
+                            child: CustomPaint(
+                              painter: MapGuidancePainter(),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Align(
+                                  alignment: Alignment.bottomLeft,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.55),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.navigation_rounded, color: Color(0xFF10B981), size: 16),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Tap Navigate below to open Maps',
+                                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -362,38 +387,54 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isLocked) ...[
-                PrimaryButton(
-                  label: 'SCAN PICKUP QR',
-                  icon: Icons.qr_code_scanner,
-                  onPressed: _openPickupQrScanner,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                PrimaryButton(
-                  label: 'NAVIGATE TO DARK STORE',
-                  icon: Icons.storefront_outlined,
-                  onPressed: () => _navigateToDarkStore(d),
-                ),
-              ] else ...[
-                PrimaryButton(
-                  label: 'NAVIGATE TO CUSTOMER',
-                  icon: Icons.navigation,
-                  onPressed: () => _navigateToCustomer(d),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                PrimaryButton(
-                  label: 'COMPLETE DELIVERY (ENTER OTP)',
-                  icon: Icons.check_circle_outline,
-                  onPressed: _showCompleteDialog,
-                ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 12, AppSpacing.lg, AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isLocked) ...[
+                  DeliveryActionButton(
+                    label: 'Scan Pickup QR',
+                    icon: Icons.qr_code_scanner_rounded,
+                    style: DeliveryActionStyle.accent,
+                    onPressed: _openPickupQrScanner,
+                  ),
+                  const SizedBox(height: 10),
+                  DeliveryActionButton(
+                    label: 'Navigate to Dark Store',
+                    icon: Icons.storefront_outlined,
+                    style: DeliveryActionStyle.outline,
+                    onPressed: () => _navigateToDarkStore(d),
+                  ),
+                ] else ...[
+                  DeliveryActionButton(
+                    label: 'Navigate to Customer',
+                    icon: Icons.navigation_rounded,
+                    style: DeliveryActionStyle.accent,
+                    onPressed: () => _navigateToCustomer(d),
+                  ),
+                  const SizedBox(height: 10),
+                  DeliveryActionButton(
+                    label: 'Complete Delivery · Enter OTP',
+                    icon: Icons.check_circle_outline,
+                    style: DeliveryActionStyle.primary,
+                    onPressed: _showCompleteDialog,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -401,7 +442,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   }
 }
 
-/// Custom painter to draw interactive route map visualization
+/// Route preview for active delivery cards.
 class MapGuidancePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

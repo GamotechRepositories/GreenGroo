@@ -3,27 +3,15 @@ import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import { getIO } from "../../../socket.js";
 import { emitRiderStatusUpdated } from "../services/riderSocketService.js";
-import { checkInToBooking } from "./shiftController.js";
+import { checkInToBooking, formatDateStringIST } from "./shiftController.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
 import { findLiveGigForManager } from "./gigManagementController.js";
-
-const formatDateString = (d) => {
-  if (!d) {
-    const date = new Date();
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-  if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
-    return d.trim();
-  }
-  const date = new Date(d);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+import {
+  getCurrentMinutesIST,
+  isSlotEnded,
+  isWithinSlot,
+  timeToMinutes,
+} from "../utils/shiftTimeHelper.js";
 
 /** Calculates distance in meters between two lat/lng coordinates (Haversine formula) */
 const calculateHaversineDistanceMeters = (lat1, lon1, lat2, lon2) => {
@@ -39,23 +27,6 @@ const calculateHaversineDistanceMeters = (lat1, lon1, lat2, lon2) => {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return Math.round(R * c);
-};
-
-/** Converts "09:30 AM" or "17:30" to minutes from start of day */
-const timeToMinutes = (timeStr) => {
-  if (!timeStr) return 0;
-  const s = String(timeStr).trim().toUpperCase();
-  const isPM = s.includes("PM");
-  const isAM = s.includes("AM");
-  const clean = s.replace(/AM|PM/g, "").trim();
-  const [hStr, mStr] = clean.split(":");
-  let h = parseInt(hStr, 10) || 0;
-  const m = parseInt(mStr, 10) || 0;
-
-  if (isPM && h < 12) h += 12;
-  if (isAM && h === 12) h = 0;
-
-  return h * 60 + m;
 };
 
 /** Helper to resolve the exact DeliveryManager for a rider */
@@ -107,8 +78,8 @@ export const getAvailableSlots = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Rider not found" });
     }
 
-    const todayStr = formatDateString(new Date());
-    const queryDateStr = req.query.date ? formatDateString(req.query.date) : todayStr;
+    const todayStr = formatDateStringIST(new Date());
+    const queryDateStr = req.query.date ? formatDateStringIST(req.query.date) : todayStr;
 
     const manager = await getRiderManager(rider);
 
@@ -134,7 +105,7 @@ export const getAvailableSlots = async (req, res, next) => {
     }).sort({ createdAt: 1 });
 
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = getCurrentMinutesIST(now);
     const isToday = queryDateStr === todayStr;
 
     const availableSlots = [];
@@ -171,7 +142,7 @@ export const getAvailableSlots = async (req, res, next) => {
         }
 
         let slotStatus = slot.status;
-        if (isToday && endMin <= currentMinutes) {
+        if (isToday && isSlotEnded(slot.startTime, slot.endTime, currentMinutes)) {
           slotStatus = "ENDED";
         }
 
@@ -232,7 +203,14 @@ export const bookSlot = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
     }
 
-    if (manager && (!shiftDoc.managerId || shiftDoc.managerId.toString() !== manager._id.toString())) {
+    if (manager && shiftDoc.managerId && shiftDoc.managerId.toString() !== manager._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "This shift belongs to another store hub in a different area.",
+      });
+    }
+
+    if (manager && !shiftDoc.managerId) {
       shiftDoc.managerId = manager._id;
       shiftDoc.storeId = manager._id.toString();
     }
@@ -247,8 +225,8 @@ export const bookSlot = async (req, res, next) => {
 
     const dateStr = shiftDoc.dateString;
     const now = new Date();
-    const todayStr = formatDateString(now);
-    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const todayStr = formatDateStringIST(now);
+    const currentMin = getCurrentMinutesIST(now);
 
     const allShiftsForDate = await Shift.find({
       managerId: shiftDoc.managerId,
@@ -259,7 +237,9 @@ export const bookSlot = async (req, res, next) => {
     for (const sh of allShiftsForDate) {
       for (const sl of sh.slots) {
         const slotEndMin = timeToMinutes(sl.endTime);
-        const isSlotExpired = (dateStr === todayStr && currentMin >= slotEndMin) || (dateStr < todayStr);
+        const isSlotExpired =
+          (dateStr === todayStr && isSlotEnded(sl.startTime, sl.endTime, currentMin)) ||
+          dateStr < todayStr;
 
         const found = sl.bookings.find((b) => {
           if (b.deliveryPartnerId.toString() !== rider._id.toString()) return false;
@@ -371,7 +351,7 @@ export const getMyBookings = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Rider not found" });
     }
 
-    const todayStr = formatDateString(new Date());
+    const todayStr = formatDateStringIST(new Date());
 
     const shifts = await Shift.find({
       dateString: { $gte: todayStr },
@@ -530,7 +510,7 @@ export const goOnline = async (req, res, next) => {
       });
     }
 
-    const todayStr = formatDateString(new Date());
+    const todayStr = formatDateStringIST(new Date());
     const liveGig = await findLiveGigForManager(manager._id);
 
     const shift = await Shift.findOne({
@@ -543,12 +523,11 @@ export const goOnline = async (req, res, next) => {
     let targetSlot = null;
 
     const nowTime = new Date();
-    const currentMinCheck = nowTime.getHours() * 60 + nowTime.getMinutes();
+    const currentMinCheck = getCurrentMinutesIST(nowTime);
 
     if (shift) {
       for (const slot of shift.slots) {
-        const slotEndMin = timeToMinutes(slot.endTime);
-        const isExpired = currentMinCheck >= slotEndMin;
+        const isExpired = isSlotEnded(slot.startTime, slot.endTime, currentMinCheck);
 
         const found = slot.bookings.find(
           (b) =>
@@ -576,13 +555,13 @@ export const goOnline = async (req, res, next) => {
     }
 
     const now = new Date();
-    const currentMin = now.getHours() * 60 + now.getMinutes();
+    const currentMin = getCurrentMinutesIST(now);
     const startMin = targetSlot ? timeToMinutes(targetSlot.startTime) : timeToMinutes(liveGig?.startTime);
     const endMin = targetSlot ? timeToMinutes(targetSlot.endTime) : timeToMinutes(liveGig?.endTime);
 
     if (todayBooking && targetSlot) {
       const allowedEarlyMin = Math.max(0, startMin - 30);
-      if (currentMin < allowedEarlyMin) {
+      if (!isWithinSlot(targetSlot.startTime, targetSlot.endTime, currentMin, 30) && currentMin < allowedEarlyMin) {
         return res.status(400).json({
           success: false,
           code: "SHIFT_NOT_STARTED",
@@ -590,7 +569,7 @@ export const goOnline = async (req, res, next) => {
         });
       }
 
-      if (currentMin >= endMin) {
+      if (isSlotEnded(targetSlot.startTime, targetSlot.endTime, currentMin)) {
         return res.status(400).json({
           success: false,
           code: "SHIFT_EXPIRED",

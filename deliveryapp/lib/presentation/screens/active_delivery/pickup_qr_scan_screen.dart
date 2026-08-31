@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -123,29 +124,41 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
   }) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 56, color: const Color(0xFF10B981)),
-            const SizedBox(height: 16),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFF059669).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 36, color: const Color(0xFF10B981)),
+            ),
+            const SizedBox(height: 18),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: GoogleFonts.inter(
                 color: Colors.white,
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+              style: GoogleFonts.inter(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.45,
+              ),
             ),
             if (action != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
               action,
             ],
           ],
@@ -156,12 +169,27 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scanSize = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 300.0);
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text('Scan Pickup QR · #${widget.orderNumber}'),
+        elevation: 0,
+        centerTitle: true,
+        title: Column(
+          children: [
+            Text(
+              'Scan Pickup QR',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+            Text(
+              'Order #${widget.orderNumber}',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white70),
+            ),
+          ],
+        ),
         actions: [
           if (_controller != null)
             IconButton(
@@ -170,7 +198,7 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
                 builder: (context, state, child) {
                   final torch = state.torchState;
                   return Icon(
-                    torch == TorchState.on ? Icons.flash_on : Icons.flash_off,
+                    torch == TorchState.on ? Icons.flash_on_rounded : Icons.flash_off_rounded,
                     color: Colors.white,
                   );
                 },
@@ -191,32 +219,32 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
                   icon: Icons.videocam_off_outlined,
                   title: 'Camera unavailable',
                   message: error.errorDetails?.message ?? 'Unable to start the camera.',
-                  action: ElevatedButton(
+                  action: FilledButton(
                     onPressed: _initCamera,
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
                     child: const Text('Try again'),
                   ),
                 );
               },
             )
           else if (_starting)
-            const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981)),
-            )
+            const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
           else if (_permissionDenied)
             _messageCard(
               icon: Icons.no_photography_outlined,
               title: 'Camera permission needed',
-              message: 'Allow camera access to scan the Pickup QR from the Dark Store screen.',
+              message: 'Allow camera access to scan the Pickup QR from the manager screen.',
               action: Column(
                 children: [
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: _initCamera,
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
                     child: const Text('Allow camera'),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: openAppSettings,
-                    child: const Text('Open app settings'),
+                    child: const Text('Open app settings', style: TextStyle(color: Colors.white70)),
                   ),
                 ],
               ),
@@ -226,51 +254,144 @@ class _PickupQrScanScreenState extends State<PickupQrScanScreen> {
               icon: Icons.error_outline,
               title: 'Scanner not ready',
               message: _errorMessage ?? 'Something went wrong while opening the camera.',
-              action: ElevatedButton(
+              action: FilledButton(
                 onPressed: _initCamera,
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
                 child: const Text('Try again'),
               ),
             ),
           if (_controller != null)
             IgnorePointer(
-              child: Align(
-                alignment: Alignment.center,
-                child: Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF10B981), width: 3),
-                    borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(color: Colors.black.withValues(alpha: 0.35)),
+                  Center(
+                    child: Container(
+                      width: scanSize,
+                      height: scanSize,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFF10B981), width: 2),
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: CustomPaint(
+                        painter: _ScannerFramePainter(),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           Positioned(
-            left: 24,
-            right: 24,
-            bottom: 32,
+            left: 20,
+            right: 20,
+            bottom: MediaQuery.paddingOf(context).bottom + 24,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Text(
-                _processing
-                    ? 'Verifying pickup…'
-                    : 'Point the camera at the Pickup QR on the manager incoming order screen.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.qr_code_scanner, color: Color(0xFF059669)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _processing
+                          ? 'Verifying pickup…'
+                          : 'Align the QR inside the frame. The manager shows it under Show Pickup QR.',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF334155),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           if (_processing)
-            const ColoredBox(
-              color: Color(0x66000000),
-              child: Center(child: CircularProgressIndicator(color: Color(0xFF10B981))),
+            ColoredBox(
+              color: Colors.black.withValues(alpha: 0.45),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(color: Color(0xFF059669)),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Verifying pickup…',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
         ],
       ),
     );
   }
+}
+
+class _ScannerFramePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF10B981)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    const len = 28.0;
+    const inset = 8.0;
+
+    void corner(Offset start, Offset hEnd, Offset vEnd) {
+      canvas.drawLine(start, hEnd, paint);
+      canvas.drawLine(start, vEnd, paint);
+    }
+
+    corner(Offset(inset, inset), Offset(inset + len, inset), Offset(inset, inset + len));
+    corner(
+      Offset(size.width - inset, inset),
+      Offset(size.width - inset - len, inset),
+      Offset(size.width - inset, inset + len),
+    );
+    corner(
+      Offset(inset, size.height - inset),
+      Offset(inset + len, size.height - inset),
+      Offset(inset, size.height - inset - len),
+    );
+    corner(
+      Offset(size.width - inset, size.height - inset),
+      Offset(size.width - inset - len, size.height - inset),
+      Offset(size.width - inset, size.height - inset - len),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

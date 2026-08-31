@@ -28,7 +28,7 @@ abstract final class ApiConfig {
 
   static Map<String, String> get defaultHeaders => {
         'Content-Type': 'application/json',
-        'User-Agent': 'GreenRowDelivery/1.0',
+        'User-Agent': 'GreenGrocDelivery/1.0',
       };
 
   static const register = '/api/delivery-boys/register';

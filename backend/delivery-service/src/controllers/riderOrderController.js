@@ -11,6 +11,7 @@ import {
   verifyPickupByDriverScan,
   verifyPickupScan,
 } from "../services/PickupVerificationService.js";
+import { refreshStoreOrderCustomerCoords } from "../services/customerLocationService.js";
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import { getIO } from "../../../socket.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
@@ -184,6 +185,10 @@ export const getActiveDelivery = async (req, res, next) => {
       Boolean(order.customerAddressUnlocked) ||
       Boolean(order.pickupVerified) ||
       order.status === "out_for_delivery";
+
+    if (unlocked && (order.customerLat == null || order.customerLng == null)) {
+      await refreshStoreOrderCustomerCoords(order);
+    }
 
     let pickupQrPayload = null;
     if (!unlocked && order.status === "assigned") {

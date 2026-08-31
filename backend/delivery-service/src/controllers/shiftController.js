@@ -3,6 +3,12 @@ import Shift from "../models/Shift.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import { getIO } from "../../../socket.js";
+import {
+  getCurrentMinutesIST,
+  isSlotEnded,
+  isWithinSlot,
+  timeToMinutes,
+} from "../utils/shiftTimeHelper.js";
 
 /** Formats Date or string into "YYYY-MM-DD" string in IST (Asia/Kolkata) timezone */
 export const formatDateStringIST = (d) => {
@@ -17,21 +23,7 @@ export const formatDateStringIST = (d) => {
 };
 
 /** Converts "09:30 AM" or "17:30" to minutes from start of day */
-export const timeToMinutes = (timeStr) => {
-  if (!timeStr) return 0;
-  const s = String(timeStr).trim().toUpperCase();
-  const isPM = s.includes("PM");
-  const isAM = s.includes("AM");
-  const clean = s.replace(/AM|PM/g, "").trim();
-  const [hStr, mStr] = clean.split(":");
-  let h = parseInt(hStr, 10) || 0;
-  const m = parseInt(mStr, 10) || 0;
-
-  if (isPM && h < 12) h += 12;
-  if (isAM && h === 12) h = 0;
-
-  return h * 60 + m;
-};
+export { timeToMinutes } from "../utils/shiftTimeHelper.js";
 
 /** Helper to resolve the exact DeliveryManager for a rider */
 export const getRiderManager = async (rider) => {
@@ -541,11 +533,7 @@ export const checkInToBooking = async (rider) => {
       const timeStrIST = nowISTFormatter.format(now);
       const currentMinIST = timeToMinutes(timeStrIST);
 
-      const startMin = timeToMinutes(slot.startTime);
-      const endMin = timeToMinutes(slot.endTime);
-
-      // Check-in window: 30 mins before startTime until endTime
-      if (currentMinIST >= Math.max(0, startMin - 30) && currentMinIST <= endMin) {
+      if (isWithinSlot(slot.startTime, slot.endTime, currentMinIST, 30)) {
         booking.status = "ACTIVE";
         booking.onlineAt = now;
         await shift.save();
@@ -664,13 +652,7 @@ export const getAvailableSlots = async (req, res, next) => {
     }
 
     const now = new Date();
-    const nowISTFormatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Kolkata",
-      hour: "numeric",
-      minute: "numeric",
-      hour12: true,
-    });
-    const currentMinutesIST = timeToMinutes(nowISTFormatter.format(now));
+    const currentMinutesIST = getCurrentMinutesIST(now);
     const isToday = queryDateStr === todayStr;
 
     const availableSlots = [];
@@ -680,8 +662,6 @@ export const getAvailableSlots = async (req, res, next) => {
       const shiftJson = shift.toSafeJSON();
 
       for (const slot of shiftJson.slots) {
-        const endMin = timeToMinutes(slot.endTime);
-
         const userBooking = (slot.bookings || []).find(
           (b) => b.deliveryPartnerId === rider._id.toString() && b.status !== "CANCELLED"
         );
@@ -702,7 +682,7 @@ export const getAvailableSlots = async (req, res, next) => {
         }
 
         let slotStatus = slot.status;
-        if (isToday && endMin <= currentMinutesIST) {
+        if (isToday && isSlotEnded(slot.startTime, slot.endTime, currentMinutesIST)) {
           slotStatus = "ENDED";
         }
 

@@ -208,23 +208,9 @@ export const listShifts = async (req, res, next) => {
     const dateInput = req.query.date ? formatDateString(req.query.date) : formatDateString(new Date());
 
     const shifts = await Shift.find({
-      $or: [
-        { managerId: manager._id },
-        { storeId: manager._id.toString() },
-        { area: manager.area },
-        { cityId: manager.cityId },
-      ],
+      managerId: manager._id,
       dateString: dateInput,
     }).sort({ createdAt: 1 });
-
-    // Auto-bind managerId and storeId to any shifts in manager's hub
-    for (const shift of shifts) {
-      if (!shift.managerId || shift.managerId.toString() !== manager._id.toString()) {
-        shift.managerId = manager._id;
-        shift.storeId = manager._id.toString();
-        await shift.save().catch(() => {});
-      }
-    }
 
     const safeShifts = shifts
       .map((s) => {

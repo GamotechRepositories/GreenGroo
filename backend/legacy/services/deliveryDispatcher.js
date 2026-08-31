@@ -7,6 +7,7 @@ import {
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { getIO } from "../../socket.js";
 import Product from "../models/Product.js";
+import { geocodeAddressString } from "./reverseGeocodeService.js";
 
 function formatCustomerAddress(address = {}) {
   const parts = [];
@@ -119,7 +120,10 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       ? `CUST-${ecommerceOrder.orderNumber}`
       : `CUST-${String(ecommerceOrder._id).slice(-8).toUpperCase()}`;
 
-    const customerCoords = readCoords(address);
+    let customerCoords = readCoords(address);
+    if (!customerCoords && customerAddress) {
+      customerCoords = await geocodeAddressString(customerAddress);
+    }
     const roundedDistance =
       distanceKm != null ? Math.round(distanceKm * 10) / 10 : null;
 

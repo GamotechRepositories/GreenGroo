@@ -109,13 +109,13 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'GreenRow Delivery'**
+  /// **'GreenGroc Delivery Partner'**
   String get appTitle;
 
   /// No description provided for @brandName.
   ///
   /// In en, this message translates to:
-  /// **'GreenRow'**
+  /// **'GreenGroc'**
   String get brandName;
 
   /// No description provided for @deliveryPartner.
@@ -127,7 +127,7 @@ abstract class AppLocalizations {
   /// No description provided for @splashFooterTagline.
   ///
   /// In en, this message translates to:
-  /// **'GreenRow  ·  Delivery Partner App'**
+  /// **'GreenGroc · Delivery Partner App'**
   String get splashFooterTagline;
 
   /// No description provided for @featureFastDelivery.

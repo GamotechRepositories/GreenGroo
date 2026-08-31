@@ -119,7 +119,9 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
   order.customerAddressUnlocked = true;
   order.qrScannedAt = now;
   order.status = "out_for_delivery";
-  await order.save();
+
+  const { refreshStoreOrderCustomerCoords } = await import("./customerLocationService.js");
+  await refreshStoreOrderCustomerCoords(order);
 
   try {
     getIO()

@@ -22,6 +22,7 @@ import {
 import { calculateOrderTotal } from "./gstHelpers.js";
 import { getRecordedAdvancePaidAmount } from "./paymentHelpers.js";
 import { resolveCouponForCheckout } from "../controllers/couponController.js";
+import { geocodeAddressString } from "../services/reverseGeocodeService.js";
 import {
   getRewardSettings,
   calculateEligibleRewardDiscount,
@@ -187,13 +188,11 @@ function coordsFromSource(source = {}) {
 export function mergeCustomerLocation(snapshot, customerLocation) {
   if (!snapshot) return snapshot;
   const next = { ...snapshot };
-  const fromSnapshot = coordsFromSource(next);
-  const fromCustomer = coordsFromSource(customerLocation || {});
 
-  if (!fromSnapshot && fromCustomer) {
-    next.location = fromCustomer;
-  } else if (fromSnapshot) {
-    next.location = fromSnapshot;
+  // Do not copy session/browsing GPS into the delivery address — that pinned every
+  // order to the same map point. Only coords saved on the address itself are kept.
+  if (next.location) {
+    // keep snapshot location as-is
   }
 
   if (!next.area && customerLocation?.area) {
@@ -231,6 +230,38 @@ export function addressToSnapshot(address, customerLocation) {
   };
 
   return mergeCustomerLocation(snapshot, customerLocation);
+}
+
+function formatSnapshotForGeocode(snapshot = {}) {
+  return [
+    snapshot.shopNo,
+    snapshot.shopName,
+    snapshot.fullAddress,
+    snapshot.landmark,
+    snapshot.area,
+    snapshot.city,
+    snapshot.state,
+    snapshot.pincode,
+  ]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+export async function ensureDeliveryAddressCoords(deliveryAddress) {
+  if (!deliveryAddress) return deliveryAddress;
+  if (coordsFromSource(deliveryAddress)) return deliveryAddress;
+
+  const query = formatSnapshotForGeocode(deliveryAddress);
+  if (!query) return deliveryAddress;
+
+  const geocoded = await geocodeAddressString(query);
+  if (!geocoded) return deliveryAddress;
+
+  return {
+    ...deliveryAddress,
+    location: geocoded,
+  };
 }
 
 export function listUnavailableCartItems(items = []) {
@@ -483,7 +514,9 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     };
   }
 
-  const deliveryAddress = addressToSnapshot(address, options.customerLocation);
+  const deliveryAddress = await ensureDeliveryAddressCoords(
+    addressToSnapshot(address, options.customerLocation)
+  );
   const requiredSnapshotFields = [
     "fullName",
     "number",

@@ -15,14 +15,14 @@ import 'presentation/screens/splash/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
-  debugPrint('GreenRow API base URL: ${ApiConfig.baseUrl}');
+  debugPrint('GreenGroc API base URL: ${ApiConfig.baseUrl}');
   await LocaleController.instance.loadSavedLocale();
   await AuthService.instance.loadSession();
-  runApp(const GreenRowDeliveryApp());
+  runApp(const GreenGrocDeliveryApp());
 }
 
-class GreenRowDeliveryApp extends StatelessWidget {
-  const GreenRowDeliveryApp({super.key});
+class GreenGrocDeliveryApp extends StatelessWidget {
+  const GreenGrocDeliveryApp({super.key});
 
   @override
   Widget build(BuildContext context) {

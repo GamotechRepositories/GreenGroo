@@ -56,14 +56,35 @@ Future<bool> openGoogleMapsToAddress(String address) async {
   return false;
 }
 
+bool _isPlaceholderAddress(String address) {
+  final lower = address.toLowerCase();
+  return lower.contains('locked') ||
+      lower.contains('scan store qr') ||
+      lower.contains('scan pickup') ||
+      lower.contains('unlocks after');
+}
+
 Future<bool> openMapsNavigation({
   required double? destLat,
   required double? destLng,
   required String fallbackAddress,
+  bool preferAddress = false,
 }) async {
+  final trimmed = fallbackAddress.trim();
+  final hasUsableAddress = trimmed.isNotEmpty && !_isPlaceholderAddress(trimmed);
+
+  if (preferAddress && hasUsableAddress) {
+    final ok = await openGoogleMapsToAddress(trimmed);
+    if (ok) return true;
+  }
+
   if (destLat != null && destLng != null) {
     final ok = await openGoogleMapsNavigation(destLat: destLat, destLng: destLng);
     if (ok) return true;
   }
-  return openGoogleMapsToAddress(fallbackAddress);
+
+  if (hasUsableAddress) {
+    return openGoogleMapsToAddress(trimmed);
+  }
+  return false;
 }

@@ -32,7 +32,7 @@ class PrimaryButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         ),
         elevation: 0,
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.15),
       ),
       child: Row(
         mainAxisSize: isExpanded ? MainAxisSize.max : MainAxisSize.min,

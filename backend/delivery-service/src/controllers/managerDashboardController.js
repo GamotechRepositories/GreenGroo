@@ -10,6 +10,7 @@ import InventoryRequest from "../models/InventoryRequest.js";
 import { deductOrderStock } from "../services/storeStockService.js";
 import { seedManagerStore } from "../services/seedManagerStore.js";
 import { pickDemoOrderItems } from "../data/storeProductCatalog.js";
+import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
@@ -115,13 +116,9 @@ export const getDashboardSummary = async (req, res, next) => {
       DeliveryBoy.countDocuments(
         riderQuery(manager, { isActive: true, status: "online" })
       ),
-      DeliveryBoy.countDocuments({}),
+      DeliveryBoy.countDocuments(riderQuery(manager)),
       DeliveryBoy.countDocuments({
-        $or: [
-          { verificationStatus: "pending" },
-          { verificationStatus: { $exists: false } },
-          { verificationStatus: null },
-        ],
+        $and: [areaMatch(manager), { verificationStatus: "pending" }],
       }),
       InventoryRequest.countDocuments({
         managerId: manager._id,
@@ -317,6 +314,14 @@ export const createDemoStoreOrder = async (req, res, next) => {
     }
 
     const orderNum = `ORD-${Date.now().toString().slice(-6)}`;
+    const demoAddress =
+      req.body.customerAddress ||
+      "In front of Balewadi Stadium Gate, Mahalunge Road, Pune";
+    const demoCoords =
+      (await geocodeAddressString(demoAddress)) ||
+      (req.body.customerLat && req.body.customerLng
+        ? { lat: Number(req.body.customerLat), lng: Number(req.body.customerLng) }
+        : null);
 
     const newOrder = await StoreOrder.create({
       orderNumber: orderNum,
@@ -326,11 +331,9 @@ export const createDemoStoreOrder = async (req, res, next) => {
       area: manager.area || "Mahalunge",
       customerName: req.body.customerName || "Akash Patil (Testing)",
       customerPhone: req.body.customerPhone || "9876543210",
-      customerAddress:
-        req.body.customerAddress ||
-        "In front of Balewadi Stadium Gate, Mahalunge Road, Pune",
-      customerLat: 18.5793,
-      customerLng: 73.7712,
+      customerAddress: demoAddress,
+      customerLat: demoCoords?.lat ?? null,
+      customerLng: demoCoords?.lng ?? null,
       items: demoItems,
       status: "order_received",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
@@ -379,7 +382,7 @@ export const listInventory = async (req, res, next) => {
 export const listRiders = async (req, res, next) => {
   try {
     const manager = await getManager(req);
-    const riders = await DeliveryBoy.find({}).sort({ status: -1, createdAt: -1 });
+    const riders = await DeliveryBoy.find(riderQuery(manager)).sort({ status: -1, createdAt: -1 });
 
     return res.json({
       success: true,
@@ -395,10 +398,9 @@ export const listPendingDrivers = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     const riders = await DeliveryBoy.find({
-      $or: [
+      $and: [
+        areaMatch(manager),
         { verificationStatus: "pending" },
-        { verificationStatus: { $exists: false } },
-        { verificationStatus: null },
       ],
     }).sort({ createdAt: -1, updatedAt: -1 });
 
@@ -433,12 +435,9 @@ export const verifyDriver = async (req, res, next) => {
       $and: [areaMatch(manager)],
     });
     if (!rider) {
-      rider = await DeliveryBoy.findById(riderId);
-    }
-    if (!rider) {
       return res.status(404).json({
         success: false,
-        message: "Driver not found",
+        message: "Driver not found in your hub area",
       });
     }
 
@@ -743,9 +742,12 @@ export const getDriverDetails = async (req, res, next) => {
     const manager = await getManager(req);
     const { driverId } = req.params;
 
-    const rider = await DeliveryBoy.findById(driverId);
+    const rider = await DeliveryBoy.findOne({
+      _id: driverId,
+      $and: [areaMatch(manager)],
+    });
     if (!rider) {
-      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+      return res.status(404).json({ success: false, message: "Delivery partner not found in your hub area" });
     }
 
     // Today's date in Indian Standard Time (IST, UTC+5:30)
@@ -758,6 +760,7 @@ export const getDriverDetails = async (req, res, next) => {
 
     // Query shifts for this rider
     const shifts = await Shift.find({
+      managerId: manager._id,
       "slots.bookings.deliveryPartnerId": rider._id,
     }).sort({ dateString: -1 }).limit(30);
 
@@ -836,10 +839,14 @@ export const getDriverDetails = async (req, res, next) => {
  */
 export const toggleRiderActive = async (req, res, next) => {
   try {
+    const manager = await getManager(req);
     const { driverId } = req.params;
-    const rider = await DeliveryBoy.findById(driverId);
+    const rider = await DeliveryBoy.findOne({
+      _id: driverId,
+      $and: [areaMatch(manager)],
+    });
     if (!rider) {
-      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+      return res.status(404).json({ success: false, message: "Delivery partner not found in your hub area" });
     }
 
     rider.isActive = !rider.isActive;

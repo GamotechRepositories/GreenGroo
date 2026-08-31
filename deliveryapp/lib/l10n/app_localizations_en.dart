@@ -9,16 +9,16 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'GreenRow Delivery';
+  String get appTitle => 'GreenGroc Delivery Partner';
 
   @override
-  String get brandName => 'GreenRow';
+  String get brandName => 'GreenGroc';
 
   @override
   String get deliveryPartner => 'Delivery Partner';
 
   @override
-  String get splashFooterTagline => 'GreenRow  ·  Delivery Partner App';
+  String get splashFooterTagline => 'GreenGroc · Delivery Partner App';
 
   @override
   String get featureFastDelivery => 'Fast\nDelivery';

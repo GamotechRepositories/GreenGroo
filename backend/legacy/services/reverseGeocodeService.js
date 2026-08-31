@@ -209,3 +209,43 @@ export async function reverseGeocodeCoords(lat, lng) {
     source: "coords_only",
   };
 }
+
+/**
+ * Forward-geocode a delivery address string to lat/lng (India-biased).
+ */
+export async function geocodeAddressString(query) {
+  const q = String(query || "").trim();
+  if (!q) return null;
+
+  const params = new URLSearchParams({
+    q,
+    format: "json",
+    limit: "1",
+    countrycodes: "in",
+    addressdetails: "0",
+  });
+
+  try {
+    const { data } = await axios.get(
+      `https://nominatim.openstreetmap.org/search?${params}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "GreenGroo/1.0 (delivery address geocoding)",
+        },
+        timeout: 12000,
+      }
+    );
+
+    if (!Array.isArray(data) || !data.length) return null;
+
+    const hit = data[0];
+    const lat = Number(hit.lat);
+    const lng = Number(hit.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}

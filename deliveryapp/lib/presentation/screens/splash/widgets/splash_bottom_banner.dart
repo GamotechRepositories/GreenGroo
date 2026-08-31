@@ -141,6 +141,7 @@ class SplashBottomBanner extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             l10n.splashFooterTagline,
+            textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
