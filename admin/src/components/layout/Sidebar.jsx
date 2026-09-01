@@ -1,69 +1,17 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Leaf,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  ShieldCheck,
-  FolderTree,
-  Package,
-  Store,
-  Ticket,
-  Coins,
-  Search,
-  MapPinned,
-  Tractor,
-  Boxes,
-  QrCode,
-  Warehouse,
-  ShoppingCart,
-  IndianRupee,
-  Truck,
-  Users,
-  ClipboardList,
-  Thermometer,
-} from 'lucide-react';
+import { Leaf, LogOut, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-
-const groups = [
-  {
-    label: 'ERP',
-    items: [
-      { name: 'CEO Dashboard', href: '/', icon: LayoutDashboard },
-      { name: 'Traceability', href: '/traceability', icon: Search },
-      { name: 'Locations', href: '/erp/locations', icon: MapPinned },
-      { name: 'Farmers', href: '/erp/farmers', icon: Tractor },
-      { name: 'Crops', href: '/erp/crops', icon: Leaf },
-      { name: 'Articles', href: '/erp/articles', icon: Package },
-      { name: 'Batches', href: '/erp/batches', icon: Boxes },
-      { name: 'QR Codes', href: '/erp/qr_codes', icon: QrCode },
-      { name: 'Collection Centres', href: '/erp/collection_centres', icon: Warehouse },
-      { name: 'Warehouses', href: '/erp/warehouses', icon: Warehouse },
-      { name: 'Cold Storage', href: '/erp/cold_storages', icon: Thermometer },
-      { name: 'Inventory', href: '/erp/inventories', icon: ClipboardList },
-      { name: 'Orders', href: '/erp/customer_orders', icon: ShoppingCart },
-      { name: 'Payments', href: '/erp/payments', icon: IndianRupee },
-      { name: 'Drivers', href: '/erp/drivers', icon: Truck },
-      { name: 'Customers', href: '/erp/customers', icon: Users },
-      { name: 'Audit', href: '/erp/audit_logs', icon: ShieldCheck },
-    ],
-  },
-  {
-    label: 'Catalog',
-    items: [
-      { name: 'Products', href: '/products', icon: Package },
-      { name: 'Dark Stores', href: '/dark-stores', icon: Store },
-      { name: 'Sections & Categories', href: '/categories', icon: FolderTree },
-      { name: 'Coupons & Offers', href: '/coupons', icon: Ticket },
-      { name: 'Reward Points', href: '/rewards', icon: Coins },
-    ],
-  },
-];
+import { NAV_GROUPS } from '../../config/adminNav';
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {
   const { user, logout } = useAuth();
+
+  const handleNavClick = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsCollapsed(false);
+    }
+  };
 
   return (
     <aside
@@ -72,7 +20,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
       }`}
     >
       <div className="flex h-16 items-center justify-between px-4 border-b border-slate-100 dark:border-slate-800/70">
-        <NavLink to="/" className="flex items-center gap-3 overflow-hidden">
+        <NavLink to="/" className="flex items-center gap-3 overflow-hidden" onClick={handleNavClick}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-green-400 text-white shadow-md shadow-emerald-500/20">
             <Leaf className="h-5 w-5" />
           </div>
@@ -97,44 +45,50 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar space-y-4">
-        {groups.map((group) => (
-          <div key={group.label}>
+      <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar space-y-5">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.id}>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 mb-2">
               {!isCollapsed ? group.label : '•'}
             </div>
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const end = item.href === '/';
-              return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  end={end}
-                  className={({ isActive }) =>
-                    `group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-emerald-50 text-emerald-700 font-semibold dark:bg-emerald-950/40 dark:text-emerald-400 shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200'
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon
-                        className={`h-4 w-4 shrink-0 ${
-                          isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
-                        }`}
-                      />
-                      {!isCollapsed && <span className="flex-1 truncate">{item.name}</span>}
-                      {isActive && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-emerald-600 dark:bg-emerald-400" />
-                      )}
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
+
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    end={item.end}
+                    title={isCollapsed ? item.name : undefined}
+                    onClick={handleNavClick}
+                    className={({ isActive }) =>
+                      `group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ${
+                        isCollapsed ? 'justify-center' : ''
+                      } ${
+                        isActive
+                          ? 'bg-emerald-50 text-emerald-700 font-semibold dark:bg-emerald-950/40 dark:text-emerald-400 shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon
+                          className={`h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110 ${
+                            isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
+                          }`}
+                        />
+                        {!isCollapsed && <span className="flex-1 truncate">{item.name}</span>}
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-emerald-600 dark:bg-emerald-400" />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>

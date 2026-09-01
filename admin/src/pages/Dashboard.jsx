@@ -1,61 +1,60 @@
 import React from 'react';
-import { Leaf, ShieldCheck, Store, Package, FolderTree } from 'lucide-react';
+import { Leaf, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { NAV_GROUPS } from '../config/adminNav';
+
+const DASHBOARD_LINKS = NAV_GROUPS.flatMap((group) => group.items).filter(
+  (item) => item.href !== '/' && item.href !== '/welcome'
+);
 
 export default function Dashboard() {
   const { user } = useAuth();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] text-center p-6 animate-in fade-in duration-300">
-      <div className="max-w-xl w-full rounded-3xl bg-white p-8 sm:p-12 border border-slate-200/90 shadow-sm dark:bg-slate-900 dark:border-slate-800 space-y-6">
-        {/* Brand Icon */}
-        <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-tr from-emerald-600 to-green-400 text-white shadow-xl shadow-emerald-500/20">
-          <Leaf className="h-10 w-10" />
-        </div>
-
-        {/* Title */}
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-            <ShieldCheck className="h-4 w-4" /> Admin Portal
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="rounded-3xl bg-white p-6 sm:p-8 border border-slate-200/90 shadow-sm dark:bg-slate-900 dark:border-slate-800">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-400 text-white shadow-xl shadow-emerald-500/20">
+            <Leaf className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold font-display tracking-tight text-slate-900 dark:text-white">
-            Welcome to <span className="text-emerald-600 dark:text-emerald-400">GreenGrocc</span> Admin
-          </h1>
-          <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            You are signed in as <span className="font-semibold text-slate-800 dark:text-slate-200">{user?.name || 'Administrator'}</span> ({user?.email || 'admin@greengrocc.com'}).
-          </p>
-        </div>
-
-        {/* Status Card */}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Link
-            to="/dark-stores"
-            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
-          >
-            <Store className="h-4 w-4 text-emerald-600" /> Dark Stores
-          </Link>
-          <Link
-            to="/products"
-            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
-          >
-            <Package className="h-4 w-4 text-emerald-600" /> Products
-          </Link>
-          <Link
-            to="/categories"
-            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
-          >
-            <FolderTree className="h-4 w-4 text-emerald-600" /> Categories
-          </Link>
-        </div>
-
-        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800/50 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm">
-          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            System Status
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <ShieldCheck className="h-4 w-4" /> Admin Portal
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-display tracking-tight text-slate-900 dark:text-white">
+              Welcome to <span className="text-emerald-600 dark:text-emerald-400">GreenGrocc</span> Admin
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Signed in as <span className="font-semibold text-slate-800 dark:text-slate-200">{user?.name || 'Administrator'}</span> ({user?.email || 'admin@greengrocc.com'}).
+            </p>
           </div>
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">Active & Ready</span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {DASHBOARD_LINKS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              to={item.href}
+              className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left hover:border-emerald-300 hover:bg-emerald-50/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/20"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                  {item.description || 'Open this module from the admin panel.'}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

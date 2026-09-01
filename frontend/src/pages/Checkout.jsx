@@ -11,6 +11,7 @@ import {
   getStoreSettings,
   createCheckoutAttempt,
   validateCoupon,
+  validateGiftCard,
   placeOrder,
   getMyRewardPoints,
   getRewardSettings,
@@ -205,6 +206,10 @@ function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [giftCardInput, setGiftCardInput] = useState("");
+  const [appliedGiftCard, setAppliedGiftCard] = useState(null);
+  const [giftCardError, setGiftCardError] = useState("");
+  const [applyingGiftCard, setApplyingGiftCard] = useState(false);
 
   // Reward Points state
   const [rewardSettings, setRewardSettings] = useState(null);
@@ -217,6 +222,7 @@ function Checkout() {
   const messageRef = useRef("");
   const attemptedOrderIdRef = useRef(null);
   const appliedCouponRef = useRef(null);
+  const appliedGiftCardRef = useRef(null);
   const hasAutoOpenedAddressRef = useRef(false);
 
   const checkoutAttemptKey = useMemo(
@@ -232,9 +238,10 @@ function Checkout() {
           colorName: item.colorName || "",
         })),
         couponCode: appliedCoupon?.code || "",
+        giftCardCode: appliedGiftCard?.code || "",
         rewardPointsToUse: useRewards ? rewardPointsInput : 0,
       }),
-    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon, useRewards, rewardPointsInput]
+    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon, appliedGiftCard, useRewards, rewardPointsInput]
   );
 
   useEffect(() => {
@@ -248,6 +255,10 @@ function Checkout() {
   useEffect(() => {
     appliedCouponRef.current = appliedCoupon;
   }, [appliedCoupon]);
+
+  useEffect(() => {
+    appliedGiftCardRef.current = appliedGiftCard;
+  }, [appliedGiftCard]);
 
   // Load Reward Points and settings for the authenticated user
   useEffect(() => {
@@ -312,7 +323,11 @@ function Checkout() {
     return Math.floor((subtotal / spend) * rate);
   }, [rewardsActive, rewardSettings, subtotal]);
 
-  const discountedSubtotal = Math.max(0, subtotalAfterCoupon - rewardDiscount);
+  const giftCardDiscount = Math.min(
+    Number(appliedGiftCard?.discountAmount || 0),
+    Math.max(0, subtotalAfterCoupon - rewardDiscount)
+  );
+  const discountedSubtotal = Math.max(0, subtotalAfterCoupon - rewardDiscount - giftCardDiscount);
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
   const { total: orderTotal } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
   const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
@@ -434,6 +449,7 @@ function Checkout() {
         checkoutMode: isBuyNow ? "buyNow" : "cart",
         buyNow: isBuyNow,
         couponCode: appliedCouponRef.current?.code || undefined,
+        giftCardCode: appliedGiftCardRef.current?.code || undefined,
         rewardPointsToUse: rewardPointsToUseRef.current || undefined,
         customerLocation: checkoutCustomerLocation(),
       });
@@ -512,6 +528,33 @@ function Checkout() {
     setCouponError("");
   };
 
+  const handleApplyGiftCard = async () => {
+    const code = giftCardInput.trim();
+    if (!code) {
+      setGiftCardError("Enter a gift card code");
+      return;
+    }
+    setApplyingGiftCard(true);
+    setGiftCardError("");
+    try {
+      const payable = Math.max(0, subtotalAfterCoupon - rewardDiscount);
+      const { data } = await validateGiftCard({ code, payableAmount: payable, subtotal: payable });
+      setAppliedGiftCard(data.data);
+      setGiftCardInput(data.data.code);
+    } catch (err) {
+      setAppliedGiftCard(null);
+      setGiftCardError(err.response?.data?.message || "Invalid gift card");
+    } finally {
+      setApplyingGiftCard(false);
+    }
+  };
+
+  const handleRemoveGiftCard = () => {
+    setAppliedGiftCard(null);
+    setGiftCardInput("");
+    setGiftCardError("");
+  };
+
   useEffect(() => {
     const code = String(location.state?.applyCouponCode || "").trim().toUpperCase();
     if (!code || authLoading || subtotal <= 0) return;
@@ -564,6 +607,7 @@ function Checkout() {
       checkoutMode: isBuyNow ? "buyNow" : "cart",
       buyNow: isBuyNow,
       couponCode: appliedCouponRef.current?.code || undefined,
+      giftCardCode: appliedGiftCardRef.current?.code || undefined,
       rewardPointsToUse: rewardPointsToUseRef.current || undefined,
       customerLocation: checkoutCustomerLocation(),
     });
@@ -598,6 +642,7 @@ function Checkout() {
             buyNow: isBuyNow,
             attemptedOrderId: attemptedOrderIdRef.current,
             couponCode: appliedCouponRef.current?.code || undefined,
+            giftCardCode: appliedGiftCardRef.current?.code || undefined,
             rewardPointsToUse: rewardPointsToUseRef.current || undefined,
             customerLocation: checkoutCustomerLocation(),
             razorpay_order_id: response.razorpay_order_id,
@@ -643,6 +688,7 @@ function Checkout() {
           buyNow: isBuyNow,
           attemptedOrderId: attemptedOrderIdRef.current,
           couponCode: appliedCouponRef.current?.code || undefined,
+          giftCardCode: appliedGiftCardRef.current?.code || undefined,
           rewardPointsToUse: rewardPointsToUseRef.current || undefined,
           customerLocation: checkoutCustomerLocation(),
         });
@@ -1083,6 +1129,54 @@ function Checkout() {
                     </div>
                   )}
 
+                  {appliedGiftCard ? (
+                    <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-800">Gift card: {appliedGiftCard.code}</p>
+                        <p className="mt-1 text-xs font-medium text-emerald-700">
+                          Balance used {formatPrice(giftCardDiscount)}
+                        </p>
+                      </div>
+                      <button type="button" onClick={handleRemoveGiftCard} className="text-xs font-semibold text-red-600 hover:underline">
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <label htmlFor="giftCardCode" className="text-sm font-semibold text-text-primary">
+                        Have a gift card?
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="giftCardCode"
+                          type="text"
+                          value={giftCardInput}
+                          onChange={(e) => {
+                            setGiftCardInput(e.target.value.toUpperCase());
+                            if (giftCardError) setGiftCardError("");
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleApplyGiftCard();
+                            }
+                          }}
+                          placeholder="Enter gift card code"
+                          className="min-w-0 flex-1 rounded-lg border border-border-light px-3 py-2 text-sm uppercase outline-none focus:border-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyGiftCard}
+                          disabled={applyingGiftCard || !giftCardInput.trim()}
+                          className="shrink-0 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary disabled:opacity-50"
+                        >
+                          {applyingGiftCard ? "..." : "Apply"}
+                        </button>
+                      </div>
+                      {giftCardError ? <p className="text-xs text-red-600">{giftCardError}</p> : null}
+                    </div>
+                  )}
+
                   {/* Reward Points Redemption Block */}
                   {rewardsActive && (
                     <div className="mt-3 border-t border-border-light pt-3">
@@ -1188,6 +1282,12 @@ function Checkout() {
                     <div className="flex justify-between text-green-700">
                       <span>Coupon discount</span>
                       <span className="font-semibold">-{formatPrice(couponDiscount)}</span>
+                    </div>
+                  ) : null}
+                  {giftCardDiscount > 0 ? (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Gift card</span>
+                      <span className="font-semibold">-{formatPrice(giftCardDiscount)}</span>
                     </div>
                   ) : null}
                   {rewardsActive && rewardDiscount > 0 ? (

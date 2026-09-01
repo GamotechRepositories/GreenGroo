@@ -154,6 +154,7 @@ export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
 
 export const validateCoupon = (data) => api.post("/api/coupons/validate", data);
 export const getAvailableCoupons = (params) => api.get("/api/coupons/available", { params });
+export const validateGiftCard = (data) => api.post("/api/admin-ops/gift-cards/validate", data);
 
 export const getRewardSettings = () => api.get("/api/rewards/settings");
 export const getMyRewardPoints = (params = {}) => api.get("/api/rewards/my-points", { params });

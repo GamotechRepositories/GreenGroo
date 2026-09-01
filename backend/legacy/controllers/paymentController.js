@@ -86,6 +86,7 @@ export const createRazorpayOrder = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     } = req.body;
     if (!addressId) {
@@ -108,6 +109,7 @@ export const createRazorpayOrder = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     });
     if (result.error) {
@@ -127,6 +129,11 @@ export const createRazorpayOrder = async (req, res) => {
         subtotal: result.subtotal,
         couponCode: result.couponCode,
         couponDiscount: result.couponDiscount,
+        rewardPointsUsed: result.rewardPointsUsed,
+        rewardDiscount: result.rewardDiscount,
+        rewardPointsEarned: result.rewardPointsEarned,
+        giftCardCode: result.giftCardCode,
+        giftCardDiscount: result.giftCardDiscount,
         deliveryCharges: result.deliveryCharges,
         gstAmount: result.gstAmount,
         total: result.total,
@@ -192,6 +199,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       attemptedOrderId,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
@@ -229,6 +237,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     });
 
@@ -262,6 +271,8 @@ export const verifyRazorpayPayment = async (req, res) => {
       rewardPointsUsed: result.rewardPointsUsed,
       rewardDiscount: result.rewardDiscount,
       rewardPointsEarned: result.rewardPointsEarned,
+      giftCardCode: result.giftCardCode,
+      giftCardDiscount: result.giftCardDiscount,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,
@@ -309,6 +320,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       attemptedOrderId,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
@@ -354,6 +366,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     });
     if (result.error) {
@@ -380,6 +393,8 @@ export const submitUpiPaymentProof = async (req, res) => {
       rewardPointsUsed: result.rewardPointsUsed,
       rewardDiscount: result.rewardDiscount,
       rewardPointsEarned: result.rewardPointsEarned,
+      giftCardCode: result.giftCardCode,
+      giftCardDiscount: result.giftCardDiscount,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,

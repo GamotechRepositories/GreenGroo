@@ -9,6 +9,7 @@ import {
   loadNearestStoreCatalog,
   mergeStoreFilter,
 } from "../../delivery-service/src/services/nearestStoreCatalog.js";
+import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
 
@@ -597,12 +598,14 @@ export const getProducts = async (req, res) => {
       const purchaseCounts = await getPurchaseCountsByProductIds(
         products.map((item) => item._id)
       );
-      const data = attachStoreAvailability(
-        products.map((item) => ({
-          ...item.toObject(),
-          purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-        })),
-        catalog
+      const data = await attachQuantityDiscounts(
+        attachStoreAvailability(
+          products.map((item) => ({
+            ...item.toObject(),
+            purchaseCount: purchaseCounts.get(String(item._id)) || 0,
+          })),
+          catalog
+        )
       );
 
       return res.status(200).json({
@@ -620,12 +623,14 @@ export const getProducts = async (req, res) => {
 
     const products = await query;
     const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
-    let data = attachStoreAvailability(
-      products.map((item) => ({
-        ...item.toObject(),
-        purchaseCount: purchaseCounts.get(String(item._id)) || 0,
-      })),
-      catalog
+    let data = await attachQuantityDiscounts(
+      attachStoreAvailability(
+        products.map((item) => ({
+          ...item.toObject(),
+          purchaseCount: purchaseCounts.get(String(item._id)) || 0,
+        })),
+        catalog
+      )
     );
 
     if (!data.length && catalog.items?.length) {
@@ -641,12 +646,14 @@ export const getProducts = async (req, res) => {
         .sort(sort)
         .limit(80);
       const looseCounts = await getPurchaseCountsByProductIds(loose.map((item) => item._id));
-      data = attachStoreAvailability(
-        loose.map((item) => ({
-          ...item.toObject(),
-          purchaseCount: looseCounts.get(String(item._id)) || 0,
-        })),
-        catalog
+      data = await attachQuantityDiscounts(
+        attachStoreAvailability(
+          loose.map((item) => ({
+            ...item.toObject(),
+            purchaseCount: looseCounts.get(String(item._id)) || 0,
+          })),
+          catalog
+        )
       );
       if (req.query.limit) {
         data = data.slice(0, Math.min(parseInt(req.query.limit, 10) || 15, 50));
@@ -777,14 +784,16 @@ export const getProductById = async (req, res) => {
 
     const catalog = await loadNearestStoreCatalog(req.query);
     const purchaseCounts = await getPurchaseCountsByProductIds([product._id]);
-    const [decorated] = attachStoreAvailability(
-      [
-        {
-          ...product.toObject(),
-          purchaseCount: purchaseCounts.get(String(product._id)) || 0,
-        },
-      ],
-      catalog
+    const [decorated] = await attachQuantityDiscounts(
+      attachStoreAvailability(
+        [
+          {
+            ...product.toObject(),
+            purchaseCount: purchaseCounts.get(String(product._id)) || 0,
+          },
+        ],
+        catalog
+      )
     );
 
     res.status(200).json({

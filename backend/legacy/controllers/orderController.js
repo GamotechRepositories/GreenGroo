@@ -433,6 +433,7 @@ export const createCheckoutAttempt = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
@@ -442,6 +443,7 @@ export const createCheckoutAttempt = async (req, res) => {
       buyNow,
       couponCode,
       rewardPointsToUse,
+      giftCardCode,
       customerLocation,
     });
 
@@ -616,6 +618,7 @@ export const placeOrder = async (req, res) => {
       couponCode,
       checkoutItems,
       rewardPointsToUse,
+      giftCardCode: req.body.giftCardCode,
       customerLocation: req.body.customerLocation,
     });
     if (result.error) {
@@ -637,6 +640,8 @@ export const placeOrder = async (req, res) => {
       rewardPointsUsed: result.rewardPointsUsed,
       rewardDiscount: result.rewardDiscount,
       rewardPointsEarned: result.rewardPointsEarned,
+      giftCardCode: result.giftCardCode,
+      giftCardDiscount: result.giftCardDiscount,
       deliveryCharges: result.deliveryCharges,
       gstAmount: result.gstAmount,
       total: result.total,

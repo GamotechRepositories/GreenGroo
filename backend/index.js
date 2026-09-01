@@ -29,6 +29,8 @@ import { seedDefaultRewardSettingsIfEmpty } from "./legacy/controllers/rewardCon
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
 import adminDarkStoreRoutes from "./delivery-service/src/routes/adminDarkStoreRoutes.js";
 import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes.js";
+import adminOpsRoutes from "./admin-ops-service/src/routes.js";
+import { seedDefaultPricingRule } from "./admin-ops-service/src/pricingAttach.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -44,6 +46,7 @@ const allRoutes = [
   ...staffRoutes,
   ...farmerManagerRoutes,
   ...erpRoutes,
+  ...adminOpsRoutes,
 ];
 
 const app = express();
@@ -96,6 +99,7 @@ app.get("/health", (_req, res) => {
       "staff",
       "farmer-manager",
       "erp",
+      "admin-ops",
     ],
   });
 });
@@ -125,6 +129,7 @@ connectDB("server").then(async () => {
   await seedDefaultCategoriesIfEmpty();
   await seedDefaultCouponsIfEmpty();
   await seedDefaultRewardSettingsIfEmpty();
+  await seedDefaultPricingRule();
   initIncentiveCron();
   const server = http.createServer(app);
   initSocket(server);

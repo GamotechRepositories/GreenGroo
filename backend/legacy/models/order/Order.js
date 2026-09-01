@@ -93,6 +93,8 @@ const orderSchema = new mongoose.Schema(
     rewardPointsUsed: { type: Number, default: 0, min: 0 },
     rewardDiscount: { type: Number, default: 0, min: 0 },
     rewardPointsEarned: { type: Number, default: 0, min: 0 },
+    giftCardCode: { type: String, default: "", trim: true, uppercase: true },
+    giftCardDiscount: { type: Number, default: 0, min: 0 },
     deliveryCharges: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true },

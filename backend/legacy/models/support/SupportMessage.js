@@ -68,6 +68,12 @@ const supportMessageSchema = new mongoose.Schema(
       enum: ["open", "resolved"],
       default: "open",
     },
+    adminNote: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+      default: "",
+    },
   },
   { timestamps: true }
 );

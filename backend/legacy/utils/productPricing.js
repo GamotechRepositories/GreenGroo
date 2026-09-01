@@ -193,6 +193,29 @@ export function getPricingSource(product, variantName) {
   };
 }
 
+export function applyQuantityDiscounts(basePrice, quantity, discounts = []) {
+  const qty = Number(quantity);
+  const price = Number(basePrice) || 0;
+  if (!Array.isArray(discounts) || discounts.length === 0 || !Number.isFinite(qty) || qty < 1) {
+    return price;
+  }
+
+  const applicable = discounts
+    .filter((rule) => qty >= Number(rule.minQuantity || 0))
+    .sort((a, b) => Number(b.minQuantity) - Number(a.minQuantity));
+  const rule = applicable[0];
+  if (!rule) return price;
+
+  if (rule.discountType === "fixed") {
+    return Math.max(0, Math.round((price - Number(rule.discountValue || 0)) * 100) / 100);
+  }
+
+  return Math.max(
+    0,
+    Math.round(price * (1 - Number(rule.discountValue || 0) / 100) * 100) / 100
+  );
+}
+
 export function getUnitPriceForQuantity(product, quantity, variantName = "") {
   const qty = Number(quantity);
   if (!Number.isFinite(qty) || qty < 1) return 0;
@@ -200,6 +223,7 @@ export function getUnitPriceForQuantity(product, quantity, variantName = "") {
   const source = getPricingSource(product, variantName);
   if (!source) return 0;
 
+  let unitPrice = 0;
   if (source.pricingType === "bulk" && source.bulkPricing?.slabs?.length) {
     const slabs = [...source.bulkPricing.slabs].sort(
       (a, b) => a.minQuantity - b.minQuantity
@@ -211,13 +235,18 @@ export function getUnitPriceForQuantity(product, quantity, variantName = "") {
         qty >= slab.minQuantity &&
         (slab.maxQuantity == null || qty <= slab.maxQuantity);
 
-      if (inRange) return slab.pricePerUnit;
+      if (inRange) {
+        unitPrice = slab.pricePerUnit;
+        break;
+      }
     }
 
-    return slabs[slabs.length - 1]?.pricePerUnit ?? 0;
+    if (!unitPrice) unitPrice = slabs[slabs.length - 1]?.pricePerUnit ?? 0;
+  } else {
+    unitPrice = source.discountedPrice ?? source.price ?? 0;
   }
 
-  return source.discountedPrice ?? source.price ?? 0;
+  return applyQuantityDiscounts(unitPrice, qty, product?.quantityDiscounts);
 }
 
 export function getMinOrderQuantity(product, variantName = "") {

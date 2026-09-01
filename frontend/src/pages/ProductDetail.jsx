@@ -1209,6 +1209,17 @@ function ProductDetail() {
                       {formatPrice(priceInfo.salePrice).replace(".00", "")}
                     </p>
                     <p className="mt-1 text-[12px] text-[#757575]">(Inclusive of all taxes)</p>
+                    {Array.isArray(product.quantityDiscounts) && product.quantityDiscounts.length > 0 ? (
+                      <p className="mt-2 text-xs font-semibold text-[#0C831F]">
+                        {product.quantityDiscounts
+                          .map((rule) =>
+                            rule.discountType === "fixed"
+                              ? `Buy ${rule.minQuantity}+ · ₹${rule.discountValue} off / unit`
+                              : `Buy ${rule.minQuantity}+ · Get ${rule.discountValue}% off`
+                          )
+                          .join(" · ")}
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <p className="mt-1 text-sm text-[#757575]">Login to view price</p>

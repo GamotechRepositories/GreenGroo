@@ -31,6 +31,7 @@ import {
 } from "../controllers/rewardController.js";
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../../shared/store/giftHamper.js";
 import { dispatchDeliveryOrder } from "../services/deliveryDispatcher.js";
+import { previewGiftCard, consumeGiftCard } from "../../admin-ops-service/src/giftCardService.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
@@ -77,8 +78,24 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     rewardDiscount = rewardResult.discount;
   }
 
+  let giftCardCode = "";
+  let giftCardDiscount = 0;
+  if (options.giftCardCode) {
+    const payableAfterOffers = Math.max(0, subtotal - couponDiscount - rewardDiscount);
+    const giftResult = await previewGiftCard(options.giftCardCode, payableAfterOffers);
+    if (giftResult.error) {
+      return {
+        error: giftResult.error,
+        status: 400,
+        code: "INVALID_GIFT_CARD",
+      };
+    }
+    giftCardCode = giftResult.code;
+    giftCardDiscount = giftResult.discountAmount;
+  }
+
   const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
-  const discountedSubtotal = Math.max(0, subtotal - couponDiscount - rewardDiscount);
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount - rewardDiscount - giftCardDiscount);
   const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
 
   const rewardSettings = await getRewardSettings();
@@ -94,6 +111,8 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     rewardPointsUsed,
     rewardDiscount,
     rewardPointsEarned,
+    giftCardCode,
+    giftCardDiscount,
   };
 }
 
@@ -488,6 +507,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
     rewardPointsToUse: options.rewardPointsToUse,
+    giftCardCode: options.giftCardCode,
   });
   if (pricing.error) {
     return pricing;
@@ -503,6 +523,8 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     rewardPointsUsed,
     rewardDiscount,
     rewardPointsEarned,
+    giftCardCode,
+    giftCardDiscount,
   } = pricing;
 
   if (!meetsMinimumOrder(subtotal, storeSettings)) {
@@ -548,6 +570,8 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     rewardPointsUsed: rewardPointsUsed || 0,
     rewardDiscount: rewardDiscount || 0,
     rewardPointsEarned: rewardPointsEarned || 0,
+    giftCardCode: giftCardCode || "",
+    giftCardDiscount: giftCardDiscount || 0,
     deliveryCharges,
     gstAmount,
     total,
@@ -720,6 +744,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     userId,
     excludeOrderId: attemptedOrder?._id,
     rewardPointsToUse: options.rewardPointsToUse,
+    giftCardCode: options.giftCardCode,
   });
   if (pricing.error) {
     return pricing;
@@ -734,6 +759,8 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     rewardPointsUsed,
     rewardDiscount,
     rewardPointsEarned,
+    giftCardCode,
+    giftCardDiscount,
   } = pricing;
 
   return {
@@ -748,6 +775,8 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     rewardPointsUsed: rewardPointsUsed || 0,
     rewardDiscount: rewardDiscount || 0,
     rewardPointsEarned: rewardPointsEarned || 0,
+    giftCardCode: giftCardCode || "",
+    giftCardDiscount: giftCardDiscount || 0,
     deliveryCharges,
     gstAmount,
     total,
@@ -767,6 +796,8 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     rewardPointsUsed: prepared.rewardPointsUsed || 0,
     rewardDiscount: prepared.rewardDiscount || 0,
     rewardPointsEarned: prepared.rewardPointsEarned || 0,
+    giftCardCode: prepared.giftCardCode || "",
+    giftCardDiscount: prepared.giftCardDiscount || 0,
     deliveryCharges: prepared.deliveryCharges,
     gstAmount: prepared.gstAmount ?? 0,
     total: prepared.total,
@@ -850,6 +881,8 @@ export async function completeAttemptedOrder({
   rewardPointsUsed = 0,
   rewardDiscount = 0,
   rewardPointsEarned = 0,
+  giftCardCode = "",
+  giftCardDiscount = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -889,6 +922,8 @@ export async function completeAttemptedOrder({
   order.rewardPointsUsed = rewardPointsUsed > 0 ? rewardPointsUsed : 0;
   order.rewardDiscount = rewardDiscount > 0 ? rewardDiscount : 0;
   order.rewardPointsEarned = rewardPointsEarned > 0 ? rewardPointsEarned : 0;
+  order.giftCardCode = giftCardCode || "";
+  order.giftCardDiscount = giftCardDiscount > 0 ? giftCardDiscount : 0;
   order.deliveryCharges = deliveryCharges;
   order.gstAmount = gstAmount > 0 ? gstAmount : 0;
   order.total = total;
@@ -908,6 +943,9 @@ export async function completeAttemptedOrder({
     order.createdAt = new Date();
     order.giftHamper = await resolveGiftHamperSnapshot(total);
     await processOrderRewardPoints(order, { rewardPointsUsed, userId });
+    if (giftCardCode && giftCardDiscount > 0) {
+      await consumeGiftCard(giftCardCode, giftCardDiscount, { orderId: order._id });
+    }
   }
 
   await order.save();
@@ -926,6 +964,8 @@ export async function finalizeOrder({
   rewardPointsUsed = 0,
   rewardDiscount = 0,
   rewardPointsEarned = 0,
+  giftCardCode = "",
+  giftCardDiscount = 0,
   deliveryCharges,
   gstAmount = 0,
   total,
@@ -955,6 +995,8 @@ export async function finalizeOrder({
     rewardPointsUsed,
     rewardDiscount,
     rewardPointsEarned,
+    giftCardCode,
+    giftCardDiscount,
     deliveryCharges,
     gstAmount,
     total,
@@ -994,6 +1036,8 @@ export async function finalizeOrder({
     rewardPointsUsed: rewardPointsUsed > 0 ? rewardPointsUsed : 0,
     rewardDiscount: rewardDiscount > 0 ? rewardDiscount : 0,
     rewardPointsEarned: rewardPointsEarned > 0 ? rewardPointsEarned : 0,
+    giftCardCode: giftCardCode || "",
+    giftCardDiscount: giftCardDiscount > 0 ? giftCardDiscount : 0,
     deliveryCharges,
     gstAmount: gstAmount > 0 ? gstAmount : 0,
     total,
@@ -1012,6 +1056,9 @@ export async function finalizeOrder({
 
   if (status !== "attempted") {
     await processOrderRewardPoints(order, { rewardPointsUsed, userId });
+    if (giftCardCode && giftCardDiscount > 0) {
+      await consumeGiftCard(giftCardCode, giftCardDiscount, { orderId: order._id });
+    }
     await order.save();
   }
 

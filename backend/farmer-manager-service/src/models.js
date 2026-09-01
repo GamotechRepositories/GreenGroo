@@ -25,6 +25,7 @@ const vendorSchema = new mongoose.Schema(
       accountNumber: { type: String, default: "" },
       ifsc: { type: String, default: "" },
     },
+    commissionRate: { type: Number, default: 10, min: 0, max: 100 },
     status: {
       type: String,
       enum: ["Pending", "Active", "Inactive", "Suspended"],
