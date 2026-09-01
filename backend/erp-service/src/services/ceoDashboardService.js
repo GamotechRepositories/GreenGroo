@@ -1,0 +1,175 @@
+import { Farmer, FarmerCrop, FarmerProduct, FarmerOrder, PickupDriver, Vendor } from "../../../farmer-manager-service/src/models.js";
+import {
+  Farm,
+  Crop,
+  Article,
+  Batch,
+  Crate,
+  QrCode,
+  CollectionCentreMaster,
+  Warehouse,
+  ColdStorage,
+  DarkStoreMaster,
+  Inventory,
+  Procurement,
+  CustomerOrder,
+  Delivery,
+  QualityCheck,
+  Employee,
+  Customer,
+  VendorMaster,
+  ErpPayment,
+} from "../models/index.js";
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export async function getCeoDashboard() {
+  const today = startOfToday();
+  const [
+    totalFarmers,
+    activeFarmers,
+    totalFarms,
+    activeCrops,
+    totalArticles,
+    totalBatches,
+    inventoryAgg,
+    lowStock,
+    procurementAgg,
+    todaysOrders,
+    pendingOrders,
+    completedOrders,
+    salesAgg,
+    expenseAgg,
+    pendingPayments,
+    collectionsAgg,
+    warehouseStock,
+    coldStock,
+    deliveries,
+    delivered,
+    quality,
+    customers,
+    vendors,
+    drivers,
+    employees,
+  ] = await Promise.all([
+    Farmer.countDocuments({}),
+    Farmer.countDocuments({ status: { $in: ["Active", "ACTIVE"] } }),
+    Farm.countDocuments({ isDeleted: { $ne: true } }),
+    Crop.countDocuments({ isDeleted: { $ne: true }, status: { $nin: ["INACTIVE", "CLOSED"] } }),
+    Article.countDocuments({ isDeleted: { $ne: true } }),
+    Batch.countDocuments({ isDeleted: { $ne: true } }),
+    Inventory.aggregate([
+      { $match: { isDeleted: { $ne: true } } },
+      { $group: { _id: null, stock: { $sum: "$availableStock" }, value: { $sum: "$totalValue" } } },
+    ]),
+    Inventory.countDocuments({ isDeleted: { $ne: true }, lowStockAlert: true }),
+    Procurement.aggregate([
+      { $match: { isDeleted: { $ne: true } } },
+      { $group: { _id: null, qty: { $sum: "$quantity" }, amount: { $sum: "$purchaseAmount" } } },
+    ]),
+    CustomerOrder.countDocuments({ createdAt: { $gte: today }, isDeleted: { $ne: true } }),
+    CustomerOrder.countDocuments({ isDeleted: { $ne: true }, status: { $nin: ["COMPLETED", "DELIVERED", "CANCELLED"] } }),
+    CustomerOrder.countDocuments({ isDeleted: { $ne: true }, status: { $in: ["COMPLETED", "DELIVERED"] } }),
+    CustomerOrder.aggregate([
+      { $match: { isDeleted: { $ne: true } } },
+      { $group: { _id: null, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+    ]),
+    Procurement.aggregate([
+      { $match: { isDeleted: { $ne: true } } },
+      { $group: { _id: null, amount: { $sum: "$purchaseAmount" } } },
+    ]),
+    ErpPayment.countDocuments({ isDeleted: { $ne: true }, paymentStatus: { $in: ["PENDING", "UNPAID"] } }),
+    ErpPayment.aggregate([
+      { $match: { isDeleted: { $ne: true }, paymentStatus: { $in: ["PAID", "SETTLED", "SUCCESS"] } } },
+      { $group: { _id: null, amount: { $sum: "$amount" } } },
+    ]),
+    Warehouse.aggregate([{ $match: { isDeleted: { $ne: true } } }, { $group: { _id: null, stock: { $sum: "$currentStock" } } }]),
+    ColdStorage.aggregate([{ $match: { isDeleted: { $ne: true } } }, { $group: { _id: null, occupied: { $sum: "$occupiedCapacity" } } }]),
+    Delivery.countDocuments({ isDeleted: { $ne: true } }),
+    Delivery.countDocuments({ isDeleted: { $ne: true }, deliveryStatus: "DELIVERED" }),
+    QualityCheck.aggregate([
+      { $match: { isDeleted: { $ne: true } } },
+      {
+        $group: {
+          _id: "$grade",
+          count: { $sum: 1 },
+          rejected: { $sum: "$rejectedQuantity" },
+        },
+      },
+    ]),
+    Customer.countDocuments({ isDeleted: { $ne: true } }),
+    VendorMaster.countDocuments({ isDeleted: { $ne: true } }),
+    PickupDriver.countDocuments({}),
+    Employee.countDocuments({ isDeleted: { $ne: true } }),
+  ]);
+
+  const gradeMap = Object.fromEntries((quality || []).map((g) => [g._id || "NONE", g]));
+  const gradeTotal = (quality || []).reduce((s, g) => s + (g.count || 0), 0) || 1;
+  const revenue = salesAgg[0]?.amount || 0;
+  const expenses = expenseAgg[0]?.amount || 0;
+
+  return {
+    generatedAt: new Date(),
+    kpis: {
+      totalFarmers,
+      activeFarmers,
+      totalFarms,
+      activeCrops,
+      totalArticles,
+      totalBatches,
+      totalInventory: inventoryAgg[0]?.stock || 0,
+      inventoryValue: inventoryAgg[0]?.value || 0,
+      lowStock,
+      procurementQuantity: procurementAgg[0]?.qty || 0,
+      procurementAmount: procurementAgg[0]?.amount || 0,
+      todaysOrders,
+      pendingOrders,
+      completedOrders,
+      sales: salesAgg[0]?.count || 0,
+      revenue,
+      expenses,
+      profit: revenue - expenses,
+      pendingPayments,
+      collections: collectionsAgg[0]?.amount || 0,
+      warehouseStock: warehouseStock[0]?.stock || 0,
+      coldStorageStock: coldStock[0]?.occupied || 0,
+      deliveryPerformance: deliveries ? Math.round((delivered / deliveries) * 100) : 0,
+      qualityRejections: (quality || []).reduce((s, g) => s + (g.rejected || 0), 0),
+      gradeAPercent: Math.round(((gradeMap.A?.count || 0) / gradeTotal) * 100),
+      gradeBPercent: Math.round(((gradeMap.B?.count || 0) / gradeTotal) * 100),
+      gradeCPercent: Math.round(((gradeMap.C?.count || 0) / gradeTotal) * 100),
+      customerGrowth: customers,
+      vendorPerformance: vendors,
+      driverPerformance: drivers,
+      hrHeadcount: employees,
+      farmerProducts: await FarmerProduct.countDocuments({}),
+      farmerOrders: await FarmerOrder.countDocuments({}),
+      farmerCrops: await FarmerCrop.countDocuments({}),
+      liveVendors: await Vendor.countDocuments({}),
+    },
+    modules: [
+      "Farmer",
+      "Procurement",
+      "Inventory",
+      "Orders",
+      "Sales",
+      "Revenue",
+      "Expense",
+      "Profit",
+      "Customers",
+      "Delivery",
+      "Warehouse",
+      "Quality",
+      "Wastage",
+      "HR",
+      "Vendor",
+      "Finance",
+      "Audit",
+      "Analytics",
+    ],
+  };
+}

@@ -18,6 +18,15 @@ import {
   Pickup,
 } from "./models.js";
 import { ensurePickupForOrder } from "./pickupControllers.js";
+import {
+  assignFarmerBusinessId,
+  ensureFarmForFarmer,
+  syncFarmerCropToErp,
+  syncFarmerProductToErp,
+  ensureEntityQr,
+} from "../../erp-service/src/services/farmerSync.js";
+import { generateId } from "../../erp-service/src/services/idGenerator.js";
+import { categoryFromName } from "../../erp-service/src/config/idRegistry.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -251,6 +260,7 @@ async function enrichFarmerDoc(farmerDoc) {
 
   return {
     ...f,
+    farmerId: f.farmerId || f.id,
     loginEnabled: f.loginEnabled !== false,
     managerName: manager?.name || "—",
     initials: initials(f.name),
@@ -282,6 +292,7 @@ async function enrichFarmerDocsBatch(farmerDocs) {
     const pStat = stats.productStats.get(f.id) || { count: 0, stock: 0 };
     return {
       ...f,
+      farmerId: f.farmerId || f.id,
       loginEnabled: f.loginEnabled !== false,
       managerName: managerMap.get(f.managerId) || "—",
       initials: initials(f.name),
@@ -370,12 +381,24 @@ export async function createFarmer(req, res) {
     }
 
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
-    const id = `farmer-${Date.now()}`;
-    const farmerCode = `FRM-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { farmerId: businessId, loc } = await assignFarmerBusinessId({
+      state: payload.state || payload.address?.state || "Maharashtra",
+      district: payload.district || payload.address?.district || "",
+      taluka: payload.taluka || payload.address?.taluka || "",
+      village: payload.village || payload.address?.village || "",
+    });
+    const id = businessId;
+    const farmerCode = businessId;
 
     const farmer = new Farmer({
       id,
+      farmerId: businessId,
       farmerCode,
+      companyId: "GGC",
+      stateId: loc.stateId,
+      districtId: loc.districtId,
+      talukaId: loc.talukaId,
+      villageId: loc.villageId,
       vendorId,
       managerId,
       name: payload.name.trim(),
@@ -402,6 +425,13 @@ export async function createFarmer(req, res) {
     });
 
     await farmer.save();
+    await ensureFarmForFarmer(farmer, loc);
+    await farmer.save();
+    await ensureEntityQr({
+      entityType: "FARMER",
+      entityId: farmer.farmerId || farmer.id,
+      links: { farmerId: farmer.farmerId || farmer.id, farmId: farmer.farm?.farmId || "" },
+    });
 
     // Create default document shells
     const defaultDocTypes = [
@@ -623,14 +653,25 @@ export async function registerFarmer(req, res) {
 
     const referral = await resolveReferralCode(payload.referralCode || payload.agentCode);
     const vendorId = referral.vendorId || DEFAULT_VENDOR_ID;
-    const farmerId = await generateUniqueFarmerId();
-    const farmerCode = `FRM-${farmerId.slice(-6).toUpperCase()}`;
+    const { farmerId, loc } = await assignFarmerBusinessId({
+      state,
+      district,
+      taluka,
+      village,
+    });
+    const farmerCode = farmerId;
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
     const farmLocation = [village, district, state].filter(Boolean).join(", ");
 
     const farmer = new Farmer({
       id: farmerId,
+      farmerId,
       farmerCode,
+      companyId: "GGC",
+      stateId: loc.stateId,
+      districtId: loc.districtId,
+      talukaId: loc.talukaId,
+      villageId: loc.villageId,
       vendorId,
       managerId: referral.managerId,
       name,
@@ -650,7 +691,7 @@ export async function registerFarmer(req, res) {
       preferredLanguage: payload.preferredLanguage || "",
       bankVerificationStatus: "PENDING",
       farm: {
-        farmId: `farm-${farmerId}`,
+        farmId: "",
         farmName: payload.farmName || "",
         totalFarmAreaUnit: "Acre",
         cultivatedAreaUnit: "Acre",
@@ -687,6 +728,13 @@ export async function registerFarmer(req, res) {
     });
 
     await farmer.save();
+    await ensureFarmForFarmer(farmer, loc);
+    await farmer.save();
+    await ensureEntityQr({
+      entityType: "FARMER",
+      entityId: farmer.farmerId || farmer.id,
+      links: { farmerId: farmer.farmerId || farmer.id, farmId: farmer.farm?.farmId || "" },
+    });
     await FarmerDocument.insertMany(
       defaultKycDocumentShells({
         farmerId: farmer.id,
@@ -1151,7 +1199,7 @@ export async function createFarmerCrop(req, res) {
     const parsed = validateCropPayload(req.body || {});
     if (parsed.error) return res.status(400).json({ message: parsed.error });
 
-    const cropId = `crop-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const cropId = await generateId({ module: "CRP", category: categoryFromName(parsed.cropName) });
     const crop = await FarmerCrop.create({
       id: cropId,
       cropId,
@@ -1169,6 +1217,12 @@ export async function createFarmerCrop(req, res) {
       farmingType: parsed.farmingType,
       photos: parsed.photos,
       status: deriveCropStatus(parsed.sowingDate, parsed.expectedHarvestDate),
+    });
+    await syncFarmerCropToErp(crop, farmer);
+    await ensureEntityQr({
+      entityType: "CROP",
+      entityId: cropId,
+      links: { farmerId: farmer.farmerId || farmer.id, farmId: crop.farmId, cropId },
     });
     const plan = await upsertCropPlan(farmerId, crop);
     res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
@@ -1634,6 +1688,7 @@ export async function createMyProduct(req, res) {
       product.status = "Draft";
     }
     await product.save();
+    await syncFarmerProductToErp(product, farmer, crop);
     res.status(201).json(publicMyProduct(product, farmer, crop));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create product" });
@@ -2468,6 +2523,7 @@ export async function createFarmerProduct(req, res) {
     });
 
     await product.save();
+    await syncFarmerProductToErp(product, farmer, null);
 
     // Log stock history for created product
     for (const g of grades) {

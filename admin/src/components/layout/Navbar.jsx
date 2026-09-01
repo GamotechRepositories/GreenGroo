@@ -14,7 +14,7 @@ export default function Navbar({ onMobileMenuToggle }) {
         </button>
 
         <span className="font-semibold text-sm text-slate-700 dark:text-slate-200 hidden sm:inline-block">
-          GreenGrocc Admin Dashboard
+          GreenGrocc CEO / ERP
         </span>
       </div>
 

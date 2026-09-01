@@ -81,6 +81,15 @@ const farmerSchema = new mongoose.Schema(
     dateOfBirth: { type: String, default: "" },
     gender: { type: String, enum: ["", "Male", "Female", "Other"], default: "" },
     referralCode: { type: String, default: "", trim: true },
+    farmerId: { type: String, index: true },
+    companyId: { type: String, default: "GGC" },
+    stateId: { type: String, default: "" },
+    districtId: { type: String, default: "" },
+    talukaId: { type: String, default: "" },
+    villageId: { type: String, default: "" },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: String, default: "" },
     registrationStatus: {
       type: String,
       enum: ["REGISTERED", "ACTIVE"],
@@ -390,6 +399,7 @@ const farmerHarvestOrderSchema = new mongoose.Schema(
 vendorSchema.index({ status: 1 });
 
 // Farmer Indexes
+farmerSchema.index({ farmerId: 1 }, { unique: true, sparse: true });
 farmerSchema.index({ managerId: 1, vendorId: 1 });
 farmerSchema.index({ vendorId: 1, status: 1 });
 farmerSchema.index({ mobile: 1 });

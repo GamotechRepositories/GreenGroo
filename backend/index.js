@@ -17,7 +17,9 @@ import deliveryRoutes from "./delivery-service/src/routes.js";
 import notificationRoutes from "./notification-service/src/routes.js";
 import staffRoutes from "./staff-service/src/routes.js";
 import farmerManagerRoutes from "./farmer-manager-service/src/routes.js";
+import erpRoutes from "./erp-service/src/routes.js";
 import { seedInitialData } from "./farmer-manager-service/src/controllers.js";
+import { seedErpMasters } from "./erp-service/src/seed.js";
 import { seedDefaultSectionsIfEmpty } from "./product-service/src/controllers/sectionController.js";
 import { seedDefaultCategoriesIfEmpty } from "./product-service/src/controllers/categoryController.js";
 import { seedDefaultCouponsIfEmpty } from "./legacy/controllers/couponController.js";
@@ -41,6 +43,7 @@ const allRoutes = [
   ...notificationRoutes,
   ...staffRoutes,
   ...farmerManagerRoutes,
+  ...erpRoutes,
 ];
 
 const app = express();
@@ -92,6 +95,7 @@ app.get("/health", (_req, res) => {
       "notification",
       "staff",
       "farmer-manager",
+      "erp",
     ],
   });
 });
@@ -115,6 +119,7 @@ if (!process.env.JWT_SECRET) {
 
 connectDB("server").then(async () => {
   await seedInitialData();
+  await seedErpMasters();
   await seedDefaultAdminIfEmpty();
   await seedDefaultSectionsIfEmpty();
   await seedDefaultCategoriesIfEmpty();

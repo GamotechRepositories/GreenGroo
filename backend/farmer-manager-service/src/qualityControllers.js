@@ -7,6 +7,7 @@ import {
   QualityInspection,
 } from "./models.js";
 import { getIO } from "../../shared/socket.js";
+import { syncQualityToErp } from "../../erp-service/src/services/harvestSync.js";
 
 const QUALITY_PENDING = "QUALITY_PENDING";
 const INSPECTION = "INSPECTION";
@@ -815,6 +816,7 @@ export async function confirmQualityGrading(req, res) {
     ];
     await updated.save();
     await applyOrderStatus(order, ORDER_COMPLETED, "Order completed after quality grading.");
+    await syncQualityToErp({ inspection: updated, pickup, order, farmer, centre });
     emitQualityUpdate({
       orderId: order.id,
       farmerId: updated.farmerId,

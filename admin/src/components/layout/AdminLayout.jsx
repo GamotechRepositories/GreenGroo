@@ -43,7 +43,7 @@ export default function AdminLayout() {
           isCollapsed={isCollapsed}
           onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
           <Outlet />
         </main>
       </div>
