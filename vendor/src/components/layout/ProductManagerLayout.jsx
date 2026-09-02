@@ -17,6 +17,7 @@ const navItems = [
     ],
   },
   { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
+  { to: '/vendor/products', label: 'Products', icon: 'leaf' },
   {
     id: 'delivery-drivers',
     label: 'Delivery / Pickup',

@@ -1,31 +1,45 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getManagerAllProducts } from "../../api/farmerApi";
-import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
+import toast from "react-hot-toast";
+import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/farmerApi";
+import { isPendingProductApproval } from "../../utils/productActions";
+import { formatProductBusinessId } from "../../utils/cropLinks";
+import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
+
+function orderCreatePath(product) {
+  const params = new URLSearchParams({
+    farmerId: product.farmerId || "",
+    productId: product.id || product.productId || "",
+  });
+  return `/farmer/manager/orders/create?${params.toString()}`;
+}
+
+const ACTION_BTN =
+  "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 whitespace-nowrap hover:bg-slate-50 disabled:opacity-40";
+const APPROVE_BTN =
+  "inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-green-100 px-2 text-[10px] font-semibold text-green-700 whitespace-nowrap hover:bg-green-200 disabled:opacity-40";
+const REJECT_BTN =
+  "inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-red-100 px-2 text-[10px] font-semibold text-red-700 whitespace-nowrap hover:bg-red-200 disabled:opacity-40";
 
 export default function ManagerProductsPage() {
   const [farmers, setFarmers] = useState([]);
-  const [productsByFarmer, setProductsByFarmer] = useState({});
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [selectedFarmerId, setSelectedFarmerId] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [busyId, setBusyId] = useState("");
 
   const loadData = async () => {
     setLoading(true);
     try {
       const data = await getManagerAllProducts();
-      const farmerList = Array.isArray(data?.farmers) ? data.farmers : [];
-      const products = Array.isArray(data?.products) ? data.products : [];
-      setFarmers(farmerList);
-      const map = {};
-      products.forEach((p) => {
-        if (!map[p.farmerId]) map[p.farmerId] = [];
-        map[p.farmerId].push(p);
-      });
-      setProductsByFarmer(map);
+      setFarmers(Array.isArray(data?.farmers) ? data.farmers : []);
+      setProducts(Array.isArray(data?.products) ? data.products : []);
     } catch {
       setFarmers([]);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -35,60 +49,70 @@ export default function ManagerProductsPage() {
     loadData();
   }, []);
 
-  // Filter farmers to display
-  const displayedFarmers = farmers.filter((f) => {
-    if (selectedFarmerId && f.id !== selectedFarmerId) return false;
-    if (!q) return true;
-    const query = q.toLowerCase();
-    const matchesFarmer =
-      f.name?.toLowerCase().includes(query) ||
-      f.mobile?.includes(query) ||
-      f.farmName?.toLowerCase().includes(query);
-    const farmerProds = productsByFarmer[f.id] || [];
-    const matchesProduct = farmerProds.some(
-      (p) =>
-        p.name?.toLowerCase().includes(query) ||
-        p.category?.toLowerCase().includes(query)
-    );
-    return matchesFarmer || matchesProduct;
-  });
+  const farmerName = (farmerId) => farmers.find((f) => f.id === farmerId || f.farmerId === farmerId)?.name || "—";
 
-  // Calculate totals
-  const allLoadedProducts = Object.values(productsByFarmer).flat();
-  const totalProductsCount = allLoadedProducts.length;
-  const totalStockKg = allLoadedProducts.reduce((sum, p) => {
+  const totalStockKg = products.reduce((sum, p) => {
     const gradesSum = (p.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0);
     return sum + (gradesSum || Number(p.stock || 0));
   }, 0);
+  const pendingCount = products.filter((p) => isPendingProductApproval(p.status)).length;
+  const allCategories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
 
-  // Extract unique categories
-  const allCategories = Array.from(
-    new Set(allLoadedProducts.map((p) => p.category).filter(Boolean))
-  );
+  const filtered = products.filter((p) => {
+    if (selectedFarmerId && p.farmerId !== selectedFarmerId) return false;
+    if (selectedCategory && p.category !== selectedCategory) return false;
+    if (selectedStatus === "Pending Approval" && !isPendingProductApproval(p.status)) return false;
+    if (selectedStatus && selectedStatus !== "Pending Approval" && p.status !== selectedStatus) return false;
+    if (!q) return true;
+    const query = q.toLowerCase();
+    return (
+      p.name?.toLowerCase().includes(query) ||
+      p.productName?.toLowerCase().includes(query) ||
+      p.variety?.toLowerCase().includes(query) ||
+      p.category?.toLowerCase().includes(query) ||
+      String(p.productId || p.id || "").toLowerCase().includes(query) ||
+      farmerName(p.farmerId).toLowerCase().includes(query)
+    );
+  });
+
+  const handleReview = async (product, decision) => {
+    const id = product.id || product.productId;
+    let reason = "";
+    if (decision === "rejected") {
+      const typed = window.prompt("Reason for rejection (optional)");
+      if (typed === null) return;
+      reason = typed;
+    }
+    setBusyId(id);
+    try {
+      await reviewManagerFarmerProduct(product.farmerId, id, decision, reason);
+      toast.success(decision === "approved" ? "Product approved" : "Product rejected");
+      await loadData();
+    } catch (err) {
+      toast.error(err.message || "Failed to review product");
+    } finally {
+      setBusyId("");
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className={EXCEL_PAGE_TITLE}>All Products (Farmer-wise)</h1>
-          <p className={EXCEL_PAGE_SUB}>View and monitor produce grouped by each assigned farmer</p>
+          <h1 className={EXCEL_PAGE_TITLE}>All Products</h1>
+          <p className={EXCEL_PAGE_SUB}>Approve farmer products before they go live</p>
         </div>
-        <Link
-          to="/farmer/manager/farmers/add"
-          className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}
-        >
+        <Link to="/farmer/manager/farmers/add" className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}>
           + Add Farmer
         </Link>
       </div>
 
-      {/* Summary Stat Badges */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Assigned Farmers", value: farmers.length, color: "text-[#1F2937]" },
-          { label: "Total Products", value: totalProductsCount, color: "text-[#217346]" },
+          { label: "Total Products", value: products.length, color: "text-[#217346]" },
           { label: "Total Produce Stock", value: `${totalStockKg.toLocaleString("en-IN")} Kg`, color: "text-emerald-700" },
-          { label: "Active Produce Categories", value: allCategories.length || "—", color: "text-blue-700" },
+          { label: "Pending Approval", value: pendingCount, color: "text-amber-600" },
+          { label: "Categories", value: allCategories.length || "—", color: "text-blue-700" },
         ].map((s) => (
           <div key={s.label} className={`${EXCEL_PANEL} p-3`}>
             <p className="text-[11px] text-[#6B7280]">{s.label}</p>
@@ -97,13 +121,12 @@ export default function ManagerProductsPage() {
         ))}
       </div>
 
-      {/* Search & Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by product, category, or farmer name…"
+          placeholder="Search by product, ID, or farmer…"
           className={`${EXCEL_INPUT} max-w-xs`}
         />
         <select
@@ -114,7 +137,7 @@ export default function ManagerProductsPage() {
           <option value="">All Farmers ({farmers.length})</option>
           {farmers.map((f) => (
             <option key={f.id} value={f.id}>
-              {f.name} ({f.mobile})
+              {f.name}
             </option>
           ))}
         </select>
@@ -130,164 +153,121 @@ export default function ManagerProductsPage() {
             ))}
           </select>
         )}
+        <select
+          value={selectedStatus}
+          onChange={(e) => setSelectedStatus(e.target.value)}
+          className={`${EXCEL_INPUT} max-w-[180px]`}
+        >
+          <option value="">All Statuses</option>
+          <option value="Pending Approval">Pending Approval ({pendingCount})</option>
+          <option value="Active">Active</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Draft">Draft</option>
+        </select>
       </div>
 
-      {/* Farmer-wise Product Panels */}
       {loading ? (
+        <div className={`${EXCEL_PANEL} p-8 text-center text-xs text-[#6B7280]`}>Loading products…</div>
+      ) : filtered.length === 0 ? (
         <div className={`${EXCEL_PANEL} p-8 text-center text-xs text-[#6B7280]`}>
-          Loading farmer products…
-        </div>
-      ) : displayedFarmers.length === 0 ? (
-        <div className={`${EXCEL_PANEL} p-8 text-center text-xs text-[#6B7280]`}>
-          {farmers.length === 0 ? (
-            <div className="space-y-2">
-              <p className="font-semibold text-gray-700">No farmers assigned to your account yet.</p>
-              <Link
-                to="/farmer/manager/farmers/add"
-                className={`${EXCEL_BTN_PRIMARY} inline-block px-4 py-2 text-xs`}
-              >
-                + Register First Farmer
-              </Link>
-            </div>
-          ) : (
-            "No matching farmer or products found"
-          )}
+          {products.length === 0 ? "No products yet." : "No matching products found"}
         </div>
       ) : (
-        <div className="space-y-4">
-          {displayedFarmers.map((f) => {
-            const rawProds = productsByFarmer[f.id] || [];
-            const farmerProds = rawProds.filter((p) => {
-              if (selectedCategory && p.category !== selectedCategory) return false;
-              if (!q) return true;
-              const query = q.toLowerCase();
-              return (
-                p.name?.toLowerCase().includes(query) ||
-                p.category?.toLowerCase().includes(query) ||
-                f.name?.toLowerCase().includes(query)
-              );
-            });
-
-            const farmerTotalStock = farmerProds.reduce((sum, p) => {
-              const gradesSum = (p.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0);
-              return sum + (gradesSum || Number(p.stock || 0));
-            }, 0);
-
-            return (
-              <div key={f.id} className={EXCEL_PANEL}>
-                {/* Farmer Header */}
-                <div className="flex flex-wrap items-center justify-between border-b border-[#D4D4D4] bg-[#F8FBF8] px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D4D4D4] bg-white text-xs font-bold text-[#217346]">
-                      {f.initials || f.name?.charAt(0)}
-                    </div>
-                    <div>
+        <div className={`${EXCEL_PANEL} overflow-x-auto`}>
+          <table className="w-full min-w-[980px] text-xs">
+            <thead>
+              <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
+                {["Product", "Variety", "Product ID", "Farmer", "Category", "Qty", "Harvest", "Status"].map((h) => (
+                  <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
+                ))}
+                <th className="sticky right-0 z-20 whitespace-nowrap border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => {
+                const id = p.id || p.productId;
+                const totalQty = (p.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0);
+                const name = p.productName || p.name;
+                return (
+                  <tr key={id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                    <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <h2 className="text-xs font-bold text-[#1F2937]">{f.name}</h2>
-                        <span className="text-[10px] text-[#6B7280]">({f.mobile})</span>
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${
-                          f.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-                        }`}>
-                          {f.status}
-                        </span>
+                        {p.image ? (
+                          <img src={p.image} alt={name} className="h-7 w-7 rounded border border-[#D4D4D4] object-cover" />
+                        ) : (
+                          <div className="flex h-7 w-7 items-center justify-center rounded bg-[#E8F5E9] text-[10px] font-bold text-[#217346]">
+                            {String(name || "P").charAt(0)}
+                          </div>
+                        )}
+                        <Link to={orderCreatePath(p)} className="font-semibold text-[#217346] hover:underline">
+                          {name}
+                        </Link>
                       </div>
-                      <p className="text-[11px] text-[#6B7280]">
-                        {f.farmName ? <span className="font-semibold text-gray-700">{f.farmName} · </span> : ""}
-                        {f.farmLocation || "No location"} · {f.farmType || "Organic"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="text-right">
-                      <span className="text-[10px] text-[#6B7280]">Total Stock: </span>
-                      <span className="font-bold text-[#217346]">{farmerTotalStock} Kg</span>
-                      <span className="text-[10px] text-[#6B7280] ml-2">({farmerProds.length} Products)</span>
-                    </div>
-                    <Link
-                      to={`/farmer/manager/farmers/${f.id}`}
-                      className={`${EXCEL_BTN} text-[11px]`}
-                    >
-                      View Profile →
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Farmer Products Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                        {["Product Name", "Category", "Grades & Stock", "Total Qty", "Harvest Date", "Status"].map((h) => (
-                          <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {farmerProds.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-3 py-5 text-center text-[#6B7280]">
-                            No products added by {f.name} yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        farmerProds.map((p) => {
-                          const totalQty = (p.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0);
-                          return (
-                            <tr key={p.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2">
-                                  {p.image ? (
-                                    <img src={p.image} alt={p.name} className="h-7 w-7 rounded object-cover border border-[#D4D4D4]" />
-                                  ) : (
-                                    <div className="flex h-7 w-7 items-center justify-center rounded bg-[#E8F5E9] text-[10px] font-bold text-[#217346]">
-                                      {p.name?.charAt(0)}
-                                    </div>
-                                  )}
-                                  <span className="font-semibold text-gray-900">{p.name}</span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5 text-gray-600">
-                                {p.category} {p.subCategory ? `· ${p.subCategory}` : ""}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  {(p.grades || []).map((g) => (
-                                    <span key={g.id || g.label} className="inline-flex items-center gap-1 rounded bg-[#E8F5E9] px-1.5 py-0.5 text-[10px] font-semibold text-[#217346]">
-                                      <span>{g.label}:</span>
-                                      <span>{g.quantity} Kg</span>
-                                    </span>
-                                  ))}
-                                  {(!p.grades || p.grades.length === 0) && (
-                                    <span className="text-gray-500">{p.stock || 0} Kg</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5 font-bold text-[#217346]">
-                                {totalQty} Kg
-                              </td>
-                              <td className="px-3 py-2.5 text-[#6B7280]">
-                                {p.harvestDate ? new Date(p.harvestDate).toLocaleDateString("en-IN") : (p.harvestDate || "—")}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
-                                  p.status === "Approved" ? "bg-green-100 text-green-700" :
-                                  p.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
-                                  "bg-gray-100 text-gray-600"
-                                }`}>
-                                  {p.status || "Active"}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-700">{p.variety || "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatProductBusinessId(p)}</td>
+                    <td className="px-3 py-2.5">
+                      <Link to={`/farmer/manager/farmers/${p.farmerId}`} className="font-semibold text-[#217346] hover:underline">
+                        {p.farmerName || farmerName(p.farmerId)}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-600">
+                      {p.category} {p.subCategory ? `· ${p.subCategory}` : ""}
+                    </td>
+                    <td className="px-3 py-2.5 font-bold text-[#217346]">
+                      {totalQty} {p.unit || "Kg"}
+                    </td>
+                    <td className="px-3 py-2.5 text-[#6B7280]">
+                      {p.harvestDate ? new Date(p.harvestDate).toLocaleDateString("en-IN") : "—"}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                          p.status === "Active" || p.status === "Approved"
+                            ? "bg-green-100 text-green-700"
+                            : isPendingProductApproval(p.status)
+                              ? "bg-yellow-100 text-yellow-700"
+                              : p.status === "Rejected"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {p.status || "Draft"}
+                      </span>
+                    </td>
+                    <td className="sticky right-0 z-10 whitespace-nowrap border-l border-[#D4D4D4] bg-white px-3 py-2.5">
+                      <div className="flex flex-nowrap items-center justify-end gap-1">
+                        <Link to={orderCreatePath(p)} className={ACTION_BTN}>
+                          Create Order
+                        </Link>
+                        <Link to={`/farmer/manager/farmers/${p.farmerId}`} className={ACTION_BTN}>
+                          View
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={busyId === id || !isPendingProductApproval(p.status)}
+                          onClick={() => handleReview(p, "approved")}
+                          className={APPROVE_BTN}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === id || !isPendingProductApproval(p.status)}
+                          onClick={() => handleReview(p, "rejected")}
+                          className={REJECT_BTN}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

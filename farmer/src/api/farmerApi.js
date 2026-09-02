@@ -679,6 +679,14 @@ export async function getManagerAllProducts() {
   });
 }
 
+export async function reviewManagerFarmerProduct(farmerId, productId, decision, reason = "") {
+  return apiFetch(`/api/farmer-manager/farmers/${farmerId}/products/${encodeURIComponent(productId)}/review`, {
+    method: "PATCH",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify({ decision, reason }),
+  });
+}
+
 export async function getManagerAllOrders() {
   return apiFetch("/api/farmer-manager/orders", {
     headers: managerAuthHeaders(),

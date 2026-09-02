@@ -16,6 +16,7 @@ const STATUS_BADGE = (status) => {
   const map = {
     Active: "bg-green-100 text-green-700",
     Inactive: "bg-gray-100 text-gray-600",
+    "Pending Approval": "bg-yellow-100 text-yellow-700",
     Pending: "bg-yellow-100 text-yellow-700",
     Approved: "bg-green-100 text-green-700",
     Rejected: "bg-red-100 text-red-700",
@@ -38,6 +39,11 @@ const STATUS_BADGE = (status) => {
     </span>
   );
 };
+
+function isPendingProduct(status) {
+  const s = String(status || "").toLowerCase().replace(/_/g, " ");
+  return s === "pending approval" || s === "pending";
+}
 
 function formatCropDate(value) {
   if (!value) return "—";
@@ -98,6 +104,8 @@ export default function FarmerDetailPage() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingType, setUploadingType] = useState("");
+  const [busyProductId, setBusyProductId] = useState("");
+  const [productToast, setProductToast] = useState("");
 
   const loadDocuments = () =>
     vendorApi
@@ -137,6 +145,28 @@ export default function FarmerDetailPage() {
     if (tab === "Documents") loadDocuments();
   }, [tab, farmerId]);
 
+  const handleReviewProduct = async (product, decision) => {
+    const id = product.id || product.productId;
+    let reason = "";
+    if (decision === "rejected") {
+      const typed = window.prompt("Reason for rejection (optional)");
+      if (typed === null) return;
+      reason = typed;
+    }
+    setBusyProductId(id);
+    try {
+      await vendorApi.reviewFarmerProduct(farmerId, id, decision, reason);
+      setProductToast(decision === "approved" ? "Product approved" : "Product rejected");
+      const res = await vendorApi.getFarmerProducts(farmerId);
+      setProducts(asList(res));
+    } catch (err) {
+      setProductToast(err?.response?.data?.message || "Failed to review product");
+    } finally {
+      setBusyProductId("");
+      window.setTimeout(() => setProductToast(""), 4000);
+    }
+  };
+
   const handleUploadDocument = async (type, file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -160,6 +190,11 @@ export default function FarmerDetailPage() {
 
   return (
     <div className="space-y-4 p-6">
+      {productToast ? (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          {productToast}
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 text-xs text-[#6B7280]">
         <Link to="/vendor/all-farmers" className="hover:text-[#217346]">
           Farmers
@@ -357,7 +392,7 @@ export default function FarmerDetailPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#F2F2F2] text-left">
-                  {["Product", "Category", "Grades", "Harvest Date", "Status"].map((h) => (
+                  {["Product", "Product ID", "Category", "Grades", "Harvest Date", "Status", "Action"].map((h) => (
                     <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">
                       {h}
                     </th>
@@ -367,7 +402,7 @@ export default function FarmerDetailPage() {
               <tbody>
                 {products.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-4 text-center text-[#6B7280]">
+                    <td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">
                       No products
                     </td>
                   </tr>
@@ -375,12 +410,37 @@ export default function FarmerDetailPage() {
                   products.map((p) => (
                     <tr key={p.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                       <td className="px-3 py-2.5 font-semibold">{p.name}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{p.productId || p.id || "—"}</td>
                       <td className="px-3 py-2.5">{p.category}</td>
                       <td className="px-3 py-2.5">
                         {p.grades?.map((g) => `${g.label}: ${g.quantity} Kg`).join(" · ") || p.gradesSummary || "—"}
                       </td>
                       <td className="px-3 py-2.5">{p.harvestDate || "—"}</td>
                       <td className="px-3 py-2.5">{STATUS_BADGE(p.status)}</td>
+                      <td className="px-3 py-2.5">
+                        {isPendingProduct(p.status) ? (
+                          <div className="flex flex-nowrap items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={busyProductId === (p.id || p.productId)}
+                              onClick={() => handleReviewProduct(p, "approved")}
+                              className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyProductId === (p.id || p.productId)}
+                              onClick={() => handleReviewProduct(p, "rejected")}
+                              className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[#9CA3AF]">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}

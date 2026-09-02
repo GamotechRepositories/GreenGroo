@@ -99,3 +99,24 @@ export function formatCropBusinessId(crop = {}) {
 
   return raw || `GGC-CRP-${category}-${code}-00001`;
 }
+
+/** Always show GGC-ART-VEG-TOM-00001 (category + crop code + serial). */
+export function formatProductBusinessId(product = {}) {
+  const raw = String(product.productId || product.id || "").trim();
+  const parts = raw.split("-").filter(Boolean);
+  const fromId =
+    parts[0] === "GGC" && parts[1] === "ART" && parts.length >= 5 && !/^[ABC]$/.test(parts[3])
+      ? String(parts[3]).toUpperCase()
+      : "";
+  const code = cropCodeFromName(product.cropName || product.productName || product.name) || fromId || "XXX";
+  const category = String(product.categoryCode || cropCategoryFromName(product.cropName || product.productName) || "VEG").toUpperCase();
+
+  if (parts[0] === "GGC" && parts[1] === "ART" && parts.length >= 5 && !/^[ABC]$/.test(parts[3])) {
+    const last = parts[parts.length - 1];
+    const serial = /^\d+$/.test(last) ? last.padStart(5, "0") : "00001";
+    const cat = (parts[2] && !/^\d+$/.test(parts[2]) ? parts[2] : category).toUpperCase();
+    return `GGC-ART-${cat}-${code}-${serial}`;
+  }
+
+  return raw || `GGC-ART-${category}-${code}-00001`;
+}

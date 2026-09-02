@@ -7,7 +7,7 @@ import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { canProductAction, formatProductPrice, primaryGradeLabel } from "../utils/productActions";
-import { formatCropDate } from "../utils/cropLinks";
+import { formatCropDate, formatProductBusinessId } from "../utils/cropLinks";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -28,7 +28,12 @@ function ProductDetailPage() {
   const load = async () => {
     setLoading(true);
     try {
-      setProduct(await getMyProduct(id));
+      const data = await getMyProduct(id);
+      setProduct(data);
+      const nextId = data.productId || data.id;
+      if (nextId && nextId !== id) {
+        navigate(`/farmer/products/${nextId}`, { replace: true });
+      }
     } catch (err) {
       setProduct(null);
       toast.error(err.message || "Product not found");
@@ -78,6 +83,9 @@ function ProductDetailPage() {
             {product.cropName || "Crop"} • {product.variety || "—"} • {product.farmName || "Farm"}
             {product.farmLocation ? ` • ${product.farmLocation}` : ""}
           </p>
+          <p className="mt-1 font-mono text-[12px] font-semibold tracking-wide text-emerald-700">
+            {formatProductBusinessId(product)}
+          </p>
         </div>
         <StatusBadge status={product.stockStatus || status} />
       </div>
@@ -85,6 +93,7 @@ function ProductDetailPage() {
       <section className={EXCEL_PANEL}>
         <h2 className={EXCEL_PANEL_HEAD}>Product Details</h2>
         <div className="grid gap-3 p-3 sm:grid-cols-2 text-xs">
+          <Info label="Product ID" value={formatProductBusinessId(product)} />
           <Info label="Product Name" value={product.productName || product.name} />
           <Info label="Crop" value={product.cropName} />
           <Info label="Variety" value={product.variety} />
@@ -97,6 +106,7 @@ function ProductDetailPage() {
           <Info label="Available From" value={formatCropDate(product.availableFrom)} />
           <Info label="Available Until" value={formatCropDate(product.availableUntil)} />
           <Info label="Status" value={status} />
+          {product.rejectionReason ? <Info label="Rejection Reason" value={product.rejectionReason} /> : null}
         </div>
       </section>
 

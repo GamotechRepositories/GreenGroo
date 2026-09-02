@@ -30,6 +30,21 @@ export const CROP_CODE_BY_NAME = {
   cucumber: "CUC",
   spinach: "SPI",
   palak: "SPI",
+  cabbage: "CAB",
+  cauliflower: "CAU",
+  brinjal: "BRI",
+  eggplant: "BRI",
+  chilli: "CHI",
+  chili: "CHI",
+  capsicum: "CAP",
+  beans: "BEA",
+  okra: "OKR",
+  bhindi: "OKR",
+  garlic: "GAR",
+  ginger: "GIN",
+  lemon: "LEM",
+  mango: "MAN",
+  banana: "BAN",
 };
 
 export const CROP_CATEGORIES = {
@@ -243,14 +258,20 @@ export const MODULES = {
     },
   },
   ART: {
-    description: "Article / Product Master ID (crop + grade)",
-    formatHint: "GGC-ART-{crop}-{grade}-{serial}",
-    example: "GGC-ART-TOM-A-00001",
+    description: "Article / Product Master ID — category + crop code + serial (product) or crop + grade + serial (ERP article)",
+    formatHint: "GGC-ART-{category}-{crop}-{serial}",
+    example: "GGC-ART-VEG-TOM-00001",
     serialWidth: 5,
     counterKey: (p) =>
-      `article-${String(p.crop || "XXX").toUpperCase()}-${String(p.grade || "A").toUpperCase()}`,
+      p.category && !p.grade
+        ? `article-prod-${String(p.category || "VEG").toUpperCase()}-${String(p.crop || "XXX").toUpperCase()}`
+        : `article-${String(p.crop || "XXX").toUpperCase()}-${String(p.grade || "A").toUpperCase()}`,
     generate: (p, seq) => {
-      req(p, ["crop", "grade"]);
+      req(p, ["crop"]);
+      if (p.category && !p.grade) {
+        return `${COMPANY_PREFIX}-ART-${String(p.category).toUpperCase()}-${String(p.crop).toUpperCase()}-${pad(seq, 5)}`;
+      }
+      req(p, ["grade"]);
       return `${COMPANY_PREFIX}-ART-${String(p.crop).toUpperCase()}-${String(p.grade).toUpperCase()}-${pad(seq, 5)}`;
     },
   },

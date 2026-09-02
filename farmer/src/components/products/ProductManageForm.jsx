@@ -2,7 +2,7 @@ import { useState } from "react";
 import ProductMediaFields from "./ProductMediaFields";
 import { CROP_UNITS, FARMING_TYPES, PRODUCT_GRADE_OPTIONS } from "../../utils/constants";
 import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY, FORM_CONTROL, FORM_INPUT } from "../../utils/excelStyles";
-import { formatCropBusinessId } from "../../utils/cropLinks";
+import { formatCropBusinessId, formatProductBusinessId } from "../../utils/cropLinks";
 import { OTHER_OPTION, splitPreset } from "../ui/SelectWithOther";
 
 function gradesFromDefaults(defaults = {}) {
@@ -175,6 +175,15 @@ export default function ProductManageForm({
 
   return (
     <div className="space-y-2.5 sm:space-y-5">
+      {initialProduct?.productId || initialProduct?.id ? (
+        <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Product ID</p>
+          <p className="truncate font-mono text-xs font-bold tracking-wide text-emerald-800 sm:text-sm">
+            {formatProductBusinessId(initialProduct)}
+          </p>
+        </div>
+      ) : null}
+
       <Section title="Product">
         <Field label="Select Crop" required error={errors.cropId} className="col-span-2">
           <select className={FORM_INPUT} value={form.cropId} disabled={locked} onChange={(e) => selectCrop(e.target.value)}>
@@ -334,7 +343,12 @@ export default function ProductManageForm({
 
       {locked ? (
         <p className="text-[11px] text-[#6B7280]">This product is pending approval and cannot be edited.</p>
-      ) : (
+      ) : initialProduct?.status === "Rejected" ? (
+        <p className="text-[11px] text-red-600">
+          This product was rejected{initialProduct.rejectionReason ? `: ${initialProduct.rejectionReason}` : "."} Update and publish again.
+        </p>
+      ) : null}
+      {!locked ? (
         <div className="sticky bottom-0 z-10 -mx-2 border-t border-slate-100 bg-white px-2 py-2 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
           <div className="flex gap-2">
             <button type="button" disabled={submitting} className={`${EXCEL_BTN} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`} onClick={() => submit(false)}>
@@ -345,7 +359,7 @@ export default function ProductManageForm({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

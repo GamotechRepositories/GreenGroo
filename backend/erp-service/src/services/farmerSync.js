@@ -2,7 +2,7 @@ import { generateId, ErpCounter } from "./idGenerator.js";
 import { resolveLocation } from "./locationResolver.js";
 import { farmerSerialFromId, cropCodeFromName, categoryFromName } from "../config/idRegistry.js";
 import { Farm, Crop, Article, QrCode } from "../models/index.js";
-import { FarmerCrop, FarmerCropPlan, FarmerProduct } from "../../../farmer-manager-service/src/models.js";
+import { FarmerCrop, FarmerCropPlan, FarmerProduct, FarmerStockHistory, FarmerOrder, FarmerHarvestOrder } from "../../../farmer-manager-service/src/models.js";
 import { recordAudit } from "./auditService.js";
 
 const LEGACY_CROP_ID = /^GGC-CRP-([A-Z0-9]+)-(\d+)$/i;
@@ -56,6 +56,51 @@ export async function upgradeCropIdWithCropCode(farmerCrop) {
     );
   }
   return farmerCrop;
+}
+
+export function isProperProductArtId(id = "") {
+  const parts = String(id).toUpperCase().split("-").filter(Boolean);
+  return (
+    parts[0] === "GGC" &&
+    parts[1] === "ART" &&
+    parts.length >= 5 &&
+    !["A", "B", "C"].includes(parts[3]) &&
+    /^\d+$/.test(parts[parts.length - 1])
+  );
+}
+
+export async function upgradeFarmerProductId(product) {
+  if (!product) return product;
+  const oldId = product.productId || product.id;
+  if (isProperProductArtId(oldId)) return product;
+
+  const cropCode = cropCodeFromName(product.cropName || product.productName || product.name);
+  const category = categoryFromName(product.cropName || product.productName || product.name);
+  const newId = await generateId({ module: "ART", category, crop: cropCode });
+  if (newId === oldId) return product;
+
+  const taken = await FarmerProduct.exists({
+    _id: { $ne: product._id },
+    $or: [{ id: newId }, { productId: newId }],
+  });
+  if (taken) return product;
+
+  product.previousProductId = oldId;
+  product.id = newId;
+  product.productId = newId;
+  await product.save();
+
+  await Promise.all([
+    FarmerStockHistory.updateMany({ productId: oldId }, { $set: { productId: newId } }),
+    FarmerOrder.updateMany({ productId: oldId }, { $set: { productId: newId } }),
+    FarmerHarvestOrder.updateMany({ productId: oldId }, { $set: { productId: newId } }),
+    Article.updateMany({ sourceProductId: oldId }, { $set: { sourceProductId: newId } }),
+    QrCode.updateMany(
+      { $or: [{ entityId: oldId }, { articleId: oldId }] },
+      { $set: { entityId: newId } }
+    ),
+  ]);
+  return product;
 }
 
 export async function assignFarmerBusinessId(payload = {}) {

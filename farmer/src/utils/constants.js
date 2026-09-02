@@ -108,6 +108,7 @@ export const FARMER_PRODUCT_STATUSES = [
   "Draft",
   "Pending Approval",
   "Active",
+  "Rejected",
   "Low Stock",
   "Out of Stock",
   "Paused",

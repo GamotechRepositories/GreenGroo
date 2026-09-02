@@ -27,6 +27,7 @@ import {
   syncFarmerProductToErp,
   ensureEntityQr,
   upgradeCropIdWithCropCode,
+  upgradeFarmerProductId,
 } from "../../erp-service/src/services/farmerSync.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
@@ -1491,9 +1492,12 @@ const PRODUCT_STATUS_ALIASES = {
   Draft: "Draft",
   PENDING_APPROVAL: "Pending Approval",
   "Pending Approval": "Pending Approval",
+  Pending: "Pending Approval",
   ACTIVE: "Active",
   Active: "Active",
   Approved: "Active",
+  REJECTED: "Rejected",
+  Rejected: "Rejected",
   LOW_STOCK: "Low Stock",
   "Low Stock": "Low Stock",
   OUT_OF_STOCK: "Out of Stock",
@@ -1587,6 +1591,7 @@ function publicMyProduct(product, farmer, crop) {
     productId: plain.productId || plain.id,
     productName: plain.productName || plain.name,
     cropName: plain.cropName || crop?.cropName || "",
+    categoryCode: categoryFromName(plain.cropName || crop?.cropName || ""),
     variety: plain.variety || crop?.variety || "",
     availableQuantity: quantity,
     stock: quantity,
@@ -1629,9 +1634,9 @@ function publicMyProduct(product, farmer, crop) {
 async function loadOwnProduct(req, res) {
   const farmerId = authFarmerId(req);
   const productId = req.params.productId;
-  const product = await FarmerProduct.findOne({
+    const product = await FarmerProduct.findOne({
     farmerId,
-    $or: [{ id: productId }, { productId }],
+    $or: [{ id: productId }, { productId }, { previousProductId: productId }],
   });
   if (!product) {
     res.status(404).json({ message: "Product not found" });
@@ -1745,13 +1750,17 @@ export async function listMyProducts(req, res) {
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const products = await FarmerProduct.find({ farmerId }).sort({ createdAt: -1 });
+    const upgraded = [];
+    for (const product of products) {
+      upgraded.push(await upgradeFarmerProductId(product));
+    }
     const cropIds = [...new Set(products.map((p) => p.cropId).filter(Boolean))];
     const crops = cropIds.length
       ? await FarmerCrop.find({ farmerId, $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }] }).lean()
       : [];
     const cropMap = new Map(crops.map((c) => [c.id, c]));
     crops.forEach((c) => cropMap.set(c.cropId, c));
-    res.json(products.map((p) => publicMyProduct(p, farmer, cropMap.get(p.cropId))));
+    res.json(upgraded.map((p) => publicMyProduct(p, farmer, cropMap.get(p.cropId))));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load products" });
   }
@@ -1761,11 +1770,12 @@ export async function getMyProduct(req, res) {
   try {
     const product = await loadOwnProduct(req, res);
     if (!product) return;
-    const farmer = await Farmer.findOne({ id: product.farmerId });
-    const crop = product.cropId
-      ? await FarmerCrop.findOne({ farmerId: product.farmerId, $or: [{ id: product.cropId }, { cropId: product.cropId }] })
+    const upgraded = await upgradeFarmerProductId(product);
+    const farmer = await Farmer.findOne({ id: upgraded.farmerId });
+    const crop = upgraded.cropId
+      ? await FarmerCrop.findOne({ farmerId: upgraded.farmerId, $or: [{ id: upgraded.cropId }, { cropId: upgraded.cropId }] })
       : null;
-    res.json(publicMyProduct(product, farmer, crop));
+    res.json(publicMyProduct(upgraded, farmer, crop));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load product" });
   }
@@ -1790,7 +1800,11 @@ export async function createMyProduct(req, res) {
       parsed.variety = parsed.variety || crop.variety;
     }
 
-    const id = `fp-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+    const id = await generateId({
+      module: "ART",
+      category: categoryFromName(parsed.cropName || crop?.cropName),
+      crop: cropCodeFromName(parsed.cropName || crop?.cropName),
+    });
     const status = publish ? "Pending Approval" : "Draft";
     const product = new FarmerProduct({
       id,
@@ -1837,6 +1851,7 @@ export async function updateMyProduct(req, res) {
     applyProductFields(product, parsed, farmer, crop);
     if (publish) {
       product.status = "Pending Approval";
+      product.rejectionReason = "";
     } else if (req.body?.status) {
       const next = normalizeProductStatus(req.body.status);
       if (next === "Pending Approval") {
@@ -1859,8 +1874,8 @@ export async function deleteMyProduct(req, res) {
     const product = await loadOwnProduct(req, res);
     if (!product) return;
     const status = normalizeProductStatus(product.status);
-    if (status !== "Draft") {
-      return res.status(400).json({ message: "Only draft products can be deleted" });
+    if (status !== "Draft" && status !== "Rejected") {
+      return res.status(400).json({ message: "Only draft or rejected products can be deleted" });
     }
     await FarmerProduct.deleteOne({ id: product.id, farmerId: product.farmerId });
     await FarmerStockHistory.deleteMany({ productId: product.id, farmerId: product.farmerId });
@@ -2004,6 +2019,7 @@ export async function patchMyProductStatus(req, res) {
     const next = normalizeProductStatus(req.body?.status);
     const allowed = {
       Draft: ["Draft", "Pending Approval"],
+      Rejected: ["Rejected", "Draft", "Pending Approval"],
       "Pending Approval": ["Pending Approval"],
       Active: ["Active", "Paused"],
       "Low Stock": ["Low Stock", "Paused", "Active"],
@@ -2016,6 +2032,7 @@ export async function patchMyProductStatus(req, res) {
     if (next === "Pending Approval") {
       const parsed = validateMyProductPayload({ ...toPlain(product), media: product.media }, { publish: true });
       if (parsed.error) return res.status(400).json({ message: parsed.error });
+      product.rejectionReason = "";
     }
     if (next === "Active") {
       product.status = applyStockDrivenStatus("Active", product.availableQuantity, product.lowStockLimit);
@@ -2570,9 +2587,12 @@ export async function getFarmerDashboard(req, res) {
 export async function getFarmerProducts(req, res) {
   try {
     const { farmerId } = req.params;
-    const products = await FarmerProduct.find({ farmerId }).select("-images").sort({ createdAt: -1 }).lean();
-    const enriched = products.map((p) => enrichProductRow(p));
-    res.json(enriched);
+    const products = await FarmerProduct.find({ farmerId }).select("-images").sort({ createdAt: -1 });
+    const upgraded = [];
+    for (const product of products) {
+      upgraded.push(await upgradeFarmerProductId(product));
+    }
+    res.json(upgraded.map((p) => enrichProductRow(toPlain(p))));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch products" });
   }
@@ -2581,11 +2601,66 @@ export async function getFarmerProducts(req, res) {
 export async function getFarmerProductById(req, res) {
   try {
     const { farmerId, productId } = req.params;
-    const product = await FarmerProduct.findOne({ id: productId, farmerId });
+    const product = await FarmerProduct.findOne({
+      farmerId,
+      $or: [{ id: productId }, { productId }, { previousProductId: productId }],
+    });
     if (!product) return res.status(404).json({ message: "Product not found" });
-    res.json(product);
+    res.json(await upgradeFarmerProductId(product));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch product" });
+  }
+}
+
+async function loadAccessibleFarmerProduct(req, res) {
+  const { farmerId, productId } = req.params;
+  const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+  if (!farmer) {
+    res.status(404).json({ message: "Farmer not found" });
+    return null;
+  }
+  const product = await FarmerProduct.findOne({
+    farmerId,
+    $or: [{ id: productId }, { productId }, { previousProductId: productId }],
+  });
+  if (!product) {
+    res.status(404).json({ message: "Product not found" });
+    return null;
+  }
+  return { farmer, product };
+}
+
+export async function reviewFarmerProduct(req, res) {
+  try {
+    const loaded = await loadAccessibleFarmerProduct(req, res);
+    if (!loaded) return;
+    const { farmer, product } = loaded;
+    const current = normalizeProductStatus(product.status);
+    if (current !== "Pending Approval") {
+      return res.status(400).json({ message: "Only pending products can be reviewed" });
+    }
+
+    const decision = String(req.body?.decision || req.body?.status || "").trim().toLowerCase();
+    const reviewer = req.user?.name || req.user?.role || "";
+    if (["approved", "approve", "active"].includes(decision)) {
+      const qty = Number(product.availableQuantity ?? product.stock ?? 0);
+      product.status = applyStockDrivenStatus("Active", qty, product.lowStockLimit);
+      product.rejectionReason = "";
+      product.reviewedBy = reviewer;
+      product.reviewedAt = new Date();
+    } else if (["rejected", "reject"].includes(decision)) {
+      product.status = "Rejected";
+      product.rejectionReason = String(req.body?.reason || req.body?.rejectionReason || "").trim();
+      product.reviewedBy = reviewer;
+      product.reviewedAt = new Date();
+    } else {
+      return res.status(400).json({ message: "Decision must be approved or rejected" });
+    }
+
+    await product.save();
+    res.json(publicMyProduct(product, farmer));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to review product" });
   }
 }
 
@@ -2610,9 +2685,16 @@ export async function createFarmerProduct(req, res) {
     }
 
     const totalStock = grades.reduce((s, g) => s + Number(g.quantity || 0), 0);
+    const cropName = payload.cropName || payload.name || "";
+    const id = await generateId({
+      module: "ART",
+      category: categoryFromName(cropName),
+      crop: cropCodeFromName(cropName),
+    });
 
     const product = new FarmerProduct({
-      id: `fp-${Date.now()}`,
+      id,
+      productId: id,
       vendorId: farmer.vendorId,
       managerId: farmer.managerId,
       farmerId,
@@ -2628,6 +2710,7 @@ export async function createFarmerProduct(req, res) {
       produceType: payload.produceType || "organic",
       farmLocation: payload.farmLocation || farmer.farmLocation || "",
       cropId: payload.cropId || "",
+      cropName,
       variety: payload.variety || "",
       status: payload.status || "Approved",
       sellingPrice: Number(payload.sellingPrice) || 0,
@@ -2676,7 +2759,10 @@ export async function updateFarmerProduct(req, res) {
     const { farmerId, productId } = req.params;
     const payload = req.body;
 
-    const product = await FarmerProduct.findOne({ id: productId, farmerId });
+    const product = await FarmerProduct.findOne({
+      farmerId,
+      $or: [{ id: productId }, { productId }, { previousProductId: productId }],
+    });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     if (payload.name) product.name = payload.name;
@@ -3747,10 +3833,29 @@ export async function getVendorDashboard(req, res) {
       pendingOrders: o.pendingOrders,
       totalEarnings: e.totalEarnings,
       pendingEarnings: e.pendingEarnings,
+      pendingProductApprovals: await FarmerProduct.countDocuments({
+        vendorId,
+        status: { $in: ["Pending Approval", "Pending", "PENDING_APPROVAL"] },
+      }),
       recentOrders: recentOrders.map((ord) => ({ ...ord, farmerName: farmerNameMap.get(ord.farmerId) || "—" })),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed" });
+  }
+}
+
+export async function getVendorAllProducts(req, res) {
+  try {
+    const vendorId = req.user.vendorId;
+    const farmers = await Farmer.find({ vendorId }).select("id name mobile farmName").sort({ createdAt: -1 }).lean();
+    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const products = await FarmerProduct.find({ vendorId }).select("-images").sort({ createdAt: -1 }).lean();
+    res.json({
+      farmers,
+      products: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch products" });
   }
 }
 
@@ -3864,10 +3969,11 @@ export async function getManagerDashboard(req, res) {
         pendingEarnings: 0,
         recentOrders: [],
         lowStock: [],
+        pendingProductApprovals: 0,
       });
     }
 
-    const [productAgg, orderAgg, earningAgg, recentOrders, lowStockProducts] = await Promise.all([
+    const [productAgg, orderAgg, earningAgg, recentOrders, lowStockProducts, pendingProductApprovals] = await Promise.all([
       FarmerProduct.aggregate([
         { $match: { farmerId: { $in: farmerIds } } },
         { $group: { _id: null, totalProducts: { $sum: 1 }, totalInventory: { $sum: { $ifNull: ["$stock", 0] } } } },
@@ -3901,6 +4007,10 @@ export async function getManagerDashboard(req, res) {
         .select("farmerId name grades stock lowStockLimit")
         .lean()
         .then((rows) => rows.filter((p) => Number(p.stock || 0) <= Number(p.lowStockLimit || 10)).slice(0, 20)),
+      FarmerProduct.countDocuments({
+        farmerId: { $in: farmerIds },
+        status: { $in: ["Pending Approval", "Pending", "PENDING_APPROVAL"] },
+      }),
     ]);
 
     const p = productAgg[0] || { totalProducts: 0, totalInventory: 0 };
@@ -3916,6 +4026,7 @@ export async function getManagerDashboard(req, res) {
       pendingOrders: o.pendingOrders,
       totalEarnings: e.totalEarnings,
       pendingEarnings: e.pendingEarnings,
+      pendingProductApprovals,
       recentOrders: recentOrders.map((ord) => ({
         ...ord,
         farmerName: farmerNameMap.get(ord.farmerId) || "—",

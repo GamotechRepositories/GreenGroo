@@ -11,8 +11,10 @@ import {
   getManagerFarmerDocuments,
   uploadManagerFarmerDocument,
   deleteManagerFarmerCrop,
+  reviewManagerFarmerProduct,
 } from "../../api/farmerApi";
-import { formatCropDate, formatCropBusinessId } from "../../utils/cropLinks";
+import { isPendingProductApproval } from "../../utils/productActions";
+import { formatCropDate, formatCropBusinessId, formatProductBusinessId } from "../../utils/cropLinks";
 import FileUpload from "../../components/ui/FileUpload";
 import {
   EXCEL_PANEL,
@@ -51,6 +53,7 @@ const STATUS_BADGE = (status) => {
     Active: "bg-green-100 text-green-700",
     Inactive: "bg-gray-100 text-gray-600",
     Pending: "bg-yellow-100 text-yellow-700",
+    "Pending Approval": "bg-yellow-100 text-yellow-700",
     Approved: "bg-green-100 text-green-700",
     Rejected: "bg-red-100 text-red-700",
     "Not Uploaded": "bg-gray-100 text-gray-600",
@@ -77,6 +80,7 @@ export default function ManagerFarmerDetailPage() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingType, setUploadingType] = useState("");
+  const [busyProductId, setBusyProductId] = useState("");
 
   const loadDocuments = () =>
     getManagerFarmerDocuments(farmerId)
@@ -104,6 +108,26 @@ export default function ManagerFarmerDetailPage() {
     }
     if (tab === "Documents") loadDocuments();
   }, [tab, farmerId]);
+
+  const handleReviewProduct = async (product, decision) => {
+    const id = product.id || product.productId;
+    let reason = "";
+    if (decision === "rejected") {
+      const typed = window.prompt("Reason for rejection (optional)");
+      if (typed === null) return;
+      reason = typed;
+    }
+    setBusyProductId(id);
+    try {
+      await reviewManagerFarmerProduct(farmerId, id, decision, reason);
+      toast.success(decision === "approved" ? "Product approved" : "Product rejected");
+      setProducts(await getManagerFarmerProducts(farmerId));
+    } catch (err) {
+      toast.error(err.message || "Failed to review product");
+    } finally {
+      setBusyProductId("");
+    }
+  };
 
   const handleUploadDocument = async (type, file) => {
     if (!file) return;
@@ -293,23 +317,44 @@ export default function ManagerFarmerDetailPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#F2F2F2] text-left">
-                  {["Product", "Category", "Grades", "Harvest Date", "Status"].map((h) => (
+                  {["Product", "Product ID", "Category", "Grades", "Harvest Date", "Status", "Action"].map((h) => (
                     <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {products.length === 0 ? (
-                  <tr><td colSpan={5} className="px-3 py-4 text-center text-[#6B7280]">No products</td></tr>
+                  <tr><td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">No products</td></tr>
                 ) : products.map((p) => (
                   <tr key={p.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                     <td className="px-3 py-2.5 font-semibold">{p.name}</td>
+                    <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatProductBusinessId(p)}</td>
                     <td className="px-3 py-2.5">{p.category}</td>
                     <td className="px-3 py-2.5">
                       {p.grades?.map((g) => `${g.label}: ${g.quantity} Kg`).join(" · ") || "—"}
                     </td>
                     <td className="px-3 py-2.5">{p.harvestDate || "—"}</td>
                     <td className="px-3 py-2.5">{STATUS_BADGE(p.status)}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-nowrap items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={busyProductId === (p.id || p.productId) || !isPendingProductApproval(p.status)}
+                          onClick={() => handleReviewProduct(p, "approved")}
+                          className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 hover:bg-green-200 disabled:opacity-40"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyProductId === (p.id || p.productId) || !isPendingProductApproval(p.status)}
+                          onClick={() => handleReviewProduct(p, "rejected")}
+                          className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700 hover:bg-red-200 disabled:opacity-40"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

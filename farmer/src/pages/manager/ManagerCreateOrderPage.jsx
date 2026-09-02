@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { getManagerFarmers, getManagerFarmerProducts, createManagerOrder } from "../../api/farmerApi";
 import { EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
@@ -22,6 +22,9 @@ function getTodayDayName() {
 
 export default function ManagerCreateOrderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const presetFarmerId = searchParams.get("farmerId") || "";
+  const presetProductId = searchParams.get("productId") || "";
   const [farmers, setFarmers] = useState([]);
   const [selectedFarmerId, setSelectedFarmerId] = useState("");
   const [farmerProducts, setFarmerProducts] = useState([]);
@@ -52,7 +55,8 @@ export default function ManagerCreateOrderPage() {
         const list = Array.isArray(fs) ? fs : [];
         setFarmers(list);
         if (list.length > 0) {
-          setSelectedFarmerId(list[0].id);
+          const match = list.find((f) => f.id === presetFarmerId || f.farmerId === presetFarmerId);
+          setSelectedFarmerId(match?.id || list[0].id);
         }
       })
       .catch(() => setFarmers([]))
@@ -71,13 +75,17 @@ export default function ManagerCreateOrderPage() {
         const pList = Array.isArray(prods) ? prods : [];
         setFarmerProducts(pList);
         if (pList.length > 0) {
-          const first = pList[0];
-          setSelectedProductId(first.id);
-          setProductUnit(first.unit || "Kg");
+          const match =
+            pList.find((p) => p.id === presetProductId || p.productId === presetProductId) || pList[0];
+          setSelectedProductId(match.id);
+          setProductUnit(match.unit || "Kg");
+          if (match.harvestDate) {
+            setHarvestDate(String(match.harvestDate).slice(0, 10));
+          }
 
-          if (first.grades && first.grades.length > 0) {
+          if (match.grades && match.grades.length > 0) {
             setGrades(
-              first.grades.map((g, idx) => ({
+              match.grades.map((g, idx) => ({
                 id: `g_${idx}`,
                 name: g.label || `Grade ${String.fromCharCode(65 + idx)}`,
                 quantity: 0,

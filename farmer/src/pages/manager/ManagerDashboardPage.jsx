@@ -56,6 +56,7 @@ export default function ManagerDashboardPage() {
           <StatCard label="Total Farmers" value={stats?.totalFarmers} to="/farmer/manager/farmers" />
           <StatCard label="Active Farmers" value={stats?.activeFarmers} color="text-[#217346]" to="/farmer/manager/farmers" />
           <StatCard label="Total Products" value={stats?.totalProducts} to="/farmer/manager/products" />
+          <StatCard label="Pending Product Approvals" value={stats?.pendingProductApprovals} color="text-amber-600" to="/farmer/manager/products" />
           <StatCard label="Total Inventory" value={`${stats?.totalInventory ?? 0} Kg`} to="/farmer/manager/inventory" />
           <StatCard label="Total Orders" value={stats?.totalOrders} to="/farmer/manager/orders" />
           <StatCard label="Pending Orders" value={stats?.pendingOrders} color="text-amber-600" to="/farmer/manager/orders" />

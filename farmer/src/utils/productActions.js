@@ -2,6 +2,8 @@ export function productActionSet(status) {
   switch (status) {
     case "Draft":
       return ["view", "edit", "delete", "publish"];
+    case "Rejected":
+      return ["view", "edit", "delete", "publish"];
     case "Pending Approval":
       return ["view"];
     case "Active":
@@ -14,6 +16,11 @@ export function productActionSet(status) {
     default:
       return ["view"];
   }
+}
+
+export function isPendingProductApproval(status) {
+  const s = String(status || "").toLowerCase().replace(/_/g, " ");
+  return s === "pending approval" || s === "pending";
 }
 
 export function canProductAction(status, action) {
