@@ -32,6 +32,7 @@ import {
   getPendingOffer,
   scanPickupQr,
   scanStoreQr,
+  submitPickupProofByDriver,
 } from "../controllers/riderOrderController.js";
 
 import {
@@ -82,6 +83,7 @@ router.post("/orders/:orderId/decline", protect, declineOrderOffer);
 router.get("/active-delivery", protect, getActiveDelivery);
 router.get("/orders/:orderId/pickup-qr", protect, getDriverPickupQr);
 router.post("/orders/:orderId/scan-pickup-qr", protect, scanPickupQr);
+router.post("/orders/:orderId/pickup-proof", protect, submitPickupProofByDriver);
 router.post("/orders/:orderId/scan-store-qr", protect, scanStoreQr);
 router.post("/orders/:orderId/complete", protect, completeDelivery);
 

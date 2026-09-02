@@ -57,6 +57,7 @@ abstract final class ApiConfig {
   static String declineOffer(String id) => '/api/delivery-boys/orders/$id/decline';
   static String scanStoreQr(String id) => '/api/delivery-boys/orders/$id/scan-store-qr';
   static String scanPickupQr(String id) => '/api/delivery-boys/orders/$id/scan-pickup-qr';
+  static String submitPickupProof(String id) => '/api/delivery-boys/orders/$id/pickup-proof';
   static String completeDelivery(String id) => '/api/delivery-boys/orders/$id/complete';
   static String pickupQr(String id) => '/api/delivery-boys/orders/$id/pickup-qr';
 }

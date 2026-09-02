@@ -145,7 +145,7 @@ const storeSettingsSchema = new mongoose.Schema(
     },
     minimumOrderValue: {
       type: Number,
-      default: 3000,
+      default: 200,
       min: [0, "Minimum order value must be 0 or more"],
     },
     minimumShippingCharge: {

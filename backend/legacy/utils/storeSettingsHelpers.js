@@ -3,7 +3,7 @@ import { mergeEnviaOriginDefaults } from "../../../shared/shipping/enviaOriginAd
 import { normalizeGiftHamperTiers } from "../../../shared/store/giftHamper.js";
 
 export const DEFAULT_STORE_SETTINGS = {
-  minimumOrderValue: 0,
+  minimumOrderValue: 200,
   minimumShippingCharge: 280,
   shippingSlabs: [
     { orderAmount: 3000, shippingCharge: 280 },
@@ -241,6 +241,9 @@ export async function getStoreSettings({ forceRefresh = false } = {}) {
   let doc = await StoreSettings.findOne({ key: "store" });
   if (!doc) {
     doc = await StoreSettings.create({ key: "store" });
+  } else if (doc.minimumOrderValue === 3000) {
+    doc.minimumOrderValue = 200;
+    await doc.save();
   }
 
   cachedSettings = serializeStoreSettings(doc);

@@ -1,81 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
 import { subscribeToSocketEvent } from "../../services/socket";
-
-const STATUS_BADGE = {
-  order_received: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200">
-      <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-      NEW ORDER
-    </span>
-  ),
-  incoming: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-200">
-      <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-      NEW ORDER
-    </span>
-  ),
-  packed: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-bold text-purple-700 border border-purple-200">
-      📦 PACKED
-    </span>
-  ),
-  offered: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 border border-amber-300 animate-pulse">
-      ⏱ SEARCHING DRIVER
-    </span>
-  ),
-  assigned: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700 border border-teal-200">
-      🛵 ASSIGNED
-    </span>
-  ),
-  out_for_delivery: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-300">
-      ⚡ OUT FOR DELIVERY
-    </span>
-  ),
-  delivered: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-300">
-      ✅ DELIVERED
-    </span>
-  ),
-  stock_issue: (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 border border-rose-200">
-      ⚠️ STOCK ISSUE
-    </span>
-  ),
-};
-
-const STATUS_TABS = [
-  { id: "active", label: "Active" },
-  { id: "incoming", label: "New / Pack" },
-  { id: "packed", label: "Packed" },
-  { id: "out_for_delivery", label: "Out for Delivery" },
-  { id: "delivered", label: "Delivered" },
-  { id: "all", label: "All" },
-];
-
-function matchesTab(order, tab) {
-  const s = order.status;
-  if (tab === "all") return true;
-  if (tab === "active") return ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery"].includes(s);
-  if (tab === "incoming") return ["incoming", "order_received", "stock_issue"].includes(s);
-  if (tab === "packed") return ["packed", "offered"].includes(s);
-  if (tab === "out_for_delivery") return ["assigned", "out_for_delivery"].includes(s);
-  if (tab === "delivered") return s === "delivered";
-  return true;
-}
+import { STATUS_TABS, matchesTab, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary } from "./orderUtils";
 
 export default function OrdersPage() {
   const { manager } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [onlineRiders, setOnlineRiders] = useState([]);
-  const [pendingSkus, setPendingSkus] = useState([]);
   const [selectedRider, setSelectedRider] = useState({});
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState("");
@@ -83,15 +19,10 @@ export default function OrdersPage() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("active");
-  const [requestItem, setRequestItem] = useState(null);
-  const [requestQty, setRequestQty] = useState(20);
-  const [requestNote, setRequestNote] = useState("");
   const [pickupQrOrderId, setPickupQrOrderId] = useState(null);
   const [pickupQrLoading, setPickupQrLoading] = useState(false);
   const [pickupQrError, setPickupQrError] = useState("");
   const [pickupQrData, setPickupQrData] = useState(null);
-
-  const pendingSkuSet = useMemo(() => new Set(pendingSkus), [pendingSkus]);
 
   const load = useCallback(async () => {
     try {
@@ -102,16 +33,6 @@ export default function OrdersPage() {
       setOrders(ord.data.orders || []);
       setOnlineRiders((rid.data.riders || []).filter((r) => r.status === "online"));
       setError("");
-      try {
-        const req = await managerApi.listInventoryRequests({ status: "pending" });
-        setPendingSkus(
-          (req.data.requests || [])
-            .filter((r) => r.status === "pending")
-            .map((r) => r.sku)
-        );
-      } catch {
-        setPendingSkus([]);
-      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load orders");
     } finally {
@@ -129,6 +50,8 @@ export default function OrdersPage() {
       subscribeToSocketEvent("search_driver", () => load()),
       subscribeToSocketEvent("dispatch_no_riders_available", () => load()),
       subscribeToSocketEvent("pickup_verified", () => load()),
+      subscribeToSocketEvent("pickup_qr_scanned", () => load()),
+      subscribeToSocketEvent("pickup_proof_submitted", () => load()),
       subscribeToSocketEvent("order_out_for_delivery", () => load()),
     ];
     return () => {
@@ -187,45 +110,15 @@ export default function OrdersPage() {
     }
   };
 
-  const openRequest = (item, orderNumber) => {
-    setRequestItem(item);
-    setRequestQty(Math.max(20, (item.quantity || 1) * 3));
-    setRequestNote(
-      `Need restock to confirm order #${orderNumber || ""} — currently ${item.availableStock ?? 0} ${item.unit || "pcs"} in this dark store`
-    );
-  };
-
-  const submitRequest = async (e) => {
-    e.preventDefault();
-    if (!requestItem) return;
-    setSubmitting(true);
-    try {
-      const res = await managerApi.requestInventory({
-        sku: requestItem.sku,
-        productName: requestItem.name,
-        unit: requestItem.unit,
-        quantity: Number(requestQty),
-        note: requestNote,
-      });
-      showToast(res.data.message || "Request sent to Product Manager");
-      setRequestItem(null);
-      await load();
-    } catch (err) {
-      showToast(err.response?.data?.message || "Failed to send request");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const onInform = async (orderId, itemId) => {
-    const key = `inform-${orderId}-${itemId}`;
+  const onApprovePickupProof = async (orderId) => {
+    const key = `approve-proof-${orderId}`;
     setBusyKey(key);
     try {
-      const res = await managerApi.informCustomer(orderId, itemId);
-      showToast(res.data.message || "Customer informed");
+      const res = await managerApi.approvePickupProof(orderId);
+      showToast(res.data.message || "Item proof approved. Driver address unlocked.");
       await load();
     } catch (err) {
-      showToast(err.response?.data?.message || "Action failed");
+      showToast(err.response?.data?.message || "Could not approve item proof");
     } finally {
       setBusyKey("");
     }
@@ -399,7 +292,6 @@ export default function OrdersPage() {
                 <th className="py-2 px-4">Order # / Date</th>
                 <th className="py-2 px-4">Customer Details</th>
                 <th className="py-2 px-4">Delivery Address</th>
-                <th className="py-2 px-4">Items Summary</th>
                 <th className="py-2 px-4">Status</th>
                 <th className="py-2 px-4">Assigned Driver</th>
                 <th className="py-2 px-4 text-right">Actions</th>
@@ -408,11 +300,9 @@ export default function OrdersPage() {
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.map((order) => {
                 const oid = order.id || order._id;
-                const isInitial = ["incoming", "order_received", "stock_issue"].includes(order.status);
+                const isInitial = isInitialOrderStatus(order.status);
                 const isPacked = order.status === "packed";
-                const allAvailable = (order.items || []).every(
-                  (i) => i.stockStatus === "available" || i.customerInformed
-                );
+                const allAvailable = allItemsAvailable(order);
 
                 return (
                   <tr key={oid} className="hover:bg-slate-50/60 transition">
@@ -435,82 +325,38 @@ export default function OrdersPage() {
                       )}
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="space-y-1">
-                        {(order.items || []).map((item) => {
-                          const inStock = item.stockStatus === "available";
-                          const avail = item.availableStock ?? 0;
-                          const pending = pendingSkuSet.has(item.sku);
-                          return (
-                            <div key={item.id || item._id} className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                              <span className="font-semibold text-slate-800">{item.name}</span>
-                              <span className="text-slate-400">x{item.quantity}</span>
-                              <span
-                                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
-                                  inStock
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                    : "bg-rose-50 text-rose-700 border border-rose-200"
-                                }`}
-                              >
-                                {inStock ? `${avail} in stock` : `only ${avail} left`}
-                              </span>
-                              {!inStock && !item.customerInformed && (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={busyKey === `inform-${oid}-${item.id || item._id}`}
-                                    onClick={() => onInform(oid, item.id || item._id)}
-                                    className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200"
-                                  >
-                                    Inform Customer
-                                  </button>
-                                  {pending ? (
-                                    <span className="text-[9px] font-bold text-amber-700">Requested</span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => openRequest(item, order.orderNumber)}
-                                      className="rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-white"
-                                    >
-                                      Request Stock
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <OrderStatusText status={order.status} />
                     </td>
                     <td className="py-3.5 px-4">
-                      {STATUS_BADGE[order.status] || (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                          {(order.status || "").toUpperCase().replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {order.assignedRider ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full text-[11px]">
-                          🛵 {order.assignedRider.name || order.assignedRider.phone}
-                        </span>
-                      ) : order.offeredRider ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full text-[11px] animate-pulse">
-                          ⏱ Offering {order.offeredRider.name || order.offeredRider.phone}
-                        </span>
-                      ) : order.assignmentStatus === "WAITING_FOR_DRIVER" ? (
-                        <span className="text-amber-700 italic text-[11px] font-semibold">
-                          Waiting for nearby Delivery Partner…
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic text-[11px]">Unassigned</span>
-                      )}
-                      {order.pickupVerified ? (
-                        <div className="mt-1 text-[10px] font-bold text-emerald-700">✓ Pickup verified</div>
-                      ) : null}
+                      <DriverAssignmentText order={order} />
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex flex-col items-end gap-2">
-                        {order.status === "assigned" && !order.pickupVerified && (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/orders/${oid}`, { state: { order } })}
+                            className={actionBtnOutline}
+                          >
+                            View Detail
+                          </button>
+                          {isInitial && (
+                            <button
+                              type="button"
+                              disabled={!allAvailable || busyKey === `pack-${oid}`}
+                              onClick={() => onPackOrder(oid)}
+                              className={actionBtnPrimary}
+                            >
+                              {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
+                            </button>
+                          )}
+                        </div>
+                        {isInitial && !allAvailable && (
+                          <p className="text-[10px] text-rose-600 font-semibold max-w-[220px] text-right">
+                            Out of stock — request inventory first
+                          </p>
+                        )}
+                        {order.status === "assigned" && !order.pickupQrScanned && !order.pickupVerified && (
                           <button
                             type="button"
                             onClick={() => openPickupQr(oid)}
@@ -519,21 +365,21 @@ export default function OrdersPage() {
                             Show Pickup QR
                           </button>
                         )}
-                        {isInitial && (
-                          <div className="flex flex-col items-end gap-1">
+                        {order.pickupProofStatus === "pending" && order.pickupProofImageUrl && (
+                          <div className="flex flex-col items-end gap-2 max-w-[180px]">
+                            <img
+                              src={order.pickupProofImageUrl}
+                              alt="Item proof"
+                              className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                            />
                             <button
                               type="button"
-                              disabled={!allAvailable || busyKey === `pack-${oid}`}
-                              onClick={() => onPackOrder(oid)}
-                              className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition"
+                              disabled={busyKey === `approve-proof-${oid}`}
+                              onClick={() => onApprovePickupProof(oid)}
+                              className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                             >
-                              {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
+                              {busyKey === `approve-proof-${oid}` ? "Approving…" : "✓ Approve Item Proof"}
                             </button>
-                            {!allAvailable && (
-                              <p className="text-[10px] text-rose-600 font-semibold max-w-[160px]">
-                                Out of stock — request inventory first
-                              </p>
-                            )}
                           </div>
                         )}
                         {(isInitial || isPacked) && (
@@ -581,66 +427,6 @@ export default function OrdersPage() {
         driverName={pickupQrData?.driverName}
         pickupQrPayload={pickupQrData?.pickupQrPayload}
       />
-
-      {requestItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
-          <form
-            onSubmit={submitRequest}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4"
-          >
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Request inventory</h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Sends a restock request to Product Manager for{" "}
-                <span className="font-semibold">{requestItem.name}</span>
-              </p>
-            </div>
-            <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              Current stock:{" "}
-              <strong>
-                {requestItem.availableStock ?? 0} {requestItem.unit || "pcs"}
-              </strong>{" "}
-              · SKU {requestItem.sku}
-            </div>
-            <label className="block text-xs font-bold text-slate-700">
-              Quantity to request
-              <input
-                type="number"
-                min={1}
-                required
-                value={requestQty}
-                onChange={(e) => setRequestQty(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500"
-              />
-            </label>
-            <label className="block text-xs font-bold text-slate-700">
-              Note for Product Manager
-              <textarea
-                rows={3}
-                value={requestNote}
-                onChange={(e) => setRequestNote(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500"
-              />
-            </label>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRequestItem(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
-              >
-                {submitting ? "Sending…" : "Send to Product Manager"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </PageShell>
   );
 }

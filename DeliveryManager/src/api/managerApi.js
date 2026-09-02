@@ -46,6 +46,8 @@ export const managerApi = {
   getPickupQr: (orderId) => api.get(`${BASE}/orders/${orderId}/pickup-qr`),
   verifyPickup: (orderId, qrPayload) =>
     api.post(`${BASE}/orders/${orderId}/verify-pickup`, { qrPayload }),
+  approvePickupProof: (orderId) =>
+    api.post(`${BASE}/orders/${orderId}/approve-pickup-proof`),
 
   // Shift & Slot Management APIs
   createShift: (data) => api.post(`${BASE}/shifts`, data),

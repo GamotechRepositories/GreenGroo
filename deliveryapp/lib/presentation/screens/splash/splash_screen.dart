@@ -6,12 +6,13 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import 'widgets/splash_background.dart';
-import 'widgets/splash_bottom_banner.dart';
-import 'widgets/splash_branding.dart';
+import 'widgets/splash_footer.dart';
+import 'widgets/splash_header.dart';
 import 'widgets/splash_progress_line.dart';
 import 'widgets/splash_scooter.dart';
+import 'widgets/splash_speed_lines.dart';
 
-/// Splash: gray track appears first, then scooter rides left → right filling it green.
+/// Full-screen splash — large scooter rides left → right on dotted path.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,17 +22,14 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  static const _fullDuration = Duration(milliseconds: 15000);
-  static const _shortDuration = Duration(milliseconds: 15000);
+  static const _fullDuration = Duration(milliseconds: 20000);
+  static const _shortDuration = Duration(milliseconds: 20000);
 
   late final AnimationController _controller;
   late final Animation<double> _scooterProgress;
-  late final Animation<double> _titleOpacity;
-  late final Animation<double> _taglineOpacity;
 
   bool _started = false;
   bool _navigated = false;
-  bool _hasSession = false;
 
   @override
   void initState() {
@@ -44,27 +42,16 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    _hasSession = AuthService.instance.isLoggedIn;
-    final duration = _hasSession ? _shortDuration : _fullDuration;
+    final duration =
+        AuthService.instance.isLoggedIn ? _shortDuration : _fullDuration;
 
     _controller = AnimationController(vsync: this, duration: duration);
 
     _scooterProgress = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.78, curve: Curves.linear),
+        curve: const Interval(0.0, 0.9, curve: Curves.linear),
       ),
-    );
-
-    // Appears only after scooter exits off the right edge.
-    _titleOpacity = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.78, 0.92, curve: Curves.easeOut),
-    );
-
-    _taglineOpacity = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.84, 0.96, curve: Curves.easeOut),
     );
 
     _controller.addStatusListener((status) {
@@ -90,11 +77,10 @@ class _SplashScreenState extends State<SplashScreen>
     if (AuthService.instance.isLoggedIn) {
       await AuthService.instance.fetchMe();
     }
-    _hasSession = AuthService.instance.isLoggedIn;
 
     if (!mounted || _started) return;
     _started = true;
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
     _controller.forward();
   }
@@ -133,26 +119,15 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    const horizontalPad = 20.0;
-    final trackWidth = size.width - horizontalPad * 2;
-    var scooterWidth = (size.width * 0.62).clamp(220.0, 320.0);
-    var scooterHeight = scooterWidth * 0.78;
-    const lineHeight = 6.0;
-    var trackBlockHeight = scooterHeight + lineHeight + 8;
-    final maxAnimationHeight = (size.height * 0.36).clamp(180.0, 320.0);
-    const brandingReserve = 88.0;
-    if (brandingReserve + trackBlockHeight > maxAnimationHeight) {
-      final scale =
-          ((maxAnimationHeight - brandingReserve - lineHeight - 8) / scooterHeight)
-              .clamp(0.45, 1.0);
-      final scaledWidth = scooterWidth * scale;
-      scooterWidth = scaledWidth;
-      scooterHeight = scaledWidth * 0.78;
-      trackBlockHeight = scooterHeight + lineHeight + 8;
-    }
+    const trackHorizontalPad = 36.0;
+    final trackWidth = size.width - trackHorizontalPad * 2;
+    final scooterWidth = size.width * 0.84;
+    final scooterHeight = scooterWidth * 0.74;
+    const dotSize = 6.0;
+    final trackTop = size.height * 0.575;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE6F4E9),
+      backgroundColor: const Color(0xFFF0FAF2),
       body: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -162,69 +137,60 @@ class _SplashScreenState extends State<SplashScreen>
             trackWidth: trackWidth,
             scooterWidth: scooterWidth,
           );
-
           final showScooter = progress > 0 && scooterLeft < trackWidth;
+          final speedOpacity = showScooter ? (1 - progress * 0.35) : 0.0;
+          final scooterFront =
+              (scooterLeft + scooterWidth * 0.8).clamp(0.0, trackWidth);
 
-          return Column(
+          return Stack(
+            fit: StackFit.expand,
             children: [
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: const [SplashBackground()],
+              const SplashBackground(),
+              Positioned(
+                left: trackHorizontalPad,
+                top: trackTop,
+                width: trackWidth,
+                child: SplashProgressLine(
+                  width: trackWidth,
+                  fillPosition: scooterFront,
+                  dotSize: dotSize,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(horizontalPad, 0, horizontalPad, 10),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: brandingReserve,
-                      child: Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: SplashBranding(
-                            titleOpacity: _titleOpacity.value,
-                            taglineOpacity: _taglineOpacity.value,
-                          ),
+              if (showScooter)
+                Positioned(
+                  left: trackHorizontalPad + scooterLeft,
+                  top: trackTop - scooterHeight + dotSize + 2,
+                  width: scooterWidth,
+                  height: scooterHeight,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      Positioned(
+                        left: -scooterWidth * 0.32,
+                        top: scooterHeight * 0.22,
+                        child: SplashSpeedLines(
+                          width: scooterWidth * 0.42,
+                          height: scooterHeight * 0.45,
+                          opacity: speedOpacity,
                         ),
                       ),
-                    ),
-                    SizedBox(
-                      width: trackWidth,
-                      height: trackBlockHeight,
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
-                        alignment: Alignment.bottomLeft,
-                        children: [
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: SplashProgressLine(
-                              progress: progress,
-                              width: trackWidth,
-                              height: lineHeight,
-                            ),
-                          ),
-                          if (showScooter)
-                            Positioned(
-                              left: scooterLeft,
-                              bottom: lineHeight - 1,
-                              width: scooterWidth,
-                              height: scooterHeight,
-                              child: SplashScooter(
-                                width: scooterWidth,
-                                height: scooterHeight,
-                              ),
-                            ),
-                        ],
+                      SplashScooter(
+                        width: scooterWidth,
+                        height: scooterHeight,
                       ),
-                    ),
+                    ],
+                  ),
+                ),
+              SafeArea(
+                child: Column(
+                  children: [
+                    const SplashHeader(),
+                    const Spacer(),
+                    const SplashFooter(),
                   ],
                 ),
               ),
-              const SplashBottomBanner(),
             ],
           );
         },
@@ -232,7 +198,6 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  /// progress 0 → off-screen left; progress 1 → fully off-screen right.
   double _scooterLeftOnTrack({
     required double progress,
     required double trackWidth,

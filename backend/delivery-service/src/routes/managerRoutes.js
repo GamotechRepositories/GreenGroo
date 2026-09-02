@@ -20,6 +20,7 @@ import {
 import {
   getManagerOrderPickupQr,
   verifyPickupByManager,
+  approvePickupProofByManager,
 } from "../controllers/riderOrderController.js";
 import {
   createInventoryRequest,
@@ -78,6 +79,7 @@ router.post("/orders/:orderId/inform-customer", informCustomer);
 router.post("/orders/:orderId/pack", packOrder);
 router.get("/orders/:orderId/pickup-qr", getManagerOrderPickupQr);
 router.post("/orders/:orderId/verify-pickup", verifyPickupByManager);
+router.post("/orders/:orderId/approve-pickup-proof", approvePickupProofByManager);
 router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);

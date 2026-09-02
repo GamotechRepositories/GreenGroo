@@ -4,8 +4,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- TODO: Remove android:usesCleartextTraffic once API_LIVE_URL is HTTPS -->
+    <!-- TODO: Remove android:networkSecurityConfig once API_LIVE_URL is HTTPS -->
     <application
-        android:label="GreenGroc Delivery Partner"
+        android:label="GG delivery partner"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"

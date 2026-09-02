@@ -52,7 +52,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
       return;
     }
 
-    Navigator.pushReplacementNamed(context, AppRoutes.welcome);
+    Navigator.pushReplacementNamed(context, AppRoutes.login);
   }
 
   String _displayName(AppLocalizations l10n, String code) {
@@ -80,31 +80,14 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: widget.fromSettings ? const AppBackButton() : null,
+        leading: AppBackButton(
+          fallbackRoute: widget.fromSettings ? null : AppRoutes.splash,
+        ),
       ),
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            // Header Graphic
-            Center(
-              child: Container(
-                width: 110,
-                height: 110,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFDCFCE7),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.two_wheeler_rounded,
-                    size: 56,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
             Text(
               'Select Language',
               style: GoogleFonts.inter(

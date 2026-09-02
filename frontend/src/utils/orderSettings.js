@@ -1,5 +1,5 @@
 export const DEFAULT_STORE_SETTINGS = {
-  minimumOrderValue: 0,
+  minimumOrderValue: 200,
   minimumShippingCharge: 280,
   shippingSlabs: [
     { orderAmount: 3000, shippingCharge: 280 },

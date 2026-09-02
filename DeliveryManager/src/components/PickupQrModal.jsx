@@ -47,8 +47,8 @@ export default function PickupQrModal({
                 <QRCodeSVG value={pickupQrPayload} size={180} level="M" includeMargin />
               </div>
               <p className="mt-4 text-center text-xs leading-relaxed text-slate-600">
-                Ask the delivery partner to tap <strong>Scan Pickup QR</strong> in their app and
-                scan this code to verify pickup.
+                Ask the delivery partner to tap <strong>Scan Pickup QR</strong>, then capture an{" "}
+                <strong>item proof photo</strong>. You must approve the photo to unlock the customer address.
               </p>
             </>
           ) : null}

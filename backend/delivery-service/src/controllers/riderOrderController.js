@@ -10,6 +10,8 @@ import {
   generateDriverPickupToken,
   verifyPickupByDriverScan,
   verifyPickupScan,
+  submitPickupProof,
+  approvePickupProof,
 } from "../services/PickupVerificationService.js";
 import { refreshStoreOrderCustomerCoords } from "../services/customerLocationService.js";
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
@@ -181,20 +183,20 @@ export const getActiveDelivery = async (req, res, next) => {
     }
 
     const manager = await DeliveryManager.findById(order.managerId);
-    const unlocked =
-      Boolean(order.customerAddressUnlocked) ||
-      Boolean(order.pickupVerified) ||
-      order.status === "out_for_delivery";
+    const unlocked = Boolean(order.customerAddressUnlocked);
 
     if (unlocked && (order.customerLat == null || order.customerLng == null)) {
       await refreshStoreOrderCustomerCoords(order);
     }
 
     let pickupQrPayload = null;
-    if (!unlocked && order.status === "assigned") {
+    const qrScanned = Boolean(order.pickupQrScanned || order.qrScannedAt);
+    if (!qrScanned && order.status === "assigned") {
       const pickupQr = await generateDriverPickupToken(order);
       pickupQrPayload = pickupQr.qrPayload;
     }
+
+    const proofStatus = order.pickupProofStatus || "none";
 
     const safeData = {
       id: order._id.toString(),
@@ -204,19 +206,28 @@ export const getActiveDelivery = async (req, res, next) => {
       darkStoreId: (order.darkStoreId || order.managerId).toString(),
       darkStoreName: manager?.storeName || `${order.area} Dark Store`,
       darkStoreAddress: manager?.storeAddress || `${order.area}, ${order.city}`,
+      darkStorePhone: manager?.phone || null,
       darkStoreLat: manager?.latitude,
       darkStoreLng: manager?.longitude,
       pickupQrPayload,
       items: order.items,
+      pickupQrScanned: qrScanned,
+      pickupQrScannedAt: order.pickupQrScannedAt || order.qrScannedAt,
+      pickupProofStatus: proofStatus,
+      pickupProofSubmittedAt: order.pickupProofSubmittedAt,
       pickupVerified: Boolean(order.pickupVerified),
       pickupVerifiedAt: order.pickupVerifiedAt,
       isCustomerLocationLocked: !unlocked,
       customerAddressUnlocked: unlocked,
       customerName: unlocked ? order.customerName : "Customer",
-      customerPhone: unlocked ? order.customerPhone : "Locked until pickup verification",
+      customerPhone: unlocked ? order.customerPhone : "Locked until manager approves item proof",
       customerAddress: unlocked
         ? order.customerAddress
-        : "Customer address unlocks after Dark Store scans your pickup QR",
+        : qrScanned && proofStatus === "pending"
+          ? "Waiting for manager to approve your item photo"
+          : qrScanned
+            ? "Take item photo and send to manager to unlock address"
+            : "Customer address unlocks after QR scan + manager item approval",
       customerLat: unlocked ? order.customerLat : null,
       customerLng: unlocked ? order.customerLng : null,
       otpCode: unlocked ? order.otpCode || "4321" : null,
@@ -259,21 +270,19 @@ export const scanPickupQr = async (req, res, next) => {
 
     return res.json({
       success: true,
-      message: "Pickup verified! Customer address unlocked.",
+      message: result.alreadyScanned
+        ? "Pickup QR already scanned. Take item photo for manager approval."
+        : "Pickup QR scanned! Now capture item photo for manager approval.",
       activeDelivery: {
         id: result.order._id.toString(),
         orderNumber: result.order.orderNumber,
         status: result.order.status,
         darkStoreName: manager?.storeName || `${result.order.area} Dark Store`,
         darkStoreAddress: manager?.storeAddress || "",
-        isCustomerLocationLocked: false,
-        customerAddressUnlocked: true,
-        customerName: result.order.customerName,
-        customerPhone: result.order.customerPhone,
-        customerAddress: result.order.customerAddress,
-        customerLat: result.order.customerLat,
-        customerLng: result.order.customerLng,
-        otpCode: result.order.otpCode || "4321",
+        pickupQrScanned: true,
+        pickupProofStatus: result.order.pickupProofStatus || "none",
+        isCustomerLocationLocked: true,
+        customerAddressUnlocked: false,
       },
     });
   } catch (error) {
@@ -339,32 +348,28 @@ export const scanStoreQr = async (req, res, next) => {
       });
     }
 
-    order.pickupVerified = true;
-    order.pickupVerifiedAt = new Date();
-    order.customerAddressUnlocked = true;
-    order.status = "out_for_delivery";
+    order.pickupQrScanned = true;
+    order.pickupQrScannedAt = new Date();
     order.qrScannedAt = new Date();
+    order.assignmentStatus = "PICKUP_PENDING";
     await order.save();
 
     try {
-      getIO().to(`store_${order.managerId}`).emit("pickup_verified", {
+      getIO().to(`store_${order.managerId}`).emit("pickup_qr_scanned", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
-        status: "out_for_delivery",
       });
     } catch (err) {}
 
     return res.json({
       success: true,
-      message: "Pickup verified (legacy scan). Customer address unlocked.",
+      message: "Store QR scanned. Capture item photo for manager approval.",
       activeDelivery: {
         id: order._id.toString(),
-        isCustomerLocationLocked: false,
-        customerAddressUnlocked: true,
-        customerName: order.customerName,
-        customerAddress: order.customerAddress,
-        customerLat: order.customerLat,
-        customerLng: order.customerLng,
+        pickupQrScanned: true,
+        pickupProofStatus: order.pickupProofStatus || "none",
+        isCustomerLocationLocked: true,
+        customerAddressUnlocked: false,
       },
     });
   } catch (error) {
@@ -387,10 +392,10 @@ export const completeDelivery = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "You are not assigned to this order" });
     }
 
-    if (!order.customerAddressUnlocked && !order.pickupVerified) {
+    if (!order.customerAddressUnlocked) {
       return res.status(400).json({
         success: false,
-        message: "Complete pickup verification before delivery",
+        message: "Manager must approve item proof before delivery",
       });
     }
 
@@ -470,9 +475,71 @@ export const verifyPickupByManager = async (req, res, next) => {
 
     return res.json({
       success: true,
-      message: "Pickup verified. Driver can now navigate to customer.",
+      message: result.alreadyScanned
+        ? "Pickup QR already scanned for this order."
+        : "Pickup QR scanned. Driver should send item photo for approval.",
       order: result.order.toSafeJSON(),
       driver: result.driver,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const submitPickupProofByDriver = async (req, res, next) => {
+  try {
+    const riderId = req.user.id;
+    const { orderId } = req.params;
+    const imageBase64 = String(
+      req.body.imageBase64 || req.body.pickupProofImage || req.body.image || ""
+    ).trim();
+
+    const result = await submitPickupProof({ orderId, driverId: riderId, imageBase64 });
+    if (!result.success) {
+      return res.status(result.status || 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: result.alreadySubmitted
+        ? "Item photo already sent. Waiting for manager approval."
+        : "Item photo sent to manager. Address unlocks after approval.",
+      activeDelivery: {
+        id: result.order._id.toString(),
+        orderNumber: result.order.orderNumber,
+        pickupQrScanned: true,
+        pickupProofStatus: result.order.pickupProofStatus,
+        isCustomerLocationLocked: true,
+        customerAddressUnlocked: false,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const approvePickupProofByManager = async (req, res, next) => {
+  try {
+    const managerId = req.user.id;
+    const { orderId } = req.params;
+
+    const result = await approvePickupProof({ orderId, managerId });
+    if (!result.success) {
+      return res.status(result.status || 400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: result.alreadyApproved
+        ? "Item proof already approved."
+        : "Item proof approved. Driver can now navigate to customer.",
+      order: result.order.toSafeJSON(),
     });
   } catch (error) {
     next(error);

@@ -51,9 +51,12 @@ class ActiveDeliveryData {
     required this.darkStoreName,
     required this.darkStoreAddress,
     required this.darkStoreQrCode,
+    this.darkStorePhone,
     required this.items,
     required this.isCustomerLocationLocked,
     required this.customerAddressUnlocked,
+    required this.pickupQrScanned,
+    required this.pickupProofStatus,
     required this.customerName,
     required this.customerPhone,
     required this.customerAddress,
@@ -71,9 +74,12 @@ class ActiveDeliveryData {
   final String darkStoreName;
   final String darkStoreAddress;
   final String darkStoreQrCode;
+  final String? darkStorePhone;
   final List<dynamic> items;
   final bool isCustomerLocationLocked;
   final bool customerAddressUnlocked;
+  final bool pickupQrScanned;
+  final String pickupProofStatus;
   final String customerName;
   final String customerPhone;
   final String customerAddress;
@@ -90,10 +96,13 @@ class ActiveDeliveryData {
         status: json['status'] as String? ?? 'assigned',
         darkStoreName: json['darkStoreName'] as String? ?? 'Dark Store',
         darkStoreAddress: json['darkStoreAddress'] as String? ?? '',
+        darkStorePhone: json['darkStorePhone'] as String?,
         darkStoreQrCode: json['darkStoreQrCode'] as String? ?? '',
         items: json['items'] as List<dynamic>? ?? const [],
         isCustomerLocationLocked: json['isCustomerLocationLocked'] as bool? ?? true,
         customerAddressUnlocked: json['customerAddressUnlocked'] as bool? ?? false,
+        pickupQrScanned: json['pickupQrScanned'] as bool? ?? false,
+        pickupProofStatus: json['pickupProofStatus'] as String? ?? 'none',
         customerName: json['customerName'] as String? ?? 'Customer',
         customerPhone: json['customerPhone'] as String? ?? 'Locked',
         customerAddress: json['customerAddress'] as String? ?? 'Scan Store QR to Unlock',
@@ -202,6 +211,55 @@ class OrderService extends ChangeNotifier {
         ApiConfig.scanPickupQr(orderId),
         headers: AuthService.instance.authHeaders,
         body: jsonEncode({'qrPayload': qrPayload}),
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final unlocked = body['activeDelivery'] as Map<String, dynamic>?;
+        if (unlocked != null && _activeDelivery != null) {
+          _activeDelivery = ActiveDeliveryData(
+            id: _activeDelivery!.id,
+            orderNumber: unlocked['orderNumber'] as String? ?? _activeDelivery!.orderNumber,
+            status: unlocked['status'] as String? ?? _activeDelivery!.status,
+            darkStoreName: _activeDelivery!.darkStoreName,
+            darkStoreAddress: _activeDelivery!.darkStoreAddress,
+            darkStoreQrCode: _activeDelivery!.darkStoreQrCode,
+            darkStorePhone: _activeDelivery!.darkStorePhone,
+            items: _activeDelivery!.items,
+            isCustomerLocationLocked: unlocked['isCustomerLocationLocked'] as bool? ?? true,
+            customerAddressUnlocked: unlocked['customerAddressUnlocked'] as bool? ?? false,
+            pickupQrScanned: unlocked['pickupQrScanned'] as bool? ?? _activeDelivery!.pickupQrScanned,
+            pickupProofStatus: unlocked['pickupProofStatus'] as String? ?? _activeDelivery!.pickupProofStatus,
+            customerName: unlocked['customerName'] as String? ?? _activeDelivery!.customerName,
+            customerPhone: unlocked['customerPhone'] as String? ?? _activeDelivery!.customerPhone,
+            customerAddress: unlocked['customerAddress'] as String? ?? _activeDelivery!.customerAddress,
+            pickupQrPayload: null,
+            darkStoreLat: _activeDelivery!.darkStoreLat,
+            darkStoreLng: _activeDelivery!.darkStoreLng,
+            customerLat: unlocked['customerLat'] != null
+                ? (unlocked['customerLat'] as num).toDouble()
+                : _activeDelivery!.customerLat,
+            customerLng: unlocked['customerLng'] != null
+                ? (unlocked['customerLng'] as num).toDouble()
+                : _activeDelivery!.customerLng,
+            otpCode: unlocked['otpCode'] as String? ?? _activeDelivery!.otpCode,
+          );
+        }
+        await fetchActiveDelivery();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> submitPickupProof(String orderId, String imageBase64) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.submitPickupProof(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'imageBase64': imageBase64}),
       );
       if (res.statusCode == 200) {
         await fetchActiveDelivery();
