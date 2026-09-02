@@ -17,7 +17,15 @@ const navItems = [
     ],
   },
   { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
-  { to: '/vendor/products', label: 'Products', icon: 'leaf' },
+  {
+    id: 'products',
+    label: 'Products',
+    icon: 'leaf',
+    children: [
+      { to: '/vendor/products', label: 'All Products', end: true },
+      { to: '/vendor/products/add', label: 'Add Product' },
+    ],
+  },
   {
     id: 'delivery-drivers',
     label: 'Delivery / Pickup',

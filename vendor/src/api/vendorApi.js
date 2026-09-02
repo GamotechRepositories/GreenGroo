@@ -54,6 +54,8 @@ export const vendorApi = {
   updateFarmerCrop: (farmerId, cropId, data) => api.put(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`, data),
   deleteFarmerCrop: (farmerId, cropId) => api.delete(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`),
   getFarmerProducts: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/products`),
+  createFarmerProduct: (farmerId, data) =>
+    api.post(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/products`, data),
   reviewFarmerProduct: (farmerId, productId, decision, reason = "") =>
     api.patch(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/products/${encodeURIComponent(productId)}/review`, { decision, reason }),
   getProducts: () => api.get("/api/vendor/products"),

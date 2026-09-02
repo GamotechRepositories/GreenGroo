@@ -254,7 +254,8 @@ export const MANAGER_SIDEBAR_ITEMS = [
     label: "Products",
     icon: "products",
     children: [
-      { to: "/farmer/manager/products", label: "All Products" },
+      { to: "/farmer/manager/products", label: "All Products", end: true },
+      { to: "/farmer/manager/products/add", label: "Add Product" },
     ],
   },
   {

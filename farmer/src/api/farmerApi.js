@@ -773,6 +773,14 @@ export async function getManagerFarmerProducts(farmerId) {
   });
 }
 
+export async function createManagerFarmerProduct(farmerId, payload) {
+  return apiFetch(`/api/farmer-manager/farmers/${encodeURIComponent(farmerId)}/products`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getManagerFarmerProductById(farmerId, productId) {
   return apiFetch(`/api/farmer-manager/farmers/${farmerId}/products/${productId}`, {
     headers: { Authorization: `Bearer ${getStoredAuth()?.token}` },

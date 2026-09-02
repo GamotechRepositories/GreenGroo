@@ -1827,6 +1827,58 @@ export async function createMyProduct(req, res) {
   }
 }
 
+export async function createManagedFarmerProduct(req, res) {
+  try {
+    const { farmerId } = req.params;
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+
+    const publish = Boolean(req.body?.publish);
+    const parsed = validateMyProductPayload(req.body || {}, { publish });
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+
+    let crop = null;
+    if (parsed.cropId) {
+      crop = await FarmerCrop.findOne({
+        farmerId: farmer.id,
+        $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }],
+      });
+      if (!crop) return res.status(400).json({ message: "Selected crop was not found on this farm" });
+      parsed.cropId = crop.id;
+      parsed.cropName = parsed.cropName || crop.cropName;
+      parsed.variety = parsed.variety || crop.variety;
+    }
+
+    const id = await generateId({
+      module: "ART",
+      category: categoryFromName(parsed.cropName || crop?.cropName),
+      crop: cropCodeFromName(parsed.cropName || crop?.cropName),
+    });
+    const product = new FarmerProduct({
+      id,
+      productId: id,
+      vendorId: farmer.vendorId,
+      managerId: farmer.managerId,
+      farmerId: farmer.id,
+      sku: `FRM-${String(farmer.id).slice(-4)}-${Date.now().toString().slice(-4)}`,
+      status: "Draft",
+    });
+    applyProductFields(product, parsed, farmer, crop);
+    if (publish) {
+      product.status = applyStockDrivenStatus("Active", parsed.availableQuantity, parsed.lowStockLimit);
+      product.reviewedBy = req.user?.name || req.user?.role || "";
+      product.reviewedAt = new Date();
+    } else {
+      product.status = "Draft";
+    }
+    await product.save();
+    await syncFarmerProductToErp(product, farmer, crop);
+    res.status(201).json(publicMyProduct(product, farmer, crop));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create product" });
+  }
+}
+
 export async function updateMyProduct(req, res) {
   try {
     const product = await loadOwnProduct(req, res);

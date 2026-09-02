@@ -102,9 +102,14 @@ export default function ManagerProductsPage() {
           <h1 className={EXCEL_PAGE_TITLE}>All Products</h1>
           <p className={EXCEL_PAGE_SUB}>Approve farmer products before they go live</p>
         </div>
-        <Link to="/farmer/manager/farmers/add" className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}>
-          + Add Farmer
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to="/farmer/manager/products/add" className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}>
+            + Add Product
+          </Link>
+          <Link to="/farmer/manager/farmers/add" className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}>
+            + Add Farmer
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

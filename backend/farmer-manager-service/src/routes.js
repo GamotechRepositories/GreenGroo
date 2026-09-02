@@ -49,6 +49,7 @@ import {
   getFarmerProducts,
   getFarmerProductById,
   createFarmerProduct,
+  createManagedFarmerProduct,
   updateFarmerProduct,
   reviewFarmerProduct,
   deleteFarmerProduct,
@@ -273,7 +274,7 @@ vendorFarmerRouter.put("/:farmerId/login-status", updateFarmerLoginStatus);
 vendorFarmerRouter.put("/:farmerId/manager", assignFarmerManager);
 
 vendorFarmerRouter.get("/:farmerId/products", getFarmerProducts);
-vendorFarmerRouter.post("/:farmerId/products", createFarmerProduct);
+vendorFarmerRouter.post("/:farmerId/products", requireVendor, createManagedFarmerProduct);
 vendorFarmerRouter.get("/:farmerId/products/:productId", getFarmerProductById);
 vendorFarmerRouter.put("/:farmerId/products/:productId", updateFarmerProduct);
 vendorFarmerRouter.patch("/:farmerId/products/:productId/review", requireVendor, reviewFarmerProduct);
@@ -332,6 +333,7 @@ vendorRouter.delete("/farmers/:farmerId", requireVendor, deleteFarmer);
 vendorRouter.patch("/farmers/:farmerId/status", requireVendor, setFarmerStatus);
 vendorRouter.put("/farmers/:farmerId/manager", requireVendor, assignFarmerManager);
 vendorRouter.get("/farmers/:farmerId/products", requireVendor, getFarmerProducts);
+vendorRouter.post("/farmers/:farmerId/products", requireVendor, createManagedFarmerProduct);
 vendorRouter.patch("/farmers/:farmerId/products/:productId/review", requireVendor, reviewFarmerProduct);
 vendorRouter.get("/products", requireVendor, getVendorAllProducts);
 vendorRouter.get("/farmers/:farmerId/crops", requireVendor, getManagedFarmerCrops);
@@ -417,6 +419,7 @@ managerRouter.post("/farmers", requireManager, createFarmer);
 managerRouter.get("/farmers/:farmerId", requireManager, getFarmerById);
 managerRouter.delete("/farmers/:farmerId", requireManager, deleteFarmer);
 managerRouter.get("/farmers/:farmerId/products", requireManager, getFarmerProducts);
+managerRouter.post("/farmers/:farmerId/products", requireManager, createManagedFarmerProduct);
 managerRouter.get("/farmers/:farmerId/crops", requireManager, getManagedFarmerCrops);
 managerRouter.post("/farmers/:farmerId/crops", requireManager, createManagedFarmerCrop);
 managerRouter.get("/farmers/:farmerId/crops/:cropId", requireManager, getManagedFarmerCrop);

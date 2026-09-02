@@ -22,7 +22,7 @@ export default function VendorProductsPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("Pending Approval");
+  const [statusFilter, setStatusFilter] = useState("");
   const [busyId, setBusyId] = useState("");
 
   const load = async () => {
@@ -87,7 +87,15 @@ export default function VendorProductsPage() {
   };
 
   return (
-    <PageShell title="Farmer Products" subtitle="Approve products published by farmers before they go live">
+    <PageShell title="Farmer Products" subtitle="Add products for farmers, or approve products they publish">
+      <div className="flex justify-end">
+        <Link
+          to="/vendor/products/add"
+          className="inline-flex items-center rounded-lg bg-[#217346] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1a5c38]"
+        >
+          + Add Product
+        </Link>
+      </div>
       {toast ? (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
           {toast}

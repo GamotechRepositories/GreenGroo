@@ -96,6 +96,8 @@ export default function ProductManageForm({
   submitting,
   onSubmit,
   locked = false,
+  draftLabel = "Save Draft",
+  publishLabel = "Publish",
 }) {
   const [form, setForm] = useState(() => emptyForm(initialProduct));
   const [errors, setErrors] = useState({});
@@ -352,10 +354,10 @@ export default function ProductManageForm({
         <div className="sticky bottom-0 z-10 -mx-2 border-t border-slate-100 bg-white px-2 py-2 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
           <div className="flex gap-2">
             <button type="button" disabled={submitting} className={`${EXCEL_BTN} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`} onClick={() => submit(false)}>
-              {submitting ? "Saving…" : "Save Draft"}
+              {submitting ? "Saving…" : draftLabel}
             </button>
             <button type="button" disabled={submitting} className={`${EXCEL_BTN_PRIMARY} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`} onClick={() => submit(true)}>
-              {submitting ? "Publishing…" : "Publish"}
+              {submitting ? "Saving…" : publishLabel}
             </button>
           </div>
         </div>

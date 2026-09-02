@@ -313,7 +313,17 @@ export default function ManagerFarmerDetailPage() {
         )}
 
         {tab === "Products" && (
-          <div className="overflow-x-auto">
+          <div>
+            <div className="flex items-center justify-between gap-2 border-b border-[#D4D4D4] px-3 py-2.5">
+              <p className="text-xs font-semibold text-[#1F2937]">Products</p>
+              <Link
+                to={`/farmer/manager/farmers/${farmerId}/products/add`}
+                className={`${EXCEL_BTN_PRIMARY} px-3 py-1.5 text-[11px]`}
+              >
+                + Add Product
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#F2F2F2] text-left">
@@ -359,6 +369,7 @@ export default function ManagerFarmerDetailPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 

@@ -388,7 +388,17 @@ export default function FarmerDetailPage() {
         )}
 
         {tab === "Products" && (
-          <div className="overflow-x-auto">
+          <div>
+            <div className="flex items-center justify-between gap-2 border-b border-[#D4D4D4] px-3 py-2.5">
+              <p className="text-xs font-semibold text-[#1F2937]">Products</p>
+              <Link
+                to={`/vendor/all-farmers/${farmerId}/products/add`}
+                className="bg-[#217346] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#1a5c38]"
+              >
+                + Add Product
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-[#F2F2F2] text-left">
@@ -446,6 +456,7 @@ export default function FarmerDetailPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
