@@ -1,34 +1,29 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { deleteCrop, getCrop } from "../api/farmerApi";
-import StatusBadge from "../components/ui/StatusBadge";
-import LoadingState from "../components/ui/LoadingState";
-import EmptyState from "../components/ui/EmptyState";
-import Modal from "../components/ui/Modal";
-import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
-import {
-  EXCEL_BTN,
-  EXCEL_BTN_DANGER,
-  EXCEL_BTN_PRIMARY,
-  EXCEL_PAGE_SUB,
-  EXCEL_PAGE_TITLE,
-  EXCEL_PANEL,
-  EXCEL_PANEL_HEAD,
-} from "../utils/excelStyles";
+import { getManagerFarmerById, getManagerFarmerCrop } from "../../api/farmerApi";
+import StatusBadge from "../../components/ui/StatusBadge";
+import LoadingState from "../../components/ui/LoadingState";
+import EmptyState from "../../components/ui/EmptyState";
+import { formatCropDate, formatCropBusinessId } from "../../utils/cropLinks";
+import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../../utils/excelStyles";
 
-function CropDetailPage() {
-  const { cropId } = useParams();
-  const navigate = useNavigate();
+function ManagerFarmerCropViewPage() {
+  const { farmerId, cropId } = useParams();
   const [crop, setCrop] = useState(null);
+  const [farmerName, setFarmerName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        setCrop(await getCrop(cropId));
+        const [cropData, farmer] = await Promise.all([
+          getManagerFarmerCrop(farmerId, cropId),
+          getManagerFarmerById(farmerId).catch(() => null),
+        ]);
+        setCrop(cropData);
+        setFarmerName(farmer?.name || "");
       } catch (err) {
         setCrop(null);
         toast.error(err.message || "Failed to load crop");
@@ -36,27 +31,17 @@ function CropDetailPage() {
         setLoading(false);
       }
     })();
-  }, [cropId]);
-
-  const onDelete = async () => {
-    try {
-      await deleteCrop(cropId);
-      toast.success("Crop deleted");
-      navigate("/farmer/crops");
-    } catch (err) {
-      toast.error(err.message || "Failed to delete crop");
-    }
-  };
+  }, [farmerId, cropId]);
 
   if (loading) return <LoadingState rows={8} />;
   if (!crop) {
     return (
       <EmptyState
         title="Crop not found"
-        description="This crop may have been deleted or does not belong to your account."
+        description="This crop may have been deleted."
         action={
-          <Link to="/farmer/crops" className={EXCEL_BTN_PRIMARY}>
-            Back to My Crops
+          <Link to={`/farmer/manager/farmers/${farmerId}`} className={EXCEL_BTN}>
+            Back to farmer
           </Link>
         }
       />
@@ -65,6 +50,18 @@ function CropDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl min-w-0 space-y-4">
+      <div className="flex items-center gap-2 text-xs text-[#6B7280]">
+        <Link to="/farmer/manager/farmers" className="hover:text-[#217346]">
+          Farmers
+        </Link>
+        <span>›</span>
+        <Link to={`/farmer/manager/farmers/${farmerId}`} className="hover:text-[#217346]">
+          {farmerName || "Farmer"}
+        </Link>
+        <span>›</span>
+        <span className="font-semibold text-[#1F2937]">Crop</span>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className={EXCEL_PAGE_TITLE}>{crop.cropName}</h1>
@@ -84,10 +81,10 @@ function CropDetailPage() {
           <Info label="Crop Name" value={crop.cropName} />
           <Info label="Crop ID" value={formatCropBusinessId(crop)} />
           <Info label="Variety" value={crop.variety} />
-          <Info label="Area" value={`${crop.area} ${crop.areaUnit}`} />
+          <Info label="Area" value={`${crop.area} ${crop.areaUnit || ""}`.trim()} />
           <Info label="Sowing Date" value={formatCropDate(crop.sowingDate)} />
           <Info label="Expected Harvest Date" value={formatCropDate(crop.expectedHarvestDate)} />
-          <Info label="Estimated Quantity" value={`${crop.estimatedQuantity} ${crop.unit}`} />
+          <Info label="Estimated Quantity" value={`${crop.estimatedQuantity} ${crop.unit || ""}`.trim()} />
           <Info label="Farming Method" value={crop.farmingMethod} />
           <Info label="Irrigation Type" value={crop.irrigationType || "—"} />
           <Info label="Organic / Conventional" value={crop.farmingType || "—"} />
@@ -117,38 +114,17 @@ function CropDetailPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Link to={`/farmer/crops/${cropId}/edit`} className={EXCEL_BTN}>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to={`/farmer/manager/farmers/${farmerId}/crops/${encodeURIComponent(crop.cropId || crop.id)}/edit`}
+          className={EXCEL_BTN_PRIMARY}
+        >
           Edit Crop
         </Link>
-        <Link to={`/farmer/crops/${cropId}/plan`} className={EXCEL_BTN}>
-          Crop Plan
+        <Link to={`/farmer/manager/farmers/${farmerId}`} className={EXCEL_BTN}>
+          Back to farmer
         </Link>
-        <Link to={createProductPath(crop)} className={EXCEL_BTN_PRIMARY}>
-          Create Product
-        </Link>
-        <button type="button" className={EXCEL_BTN_DANGER} onClick={() => setConfirmDelete(true)}>
-          Delete
-        </button>
       </div>
-
-      <Modal
-        open={confirmDelete}
-        title="Delete crop?"
-        onClose={() => setConfirmDelete(false)}
-        footer={
-          <>
-            <button type="button" className={EXCEL_BTN} onClick={() => setConfirmDelete(false)}>
-              Cancel
-            </button>
-            <button type="button" className={EXCEL_BTN_DANGER} onClick={onDelete}>
-              Delete
-            </button>
-          </>
-        }
-      >
-        <p>This will also remove the crop plan.</p>
-      </Modal>
     </div>
   );
 }
@@ -162,4 +138,4 @@ function Info({ label, value }) {
   );
 }
 
-export default CropDetailPage;
+export default ManagerFarmerCropViewPage;

@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { getCropPlans, updateCropPlan } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
-import { createProductPath, formatCropDate } from "../utils/cropLinks";
+import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -108,6 +108,9 @@ function CropPlanningPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-bold text-[#1F2937]">{plan.cropName || "Crop"}</p>
+                    <p className="mt-0.5 font-mono text-[11px] font-semibold tracking-wide text-emerald-700">
+                      {formatCropBusinessId(plan)}
+                    </p>
                     <p className="text-[11px] text-[#6B7280]">
                       {plan.variety || "—"} • Harvest {formatCropDate(plan.harvestDate)}
                     </p>
@@ -131,16 +134,13 @@ function CropPlanningPage() {
                     onChange={(v) => setEdits((prev) => ({ ...prev, [id]: { ...prev[id], suggestedSaleQuantity: v } }))}
                   />
                 </div>
-                <div className="flex flex-wrap gap-1 pt-1">
+                <div className="grid grid-cols-1 gap-1.5 pt-1 sm:grid-cols-3">
                   <Link to={`/farmer/crops/${plan.cropId}/plan`} className={EXCEL_BTN}>
                     View Plan
                   </Link>
                   <button type="button" className={EXCEL_BTN} disabled={savingId === id} onClick={() => savePlan(plan)}>
-                    {savingId === id ? "Saving…" : "Update Quantity"}
+                    {savingId === id ? "Saving…" : "Update"}
                   </button>
-                  <Link to={`/farmer/crops/${plan.cropId}/plan`} className={EXCEL_BTN}>
-                    Edit Plan
-                  </Link>
                   <Link
                     to={createProductPath({
                       cropName: plan.cropName,
@@ -149,7 +149,7 @@ function CropPlanningPage() {
                       unit: plan.unit,
                       cropId: plan.cropId,
                     })}
-                    className={EXCEL_BTN}
+                    className={EXCEL_BTN_PRIMARY}
                   >
                     Create Product
                   </Link>

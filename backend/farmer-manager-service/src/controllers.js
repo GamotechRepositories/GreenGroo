@@ -18,15 +18,16 @@ import {
   Pickup,
 } from "./models.js";
 import { ensurePickupForOrder } from "./pickupControllers.js";
+import { generateId } from "../../erp-service/src/services/idGenerator.js";
+import { categoryFromName, cropCodeFromName } from "../../erp-service/src/config/idRegistry.js";
 import {
   assignFarmerBusinessId,
   ensureFarmForFarmer,
   syncFarmerCropToErp,
   syncFarmerProductToErp,
   ensureEntityQr,
+  upgradeCropIdWithCropCode,
 } from "../../erp-service/src/services/farmerSync.js";
-import { generateId } from "../../erp-service/src/services/idGenerator.js";
-import { categoryFromName } from "../../erp-service/src/config/idRegistry.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -174,6 +175,17 @@ async function aggFarmerStats(farmerIds) {
 
 function assignedFarmerQuery(req) {
   return { managerId: req.user.managerId, vendorId: req.user.vendorId };
+}
+
+function accessibleFarmerQuery(req, farmerId) {
+  const query = { id: farmerId };
+  if (req.user?.role === "FARMER_MANAGER") {
+    query.managerId = req.user.managerId;
+    query.vendorId = req.user.vendorId;
+  } else if (req.user?.role === "VENDOR" && req.user.vendorId) {
+    query.vendorId = req.user.vendorId;
+  }
+  return query;
 }
 
 async function getAssignedFarmers(req, select = "-password") {
@@ -909,11 +921,11 @@ export async function updateFarmerFarmProfile(req, res) {
     if (areaInAcres(cultivatedArea, cultivatedAreaUnit) > areaInAcres(totalFarmArea, totalFarmAreaUnit) + 0.0001) {
       return res.status(400).json({ message: "Cultivated area cannot be greater than total farm area" });
     }
-    if (!soilType) return res.status(400).json({ message: "Soil type is required" });
-    if (!irrigationType) return res.status(400).json({ message: "Irrigation type is required" });
-    if (!waterSource) return res.status(400).json({ message: "Water source is required" });
-    if (!farmingMethod) return res.status(400).json({ message: "Farming method is required" });
-    if (!farmingType) return res.status(400).json({ message: "Farming type is required" });
+    if (!soilType || soilType === "Other") return res.status(400).json({ message: "Soil type is required" });
+    if (!irrigationType || irrigationType === "Other") return res.status(400).json({ message: "Irrigation type is required" });
+    if (!waterSource || waterSource === "Other") return res.status(400).json({ message: "Water source is required" });
+    if (!farmingMethod || farmingMethod === "Other") return res.status(400).json({ message: "Farming method is required" });
+    if (!farmingType || farmingType === "Other") return res.status(400).json({ message: "Farming type is required" });
 
     const farmPhotos = Array.isArray(payload.farmPhotos) ? payload.farmPhotos.filter(Boolean).slice(0, 4) : farmer.farm?.farmPhotos || [];
     const farmVideos = Array.isArray(payload.farmVideos) ? payload.farmVideos.filter(Boolean).slice(0, 2) : farmer.farm?.farmVideos || [];
@@ -1064,13 +1076,14 @@ function validateCropPayload(payload) {
   const cropName = String(payload.cropName || payload.crop || "").trim();
   const variety = String(payload.variety || "").trim();
   const area = Number(payload.area);
-  const areaUnit = payload.areaUnit === "Hectare" ? "Hectare" : "Acre";
+  const areaUnit = String(payload.areaUnit || "Acre").trim() || "Acre";
   const sowingDate = String(payload.sowingDate || "").trim();
   const expectedHarvestDate = String(payload.expectedHarvestDate || "").trim();
   const estimatedQuantity = Number(payload.estimatedQuantity);
-  const unit = ["Kg", "Quintal", "Ton"].includes(payload.unit) ? payload.unit : "";
+  const unit = String(payload.unit || "").trim();
   const farmingMethod = String(payload.farmingMethod || "").trim();
   const farmingType = String(payload.farmingType || "").trim();
+  const irrigationType = String(payload.irrigationType || "").trim();
 
   if (!cropName) return { error: "Crop name is required" };
   if (!variety) return { error: "Variety is required" };
@@ -1082,7 +1095,9 @@ function validateCropPayload(payload) {
     return { error: "Estimated quantity must be greater than 0" };
   }
   if (!unit) return { error: "Unit is required" };
-  if (!farmingMethod) return { error: "Farming method is required" };
+  if (!farmingMethod || farmingMethod === "Other") return { error: "Farming method is required" };
+  if (!irrigationType || irrigationType === "Other") return { error: "Irrigation type is required" };
+  if (farmingType === "Other") return { error: "Please specify farming type" };
 
   return {
     cropName,
@@ -1095,6 +1110,7 @@ function validateCropPayload(payload) {
     unit,
     farmingMethod,
     farmingType,
+    irrigationType,
     photos: sanitizeCropPhotos(payload.photos),
   };
 }
@@ -1158,12 +1174,15 @@ async function upsertCropPlan(farmerId, crop) {
 async function loadOwnCrop(req, res) {
   const farmerId = authFarmerId(req);
   const cropId = req.params.cropId;
-  const crop = await FarmerCrop.findOne({ farmerId, $or: [{ id: cropId }, { cropId }] });
+  const crop = await FarmerCrop.findOne({
+    farmerId,
+    $or: [{ id: cropId }, { cropId }, { previousCropId: cropId }],
+  });
   if (!crop) {
     res.status(404).json({ message: "Crop not found" });
     return null;
   }
-  return crop;
+  return upgradeCropIdWithCropCode(crop);
 }
 
 export async function listFarmerCrops(req, res) {
@@ -1171,8 +1190,12 @@ export async function listFarmerCrops(req, res) {
     const farmerId = authFarmerId(req);
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    const crops = await FarmerCrop.find({ farmerId }).sort({ createdAt: -1 }).lean();
-    res.json(crops.map((c) => publicCrop(c, farmer)));
+    const crops = await FarmerCrop.find({ farmerId }).sort({ createdAt: -1 });
+    const upgraded = [];
+    for (const crop of crops) {
+      upgraded.push(await upgradeCropIdWithCropCode(crop));
+    }
+    res.json(upgraded.map((c) => publicCrop(c, farmer)));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crops" });
   }
@@ -1190,41 +1213,76 @@ export async function getFarmerCrop(req, res) {
   }
 }
 
+async function persistNewCrop(farmer, parsed) {
+  const cropId = await generateId({
+    module: "CRP",
+    category: categoryFromName(parsed.cropName),
+    crop: cropCodeFromName(parsed.cropName),
+  });
+  const crop = await FarmerCrop.create({
+    id: cropId,
+    cropId,
+    farmerId: farmer.id,
+    farmId: farmSummary(farmer).farmId,
+    cropName: parsed.cropName,
+    variety: parsed.variety,
+    area: parsed.area,
+    areaUnit: parsed.areaUnit,
+    sowingDate: parsed.sowingDate,
+    expectedHarvestDate: parsed.expectedHarvestDate,
+    estimatedQuantity: parsed.estimatedQuantity,
+    unit: parsed.unit,
+    farmingMethod: parsed.farmingMethod,
+    farmingType: parsed.farmingType,
+    irrigationType: parsed.irrigationType,
+    photos: parsed.photos,
+    status: deriveCropStatus(parsed.sowingDate, parsed.expectedHarvestDate),
+  });
+  await syncFarmerCropToErp(crop, farmer);
+  await ensureEntityQr({
+    entityType: "CROP",
+    entityId: cropId,
+    links: { farmerId: farmer.farmerId || farmer.id, farmId: crop.farmId, cropId },
+  });
+  const plan = await upsertCropPlan(farmer.id, crop);
+  return { crop, plan };
+}
+
+async function applyCropUpdate(crop, payload) {
+  const parsed = validateCropPayload({ ...toPlain(crop), ...(payload || {}) });
+  if (parsed.error) return { error: parsed.error };
+  const nextStatus = String(payload?.status || crop.status);
+  const allowed = CROP_STATUS_FLOW[crop.status] || [crop.status];
+  if (!allowed.includes(nextStatus)) {
+    return { error: `Cannot change status from ${crop.status} to ${nextStatus}` };
+  }
+  crop.cropName = parsed.cropName;
+  crop.variety = parsed.variety;
+  crop.area = parsed.area;
+  crop.areaUnit = parsed.areaUnit;
+  crop.sowingDate = parsed.sowingDate;
+  crop.expectedHarvestDate = parsed.expectedHarvestDate;
+  crop.estimatedQuantity = parsed.estimatedQuantity;
+  crop.unit = parsed.unit;
+  crop.farmingMethod = parsed.farmingMethod;
+  crop.farmingType = parsed.farmingType;
+  crop.irrigationType = parsed.irrigationType;
+  crop.photos = parsed.photos;
+  crop.status = nextStatus;
+  await crop.save();
+  const plan = await upsertCropPlan(crop.farmerId, crop);
+  return { crop, plan };
+}
+
 export async function createFarmerCrop(req, res) {
   try {
-    const farmerId = authFarmerId(req);
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
 
     const parsed = validateCropPayload(req.body || {});
     if (parsed.error) return res.status(400).json({ message: parsed.error });
 
-    const cropId = await generateId({ module: "CRP", category: categoryFromName(parsed.cropName) });
-    const crop = await FarmerCrop.create({
-      id: cropId,
-      cropId,
-      farmerId,
-      farmId: farmSummary(farmer).farmId,
-      cropName: parsed.cropName,
-      variety: parsed.variety,
-      area: parsed.area,
-      areaUnit: parsed.areaUnit,
-      sowingDate: parsed.sowingDate,
-      expectedHarvestDate: parsed.expectedHarvestDate,
-      estimatedQuantity: parsed.estimatedQuantity,
-      unit: parsed.unit,
-      farmingMethod: parsed.farmingMethod,
-      farmingType: parsed.farmingType,
-      photos: parsed.photos,
-      status: deriveCropStatus(parsed.sowingDate, parsed.expectedHarvestDate),
-    });
-    await syncFarmerCropToErp(crop, farmer);
-    await ensureEntityQr({
-      entityType: "CROP",
-      entityId: cropId,
-      links: { farmerId: farmer.farmerId || farmer.id, farmId: crop.farmId, cropId },
-    });
-    const plan = await upsertCropPlan(farmerId, crop);
+    const { crop, plan } = await persistNewCrop(farmer, parsed);
     res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create crop" });
@@ -1235,31 +1293,10 @@ export async function updateFarmerCrop(req, res) {
   try {
     const crop = await loadOwnCrop(req, res);
     if (!crop) return;
-    const parsed = validateCropPayload({ ...toPlain(crop), ...(req.body || {}) });
-    if (parsed.error) return res.status(400).json({ message: parsed.error });
-
-    const nextStatus = String(req.body?.status || crop.status);
-    const allowed = CROP_STATUS_FLOW[crop.status] || [crop.status];
-    if (!allowed.includes(nextStatus)) {
-      return res.status(400).json({ message: `Cannot change status from ${crop.status} to ${nextStatus}` });
-    }
-
-    crop.cropName = parsed.cropName;
-    crop.variety = parsed.variety;
-    crop.area = parsed.area;
-    crop.areaUnit = parsed.areaUnit;
-    crop.sowingDate = parsed.sowingDate;
-    crop.expectedHarvestDate = parsed.expectedHarvestDate;
-    crop.estimatedQuantity = parsed.estimatedQuantity;
-    crop.unit = parsed.unit;
-    crop.farmingMethod = parsed.farmingMethod;
-    crop.farmingType = parsed.farmingType;
-    crop.photos = parsed.photos;
-    crop.status = nextStatus;
-    await crop.save();
-    const plan = await upsertCropPlan(crop.farmerId, crop);
+    const updated = await applyCropUpdate(crop, req.body || {});
+    if (updated.error) return res.status(400).json({ message: updated.error });
     const farmer = await Farmer.findOne({ id: crop.farmerId });
-    res.json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
+    res.json({ ...publicCrop(updated.crop, farmer), plan: publicPlan(updated.plan, updated.crop) });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update crop" });
   }
@@ -1270,6 +1307,88 @@ export async function deleteFarmerCrop(req, res) {
     const crop = await loadOwnCrop(req, res);
     if (!crop) return;
     await FarmerCropPlan.deleteMany({ farmerId: crop.farmerId, cropId: crop.id });
+    await FarmerCrop.deleteOne({ id: crop.id });
+    res.json({ success: true, message: "Crop deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete crop" });
+  }
+}
+
+export async function getManagedFarmerCrops(req, res) {
+  try {
+    const { farmerId } = req.params;
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crops = await FarmerCrop.find({ farmerId: farmer.id }).sort({ createdAt: -1 });
+    const upgraded = [];
+    for (const crop of crops) {
+      upgraded.push(await upgradeCropIdWithCropCode(crop));
+    }
+    res.json(upgraded.map((c) => publicCrop(c, farmer)));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crops" });
+  }
+}
+
+export async function getManagedFarmerCrop(req, res) {
+  try {
+    const { farmerId, cropId } = req.params;
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crop = await FarmerCrop.findOne({
+      farmerId: farmer.id,
+      $or: [{ id: cropId }, { cropId }, { previousCropId: cropId }],
+    });
+    if (!crop) return res.status(404).json({ message: "Crop not found" });
+    const upgraded = await upgradeCropIdWithCropCode(crop);
+    const plan = await FarmerCropPlan.findOne({ farmerId: farmer.id, cropId: upgraded.id }).lean();
+    res.json({ ...publicCrop(upgraded, farmer), plan: plan ? publicPlan(plan, upgraded) : null });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crop" });
+  }
+}
+
+export async function createManagedFarmerCrop(req, res) {
+  try {
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const parsed = validateCropPayload(req.body || {});
+    if (parsed.error) return res.status(400).json({ message: parsed.error });
+    const { crop, plan } = await persistNewCrop(farmer, parsed);
+    res.status(201).json({ ...publicCrop(crop, farmer), plan: publicPlan(plan, crop) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to create crop" });
+  }
+}
+
+export async function updateManagedFarmerCrop(req, res) {
+  try {
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crop = await FarmerCrop.findOne({
+      farmerId: farmer.id,
+      $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
+    });
+    if (!crop) return res.status(404).json({ message: "Crop not found" });
+    const upgraded = await upgradeCropIdWithCropCode(crop);
+    const updated = await applyCropUpdate(upgraded, req.body || {});
+    if (updated.error) return res.status(400).json({ message: updated.error });
+    res.json({ ...publicCrop(updated.crop, farmer), plan: publicPlan(updated.plan, updated.crop) });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update crop" });
+  }
+}
+
+export async function deleteManagedFarmerCrop(req, res) {
+  try {
+    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
+    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const crop = await FarmerCrop.findOne({
+      farmerId: farmer.id,
+      $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
+    });
+    if (!crop) return res.status(404).json({ message: "Crop not found" });
+    await FarmerCropPlan.deleteMany({ farmerId: farmer.id, cropId: crop.id });
     await FarmerCrop.deleteOne({ id: crop.id });
     res.json({ success: true, message: "Crop deleted" });
   } catch (err) {
@@ -1544,7 +1663,8 @@ function validateMyProductPayload(payload, { publish } = {}) {
   const unit = PRODUCT_UNITS_ALLOWED.includes(payload.unit) ? payload.unit : "";
   const grades = normalizeProductGrades(payload.grades);
   const availableQuantity = grades.length ? totalGradeQty(grades) : Number(payload.availableQuantity);
-  const pricePerKg = Number(payload.pricePerKg ?? payload.sellingPrice);
+  const gradePrice = Number(grades.find((g) => Number(g.price) > 0)?.price);
+  const pricePerKg = Number(payload.pricePerKg ?? payload.sellingPrice) || (Number.isFinite(gradePrice) ? gradePrice : 0);
   const minimumOrderQuantity = Number(payload.minimumOrderQuantity);
   const harvestDate = String(payload.harvestDate || "").trim();
   const farmingType = String(payload.farmingType || "").trim();
@@ -1559,8 +1679,6 @@ function validateMyProductPayload(payload, { publish } = {}) {
     if (!variety) return { error: "Variety is required" };
     if (!Number.isFinite(availableQuantity) || availableQuantity <= 0) return { error: "Quantity must be greater than 0" };
     if (!unit) return { error: "Unit is required" };
-    if (!Number.isFinite(pricePerKg) || pricePerKg <= 0) return { error: "Price per Kg is required" };
-    if (!Number.isFinite(minimumOrderQuantity) || minimumOrderQuantity <= 0) return { error: "Minimum order quantity is required" };
     if (!harvestDate) return { error: "Harvest date is required" };
     if (!grades.length) return { error: "Add at least one grade" };
     if (!farmingType) return { error: "Farming type is required" };

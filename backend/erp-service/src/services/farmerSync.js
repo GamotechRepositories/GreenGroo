@@ -1,8 +1,62 @@
-import { generateId } from "./idGenerator.js";
+import { generateId, ErpCounter } from "./idGenerator.js";
 import { resolveLocation } from "./locationResolver.js";
 import { farmerSerialFromId, cropCodeFromName, categoryFromName } from "../config/idRegistry.js";
 import { Farm, Crop, Article, QrCode } from "../models/index.js";
+import { FarmerCrop, FarmerCropPlan, FarmerProduct } from "../../../farmer-manager-service/src/models.js";
 import { recordAudit } from "./auditService.js";
+
+const LEGACY_CROP_ID = /^GGC-CRP-([A-Z0-9]+)-(\d+)$/i;
+
+export function isLegacyCropId(id = "") {
+  return LEGACY_CROP_ID.test(String(id));
+}
+
+export async function upgradeCropIdWithCropCode(farmerCrop) {
+  if (!farmerCrop) return farmerCrop;
+  const oldId = farmerCrop.cropId || farmerCrop.id;
+  if (!isLegacyCropId(oldId)) return farmerCrop;
+
+  const cropCode = cropCodeFromName(farmerCrop.cropName);
+  const category = categoryFromName(farmerCrop.cropName);
+  const serial = String(oldId).split("-").pop();
+  const newId = `GGC-CRP-${category}-${cropCode}-${serial}`;
+  if (newId === oldId) return farmerCrop;
+
+  const taken = await FarmerCrop.exists({
+    _id: { $ne: farmerCrop._id },
+    $or: [{ id: newId }, { cropId: newId }],
+  });
+  if (taken) return farmerCrop;
+
+  farmerCrop.previousCropId = oldId;
+  farmerCrop.id = newId;
+  farmerCrop.cropId = newId;
+  await farmerCrop.save();
+
+  await Promise.all([
+    FarmerCropPlan.updateMany({ cropId: oldId }, { $set: { cropId: newId } }),
+    FarmerProduct.updateMany({ cropId: oldId }, { $set: { cropId: newId } }),
+    Crop.updateMany(
+      { $or: [{ cropId: oldId }, { sourceCropId: oldId }] },
+      { $set: { cropId: newId, sourceCropId: newId, cropCode, category } }
+    ),
+    Article.updateMany({ cropId: oldId }, { $set: { cropId: newId } }),
+    QrCode.updateMany(
+      { $or: [{ cropId: oldId }, { entityId: oldId }] },
+      { $set: { cropId: newId, entityId: newId } }
+    ),
+  ]);
+
+  const seq = Number(serial);
+  if (Number.isFinite(seq)) {
+    await ErpCounter.findOneAndUpdate(
+      { key: `crop-${category}-${cropCode}` },
+      { $max: { sequence: seq } },
+      { upsert: true }
+    );
+  }
+  return farmerCrop;
+}
 
 export async function assignFarmerBusinessId(payload = {}) {
   const loc = await resolveLocation({
@@ -70,7 +124,7 @@ export async function syncFarmerCropToErp(farmerCrop, farmer, actor = {}) {
   if (existing) return existing;
   const cropId = String(farmerCrop.cropId || "").startsWith("GGC-CRP-")
     ? farmerCrop.cropId
-    : await generateId({ module: "CRP", category });
+    : await generateId({ module: "CRP", category, crop: cropCode });
   const crop = await Crop.create({
     cropId,
     farmerId: farmer.farmerId || farmer.id,
@@ -84,6 +138,7 @@ export async function syncFarmerCropToErp(farmerCrop, farmer, actor = {}) {
     expectedProduction: farmerCrop.estimatedQuantity || 0,
     availableQuantity: farmerCrop.estimatedQuantity || 0,
     sourceCropId: farmerCrop.id,
+    irrigationType: farmerCrop.irrigationType || farmer.farm?.irrigationType || "",
     status: farmerCrop.status || "ACTIVE",
   });
   if (crop.farmId) {

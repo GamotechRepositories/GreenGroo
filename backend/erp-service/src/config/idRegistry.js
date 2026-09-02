@@ -231,14 +231,15 @@ export const MODULES = {
     },
   },
   CRP: {
-    description: "Crop Master ID",
-    formatHint: "GGC-CRP-{category}-{serial}",
-    example: "GGC-CRP-VEG-00001",
+    description: "Crop Master ID — category + crop code + serial",
+    formatHint: "GGC-CRP-{category}-{crop}-{serial}",
+    example: "GGC-CRP-VEG-TOM-00001",
     serialWidth: 5,
-    counterKey: (p) => `crop-${String(p.category || "VEG").toUpperCase()}`,
+    counterKey: (p) =>
+      `crop-${String(p.category || "VEG").toUpperCase()}-${String(p.crop || "XXX").toUpperCase()}`,
     generate: (p, seq) => {
-      req(p, ["category"]);
-      return `${COMPANY_PREFIX}-CRP-${String(p.category).toUpperCase()}-${pad(seq, 5)}`;
+      req(p, ["category", "crop"]);
+      return `${COMPANY_PREFIX}-CRP-${String(p.category).toUpperCase()}-${String(p.crop).toUpperCase()}-${pad(seq, 5)}`;
     },
   },
   ART: {

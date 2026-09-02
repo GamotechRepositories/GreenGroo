@@ -119,7 +119,9 @@ export default function ManagerFarmersPage() {
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#D4D4D4] bg-[#F2F2F2] text-[10px] font-bold text-[#217346]">
                           {f.initials || f.name?.charAt(0)}
                         </span>
-                        <span className="font-semibold">{f.name}</span>
+                        <Link to={`/farmer/manager/farmers/${f.id}`} className="font-semibold hover:text-[#217346]">
+                          {f.name}
+                        </Link>
                       </div>
                     </td>
                     <td className="px-3 py-2.5">{f.mobile}</td>

@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import ProductManageForm from "../components/products/ProductManageForm";
 import LoadingState from "../components/ui/LoadingState";
 import { getCrops, getMyProduct, updateMyProduct } from "../api/farmerApi";
-import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL } from "../utils/excelStyles";
+import { EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
 function ProductEditPage() {
   const { id } = useParams();
@@ -35,17 +35,17 @@ function ProductEditPage() {
   const locked = product.status === "Pending Approval";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className={EXCEL_PAGE_TITLE}>Edit Product</h1>
-          <p className={EXCEL_PAGE_SUB}>{product.productName || product.name}</p>
+    <div className="mx-auto w-full max-w-4xl min-w-0 space-y-2 sm:space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-base font-bold tracking-tight text-slate-900 sm:text-2xl">Edit Product</h1>
+          <p className={`${EXCEL_PAGE_SUB} hidden truncate sm:block`}>{product.productName || product.name}</p>
         </div>
-        <Link to={`/farmer/products/${id}`} className="text-xs font-semibold text-[#217346]">
-          View details
+        <Link to={`/farmer/products/${id}`} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
+          View
         </Link>
       </div>
-      <div className={`${EXCEL_PANEL} p-3`}>
+      <div className={`${EXCEL_PANEL} p-2 sm:p-5`}>
         <ProductManageForm
           key={product.productId || product.id}
           crops={crops}

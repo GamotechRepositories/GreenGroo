@@ -41,6 +41,8 @@ import ManagerDashboardPage from "../pages/manager/ManagerDashboardPage";
 import ManagerFarmersPage from "../pages/manager/ManagerFarmersPage";
 import ManagerAddFarmerPage from "../pages/manager/ManagerAddFarmerPage";
 import ManagerFarmerDetailPage from "../pages/manager/ManagerFarmerDetailPage";
+import ManagerFarmerCropViewPage from "../pages/manager/ManagerFarmerCropViewPage";
+import ManagerFarmerCropFormPage from "../pages/manager/ManagerFarmerCropFormPage";
 import ManagerProductsPage from "../pages/manager/ManagerProductsPage";
 import ManagerInventoryPage from "../pages/manager/ManagerInventoryPage";
 import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistoryPage";
@@ -106,6 +108,9 @@ function FarmerRoutes() {
           <Route path="manager/dashboard" element={<ManagerDashboardPage />} />
           <Route path="manager/farmers" element={<ManagerFarmersPage />} />
           <Route path="manager/farmers/add" element={<ManagerAddFarmerPage />} />
+          <Route path="manager/farmers/:farmerId/crops/add" element={<ManagerFarmerCropFormPage />} />
+          <Route path="manager/farmers/:farmerId/crops/:cropId/edit" element={<ManagerFarmerCropFormPage />} />
+          <Route path="manager/farmers/:farmerId/crops/:cropId" element={<ManagerFarmerCropViewPage />} />
           <Route path="manager/farmers/:farmerId" element={<ManagerFarmerDetailPage />} />
           <Route path="manager/products" element={<ManagerProductsPage />} />
           <Route path="manager/inventory" element={<ManagerInventoryPage />} />

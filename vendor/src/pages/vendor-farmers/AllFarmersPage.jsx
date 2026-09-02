@@ -127,10 +127,10 @@ export default function AllFarmersPage() {
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center bg-[#E8F5E9] text-[10px] font-bold text-[#217346]">
                         {f.initials || f.name?.charAt(0)}
                       </div>
-                      <div>
+                      <Link to={`/vendor/all-farmers/${f.id}`} className="hover:text-[#217346]">
                         <p className="font-semibold text-gray-900">{f.name}</p>
                         <p className="text-[10px] text-gray-400">{f.farmerCode}</p>
-                      </div>
+                      </Link>
                     </div>
                   </td>
                   <td className="px-4 py-3">{f.mobile}</td>
@@ -152,7 +152,13 @@ export default function AllFarmersPage() {
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <Link
+                      to={`/vendor/all-farmers/${f.id}`}
+                      className="mr-2 rounded bg-[#E8F5E9] px-2.5 py-1 text-[10px] font-semibold text-[#217346] hover:bg-[#dcefdc]"
+                    >
+                      View
+                    </Link>
                     <button
                       type="button"
                       disabled={deletingId === f.id}

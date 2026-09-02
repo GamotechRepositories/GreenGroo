@@ -20,6 +20,8 @@ const STATUS_STYLES = {
   Confirmed: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
   Processing: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
   "Ready for Harvest": "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
+  "READY FOR HARVEST": "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
+  READY_FOR_HARVEST: "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
   Growing: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
   Planned: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
   Harvested: "border-[#217346] bg-[#E8F5E9] text-[#217346]",

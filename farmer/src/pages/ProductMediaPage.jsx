@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import ProductMediaFields from "../components/products/ProductMediaFields";
 import LoadingState from "../components/ui/LoadingState";
 import { getMyProduct, updateMyProduct } from "../api/farmerApi";
-import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL } from "../utils/excelStyles";
+import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
 function emptyMedia(product) {
   return {
@@ -81,23 +81,23 @@ function ProductMediaPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <div>
-        <h1 className={EXCEL_PAGE_TITLE}>Product Photos & Media</h1>
-        <p className={EXCEL_PAGE_SUB}>
-          {product.productName || product.name}{" "}
-          <Link to={`/farmer/products/${id}`} className="font-semibold text-[#217346] hover:underline">
-            Back to details
-          </Link>
-        </p>
+    <div className="mx-auto w-full max-w-4xl min-w-0 space-y-2 sm:space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-base font-bold tracking-tight text-slate-900 sm:text-2xl">Product Photos</h1>
+          <p className={`${EXCEL_PAGE_SUB} hidden truncate sm:block`}>{product.productName || product.name}</p>
+        </div>
+        <Link to={`/farmer/products/${id}`} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
+          Back
+        </Link>
       </div>
-      <div className={`${EXCEL_PANEL} p-3`}>
+      <div className={`${EXCEL_PANEL} p-2 sm:p-5`}>
         <ProductMediaFields media={media} onChange={setMedia} />
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" disabled={saving || locked} className={EXCEL_BTN_PRIMARY} onClick={onSave}>
+        <div className="sticky bottom-0 z-10 -mx-2 mt-2 flex gap-2 border-t border-slate-100 bg-white px-2 py-2 sm:static sm:mx-0 sm:mt-3 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+          <button type="button" disabled={saving || locked} className={`${EXCEL_BTN_PRIMARY} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`} onClick={onSave}>
             {saving ? "Saving…" : "Save"}
           </button>
-          <Link to={`/farmer/products/${id}`} className={EXCEL_BTN}>
+          <Link to={`/farmer/products/${id}`} className={`${EXCEL_BTN} h-10 min-h-0 flex-1 px-3 text-sm sm:h-11 sm:flex-none`}>
             Cancel
           </Link>
         </div>

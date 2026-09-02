@@ -16,6 +16,7 @@ import {
   SOIL_TYPES,
   WATER_SOURCES,
 } from "../utils/constants";
+import { OTHER_OPTION, splitPreset } from "../components/ui/SelectWithOther";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -110,11 +111,11 @@ function FarmProfilePage() {
     ) {
       next.cultivatedArea = "Cultivated area cannot be greater than total farm area";
     }
-    if (!form.soilType) next.soilType = "Soil type is required";
-    if (!form.irrigationType) next.irrigationType = "Irrigation type is required";
-    if (!form.waterSource) next.waterSource = "Water source is required";
-    if (!form.farmingMethod) next.farmingMethod = "Farming method is required";
-    if (!form.farmingType) next.farmingType = "Farming type is required";
+    if (!form.soilType || form.soilType === OTHER_OPTION) next.soilType = "Soil type is required";
+    if (!form.irrigationType || form.irrigationType === OTHER_OPTION) next.irrigationType = "Irrigation type is required";
+    if (!form.waterSource || form.waterSource === OTHER_OPTION) next.waterSource = "Water source is required";
+    if (!form.farmingMethod || form.farmingMethod === OTHER_OPTION) next.farmingMethod = "Farming method is required";
+    if (!form.farmingType || form.farmingType === OTHER_OPTION) next.farmingType = "Farming type is required";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -321,19 +322,40 @@ function FarmProfilePage() {
 }
 
 function SelectField({ label, value, options, onChange, error, disabled }) {
+  const { select, custom } = splitPreset(options, value);
   return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold">{label}</label>
-      <select className={EXCEL_INPUT} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Select</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-      {error ? <p className="mt-1 text-xs text-[#DC2626]">{error}</p> : null}
-    </div>
+    <>
+      <div>
+        <label className="mb-1 block text-xs font-semibold">{label}</label>
+        <select
+          className={EXCEL_INPUT}
+          value={select}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value === OTHER_OPTION ? custom || OTHER_OPTION : e.target.value)}
+        >
+          <option value="">Select</option>
+          {options.filter((opt) => opt !== OTHER_OPTION).map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+          <option value={OTHER_OPTION}>{OTHER_OPTION}</option>
+        </select>
+        {error ? <p className="mt-1 text-xs text-[#DC2626]">{error}</p> : null}
+      </div>
+      {select === OTHER_OPTION ? (
+        <div>
+          <label className="mb-1 block text-xs font-semibold">Please specify *</label>
+          <input
+            className={EXCEL_INPUT}
+            disabled={disabled}
+            placeholder="Enter value"
+            value={custom}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      ) : null}
+    </>
   );
 }
 

@@ -3,19 +3,22 @@ import { useParams, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   getManagerFarmerById,
+  getManagerFarmerCrops,
   getManagerFarmerProducts,
   getManagerFarmerInventory,
   getManagerFarmerOrders,
   getManagerFarmerEarnings,
   getManagerFarmerDocuments,
   uploadManagerFarmerDocument,
+  deleteManagerFarmerCrop,
 } from "../../api/farmerApi";
-import { DOCUMENT_TYPES } from "../../utils/constants";
+import { formatCropDate, formatCropBusinessId } from "../../utils/cropLinks";
 import FileUpload from "../../components/ui/FileUpload";
 import {
   EXCEL_PANEL,
   EXCEL_PAGE_TITLE,
   EXCEL_PAGE_SUB,
+  EXCEL_BTN_PRIMARY,
 } from "../../utils/excelStyles";
 
 function fileToDataUrl(file) {
@@ -41,7 +44,7 @@ function mergeFarmerDocs(docs = []) {
   }));
 }
 
-const TABS = ["Overview", "Products", "Inventory", "Orders", "Earnings", "Documents"];
+const TABS = ["Overview", "Crops", "Products", "Inventory", "Orders", "Earnings", "Documents"];
 
 const STATUS_BADGE = (status) => {
   const map = {
@@ -54,6 +57,9 @@ const STATUS_BADGE = (status) => {
     New: "bg-blue-100 text-blue-700",
     Completed: "bg-emerald-100 text-emerald-700",
     Cancelled: "bg-red-100 text-red-600",
+    Growing: "bg-blue-100 text-blue-700",
+    Planned: "bg-indigo-100 text-indigo-700",
+    Harvested: "bg-emerald-100 text-emerald-700",
     Paid: "bg-green-100 text-green-700",
   };
   return <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${map[status] || "bg-gray-100 text-gray-600"}`}>{status}</span>;
@@ -63,6 +69,7 @@ export default function ManagerFarmerDetailPage() {
   const { farmerId } = useParams();
   const [tab, setTab] = useState("Overview");
   const [farmer, setFarmer] = useState(null);
+  const [crops, setCrops] = useState([]);
   const [products, setProducts] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -82,9 +89,11 @@ export default function ManagerFarmerDetailPage() {
       .then(setFarmer)
       .catch(() => {})
       .finally(() => setLoading(false));
+    getManagerFarmerCrops(farmerId).then(setCrops).catch(() => setCrops([]));
   }, [farmerId]);
 
   useEffect(() => {
+    if (tab === "Crops") getManagerFarmerCrops(farmerId).then(setCrops).catch(() => setCrops([]));
     if (tab === "Products") getManagerFarmerProducts(farmerId).then(setProducts).catch(() => {});
     if (tab === "Inventory") getManagerFarmerInventory(farmerId).then(setInventory).catch(() => {});
     if (tab === "Orders") getManagerFarmerOrders(farmerId).then(setOrders).catch(() => {});
@@ -141,8 +150,9 @@ export default function ManagerFarmerDetailPage() {
               <span className="text-[10px] text-[#6B7280]">Code: {farmer.farmerCode || "—"}</span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
             {[
+              { label: "Crops", value: crops.length },
               { label: "Products", value: farmer.totalProducts ?? 0 },
               { label: "Orders", value: farmer.totalOrders ?? 0 },
               { label: "Earnings", value: `₹${(farmer.totalEarnings ?? 0).toLocaleString("en-IN")}` },
@@ -203,6 +213,78 @@ export default function ManagerFarmerDetailPage() {
             <div><span className="text-[#6B7280]">Bank: </span><span className="font-semibold">{farmer.bank?.bankName || "—"}</span></div>
             <div><span className="text-[#6B7280]">Account: </span><span className="font-semibold">{farmer.bank?.accountNumber || "—"}</span></div>
             <div><span className="text-[#6B7280]">IFSC: </span><span className="font-semibold">{farmer.bank?.ifsc || "—"}</span></div>
+          </div>
+        )}
+
+        {tab === "Crops" && (
+          <div>
+            <div className="flex items-center justify-between gap-2 border-b border-[#D4D4D4] px-3 py-2.5">
+              <p className="text-xs font-semibold text-[#1F2937]">Crops</p>
+              <Link
+                to={`/farmer/manager/farmers/${farmerId}/crops/add`}
+                className={`${EXCEL_BTN_PRIMARY} px-3 py-1.5 text-[11px]`}
+              >
+                + Add Crop
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[#F2F2F2] text-left">
+                  {["Crop", "Crop ID", "Variety", "Sowing", "Harvest", "Status", "Action"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 font-semibold text-[#6B7280]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {crops.length === 0 ? (
+                  <tr><td colSpan={7} className="px-3 py-4 text-center text-[#6B7280]">No crops added for this farmer</td></tr>
+                ) : crops.map((crop) => (
+                  <tr key={crop.cropId || crop.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                    <td className="px-3 py-2.5 font-semibold">{crop.cropName}</td>
+                    <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatCropBusinessId(crop)}</td>
+                    <td className="px-3 py-2.5">{crop.variety || "—"}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{formatCropDate(crop.sowingDate)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{formatCropDate(crop.expectedHarvestDate)}</td>
+                    <td className="px-3 py-2.5">{STATUS_BADGE(crop.status)}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-nowrap items-center gap-1.5">
+                        <Link
+                          to={`/farmer/manager/farmers/${farmerId}/crops/${encodeURIComponent(crop.cropId || crop.id)}`}
+                          className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                        >
+                          View
+                        </Link>
+                        <Link
+                          to={`/farmer/manager/farmers/${farmerId}/crops/${encodeURIComponent(crop.cropId || crop.id)}/edit`}
+                          className="border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]"
+                        >
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          className="border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100"
+                          onClick={async () => {
+                            const id = crop.cropId || crop.id;
+                            if (!window.confirm(`Delete crop "${crop.cropName}"?`)) return;
+                            try {
+                              await deleteManagerFarmerCrop(farmerId, id);
+                              toast.success("Crop deleted");
+                              setCrops(await getManagerFarmerCrops(farmerId).catch(() => []));
+                            } catch (err) {
+                              toast.error(err?.message || "Failed to delete crop");
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
           </div>
         )}
 

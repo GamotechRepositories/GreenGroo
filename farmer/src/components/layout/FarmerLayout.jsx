@@ -58,7 +58,7 @@ function FarmerLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
-        <main className="farmer-scrollbar flex-1 overflow-x-hidden p-3 sm:p-5 lg:p-6">
+        <main className="farmer-scrollbar flex-1 overflow-x-hidden p-2 sm:p-5 lg:p-6">
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>

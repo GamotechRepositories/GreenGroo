@@ -724,6 +724,41 @@ export async function getManagerFarmerById(farmerId) {
   });
 }
 
+export async function getManagerFarmerCrops(farmerId) {
+  return apiFetch(`/api/farmer-manager/farmers/${encodeURIComponent(farmerId)}/crops`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getManagerFarmerCrop(farmerId, cropId) {
+  return apiFetch(`/api/farmer-manager/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function createManagerFarmerCrop(farmerId, payload) {
+  return apiFetch(`/api/farmer-manager/farmers/${encodeURIComponent(farmerId)}/crops`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateManagerFarmerCrop(farmerId, cropId, payload) {
+  return apiFetch(`/api/farmer-manager/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`, {
+    method: "PUT",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteManagerFarmerCrop(farmerId, cropId) {
+  return apiFetch(`/api/farmer-manager/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`, {
+    method: "DELETE",
+    headers: managerAuthHeaders(),
+  });
+}
+
 export async function getManagerFarmerProducts(farmerId) {
   return apiFetch(`/api/farmer-manager/farmers/${farmerId}/products`, {
     headers: { Authorization: `Bearer ${getStoredAuth()?.token}` },

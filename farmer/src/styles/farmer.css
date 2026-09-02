@@ -69,6 +69,11 @@
   .farmer-panel button {
     max-width: 100%;
   }
+
+  .farmer-panel input[type="date"],
+  .farmer-panel input[type="number"] {
+    min-width: 0;
+  }
 }
 
 @media (min-width: 1280px) {

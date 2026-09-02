@@ -467,7 +467,9 @@ const farmerCropSchema = new mongoose.Schema(
     unit: { type: String, default: "Kg" },
     farmingMethod: { type: String, default: "" },
     farmingType: { type: String, default: "" },
+    irrigationType: { type: String, default: "" },
     photos: [{ type: String }],
+    previousCropId: { type: String, default: "" },
     status: { type: String, enum: CROP_STATUSES, default: "Planned" },
   },
   { timestamps: true }

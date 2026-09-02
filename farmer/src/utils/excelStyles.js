@@ -8,6 +8,9 @@ export const EXCEL_PANEL_HEAD =
   "border-b border-slate-100 bg-slate-50/80 px-4 py-3 text-sm font-semibold text-slate-800";
 export const EXCEL_INPUT =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-50";
+export const FORM_CONTROL =
+  "min-h-10 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-base text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-50 sm:min-h-0 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-sm sm:focus:ring-4";
+export const FORM_INPUT = `w-full ${FORM_CONTROL}`;
 export const EXCEL_SELECT =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-50";
 export const EXCEL_BTN =

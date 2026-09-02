@@ -24,6 +24,7 @@ function ImageUploadField({
   className = "",
   disabled = false,
   showPresets = true,
+  compact = false,
   maxSizeMb,
   accept = "image/*",
 }) {
@@ -118,6 +119,13 @@ function ImageUploadField({
     stopCamera();
   };
 
+  const compactBtn =
+    "inline-flex h-7 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-[10px] font-medium text-slate-700 disabled:opacity-60";
+  const compactBtnPrimary =
+    "inline-flex h-7 items-center justify-center rounded-md border border-emerald-700 bg-emerald-700 px-2 text-[10px] font-semibold text-white disabled:opacity-60";
+  const compactBtnDanger =
+    "inline-flex h-7 items-center justify-center rounded-md border border-red-200 bg-white px-2 text-[10px] font-medium text-red-600 disabled:opacity-60";
+
   const handleApplyUrl = () => {
     if (customUrl.trim()) {
       onChange?.(customUrl.trim());
@@ -134,10 +142,10 @@ function ImageUploadField({
         </label>
       ) : null}
 
-      <div className={`${EXCEL_PANEL} p-2 bg-[#FAFAFA]`}>
+      <div className={compact ? "rounded-lg border border-slate-200 bg-slate-50 p-1.5" : `${EXCEL_PANEL} p-2 bg-[#FAFAFA]`}>
         {value ? (
-          <div className="flex items-center gap-3">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded border border-[#D4D4D4] bg-white">
+          <div className="flex items-center gap-2">
+            <div className={`relative shrink-0 overflow-hidden rounded border border-[#D4D4D4] bg-white ${compact ? "h-12 w-12" : "h-16 w-16"}`}>
               <img
                 src={value}
                 alt="Product preview"
@@ -147,68 +155,68 @@ function ImageUploadField({
                 }}
               />
             </div>
-            <div className="flex flex-col gap-1 min-w-0 flex-1">
-              <p className="text-[10px] font-semibold text-[#1F2937] truncate">
-                Photo selected
-              </p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              {compact ? null : <p className="truncate text-[10px] font-semibold text-[#1F2937]">Photo selected</p>}
+              <div className="flex flex-wrap gap-1">
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`${EXCEL_BTN} py-0.5 px-2 text-[10px]`}
+                  className={compact ? compactBtn : `${EXCEL_BTN} py-0.5 px-2 text-[10px]`}
                 >
-                  📁 Replace
+                  Replace
                 </button>
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={startCamera}
-                  className={`${EXCEL_BTN} py-0.5 px-2 text-[10px]`}
+                  className={compact ? compactBtn : `${EXCEL_BTN} py-0.5 px-2 text-[10px]`}
                 >
-                  📷 Camera
+                  Camera
                 </button>
                 <button
                   type="button"
                   disabled={disabled}
                   onClick={() => onChange?.("")}
-                  className={`${EXCEL_BTN_DANGER} py-0.5 px-2 text-[10px]`}
+                  className={compact ? compactBtnDanger : `${EXCEL_BTN_DANGER} py-0.5 px-2 text-[10px]`}
                 >
-                  ✕ Remove
+                  Remove
                 </button>
               </div>
             </div>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className={`flex ${compact ? "gap-1" : "flex-wrap items-center gap-1.5"}`}>
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => fileInputRef.current?.click()}
-                className={`${EXCEL_BTN_PRIMARY} py-1 px-2.5 text-xs flex items-center gap-1`}
+                className={compact ? `${compactBtnPrimary} flex-1` : `${EXCEL_BTN_PRIMARY} flex items-center gap-1 px-2 py-1 text-[11px]`}
               >
-                <span>📁</span> Upload Photo
+                Upload
               </button>
               <button
                 type="button"
                 disabled={disabled}
                 onClick={startCamera}
-                className={`${EXCEL_BTN} py-1 px-2.5 text-xs flex items-center gap-1 bg-white hover:bg-[#F3F4F6]`}
+                className={compact ? `${compactBtn} flex-1` : `${EXCEL_BTN} flex items-center gap-1 px-2 py-1 text-[11px]`}
               >
-                <span>📷</span> Take Photo
+                Camera
               </button>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => setShowUrlInput(!showUrlInput)}
-                className={`${EXCEL_BTN_OUTLINE} py-1 px-2 text-xs`}
-              >
-                {showUrlInput ? "Cancel URL" : "Paste URL"}
-              </button>
+              {compact ? null : (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setShowUrlInput(!showUrlInput)}
+                  className={`${EXCEL_BTN_OUTLINE} px-2 py-1 text-[11px]`}
+                >
+                  {showUrlInput ? "Cancel URL" : "Paste URL"}
+                </button>
+              )}
             </div>
 
-            {showUrlInput ? (
+            {showUrlInput && !compact ? (
               <div className="flex items-center gap-1 mt-1">
                 <input
                   type="text"
@@ -225,7 +233,7 @@ function ImageUploadField({
                   Set
                 </button>
               </div>
-            ) : showPresets ? (
+            ) : showPresets && !compact ? (
               <div className="flex items-center gap-1">
                 <span className="text-[9px] text-[#6B7280]">Quick Presets:</span>
                 {PRESET_IMAGES.map((img) => (
@@ -239,7 +247,7 @@ function ImageUploadField({
                   </button>
                 ))}
               </div>
-            ) : (
+            ) : compact ? null : (
               <p className="text-[10px] text-[#6B7280]">JPG or PNG. You can upload or capture from camera.</p>
             )}
           </div>

@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getCrop, getCropPlan, updateCropPlan } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
-import { createProductPath, formatCropDate } from "../utils/cropLinks";
+import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
 
 function CropPlanPage() {
@@ -76,11 +76,14 @@ function CropPlanPage() {
   if (!crop) return null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl min-w-0 space-y-4">
       <div>
         <h1 className={EXCEL_PAGE_TITLE}>Crop Plan — {crop.cropName}</h1>
         <p className={EXCEL_PAGE_SUB}>
           Variety {crop.variety} • Harvest {formatCropDate(crop.expectedHarvestDate)}
+        </p>
+        <p className="mt-1 font-mono text-[12px] font-semibold tracking-wide text-emerald-700">
+          {formatCropBusinessId(crop)}
         </p>
       </div>
 
@@ -88,6 +91,7 @@ function CropPlanPage() {
         <h2 className={EXCEL_PANEL_HEAD}>Production Plan</h2>
         <form onSubmit={onSave} className="grid gap-3 p-3 sm:grid-cols-2">
           <Read label="Crop" value={crop.cropName} />
+          <Read label="Crop ID" value={formatCropBusinessId(crop)} />
           <Read label="Variety" value={crop.variety} />
           <Read label="Harvest Date" value={formatCropDate(crop.expectedHarvestDate)} />
           <Field
@@ -106,7 +110,7 @@ function CropPlanPage() {
             onChange={(v) => setForm((p) => ({ ...p, suggestedSaleQuantity: v }))}
           />
           {error ? <p className="sm:col-span-2 text-xs text-[#DC2626]">{error}</p> : null}
-          <div className="sm:col-span-2 flex flex-wrap gap-2 pt-1">
+          <div className="sm:col-span-2 grid grid-cols-1 gap-2 pt-1 sm:grid-cols-3">
             <button type="submit" disabled={saving} className={EXCEL_BTN_PRIMARY}>
               {saving ? "Saving…" : "Update Quantity"}
             </button>

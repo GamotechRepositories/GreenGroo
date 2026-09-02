@@ -4,7 +4,8 @@ import toast from "react-hot-toast";
 import { createCrop, getCrop, getFarmerProfile, updateCrop } from "../api/farmerApi";
 import CropForm from "../components/crops/CropForm";
 import LoadingState from "../components/ui/LoadingState";
-import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL } from "../utils/excelStyles";
+import { formatCropBusinessId } from "../utils/cropLinks";
+import { EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
 function CropFormPage() {
   const { cropId } = useParams();
@@ -24,6 +25,7 @@ function CropFormPage() {
         setFarmDefaults({
           farmingMethod: profile.farm?.farmingMethod || "",
           farmingType: profile.farm?.farmingType || "",
+          irrigationType: profile.farm?.irrigationType || "",
         });
         if (isEdit) {
           setCrop(await getCrop(cropId));
@@ -53,17 +55,24 @@ function CropFormPage() {
   if (loading) return <LoadingState rows={8} />;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <div>
-        <h1 className={EXCEL_PAGE_TITLE}>{isEdit ? "Edit Crop" : "Add Crop"}</h1>
-        <p className={EXCEL_PAGE_SUB}>
-          {isEdit ? "Update crop details." : "Add a crop to your farm, then plan production."}{" "}
-          <Link to="/farmer/crops" className="font-semibold text-[#217346] hover:underline">
-            Back to My Crops
-          </Link>
-        </p>
+    <div className="mx-auto w-full max-w-4xl min-w-0 space-y-2 sm:space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-base font-bold tracking-tight text-slate-900 sm:text-2xl">{isEdit ? "Edit Crop" : "Add Crop"}</h1>
+          <p className={`${EXCEL_PAGE_SUB} hidden sm:block`}>
+            {isEdit ? "Update crop details." : "Add a crop to your farm, then plan production."}
+          </p>
+        </div>
+        <Link to="/farmer/crops" className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
+          Back
+        </Link>
       </div>
-      <div className={`${EXCEL_PANEL} p-3`}>
+      {isEdit && crop ? (
+        <p className="truncate font-mono text-[11px] font-semibold tracking-wide text-emerald-700 sm:text-[12px]">
+          {formatCropBusinessId(crop)}
+        </p>
+      ) : null}
+      <div className={`${EXCEL_PANEL} p-2 sm:p-5`}>
         <CropForm
           key={crop?.id || "new"}
           initialCrop={crop || farmDefaults}

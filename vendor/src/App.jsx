@@ -15,6 +15,9 @@ import AddManagerPage from './pages/farmer-managers/AddManagerPage'
 import ManagerDetailPage from './pages/farmer-managers/ManagerDetailPage'
 import AllFarmersPage from './pages/vendor-farmers/AllFarmersPage'
 import AddFarmerPage from './pages/vendor-farmers/AddFarmerPage'
+import FarmerDetailPage from './pages/vendor-farmers/FarmerDetailPage'
+import FarmerCropViewPage from './pages/vendor-farmers/FarmerCropViewPage'
+import FarmerCropFormPage from './pages/vendor-farmers/FarmerCropFormPage'
 import DriversPage from './pages/drivers/DriversPage'
 import DriverFormPage from './pages/drivers/DriverFormPage'
 import DriverDetailPage from './pages/drivers/DriverDetailPage'
@@ -56,6 +59,10 @@ function App() {
                 <Route path="/vendor/farmer-managers/:managerId" element={<ManagerDetailPage />} />
                 <Route path="/vendor/all-farmers" element={<AllFarmersPage />} />
                 <Route path="/vendor/all-farmers/add" element={<AddFarmerPage />} />
+                <Route path="/vendor/all-farmers/:farmerId/crops/add" element={<FarmerCropFormPage />} />
+                <Route path="/vendor/all-farmers/:farmerId/crops/:cropId/edit" element={<FarmerCropFormPage />} />
+                <Route path="/vendor/all-farmers/:farmerId/crops/:cropId" element={<FarmerCropViewPage />} />
+                <Route path="/vendor/all-farmers/:farmerId" element={<FarmerDetailPage />} />
                 <Route path="/vendor/drivers" element={<DriversPage />} />
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />

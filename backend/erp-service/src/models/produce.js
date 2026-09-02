@@ -56,6 +56,7 @@ const cropSchema = new Schema(
     procurementStatus: { type: String, default: "PENDING" },
     salesStatus: { type: String, default: "PENDING" },
     sourceCropId: { type: String, default: "" },
+    irrigationType: { type: String, default: "" },
   }),
   { timestamps: true, collection: "crops" }
 );
