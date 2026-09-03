@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -6,6 +6,14 @@ import {
   getManagerAllHarvestOrders,
   updateManagerFarmerOrder,
 } from "../../api/farmerApi";
+import { usePolling } from "../../hooks/usePolling";
+import StatusBadge from "../../components/ui/StatusBadge";
+import {
+  canonicalOrderStatus,
+  MANAGER_ORDER_STATUSES,
+  orderStatusMatches,
+  rejectionText,
+} from "../../utils/orderDisplay";
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import {
   EXCEL_PANEL,
@@ -13,16 +21,6 @@ import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
 } from "../../utils/excelStyles";
-
-const ORDER_STATUSES = [
-  "Approved",
-  "Confirmed",
-  "Processing",
-  "Ready for Pickup",
-  "Delivered",
-  "Completed",
-  "Cancelled",
-];
 
 const UNIT_OPTIONS = ["Kg", "Litre", "Box", "Bundle", "Dozen", "Quintal", "Gram"];
 
@@ -93,8 +91,8 @@ export default function ManagerProductOrdersSpreadsheetPage() {
     gradeMap: {},
   });
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await getManagerAllHarvestOrders();
       const farmerList = Array.isArray(data?.farmers) ? data.farmers : [];
@@ -110,7 +108,7 @@ export default function ManagerProductOrdersSpreadsheetPage() {
           )
       );
     } catch (err) {
-      toast.error(err?.message || "Failed to load product harvest orders");
+      if (!silent) toast.error(err?.message || "Failed to load product harvest orders");
       setFarmers([]);
       setOrders([]);
     } finally {
@@ -118,9 +116,9 @@ export default function ManagerProductOrdersSpreadsheetPage() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [productKey, productId, productNameParam]);
+  usePolling(() => {
+    loadData(true);
+  }, [productKey, productId, productNameParam], 5000);
 
   const productTitle =
     productNameParam ||
@@ -153,7 +151,7 @@ export default function ManagerProductOrdersSpreadsheetPage() {
 
     orders.forEach((o) => {
       if (selectedFarmerId && o.farmerId !== selectedFarmerId) return;
-      if (statusFilter !== "ALL" && o.status !== statusFilter) return;
+      if (statusFilter !== "ALL" && !orderStatusMatches(o.status, statusFilter)) return;
 
       const farmerName = o.farmerName || farmers.find((f) => f.id === o.farmerId)?.name || "—";
       const orderProducts =
@@ -175,7 +173,9 @@ export default function ManagerProductOrdersSpreadsheetPage() {
 
         if (!matchSearch) return;
 
-        const dateStr = formatDate(o.harvestDate || o.date || o.orderDate || o.createdAt);
+        const dateStr = formatDate(o.orderDate || o.harvestDate || o.date || o.createdAt);
+        const pickupDateStr = o.pickupDate || o.requiredDate || "";
+        const pickupTimeStr = o.pickupTime || o.harvestTime || "";
         const dayStr = o.day || getDayName(dateStr);
         const unit = p.unit || o.unit || "Kg";
         const rejectionQty = pIdx === 0 ? Number(o.rejectionQty || 0) : 0;
@@ -205,6 +205,8 @@ export default function ManagerProductOrdersSpreadsheetPage() {
           farmerId: o.farmerId,
           farmerName,
           date: dateStr,
+          pickupDate: pickupDateStr,
+          pickupTime: pickupTimeStr,
           day: dayStr,
           productName: p.name || o.productName || productTitle,
           unit,
@@ -212,7 +214,7 @@ export default function ManagerProductOrdersSpreadsheetPage() {
           rejectionQty: `${rejectionQty} ${unit}`,
           rawRejectionQty: rejectionQty,
           totalQuantity: Object.values(gradeMap).reduce((s, n) => s + Number(n || 0), 0) || Number(p.quantity || 0),
-          status: o.status || "Approved",
+          status: canonicalOrderStatus(o.status),
           rawOrder: o,
         });
       });
@@ -252,7 +254,7 @@ export default function ManagerProductOrdersSpreadsheetPage() {
       productName: row.productName,
       unit: row.unit || "Kg",
       rejectionQty: row.rawRejectionQty || 0,
-      status: row.status || "Approved",
+      status: canonicalOrderStatus(row.status),
       gradeMap: { ...row.gradeMap },
     });
   };
@@ -312,7 +314,9 @@ export default function ManagerProductOrdersSpreadsheetPage() {
   const handleExportCSV = () => {
     const headers = [
       "Sr",
-      "Date",
+      "Order Date",
+      "Pickup Date",
+      "Pickup Time",
       "Day",
       "Farmer",
       "Product",
@@ -328,6 +332,8 @@ export default function ManagerProductOrdersSpreadsheetPage() {
         [
           idx + 1,
           `"${r.date}"`,
+          `"${r.pickupDate || ""}"`,
+          `"${r.pickupTime || ""}"`,
           `"${r.day}"`,
           `"${r.farmerName}"`,
           `"${r.productName}"`,
@@ -408,7 +414,7 @@ export default function ManagerProductOrdersSpreadsheetPage() {
           className={`${EXCEL_INPUT} max-w-[140px] !py-1.5 !text-xs`}
         >
           <option value="ALL">All Status</option>
-          {ORDER_STATUSES.map((s) => (
+          {MANAGER_ORDER_STATUSES.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
@@ -429,7 +435,8 @@ export default function ManagerProductOrdersSpreadsheetPage() {
             <thead>
               <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
                 <th className="px-2 py-2 text-center font-semibold text-[#6B7280]">#</th>
-                <th className="px-2 py-2 font-semibold text-[#6B7280]">Date</th>
+                <th className="px-2 py-2 font-semibold text-[#6B7280]">Order Date</th>
+                <th className="px-2 py-2 font-semibold text-[#6B7280]">Pickup</th>
                 <th className="px-2 py-2 font-semibold text-[#6B7280]">Farmer</th>
                 <th className="px-2 py-2 font-semibold text-[#6B7280]">Unit</th>
                 {availableGrades.map((g) => (
@@ -453,6 +460,10 @@ export default function ManagerProductOrdersSpreadsheetPage() {
                     {row.date}
                     <span className="ml-1 text-[10px] text-[#9CA3AF]">{row.day?.slice(0, 3)}</span>
                   </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-[#374151]">
+                    {row.pickupDate || "—"}
+                    {row.pickupTime ? <span className="ml-1 text-[10px] text-[#9CA3AF]">{row.pickupTime}</span> : null}
+                  </td>
                   <td className="px-2 py-1.5 font-semibold">
                     <Link to={`/farmer/manager/orders/farmer/${row.farmerId}`} className="text-[#217346] hover:underline">
                       {row.farmerName}
@@ -467,9 +478,14 @@ export default function ManagerProductOrdersSpreadsheetPage() {
                   <td className="px-2 py-1.5 text-right">{row.rawRejectionQty}</td>
                   <td className="px-2 py-1.5 text-right font-semibold">{row.totalQuantity}</td>
                   <td className="px-2 py-1.5 text-center">
-                    <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
-                      {row.status}
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <StatusBadge status={row.status} />
+                      {row.status === "REJECTED" && rejectionText(row.rawOrder) ? (
+                        <span className="max-w-[9rem] truncate text-[9px] text-[#DC2626]" title={rejectionText(row.rawOrder)}>
+                          {rejectionText(row.rawOrder)}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="sticky right-0 border-l border-[#D4D4D4] bg-white px-2 py-1.5 text-right">
                     <div className="inline-flex gap-1">
@@ -568,7 +584,7 @@ export default function ManagerProductOrdersSpreadsheetPage() {
                   value={editForm.status}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))}
                 >
-                  {ORDER_STATUSES.map((s) => (
+                  {MANAGER_ORDER_STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>

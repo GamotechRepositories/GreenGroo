@@ -18,15 +18,16 @@ import {
   Pickup,
 } from "./models.js";
 import { ensurePickupForOrder } from "./pickupControllers.js";
+import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
-import { categoryFromName, cropCodeFromName } from "../../erp-service/src/config/idRegistry.js";
+import { categoryFromName, cropCodeFromName, varietyCodeFromName, farmerSerialFromId } from "../../erp-service/src/config/idRegistry.js";
 import {
   assignFarmerBusinessId,
   ensureFarmForFarmer,
   syncFarmerCropToErp,
   syncFarmerProductToErp,
   ensureEntityQr,
-  upgradeCropIdWithCropCode,
+  ensureSharedCropBusinessId,
   upgradeFarmerProductId,
 } from "../../erp-service/src/services/farmerSync.js";
 
@@ -178,6 +179,18 @@ function assignedFarmerQuery(req) {
   return { managerId: req.user.managerId, vendorId: req.user.vendorId };
 }
 
+function indexFarmersByIdentity(farmers) {
+  const farmerMap = new Map();
+  const ids = [];
+  farmers.forEach((f) => {
+    [f.id, f.farmerId].filter(Boolean).forEach((id) => {
+      ids.push(id);
+      farmerMap.set(id, f);
+    });
+  });
+  return { ids: [...new Set(ids)], farmerMap };
+}
+
 function accessibleFarmerQuery(req, farmerId) {
   const query = { id: farmerId };
   if (req.user?.role === "FARMER_MANAGER") {
@@ -212,6 +225,87 @@ function lineProductId(p = {}) {
   const id = String(p.id || "").trim();
   if (id && !/^[a-f0-9]{24}$/i.test(id)) return id;
   return raw || "";
+}
+
+function toISODate(value) {
+  if (!value) return "";
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const ORDER_STATUS_ALIASES = {
+  NEW: "NEW",
+  New: "NEW",
+  ACCEPTED: "ACCEPTED",
+  Accepted: "ACCEPTED",
+  Confirmed: "NEW",
+  Approved: "NEW",
+  PREPARING: "PREPARING",
+  Preparing: "PREPARING",
+  Processing: "PREPARING",
+  READY_FOR_PICKUP: "READY_FOR_PICKUP",
+  "Ready for Pickup": "READY_FOR_PICKUP",
+  PACKING: "PACKING",
+  Packing: "PACKING",
+  DRIVER_ASSIGNED: "DRIVER_ASSIGNED",
+  PICKUP_SCHEDULED: "DRIVER_ASSIGNED",
+  DISPATCHED: "DISPATCHED",
+  Dispatched: "DISPATCHED",
+  DRIVER_ARRIVED: "DRIVER_ARRIVED",
+  ARRIVED: "DRIVER_ARRIVED",
+  ORDER_VERIFIED: "ORDER_VERIFIED",
+  QR_VERIFIED: "QR_VERIFIED",
+  PICKUP_CONFIRMED: "PICKED_UP",
+  PICKED_UP: "PICKED_UP",
+  IN_TRANSIT: "IN_TRANSIT",
+  COLLECTION_CENTRE_RECEIVED: "COLLECTION_CENTRE_RECEIVED",
+  RECEIVED_AT_COLLECTION_CENTRE: "COLLECTION_CENTRE_RECEIVED",
+  QUALITY_PENDING: "QUALITY_PENDING",
+  INSPECTION: "INSPECTION",
+  GRADING: "GRADING",
+  GRADE_CONFIRMED: "GRADE_CONFIRMED",
+  ORDER_COMPLETED: "ORDER_COMPLETED",
+  COMPLETED: "COMPLETED",
+  Completed: "COMPLETED",
+  REJECTED: "REJECTED",
+  Rejected: "REJECTED",
+  CANCELLED: "CANCELLED",
+  Cancelled: "CANCELLED",
+};
+
+const ORDER_FILTERS = {
+  new: ["NEW"],
+  preparing: ["ACCEPTED", "PREPARING", "PACKING"],
+  ready: ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"],
+  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "QUALITY_PENDING", "INSPECTION", "GRADING", "GRADE_CONFIRMED", "ORDER_COMPLETED"],
+  rejected: ["REJECTED", "CANCELLED"],
+};
+
+const REJECTION_REASONS = [
+  "Stock Unavailable",
+  "Product Unavailable",
+  "Quality Issue",
+  "Pickup Issue",
+  "Quantity Issue",
+  "Other",
+];
+
+function normalizeOrderStatus(status) {
+  return ORDER_STATUS_ALIASES[status] || status || "NEW";
+}
+
+function withCanonicalOrderStatus(order) {
+  return {
+    ...order,
+    status: normalizeOrderStatus(order.status),
+    rejectionReason: order.rejectionReason || "",
+    rejectionNote: order.rejectionNote || "",
+    rejectedBy: order.rejectedBy || "",
+    rejectedAt: order.rejectedAt || null,
+  };
 }
 
 function mapFarmerOrdersToHarvest(farmerOrders) {
@@ -250,30 +344,55 @@ function mapFarmerOrdersToHarvest(farmerOrders) {
       productId: o.productId || lineProductId(first),
       productName: o.productName || first.name || "Farm Fresh Produce",
       category: first.category || o.category || "Produce",
-      date: o.harvestDate || o.date || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
+      date: toISODate(o.orderDate) || toISODate(o.harvestDate) || toISODate(o.date) || toISODate(o.createdAt),
       day: o.day || "",
       unit: o.unit || first.unit || "Kg",
       grades: gradesList,
       rejectionQty: Number(o.rejectionQty || 0),
       totalQuantity,
       totalAmount: Number(o.totalAmount || o.amount || 0),
-      status: o.status || "Approved",
+      status: normalizeOrderStatus(o.status),
+      rejectionReason: o.rejectionReason || "",
+      rejectionNote: o.rejectionNote || "",
+      rejectedBy: o.rejectedBy || "",
+      rejectedAt: o.rejectedAt || null,
       createdAt: o.createdAt,
       products: o.products,
       harvestDate: o.harvestDate || o.date || "",
       amount: o.amount,
       orderDate: o.orderDate,
+      requiredDate: o.requiredDate || o.pickupDate || "",
+      pickupDate: o.pickupDate || o.requiredDate || "",
+      pickupTime: o.pickupTime || o.harvestTime || "",
+      harvestTime: o.harvestTime || o.pickupTime || "",
     };
   });
 }
 
+function harvestOrderKeys(item) {
+  return [...new Set([item?.id, item?.orderId, item?._id ? String(item._id) : ""].filter(Boolean).map(String))];
+}
+
 function mergeHarvestLists(harvestOrders, mappedFarmerOrders) {
   const idMap = new Map();
-  [...harvestOrders, ...mappedFarmerOrders].forEach((item) => {
-    const key = item.id || item.orderId || String(item._id);
-    if (key && !idMap.has(key)) idMap.set(key, item);
+  const remember = (item) => {
+    harvestOrderKeys(item).forEach((key) => idMap.set(key, item));
+  };
+  harvestOrders.forEach((item) => remember({ ...item, status: normalizeOrderStatus(item.status) }));
+  mappedFarmerOrders.forEach((item) => {
+    const keys = harvestOrderKeys(item);
+    const existing = keys.map((key) => idMap.get(key)).find(Boolean);
+    remember(existing ? { ...existing, ...item } : { ...item });
   });
-  return Array.from(idMap.values()).sort(
+  const seen = new Set();
+  const merged = [];
+  idMap.forEach((item) => {
+    const keys = harvestOrderKeys(item);
+    if (!keys.length || keys.some((k) => seen.has(k))) return;
+    keys.forEach((k) => seen.add(k));
+    merged.push(item);
+  });
+  return merged.sort(
     (a, b) => new Date(b.date || b.orderDate || b.createdAt || 0) - new Date(a.date || a.orderDate || a.createdAt || 0)
   );
 }
@@ -1166,8 +1285,13 @@ function publicPlan(plan, crop) {
 }
 
 async function upsertCropPlan(farmerId, crop) {
-  const existing = await FarmerCropPlan.findOne({ farmerId, cropId: crop.id });
+  const planCropKey = crop.cropId || crop.id;
+  const existing = await FarmerCropPlan.findOne({
+    farmerId,
+    $or: [{ cropId: crop.id }, { cropId: planCropKey }],
+  });
   if (existing) {
+    existing.cropId = planCropKey;
     existing.harvestDate = crop.expectedHarvestDate;
     existing.estimatedProduction = crop.estimatedQuantity;
     existing.unit = crop.unit;
@@ -1182,7 +1306,7 @@ async function upsertCropPlan(farmerId, crop) {
     id: planId,
     planId,
     farmerId,
-    cropId: crop.id,
+    cropId: planCropKey,
     harvestDate: crop.expectedHarvestDate,
     estimatedProduction: crop.estimatedQuantity,
     expectedDemand: 0,
@@ -1203,7 +1327,7 @@ async function loadOwnCrop(req, res) {
     res.status(404).json({ message: "Crop not found" });
     return null;
   }
-  return upgradeCropIdWithCropCode(crop);
+  return ensureSharedCropBusinessId(crop);
 }
 
 export async function listFarmerCrops(req, res) {
@@ -1212,11 +1336,11 @@ export async function listFarmerCrops(req, res) {
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crops = await FarmerCrop.find({ farmerId }).sort({ createdAt: -1 });
-    const upgraded = [];
+    const normalized = [];
     for (const crop of crops) {
-      upgraded.push(await upgradeCropIdWithCropCode(crop));
+      normalized.push(await ensureSharedCropBusinessId(crop));
     }
-    res.json(upgraded.map((c) => publicCrop(c, farmer)));
+    res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crops" });
   }
@@ -1227,21 +1351,60 @@ export async function getFarmerCrop(req, res) {
     const crop = await loadOwnCrop(req, res);
     if (!crop) return;
     const farmer = await Farmer.findOne({ id: crop.farmerId });
-    const plan = await FarmerCropPlan.findOne({ farmerId: crop.farmerId, cropId: crop.id }).lean();
+    const plan = await FarmerCropPlan.findOne({
+      farmerId: crop.farmerId,
+      $or: [{ cropId: crop.id }, { cropId: crop.cropId }],
+    }).lean();
     res.json({ ...publicCrop(crop, farmer), plan: plan ? publicPlan(plan, crop) : null });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crop" });
   }
 }
 
-async function persistNewCrop(farmer, parsed) {
-  const cropId = await generateId({
+async function resolveSharedCropBusinessId(parsed) {
+  const cropName = String(parsed.cropName || "").trim();
+  const variety = String(parsed.variety || "").trim();
+  if (cropName) {
+    const existing = await FarmerCrop.findOne({
+      cropName: new RegExp(`^${cropName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      ...(variety
+        ? { variety: new RegExp(`^${variety.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+        : {}),
+    })
+      .sort({ createdAt: 1 });
+    if (existing) {
+      const normalized = await ensureSharedCropBusinessId(existing);
+      const shared = String(normalized?.cropId || normalized?.id || "").trim();
+      if (shared.startsWith("GGC-CRP-")) return shared;
+    }
+  }
+  return generateId({
     module: "CRP",
-    category: categoryFromName(parsed.cropName),
-    crop: cropCodeFromName(parsed.cropName),
+    category: categoryFromName(cropName),
+    crop: cropCodeFromName(cropName),
+    variety: varietyCodeFromName(variety),
   });
+}
+
+async function uniqueCropRecordId(cropId, farmer) {
+  const base = String(cropId || "").trim();
+  const taken = await FarmerCrop.exists({ id: base });
+  if (!taken) return base;
+  const serial = farmerSerialFromId(farmer.farmerId || farmer.id);
+  let candidate = `${base}-F${serial}`;
+  let n = 1;
+  while (await FarmerCrop.exists({ id: candidate })) {
+    n += 1;
+    candidate = `${base}-F${serial}-${n}`;
+  }
+  return candidate;
+}
+
+async function persistNewCrop(farmer, parsed) {
+  const cropId = await resolveSharedCropBusinessId(parsed);
+  const id = await uniqueCropRecordId(cropId, farmer);
   const crop = await FarmerCrop.create({
-    id: cropId,
+    id,
     cropId,
     farmerId: farmer.id,
     farmId: farmSummary(farmer).farmId,
@@ -1327,7 +1490,10 @@ export async function deleteFarmerCrop(req, res) {
   try {
     const crop = await loadOwnCrop(req, res);
     if (!crop) return;
-    await FarmerCropPlan.deleteMany({ farmerId: crop.farmerId, cropId: crop.id });
+    await FarmerCropPlan.deleteMany({
+      farmerId: crop.farmerId,
+      $or: [{ cropId: crop.id }, { cropId: crop.cropId }],
+    });
     await FarmerCrop.deleteOne({ id: crop.id });
     res.json({ success: true, message: "Crop deleted" });
   } catch (err) {
@@ -1341,11 +1507,11 @@ export async function getManagedFarmerCrops(req, res) {
     const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crops = await FarmerCrop.find({ farmerId: farmer.id }).sort({ createdAt: -1 });
-    const upgraded = [];
+    const normalized = [];
     for (const crop of crops) {
-      upgraded.push(await upgradeCropIdWithCropCode(crop));
+      normalized.push(await ensureSharedCropBusinessId(crop));
     }
-    res.json(upgraded.map((c) => publicCrop(c, farmer)));
+    res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crops" });
   }
@@ -1361,9 +1527,12 @@ export async function getManagedFarmerCrop(req, res) {
       $or: [{ id: cropId }, { cropId }, { previousCropId: cropId }],
     });
     if (!crop) return res.status(404).json({ message: "Crop not found" });
-    const upgraded = await upgradeCropIdWithCropCode(crop);
-    const plan = await FarmerCropPlan.findOne({ farmerId: farmer.id, cropId: upgraded.id }).lean();
-    res.json({ ...publicCrop(upgraded, farmer), plan: plan ? publicPlan(plan, upgraded) : null });
+    const normalized = await ensureSharedCropBusinessId(crop);
+    const plan = await FarmerCropPlan.findOne({
+      farmerId: farmer.id,
+      $or: [{ cropId: normalized.id }, { cropId: normalized.cropId }],
+    }).lean();
+    res.json({ ...publicCrop(normalized, farmer), plan: plan ? publicPlan(plan, normalized) : null });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crop" });
   }
@@ -1391,8 +1560,7 @@ export async function updateManagedFarmerCrop(req, res) {
       $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
     });
     if (!crop) return res.status(404).json({ message: "Crop not found" });
-    const upgraded = await upgradeCropIdWithCropCode(crop);
-    const updated = await applyCropUpdate(upgraded, req.body || {});
+    const updated = await applyCropUpdate(crop, req.body || {});
     if (updated.error) return res.status(400).json({ message: updated.error });
     res.json({ ...publicCrop(updated.crop, farmer), plan: publicPlan(updated.plan, updated.crop) });
   } catch (err) {
@@ -1409,7 +1577,10 @@ export async function deleteManagedFarmerCrop(req, res) {
       $or: [{ id: req.params.cropId }, { cropId: req.params.cropId }, { previousCropId: req.params.cropId }],
     });
     if (!crop) return res.status(404).json({ message: "Crop not found" });
-    await FarmerCropPlan.deleteMany({ farmerId: farmer.id, cropId: crop.id });
+    await FarmerCropPlan.deleteMany({
+      farmerId: farmer.id,
+      $or: [{ cropId: crop.id }, { cropId: crop.cropId }],
+    });
     await FarmerCrop.deleteOne({ id: crop.id });
     res.json({ success: true, message: "Crop deleted" });
   } catch (err) {
@@ -1422,8 +1593,15 @@ export async function listFarmerCropPlans(req, res) {
     const farmerId = authFarmerId(req);
     const plans = await FarmerCropPlan.find({ farmerId }).sort({ createdAt: -1 }).lean();
     const cropIds = plans.map((p) => p.cropId);
-    const crops = await FarmerCrop.find({ farmerId, id: { $in: cropIds } }).lean();
-    const cropMap = new Map(crops.map((c) => [c.id, c]));
+    const crops = await FarmerCrop.find({
+      farmerId,
+      $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }],
+    }).lean();
+    const cropMap = new Map();
+    crops.forEach((c) => {
+      cropMap.set(c.id, c);
+      if (c.cropId) cropMap.set(c.cropId, c);
+    });
     res.json(plans.map((p) => publicPlan(p, cropMap.get(p.cropId))));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crop plans" });
@@ -2119,64 +2297,12 @@ export async function patchMyProductStatus(req, res) {
   }
 }
 
-const ORDER_STATUS_ALIASES = {
-  NEW: "NEW",
-  New: "NEW",
-  ACCEPTED: "ACCEPTED",
-  Accepted: "ACCEPTED",
-  Confirmed: "ACCEPTED",
-  PREPARING: "PREPARING",
-  Preparing: "PREPARING",
-  Processing: "PREPARING",
-  READY_FOR_PICKUP: "READY_FOR_PICKUP",
-  "Ready for Pickup": "READY_FOR_PICKUP",
-  PACKING: "PACKING",
-  Packing: "PACKING",
-  DRIVER_ASSIGNED: "DRIVER_ASSIGNED",
-  PICKUP_SCHEDULED: "DRIVER_ASSIGNED",
-  DISPATCHED: "DISPATCHED",
-  Dispatched: "DISPATCHED",
-  DRIVER_ARRIVED: "DRIVER_ARRIVED",
-  ARRIVED: "DRIVER_ARRIVED",
-  ORDER_VERIFIED: "ORDER_VERIFIED",
-  QR_VERIFIED: "QR_VERIFIED",
-  PICKUP_CONFIRMED: "PICKED_UP",
-  PICKED_UP: "PICKED_UP",
-  IN_TRANSIT: "IN_TRANSIT",
-  COLLECTION_CENTRE_RECEIVED: "COLLECTION_CENTRE_RECEIVED",
-  RECEIVED_AT_COLLECTION_CENTRE: "COLLECTION_CENTRE_RECEIVED",
-  QUALITY_PENDING: "QUALITY_PENDING",
-  INSPECTION: "INSPECTION",
-  GRADING: "GRADING",
-  GRADE_CONFIRMED: "GRADE_CONFIRMED",
-  ORDER_COMPLETED: "ORDER_COMPLETED",
-  COMPLETED: "COMPLETED",
-  Completed: "COMPLETED",
-  REJECTED: "REJECTED",
-  Rejected: "REJECTED",
-  CANCELLED: "CANCELLED",
-  Cancelled: "CANCELLED",
-};
-
-const ORDER_FILTERS = {
-  new: ["NEW"],
-  preparing: ["ACCEPTED", "PREPARING", "PACKING"],
-  ready: ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"],
-  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "QUALITY_PENDING", "INSPECTION", "GRADING", "GRADE_CONFIRMED", "ORDER_COMPLETED"],
-  rejected: ["REJECTED", "CANCELLED"],
-};
-
-const REJECTION_REASONS = [
-  "Stock Unavailable",
-  "Product Unavailable",
-  "Quality Issue",
-  "Pickup Issue",
-  "Quantity Issue",
-  "Other",
-];
-
-function normalizeOrderStatus(status) {
-  return ORDER_STATUS_ALIASES[status] || status || "NEW";
+async function resolveFarmerIdentity(farmerId) {
+  const farmer = await Farmer.findOne({
+    $or: [{ id: farmerId }, { farmerId }],
+  }).lean();
+  const ids = [...new Set([farmerId, farmer?.id, farmer?.farmerId].filter(Boolean))];
+  return { farmer, ids };
 }
 
 function productSellable(product) {
@@ -2188,7 +2314,7 @@ function productSellable(product) {
 function flattenOrderFields(order) {
   const plain = toPlain(order);
   const first = plain.products?.[0] || {};
-  const orderedQuantity = Number(plain.orderedQuantity || first.quantity || plain.totalQuantity || 0);
+  const orderedQuantity = Number(plain.orderedQuantity || plain.totalQuantity || first.quantity || 0);
   const price = Number(plain.price || first.price || 0);
   const orderValue = Number(plain.orderValue || first.total || plain.totalAmount || plain.amount || orderedQuantity * price);
   return {
@@ -2229,8 +2355,9 @@ function publicMyOrder(order, extra = {}) {
 async function loadOwnOrder(req, res) {
   const farmerId = authFarmerId(req);
   const orderId = req.params.orderId;
+  const { ids } = await resolveFarmerIdentity(farmerId);
   const order = await FarmerOrder.findOne({
-    farmerId,
+    farmerId: { $in: ids },
     $or: [{ id: orderId }, { orderId }],
   });
   if (!order) {
@@ -2242,6 +2369,52 @@ async function loadOwnOrder(req, res) {
 
 function pushOrderTimeline(order, status, note) {
   order.timeline = [...(order.timeline || []), { status, at: new Date(), note }];
+}
+
+async function syncLinkedHarvestOrder(order, patch) {
+  const ids = [...new Set([order.id, order.orderId].filter(Boolean))];
+  if (!ids.length) return;
+  await FarmerHarvestOrder.updateMany({ id: { $in: ids } }, { $set: patch });
+}
+
+async function emitOrderStatusUpdate(order, extra = {}) {
+  try {
+    const io = getIO();
+    const plain = toPlain(order) || order;
+    const farmer = await Farmer.findOne({
+      $or: [{ id: plain.farmerId }, { farmerId: plain.farmerId }],
+    })
+      .select("id farmerId managerId vendorId")
+      .lean();
+    const payload = {
+      orderId: plain.id || plain.orderId,
+      farmerId: plain.farmerId,
+      vendorId: plain.vendorId || farmer?.vendorId || "",
+      managerId: farmer?.managerId || "",
+      status: normalizeOrderStatus(plain.status),
+      rejectionReason: plain.rejectionReason || "",
+      rejectionNote: plain.rejectionNote || "",
+      rejectedBy: plain.rejectedBy || "",
+      ...extra,
+    };
+    const rooms = new Set();
+    [plain.farmerId, farmer?.id, farmer?.farmerId]
+      .filter(Boolean)
+      .forEach((id) => rooms.add(`farmer_${id}`));
+    if (payload.managerId) rooms.add(`manager_${payload.managerId}`);
+    if (payload.vendorId) rooms.add(`vendor_${payload.vendorId}`);
+    rooms.forEach((room) => io.to(room).emit("order_updated", payload));
+  } catch {
+    // Socket is optional; panels poll as fallback.
+  }
+}
+
+async function persistOrderStatusSideEffects(order, extra = {}) {
+  await syncLinkedHarvestOrder(order, {
+    status: normalizeOrderStatus(order.status),
+    rejectionReason: order.rejectionReason || "",
+  });
+  await emitOrderStatusUpdate(order, extra);
 }
 
 async function loadOrderProduct(order) {
@@ -2323,8 +2496,8 @@ export async function listMyOrders(req, res) {
     const farmerId = authFarmerId(req);
     const filter = String(req.query.filter || "").toLowerCase();
     const q = String(req.query.q || "").trim().toLowerCase();
-    const orders = await FarmerOrder.find({ farmerId }).sort({ createdAt: -1 });
-    const farmer = await Farmer.findOne({ id: farmerId }).select("name farmName farmLocation").lean();
+    const { farmer, ids } = await resolveFarmerIdentity(farmerId);
+    const orders = await FarmerOrder.find({ farmerId: { $in: ids } }).sort({ createdAt: -1, orderDate: -1 });
     let rows = [];
     for (const order of orders) {
       const status = normalizeOrderStatus(order.status);
@@ -2421,6 +2594,7 @@ export async function acceptMyOrder(req, res) {
       throw saveErr;
     }
 
+    await persistOrderStatusSideEffects(order, { event: "ACCEPTED" });
     const farmer = await Farmer.findOne({ id: order.farmerId });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
@@ -2450,9 +2624,11 @@ export async function rejectMyOrder(req, res) {
     order.rejectionNote = note;
     order.rejectedBy = "FARMER";
     order.rejectedAt = new Date();
+    order.deliveryStatus = "Cancelled";
     pushOrderTimeline(order, "REJECTED", `${reason}${note ? ` — ${note}` : ""}`);
     await order.save();
 
+    await persistOrderStatusSideEffects(order, { event: "REJECTED" });
     const farmer = await Farmer.findOne({ id: order.farmerId });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
@@ -2608,7 +2784,7 @@ export async function getFarmerDashboard(req, res) {
           $group: {
             _id: null,
             totalOrders: { $sum: 1 },
-            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "Confirmed", "Processing"]] }, 1, 0] } },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "NEW", "Confirmed", "Approved", "Processing"]] }, 1, 0] } },
             completedOrders: { $sum: { $cond: [{ $eq: ["$status", "Completed"] }, 1, 0] } },
           },
         },
@@ -3065,19 +3241,23 @@ export async function getFarmerOrders(req, res) {
   try {
     const { farmerId } = req.params;
     const { status, q } = req.query;
-    const query = { farmerId };
-    if (status) query.status = status;
+    const { ids } = await resolveFarmerIdentity(farmerId);
+    const query = { farmerId: { $in: ids.length ? ids : [farmerId] } };
+    if (status) {
+      const wanted = normalizeOrderStatus(status);
+      query.status = { $in: [...new Set([status, wanted])] };
+    }
 
     let orders = await FarmerOrder.find(query).sort({ orderDate: -1 }).lean();
     if (q) {
       const needle = q.toLowerCase();
       orders = orders.filter(
         (o) =>
-          o.id.toLowerCase().includes(needle) ||
+          String(o.id || "").toLowerCase().includes(needle) ||
           (o.customer?.name && o.customer.name.toLowerCase().includes(needle))
       );
     }
-    res.json(orders);
+    res.json(orders.map(withCanonicalOrderStatus));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch orders" });
   }
@@ -3176,7 +3356,10 @@ export async function updateFarmerOrder(req, res) {
     order.markModified("products");
     order.markModified("grades");
     await order.save();
-    return res.json(order);
+    if (status !== undefined) {
+      await persistOrderStatusSideEffects(order, { event: "MANAGER_UPDATE" });
+    }
+    return res.json(withCanonicalOrderStatus(toPlain(order)));
   } catch (err) {
     console.error("Error updating harvest order:", err);
     return res.status(500).json({ message: err.message || "Failed to update harvest order" });
@@ -3195,12 +3378,16 @@ export async function createFarmerOrder(req, res) {
       unit = "Kg",
       rejectionQty = 0,
       rejectionReason = "",
-      status = "Confirmed",
+      status = "NEW",
       paymentStatus = "Pending",
       deliveryStatus = "Pending",
+      orderDate: orderDateRaw = "",
+      pickupDate = "",
+      requiredDate = "",
+      pickupTime = "",
     } = req.body;
 
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
 
     const lineItems = products || [];
@@ -3221,14 +3408,47 @@ export async function createFarmerOrder(req, res) {
           rate: Number(p.price || 0),
         }));
 
-    const id = `fo-${Date.now()}`;
+    const today = new Date();
+    const localOrderDate =
+      String(orderDateRaw || "").slice(0, 10) ||
+      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const id = await generateId({
+      module: "ORD",
+      date: localOrderDate.replace(/-/g, ""),
+    });
+    const pickupOrRequired = String(pickupDate || requiredDate || "").slice(0, 10);
+    const requiredOrPickup = String(requiredDate || pickupDate || "").slice(0, 10);
+    const pickupAt = String(pickupTime || harvestTime || "").trim();
+    const gradeLabel =
+      grades
+        .filter((g) => Number(g.quantity || 0) > 0)
+        .map((g) => g.label || g.name)
+        .filter(Boolean)
+        .join(", ") || first.grade || "Grade A";
+
+    let variety = String(req.body.variety || "").trim();
+    if (!variety && productId) {
+      const linkedProduct = await FarmerProduct.findOne({
+        farmerId,
+        $or: [{ id: productId }, { productId }],
+      })
+        .select("variety")
+        .lean();
+      variety = linkedProduct?.variety || "";
+    }
+
+    const orderStatus = String(status || "NEW").trim() || "NEW";
+
     const order = new FarmerOrder({
       id,
       orderId: id,
       vendorId: farmer.vendorId || req.user?.vendorId || DEFAULT_VENDOR_ID,
-      farmerId,
+      farmerId: farmer.id,
       productId,
       productName,
+      variety,
+      grade: gradeLabel,
+      orderedQuantity: totalQuantity,
       grades,
       customer: {
         name: customer?.name || "Daily Harvest / Store Order",
@@ -3245,8 +3465,12 @@ export async function createFarmerOrder(req, res) {
         price: Number(p.price || 0),
         total: Number(p.total || (Number(p.price || 0) * Number(p.quantity || 1)) || 0),
       })),
-      harvestDate: harvestDate || new Date().toISOString().split("T")[0],
-      harvestTime: harvestTime || new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      orderDate: localOrderDate,
+      harvestDate: localOrderDate,
+      harvestTime: pickupAt,
+      pickupDate: pickupOrRequired,
+      requiredDate: requiredOrPickup,
+      pickupTime: pickupAt,
       day: day || "Today",
       unit: unit || "Kg",
       rejectionQty: Number(rejectionQty || 0),
@@ -3254,13 +3478,14 @@ export async function createFarmerOrder(req, res) {
       totalQuantity,
       totalAmount,
       amount: totalAmount,
-      status,
+      orderValue: totalAmount,
+      status: orderStatus,
       deliveryStatus,
       paymentStatus,
-      orderDate: new Date(),
+      preparationStatus: ["NEW", "New"].includes(orderStatus) ? "NOT_STARTED" : "PREPARING",
       timeline: [
         {
-          status,
+          status: orderStatus,
           at: new Date(),
           note: `Order created by ${req.user?.role === "FARMER_MANAGER" ? "Manager" : "Vendor"}`,
         },
@@ -3269,7 +3494,7 @@ export async function createFarmerOrder(req, res) {
 
     await order.save();
 
-    const createdAsNew = ["NEW", "New"].includes(String(status));
+    const createdAsNew = ["NEW", "New"].includes(String(orderStatus));
     if (!createdAsNew) {
     // Deduct stock from FarmerProduct grades if available
     for (const item of lineItems) {
@@ -3308,7 +3533,6 @@ export async function createFarmerOrder(req, res) {
         }
       }
     }
-    }
 
     // Create Farmer Earning entry
     await FarmerEarning.create({
@@ -3317,7 +3541,7 @@ export async function createFarmerOrder(req, res) {
       farmerId,
       orderId: id,
       date: new Date().toISOString().split("T")[0],
-      cropName: products?.[0]?.name || "Produce",
+      cropName: products?.[0]?.name || productName || "Produce",
       quantity: totalQuantity,
       ratePerKg: totalQuantity > 0 ? Math.round(totalAmount / totalQuantity) : 0,
       grossEarnings: totalAmount,
@@ -3325,6 +3549,7 @@ export async function createFarmerOrder(req, res) {
       netEarnings: totalAmount,
       status: paymentStatus === "Paid" ? "Paid" : "Pending",
     }).catch(() => {});
+    }
 
     res.status(201).json(order);
   } catch (err) {
@@ -3893,7 +4118,7 @@ export async function getVendorDashboard(req, res) {
           $group: {
             _id: null,
             totalOrders: { $sum: 1 },
-            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "Confirmed", "Processing"]] }, 1, 0] } },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "NEW", "Confirmed", "Approved", "Processing"]] }, 1, 0] } },
           },
         },
       ]),
@@ -4046,9 +4271,13 @@ export async function getManagerFarmers(req, res) {
 
 export async function getManagerDashboard(req, res) {
   try {
-    const farmers = await Farmer.find(assignedFarmerQuery(req)).select("id name status").lean();
-    const farmerIds = farmers.map((f) => f.id);
-    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    const farmers = await Farmer.find(assignedFarmerQuery(req)).select("id farmerId name status").lean();
+    const { ids: farmerIds } = indexFarmersByIdentity(farmers);
+    const farmerNameMap = new Map();
+    farmers.forEach((f) => {
+      farmerNameMap.set(f.id, f.name);
+      if (f.farmerId) farmerNameMap.set(f.farmerId, f.name);
+    });
 
     if (!farmerIds.length) {
       return res.json({
@@ -4077,7 +4306,7 @@ export async function getManagerDashboard(req, res) {
           $group: {
             _id: null,
             totalOrders: { $sum: 1 },
-            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "Confirmed", "Processing"]] }, 1, 0] } },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "NEW", "Confirmed", "Approved", "Processing"]] }, 1, 0] } },
           },
         },
       ]),
@@ -4094,7 +4323,7 @@ export async function getManagerDashboard(req, res) {
       FarmerOrder.find({ farmerId: { $in: farmerIds } })
         .sort({ orderDate: -1 })
         .limit(10)
-        .select("id farmerId products totalQuantity totalAmount status orderDate")
+        .select("id farmerId products totalQuantity totalAmount status orderDate rejectionReason rejectionNote")
         .lean(),
       FarmerProduct.find({ farmerId: { $in: farmerIds } })
         .select("farmerId name grades stock lowStockLimit")
@@ -4122,6 +4351,7 @@ export async function getManagerDashboard(req, res) {
       pendingProductApprovals,
       recentOrders: recentOrders.map((ord) => ({
         ...ord,
+        status: normalizeOrderStatus(ord.status),
         farmerName: farmerNameMap.get(ord.farmerId) || "—",
       })),
       lowStock: lowStockProducts.map((prod) => ({
@@ -4244,9 +4474,8 @@ export async function getManagerAllStockHistory(req, res) {
 export async function getManagerAllHarvestOrders(req, res) {
   try {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
-    const farmerIds = farmers.map((f) => f.id);
+    const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(farmers);
     if (!farmerIds.length) return res.json({ farmers, orders: [] });
-    const farmerMap = new Map(farmers.map((f) => [f.id, f]));
     const [harvestOrders, farmerOrders] = await Promise.all([
       FarmerHarvestOrder.find({ farmerId: { $in: farmerIds } }).sort({ createdAt: -1 }).lean(),
       FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean(),
@@ -4261,7 +4490,12 @@ export async function getManagerAllHarvestOrders(req, res) {
     });
     const harvestWithNames = harvestOrders.map((o) => {
       const f = farmerMap.get(o.farmerId);
-      return { ...o, farmerName: o.farmerName || f?.name || "—", farmerMobile: f?.mobile || "" };
+      return {
+        ...o,
+        status: normalizeOrderStatus(o.status),
+        farmerName: o.farmerName || f?.name || "—",
+        farmerMobile: f?.mobile || "",
+      };
     });
     res.json({ farmers, orders: mergeHarvestLists(harvestWithNames, mapped) });
   } catch (err) {
@@ -4324,7 +4558,8 @@ export async function getHarvestOrders(req, res) {
     const farmerId = req.params.farmerId || req.query.farmerId || req.user?.farmerId || req.user?.id;
     const filter = {};
     if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
-      filter.farmerId = farmerId;
+      const { ids } = await resolveFarmerIdentity(farmerId);
+      filter.farmerId = { $in: ids.length ? ids : [farmerId] };
     }
 
     const [harvestOrders, farmerOrders] = await Promise.all([

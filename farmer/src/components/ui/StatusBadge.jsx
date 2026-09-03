@@ -36,6 +36,7 @@ const STATUS_STYLES = {
   PENDING_APPROVAL: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
   NEW: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
   ACCEPTED: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
+  PREPARING: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
   PACKING: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
   DISPATCHED: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
   ORDER_VERIFIED: "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
@@ -68,6 +69,12 @@ const STATUS_STYLES = {
 };
 
 const STATUS_LABELS = {
+  NEW: "New",
+  ACCEPTED: "Accepted",
+  PREPARING: "Preparing",
+  REJECTED: "Rejected",
+  CANCELLED: "Cancelled",
+  COMPLETED: "Completed",
   DISPATCHED: "On the way to farm",
   DRIVER_ARRIVED: "Reached the farm",
   ARRIVED: "Reached the farm",

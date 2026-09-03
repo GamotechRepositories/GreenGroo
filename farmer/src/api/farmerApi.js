@@ -649,7 +649,7 @@ export async function getHarvestOrders() {
   }
   const farmerId = getActiveFarmerId();
   if (!farmerId) return [];
-  return apiFetch(`/api/farmers/${farmerId}/harvest-orders`);
+  return apiFetch(`/api/farmers/${farmerId}/harvest-orders`, { headers: authHeaders() });
 }
 
 

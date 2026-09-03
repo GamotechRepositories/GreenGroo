@@ -16,6 +16,7 @@ import {
 import { isPendingProductApproval } from "../../utils/productActions";
 import { formatCropDate, formatCropBusinessId, formatProductBusinessId } from "../../utils/cropLinks";
 import FileUpload from "../../components/ui/FileUpload";
+import StatusBadge from "../../components/ui/StatusBadge";
 import {
   EXCEL_PANEL,
   EXCEL_PAGE_TITLE,
@@ -100,7 +101,12 @@ export default function ManagerFarmerDetailPage() {
     if (tab === "Crops") getManagerFarmerCrops(farmerId).then(setCrops).catch(() => setCrops([]));
     if (tab === "Products") getManagerFarmerProducts(farmerId).then(setProducts).catch(() => {});
     if (tab === "Inventory") getManagerFarmerInventory(farmerId).then(setInventory).catch(() => {});
-    if (tab === "Orders") getManagerFarmerOrders(farmerId).then(setOrders).catch(() => {});
+    if (tab === "Orders") {
+      const loadOrders = () => getManagerFarmerOrders(farmerId).then(setOrders).catch(() => {});
+      loadOrders();
+      const timer = window.setInterval(loadOrders, 5000);
+      return () => window.clearInterval(timer);
+    }
     if (tab === "Earnings") {
       getManagerFarmerEarnings(farmerId)
         .then((res) => setEarnings(Array.isArray(res) ? res : (Array.isArray(res?.transactions) ? res.transactions : [])))
@@ -452,9 +458,7 @@ export default function ManagerFarmerDetailPage() {
                         ₹{(p.total || o.totalAmount || 0).toLocaleString("en-IN")}
                       </td>
                       <td className="border border-[#D4D4D4] px-2.5 py-2 text-center whitespace-nowrap">
-                        <span className="inline-flex items-center border border-[#217346] bg-[#E8F5E9] text-[#217346] px-1.5 py-0.5 text-[10px] font-bold uppercase rounded tracking-wide">
-                          {o.status || "Approved"}
-                        </span>
+                        <StatusBadge status={o.status} />
                       </td>
                     </tr>
                   ));

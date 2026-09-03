@@ -31,13 +31,99 @@ export function orderTitle(filter) {
 }
 
 export function canAccept(status) {
-  return status === "NEW";
+  return canonicalOrderStatus(status) === "NEW";
 }
 
 export function canReject(status) {
-  return status === "NEW";
+  return canonicalOrderStatus(status) === "NEW";
 }
 
 export function canPrepare(status) {
-  return status === "ACCEPTED" || status === "PREPARING" || status === "PACKING";
+  return ["ACCEPTED", "PREPARING", "PACKING"].includes(canonicalOrderStatus(status));
 }
+
+const ORDER_STATUS_ALIASES = {
+  NEW: "NEW",
+  New: "NEW",
+  Confirmed: "NEW",
+  Approved: "NEW",
+  ACCEPTED: "ACCEPTED",
+  Accepted: "ACCEPTED",
+  PREPARING: "PREPARING",
+  Preparing: "PREPARING",
+  Processing: "PREPARING",
+  READY_FOR_PICKUP: "READY_FOR_PICKUP",
+  "Ready for Pickup": "READY_FOR_PICKUP",
+  REJECTED: "REJECTED",
+  Rejected: "REJECTED",
+  CANCELLED: "CANCELLED",
+  Cancelled: "CANCELLED",
+  COMPLETED: "COMPLETED",
+  Completed: "COMPLETED",
+};
+
+export function canonicalOrderStatus(status) {
+  return ORDER_STATUS_ALIASES[status] || status || "NEW";
+}
+
+export function orderStatusMatches(status, filter) {
+  if (!filter || filter === "ALL") return true;
+  return canonicalOrderStatus(status) === canonicalOrderStatus(filter);
+}
+
+export function rejectionText(order) {
+  const reason = String(order?.rejectionReason || "").trim();
+  const note = String(order?.rejectionNote || "").trim();
+  if (!reason && !note) return "";
+  return note ? `${reason}${reason ? " — " : ""}${note}` : reason;
+}
+
+export function matchesManagerOrderFilter(status, filter) {
+  if (!filter || filter === "all") return true;
+  return managerOrderBucket(status) === filter;
+}
+
+export function managerOrderBucket(status) {
+  const s = canonicalOrderStatus(status);
+  if (s === "NEW") return "pending";
+  if (s === "REJECTED" || s === "CANCELLED") return "rejected";
+  return "accepted";
+}
+
+export function toOrderDateKey(order) {
+  const raw = order?.orderDate || order?.harvestDate || order?.date || order?.createdAt || "";
+  const s = String(raw);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function matchesOrderDateRange(order, from = "", to = "") {
+  if (!from && !to) return true;
+  const key = toOrderDateKey(order);
+  if (!key) return false;
+  if (from && key < from) return false;
+  if (to && key > to) return false;
+  return true;
+}
+
+export function todayISODate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function yesterdayISODate() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export const MANAGER_ORDER_STATUSES = [
+  "NEW",
+  "PREPARING",
+  "READY_FOR_PICKUP",
+  "COMPLETED",
+  "REJECTED",
+  "CANCELLED",
+];

@@ -73,31 +73,50 @@ export function cropCodeFromName(name = "") {
     .padEnd(3, "X");
 }
 
+export function varietyCodeFromName(name = "") {
+  const raw = String(name || "").trim();
+  if (!raw) return "XXX";
+  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
+  if (!cleaned) return "XXX";
+  return cleaned.slice(0, 3).toUpperCase().padEnd(3, "X");
+}
+
 export function cropCategoryFromName(name = "") {
   const key = String(name).trim().toLowerCase();
   const hit = Object.keys(CROP_CATEGORIES).find((n) => key.includes(n));
   return hit ? CROP_CATEGORIES[hit] : "VEG";
 }
 
-/** Always show GGC-CRP-VEG-TOM-00001 (category + crop code + serial). */
+/**
+ * Prefer stored cropId. If old format without variety, inject variety for display.
+ * Same crop+variety always resolves to the same shape once DB is normalized.
+ */
 export function formatCropBusinessId(crop = {}) {
   const raw = String(crop.cropId || crop.id || "").trim();
   const parts = raw.split("-").filter(Boolean);
-  const fromId =
-    parts[0] === "GGC" && parts[1] === "CRP" && parts.length >= 5 && !/^\d+$/.test(parts[3])
-      ? String(parts[3]).toUpperCase()
-      : "";
-  const code = cropCodeFromName(crop.cropName || crop.cropCode) || fromId || "XXX";
+  const code = cropCodeFromName(crop.cropName || crop.cropCode) || "XXX";
   const category = String(crop.category || cropCategoryFromName(crop.cropName) || "VEG").toUpperCase();
+  const variety = varietyCodeFromName(crop.variety);
 
   if (parts[0] === "GGC" && parts[1] === "CRP") {
     const last = parts[parts.length - 1];
     const serial = /^\d+$/.test(last) ? last.padStart(5, "0") : "00001";
     const cat = (parts[2] && !/^\d+$/.test(parts[2]) ? parts[2] : category).toUpperCase();
-    return `GGC-CRP-${cat}-${code}-${serial}`;
+    // Already has variety: GGC-CRP-CAT-CROP-VAR-SERIAL
+    if (parts.length >= 6 && !/^\d+$/.test(parts[3]) && !/^\d+$/.test(parts[4])) {
+      const cropPart = code !== "XXX" ? code : String(parts[3]).toUpperCase();
+      const varPart = crop.variety ? variety : String(parts[4]).toUpperCase();
+      return `GGC-CRP-${cat}-${cropPart}-${varPart}-${serial}`;
+    }
+    // Old: GGC-CRP-CAT-CROP-SERIAL → insert variety
+    if (parts.length >= 5 && !/^\d+$/.test(parts[3])) {
+      const cropPart = code !== "XXX" ? code : String(parts[3]).toUpperCase();
+      return `GGC-CRP-${cat}-${cropPart}-${variety}-${serial}`;
+    }
+    return `GGC-CRP-${cat}-${code}-${variety}-${serial}`;
   }
 
-  return raw || `GGC-CRP-${category}-${code}-00001`;
+  return raw || `GGC-CRP-${category}-${code}-${variety}-00001`;
 }
 
 /** Always show GGC-ART-VEG-TOM-00001 (category + crop code + serial). */

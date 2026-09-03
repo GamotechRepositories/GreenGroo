@@ -10,7 +10,7 @@ import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import RejectOrderModal from "../components/orders/RejectOrderModal";
 import OrderQrCode from "../components/orders/OrderQrCode";
-import { canAccept, canPrepare, canReject, formatMoney, formatOrderDate } from "../utils/orderDisplay";
+import { canAccept, canPrepare, canReject, formatMoney, formatOrderDate, rejectionText } from "../utils/orderDisplay";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -85,6 +85,7 @@ function OrderDetailPage() {
           <Info label="Pickup Date" value={formatOrderDate(order.pickupDate)} />
           <Info label="Collection Centre" value={order.collectionCentre} />
           <Info label="Order Status" value={order.status} />
+          {rejectionText(order) ? <Info label="Rejection Reason" value={rejectionText(order)} /> : null}
         </div>
       </section>
 

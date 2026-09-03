@@ -52,26 +52,6 @@ function matchesViewedProduct(product, { productId, productName, productKey }) {
   return false;
 }
 
-function Info({ label, value }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] text-[#6B7280]">{label}</p>
-      <p className="truncate text-[12px] font-semibold text-[#1F2937]">{value || "—"}</p>
-    </div>
-  );
-}
-
-function GradeBox({ label, value, unit, accent }) {
-  return (
-    <div className={`min-w-0 rounded-lg border px-2.5 py-1.5 ${accent ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
-      <p className={`text-[10px] font-medium ${accent ? "text-emerald-800" : "text-[#6B7280]"}`}>{label}</p>
-      <p className={`truncate text-[13px] font-bold ${accent ? "text-[#217346]" : "text-[#1F2937]"}`}>
-        {Number(value || 0).toLocaleString("en-IN")} {unit}
-      </p>
-    </div>
-  );
-}
-
 function FarmerCard({ product, farmerId, farmerLabel }) {
   const qty = productQty(product);
   return (
@@ -217,23 +197,15 @@ export default function ManagerProductFarmersPage() {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1 text-[10px] text-[#6B7280]">
-            <Link to="/farmer/manager/orders" className="hover:text-[#217346]">
-              Orders
+            <Link to="/farmer/manager/orders?tab=by-product" className="hover:text-[#217346]">
+              By Product
             </Link>
             <span>›</span>
-            <span className="text-[#1F2937]">Farmers</span>
+            <span className="text-[#1F2937]">Details</span>
           </div>
           <h1 className="mt-0.5 truncate text-base font-bold text-[#1F2937] sm:text-lg">{title}</h1>
-          <p className="truncate text-[11px] text-[#6B7280]">
-            {[summary?.variety && summary.variety !== "—" ? summary.variety : null, summary?.category]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {summary?.productId ? (
-            <p className="mt-0.5 break-all font-mono text-[11px] font-semibold text-emerald-700">{summary.productId}</p>
-          ) : null}
         </div>
-        <Link to="/farmer/manager/orders" className={`${EXCEL_BTN} shrink-0 !min-h-9 px-3 py-1.5 text-[11px]`}>
+        <Link to="/farmer/manager/orders?tab=by-product" className={`${EXCEL_BTN} shrink-0 !min-h-9 px-3 py-1.5 text-[11px]`}>
           Back
         </Link>
       </div>
@@ -243,19 +215,52 @@ export default function ManagerProductFarmersPage() {
       ) : (
         <>
           {summary ? (
-            <section className={`${EXCEL_PANEL} px-3 py-2.5`}>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                <GradeBox label="Total Qty" value={summary.totalQty} unit={summary.unit} accent />
-                {summary.grades.map((g) => (
-                  <GradeBox key={g.label} label={g.label} value={g.quantity} unit={summary.unit} />
-                ))}
+            <section className={EXCEL_PANEL}>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-xs">
+                  <thead>
+                    <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
+                      {["Product", "Product ID", "Qty", "Status"].map((h) => (
+                        <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-[#E5E7EB]">
+                      <td className="px-3 py-2">
+                        <p className="font-semibold text-[#217346]">{title}</p>
+                        <p className="text-[10px] text-[#9CA3AF]">
+                          {[summary.variety !== "—" ? summary.variety : null, summary.category]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-emerald-700">{summary.productId}</td>
+                      <td className="px-3 py-2 font-semibold text-[#1F2937]">
+                        {Number(summary.totalQty || 0).toLocaleString("en-IN")} {summary.unit}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+                          {summary.status}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-                <Info label="Variety" value={summary.variety} />
-                <Info label="Category" value={summary.category} />
-                <Info label="Farmers" value={String(summary.farmers)} />
-                <Info label="Status" value={summary.status} />
-              </div>
+              {summary.grades.some((g) => Number(g.quantity) > 0) ? (
+                <p className="border-t border-[#E5E7EB] px-3 py-2 text-[11px] text-[#6B7280]">
+                  Grades:{" "}
+                  <span className="font-semibold text-[#1F2937]">
+                    {summary.grades
+                      .filter((g) => Number(g.quantity) > 0)
+                      .map((g) => `${g.label} ${Number(g.quantity).toLocaleString("en-IN")} ${summary.unit}`)
+                      .join(" · ")}
+                  </span>
+                </p>
+              ) : null}
             </section>
           ) : null}
 

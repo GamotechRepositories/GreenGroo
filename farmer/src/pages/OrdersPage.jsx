@@ -8,7 +8,7 @@ import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import RejectOrderModal from "../components/orders/RejectOrderModal";
-import { canAccept, canReject, formatMoney, formatOrderDate, orderTitle } from "../utils/orderDisplay";
+import { canAccept, canReject, formatMoney, formatOrderDate, orderTitle, rejectionText } from "../utils/orderDisplay";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -21,6 +21,14 @@ import {
   EXCEL_TABLE,
   EXCEL_WRAP,
 } from "../utils/excelStyles";
+
+function gradeLine(order) {
+  const grades = Array.isArray(order.grades) ? order.grades.filter((g) => Number(g.quantity || 0) > 0) : [];
+  if (grades.length) {
+    return grades.map((g) => `${g.label || g.name} ${Number(g.quantity || 0).toLocaleString("en-IN")}`).join(" · ");
+  }
+  return order.grade || "—";
+}
 
 function OrdersPage({ filter = "new" }) {
   const [orders, setOrders] = useState([]);
@@ -71,15 +79,25 @@ function OrdersPage({ filter = "new" }) {
                     <div>
                       <p className="text-xs font-bold">{id}</p>
                       <p className="text-[11px] text-[#6B7280]">
-                        {order.productName || "Product"} • {order.variety || "—"} • {order.grade || "—"}
+                        {order.productName || "Product"}
+                        {order.variety ? ` · ${order.variety}` : ""}
                       </p>
                     </div>
                     <StatusBadge status={order.status} />
                   </div>
-                  <p className="text-[11px] text-[#4B5563]">
-                    Ordered {order.orderedQuantity} {order.unit}
-                    {order.pickup ? ` • Packed ${order.pickup.packedQuantity || order.packedQuantity || 0} ${order.unit} • ${order.pickup.packageCount || 0} pkgs` : ""}
-                    {" • "}{formatMoney(order.orderValue)}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-3">
+                    <p><span className="text-[#6B7280]">Qty: </span><span className="font-semibold">{order.orderedQuantity} {order.unit}</span></p>
+                    <p className="col-span-2 sm:col-span-1"><span className="text-[#6B7280]">Grades: </span><span className="font-semibold">{gradeLine(order)}</span></p>
+                    <p><span className="text-[#6B7280]">Value: </span><span className="font-semibold">{formatMoney(order.orderValue)}</span></p>
+                    <p><span className="text-[#6B7280]">Required: </span>{formatOrderDate(order.requiredDate)}</p>
+                    <p><span className="text-[#6B7280]">Pickup: </span>{formatOrderDate(order.pickupDate)}{order.pickupTime ? ` ${order.pickupTime}` : ""}</p>
+                    <p><span className="text-[#6B7280]">Centre: </span>{order.collectionCentre || "—"}</p>
+                  </div>
+                  {rejectionText(order) ? (
+                    <p className="text-[11px] font-semibold text-[#DC2626]">{rejectionText(order)}</p>
+                  ) : null}
+                  <p className="text-[11px] text-[#6B7280]">
+                    {order.customerDeliveryArea || order.customerName || "—"}
                   </p>
                   {filter === "ready" ? (
                     <div className="space-y-1 text-[11px] text-[#6B7280]">
@@ -135,7 +153,12 @@ function OrdersPage({ filter = "new" }) {
                       <td className={EXCEL_CELL}>{formatOrderDate(order.requiredDate)}</td>
                       <td className={EXCEL_CELL}>{formatOrderDate(order.pickupDate)}</td>
                       <td className={EXCEL_CELL}>
-                        <StatusBadge status={order.status} />
+                        <div className="flex flex-col gap-0.5">
+                          <StatusBadge status={order.status} />
+                          {rejectionText(order) ? (
+                            <span className="text-[10px] text-[#DC2626]">{rejectionText(order)}</span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className={EXCEL_CELL}>
                         <OrderActions
@@ -165,7 +188,9 @@ function OrdersPage({ filter = "new" }) {
           setBusy(true);
           try {
             await acceptMyOrder(acceptId);
-            toast.success("Order accepted. Stock reserved.");
+            toast.success(
+              `तुम्ही ${acceptTarget?.orderedQuantity || ""} ${acceptTarget?.unit || "Kg"} ${acceptTarget?.productName || "product"} चा order स्वीकारला आहात`
+            );
             setAcceptId("");
             await load();
           } catch (err) {

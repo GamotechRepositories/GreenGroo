@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   getManagerFarmerById,
@@ -6,7 +6,14 @@ import {
   updateManagerFarmerOrder,
   deleteManagerFarmerOrder,
 } from "../../api/farmerApi";
+import { usePolling } from "../../hooks/usePolling";
 import StatusBadge from "../../components/ui/StatusBadge";
+import {
+  canonicalOrderStatus,
+  MANAGER_ORDER_STATUSES,
+  orderStatusMatches,
+  rejectionText,
+} from "../../utils/orderDisplay";
 import {
   EXCEL_PANEL,
   EXCEL_PANEL_HEAD,
@@ -22,16 +29,6 @@ import {
   EXCEL_CELL,
 } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
-
-const ORDER_STATUSES = [
-  "Approved",
-  "Confirmed",
-  "Processing",
-  "Ready for Pickup",
-  "Delivered",
-  "Completed",
-  "Cancelled",
-];
 
 const UNIT_OPTIONS = ["Kg", "Litre", "Box", "Bundle", "Dozen", "Quintal", "Gram"];
 
@@ -74,8 +71,8 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
   const [productFilter, setProductFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [farmerData, ordersData] = await Promise.all([
         getManagerFarmerById(farmerId).catch(() => null),
@@ -88,15 +85,15 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
       );
       setOrders(sorted);
     } catch (err) {
-      toast.error(err?.message || "Failed to load farmer harvest orders");
+      if (!silent) toast.error(err?.message || "Failed to load farmer harvest orders");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [farmerId]);
+  usePolling(() => {
+    loadData(true);
+  }, [farmerId], 5000);
 
   // Product Counts Map for quick chips
   const productCountMap = useMemo(() => {
@@ -138,7 +135,7 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
   const spreadsheetRows = useMemo(() => {
     const rows = [];
     orders.forEach((o) => {
-      const matchStatus = statusFilter === "ALL" || o.status === statusFilter;
+      const matchStatus = orderStatusMatches(o.status, statusFilter);
       const q = searchQuery.toLowerCase().trim();
 
       const orderProducts = o.products && o.products.length > 0
@@ -201,7 +198,7 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
             rejectionQty: rejectionLabel,
             rawRejectionQty: rejectionQty,
             totalQuantity: Number(p.quantity || 0),
-            status: o.status || "Approved",
+            status: canonicalOrderStatus(o.status),
             rawOrder: o,
           });
         }
@@ -219,7 +216,7 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
       productName: row.productName,
       unit: row.unit || "Kg",
       rejectionQty: row.rawRejectionQty || 0,
-      status: row.status || "Approved",
+      status: canonicalOrderStatus(row.status),
       gradeMap: { ...row.gradeMap },
     });
   };
@@ -309,9 +306,7 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
   // Totals
   const totalVolume = spreadsheetRows.reduce((sum, r) => sum + r.totalQuantity, 0);
   const totalRejection = spreadsheetRows.reduce((sum, r) => sum + r.rawRejectionQty, 0);
-  const approvedCount = spreadsheetRows.filter((r) =>
-    ["Approved", "Confirmed", "Delivered", "Completed"].includes(r.status)
-  ).length;
+  const rejectedCount = spreadsheetRows.filter((r) => canonicalOrderStatus(r.status) === "REJECTED").length;
 
   const gradeTotals = useMemo(() => {
     const totals = {};
@@ -602,7 +597,14 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
 
                       {/* Status Badge (Green Bordered Capsule) */}
                       <td className={`${EXCEL_CELL} text-center whitespace-nowrap`}>
-                        <StatusBadge status={r.status} />
+                        <div className="flex flex-col items-center gap-0.5">
+                          <StatusBadge status={r.status} />
+                          {r.status === "REJECTED" && rejectionText(r.rawOrder) ? (
+                            <span className="max-w-[9rem] truncate text-[9px] text-[#DC2626]" title={rejectionText(r.rawOrder)}>
+                              {rejectionText(r.rawOrder)}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
                       {/* Actions: Edit | Delete */}
@@ -648,7 +650,7 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
                       {totalRejection.toLocaleString("en-IN")}
                     </td>
                     <td className={`${EXCEL_CELL} text-center text-[#217346]`}>
-                      {approvedCount} Approved
+                      {rejectedCount} Rejected
                     </td>
                     <td className={`${EXCEL_CELL}`}></td>
                   </tr>
@@ -799,7 +801,7 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
                     onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))}
                     className={`${EXCEL_SELECT} w-full py-1 font-semibold`}
                   >
-                    {ORDER_STATUSES.map((s) => (
+                    {MANAGER_ORDER_STATUSES.map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>

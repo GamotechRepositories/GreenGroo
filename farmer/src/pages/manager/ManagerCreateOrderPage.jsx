@@ -1,23 +1,60 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { getManagerFarmers, getManagerFarmerProducts, createManagerOrder } from "../../api/farmerApi";
-import { EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
+import { EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
 
 const UNIT_OPTIONS = ["Kg", "Crates", "Litre", "Bunch", "Boxes", "Quintal", "Dozen", "Packets"];
-const DAY_OPTIONS = ["Today", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function getTodayISODate() {
-  return new Date().toISOString().split("T")[0];
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function getTodayTime() {
-  return new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+function getNowTimeInput() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function getTodayDayName() {
+function dayNameFromISO(iso) {
+  if (!iso) return "Today";
+  const [y, m, d] = String(iso).split("-").map(Number);
+  if (!y || !m || !d) return "Today";
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return days[new Date().getDay()];
+  return days[new Date(y, m - 1, d).getDay()] || "Today";
+}
+
+function formatDisplayDate(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function defaultGradeRows(fallbackPrice = 0) {
+  const price = Number(fallbackPrice) || 0;
+  return [
+    { id: "g_a", name: "Grade A", quantity: "", price },
+    { id: "g_b", name: "Grade B", quantity: "", price },
+    { id: "g_c", name: "Grade C", quantity: "", price },
+  ];
+}
+
+function gradesFromProduct(prod) {
+  const fallback = Number(prod?.pricePerKg ?? prod?.sellingPrice ?? 0) || 0;
+  if (Array.isArray(prod?.grades) && prod.grades.length > 0) {
+    return prod.grades.map((g, idx) => ({
+      id: `g_${idx}`,
+      name: g.label || g.name || `Grade ${String.fromCharCode(65 + idx)}`,
+      quantity: "",
+      price: Number(g.price ?? g.rate ?? fallback) || 0,
+    }));
+  }
+  return defaultGradeRows(fallback);
 }
 
 export default function ManagerCreateOrderPage() {
@@ -32,23 +69,14 @@ export default function ManagerCreateOrderPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Harvest Order Fields
-  const [harvestDate, setHarvestDate] = useState(getTodayISODate());
-  const [harvestTime, setHarvestTime] = useState(getTodayTime());
-  const [day, setDay] = useState(getTodayDayName());
+  const [orderDate] = useState(getTodayISODate());
+  const [pickupDate, setPickupDate] = useState(getTodayISODate());
+  const [pickupTime, setPickupTime] = useState(getNowTimeInput());
+  const [day, setDay] = useState(dayNameFromISO(getTodayISODate()));
   const [selectedProductId, setSelectedProductId] = useState("");
   const [productUnit, setProductUnit] = useState("Kg");
-  const [rejectionQty, setRejectionQty] = useState(0);
-  const [rejectionReason, setRejectionReason] = useState("");
+  const [grades, setGrades] = useState(() => defaultGradeRows(0));
 
-  // Dynamic Grades
-  const [grades, setGrades] = useState([
-    { id: "g_a", name: "Grade A", quantity: 0 },
-    { id: "g_b", name: "Grade B", quantity: 0 },
-    { id: "g_c", name: "Grade C", quantity: 0 },
-  ]);
-
-  // Load Farmers
   useEffect(() => {
     getManagerFarmers({ lite: true })
       .then((fs) => {
@@ -63,7 +91,6 @@ export default function ManagerCreateOrderPage() {
       .finally(() => setLoadingFarmers(false));
   }, []);
 
-  // Load Products when farmer changes
   useEffect(() => {
     if (!selectedFarmerId) {
       setFarmerProducts([]);
@@ -79,20 +106,7 @@ export default function ManagerCreateOrderPage() {
             pList.find((p) => p.id === presetProductId || p.productId === presetProductId) || pList[0];
           setSelectedProductId(match.id || match.productId);
           setProductUnit(match.unit || "Kg");
-          setProductUnit(match.unit || "Kg");
-          if (match.harvestDate) {
-            setHarvestDate(String(match.harvestDate).slice(0, 10));
-          }
-
-          if (match.grades && match.grades.length > 0) {
-            setGrades(
-              match.grades.map((g, idx) => ({
-                id: `g_${idx}`,
-                name: g.label || `Grade ${String.fromCharCode(65 + idx)}`,
-                quantity: 0,
-              }))
-            );
-          }
+          setGrades(gradesFromProduct(match));
         }
       })
       .catch(() => setFarmerProducts([]))
@@ -104,15 +118,7 @@ export default function ManagerCreateOrderPage() {
     const prod = farmerProducts.find((p) => p.id === prodId || p.productId === prodId);
     if (prod) {
       if (prod.unit) setProductUnit(prod.unit);
-      if (prod.grades && prod.grades.length > 0) {
-        setGrades(
-          prod.grades.map((g, idx) => ({
-            id: `g_${idx}`,
-            name: g.label || `Grade ${String.fromCharCode(65 + idx)}`,
-            quantity: 0,
-          }))
-        );
-      }
+      setGrades(gradesFromProduct(prod));
     }
   };
 
@@ -122,15 +128,29 @@ export default function ManagerCreateOrderPage() {
   );
 
   const handleGradeQtyChange = (gradeId, qty) => {
+    const raw = String(qty ?? "").trim();
     setGrades((prev) =>
-      prev.map((g) => (g.id === gradeId ? { ...g, quantity: Number(qty) || 0 } : g))
+      prev.map((g) => (g.id === gradeId ? { ...g, quantity: raw === "" ? "" : Number(raw) || 0 } : g))
+    );
+  };
+
+  const handleGradePriceChange = (gradeId, price) => {
+    setGrades((prev) =>
+      prev.map((g) => (g.id === gradeId ? { ...g, price: Number(price) || 0 } : g))
     );
   };
 
   const handleAddCustomGrade = () => {
-    const name = window.prompt("Enter Grade Name (e.g. Export Grade, Super A, 1st Quality):");
+    const name = window.prompt("Grade name");
     if (!name || !name.trim()) return;
-    setGrades((prev) => [...prev, { id: `custom_${Date.now()}`, name: name.trim(), quantity: 0 }]);
+    const fallback =
+      Number(selectedProduct?.pricePerKg ?? selectedProduct?.sellingPrice ?? 0) ||
+      Number(grades[0]?.price || 0) ||
+      0;
+    setGrades((prev) => [
+      ...prev,
+      { id: `custom_${Date.now()}`, name: name.trim(), quantity: "", price: fallback },
+    ]);
   };
 
   const handleRemoveGrade = (gradeId) => {
@@ -138,36 +158,47 @@ export default function ManagerCreateOrderPage() {
     setGrades((prev) => prev.filter((g) => g.id !== gradeId));
   };
 
-  const totalAcceptedQty = grades.reduce((sum, g) => sum + Number(g.quantity || 0), 0);
-  const totalGrossHarvest = totalAcceptedQty + Number(rejectionQty || 0);
+  const totalQty = grades.reduce((sum, g) => sum + Number(g.quantity || 0), 0);
+  const totalValue = grades.reduce(
+    (sum, g) => sum + Number(g.quantity || 0) * Number(g.price || 0),
+    0
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFarmerId) {
-      toast.error("Please select a farmer");
+      toast.error("Select farmer");
       return;
     }
     if (!selectedProductId) {
-      toast.error("Please select a product");
+      toast.error("Select product");
       return;
     }
-    if (totalAcceptedQty <= 0) {
-      toast.error("Please enter quantity for at least one grade");
+    if (totalQty <= 0) {
+      toast.error("Enter quantity for at least one grade");
+      return;
+    }
+    if (grades.some((g) => Number(g.quantity) > 0 && !(Number(g.price) > 0))) {
+      toast.error("Enter price for every grade with quantity");
       return;
     }
 
     const orderProducts = grades
       .filter((g) => Number(g.quantity) > 0)
-      .map((g) => ({
-        id: selectedProductId,
-        productId: selectedProductId,
-        name: selectedProduct?.productName || selectedProduct?.name || "Produce",
-        grade: g.name,
-        quantity: Number(g.quantity),
-        unit: productUnit,
-        price: 0,
-        total: 0,
-      }));
+      .map((g) => {
+        const qty = Number(g.quantity);
+        const price = Number(g.price) || 0;
+        return {
+          id: selectedProductId,
+          productId: selectedProductId,
+          name: selectedProduct?.productName || selectedProduct?.name || "Produce",
+          grade: g.name,
+          quantity: qty,
+          unit: productUnit,
+          price,
+          total: qty * price,
+        };
+      });
 
     setSubmitting(true);
     try {
@@ -182,16 +213,34 @@ export default function ManagerCreateOrderPage() {
         products: orderProducts,
         grades: grades
           .filter((g) => Number(g.quantity) > 0)
-          .map((g) => ({ name: g.name, label: g.name, quantity: Number(g.quantity) })),
-        harvestDate,
-        harvestTime,
+          .map((g) => {
+            const qty = Number(g.quantity);
+            const price = Number(g.price) || 0;
+            return {
+              name: g.name,
+              label: g.name,
+              quantity: qty,
+              rate: price,
+              price,
+              amount: qty * price,
+            };
+          }),
+        harvestDate: orderDate,
+        harvestTime: pickupTime,
+        orderDate,
+        pickupDate,
+        requiredDate: pickupDate,
+        pickupTime,
         day,
         unit: productUnit,
-        rejectionQty: Number(rejectionQty || 0),
-        rejectionReason,
-        status: "Confirmed",
+        rejectionQty: 0,
+        rejectionReason: "",
+        status: "NEW",
+        paymentStatus: "Pending",
+        deliveryStatus: "Pending",
+        variety: selectedProduct?.variety || "",
       });
-      toast.success(`Harvest order placed for ${selectedFarmer?.name}!`);
+      toast.success(`Order created for ${selectedFarmer?.name}`);
       navigate("/farmer/manager/orders");
     } catch (err) {
       toast.error(err?.message || "Failed to create order");
@@ -201,304 +250,203 @@ export default function ManagerCreateOrderPage() {
   };
 
   return (
-    <div className="space-y-2.5 font-sans text-xs">
-      {/* 1. Compact Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D4D4D4] pb-2">
-        <div className="flex items-center gap-2">
-          <Link to="/farmer/manager/orders" className="text-xs text-[#6B7280] hover:text-[#217346]">Orders</Link>
-          <span className="text-[#9CA3AF]">›</span>
-          <h1 className="text-sm font-bold text-[#1F2937]">Create Harvest Order</h1>
-          <span className="rounded bg-[#E8F5E9] px-2 py-0.5 text-[10px] font-bold text-[#217346] border border-[#C4DBC4]">
-            Single-Screen Form
-          </span>
+    <div className="mx-auto max-w-5xl space-y-3 font-sans text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <Link to="/farmer/manager/orders" className="text-[11px] text-[#6B7280] hover:text-[#217346]">
+            ← Orders
+          </Link>
+          <h1 className="text-base font-bold text-[#1F2937]">Create Harvest Order</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate("/farmer/manager/orders")}
-          className={`${EXCEL_BTN} py-1 text-xs`}
-        >
-          ✕ Close
+        <button type="button" onClick={() => navigate("/farmer/manager/orders")} className={`${EXCEL_BTN} !py-1`}>
+          Close
         </button>
       </div>
 
       {loadingFarmers ? (
-        <div className="border border-[#D4D4D4] bg-white p-8 text-center text-xs text-[#6B7280]">
-          Loading assigned farmers…
-        </div>
+        <div className="rounded border border-[#D4D4D4] bg-white p-6 text-center text-[#6B7280]">Loading…</div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-2.5">
-          {/* Main One-Screen Card */}
-          <div className="border border-[#217346] bg-white rounded shadow-xs overflow-hidden">
-            {/* Green Excel Header */}
-            <div className="flex items-center justify-between border-b border-[#217346] bg-[#217346] px-3 py-1.5 text-white">
-              <span className="font-bold text-xs flex items-center gap-1.5">
-                <span>🌾</span> Harvest Order & Produce Grading Statement
-              </span>
-              <span className="text-[10px] font-semibold bg-white/20 px-2 py-0.5 rounded">
-                Live Entry
-              </span>
-            </div>
-
-            {/* Row 1: Farmer, Product, Unit Selector Strip */}
-            <div className="grid grid-cols-1 gap-2.5 border-b border-[#D4D4D4] bg-[#F8FAF8] p-2.5 sm:grid-cols-3">
-              {/* Farmer Name */}
-              <div>
-                <label className="block text-[11px] font-bold text-[#1F2937] mb-0.5">
-                  👨‍🌾 Farmer Name *
-                </label>
+        <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-[#D4D4D4] bg-white p-3 sm:p-4">
+          {/* Farmer · Product · Unit — 1 row on desktop */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_5.5rem]">
+            <label className="block min-w-0">
+              <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Farmer</span>
+              <select
+                value={selectedFarmerId}
+                onChange={(e) => setSelectedFarmerId(e.target.value)}
+                className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
+                required
+              >
+                {farmers.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} ({f.mobile})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block min-w-0">
+              <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Product</span>
+              {loadingProducts ? (
+                <p className="py-2 text-[#6B7280]">…</p>
+              ) : (
                 <select
-                  value={selectedFarmerId}
-                  onChange={(e) => setSelectedFarmerId(e.target.value)}
-                  className={`${EXCEL_INPUT} py-1 font-semibold text-xs`}
+                  value={selectedProductId}
+                  onChange={(e) => handleProductChange(e.target.value)}
+                  className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
                   required
                 >
-                  {farmers.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} ({f.mobile}) {f.farmName ? `· ${f.farmName}` : ""}
+                  {farmerProducts.map((p) => (
+                    <option key={p.id || p.productId} value={p.id || p.productId}>
+                      {p.productName || p.name}
                     </option>
                   ))}
                 </select>
-              </div>
+              )}
+            </label>
+            <label className="block min-w-0">
+              <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Unit</span>
+              <select
+                value={productUnit}
+                onChange={(e) => setProductUnit(e.target.value)}
+                className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
+                required
+              >
+                {UNIT_OPTIONS.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-              {/* Product Name */}
-              <div>
-                <label className="block text-[11px] font-bold text-[#1F2937] mb-0.5">
-                  📦 Product Name *
+          {/* Left: schedule · Right: grades */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+            <div className="space-y-2 rounded-lg border border-[#E5E7EB] p-2.5 sm:p-3">
+              <p className="text-[11px] font-bold text-[#1F2937]">Schedule</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Order date</span>
+                  <input
+                    type="text"
+                    value={formatDisplayDate(orderDate)}
+                    readOnly
+                    className={`${EXCEL_INPUT} !py-2 bg-[#F3F4F6] sm:!py-1.5`}
+                  />
                 </label>
-                {loadingProducts ? (
-                  <p className="text-xs text-gray-500 py-1">Loading…</p>
-                ) : (
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => handleProductChange(e.target.value)}
-                    className={`${EXCEL_INPUT} py-1 font-semibold text-xs`}
+                <label className="block min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Pickup date</span>
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    min={orderDate}
+                    onChange={(e) => {
+                      setPickupDate(e.target.value);
+                      setDay(dayNameFromISO(e.target.value));
+                    }}
+                    className={`${EXCEL_INPUT} !py-2 sm:!py-1.5`}
                     required
-                  >
-                    {farmerProducts.map((p) => (
-                      <option key={p.id || p.productId} value={p.id || p.productId}>
-                        {p.productName || p.name} ({p.category})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {/* Product Unit */}
-              <div>
-                <label className="block text-[11px] font-bold text-[#1F2937] mb-0.5">
-                  ⚖️ Product Unit *
+                  />
                 </label>
-                <select
-                  value={productUnit}
-                  onChange={(e) => setProductUnit(e.target.value)}
-                  className={`${EXCEL_INPUT} py-1 font-bold text-[#217346] text-xs`}
-                  required
+                <label className="block min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Pickup time</span>
+                  <input
+                    type="time"
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className={`${EXCEL_INPUT} !py-2 sm:!py-1.5`}
+                    required
+                  />
+                </label>
+                <label className="block min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Day</span>
+                  <input
+                    type="text"
+                    value={day}
+                    readOnly
+                    className={`${EXCEL_INPUT} !py-2 bg-[#F3F4F6] sm:!py-1.5`}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-[#E5E7EB] p-2.5 sm:p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-bold text-[#1F2937]">Grades</p>
+                <button
+                  type="button"
+                  onClick={handleAddCustomGrade}
+                  className="text-[11px] font-semibold text-[#217346]"
                 >
-                  {UNIT_OPTIONS.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
+                  + Add
+                </button>
               </div>
-            </div>
 
-            {/* Row 2: Two-Column Side-by-Side Content */}
-            <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-12">
-              {/* Left Column (5 Cols): Timing, Rejection, and Summary */}
-              <div className="space-y-2.5 md:col-span-5 border-r border-[#E5E7EB] pr-0 md:pr-3">
-                {/* Timing Row */}
-                <div className="border border-[#D4D4D4] bg-[#FAFAFA] p-2 rounded">
-                  <p className="text-[10px] font-bold uppercase text-[#217346] mb-1.5">
-                    1. Schedule & Timing
-                  </p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-gray-700">Date *</label>
-                      <input
-                        type="date"
-                        value={harvestDate}
-                        onChange={(e) => {
-                          setHarvestDate(e.target.value);
-                          if (e.target.value) {
-                            const d = new Date(e.target.value);
-                            const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-                            setDay(dayNames[d.getDay()]);
-                          }
-                        }}
-                        className={`${EXCEL_INPUT} py-1 text-[11px]`}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-gray-700">Time *</label>
-                      <input
-                        type="text"
-                        value={harvestTime}
-                        onChange={(e) => setHarvestTime(e.target.value)}
-                        className={`${EXCEL_INPUT} py-1 text-[11px]`}
-                        placeholder="07:30 AM"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-gray-700">Day *</label>
-                      <select
-                        value={day}
-                        onChange={(e) => setDay(e.target.value)}
-                        className={`${EXCEL_INPUT} py-1 text-[11px]`}
-                        required
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-[4rem_1fr_1fr_1.5rem] gap-1.5 px-0.5 text-[10px] font-semibold text-[#6B7280]">
+                  <span>Grade</span>
+                  <span>Qty</span>
+                  <span>Price</span>
+                  <span />
+                </div>
+                {grades.map((g) => (
+                  <div key={g.id} className="grid grid-cols-[4rem_1fr_1fr_1.5rem] items-center gap-1.5">
+                    <span className="truncate text-[11px] font-semibold text-[#217346]">{g.name}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={g.quantity === "" || g.quantity === 0 ? "" : g.quantity}
+                      onChange={(e) => handleGradeQtyChange(g.id, e.target.value)}
+                      className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
+                      placeholder="Qty"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={g.price === 0 ? "" : g.price}
+                      onChange={(e) => handleGradePriceChange(g.id, e.target.value)}
+                      className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
+                      placeholder="₹"
+                    />
+                    {grades.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGrade(g.id)}
+                        className="text-center text-[12px] font-bold text-red-500"
+                        aria-label={`Remove ${g.name}`}
                       >
-                        {DAY_OPTIONS.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
+                        ✕
+                      </button>
+                    ) : (
+                      <span />
+                    )}
                   </div>
-                </div>
-
-                {/* Rejections */}
-                <div className="border border-red-200 bg-[#FFF9F9] p-2 rounded">
-                  <p className="text-[10px] font-bold uppercase text-[#DC2626] mb-1">
-                    2. Rejection / Wastage
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-semibold text-[#DC2626]">
-                        Rejection ({productUnit})
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={rejectionQty}
-                        onChange={(e) => setRejectionQty(Number(e.target.value) || 0)}
-                        className={`${EXCEL_INPUT} py-1 font-bold text-[#DC2626] text-xs`}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold text-gray-600">Reason</label>
-                      <input
-                        type="text"
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        placeholder="e.g. damaged"
-                        className={`${EXCEL_INPUT} py-1 text-[11px]`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Real-time Summary Box */}
-                <div className="border border-[#C4DBC4] bg-[#F2F8F2] p-2.5 rounded">
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-gray-600 font-semibold">Accepted Produce:</span>
-                    <span className="font-bold text-[#217346]">{totalAcceptedQty} {productUnit}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-gray-600 font-semibold">Rejection Qty:</span>
-                    <span className="font-bold text-[#DC2626]">{rejectionQty} {productUnit}</span>
-                  </div>
-                  <div className="border-t border-[#C4DBC4] pt-1.5 flex items-center justify-between text-xs">
-                    <span className="font-bold text-gray-900">Gross Harvest:</span>
-                    <span className="text-sm font-extrabold text-[#217346]">{totalGrossHarvest} {productUnit}</span>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              {/* Right Column (7 Cols): Produce Grades Breakdown Table */}
-              <div className="md:col-span-7 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-[10px] font-bold uppercase text-[#217346]">
-                      3. Grades Breakdown ({productUnit})
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleAddCustomGrade}
-                      className="border border-[#217346] bg-[#E8F5E9] hover:bg-emerald-100 text-[#217346] text-[10px] font-bold px-2 py-0.5 rounded"
-                    >
-                      + Add Grade
-                    </button>
-                  </div>
-
-                  <div className="border border-[#D4D4D4] rounded overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-[#EBF5EB] text-left border-b border-[#D4D4D4]">
-                          <th className="px-2.5 py-1.5 font-bold text-gray-700 w-8 text-center">#</th>
-                          <th className="px-2.5 py-1.5 font-bold text-[#1F2937]">Grade</th>
-                          <th className="px-2.5 py-1.5 font-bold text-right text-[#1F2937]">Quantity ({productUnit})</th>
-                          <th className="px-2 py-1.5 text-center text-gray-400 w-10">✕</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {grades.map((g, idx) => (
-                          <tr key={g.id} className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#F9FBF9]">
-                            <td className="px-2 py-1 text-center text-gray-400 font-semibold text-[11px]">{idx + 1}</td>
-                            <td className="px-2.5 py-1 font-bold text-[#217346]">{g.name}</td>
-                            <td className="px-2.5 py-1 text-right">
-                              <div className="inline-flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={g.quantity === 0 ? "0" : g.quantity}
-                                  onChange={(e) => handleGradeQtyChange(g.id, e.target.value)}
-                                  className={`${EXCEL_INPUT} py-0.5 px-2 font-bold text-[#1F2937] text-right w-24 text-xs`}
-                                  placeholder="0"
-                                />
-                                <span className="text-[10px] font-semibold text-gray-500">{productUnit}</span>
-                              </div>
-                            </td>
-                            <td className="px-2 py-1 text-center">
-                              {grades.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveGrade(g.id)}
-                                  className="text-red-500 hover:text-red-700 font-bold text-[10px]"
-                                  title="Remove"
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-[#EBF5EB] border-t border-[#C4DBC4] font-bold text-xs">
-                          <td colSpan={2} className="px-2.5 py-1.5 text-[#1F2937]">
-                            Total Accepted:
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right text-sm font-extrabold text-[#217346]">
-                            {totalAcceptedQty} {productUnit}
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Bottom Submit Buttons */}
-                <div className="flex items-center justify-end gap-2 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => navigate("/farmer/manager/orders")}
-                    className={`${EXCEL_BTN} px-4 py-1.5 text-xs`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting || farmerProducts.length === 0}
-                    className={`${EXCEL_BTN_PRIMARY} px-6 py-1.5 text-xs font-bold shadow-xs`}
-                  >
-                    {submitting ? "Saving…" : "💾 Save Harvest Order"}
-                  </button>
-                </div>
-              </div>
+              <p className="text-right text-[11px] font-bold text-[#1F2937]">
+                {totalQty} {productUnit} · ₹{totalValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              </p>
             </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 border-t border-[#E5E7EB] pt-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => navigate("/farmer/manager/orders")}
+              className={`${EXCEL_BTN} !min-h-10 w-full sm:w-auto`}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || farmerProducts.length === 0}
+              className={`${EXCEL_BTN_PRIMARY} !min-h-10 w-full sm:w-auto`}
+            >
+              {submitting ? "Saving…" : "Save Order"}
+            </button>
           </div>
         </form>
       )}

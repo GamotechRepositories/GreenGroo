@@ -1,6 +1,6 @@
 import { generateId, ErpCounter } from "./idGenerator.js";
 import { resolveLocation } from "./locationResolver.js";
-import { farmerSerialFromId, cropCodeFromName, categoryFromName } from "../config/idRegistry.js";
+import { farmerSerialFromId, cropCodeFromName, categoryFromName, varietyCodeFromName } from "../config/idRegistry.js";
 import { Farm, Crop, Article, QrCode } from "../models/index.js";
 import { FarmerCrop, FarmerCropPlan, FarmerProduct, FarmerStockHistory, FarmerOrder, FarmerHarvestOrder } from "../../../farmer-manager-service/src/models.js";
 import { recordAudit } from "./auditService.js";
@@ -11,51 +11,107 @@ export function isLegacyCropId(id = "") {
   return LEGACY_CROP_ID.test(String(id));
 }
 
-export async function upgradeCropIdWithCropCode(farmerCrop) {
+function escapeRegex(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function cropIdSerial(id = "") {
+  const last = String(id).split("-").pop();
+  return /^\d+$/.test(last) ? last.padStart(5, "0") : "00001";
+}
+
+/** True when ID already has variety segment: GGC-CRP-CAT-CROP-VAR-SERIAL */
+export function cropIdHasVariety(id = "") {
+  const parts = String(id).toUpperCase().split("-").filter(Boolean);
+  return (
+    parts[0] === "GGC" &&
+    parts[1] === "CRP" &&
+    parts.length >= 6 &&
+    !/^\d+$/.test(parts[3]) &&
+    !/^\d+$/.test(parts[4]) &&
+    /^\d+$/.test(parts[parts.length - 1])
+  );
+}
+
+export function buildCropBusinessId({ category, cropCode, varietyCode, serial }) {
+  return `GGC-CRP-${String(category).toUpperCase()}-${String(cropCode).toUpperCase()}-${String(varietyCode).toUpperCase()}-${String(serial).padStart(5, "0")}`;
+}
+
+/**
+ * Same cropName + variety → one shared Crop ID (with variety code) for every farmer.
+ * Updates cropId only; keeps unique document id.
+ */
+export async function ensureSharedCropBusinessId(farmerCrop) {
   if (!farmerCrop) return farmerCrop;
-  const oldId = farmerCrop.cropId || farmerCrop.id;
-  if (!isLegacyCropId(oldId)) return farmerCrop;
+  const cropName = String(farmerCrop.cropName || "").trim();
+  const variety = String(farmerCrop.variety || "").trim();
+  if (!cropName) return farmerCrop;
 
-  const cropCode = cropCodeFromName(farmerCrop.cropName);
-  const category = categoryFromName(farmerCrop.cropName);
-  const serial = String(oldId).split("-").pop();
-  const newId = `GGC-CRP-${category}-${cropCode}-${serial}`;
-  if (newId === oldId) return farmerCrop;
+  const cropCode = cropCodeFromName(cropName);
+  const category = categoryFromName(cropName);
+  const varietyCode = varietyCodeFromName(variety);
 
-  const taken = await FarmerCrop.exists({
-    _id: { $ne: farmerCrop._id },
-    $or: [{ id: newId }, { cropId: newId }],
-  });
-  if (taken) return farmerCrop;
+  const siblings = await FarmerCrop.find({
+    cropName: new RegExp(`^${escapeRegex(cropName)}$`, "i"),
+    ...(variety
+      ? { variety: new RegExp(`^${escapeRegex(variety)}$`, "i") }
+      : {}),
+  }).sort({ createdAt: 1 });
 
-  farmerCrop.previousCropId = oldId;
-  farmerCrop.id = newId;
-  farmerCrop.cropId = newId;
-  await farmerCrop.save();
+  if (!siblings.length) return farmerCrop;
 
-  await Promise.all([
-    FarmerCropPlan.updateMany({ cropId: oldId }, { $set: { cropId: newId } }),
-    FarmerProduct.updateMany({ cropId: oldId }, { $set: { cropId: newId } }),
-    Crop.updateMany(
-      { $or: [{ cropId: oldId }, { sourceCropId: oldId }] },
-      { $set: { cropId: newId, sourceCropId: newId, cropCode, category } }
-    ),
-    Article.updateMany({ cropId: oldId }, { $set: { cropId: newId } }),
-    QrCode.updateMany(
-      { $or: [{ cropId: oldId }, { entityId: oldId }] },
-      { $set: { cropId: newId, entityId: newId } }
-    ),
-  ]);
+  // Prefer earliest ID that already includes variety; else earliest serial
+  const withVariety = siblings.find((c) => cropIdHasVariety(c.cropId || c.id));
+  const anchor = withVariety || siblings[0];
+  const serial = cropIdSerial(anchor.cropId || anchor.id);
+  const targetId = buildCropBusinessId({ category, cropCode, varietyCode, serial });
+
+  for (const sibling of siblings) {
+    const oldCropId = String(sibling.cropId || sibling.id || "").trim();
+    if (oldCropId === targetId) continue;
+
+    sibling.previousCropId = oldCropId;
+    sibling.cropId = targetId;
+    await sibling.save();
+
+    await Promise.all([
+      FarmerCropPlan.updateMany(
+        { farmerId: sibling.farmerId, $or: [{ cropId: oldCropId }, { cropId: sibling.id }] },
+        { $set: { cropId: targetId } }
+      ),
+      FarmerProduct.updateMany(
+        { farmerId: sibling.farmerId, cropId: oldCropId },
+        { $set: { cropId: targetId } }
+      ),
+      Crop.updateMany(
+        { $or: [{ cropId: oldCropId }, { sourceCropId: sibling.id }] },
+        { $set: { cropId: targetId, cropCode, category } }
+      ),
+      Article.updateMany({ cropId: oldCropId }, { $set: { cropId: targetId } }),
+      QrCode.updateMany(
+        { $or: [{ cropId: oldCropId }, { entityId: oldCropId }] },
+        { $set: { cropId: targetId, entityId: targetId } }
+      ),
+    ]);
+  }
 
   const seq = Number(serial);
   if (Number.isFinite(seq)) {
     await ErpCounter.findOneAndUpdate(
-      { key: `crop-${category}-${cropCode}` },
+      { key: `crop-${category}-${cropCode}-${varietyCode}` },
       { $max: { sequence: seq } },
       { upsert: true }
     );
   }
-  return farmerCrop;
+
+  // Reload current doc so caller sees updated cropId
+  const fresh = await FarmerCrop.findById(farmerCrop._id);
+  return fresh || farmerCrop;
+}
+
+export async function upgradeCropIdWithCropCode(farmerCrop) {
+  // Delegate to shared+variety normalizer (keeps ID same across farmers)
+  return ensureSharedCropBusinessId(farmerCrop);
 }
 
 export function isProperProductArtId(id = "") {
@@ -163,13 +219,14 @@ export async function ensureFarmForFarmer(farmer, _loc = {}, actor = {}) {
 export async function syncFarmerCropToErp(farmerCrop, farmer, actor = {}) {
   const cropCode = cropCodeFromName(farmerCrop.cropName);
   const category = categoryFromName(farmerCrop.cropName);
+  const varietyCode = varietyCodeFromName(farmerCrop.variety);
   const existing = await Crop.findOne({
     $or: [{ sourceCropId: farmerCrop.id }, { cropId: farmerCrop.cropId }],
   });
   if (existing) return existing;
   const cropId = String(farmerCrop.cropId || "").startsWith("GGC-CRP-")
     ? farmerCrop.cropId
-    : await generateId({ module: "CRP", category, crop: cropCode });
+    : await generateId({ module: "CRP", category, crop: cropCode, variety: varietyCode });
   const crop = await Crop.create({
     cropId,
     farmerId: farmer.farmerId || farmer.id,
@@ -194,7 +251,7 @@ export async function syncFarmerCropToErp(farmerCrop, farmer, actor = {}) {
     recordId: cropId,
     action: "CREATE",
     ...actor,
-    newValue: { cropId, cropCode },
+    newValue: { cropId, cropCode, variety: varietyCode },
   });
   return crop;
 }

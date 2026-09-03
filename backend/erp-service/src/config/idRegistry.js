@@ -246,15 +246,16 @@ export const MODULES = {
     },
   },
   CRP: {
-    description: "Crop Master ID — category + crop code + serial",
-    formatHint: "GGC-CRP-{category}-{crop}-{serial}",
-    example: "GGC-CRP-VEG-TOM-00001",
+    description: "Crop Master ID — category + crop + variety + serial (shared across farmers)",
+    formatHint: "GGC-CRP-{category}-{crop}-{variety}-{serial}",
+    example: "GGC-CRP-VEG-TOM-BAJ-00002",
     serialWidth: 5,
     counterKey: (p) =>
-      `crop-${String(p.category || "VEG").toUpperCase()}-${String(p.crop || "XXX").toUpperCase()}`,
+      `crop-${String(p.category || "VEG").toUpperCase()}-${String(p.crop || "XXX").toUpperCase()}-${String(p.variety || "XXX").toUpperCase()}`,
     generate: (p, seq) => {
       req(p, ["category", "crop"]);
-      return `${COMPANY_PREFIX}-CRP-${String(p.category).toUpperCase()}-${String(p.crop).toUpperCase()}-${pad(seq, 5)}`;
+      const variety = String(p.variety || "XXX").toUpperCase();
+      return `${COMPANY_PREFIX}-CRP-${String(p.category).toUpperCase()}-${String(p.crop).toUpperCase()}-${variety}-${pad(seq, 5)}`;
     },
   },
   ART: {
@@ -473,10 +474,10 @@ export const MODULES = {
   ORD: {
     description: "Customer Order ID",
     formatHint: "GGC-ORD-{YYYYMMDD}-{serial}",
-    example: "GGC-ORD-20260830-0001",
-    serialWidth: 4,
+    example: "GGC-ORD-20240830-00001",
+    serialWidth: 5,
     counterKey: (p) => `ord-${p.date || todayYmd()}`,
-    generate: (p, seq) => `${COMPANY_PREFIX}-ORD-${p.date || todayYmd()}-${pad(seq, 4)}`,
+    generate: (p, seq) => `${COMPANY_PREFIX}-ORD-${p.date || todayYmd()}-${pad(seq, 5)}`,
   },
   DEL: {
     description: "Delivery ID",
@@ -625,6 +626,15 @@ export function cropCodeFromName(name = "") {
     .slice(0, 3)
     .toUpperCase()
     .padEnd(3, "X");
+}
+
+/** 3-letter variety code for crop IDs (e.g. Bajra → BAJ). */
+export function varietyCodeFromName(name = "") {
+  const raw = String(name || "").trim();
+  if (!raw) return "XXX";
+  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
+  if (!cleaned) return "XXX";
+  return cleaned.slice(0, 3).toUpperCase().padEnd(3, "X");
 }
 
 export function categoryFromName(name = "") {

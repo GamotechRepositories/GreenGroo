@@ -269,6 +269,7 @@ const farmerOrderSchema = new mongoose.Schema(
     customerDeliveryArea: { type: String, default: "" },
     requiredDate: { type: String, default: "" },
     pickupDate: { type: String, default: "" },
+    pickupTime: { type: String, default: "" },
     collectionCentre: { type: String, default: "" },
     reservedQuantity: { type: Number, default: 0 },
     packedQuantity: { type: Number, default: 0 },
@@ -459,7 +460,8 @@ const CROP_STATUSES = ["Planned", "Growing", "Ready for Harvest", "Harvested", "
 const farmerCropSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
-    cropId: { type: String, required: true, unique: true },
+    // Shared business ID for same crop+variety across farmers (not globally unique)
+    cropId: { type: String, required: true, index: true },
     farmerId: { type: String, required: true },
     farmId: { type: String, default: "" },
     cropName: { type: String, required: true, trim: true },
@@ -497,7 +499,7 @@ const farmerCropPlanSchema = new mongoose.Schema(
 );
 
 farmerCropSchema.index({ farmerId: 1, createdAt: -1 });
-farmerCropSchema.index({ farmerId: 1, cropId: 1 });
+farmerCropSchema.index({ farmerId: 1, cropId: 1 }, { unique: true });
 farmerCropPlanSchema.index({ farmerId: 1, createdAt: -1 });
 farmerCropPlanSchema.index({ farmerId: 1, cropId: 1 }, { unique: true });
 
@@ -725,6 +727,15 @@ export const QualityInspection =
  */
 export async function ensureFarmerIndexes() {
   try {
+    // Allow shared cropId across farmers (drop old global unique if present)
+    try {
+      await FarmerCrop.collection.dropIndex("cropId_1");
+    } catch (err) {
+      if (err?.code !== 27 && !/index not found/i.test(String(err?.message || ""))) {
+        console.warn("[Indexes] cropId_1 drop:", err.message);
+      }
+    }
+
     const models = [
       Vendor,
       Farmer,

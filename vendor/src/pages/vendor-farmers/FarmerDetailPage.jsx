@@ -20,6 +20,10 @@ const STATUS_BADGE = (status) => {
     Pending: "bg-yellow-100 text-yellow-700",
     Approved: "bg-green-100 text-green-700",
     Rejected: "bg-red-100 text-red-700",
+    REJECTED: "bg-red-100 text-red-700",
+    NEW: "bg-blue-100 text-blue-700",
+    PREPARING: "bg-violet-100 text-violet-700",
+    ACCEPTED: "bg-indigo-100 text-indigo-700",
     "Not Uploaded": "bg-gray-100 text-gray-600",
     New: "bg-blue-100 text-blue-700",
     Completed: "bg-emerald-100 text-emerald-700",
@@ -137,7 +141,11 @@ export default function FarmerDetailPage() {
       vendorApi.getFarmerInventory(farmerId).then((r) => setInventory(asList(r))).catch(() => setInventory([]));
     }
     if (tab === "Orders") {
-      vendorApi.getFarmerOrders(farmerId).then((r) => setOrders(asList(r))).catch(() => setOrders([]));
+      const loadOrders = () =>
+        vendorApi.getFarmerOrders(farmerId).then((r) => setOrders(asList(r))).catch(() => setOrders([]));
+      loadOrders();
+      const timer = window.setInterval(loadOrders, 5000);
+      return () => window.clearInterval(timer);
     }
     if (tab === "Earnings") {
       vendorApi.getFarmerEarnings(farmerId).then((r) => setEarnings(asList(r))).catch(() => setEarnings([]));
