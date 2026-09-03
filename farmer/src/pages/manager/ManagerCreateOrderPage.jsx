@@ -77,7 +77,8 @@ export default function ManagerCreateOrderPage() {
         if (pList.length > 0) {
           const match =
             pList.find((p) => p.id === presetProductId || p.productId === presetProductId) || pList[0];
-          setSelectedProductId(match.id);
+          setSelectedProductId(match.id || match.productId);
+          setProductUnit(match.unit || "Kg");
           setProductUnit(match.unit || "Kg");
           if (match.harvestDate) {
             setHarvestDate(String(match.harvestDate).slice(0, 10));
@@ -100,7 +101,7 @@ export default function ManagerCreateOrderPage() {
 
   const handleProductChange = (prodId) => {
     setSelectedProductId(prodId);
-    const prod = farmerProducts.find((p) => p.id === prodId);
+    const prod = farmerProducts.find((p) => p.id === prodId || p.productId === prodId);
     if (prod) {
       if (prod.unit) setProductUnit(prod.unit);
       if (prod.grades && prod.grades.length > 0) {
@@ -116,7 +117,9 @@ export default function ManagerCreateOrderPage() {
   };
 
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
-  const selectedProduct = farmerProducts.find((p) => p.id === selectedProductId);
+  const selectedProduct = farmerProducts.find(
+    (p) => p.id === selectedProductId || p.productId === selectedProductId
+  );
 
   const handleGradeQtyChange = (gradeId, qty) => {
     setGrades((prev) =>
@@ -158,7 +161,7 @@ export default function ManagerCreateOrderPage() {
       .map((g) => ({
         id: selectedProductId,
         productId: selectedProductId,
-        name: selectedProduct?.name || "Produce",
+        name: selectedProduct?.productName || selectedProduct?.name || "Produce",
         grade: g.name,
         quantity: Number(g.quantity),
         unit: productUnit,
@@ -169,12 +172,17 @@ export default function ManagerCreateOrderPage() {
     setSubmitting(true);
     try {
       await createManagerOrder(selectedFarmerId, {
+        productId: selectedProductId,
+        productName: selectedProduct?.productName || selectedProduct?.name || "Produce",
         customer: {
           name: "Daily Harvest Statement",
           phone: selectedFarmer?.mobile || "",
           address: selectedFarmer?.farmLocation || "Farm Gate",
         },
         products: orderProducts,
+        grades: grades
+          .filter((g) => Number(g.quantity) > 0)
+          .map((g) => ({ name: g.name, label: g.name, quantity: Number(g.quantity) })),
         harvestDate,
         harvestTime,
         day,
@@ -267,8 +275,8 @@ export default function ManagerCreateOrderPage() {
                     required
                   >
                     {farmerProducts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.category})
+                      <option key={p.id || p.productId} value={p.id || p.productId}>
+                        {p.productName || p.name} ({p.category})
                       </option>
                     ))}
                   </select>

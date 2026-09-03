@@ -206,44 +206,64 @@ function enrichProductRow(p, farmerName = "") {
   };
 }
 
+function lineProductId(p = {}) {
+  const raw = String(p.productId || "").trim();
+  if (raw && !/^[a-f0-9]{24}$/i.test(raw)) return raw;
+  const id = String(p.id || "").trim();
+  if (id && !/^[a-f0-9]{24}$/i.test(id)) return id;
+  return raw || "";
+}
+
 function mapFarmerOrdersToHarvest(farmerOrders) {
-  return farmerOrders.flatMap((o) => {
+  return farmerOrders.map((o) => {
     const prods =
       o.products && o.products.length > 0
         ? o.products
-        : [{ name: o.productName || "Farm Fresh Produce", quantity: o.totalQuantity || 0, grade: o.grade || "Grade A", unit: o.unit || "Kg" }];
+        : [
+            {
+              name: o.productName || "Farm Fresh Produce",
+              quantity: o.totalQuantity || 0,
+              grade: o.grade || "Grade A",
+              unit: o.unit || "Kg",
+              productId: o.productId || "",
+            },
+          ];
+    const first = prods[0] || {};
+    const gradesList = Array.isArray(o.grades) && o.grades.length
+      ? o.grades
+      : prods.map((p) => ({
+          name: p.grade || p.name || "Grade A",
+          label: p.grade || p.name || "Grade A",
+          quantity: Number(p.quantity || 0),
+        }));
+    const totalQuantity =
+      Number(o.totalQuantity || 0) ||
+      prods.reduce((sum, p) => sum + Number(p.quantity || 0), 0) ||
+      gradesList.reduce((sum, g) => sum + Number(g.quantity || 0), 0);
 
-    return prods.map((p) => {
-      const gradesList = p.grades?.length
-        ? p.grades
-        : o.grades?.length
-        ? o.grades
-        : [{ name: p.grade || "Grade A", label: p.grade || "Grade A", quantity: Number(p.quantity || 0) }];
-
-      return {
-        id: o.id || o.orderId || String(o._id),
-        orderId: o.id || o.orderId,
-        vendorId: o.vendorId,
-        farmerId: o.farmerId,
-        farmerName: o.farmerName || "",
-        productId: p.id || p.productId || "",
-        productName: p.name || o.productName || "Farm Fresh Produce",
-        category: p.category || o.category || "Produce",
-        date: o.harvestDate || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
-        day: o.day || "",
-        unit: p.unit || o.unit || "Kg",
-        grades: gradesList,
-        rejectionQty: Number(o.rejectionQty || 0),
-        totalQuantity: Number(p.quantity || o.totalQuantity || 0),
-        totalAmount: Number(p.total || o.totalAmount || o.amount || 0),
-        status: o.status || "Approved",
-        createdAt: o.createdAt,
-        products: o.products,
-        harvestDate: o.harvestDate,
-        amount: o.amount,
-        orderDate: o.orderDate,
-      };
-    });
+    return {
+      id: o.id || o.orderId || String(o._id),
+      orderId: o.id || o.orderId,
+      vendorId: o.vendorId,
+      farmerId: o.farmerId,
+      farmerName: o.farmerName || "",
+      productId: o.productId || lineProductId(first),
+      productName: o.productName || first.name || "Farm Fresh Produce",
+      category: first.category || o.category || "Produce",
+      date: o.harvestDate || o.date || (o.createdAt ? new Date(o.createdAt).toISOString().split("T")[0] : ""),
+      day: o.day || "",
+      unit: o.unit || first.unit || "Kg",
+      grades: gradesList,
+      rejectionQty: Number(o.rejectionQty || 0),
+      totalQuantity,
+      totalAmount: Number(o.totalAmount || o.amount || 0),
+      status: o.status || "Approved",
+      createdAt: o.createdAt,
+      products: o.products,
+      harvestDate: o.harvestDate || o.date || "",
+      amount: o.amount,
+      orderDate: o.orderDate,
+    };
   });
 }
 
@@ -3174,6 +3194,7 @@ export async function createFarmerOrder(req, res) {
       day = "",
       unit = "Kg",
       rejectionQty = 0,
+      rejectionReason = "",
       status = "Confirmed",
       paymentStatus = "Pending",
       deliveryStatus = "Pending",
@@ -3182,11 +3203,23 @@ export async function createFarmerOrder(req, res) {
     const farmer = await Farmer.findOne({ id: farmerId });
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
 
-    const totalQuantity = (products || []).reduce((sum, p) => sum + Number(p.quantity || 0), 0);
-    const totalAmount = (products || []).reduce(
+    const lineItems = products || [];
+    const totalQuantity = lineItems.reduce((sum, p) => sum + Number(p.quantity || 0), 0);
+    const totalAmount = lineItems.reduce(
       (sum, p) => sum + Number(p.total || (Number(p.price || 0) * Number(p.quantity || 1)) || 0),
       0
     );
+    const first = lineItems[0] || {};
+    const productId = String(req.body.productId || first.productId || first.id || "").trim();
+    const productName = String(req.body.productName || first.name || "Produce").trim();
+    const grades = Array.isArray(req.body.grades) && req.body.grades.length
+      ? req.body.grades
+      : lineItems.map((p) => ({
+          name: p.grade || p.name || "Grade A",
+          label: p.grade || p.name || "Grade A",
+          quantity: Number(p.quantity || 0),
+          rate: Number(p.price || 0),
+        }));
 
     const id = `fo-${Date.now()}`;
     const order = new FarmerOrder({
@@ -3194,14 +3227,18 @@ export async function createFarmerOrder(req, res) {
       orderId: id,
       vendorId: farmer.vendorId || req.user?.vendorId || DEFAULT_VENDOR_ID,
       farmerId,
+      productId,
+      productName,
+      grades,
       customer: {
         name: customer?.name || "Daily Harvest / Store Order",
         phone: customer?.phone || farmer.mobile || "",
         address: customer?.address || farmer.farmLocation || "",
       },
-      products: (products || []).map((p) => ({
-        id: p.id || p.productId || "",
-        name: p.name || "",
+      products: lineItems.map((p) => ({
+        id: p.id || p.productId || productId || "",
+        productId: p.productId || p.id || productId || "",
+        name: p.name || productName,
         grade: p.grade || "Grade A",
         quantity: Number(p.quantity || 1),
         unit: p.unit || unit || "Kg",
@@ -3213,6 +3250,7 @@ export async function createFarmerOrder(req, res) {
       day: day || "Today",
       unit: unit || "Kg",
       rejectionQty: Number(rejectionQty || 0),
+      rejectionReason: String(rejectionReason || ""),
       totalQuantity,
       totalAmount,
       amount: totalAmount,
@@ -3234,10 +3272,13 @@ export async function createFarmerOrder(req, res) {
     const createdAsNew = ["NEW", "New"].includes(String(status));
     if (!createdAsNew) {
     // Deduct stock from FarmerProduct grades if available
-    for (const item of products || []) {
-      const prodId = item.id || item.productId;
+    for (const item of lineItems) {
+      const prodId = item.productId || item.id || productId;
       if (prodId) {
-        const prod = await FarmerProduct.findOne({ id: prodId, farmerId });
+        const prod = await FarmerProduct.findOne({
+          farmerId,
+          $or: [{ id: prodId }, { productId: prodId }],
+        });
         if (prod) {
           const gradeItem = prod.grades?.find((g) => g.label === item.grade);
           if (gradeItem) {

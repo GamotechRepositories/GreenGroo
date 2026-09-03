@@ -296,6 +296,7 @@ const farmerOrderSchema = new mongoose.Schema(
     products: [
       {
         id: { type: String, default: "" },
+        productId: { type: String, default: "" },
         name: { type: String, default: "" },
         grade: { type: String, default: "Grade A" },
         quantity: { type: Number, default: 1 },

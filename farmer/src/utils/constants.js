@@ -272,7 +272,8 @@ export const MANAGER_SIDEBAR_ITEMS = [
     label: "Orders",
     icon: "orders",
     children: [
-      { to: "/farmer/manager/orders", label: "All Orders" },
+      { to: "/farmer/manager/orders", label: "All Orders", end: true },
+      { to: "/farmer/manager/orders?tab=by-product", label: "Create Order by Product" },
       { to: "/farmer/manager/orders/create", label: "Create Order" },
     ],
   },
