@@ -1,16 +1,13 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { getManagerAllHarvestOrders, getManagerAllProducts } from "../../api/farmerApi";
+import toast from "react-hot-toast";
+import { deleteManagerFarmerOrder, getManagerAllHarvestOrders, getManagerAllProducts } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
-import StatusBadge from "../../components/ui/StatusBadge";
 import {
-  canonicalOrderStatus,
-  formatMoney,
   formatOrderDate,
   managerOrderBucket,
   matchesManagerOrderFilter,
   matchesOrderDateRange,
-  rejectionText,
   todayISODate,
   yesterdayISODate,
 } from "../../utils/orderDisplay";
@@ -18,11 +15,111 @@ import { formatProductBusinessId } from "../../utils/cropLinks";
 import { isPendingProductApproval } from "../../utils/productActions";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
-const ACTION_BTN =
-  "inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 whitespace-nowrap hover:bg-slate-50 sm:h-7 sm:rounded-md sm:px-2 sm:text-[10px]";
+const ACTION_BASE =
+  "inline-flex h-6 min-w-[2.75rem] flex-1 items-center justify-center rounded px-1 text-[9px] font-semibold leading-none whitespace-nowrap";
+const ACTION_BTN = `${ACTION_BASE} border border-[#D4D4D4] bg-white text-[#1F2937] hover:bg-[#F3F4F6]`;
+const ACTION_BTN_DANGER = `${ACTION_BASE} border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50`;
 
 const TAB_STATEMENTS = "statements";
 const TAB_BY_PRODUCT = "by-product";
+const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
+
+const TH =
+  "border border-[#C5D4C8] bg-[#E8F0EA] px-1 py-1.5 text-center text-[9px] font-bold leading-tight text-[#374151] sm:px-1.5 sm:text-[10px]";
+const TD = "border border-[#E5E7EB] px-1 py-1.5 text-[10px] leading-tight text-[#1F2937] sm:px-1.5 sm:text-[11px]";
+
+const GRADE_COLORS = {
+  "Grade A": {
+    head: "border-[#A7F3D0] bg-[#D1FAE5] text-[#065F46]",
+    cell: "border-[#A7F3D0] bg-[#ECFDF5]",
+  },
+  "Grade B": {
+    head: "border-[#BFDBFE] bg-[#DBEAFE] text-[#1E40AF]",
+    cell: "border-[#BFDBFE] bg-[#EFF6FF]",
+  },
+  "Grade C": {
+    head: "border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]",
+    cell: "border-[#FDE68A] bg-[#FFFBEB]",
+  },
+};
+
+function gradeTone(label = "") {
+  return (
+    GRADE_COLORS[label] || {
+      head: "border-[#E5E7EB] bg-[#F3F4F6] text-[#374151]",
+      cell: "border-[#E5E7EB] bg-[#F9FAFB]",
+    }
+  );
+}
+
+function shortDate(value) {
+  if (!value) return "—";
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    const [y, m, d] = raw.slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) {
+    const full = formatOrderDate(value);
+    return full && full !== "—" ? full : "—";
+  }
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function formatTime12h(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  if (/am|pm/i.test(raw)) return raw.replace(/\s+/g, " ");
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) return raw;
+  let hour = Number(m[1]);
+  const min = m[2];
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return raw;
+  const period = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour}:${min} ${period}`;
+}
+
+function gradeDetailMap(order) {
+  const map = {};
+  const unit = order.unit || orderProductEntry(order).unit || "Kg";
+  (Array.isArray(order.grades) ? order.grades : []).forEach((g) => {
+    const label = String(g.label || g.name || "").trim();
+    if (!label) return;
+    const qty = Number(g.quantity || 0);
+    const rate = Number(g.price ?? g.rate ?? g.pricePerKg ?? 0) || 0;
+    if (!map[label]) map[label] = { qty: 0, rate: 0, unit };
+    map[label].qty += qty;
+    if (rate > 0) map[label].rate = rate;
+  });
+  if (!Object.keys(map).length) {
+    const entry = orderProductEntry(order);
+    const label = String(order.grade || "Grade A").trim() || "Grade A";
+    const qty = Number(entry.quantity || order.orderedQuantity || 0);
+    const rate = Number(order.price || 0) || 0;
+    map[label] = { qty, rate, unit: entry.unit || unit };
+  }
+  return map;
+}
+
+function formatQty(qty, unit) {
+  const n = Number(qty || 0);
+  if (!(n > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
+  return (
+    <span>
+      {n.toLocaleString("en-IN")}
+      <span className="ml-0.5 text-[8px] text-[#6B7280] sm:text-[9px]">{unit || "Kg"}</span>
+    </span>
+  );
+}
+
+function formatRate(rate, qty = 0) {
+  if (!(Number(qty || 0) > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
+  const n = Number(rate || 0);
+  if (!(n > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
+  return `₹${n.toLocaleString("en-IN")}`;
+}
 
 function isBusinessProductId(value) {
   const id = String(value || "").trim();
@@ -68,6 +165,7 @@ function orderProductEntry(order) {
   return {
     productId,
     productName: order.productName || first.name || "Farm Produce",
+    variety: order.variety || first.variety || "",
     quantity: Number(order.totalQuantity || order.orderedQuantity || 0) || qtyFromGrades || qtyFromProducts,
     amount: Number(order.totalAmount || order.orderValue || order.amount || 0),
     unit: order.unit || first.unit || "Kg",
@@ -75,27 +173,12 @@ function orderProductEntry(order) {
   };
 }
 
-function orderSheetPath(order) {
-  const entry = orderProductEntry(order);
-  const key = productKeyOf({ productId: entry.productId, productName: entry.productName });
-  const params = new URLSearchParams({ name: entry.productName || "" });
-  if (entry.productId) params.set("productId", entry.productId);
+function orderViewPath(order) {
+  const id = order.id || order.orderId;
+  const params = new URLSearchParams();
   if (order.farmerId) params.set("farmerId", order.farmerId);
-  return `/farmer/manager/orders/product/${encodeURIComponent(key)}?${params.toString()}`;
-}
-
-function sheetActionLabel(order) {
-  const bucket = managerOrderBucket(order?.status);
-  if (bucket === "accepted") return "Accepted Sheet";
-  if (bucket === "rejected") return "Rejected Sheet";
-  return "Sheet";
-}
-
-function sheetActionPath(order) {
-  const bucket = managerOrderBucket(order?.status);
-  if (bucket === "accepted") return "/farmer/manager/orders/accepted";
-  if (bucket === "rejected") return "/farmer/manager/orders/rejected";
-  return orderSheetPath(order);
+  const qs = params.toString();
+  return `/farmer/manager/orders/detail/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
 }
 
 function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts }) {
@@ -192,12 +275,107 @@ function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts }) {
   );
 }
 
-function rowTone(status) {
-  const bucket = managerOrderBucket(status);
-  if (bucket === "rejected") return "bg-red-50/40";
-  if (bucket === "pending") return "bg-sky-50/30";
-  if (bucket === "accepted") return "bg-emerald-50/20";
-  return "";
+/** Simple donut + bars using the same 3 status colors as the filter chips */
+function OrderStatusChart({ counts, statusFilter, onStatus }) {
+  const segments = [
+    { key: "pending", label: "Approval Pending", value: Number(counts.pending || 0), color: "#0284C7" },
+    { key: "accepted", label: "Accepted", value: Number(counts.accepted || 0), color: "#047857" },
+    { key: "rejected", label: "Rejected", value: Number(counts.rejected || 0), color: "#DC2626" },
+  ];
+  const total = segments.reduce((s, x) => s + x.value, 0) || 0;
+  const max = Math.max(...segments.map((x) => x.value), 1);
+
+  const radius = 36;
+  const stroke = 12;
+  const c = 2 * Math.PI * radius;
+  let offset = 0;
+
+  return (
+    <div className={`${EXCEL_PANEL} flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-6`}>
+      <div className="flex shrink-0 items-center gap-3">
+        <div className="relative h-[88px] w-[88px]">
+          <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+            <circle cx="50" cy="50" r={radius} fill="none" stroke="#E5E7EB" strokeWidth={stroke} />
+            {total > 0
+              ? segments.map((seg) => {
+                  if (!(seg.value > 0)) return null;
+                  const len = (seg.value / total) * c;
+                  const dash = `${len} ${c - len}`;
+                  const el = (
+                    <circle
+                      key={seg.key}
+                      cx="50"
+                      cy="50"
+                      r={radius}
+                      fill="none"
+                      stroke={seg.color}
+                      strokeWidth={stroke}
+                      strokeDasharray={dash}
+                      strokeDashoffset={-offset}
+                      strokeLinecap="butt"
+                    />
+                  );
+                  offset += len;
+                  return el;
+                })
+              : null}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-lg font-bold tabular-nums text-[#1F2937]">{total}</span>
+            <span className="text-[9px] font-semibold text-[#6B7280]">Orders</span>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          {segments.map((seg) => (
+            <button
+              key={seg.key}
+              type="button"
+              onClick={() => onStatus(statusFilter === seg.key ? "all" : seg.key)}
+              className={`flex items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-slate-50 ${
+                statusFilter === seg.key ? "ring-1 ring-slate-200" : ""
+              }`}
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+              <span className="text-[11px] font-semibold" style={{ color: seg.color }}>
+                {seg.label}
+              </span>
+              <span className="text-[11px] font-bold tabular-nums text-[#1F2937]">{seg.value}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-2">
+        {segments.map((seg) => {
+          const pct = total > 0 ? Math.round((seg.value / total) * 100) : 0;
+          const widthPct = Math.max((seg.value / max) * 100, seg.value > 0 ? 6 : 0);
+          return (
+            <button
+              key={`bar-${seg.key}`}
+              type="button"
+              onClick={() => onStatus(statusFilter === seg.key ? "all" : seg.key)}
+              className="block w-full text-left"
+            >
+              <div className="mb-0.5 flex items-center justify-between gap-2 text-[10px]">
+                <span className="font-semibold" style={{ color: seg.color }}>
+                  {seg.label}
+                </span>
+                <span className="tabular-nums text-[#6B7280]">
+                  {seg.value} · {pct}%
+                </span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-[#F3F4F6]">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${widthPct}%`, backgroundColor: seg.color }}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function ManagerOrdersPage() {
@@ -212,6 +390,7 @@ export default function ManagerOrdersPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [deletingId, setDeletingId] = useState("");
 
   const setTab = (next) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -252,6 +431,28 @@ export default function ManagerOrdersPage() {
   };
 
   const clearDateFilter = () => setDateRange("", "");
+
+  const handleDeleteOrder = async (order) => {
+    const orderId = order.id || order.orderId;
+    const farmerId = order.farmerId;
+    if (!orderId || !farmerId) {
+      toast.error("Cannot delete: farmer or order id missing");
+      return;
+    }
+    if (!window.confirm(`Delete order ${orderId}?`)) return;
+    setDeletingId(orderId);
+    try {
+      await deleteManagerFarmerOrder(farmerId, orderId);
+      toast.success("Order deleted");
+      setOrders((prev) =>
+        prev.filter((o) => o.id !== orderId && o.orderId !== orderId && String(o._id || "") !== String(orderId))
+      );
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete order");
+    } finally {
+      setDeletingId("");
+    }
+  };
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -322,6 +523,15 @@ export default function ManagerOrdersPage() {
       );
   }, [dateFilteredOrders, statusFilter, q, farmers]);
 
+  const gradeColumns = useMemo(() => {
+    const set = new Set(DEFAULT_GRADES);
+    filteredOrders.forEach((o) => {
+      Object.keys(gradeDetailMap(o)).forEach((label) => set.add(label));
+    });
+    const extras = Array.from(set).filter((g) => !DEFAULT_GRADES.includes(g)).sort();
+    return [...DEFAULT_GRADES, ...extras];
+  }, [filteredOrders]);
+
   const availableProducts = useMemo(() => {
     const query = q.toLowerCase().trim();
     return products.filter((p) => {
@@ -360,6 +570,10 @@ export default function ManagerOrdersPage() {
         onStatus={setStatusFilter}
         counts={statusCounts}
       />
+
+      {tab === TAB_STATEMENTS ? (
+        <OrderStatusChart counts={statusCounts} statusFilter={statusFilter} onStatus={setStatusFilter} />
+      ) : null}
 
       {tab === TAB_BY_PRODUCT ? (
         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
@@ -523,126 +737,137 @@ export default function ManagerOrdersPage() {
               : "No orders in this filter."}
         </div>
       ) : (
-        <div className={EXCEL_PANEL}>
-          <div className="divide-y divide-[#E5E7EB] sm:hidden">
-            {filteredOrders.map((order) => {
-              const entry = orderProductEntry(order);
-              const id = order.id || order.orderId;
-              const status = canonicalOrderStatus(order.status);
-              const farmerName =
-                order.farmerName || farmers.find((f) => f.id === order.farmerId)?.name || "—";
-              const reason = rejectionText(order);
-              return (
-                <div key={id} className={`px-3 py-2.5 ${rowTone(status)}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-mono text-[11px] font-bold text-[#217346]">{id}</p>
-                      <p className="mt-0.5 truncate text-[13px] font-semibold text-[#1F2937]">{entry.productName}</p>
-                      <p className="mt-0.5 text-[11px] text-[#6B7280]">{farmerName}</p>
-                    </div>
-                    <StatusBadge status={status} />
-                  </div>
-                  <div className="mt-1.5 grid grid-cols-3 gap-1 text-[11px]">
-                    <div>
-                      <p className="text-[#6B7280]">Qty</p>
-                      <p className="font-bold">
-                        {entry.quantity.toLocaleString("en-IN")} {entry.unit}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[#6B7280]">Value</p>
-                      <p className="font-bold text-[#217346]">{formatMoney(entry.amount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#6B7280]">Date</p>
-                      <p className="font-bold">{formatOrderDate(order.orderDate || order.harvestDate || order.date)}</p>
-                    </div>
-                  </div>
-                  {reason ? <p className="mt-1 text-[11px] font-semibold text-[#DC2626]">{reason}</p> : null}
-                  <div className="mt-2 grid grid-cols-2 gap-1.5">
-                    <Link to={sheetActionPath(order)} className={`${ACTION_BTN} w-full`}>
-                      {sheetActionLabel(order)}
-                    </Link>
-                    {order.farmerId ? (
-                      <Link to={`/farmer/manager/orders/farmer/${order.farmerId}`} className={`${ACTION_BTN} w-full`}>
-                        Farmer
-                      </Link>
-                    ) : (
-                      <span className={`${ACTION_BTN} w-full opacity-40`}>Farmer</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[760px] text-xs">
-              <thead>
-                <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                  {["Order ID", "Product", "Farmer", "Qty", "Value", "Date", "Status"].map((h) => (
-                    <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">
-                      {h}
-                    </th>
-                  ))}
-                  <th className="sticky right-0 z-20 border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.map((order) => {
-                  const entry = orderProductEntry(order);
-                  const id = order.id || order.orderId;
-                  const status = canonicalOrderStatus(order.status);
-                  const farmerName =
-                    order.farmerName || farmers.find((f) => f.id === order.farmerId)?.name || "—";
-                  const reason = rejectionText(order);
+        <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <table className="w-full min-w-[920px] border-collapse text-[10px] sm:text-[11px]">
+            <colgroup>
+              <col className="w-10" />
+              <col className="w-[13.5rem]" />
+              <col className="w-[7.5rem]" />
+              <col className="w-[7rem]" />
+              <col className="w-[5.5rem]" />
+              <col className="w-[5.5rem]" />
+              <col className="w-[5rem]" />
+              {gradeColumns.map((g) => (
+                <Fragment key={`col-${g}`}>
+                  <col className="w-[4.5rem]" />
+                  <col className="w-[4.5rem]" />
+                </Fragment>
+              ))}
+              <col className="w-[6.5rem]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className={TH} rowSpan={2}>
+                  #
+                </th>
+                <th className={TH} rowSpan={2}>
+                  Order ID
+                </th>
+                <th className={TH} rowSpan={2}>
+                  Product
+                </th>
+                <th className={TH} rowSpan={2}>
+                  Farmer
+                </th>
+                <th className={TH} rowSpan={2}>
+                  Order Date
+                </th>
+                <th className={TH} rowSpan={2}>
+                  Pickup Date
+                </th>
+                <th className={TH} rowSpan={2}>
+                  Pickup Time
+                </th>
+                {gradeColumns.map((g) => {
+                  const tone = gradeTone(g);
                   return (
-                    <tr key={id} className={`border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9] ${rowTone(status)}`}>
-                      <td className="px-3 py-2 font-mono font-semibold text-[#217346]">{id}</td>
-                      <td className="px-3 py-2">
-                        <p className="font-semibold text-[#1F2937]">{entry.productName}</p>
-                        {entry.productId ? (
-                          <p className="font-mono text-[10px] text-emerald-700">{entry.productId}</p>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2">{farmerName}</td>
-                      <td className="px-3 py-2 font-semibold">
-                        {entry.quantity.toLocaleString("en-IN")} {entry.unit}
-                      </td>
-                      <td className="px-3 py-2 font-semibold text-[#217346]">{formatMoney(entry.amount)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {formatOrderDate(order.orderDate || order.harvestDate || order.date)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col gap-0.5">
-                          <StatusBadge status={status} />
-                          {reason ? (
-                            <span className="max-w-[10rem] truncate text-[10px] text-[#DC2626]" title={reason}>
-                              {reason}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="sticky right-0 z-10 whitespace-nowrap border-l border-[#D4D4D4] bg-white px-3 py-2">
-                        <div className="flex flex-nowrap items-center justify-end gap-1">
-                          <Link to={sheetActionPath(order)} className={ACTION_BTN}>
-                            {sheetActionLabel(order)}
-                          </Link>
-                          {order.farmerId ? (
-                            <Link to={`/farmer/manager/orders/farmer/${order.farmerId}`} className={ACTION_BTN}>
-                              Farmer
-                            </Link>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
+                    <th
+                      key={g}
+                      className={`border px-0.5 py-1.5 text-center text-[9px] font-bold leading-tight sm:text-[10px] ${tone.head}`}
+                      colSpan={2}
+                    >
+                      {g}
+                    </th>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+                <th className={TH} rowSpan={2}>
+                  Actions
+                </th>
+              </tr>
+              <tr>
+                {gradeColumns.map((g) => {
+                  const tone = gradeTone(g);
+                  const sub = `border px-0.5 py-1 text-center text-[9px] font-semibold ${tone.head}`;
+                  return (
+                    <Fragment key={`h-${g}`}>
+                      <th className={sub}>Qty</th>
+                      <th className={sub}>Rate</th>
+                    </Fragment>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrders.map((order, idx) => {
+                const entry = orderProductEntry(order);
+                const id = order.id || order.orderId;
+                const farmerName =
+                  order.farmerName || farmers.find((f) => f.id === order.farmerId)?.name || "—";
+                const map = gradeDetailMap(order);
+                const unit = entry.unit || order.unit || "Kg";
+                const variety = entry.variety;
+                return (
+                  <tr key={id} className="hover:bg-[#F9FBF9]">
+                    <td className={`${TD} text-center text-[#9CA3AF]`}>{idx + 1}</td>
+                    <td className={`${TD} whitespace-nowrap font-mono text-[10px] font-semibold text-[#217346] sm:text-[11px]`}>
+                      <Link to={orderViewPath(order)} className="hover:underline" title={id}>
+                        {id}
+                      </Link>
+                    </td>
+                    <td className={TD} title={[entry.productName, variety].filter(Boolean).join(" · ")}>
+                      <span className="block font-semibold text-[#1F2937]">{entry.productName}</span>
+                      {variety ? <span className="mt-0.5 block text-[9px] leading-tight text-[#6B7280]">{variety}</span> : null}
+                    </td>
+                    <td className={`${TD} whitespace-nowrap`} title={farmerName}>
+                      {farmerName}
+                    </td>
+                    <td className={`${TD} whitespace-nowrap text-center`}>
+                      {shortDate(order.orderDate || order.harvestDate || order.date || order.createdAt)}
+                    </td>
+                    <td className={`${TD} whitespace-nowrap text-center`}>{shortDate(order.pickupDate)}</td>
+                    <td className={`${TD} whitespace-nowrap text-center`}>{formatTime12h(order.pickupTime)}</td>
+                    {gradeColumns.map((g) => {
+                      const row = map[g] || { qty: 0, rate: 0, unit };
+                      const tone = gradeTone(g);
+                      const cell = `border px-0.5 py-1.5 text-center text-[10px] tabular-nums sm:text-[11px] ${tone.cell}`;
+                      return (
+                        <Fragment key={`${id}-${g}`}>
+                          <td className={cell}>{formatQty(row.qty, row.unit || unit)}</td>
+                          <td className={cell}>{formatRate(row.rate, row.qty)}</td>
+                        </Fragment>
+                      );
+                    })}
+                    <td className={`${TD} bg-white px-0.5 py-1 align-middle sm:px-1`}>
+                      <div className="mx-auto flex w-full max-w-[7.5rem] items-stretch justify-center gap-1">
+                        <Link to={orderViewPath(order)} className={ACTION_BTN}>
+                          View
+                        </Link>
+                        <button
+                          type="button"
+                          className={ACTION_BTN_DANGER}
+                          disabled={deletingId === id || !order.farmerId}
+                          onClick={() => handleDeleteOrder(order)}
+                          title="Delete order"
+                        >
+                          {deletingId === id ? "…" : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

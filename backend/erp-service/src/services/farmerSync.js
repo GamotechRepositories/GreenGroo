@@ -125,38 +125,146 @@ export function isProperProductArtId(id = "") {
   );
 }
 
-export async function upgradeFarmerProductId(product) {
+export function productIdHasVariety(id = "") {
+  const parts = String(id).toUpperCase().split("-").filter(Boolean);
+  return (
+    parts[0] === "GGC" &&
+    parts[1] === "ART" &&
+    parts.length >= 6 &&
+    !/^\d+$/.test(parts[3]) &&
+    !/^\d+$/.test(parts[4]) &&
+    !["A", "B", "C"].includes(parts[3]) &&
+    /^\d+$/.test(parts[parts.length - 1])
+  );
+}
+
+function productIdSerial(id = "") {
+  const last = String(id).split("-").pop();
+  return /^\d+$/.test(last) ? last.padStart(5, "0") : "00001";
+}
+
+export function buildProductBusinessId({ category, cropCode, varietyCode, serial }) {
+  return `GGC-ART-${String(category).toUpperCase()}-${String(cropCode).toUpperCase()}-${String(varietyCode).toUpperCase()}-${String(serial).padStart(5, "0")}`;
+}
+
+/** Crop business ID → Product business ID (same CAT-CROP-VAR-SERIAL). */
+export function productIdFromCropId(cropId = "") {
+  const raw = String(cropId || "").trim().toUpperCase();
+  if (!raw.startsWith("GGC-CRP-")) return "";
+  return raw.replace(/^GGC-CRP-/, "GGC-ART-");
+}
+
+/**
+ * Same cropName + variety → one shared Product ID across every farmer
+ * (mirrors ensureSharedCropBusinessId). Document `id` stays unique per row.
+ */
+export async function ensureSharedProductBusinessId(product) {
   if (!product) return product;
-  const oldId = product.productId || product.id;
-  if (isProperProductArtId(oldId)) return product;
+  const cropName = String(product.cropName || product.productName || product.name || "").trim();
+  const variety = String(product.variety || "").trim();
+  if (!cropName) return product;
 
-  const cropCode = cropCodeFromName(product.cropName || product.productName || product.name);
-  const category = categoryFromName(product.cropName || product.productName || product.name);
-  const newId = await generateId({ module: "ART", category, crop: cropCode });
-  if (newId === oldId) return product;
+  const cropCode = cropCodeFromName(cropName);
+  const category = categoryFromName(cropName);
+  const varietyCode = varietyCodeFromName(variety);
 
-  const taken = await FarmerProduct.exists({
-    _id: { $ne: product._id },
-    $or: [{ id: newId }, { productId: newId }],
-  });
-  if (taken) return product;
+  // Prefer serial from shared crop ID for this crop+variety
+  const cropSiblings = await FarmerCrop.find({
+    cropName: new RegExp(`^${escapeRegex(cropName)}$`, "i"),
+    ...(variety ? { variety: new RegExp(`^${escapeRegex(variety)}$`, "i") } : {}),
+  }).sort({ createdAt: 1 });
 
-  product.previousProductId = oldId;
-  product.id = newId;
-  product.productId = newId;
-  await product.save();
+  let serial = "00001";
+  if (cropSiblings.length) {
+    const withVariety = cropSiblings.find((c) => cropIdHasVariety(c.cropId || c.id));
+    const anchorCrop = withVariety || cropSiblings[0];
+    const sharedCrop = await ensureSharedCropBusinessId(anchorCrop);
+    serial = cropIdSerial(sharedCrop?.cropId || anchorCrop.cropId || anchorCrop.id);
+  } else {
+    const productSiblingsPreview = await FarmerProduct.find({
+      $or: [
+        { cropName: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
+        { name: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
+        { productName: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
+      ],
+      ...(variety ? { variety: new RegExp(`^${escapeRegex(variety)}$`, "i") } : {}),
+    }).sort({ createdAt: 1 });
+    const withVar = productSiblingsPreview.find((p) => productIdHasVariety(p.productId || p.id));
+    const anchor = withVar || productSiblingsPreview[0];
+    if (anchor) serial = productIdSerial(anchor.productId || anchor.id);
+  }
 
-  await Promise.all([
-    FarmerStockHistory.updateMany({ productId: oldId }, { $set: { productId: newId } }),
-    FarmerOrder.updateMany({ productId: oldId }, { $set: { productId: newId } }),
-    FarmerHarvestOrder.updateMany({ productId: oldId }, { $set: { productId: newId } }),
-    Article.updateMany({ sourceProductId: oldId }, { $set: { sourceProductId: newId } }),
-    QrCode.updateMany(
-      { $or: [{ entityId: oldId }, { articleId: oldId }] },
-      { $set: { entityId: newId } }
-    ),
-  ]);
-  return product;
+  const targetId = buildProductBusinessId({ category, cropCode, varietyCode, serial });
+  const cropBusinessId = buildCropBusinessId({ category, cropCode, varietyCode, serial });
+
+  const siblings = await FarmerProduct.find({
+    $or: [
+      { cropName: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
+      { name: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
+      { productName: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
+    ],
+    ...(variety ? { variety: new RegExp(`^${escapeRegex(variety)}$`, "i") } : {}),
+  }).sort({ createdAt: 1 });
+
+  for (const sibling of siblings) {
+    const oldProductId = String(sibling.productId || sibling.id || "").trim();
+    const needsProductId = oldProductId !== targetId;
+    const needsCropId = String(sibling.cropId || "").trim() !== cropBusinessId;
+
+    if (!needsProductId && !needsCropId) continue;
+
+    if (needsProductId) {
+      sibling.previousProductId = oldProductId;
+      sibling.productId = targetId;
+      const idTaken = await FarmerProduct.exists({
+        _id: { $ne: sibling._id },
+        id: targetId,
+      });
+      if (!idTaken && (sibling.id === oldProductId || !sibling.id)) {
+        sibling.id = targetId;
+      }
+    }
+    if (needsCropId) sibling.cropId = cropBusinessId;
+    await sibling.save();
+
+    if (needsProductId && oldProductId && oldProductId !== targetId) {
+      await Promise.all([
+        FarmerStockHistory.updateMany(
+          { farmerId: sibling.farmerId, productId: oldProductId },
+          { $set: { productId: targetId } }
+        ),
+        FarmerOrder.updateMany(
+          { farmerId: sibling.farmerId, productId: oldProductId },
+          { $set: { productId: targetId } }
+        ),
+        FarmerHarvestOrder.updateMany(
+          { farmerId: sibling.farmerId, productId: oldProductId },
+          { $set: { productId: targetId } }
+        ),
+        Article.updateMany({ sourceProductId: oldProductId }, { $set: { sourceProductId: targetId } }),
+        QrCode.updateMany(
+          { $or: [{ entityId: oldProductId }, { articleId: oldProductId }] },
+          { $set: { entityId: targetId } }
+        ),
+      ]);
+    }
+  }
+
+  const seq = Number(serial);
+  if (Number.isFinite(seq)) {
+    await ErpCounter.findOneAndUpdate(
+      { key: `article-prod-${category}-${cropCode}-${varietyCode}` },
+      { $max: { sequence: seq } },
+      { upsert: true }
+    );
+  }
+
+  const fresh = await FarmerProduct.findById(product._id);
+  return fresh || product;
+}
+
+export async function upgradeFarmerProductId(product) {
+  return ensureSharedProductBusinessId(product);
 }
 
 export async function assignFarmerBusinessId(payload = {}) {

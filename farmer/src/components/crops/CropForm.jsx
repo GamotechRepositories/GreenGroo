@@ -1,12 +1,24 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ImageUploadField from "../ui/ImageUploadField";
 import SelectWithOther, { InlineSelectWithOther, resolvePreset, splitPreset } from "../ui/SelectWithOther";
-import { AREA_UNITS, CROP_OPTIONS, CROP_STATUS_FLOW, CROP_UNITS, FARMING_METHODS, FARMING_TYPES, IRRIGATION_TYPES } from "../../utils/constants";
+import {
+  AREA_UNITS,
+  CROP_OPTIONS,
+  CROP_STATUS_FLOW,
+  CROP_UNITS,
+  FARMING_METHODS,
+  FARMING_TYPES,
+  IRRIGATION_TYPES,
+  varietyOptionsForCrop,
+} from "../../utils/constants";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, FORM_INPUT } from "../../utils/excelStyles";
 import { formatCropBusinessId } from "../../utils/cropLinks";
 
 function emptyCrop(defaults = {}) {
   const crop = splitPreset(CROP_OPTIONS, defaults.cropName);
+  const cropNameResolved = resolvePreset(crop.select, crop.custom) || defaults.cropName || "";
+  const varietyOpts = varietyOptionsForCrop(cropNameResolved);
+  const variety = splitPreset(varietyOpts, defaults.variety);
   const areaUnit = splitPreset(AREA_UNITS, defaults.areaUnit || "Acre");
   const unit = splitPreset(CROP_UNITS, defaults.unit || "Kg");
   const farmingMethod = splitPreset(FARMING_METHODS, defaults.farmingMethod);
@@ -15,7 +27,8 @@ function emptyCrop(defaults = {}) {
   return {
     cropName: crop.select,
     customCropName: crop.custom,
-    variety: defaults.variety || "",
+    variety: variety.select,
+    customVariety: variety.custom,
     area: defaults.area || "",
     areaUnit: areaUnit.select || "Acre",
     customAreaUnit: areaUnit.custom,
@@ -44,13 +57,47 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
   );
   const [errors, setErrors] = useState({});
 
+  const resolvedCropName = resolvePreset(form.cropName, form.customCropName);
+  const varietyOptions = useMemo(() => varietyOptionsForCrop(resolvedCropName), [resolvedCropName]);
+
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
+  const onCropSelect = (v) => {
+    const nextName = resolvePreset(v, v === "Other" ? form.customCropName : "");
+    const opts = varietyOptionsForCrop(nextName);
+    setForm((prev) => {
+      const currentVariety = resolvePreset(prev.variety, prev.customVariety);
+      const stillValid = opts.includes(currentVariety);
+      const nextVariety = stillValid
+        ? splitPreset(opts, currentVariety)
+        : { select: "", custom: "" };
+      return {
+        ...prev,
+        cropName: v,
+        customCropName: v === "Other" ? prev.customCropName : "",
+        variety: nextVariety.select,
+        customVariety: nextVariety.custom,
+      };
+    });
+    setErrors((prev) => ({ ...prev, cropName: "", variety: "" }));
+  };
+
+  const onCropCustom = (v) => {
+    setForm((prev) => ({
+      ...prev,
+      customCropName: v,
+      variety: "",
+      customVariety: "",
+    }));
+    setErrors((prev) => ({ ...prev, cropName: "", variety: "" }));
+  };
+
   const validate = () => {
     const cropName = resolvePreset(form.cropName, form.customCropName);
+    const variety = resolvePreset(form.variety, form.customVariety);
     const areaUnit = resolvePreset(form.areaUnit, form.customAreaUnit);
     const unit = resolvePreset(form.unit, form.customUnit);
     const farmingMethod = resolvePreset(form.farmingMethod, form.customFarmingMethod);
@@ -58,7 +105,7 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
     const irrigationType = resolvePreset(form.irrigationType, form.customIrrigationType);
     const next = {};
     if (!cropName) next.cropName = "Crop is required";
-    if (!form.variety.trim()) next.variety = "Variety is required";
+    if (!variety) next.variety = "Variety is required";
     if (!(Number(form.area) > 0)) next.area = "Area must be greater than 0";
     if (!areaUnit) next.areaUnit = "Area unit is required";
     if (!form.sowingDate) next.sowingDate = "Sowing date is required";
@@ -71,16 +118,16 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
     if (!farmingMethod) next.farmingMethod = "Farming method is required";
     if (!irrigationType) next.irrigationType = "Irrigation type is required";
     setErrors(next);
-    return { ok: Object.keys(next).length === 0, cropName, areaUnit, unit, farmingMethod, farmingType, irrigationType };
+    return { ok: Object.keys(next).length === 0, cropName, variety, areaUnit, unit, farmingMethod, farmingType, irrigationType };
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const { ok, cropName, areaUnit, unit, farmingMethod, farmingType, irrigationType } = validate();
+    const { ok, cropName, variety, areaUnit, unit, farmingMethod, farmingType, irrigationType } = validate();
     if (!ok) return;
     onSubmit({
       cropName,
-      variety: form.variety.trim(),
+      variety,
       area: Number(form.area),
       areaUnit,
       sowingDate: form.sowingDate,
@@ -95,6 +142,12 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
     });
   };
 
+  const resolvedVariety = resolvePreset(form.variety, form.customVariety);
+  const previewId = formatCropBusinessId({
+    cropName: resolvedCropName,
+    variety: resolvedVariety,
+  });
+
   return (
     <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-5">
       {initialCrop?.cropId || initialCrop?.id ? (
@@ -103,6 +156,11 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
           <p className="truncate font-mono text-xs font-bold tracking-wide text-emerald-800 sm:text-sm">
             {formatCropBusinessId(initialCrop)}
           </p>
+        </div>
+      ) : resolvedCropName && resolvedVariety ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Crop ID preview</p>
+          <p className="truncate font-mono text-xs font-bold tracking-wide text-emerald-800 sm:text-sm">{previewId}</p>
         </div>
       ) : null}
 
@@ -113,16 +171,26 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
           options={CROP_OPTIONS}
           selectValue={form.cropName}
           customValue={form.customCropName}
-          onSelect={(v) => setField("cropName", v)}
-          onCustom={(v) => setField("customCropName", v)}
+          onSelect={onCropSelect}
+          onCustom={onCropCustom}
           error={errors.cropName}
           customLabel="Crop name"
           placeholder="Enter crop name"
           inputClass={FORM_INPUT}
         />
-        <Field label="Variety" required error={errors.variety}>
-          <input className={FORM_INPUT} placeholder="Hybrid" value={form.variety} onChange={(e) => setField("variety", e.target.value)} />
-        </Field>
+        <SelectWithOther
+          label="Variety"
+          required
+          options={varietyOptions}
+          selectValue={form.variety}
+          customValue={form.customVariety}
+          onSelect={(v) => setField("variety", v)}
+          onCustom={(v) => setField("customVariety", v)}
+          error={errors.variety}
+          customLabel="Variety name"
+          placeholder="Enter variety"
+          inputClass={FORM_INPUT}
+        />
       </Section>
 
       <Section title="Area & quantity">

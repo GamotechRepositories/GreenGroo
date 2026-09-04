@@ -119,9 +119,9 @@ export async function seedErpMasters() {
   }
 
   await CollectionCentreMaster.findOneAndUpdate(
-    { collectionCentreId: "GGC-CC-NK-001" },
+    { collectionCentreId: "GGC-CC-MH-NK-TLK-VIL-001" },
     {
-      collectionCentreId: "GGC-CC-NK-001",
+      collectionCentreId: "GGC-CC-MH-NK-TLK-VIL-001",
       name: "Nashik Collection Centre 001",
       districtId: "DST-NK",
       talukaId: "TLK-SIN",

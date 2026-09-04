@@ -119,23 +119,52 @@ export function formatCropBusinessId(crop = {}) {
   return raw || `GGC-CRP-${category}-${code}-${variety}-00001`;
 }
 
-/** Always show GGC-ART-VEG-TOM-00001 (category + crop code + serial). */
+/**
+ * Always show GGC-ART-{CAT}-{CROP}-{VAR}-{SERIAL}
+ * Variety comes from product.variety (or cropId / productId segments).
+ */
 export function formatProductBusinessId(product = {}) {
-  const raw = String(product.productId || product.id || "").trim();
-  const parts = raw.split("-").filter(Boolean);
-  const fromId =
-    parts[0] === "GGC" && parts[1] === "ART" && parts.length >= 5 && !/^[ABC]$/.test(parts[3])
-      ? String(parts[3]).toUpperCase()
-      : "";
-  const code = cropCodeFromName(product.cropName || product.productName || product.name) || fromId || "XXX";
-  const category = String(product.categoryCode || cropCategoryFromName(product.cropName || product.productName) || "VEG").toUpperCase();
+  const code =
+    cropCodeFromName(product.cropName || product.productName || product.name) || "XXX";
+  const category = String(
+    product.categoryCode || cropCategoryFromName(product.cropName || product.productName || product.name) || "VEG"
+  ).toUpperCase();
+  const variety = varietyCodeFromName(product.variety);
 
-  if (parts[0] === "GGC" && parts[1] === "ART" && parts.length >= 5 && !/^[ABC]$/.test(parts[3])) {
+  const cropRaw = String(product.cropId || "").trim();
+  const raw = String(product.productId || product.id || cropRaw || "").trim();
+  const normalized = raw.toUpperCase().startsWith("GGC-CRP-")
+    ? raw.replace(/^GGC-CRP-/i, "GGC-ART-")
+    : raw;
+  const parts = normalized.split("-").filter(Boolean);
+
+  if (parts[0] === "GGC" && parts[1] === "ART") {
     const last = parts[parts.length - 1];
     const serial = /^\d+$/.test(last) ? last.padStart(5, "0") : "00001";
+
+    // Grade-based ERP article: GGC-ART-TOM-A-00001 — leave as-is
+    if (parts.length >= 5 && /^[ABC]$/.test(String(parts[3] || "").toUpperCase())) {
+      return normalized;
+    }
+
     const cat = (parts[2] && !/^\d+$/.test(parts[2]) ? parts[2] : category).toUpperCase();
-    return `GGC-ART-${cat}-${code}-${serial}`;
+
+    // Already has variety: GGC-ART-CAT-CROP-VAR-SERIAL
+    if (parts.length >= 6 && !/^\d+$/.test(parts[3]) && !/^\d+$/.test(parts[4]) && !/^[ABC]$/.test(parts[3])) {
+      const cropPart = code !== "XXX" ? code : String(parts[3]).toUpperCase();
+      // Prefer live product.variety so Hybrid etc. always shows in ID
+      const varPart = product.variety ? variety : String(parts[4] || "XXX").toUpperCase();
+      return `GGC-ART-${cat}-${cropPart}-${varPart}-${serial}`;
+    }
+
+    // Old: GGC-ART-CAT-CROP-SERIAL → insert variety
+    if (parts.length >= 5 && !/^\d+$/.test(parts[3]) && !/^[ABC]$/.test(parts[3])) {
+      const cropPart = code !== "XXX" ? code : String(parts[3]).toUpperCase();
+      return `GGC-ART-${cat}-${cropPart}-${variety}-${serial}`;
+    }
+
+    return `GGC-ART-${cat}-${code}-${variety}-${serial}`;
   }
 
-  return raw || `GGC-ART-${category}-${code}-00001`;
+  return `GGC-ART-${category}-${code}-${variety}-00001`;
 }

@@ -48,6 +48,7 @@ import ManagerProductAddPage from "../pages/manager/ManagerProductAddPage";
 import ManagerInventoryPage from "../pages/manager/ManagerInventoryPage";
 import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistoryPage";
 import ManagerOrdersPage from "../pages/manager/ManagerOrdersPage";
+import ManagerOrderDetailPage from "../pages/manager/ManagerOrderDetailPage";
 import ManagerStatusOrdersSheetPage from "../pages/manager/ManagerStatusOrdersSheetPage";
 import ManagerProductFarmersPage from "../pages/manager/ManagerProductFarmersPage";
 import ManagerProductOrdersSpreadsheetPage from "../pages/manager/ManagerProductOrdersSpreadsheetPage";
@@ -125,6 +126,7 @@ function FarmerRoutes() {
           <Route path="manager/orders/accepted" element={<ManagerStatusOrdersSheetPage />} />
           <Route path="manager/orders/rejected" element={<ManagerStatusOrdersSheetPage />} />
           <Route path="manager/orders/create" element={<ManagerCreateOrderPage />} />
+          <Route path="manager/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
           <Route path="manager/orders/product/:productKey/farmers" element={<ManagerProductFarmersPage />} />
           <Route path="manager/orders/product/:productKey" element={<ManagerProductOrdersSpreadsheetPage />} />
           <Route path="manager/orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />

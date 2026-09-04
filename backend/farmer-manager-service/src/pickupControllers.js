@@ -10,8 +10,88 @@ import {
   Pickup,
 } from "./models.js";
 import { getIO } from "../../shared/socket.js";
+import { generateId } from "../../erp-service/src/services/idGenerator.js";
+import { resolveLocation, cityCode } from "../../erp-service/src/services/locationResolver.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
+const CC_ID_RE = /^GGC-CC-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-\d{3}$/;
+
+function isCollectionCentreBusinessId(id = "") {
+  return CC_ID_RE.test(String(id || "").trim().toUpperCase());
+}
+
+function code3(value, fallback = "XXX") {
+  const raw = String(value || "")
+    .replace(/[^a-zA-Z]/g, "")
+    .slice(0, 3)
+    .toUpperCase();
+  return raw || fallback;
+}
+
+async function locationPartsForCentre({ city = "", address = "", farmer = null } = {}) {
+  const farm = farmer?.farmAddress || farmer?.address || {};
+  const state = farm.state || farmer?.state || "Maharashtra";
+  const district = farm.district || city || farmer?.district || "Nashik";
+  const taluka = farm.taluka || farmer?.taluka || "";
+  const village = farm.village || farmer?.village || "";
+
+  try {
+    const loc = await resolveLocation({
+      state,
+      district,
+      taluka: taluka || district,
+      village: village || taluka || "Centre",
+      createMissing: false,
+    });
+    return {
+      state: loc.stateCode || "MH",
+      district: loc.districtCode || cityCode(district) || "NK",
+      taluka: loc.talukaCode || code3(taluka, "TLK"),
+      village: village ? code3(village, "VIL") : code3(loc.talukaCode || "VIL", "VIL"),
+    };
+  } catch {
+    return {
+      state: "MH",
+      district: cityCode(district) || "NK",
+      taluka: code3(taluka, "TLK"),
+      village: code3(village, "VIL"),
+    };
+  }
+}
+
+async function createCentreId(parts) {
+  return generateId({
+    module: "CC",
+    state: parts.state || "MH",
+    district: parts.district || "NK",
+    taluka: parts.taluka || "TLK",
+    village: parts.village || "VIL",
+  });
+}
+
+async function ensureCentreBusinessId(centre, locationHint = {}) {
+  if (!centre) return centre;
+  if (isCollectionCentreBusinessId(centre.id)) return centre;
+  const parts = await locationPartsForCentre({
+    city: centre.city || locationHint.city || "",
+    address: centre.address || "",
+    farmer: locationHint.farmer || null,
+  });
+  const oldId = centre.id;
+  const nextId = await createCentreId(parts);
+  centre.id = nextId;
+  centre.stateCode = parts.state;
+  centre.districtCode = parts.district;
+  centre.talukaCode = parts.taluka;
+  centre.villageCode = parts.village;
+  await centre.save();
+  if (oldId && oldId !== nextId) {
+    await Pickup.updateMany({ collectionCentreId: oldId }, { $set: { collectionCentreId: nextId } }).catch(() => {});
+  }
+  return centre;
+}
+
+export { ensureCentreBusinessId, isCollectionCentreBusinessId, ensureDefaultCentre };
 const ASSIGNED_STATUSES = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED"];
 const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
 const COMPLETED_PICKUP_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT"];
@@ -152,16 +232,23 @@ function parseQrOrderId(payload) {
   return parsed.orderId || parsed.token || "";
 }
 
-async function ensureDefaultCentre(vendorId) {
+async function ensureDefaultCentre(vendorId, locationHint = {}) {
   let centre = await CollectionCentre.findOne({ vendorId, status: "Active" });
-  if (centre) return centre;
-  const id = newId("cc");
+  if (centre) {
+    return ensureCentreBusinessId(centre, locationHint);
+  }
+  const parts = await locationPartsForCentre(locationHint);
+  const id = await createCentreId(parts);
   centre = await CollectionCentre.create({
     id,
     vendorId,
     name: "Main Collection Centre",
-    address: "",
-    city: "",
+    address: locationHint.address || "",
+    city: locationHint.city || parts.district || "",
+    stateCode: parts.state,
+    districtCode: parts.district,
+    talukaCode: parts.taluka,
+    villageCode: parts.village,
     status: "Active",
   });
   return centre;
@@ -197,7 +284,11 @@ export async function ensurePickupForOrder(order, farmer) {
     return existing;
   }
 
-  const centre = await ensureDefaultCentre(order.vendorId);
+  const centre = await ensureDefaultCentre(order.vendorId || farmer?.vendorId, {
+    farmer,
+    city: farmer?.farmAddress?.district || farmer?.district || "",
+    address: farmer?.farmAddress?.village || farmer?.farmLocation || "",
+  });
   const pickupId = `PKP-${Date.now()}`;
   const qrToken = qrTokenForPickup();
   const created = await Pickup.create({
@@ -701,15 +792,30 @@ export async function listVendorCentres(req, res) {
 export async function createVendorCentre(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    const { name, address, city, contactMobile } = req.body || {};
+    const { name, address, city, contactMobile, state, district, taluka, village } = req.body || {};
     if (!name) return res.status(400).json({ message: "Collection centre name is required" });
+    const parts = await locationPartsForCentre({
+      city: city || district || "",
+      address: address || "",
+      farmer: {
+        state: state || "Maharashtra",
+        district: district || city || "Nashik",
+        taluka: taluka || "",
+        village: village || "",
+        farmAddress: { state, district, taluka, village },
+      },
+    });
     const centre = await CollectionCentre.create({
-      id: newId("cc"),
+      id: await createCentreId(parts),
       vendorId,
       name: String(name).trim(),
       address: address || "",
       city: city || "",
       contactMobile: contactMobile || "",
+      stateCode: parts.state,
+      districtCode: parts.district,
+      talukaCode: parts.taluka,
+      villageCode: parts.village,
       status: "Active",
     });
     res.status(201).json(centre);

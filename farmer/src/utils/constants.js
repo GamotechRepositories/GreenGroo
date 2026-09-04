@@ -65,6 +65,39 @@ export const CROP_OPTIONS = [
   "Other",
 ];
 
+/** Standardized varieties so Crop ID stays same across farmers (select from list). */
+export const CROP_VARIETY_COMMON = ["Hybrid", "Local", "Desi", "Improved", "Open Pollinated"];
+
+export const CROP_VARIETY_BY_CROP = {
+  Tomato: ["Bajeerao", "Abhinav", "Sahoo", "Namdhari", "Heemsohna", "Hybrid", "Local"],
+  Onion: ["Nashik Red", "Agrifound Light Red", "Pusa Red", "Hybrid", "Local"],
+  Potato: ["Kufri Jyoti", "Kufri Pukhraj", "Kufri Chandramukhi", "Hybrid", "Local"],
+  Capsicum: ["California Wonder", "Indra", "Hybrid", "Local"],
+  Brinjal: ["Pusa Purple Long", "Hybrid", "Local"],
+  Cabbage: ["Golden Acre", "Hybrid", "Local"],
+  Cauliflower: ["Pusa Snowball", "Hybrid", "Local"],
+  Okra: ["Parbhani Kranti", "Hybrid", "Local"],
+  Chilli: ["Guntur", "Byadgi", "Hybrid", "Local"],
+  Cotton: ["Bt Hybrid", "Desi", "Hybrid", "Local"],
+  Soybean: ["JS 335", "MAUS", "Hybrid", "Local"],
+  Wheat: ["Lokwan", "HD 2967", "Hybrid", "Local"],
+  Rice: ["Indrayani", "Kolam", "Basmati", "Hybrid", "Local"],
+  Sugarcane: ["Co 86032", "Local"],
+  Grapes: ["Thompson Seedless", "Sharad Seedless", "Local"],
+  Pomegranate: ["Bhagwa", "Ganesh", "Local"],
+  Banana: ["Grand Naine", "Robusta", "Local"],
+  Maize: ["Hybrid", "Local"],
+  Groundnut: ["TAG 24", "Hybrid", "Local"],
+  Turmeric: ["Salem", "Rajapore", "Local"],
+};
+
+export function varietyOptionsForCrop(cropName = "") {
+  const key = String(cropName || "").trim();
+  const specific = CROP_VARIETY_BY_CROP[key];
+  if (specific?.length) return [...specific, "Other"];
+  return [...CROP_VARIETY_COMMON, "Other"];
+}
+
 export const CROP_UNITS = ["Kg", "Quintal", "Ton"];
 
 export const CROP_STATUSES = ["Planned", "Growing", "Ready for Harvest", "Harvested", "Completed"];

@@ -16,8 +16,9 @@ import {
   FarmerCrop,
   FarmerCropPlan,
   Pickup,
+  CollectionCentre,
 } from "./models.js";
-import { ensurePickupForOrder } from "./pickupControllers.js";
+import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { categoryFromName, cropCodeFromName, varietyCodeFromName, farmerSerialFromId } from "../../erp-service/src/config/idRegistry.js";
@@ -29,6 +30,7 @@ import {
   ensureEntityQr,
   ensureSharedCropBusinessId,
   upgradeFarmerProductId,
+  productIdFromCropId,
 } from "../../erp-service/src/services/farmerSync.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
@@ -1386,18 +1388,64 @@ async function resolveSharedCropBusinessId(parsed) {
   });
 }
 
-async function uniqueCropRecordId(cropId, farmer) {
-  const base = String(cropId || "").trim();
-  const taken = await FarmerCrop.exists({ id: base });
+async function uniqueProductRecordId(productId, farmer) {
+  const base = String(productId || "").trim();
+  const taken = await FarmerProduct.exists({ id: base });
   if (!taken) return base;
   const serial = farmerSerialFromId(farmer.farmerId || farmer.id);
   let candidate = `${base}-F${serial}`;
   let n = 1;
-  while (await FarmerCrop.exists({ id: candidate })) {
+  while (await FarmerProduct.exists({ id: candidate })) {
     n += 1;
     candidate = `${base}-F${serial}-${n}`;
   }
   return candidate;
+}
+
+async function resolveProductIdsFromCrop(farmer, crop, cropName, variety) {
+  let cropDoc = crop;
+  if (cropDoc) {
+    cropDoc = await ensureSharedCropBusinessId(cropDoc);
+  }
+  const name = cropName || cropDoc?.cropName || "";
+  const varName = variety || cropDoc?.variety || "";
+
+  // Reuse shared productId if another farmer already has this crop+variety
+  if (name) {
+    const existing = await FarmerProduct.find({
+      $or: [
+        { cropName: new RegExp(`^${String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        { name: new RegExp(`^${String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+        { productName: new RegExp(`^${String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      ],
+      ...(varName
+        ? { variety: new RegExp(`^${String(varName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+        : {}),
+    })
+      .sort({ createdAt: 1 })
+      .limit(1);
+    const sharedPid = String(existing[0]?.productId || "").trim();
+    if (sharedPid.startsWith("GGC-ART-")) {
+      const id = await uniqueProductRecordId(sharedPid, farmer);
+      return {
+        id,
+        productId: sharedPid,
+        cropBusinessId: cropDoc?.cropId || `GGC-CRP-${sharedPid.slice("GGC-ART-".length)}`,
+      };
+    }
+  }
+
+  let productId = productIdFromCropId(cropDoc?.cropId || "");
+  if (!productId) {
+    productId = await generateId({
+      module: "ART",
+      category: categoryFromName(name || cropDoc?.cropName),
+      crop: cropCodeFromName(name || cropDoc?.cropName),
+      variety: varietyCodeFromName(varName || cropDoc?.variety),
+    });
+  }
+  const id = await uniqueProductRecordId(productId, farmer);
+  return { id, productId, cropBusinessId: cropDoc?.cropId || "" };
 }
 
 async function persistNewCrop(farmer, parsed) {
@@ -1915,7 +1963,7 @@ function validateMyProductPayload(payload, { publish } = {}) {
 function applyProductFields(product, parsed, farmer, crop) {
   product.productName = parsed.productName;
   product.name = parsed.productName;
-  product.cropId = parsed.cropId || crop?.id || product.cropId || "";
+  product.cropId = crop?.cropId || parsed.cropId || crop?.id || product.cropId || "";
   product.cropName = parsed.cropName || crop?.cropName || product.cropName || "";
   product.variety = parsed.variety || crop?.variety || product.variety || "";
   product.unit = parsed.unit;
@@ -1993,20 +2041,23 @@ export async function createMyProduct(req, res) {
     if (parsed.cropId) {
       crop = await FarmerCrop.findOne({ farmerId, $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }] });
       if (!crop) return res.status(400).json({ message: "Selected crop was not found on your farm" });
-      parsed.cropId = crop.id;
       parsed.cropName = parsed.cropName || crop.cropName;
       parsed.variety = parsed.variety || crop.variety;
     }
 
-    const id = await generateId({
-      module: "ART",
-      category: categoryFromName(parsed.cropName || crop?.cropName),
-      crop: cropCodeFromName(parsed.cropName || crop?.cropName),
-    });
+    const { id, productId, cropBusinessId } = await resolveProductIdsFromCrop(
+      farmer,
+      crop,
+      parsed.cropName,
+      parsed.variety
+    );
+    if (cropBusinessId) parsed.cropId = cropBusinessId;
+    else if (crop) parsed.cropId = crop.cropId || crop.id;
+
     const status = publish ? "Pending Approval" : "Draft";
     const product = new FarmerProduct({
       id,
-      productId: id,
+      productId,
       vendorId: farmer.vendorId,
       managerId: farmer.managerId,
       farmerId,
@@ -2018,6 +2069,7 @@ export async function createMyProduct(req, res) {
       product.status = "Draft";
     }
     await product.save();
+    await upgradeFarmerProductId(product);
     await syncFarmerProductToErp(product, farmer, crop);
     res.status(201).json(publicMyProduct(product, farmer, crop));
   } catch (err) {
@@ -2042,19 +2094,22 @@ export async function createManagedFarmerProduct(req, res) {
         $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }],
       });
       if (!crop) return res.status(400).json({ message: "Selected crop was not found on this farm" });
-      parsed.cropId = crop.id;
       parsed.cropName = parsed.cropName || crop.cropName;
       parsed.variety = parsed.variety || crop.variety;
     }
 
-    const id = await generateId({
-      module: "ART",
-      category: categoryFromName(parsed.cropName || crop?.cropName),
-      crop: cropCodeFromName(parsed.cropName || crop?.cropName),
-    });
+    const { id, productId, cropBusinessId } = await resolveProductIdsFromCrop(
+      farmer,
+      crop,
+      parsed.cropName,
+      parsed.variety
+    );
+    if (cropBusinessId) parsed.cropId = cropBusinessId;
+    else if (crop) parsed.cropId = crop.cropId || crop.id;
+
     const product = new FarmerProduct({
       id,
-      productId: id,
+      productId,
       vendorId: farmer.vendorId,
       managerId: farmer.managerId,
       farmerId: farmer.id,
@@ -2070,6 +2125,7 @@ export async function createManagedFarmerProduct(req, res) {
       product.status = "Draft";
     }
     await product.save();
+    await upgradeFarmerProductId(product);
     await syncFarmerProductToErp(product, farmer, crop);
     res.status(201).json(publicMyProduct(product, farmer, crop));
   } catch (err) {
@@ -2095,7 +2151,8 @@ export async function updateMyProduct(req, res) {
     if (parsed.cropId) {
       crop = await FarmerCrop.findOne({ farmerId: product.farmerId, $or: [{ id: parsed.cropId }, { cropId: parsed.cropId }] });
       if (!crop) return res.status(400).json({ message: "Selected crop was not found on your farm" });
-      parsed.cropId = crop.id;
+      crop = await ensureSharedCropBusinessId(crop);
+      parsed.cropId = crop.cropId || crop.id;
     }
 
     applyProductFields(product, parsed, farmer, crop);
@@ -2938,6 +2995,7 @@ export async function createFarmerProduct(req, res) {
       module: "ART",
       category: categoryFromName(cropName),
       crop: cropCodeFromName(cropName),
+      variety: varietyCodeFromName(payload.variety),
     });
 
     const product = new FarmerProduct({
@@ -3266,9 +3324,77 @@ export async function getFarmerOrders(req, res) {
 export async function getFarmerOrderById(req, res) {
   try {
     const { farmerId, orderId } = req.params;
-    const order = await FarmerOrder.findOne({ id: orderId, farmerId });
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    res.json(order);
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] })
+      .select("name farmerId id vendorId state district taluka village farmAddress farmLocation")
+      .lean();
+    const farmerName = farmer?.name || "";
+
+    const attachCentreVendor = async (plain) => {
+      const vendorId = plain.vendorId || farmer?.vendorId || "";
+      let collectionCentreId = plain.collectionCentreId || "";
+      let collectionCentre = plain.collectionCentre || "";
+
+      const pickup = await Pickup.findOne({
+        $or: [{ orderId: plain.id }, { orderId: plain.orderId }, { id: plain.pickupId }],
+      })
+        .select("collectionCentreId vendorId")
+        .lean()
+        .catch(() => null);
+
+      if (pickup?.collectionCentreId) collectionCentreId = collectionCentreId || pickup.collectionCentreId;
+
+      let centre = null;
+      if (collectionCentreId) {
+        centre = await CollectionCentre.findOne({ id: collectionCentreId }).catch(() => null);
+      }
+      if (!centre && (vendorId || pickup?.vendorId)) {
+        centre = await ensureDefaultCentre(vendorId || pickup.vendorId, {
+          farmer,
+          city: farmer?.farmAddress?.district || farmer?.district || "",
+        });
+      } else if (centre) {
+        centre = await ensureCentreBusinessId(centre, {
+          city: centre.city || farmer?.farmAddress?.district || "",
+          farmer: farmer || null,
+        });
+      }
+
+      return {
+        ...plain,
+        farmerName: plain.farmerName || farmerName,
+        vendorId: vendorId || centre?.vendorId || pickup?.vendorId || "",
+        collectionCentreId: centre?.id || collectionCentreId || "",
+        collectionCentre: centre?.name || collectionCentre || (vendorId ? "Main Collection Centre" : ""),
+      };
+    };
+
+    const order = await FarmerOrder.findOne({
+      farmerId,
+      $or: [{ id: orderId }, { orderId }],
+    });
+    if (order) {
+      const plain = order.toObject ? order.toObject() : order;
+      return res.json(await attachCentreVendor(plain));
+    }
+
+    const harvest = await FarmerHarvestOrder.findOne({ farmerId, id: orderId }).lean();
+    if (!harvest) return res.status(404).json({ message: "Order not found" });
+
+    return res.json(
+      await attachCentreVendor({
+        ...harvest,
+        orderId: harvest.id,
+        orderDate: harvest.date || harvest.orderDate || "",
+        orderedQuantity: harvest.totalQuantity || 0,
+        orderValue: harvest.totalAmount || 0,
+        grades: (harvest.grades || []).map((g) => ({
+          ...g,
+          label: g.label || g.name || "Grade A",
+          price: g.price ?? g.rate ?? 0,
+          rate: g.rate ?? g.price ?? 0,
+        })),
+      })
+    );
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch order" });
   }

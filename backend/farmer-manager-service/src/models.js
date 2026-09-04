@@ -529,6 +529,10 @@ const collectionCentreSchema = new mongoose.Schema(
     address: { type: String, default: "" },
     city: { type: String, default: "" },
     contactMobile: { type: String, default: "" },
+    stateCode: { type: String, default: "MH" },
+    districtCode: { type: String, default: "" },
+    talukaCode: { type: String, default: "" },
+    villageCode: { type: String, default: "" },
     status: { type: String, default: "Active" },
   },
   { timestamps: true }

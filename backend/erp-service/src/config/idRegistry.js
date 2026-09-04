@@ -259,18 +259,19 @@ export const MODULES = {
     },
   },
   ART: {
-    description: "Article / Product Master ID — category + crop code + serial (product) or crop + grade + serial (ERP article)",
-    formatHint: "GGC-ART-{category}-{crop}-{serial}",
-    example: "GGC-ART-VEG-TOM-00001",
+    description: "Article / Product Master ID — category + crop + variety + serial (product) or crop + grade + serial (ERP article)",
+    formatHint: "GGC-ART-{category}-{crop}-{variety}-{serial}",
+    example: "GGC-ART-VEG-TOM-BAJ-00001",
     serialWidth: 5,
     counterKey: (p) =>
       p.category && !p.grade
-        ? `article-prod-${String(p.category || "VEG").toUpperCase()}-${String(p.crop || "XXX").toUpperCase()}`
+        ? `article-prod-${String(p.category || "VEG").toUpperCase()}-${String(p.crop || "XXX").toUpperCase()}-${String(p.variety || "XXX").toUpperCase()}`
         : `article-${String(p.crop || "XXX").toUpperCase()}-${String(p.grade || "A").toUpperCase()}`,
     generate: (p, seq) => {
       req(p, ["crop"]);
       if (p.category && !p.grade) {
-        return `${COMPANY_PREFIX}-ART-${String(p.category).toUpperCase()}-${String(p.crop).toUpperCase()}-${pad(seq, 5)}`;
+        const variety = String(p.variety || "XXX").toUpperCase();
+        return `${COMPANY_PREFIX}-ART-${String(p.category).toUpperCase()}-${String(p.crop).toUpperCase()}-${variety}-${pad(seq, 5)}`;
       }
       req(p, ["grade"]);
       return `${COMPANY_PREFIX}-ART-${String(p.crop).toUpperCase()}-${String(p.grade).toUpperCase()}-${pad(seq, 5)}`;
@@ -304,14 +305,18 @@ export const MODULES = {
     generate: (_p, seq) => `${COMPANY_PREFIX}-QR-${pad(seq, 5)}`,
   },
   CC: {
-    description: "Collection Centre ID (PDF v2: district + serial)",
-    formatHint: "GGC-CC-{district}-{serial}",
-    example: "GGC-CC-NK-001",
+    description: "Collection Centre ID (state + district + taluka + village + serial)",
+    formatHint: "GGC-CC-{state}-{district}-{taluka}-{village}-{serial}",
+    example: "GGC-CC-MH-NK-TLK-VIL-001",
     serialWidth: 3,
-    counterKey: (p) => `cc-${String(p.district || "XX").toUpperCase()}`,
+    counterKey: (p) =>
+      `cc-${String(p.state || "MH").toUpperCase()}-${String(p.district || "XX").toUpperCase()}-${String(p.taluka || "XXX").toUpperCase()}-${String(p.village || "XXX").toUpperCase()}`,
     generate: (p, seq) => {
-      req(p, ["district"]);
-      return `${COMPANY_PREFIX}-CC-${String(p.district).toUpperCase()}-${pad(seq, 3)}`;
+      const state = String(p.state || "MH").toUpperCase();
+      const district = String(p.district || "XX").toUpperCase();
+      const taluka = String(p.taluka || "XXX").toUpperCase();
+      const village = String(p.village || "XXX").toUpperCase();
+      return `${COMPANY_PREFIX}-CC-${state}-${district}-${taluka}-${village}-${pad(seq, 3)}`;
     },
   },
   WH: {
