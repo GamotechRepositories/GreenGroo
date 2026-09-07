@@ -16,9 +16,10 @@ import {
   FarmerCrop,
   FarmerCropPlan,
   Pickup,
+  PickupDriver,
   CollectionCentre,
 } from "./models.js";
-import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre } from "./pickupControllers.js";
+import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, formatFarmLocation } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { categoryFromName, cropCodeFromName, varietyCodeFromName, farmerSerialFromId } from "../../erp-service/src/config/idRegistry.js";
@@ -2404,7 +2405,7 @@ function publicMyOrder(order, extra = {}) {
     packedQuantity: Number(plain.packedQuantity || 0),
     preparationStatus: plain.preparationStatus || (status === "NEW" ? "NOT_STARTED" : status === "READY_FOR_PICKUP" ? "READY_FOR_PICKUP" : status === "PACKING" ? "PACKING" : status === "PREPARING" || status === "ACCEPTED" ? "PREPARING" : "NOT_STARTED"),
     packingDetails: plain.packingDetails || {},
-    qrPayload: extra.qrPayload || extra.pickup?.qrPayload || "",
+    qrPayload: extra.qrPayload || `greengroo:order:${plain.orderId || plain.id}`,
     ...extra,
   };
 }
@@ -2413,10 +2414,23 @@ async function loadOwnOrder(req, res) {
   const farmerId = authFarmerId(req);
   const orderId = req.params.orderId;
   const { ids } = await resolveFarmerIdentity(farmerId);
-  const order = await FarmerOrder.findOne({
+  let order = await FarmerOrder.findOne({
     farmerId: { $in: ids },
     $or: [{ id: orderId }, { orderId }],
   });
+  if (!order) {
+    const token = String(orderId || "").replace(/^ggp\./i, "");
+    const pickup = await Pickup.findOne({
+      farmerId: { $in: ids },
+      $or: [{ qrPayload: orderId }, { qrToken: token }, { qrPayload: `ggp.${token}` }],
+    }).lean();
+    if (pickup) {
+      order = await FarmerOrder.findOne({
+        farmerId: { $in: ids },
+        $or: [{ id: pickup.orderId }, { orderId: pickup.orderId }],
+      });
+    }
+  }
   if (!order) {
     res.status(404).json({ message: "Order not found" });
     return null;
@@ -2489,6 +2503,11 @@ async function enrichOwnOrder(order, farmer) {
   const pickup = await Pickup.findOne({
     $or: [{ orderId: order.id }, { orderId: order.orderId }],
   }).lean();
+  const driver = pickup?.driverId
+    ? await PickupDriver.findOne({ id: pickup.driverId })
+        .select("name mobile vehicleNumber vehicleType licenseNumber assignedArea")
+        .lean()
+    : null;
   return publicMyOrder(order, {
     farmerName: farmer?.name || "",
     harvestDate: order.harvestDate || product?.harvestDate || "",
@@ -2522,9 +2541,12 @@ async function enrichOwnOrder(order, farmer) {
               RECEIVED_AT_COLLECTION_CENTRE: "Delivered at collection centre",
             }[pickup.status] || String(pickup.status || "").replace(/_/g, " "),
           driverId: pickup.driverId || "",
-          driverName: pickup.driverName || "",
-          driverMobile: pickup.driverMobile || "",
-          vehicleNumber: pickup.vehicleNumber || "",
+          driverName: driver?.name || pickup.driverName || "",
+          driverMobile: driver?.mobile || pickup.driverMobile || "",
+          vehicleNumber: driver?.vehicleNumber || pickup.vehicleNumber || "",
+          vehicleType: driver?.vehicleType || "",
+          licenseNumber: driver?.licenseNumber || "",
+          assignedArea: driver?.assignedArea || "",
           pickupDate: pickup.pickupDate || pickup.scheduledDate || "",
           pickupTime: pickup.pickupTime || pickup.scheduledTime || "",
           pickupLocation: pickup.pickupLocation || "",
@@ -2539,12 +2561,12 @@ async function enrichOwnOrder(order, farmer) {
           qrVerifiedAt: pickup.qrVerifiedAt || null,
           pickupConfirmedAt: pickup.pickupConfirmedAt || null,
           pickupInstructions: pickup.pickupInstructions || "",
-          qrPayload: pickup.qrPayload || "",
+          qrPayload: `greengroo:order:${order.orderId || order.id}`,
           timeline: pickup.timeline || [],
           confirmationPhotos: pickup.confirmationPhotos || [],
         }
       : null,
-    qrPayload: pickup?.qrPayload || "",
+    qrPayload: `greengroo:order:${order.orderId || order.id}`,
   });
 }
 
@@ -3325,9 +3347,17 @@ export async function getFarmerOrderById(req, res) {
   try {
     const { farmerId, orderId } = req.params;
     const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] })
-      .select("name farmerId id vendorId state district taluka village farmAddress farmLocation")
+      .select("name farmerId id vendorId mobile state district taluka village farmAddress farmLocation farmGeo address")
       .lean();
     const farmerName = farmer?.name || "";
+    const geo = farmer?.farmGeo || {};
+    const farmerLocation = formatFarmLocation(farmer);
+    const mapsUrl =
+      geo.latitude != null && geo.longitude != null
+        ? `https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}`
+        : farmerLocation
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(farmerLocation)}`
+          : "";
 
     const attachCentreVendor = async (plain) => {
       const vendorId = plain.vendorId || farmer?.vendorId || "";
@@ -3337,7 +3367,6 @@ export async function getFarmerOrderById(req, res) {
       const pickup = await Pickup.findOne({
         $or: [{ orderId: plain.id }, { orderId: plain.orderId }, { id: plain.pickupId }],
       })
-        .select("collectionCentreId vendorId")
         .lean()
         .catch(() => null);
 
@@ -3362,9 +3391,33 @@ export async function getFarmerOrderById(req, res) {
       return {
         ...plain,
         farmerName: plain.farmerName || farmerName,
+        farmerMobile: farmer?.mobile || "",
+        farmerLocation,
+        farmAddress: geo.farmAddress || farmerLocation,
+        farmGeo: geo,
+        latitude: geo.latitude ?? null,
+        longitude: geo.longitude ?? null,
+        mapsUrl,
         vendorId: vendorId || centre?.vendorId || pickup?.vendorId || "",
         collectionCentreId: centre?.id || collectionCentreId || "",
         collectionCentre: centre?.name || collectionCentre || (vendorId ? "Main Collection Centre" : ""),
+        packingDetails: plain.packingDetails || {},
+        pickup: pickup
+          ? {
+              pickupId: pickup.pickupId || pickup.id,
+              id: pickup.id,
+              status: pickup.status,
+              driverName: pickup.driverName || "",
+              driverMobile: pickup.driverMobile || "",
+              vehicleNumber: pickup.vehicleNumber || "",
+              farmerLocation: pickup.pickupLocation || farmerLocation,
+              mapsUrl,
+              packedQuantity: pickup.packedQuantity,
+              packageCount: pickup.packageCount,
+              pickupDate: pickup.pickupDate || pickup.scheduledDate || "",
+              pickupTime: pickup.pickupTime || pickup.scheduledTime || "",
+            }
+          : null,
       };
     };
 

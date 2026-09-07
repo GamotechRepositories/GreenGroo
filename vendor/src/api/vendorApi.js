@@ -76,6 +76,7 @@ export const vendorApi = {
   createDriver: (data) => api.post("/api/vendor/drivers", data),
   updateDriver: (id, data) => api.put(`/api/vendor/drivers/${id}`, data),
   setDriverStatus: (id, status) => api.patch(`/api/vendor/drivers/${id}/status`, { status }),
+  deleteDriver: (id) => api.delete(`/api/vendor/drivers/${id}`),
 
   // Pickups
   getPickups: (params) => api.get("/api/vendor/pickups", { params }),

@@ -103,6 +103,7 @@ export default function ManagerPickupDetailPage() {
           <Info label="Pickup Status" value={pickup.status} />
           <Info label="Assigned Driver" value={pickup.driverName || "Not assigned"} />
           <Info label="Vehicle Number" value={pickup.vehicleNumber} />
+          <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
         </div>
       </section>
 

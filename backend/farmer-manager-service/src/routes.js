@@ -106,6 +106,7 @@ import {
   getVendorDriver,
   updateVendorDriver,
   setVendorDriverStatus,
+  deleteVendorDriver,
   listVendorPickups,
   getVendorPickup,
   assignVendorPickupDriver,
@@ -366,6 +367,7 @@ vendorRouter.post("/drivers", requireVendor, createVendorDriver);
 vendorRouter.get("/drivers/:driverId", requireVendor, getVendorDriver);
 vendorRouter.put("/drivers/:driverId", requireVendor, updateVendorDriver);
 vendorRouter.patch("/drivers/:driverId/status", requireVendor, setVendorDriverStatus);
+vendorRouter.delete("/drivers/:driverId", requireVendor, deleteVendorDriver);
 vendorRouter.get("/pickups", requireVendor, listVendorPickups);
 vendorRouter.get("/pickups/:pickupId", requireVendor, getVendorPickup);
 vendorRouter.post("/pickups/:pickupId/assign", requireVendor, assignVendorPickupDriver);

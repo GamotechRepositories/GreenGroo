@@ -119,9 +119,20 @@ function isWeightVerified(pickup) {
 
 function parseQualityQr(payload) {
   const raw = String(payload || "").trim();
+  try {
+    const u = new URL(raw);
+    const scan = u.pathname.match(/\/scan\/([^/]+)/i);
+    if (scan) return parseQualityQr(decodeURIComponent(scan[1]));
+    const q = u.searchParams.get("q") || u.searchParams.get("order") || u.searchParams.get("code");
+    if (q) return parseQualityQr(q);
+  } catch {
+    /* not a URL */
+  }
   const pickupMatch = raw.match(/^(?:ggp\.|greengroo:pickup:)([A-Za-z0-9_-]+)$/i);
   if (pickupMatch) return { token: pickupMatch[1] };
-  const orderCode = raw.match(/^(?:ggp\.order\.|greengroo:order:)([A-Za-z0-9_-]+)$/i);
+  const biz = raw.match(/(GGC-ORD-[A-Za-z0-9-]+)/i);
+  if (biz) return { orderId: biz[1] };
+  const orderCode = raw.match(/(?:ggp\.order\.|greengroo:order:)([A-Za-z0-9_-]+)/i);
   if (orderCode) return { orderId: orderCode[1] };
   if (/^[A-Fa-f0-9]{20,}$/.test(raw)) return { token: raw };
   return { orderId: raw.replace(/^order[:#\s]+/i, "").trim() };
@@ -260,14 +271,20 @@ async function ensureInspection(pickup, order) {
   let inspection = await QualityInspection.findOne({
     $or: [{ orderId }, { pickupId: pickup.id }, { batchId: pickup.id }],
   });
-  if (inspection) return inspection;
+  if (inspection) {
+    if (pickup.collectionBatchId && inspection.batchId !== pickup.collectionBatchId) {
+      inspection.batchId = pickup.collectionBatchId;
+      await inspection.save();
+    }
+    return inspection;
+  }
   const flat = flattenOrder(order || {});
   inspection = await QualityInspection.create({
     inspectionId: newId("qi"),
     orderId,
     farmerId: pickup.farmerId,
     productId: flat.productId || order?.productId || "",
-    batchId: pickup.id,
+    batchId: pickup.collectionBatchId || pickup.id,
     collectionCentreId: pickup.collectionCentreId || "",
     pickupId: pickup.id,
     vendorId: pickup.vendorId,
@@ -408,7 +425,7 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     inspectionId: inspection.inspectionId,
     orderId: order?.id || inspection.orderId,
     orderDisplayId: order?.orderId || order?.id || inspection.orderId,
-    qrPayload: pickup?.qrPayload || "",
+    qrPayload: order?.orderId || order?.id ? `greengroo:order:${order.orderId || order.id}` : pickup?.qrPayload || "",
     qrToken: pickup?.qrToken || "",
     farmerId: inspection.farmerId,
     farmerName: farmer?.name || "",
@@ -423,7 +440,7 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     acceptedWeight: qty(rec.acceptedWeight || totalReceived),
     acceptedQuantity: qty(rec.acceptedWeight || totalReceived),
     finalWeight: qty(rec.acceptedWeight || rec.actualWeight || totalReceived),
-    batchId: inspection.batchId || pickup?.id || "",
+    batchId: pickup?.collectionBatchId || inspection.batchId || pickup?.id || "",
     pickupId: pickup?.id || inspection.pickupId || "",
     collectionCentreId: inspection.collectionCentreId || pickup?.collectionCentreId || "",
     collectionCentre: centre?.name || order?.collectionCentre || "Main Collection Centre",

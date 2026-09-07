@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { acceptMyOrder, getMyOrder, rejectMyOrder } from "../api/farmerApi";
-import PickupTimeline, { pickupStatusLabel } from "../components/pickup/PickupTimeline";
+import PickupTimeline, { DriverInfo, PICKUP_STATUS_LABELS, pickupFlowStatus } from "../components/pickup/PickupTimeline";
 import { usePolling } from "../hooks/usePolling";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
@@ -10,6 +10,7 @@ import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import RejectOrderModal from "../components/orders/RejectOrderModal";
 import OrderQrCode from "../components/orders/OrderQrCode";
+import { stableOrderQrValue } from "../utils/orderQr";
 import { canAccept, canPrepare, canReject, formatMoney, formatOrderDate, rejectionText } from "../utils/orderDisplay";
 import { formatProductBusinessId } from "../utils/cropLinks";
 import CopyId from "../components/ui/CopyId";
@@ -139,6 +140,8 @@ function OrderDetailPage() {
   const unit = order.unit || "Kg";
   const orderId = order.orderId || order.id;
   const pickup = order.pickup;
+  const trackStatus = pickupFlowStatus(pickup, order.status);
+  const showTracking = Boolean(PICKUP_STATUS_LABELS[trackStatus]) || Boolean(pickup);
   const productName = order.productName || order.name || "Harvest Order";
   const productId = formatProductBusinessId({
     productId: order.productId,
@@ -158,7 +161,7 @@ function OrderDetailPage() {
   const lowStock = showAccept && sellable < totalQty;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-3">
+    <div className="mx-auto max-w-4xl space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <Link to="/farmer/orders/new" className="text-[11px] font-semibold text-[#217346] hover:underline">
@@ -169,6 +172,13 @@ function OrderDetailPage() {
         </div>
         <StatusBadge status={order.status} />
       </div>
+
+      {showTracking ? (
+        <Card title="Status">
+          <PickupTimeline status={trackStatus} />
+          <DriverInfo pickup={pickup} />
+        </Card>
+      ) : null}
 
       {reason ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-semibold text-[#DC2626]">
@@ -238,30 +248,9 @@ function OrderDetailPage() {
         </div>
       </Card>
 
-      {pickup ? (
-        <Card title="Pickup">
-          <div className="grid grid-cols-2 gap-2">
-            <Fact label="Driver" value={pickup.driverName || "Not assigned"} />
-            <Fact label="Mobile" value={pickup.driverMobile || "—"} />
-            <Fact label="Vehicle" value={pickup.vehicleNumber || "—"} />
-            <Fact label="Status" value={pickupStatusLabel(pickup.liveStatus || pickup.status)} />
-          </div>
-          <div className="mt-3">
-            <PickupTimeline status={pickup.status || order.status} />
-          </div>
-          {(pickup.confirmationPhotos || []).length ? (
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {pickup.confirmationPhotos.map((src, i) => (
-                <img key={i} src={src} alt={`Pickup photo ${i + 1}`} className="h-16 w-full rounded object-cover" />
-              ))}
-            </div>
-          ) : null}
-        </Card>
-      ) : null}
-
-      {pickup?.qrPayload || order.qrPayload ? (
-        <Card title="Show this QR at pickup">
-          <OrderQrCode value={pickup?.qrPayload || order.qrPayload} />
+      {stableOrderQrValue(order) ? (
+        <Card title="Order QR">
+          <OrderQrCode value={stableOrderQrValue(order)} />
         </Card>
       ) : null}
 

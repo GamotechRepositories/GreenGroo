@@ -94,7 +94,8 @@ async function ensureCentreBusinessId(centre, locationHint = {}) {
 export { ensureCentreBusinessId, isCollectionCentreBusinessId, ensureDefaultCentre };
 const ASSIGNED_STATUSES = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED"];
 const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
-const COMPLETED_PICKUP_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT"];
+const DRIVER_DONE_STATUSES = ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "COMPLETED"];
+const COMPLETED_PICKUP_STATUSES = DRIVER_DONE_STATUSES;
 const ACTIVE_DRIVER_WORK = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
 const ACTIVE_PICKUP_STATUSES = [...ACTIVE_DRIVER_WORK];
 const DRIVER_LIVE_STATUS = {
@@ -109,7 +110,7 @@ const DRIVER_LIVE_STATUS = {
   COLLECTION_CENTRE_RECEIVED: "Delivered at collection centre",
   RECEIVED_AT_COLLECTION_CENTRE: "Delivered at collection centre",
 };
-const HISTORY_PICKUP_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"];
+const HISTORY_PICKUP_STATUSES = DRIVER_DONE_STATUSES;
 const ASSIGNABLE_DRIVER_STATUSES = ["Active", "On Duty", "Available"];
 const PRE_ASSIGN_STATUSES = ["READY_FOR_PICKUP"];
 const REASSIGN_STATUSES = ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED"];
@@ -139,10 +140,99 @@ function newId(prefix) {
   return `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 }
 
+function nameCode(name = "") {
+  const letters = String(name || "")
+    .replace(/[^a-zA-Z]/g, "")
+    .toUpperCase();
+  return `${letters}XXX`.slice(0, 3);
+}
+
+function plateCode(vehicleNumber = "") {
+  return String(vehicleNumber || "")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase();
+}
+
+function pad6(n) {
+  return String(n).padStart(6, "0");
+}
+
+async function nextDriverSerial(vendorId) {
+  const docs = await PickupDriver.find({ vendorId }).select("id").lean();
+  let max = 0;
+  for (const d of docs) {
+    const m = String(d.id || "").toUpperCase().match(/^GGC-DRV-[A-Z]{3}-(\d{6})$/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max + 1;
+}
+
+async function nextDriverId(vendorId, name) {
+  return `GGC-DRV-${nameCode(name)}-${pad6(await nextDriverSerial(vendorId))}`;
+}
+
+async function uniqueVehicleId(vendorId, vehicleNumber, excludeDriverId = "") {
+  const plate = plateCode(vehicleNumber);
+  const clash = async (id) =>
+    PickupDriver.findOne({
+      vendorId,
+      vehicleId: id,
+      ...(excludeDriverId ? { id: { $ne: excludeDriverId } } : {}),
+    }).lean();
+
+  if (plate) {
+    const id = `GGC-VH-${plate}`;
+    if (!(await clash(id))) return id;
+    let n = 2;
+    while (await clash(`${id}-${pad6(n)}`)) n += 1;
+    return `${id}-${pad6(n)}`;
+  }
+
+  const docs = await PickupDriver.find({ vendorId }).select("id vehicleId").lean();
+  let max = 0;
+  for (const d of docs) {
+    if (excludeDriverId && d.id === excludeDriverId) continue;
+    const m = String(d.vehicleId || "").toUpperCase().match(/^GGC-VH-(\d{6})$/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `GGC-VH-${pad6(max + 1)}`;
+}
+
+async function findVendorDriver(vendorId, driverId) {
+  return PickupDriver.findOne({
+    vendorId,
+    $or: [{ id: driverId }, { vehicleId: driverId }],
+  });
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function toISODate(value) {
+  if (!value) return "";
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function orderDateFromBusinessId(id) {
+  const m = String(id || "").match(/GGC-ORD-(\d{4})(\d{2})(\d{2})/i);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+
+function resolveOrderDate(order, pickup = {}) {
+  return (
+    toISODate(order?.orderDate) ||
+    toISODate(order?.createdAt) ||
+    toISODate(order?.harvestDate) ||
+    toISODate(pickup?.orderDate) ||
+    orderDateFromBusinessId(order?.orderId || order?.id || pickup?.orderId) ||
+    ""
+  );
+}
 function flattenOrder(order) {
   const plain = toPlain(order) || {};
   const first = plain.products?.[0] || {};
@@ -156,25 +246,54 @@ function flattenOrder(order) {
   };
 }
 
-function farmerLocation(farmer) {
+function textAddress(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "object") {
+    return [value.village, value.taluka, value.district, value.state, value.pincode, value.farmAddress]
+      .filter(Boolean)
+      .join(", ");
+  }
+  return "";
+}
+
+export function formatFarmLocation(farmer) {
   if (!farmer) return "";
   const geo = farmer.farmGeo || {};
-  return (
-    farmer.farmLocation ||
-    geo.farmAddress ||
-    [geo.village, geo.taluka, geo.district, geo.pincode].filter(Boolean).join(", ") ||
-    farmer.address ||
-    ""
-  );
+  const addr = farmer.address && typeof farmer.address === "object" ? farmer.address : {};
+  const village = String(geo.village || addr.village || farmer.village || "").trim();
+  const taluka = String(geo.taluka || addr.taluka || farmer.taluka || "").trim();
+  const district = String(geo.district || addr.district || farmer.district || "").trim();
+  const state = String(addr.state || farmer.state || "").trim();
+  const pincode = String(geo.pincode || addr.pincode || farmer.pincode || "").trim();
+  const fromParts = [village, taluka, district, state, pincode].filter(Boolean).join(", ");
+  const candidates = [
+    textAddress(geo.farmAddress),
+    textAddress(farmer.farmAddress),
+    fromParts,
+    textAddress(farmer.farmLocation),
+  ].filter(Boolean);
+  if (!candidates.length) return "";
+  candidates.sort((a, b) => {
+    const pa = a.split(",").map((s) => s.trim()).filter(Boolean).length;
+    const pb = b.split(",").map((s) => s.trim()).filter(Boolean).length;
+    if (pb !== pa) return pb - pa;
+    return b.length - a.length;
+  });
+  return candidates[0];
+}
+
+function farmerLocation(farmer) {
+  return formatFarmLocation(farmer);
 }
 
 function mapsUrl(farmer) {
   const geo = farmer?.farmGeo || {};
   if (geo.latitude != null && geo.longitude != null) {
-    return `https://maps.google.com/?q=${geo.latitude},${geo.longitude}`;
+    return `https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}`;
   }
   const loc = farmerLocation(farmer);
-  return loc ? `https://maps.google.com/?q=${encodeURIComponent(loc)}` : "";
+  return loc ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}` : "";
 }
 
 function qrTokenForPickup() {
@@ -187,9 +306,20 @@ function qrPayloadFromToken(token) {
 
 function parsePickupQr(payload) {
   const raw = String(payload || "").trim();
+  try {
+    const u = new URL(raw);
+    const scan = u.pathname.match(/\/scan\/([^/]+)/i);
+    if (scan) return parsePickupQr(decodeURIComponent(scan[1]));
+    const q = u.searchParams.get("q") || u.searchParams.get("order") || u.searchParams.get("code");
+    if (q) return parsePickupQr(q);
+  } catch {
+    /* not a URL */
+  }
   const pickupMatch = raw.match(/^(?:ggp\.|greengroo:pickup:)([A-Za-z0-9_-]+)$/i);
   if (pickupMatch) return { token: pickupMatch[1] };
-  const orderMatch = raw.match(/greengroo:order:([A-Za-z0-9_-]+)/i);
+  const biz = raw.match(/(GGC-ORD-[A-Za-z0-9-]+)/i);
+  if (biz) return { orderId: biz[1] };
+  const orderMatch = raw.match(/(?:greengroo:order:|ggp\.order\.)([A-Za-z0-9_-]+)/i);
   if (orderMatch) return { orderId: orderMatch[1] };
   if (/^[A-Fa-f0-9]{20,}$/.test(raw)) return { token: raw };
   return { orderId: raw.replace(/^order[:#\s]+/i, "").trim() };
@@ -223,8 +353,8 @@ function pushPickupTimeline(pickup, status, note) {
 }
 
 function qrPayloadFor(order) {
-  const id = order?.orderId || order?.id;
-  return id ? `ggp.order.${id}` : "";
+  const id = String(order?.orderId || order?.id || "").trim();
+  return id ? `greengroo:order:${id}` : "";
 }
 
 function parseQrOrderId(payload) {
@@ -265,6 +395,12 @@ export async function ensurePickupForOrder(order, farmer) {
   const expected = packed || flat.orderedQuantity;
 
   if (existing) {
+    const stablePayload = qrPayloadFor(order);
+    if (!existing.qrToken) existing.qrToken = qrTokenForPickup();
+    if (stablePayload) existing.qrPayload = stablePayload;
+    existing.orderDate = resolveOrderDate(order, existing) || existing.orderDate;
+    const loc = farmerLocation(farmer);
+    if (loc) existing.pickupLocation = loc;
     if (!existing.driverId && existing.status === "READY_FOR_PICKUP") {
       existing.packedQuantity = packed || existing.packedQuantity;
       existing.packageCount = packages || existing.packageCount;
@@ -272,15 +408,11 @@ export async function ensurePickupForOrder(order, farmer) {
       existing.productName = existing.productName || flat.productName;
       existing.variety = existing.variety || flat.variety;
       existing.grade = existing.grade || flat.grade;
-      if (!existing.qrToken) {
-        existing.qrToken = qrTokenForPickup();
-        existing.qrPayload = qrPayloadFromToken(existing.qrToken);
-      }
       existing.pickupInstructions = existing.pickupInstructions || String(order.packingDetails?.notes || "");
       if (farmer?.managerId) existing.managerId = existing.managerId || farmer.managerId;
-      await existing.save();
       emitPickupUpdate(existing, { event: "READY_FOR_PICKUP" });
     }
+    await existing.save();
     return existing;
   }
 
@@ -303,6 +435,7 @@ export async function ensurePickupForOrder(order, farmer) {
     scheduledTime: order.harvestTime || order.pickupTime || "",
     pickupDate: order.pickupDate || order.requiredDate || order.harvestDate || "",
     pickupTime: order.harvestTime || order.pickupTime || "",
+    orderDate: resolveOrderDate(order),
     pickupLocation: farmerLocation(farmer),
     expectedQuantity: expected,
     packedQuantity: packed,
@@ -312,7 +445,7 @@ export async function ensurePickupForOrder(order, farmer) {
     variety: flat.variety,
     grade: flat.grade,
     qrToken,
-    qrPayload: qrPayloadFromToken(qrToken),
+    qrPayload: qrPayloadFor(order) || qrPayloadFromToken(qrToken),
     pickupInstructions: String(order.packingDetails?.notes || ""),
     status: "READY_FOR_PICKUP",
     timeline: [{ status: "READY_FOR_PICKUP", at: new Date(), note: "Order marked ready for pickup." }],
@@ -388,7 +521,7 @@ async function enrichPickup(pickup) {
     orderDisplayId: order?.orderId || order?.id || plain.orderId,
     farmerName: farmer?.name || "",
     farmerMobile: farmer?.mobile || "",
-    farmerLocation: plain.pickupLocation || farmerLocation(farmer),
+    farmerLocation: farmerLocation(farmer) || plain.pickupLocation || "",
     farmGeo: farmer?.farmGeo || {},
     mapsUrl: mapsUrl(farmer),
     managerName: manager?.name || "",
@@ -416,6 +549,11 @@ async function enrichPickup(pickup) {
     productName: plain.productName || flat.productName,
     variety: plain.variety || flat.variety,
     grade: plain.grade || flat.grade,
+    grades: Array.isArray(order?.grades) ? order.grades : [],
+    products: Array.isArray(order?.products) ? order.products : [],
+    price: Number(order?.price || 0),
+    orderValue: Number(order?.orderValue || order?.totalAmount || 0),
+    orderDate: resolveOrderDate(order, plain),
     orderedQuantity: Number(order?.orderedQuantity || flat.orderedQuantity || 0),
     packedQuantity: Number(plain.packedQuantity || order?.packedQuantity || 0),
     packageCount: Number(plain.packageCount || order?.packingDetails?.packageCount || 0),
@@ -426,7 +564,12 @@ async function enrichPickup(pickup) {
     dispatchStartedAt: plain.dispatchStartedAt || plain.startedAt || null,
     orderVerifiedAt: plain.orderVerifiedAt || null,
     pickupTimeline: plain.timeline || [],
-    qrPayload: plain.qrPayload || (plain.qrToken ? qrPayloadFromToken(plain.qrToken) : qrPayloadFor(order || { id: plain.orderId })),
+    collectionBatchId: plain.collectionBatchId || "",
+    lotId: plain.collectionBatchId || "",
+    qrPayload:
+      qrPayloadFor(order || { id: plain.orderId, orderId: order?.orderId }) ||
+      plain.qrPayload ||
+      (plain.qrToken ? qrPayloadFromToken(plain.qrToken) : ""),
     receiving: {
       status: receiving.status || "",
       expectedWeight: Number(receiving.expectedWeight || 0),
@@ -495,10 +638,11 @@ export async function listVendorDrivers(req, res) {
     if (status) filter.status = status;
     if (q) {
       const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$or = [{ name: rx }, { mobile: rx }, { id: rx }, { vehicleNumber: rx }];
+      filter.$or = [{ name: rx }, { mobile: rx }, { id: rx }, { vehicleNumber: rx }, { vehicleId: rx }, { assignedArea: rx }, { address: rx }];
     }
-    const drivers = await PickupDriver.find(filter).sort({ createdAt: -1 }).lean();
-    const ids = drivers.map((d) => d.id);
+    const drivers = await PickupDriver.find(filter).sort({ createdAt: -1 });
+    const presented = drivers.map((doc) => toPlain(doc));
+    const ids = presented.map((d) => d.id);
     const activeCounts = await Pickup.aggregate([
       { $match: { vendorId, driverId: { $in: ids }, status: { $in: ACTIVE_DRIVER_WORK } } },
       { $group: { _id: "$driverId", count: { $sum: 1 } } },
@@ -519,12 +663,13 @@ export async function listVendorDrivers(req, res) {
       });
     }
     res.json(
-      drivers.map((d) => {
+      presented.map((d) => {
         const { password: _pw, ...rest } = d;
         const tasks = tasksMap[d.id] || [];
         return {
           ...rest,
           driverId: d.id,
+          vehicleId: d.vehicleId || "",
           status: normalizeDriverStatus(d.status),
           activePickups: countMap[d.id] || 0,
           tasks,
@@ -539,13 +684,14 @@ export async function listVendorDrivers(req, res) {
 export async function createVendorDriver(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    const { name, mobile, vehicleNumber, vehicleType, licenseNumber, assignedArea, documents, status, password } = req.body || {};
+    const { name, mobile, vehicleNumber, vehicleType, licenseNumber, assignedArea, address, documents, status, password } = req.body || {};
     if (!name || !mobile) {
       return res.status(400).json({ message: "Driver name and mobile are required" });
     }
     const dup = await PickupDriver.findOne({ vendorId, mobile: String(mobile).trim() });
     if (dup) return res.status(400).json({ message: "A driver with this mobile already exists" });
-    const id = newId("DRV");
+    const id = await nextDriverId(vendorId, name);
+    const vehicleId = await uniqueVehicleId(vendorId, vehicleNumber);
     const rawPassword = password || "driver123";
     const driver = await PickupDriver.create({
       id,
@@ -554,8 +700,10 @@ export async function createVendorDriver(req, res) {
       mobile: String(mobile).trim(),
       vehicleNumber: String(vehicleNumber || "").trim(),
       vehicleType: vehicleType || "Van",
+      vehicleId,
       licenseNumber: String(licenseNumber || "").trim(),
       assignedArea: String(assignedArea || "").trim(),
+      address: String(address || "").trim(),
       documents: Array.isArray(documents) ? documents : documents ? [documents] : [],
       password: await bcrypt.hash(rawPassword, 10),
       role: "DRIVER",
@@ -563,7 +711,7 @@ export async function createVendorDriver(req, res) {
     });
     const plain = toPlain(driver);
     delete plain.password;
-    res.status(201).json({ ...plain, driverId: driver.id });
+    res.status(201).json({ ...plain, driverId: driver.id, vehicleId: driver.vehicleId || "" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to add driver" });
   }
@@ -572,14 +720,15 @@ export async function createVendorDriver(req, res) {
 export async function getVendorDriver(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    const driver = await PickupDriver.findOne({ vendorId, id: req.params.driverId }).lean();
+    const driver = await findVendorDriver(vendorId, req.params.driverId);
     if (!driver) return res.status(404).json({ message: "Driver not found" });
-    const { password: _pw, ...safe } = driver;
+    const { password: _pw, ...safe } = toPlain(driver);
     const pickups = await Pickup.find({ vendorId, driverId: driver.id }).sort({ updatedAt: -1 }).lean();
     const enriched = await Promise.all(pickups.map((p) => enrichPickup(p)));
     res.json({
       ...safe,
       driverId: driver.id,
+      vehicleId: driver.vehicleId || "",
       status: normalizeDriverStatus(driver.status),
       activePickups: enriched.filter((p) => ACTIVE_PICKUP_STATUSES.includes(p.status) || ACTIVE_DRIVER_WORK.includes(p.status)),
       completedPickups: enriched.filter((p) => HISTORY_PICKUP_STATUSES.includes(p.status)),
@@ -593,19 +742,22 @@ export async function getVendorDriver(req, res) {
 export async function updateVendorDriver(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    const driver = await PickupDriver.findOne({ vendorId, id: req.params.driverId });
+    const driver = await findVendorDriver(vendorId, req.params.driverId);
     if (!driver) return res.status(404).json({ message: "Driver not found" });
-    const allowed = ["name", "mobile", "vehicleNumber", "vehicleType", "licenseNumber", "assignedArea", "documents", "status", "password"];
+    const allowed = ["name", "mobile", "vehicleNumber", "vehicleType", "licenseNumber", "assignedArea", "address", "documents", "status", "password"];
     for (const key of allowed) {
       if (key === "password" || key === "status") continue;
       if (req.body[key] !== undefined) driver[key] = req.body[key];
     }
     if (req.body.status) driver.status = normalizeDriverStatus(req.body.status);
     if (req.body.password) driver.password = await bcrypt.hash(String(req.body.password), 10);
+    if (!driver.vehicleId) {
+      driver.vehicleId = await uniqueVehicleId(vendorId, driver.vehicleNumber, driver.id);
+    }
     await driver.save();
     const plain = toPlain(driver);
     delete plain.password;
-    res.json({ ...plain, driverId: driver.id });
+    res.json({ ...plain, driverId: driver.id, vehicleId: driver.vehicleId || "" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update driver" });
   }
@@ -614,7 +766,7 @@ export async function updateVendorDriver(req, res) {
 export async function setVendorDriverStatus(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    const driver = await PickupDriver.findOne({ vendorId, id: req.params.driverId });
+    const driver = await findVendorDriver(vendorId, req.params.driverId);
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     const next = req.body?.status;
     const allowed = ["Active", "Inactive", "On Duty", "Off Duty", "Available", "On Pickup", "Offline"];
@@ -634,6 +786,28 @@ export async function setVendorDriverStatus(req, res) {
     res.json({ ...plain, driverId: driver.id });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update driver status" });
+  }
+}
+
+export async function deleteVendorDriver(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const driver = await findVendorDriver(vendorId, req.params.driverId);
+    if (!driver) return res.status(404).json({ message: "Driver not found" });
+    const activeCount = await Pickup.countDocuments({
+      vendorId,
+      driverId: driver.id,
+      status: { $in: ACTIVE_DRIVER_WORK },
+    });
+    if (activeCount > 0) {
+      return res.status(400).json({
+        message: "Reassign or complete this driver's active pickups before deleting",
+      });
+    }
+    await PickupDriver.deleteOne({ vendorId, id: driver.id });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to delete driver" });
   }
 }
 
@@ -824,6 +998,41 @@ export async function createVendorCentre(req, res) {
   }
 }
 
+async function assignCollectionBatch(pickup) {
+  if (!pickup) return "";
+  if (pickup.collectionBatchId) return pickup.collectionBatchId;
+  const vendorId = pickup.vendorId;
+  const driverId = pickup.driverId;
+  let batchId = "";
+  if (vendorId && driverId) {
+    const open = await Pickup.findOne({
+      vendorId,
+      driverId,
+      id: { $ne: pickup.id },
+      collectionBatchId: { $nin: [null, ""] },
+      status: "IN_TRANSIT",
+    }).sort({ inTransitAt: -1, updatedAt: -1 });
+    batchId = open?.collectionBatchId || "";
+  }
+  if (!batchId) batchId = await generateId({ module: "BAT" });
+  const now = new Date();
+  pickup.collectionBatchId = batchId;
+  pickup.collectionBatchAssignedAt = now;
+  if (vendorId && driverId) {
+    await Pickup.updateMany(
+      {
+        vendorId,
+        driverId,
+        id: { $ne: pickup.id },
+        status: { $in: ["PICKED_UP", "PICKUP_CONFIRMED"] },
+        $or: [{ collectionBatchId: "" }, { collectionBatchId: { $exists: false } }],
+      },
+      { $set: { collectionBatchId: batchId, collectionBatchAssignedAt: now } }
+    );
+  }
+  return batchId;
+}
+
 async function applyPickupReceiving(req, pickup) {
   if (![...CENTRE_STATUSES, "PICKUP_CONFIRMED"].includes(pickup.status)) {
     const err = new Error("Pickup must be confirmed or on the way to the collection centre before receiving");
@@ -862,6 +1071,7 @@ async function applyPickupReceiving(req, pickup) {
     receivedBy: pickup.receiving?.receivedBy || "",
   };
   if (body.packageCount != null) pickup.packageCount = Number(body.packageCount);
+  await assignCollectionBatch(pickup);
   if (nextReceiving === "RECEIVED") {
     if (!pickup.receiving.receiptId) pickup.receiving.receiptId = `RCV-${Date.now()}`;
     pickup.receiving.receivedAt = new Date();
@@ -1076,7 +1286,12 @@ export async function reassignManagerPickupDriver(req, res) {
 function publicDriver(driver) {
   const plain = toPlain(driver) || {};
   delete plain.password;
-  return { ...plain, driverId: plain.id, status: normalizeDriverStatus(plain.status) };
+  return {
+    ...plain,
+    driverId: plain.id,
+    vehicleId: plain.vehicleId || "",
+    status: normalizeDriverStatus(plain.status),
+  };
 }
 
 export async function driverLogin(req, res) {
@@ -1198,6 +1413,8 @@ export async function startDriverPickup(req, res) {
     await pickup.save();
     const order = await loadOrderForPickup(pickup);
     await applyOrderStatus(order, "DISPATCHED", "Driver started pickup and is travelling to the farm.");
+    const driver = await PickupDriver.findOne({ id: pickup.driverId });
+    if (driver) await refreshDriverAvailability(driver);
     emitPickupUpdate(pickup, { event: "DISPATCHED" });
     res.json(await enrichDriverView(pickup));
   } catch (err) {
@@ -1217,7 +1434,7 @@ export async function arriveDriverPickup(req, res) {
     }
     pickup.status = "DRIVER_ARRIVED";
     pickup.arrivedAt = new Date();
-    pickup.driverStatus = "ARRIVED";
+    pickup.driverStatus = "DRIVER_ARRIVED";
     pushPickupTimeline(pickup, "DRIVER_ARRIVED", "Driver has arrived at pickup location.");
     await pickup.save();
     const order = await loadOrderForPickup(pickup);
@@ -1243,6 +1460,7 @@ export async function checkDriverPickupOrder(req, res) {
       return res.status(400).json({ message: "Check Order is available after you mark Arrived." });
     }
     pickup.status = "ORDER_VERIFIED";
+    pickup.driverStatus = "ORDER_VERIFIED";
     pickup.orderVerifiedAt = new Date();
     pickup.verification = {
       farmer: true,
@@ -1285,6 +1503,10 @@ export async function verifyDriverPickupQr(req, res) {
     if (parsed.token && pickup.qrToken && parsed.token === pickup.qrToken) matched = true;
     if (pickup.qrPayload && raw === pickup.qrPayload) matched = true;
     if (parsed.orderId && order && [order.id, order.orderId, pickup.orderId].includes(parsed.orderId)) matched = true;
+    if (!matched && order) {
+      const ids = [order.id, order.orderId, pickup.orderId].filter(Boolean).map(String);
+      if (ids.some((id) => id && raw.includes(id))) matched = true;
+    }
     if (!matched && parsed.token) {
       const byToken = await Pickup.findOne({ qrToken: parsed.token });
       if (byToken && byToken.id === pickup.id && byToken.farmerId === pickup.farmerId && byToken.orderId === pickup.orderId) {
@@ -1403,6 +1625,7 @@ export async function transitDriverPickup(req, res) {
     pickup.status = "IN_TRANSIT";
     pickup.driverStatus = "IN_TRANSIT";
     pickup.inTransitAt = pickup.inTransitAt || new Date();
+    await assignCollectionBatch(pickup);
     pushPickupTimeline(pickup, "IN_TRANSIT", "Driver is on the way to the collection centre.");
     await pickup.save();
     const order = await loadOrderForPickup(pickup);

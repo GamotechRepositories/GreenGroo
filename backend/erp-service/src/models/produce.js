@@ -106,6 +106,7 @@ const batchSchema = new Schema(
     collectionCentreId: { type: String, default: "", index: true },
     warehouseId: { type: String, default: "", index: true },
     qualityCheckId: { type: String, default: "" },
+    collectionBatchId: { type: String, default: "", index: true },
   }),
   { timestamps: true, collection: "batches" }
 );

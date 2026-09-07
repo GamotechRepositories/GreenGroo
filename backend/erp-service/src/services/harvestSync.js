@@ -35,9 +35,11 @@ export async function syncQualityToErp({ inspection, pickup, order, farmer, cent
       article = await Article.findOne({ farmerId, isDeleted: { $ne: true } });
     }
 
+    const collectionBatchId = pickup?.collectionBatchId || "";
     const batchId = await generateId({ module: "BAT" });
     const batch = await Batch.create({
       batchId,
+      collectionBatchId,
       farmerId,
       farmId: farmer?.farm?.farmId || "",
       cropId: order?.cropId || "",

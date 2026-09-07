@@ -148,6 +148,7 @@ export const ID_PREFIX_ORDER = [
   { prefix: "GGC-RET", module: "RET", entity: "return" },
   { prefix: "GGC-USR", module: "USR", entity: "userLogin" },
   { prefix: "GGC-VEN", module: "VEN", entity: "vendor" },
+  { prefix: "GGC-VH-", module: "VH", entity: "vehicle" },
   { prefix: "GGC-VEH", module: "VEH", entity: "vehicle" },
   { prefix: "GGC-WH-", module: "WH", entity: "warehouse" },
   { prefix: "GGC-BAT", module: "BAT", entity: "batch" },
@@ -492,6 +493,18 @@ export const MODULES = {
     counterKey: (p) => `del-${p.date || todayYmd()}`,
     generate: (p, seq) => `${COMPANY_PREFIX}-DEL-${p.date || todayYmd()}-${pad(seq, 5)}`,
   },
+  VH: {
+    description: "Pickup vehicle ID (unique vehicle number)",
+    formatHint: "GGC-VH-{vehicleNumber} or GGC-VH-{serial}",
+    example: "GGC-VH-MH12AB1234",
+    serialWidth: 6,
+    counterKey: () => "vh",
+    generate: (p, seq) => {
+      const plate = String(p.vehicleNumber || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      if (plate) return `${COMPANY_PREFIX}-VH-${plate}`;
+      return `${COMPANY_PREFIX}-VH-${pad(seq, 6)}`;
+    },
+  },
   VEH: {
     description: "Vehicle ID (PDF v2: VEH, not VH)",
     formatHint: "GGC-VEH-{type}-{serial}",
@@ -504,15 +517,13 @@ export const MODULES = {
     },
   },
   DRV: {
-    description: "Driver ID (PDF: DRV, DRY was crossed out)",
-    formatHint: "GGC-DRV-{city}-{serial}",
-    example: "GGC-DRV-MUM-00001",
-    serialWidth: 5,
-    counterKey: (p) => `drv-${String(p.city || "XXX").toUpperCase()}`,
-    generate: (p, seq) => {
-      req(p, ["city"]);
-      return `${COMPANY_PREFIX}-DRV-${String(p.city).toUpperCase()}-${pad(seq, 5)}`;
-    },
+    description: "Driver ID from first 3 letters of name plus serial",
+    formatHint: "GGC-DRV-{name3}-{serial}",
+    example: "GGC-DRV-RAJ-000001",
+    serialWidth: 6,
+    counterKey: () => "drv",
+    generate: (p, seq) =>
+      `${COMPANY_PREFIX}-DRV-${String(p.nameCode || "XXX").toUpperCase()}-${pad(seq, 6)}`,
   },
   QC: {
     description: "Quality Check ID",

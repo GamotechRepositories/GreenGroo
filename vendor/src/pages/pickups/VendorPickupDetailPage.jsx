@@ -66,6 +66,7 @@ export default function VendorPickupDetailPage() {
               <Info label="Pickup Time" value={pickup.scheduledTime} />
               <Info label="Collection Centre" value={pickup.collectionCentreName} />
               <Info label="Farmer Manager" value={`${pickup.managerName || "—"} ${pickup.managerMobile ? `· ${pickup.managerMobile}` : ""}`} />
+              <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
             </div>
           </div>
 

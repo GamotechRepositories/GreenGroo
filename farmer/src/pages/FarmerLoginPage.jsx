@@ -38,6 +38,10 @@ function FarmerLoginPage() {
   });
 
   if (token) {
+    const from = location.state?.from;
+    if (from && String(from).startsWith("/farmer")) {
+      return <Navigate to={from} replace />;
+    }
     return <Navigate to={role === "FARMER_MANAGER" ? "/farmer/manager/dashboard" : "/farmer/dashboard"} replace />;
   }
 

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getMyOrder, packMyOrder, prepareMyOrder, readyMyOrder } from "../api/farmerApi";
+import { getMyOrder, packMyOrder, readyMyOrder } from "../api/farmerApi";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import OrderQrCode from "../components/orders/OrderQrCode";
 import { ORDER_PACKAGE_TYPES } from "../utils/constants";
 import { formatOrderDate } from "../utils/orderDisplay";
-import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
+import { stableOrderQrValue } from "../utils/orderQr";
+import { EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
 
 function OrderPreparePage() {
   const { id } = useParams();
@@ -51,60 +52,6 @@ function OrderPreparePage() {
 
   if (loading) return <LoadingState rows={8} />;
   if (!order) return null;
-
-  const reserved = Number(order.reservedQuantity || order.orderedQuantity || 0);
-
-  const savePacking = async () => {
-    const packedQuantity = Number(form.packedQuantity);
-    if (packedQuantity > reserved) {
-      toast.error("Packed quantity cannot exceed the reserved quantity");
-      return;
-    }
-    setSaving("pack");
-    try {
-      setOrder(
-        await packMyOrder(id, {
-          packedQuantity,
-          packingDetails: {
-            packageCount: Number(form.packageCount) || 0,
-            packageType: form.packageType,
-            packageWeight: Number(form.packageWeight) || 0,
-            packingDate: form.packingDate,
-            notes: form.notes,
-          },
-        })
-      );
-      toast.success("Packing details saved");
-    } catch (err) {
-      toast.error(err.message || "Failed to save packing");
-    } finally {
-      setSaving("");
-    }
-  };
-
-  const startPrep = async () => {
-    setSaving("prep");
-    try {
-      setOrder(await prepareMyOrder(id, { packedQuantity: Number(form.packedQuantity) || undefined }));
-      toast.success("Preparation started");
-    } catch (err) {
-      toast.error(err.message || "Failed to start preparation");
-    } finally {
-      setSaving("");
-    }
-  };
-
-  const updateQty = async () => {
-    setSaving("qty");
-    try {
-      setOrder(await prepareMyOrder(id, { packedQuantity: Number(form.packedQuantity) || 0 }));
-      toast.success("Quantity updated");
-    } catch (err) {
-      toast.error(err.message || "Failed to update quantity");
-    } finally {
-      setSaving("");
-    }
-  };
 
   const markReady = async () => {
     setSaving("ready");
@@ -162,7 +109,7 @@ function OrderPreparePage() {
             <Info label="Preparation Status" value={order.preparationStatus} />
           </div>
         </section>
-        <OrderQrCode value={order.qrPayload || `greengroo:order:${order.orderId || order.id}`} />
+        <OrderQrCode value={stableOrderQrValue(order)} />
       </div>
 
       <section className={EXCEL_PANEL}>
@@ -196,15 +143,6 @@ function OrderPreparePage() {
       </section>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={EXCEL_BTN} disabled={saving} onClick={startPrep}>
-          {saving === "prep" ? "Saving…" : "Start Preparation"}
-        </button>
-        <button type="button" className={EXCEL_BTN} disabled={saving} onClick={updateQty}>
-          {saving === "qty" ? "Saving…" : "Update Quantity"}
-        </button>
-        <button type="button" className={EXCEL_BTN} disabled={saving} onClick={savePacking}>
-          {saving === "pack" ? "Saving…" : "Add Packing Details"}
-        </button>
         <button type="button" className={EXCEL_BTN_PRIMARY} disabled={saving} onClick={markReady}>
           {saving === "ready" ? "Saving…" : "Ready for Pickup"}
         </button>

@@ -37,6 +37,25 @@ function formatDisplayDate(iso) {
   });
 }
 
+function farmLabel(farmer, product) {
+  const loc = farmer?.farmLocation;
+  if (loc && typeof loc === "object") {
+    return loc.farmAddress || [loc.village, loc.taluka, loc.district, loc.pincode].filter(Boolean).join(", ");
+  }
+  const geo = farmer?.farmGeo || {};
+  const addr = farmer?.address && typeof farmer.address === "object" ? farmer.address : {};
+  return (
+    geo.farmAddress ||
+    farmer?.farmAddress ||
+    [geo.village || addr.village, geo.taluka || addr.taluka, geo.district || addr.district, addr.state, geo.pincode || addr.pincode]
+      .filter(Boolean)
+      .join(", ") ||
+    (typeof loc === "string" ? loc : "") ||
+    product?.farmLocation ||
+    ""
+  );
+}
+
 function productNameOf(item = {}) {
   return item.productName || item.name || "Farm Produce";
 }
@@ -355,7 +374,7 @@ export default function ManagerCreateOrderPage() {
         customer: {
           name: "Daily Harvest Statement",
           phone: selectedFarmer?.mobile || "",
-          address: selectedFarmer?.farmLocation || "Farm Gate",
+          address: farmLabel(selectedFarmer) || "Farm Gate",
         },
         products: orderProducts,
         grades: grades
@@ -548,7 +567,7 @@ export default function ManagerCreateOrderPage() {
                 <div className="rounded-md bg-[#F8FAF8] px-2 py-1.5">
                   <p className="text-[10px] font-semibold text-[#6B7280]">Farm</p>
                   <p className="truncate text-[12px] font-bold text-[#1F2937]">
-                    {selectedFarmer?.farmLocation || selectedProduct.farmLocation || "—"}
+                    {farmLabel(selectedFarmer, selectedProduct) || "—"}
                   </p>
                 </div>
               </div>

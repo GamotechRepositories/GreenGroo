@@ -139,6 +139,7 @@ export default function ManagerReceivePage() {
           <Info label="Expected Qty" value={`${pickup.confirmedQuantity || pickup.packedQuantity || pickup.expectedQuantity} ${pickup.unit}`} />
           <Info label="Packages" value={pickup.packageCount} />
           <Info label="Driver" value={`${pickup.driverName || "—"} · ${pickup.vehicleNumber || ""}`} />
+          <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
           <Info label="Driver status" value={pickup.liveStatus || pickup.status} />
         </div>
       </section>

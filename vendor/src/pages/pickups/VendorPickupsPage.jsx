@@ -67,20 +67,21 @@ export default function VendorPickupsPage({ mode = "assignments" }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50 text-left">
-              {["Order ID", "Farmer", "Location", "Product", "Qty", "Packages", "Pickup", "Centre", "Driver", "Status", ""].map((h) => (
+              {["Order ID", "Lot / Batch ID", "Farmer", "Location", "Product", "Qty", "Packages", "Pickup", "Centre", "Driver", "Status", ""].map((h) => (
                 <th key={h} className="px-3 py-2 font-semibold text-gray-500">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={12} className="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-gray-400">{meta.empty}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-8 text-center text-gray-400">{meta.empty}</td></tr>
             ) : (
               rows.map((p) => (
                 <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-3 py-2 font-semibold">{p.orderDisplayId}</td>
+                  <td className="px-3 py-2 font-mono text-[10px] text-[#217346]">{p.collectionBatchId || "—"}</td>
                   <td className="px-3 py-2">{p.farmerName}</td>
                   <td className="px-3 py-2 max-w-[140px] truncate">{p.farmerLocation || "—"}</td>
                   <td className="px-3 py-2">{p.productName}</td>

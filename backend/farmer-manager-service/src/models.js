@@ -511,8 +511,10 @@ const pickupDriverSchema = new mongoose.Schema(
     mobile: { type: String, required: true, trim: true },
     vehicleNumber: { type: String, default: "" },
     vehicleType: { type: String, default: "Van" },
+    vehicleId: { type: String, default: "", index: true },
     licenseNumber: { type: String, default: "" },
     assignedArea: { type: String, default: "" },
+    address: { type: String, default: "" },
     documents: [{ type: String }],
     password: { type: String, default: "" },
     role: { type: String, default: "DRIVER" },
@@ -553,6 +555,7 @@ const pickupSchema = new mongoose.Schema(
     pickupDate: { type: String, default: "" },
     pickupTime: { type: String, default: "" },
     pickupLocation: { type: String, default: "" },
+    orderDate: { type: String, default: "" },
     driverName: { type: String, default: "" },
     driverMobile: { type: String, default: "" },
     vehicleNumber: { type: String, default: "" },
@@ -597,6 +600,8 @@ const pickupSchema = new mongoose.Schema(
     confirmedQuantity: { type: Number, default: 0 },
     confirmedPackageCount: { type: Number, default: 0 },
     confirmationPhotos: [{ type: String }],
+    collectionBatchId: { type: String, default: "", index: true },
+    collectionBatchAssignedAt: { type: Date, default: null },
     status: { type: String, default: "READY_FOR_PICKUP" },
     receiving: {
       status: { type: String, default: "" },
@@ -623,6 +628,7 @@ pickupSchema.index({ managerId: 1, createdAt: -1 });
 pickupSchema.index({ driverId: 1, status: 1 });
 pickupSchema.index({ orderId: 1 }, { unique: true });
 pickupSchema.index({ qrToken: 1 });
+pickupSchema.index({ collectionBatchId: 1 });
 
 const QUALITY_STATUSES = [
   "QUALITY_PENDING",

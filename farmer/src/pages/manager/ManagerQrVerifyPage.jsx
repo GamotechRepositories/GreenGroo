@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getManagerPickups } from "../../api/farmerApi";
 import StatusBadge from "../../components/ui/StatusBadge";
 import EmptyState from "../../components/ui/EmptyState";
+import { parseOrderQrPayload } from "../../utils/orderQr";
 import {
   EXCEL_BTN_PRIMARY,
   EXCEL_INPUT,
@@ -36,7 +37,16 @@ export default function ManagerQrVerifyPage() {
   const match = pickups.find((p) => {
     const value = qr.trim();
     if (!value) return false;
-    return p.qrPayload === value || p.orderDisplayId === value || p.orderId === value || value.includes(p.orderDisplayId);
+    const parsed = parseOrderQrPayload(value);
+    return (
+      p.qrPayload === value ||
+      p.orderDisplayId === value ||
+      p.orderId === value ||
+      p.orderDisplayId === parsed ||
+      p.orderId === parsed ||
+      value.includes(p.orderDisplayId) ||
+      (parsed && value.includes(parsed))
+    );
   });
 
   return (

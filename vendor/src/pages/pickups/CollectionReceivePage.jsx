@@ -168,7 +168,8 @@ export default function CollectionReceivePage() {
               <Info label="Farmer" value={pickup.farmerName} />
               <Info label="Product" value={pickup.productName} />
               <Info label="Expected Quantity" value={`${pickup.confirmedQuantity || pickup.packedQuantity || pickup.expectedQuantity} ${pickup.unit}`} />
-              <Info label="Batch / Pickup ID" value={pickup.pickupId} />
+              <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
+              <Info label="Pickup ID" value={pickup.pickupId} />
               <Info label="Packages" value={pickup.packageCount} />
               <Info label="Driver" value={`${pickup.driverName || "—"} · ${pickup.vehicleNumber || ""}`} />
               <Info label="Pickup Date" value={pickup.pickupConfirmedAt ? new Date(pickup.pickupConfirmedAt).toLocaleString("en-IN") : pickup.scheduledDate} />

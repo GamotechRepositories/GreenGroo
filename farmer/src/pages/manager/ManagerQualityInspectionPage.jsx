@@ -219,7 +219,7 @@ export default function ManagerQualityInspectionPage() {
           <Info label="Variety" value={data.variety} />
           <Info label="Ordered Quantity" value={`${data.orderedQuantity} ${unit}`} />
           <Info label="Received Quantity" value={`${data.receivedQuantity} ${unit}`} />
-          <Info label="Batch ID" value={data.batchId} />
+          <Info label="Lot / Batch ID" value={data.batchId} />
           <Info label="Collection Centre" value={data.collectionCentre} />
           <Info label="Received Date" value={data.receivedDate} />
           <Info label="Received Time" value={data.receivedTime} />

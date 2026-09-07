@@ -38,6 +38,16 @@ export default function DriverDetailPage() {
     load();
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete driver "${driver.name}"? This cannot be undone.`)) return;
+    try {
+      await vendorApi.deleteDriver(driver.id);
+      navigate("/vendor/drivers");
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to delete driver");
+    }
+  };
+
   if (loading) return <p className="p-6 text-xs text-gray-400">Loading…</p>;
   if (!driver) return <p className="p-6 text-xs text-red-500">{error || "Driver not found"}</p>;
 
@@ -46,7 +56,7 @@ export default function DriverDetailPage() {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left">
-            {["Order", "Farmer", "Product", "Qty", "Status", ""].map((h) => (
+            {["Order", "Lot / Batch ID", "Farmer", "Product", "Qty", "Status", ""].map((h) => (
               <th key={h} className="px-3 py-2 font-semibold text-gray-500">{h}</th>
             ))}
           </tr>
@@ -55,6 +65,7 @@ export default function DriverDetailPage() {
           {list.map((p) => (
             <tr key={p.id} className="border-b border-gray-50">
               <td className="px-3 py-2 font-semibold">{p.orderDisplayId}</td>
+              <td className="px-3 py-2 font-mono text-[10px] text-[#217346]">{p.collectionBatchId || "—"}</td>
               <td className="px-3 py-2">{p.farmerName}</td>
               <td className="px-3 py-2">{p.productName}</td>
               <td className="px-3 py-2">{p.packedQuantity || p.expectedQuantity} {p.unit}</td>
@@ -88,12 +99,18 @@ export default function DriverDetailPage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-500">{driver.mobile} · {driver.vehicleNumber || "No vehicle"} · {driver.vehicleType}</p>
-            <p className="mt-1 text-xs text-gray-400">Driver ID: {driver.id} · License: {driver.licenseNumber || "—"}</p>
+            <p className="mt-1 font-mono text-xs text-gray-500">Driver ID: {driver.id}</p>
+            <p className="mt-0.5 font-mono text-xs text-gray-500">Vehicle ID: {driver.vehicleId || "—"}</p>
+            <p className="mt-1 text-xs text-gray-400">License: {driver.licenseNumber || "—"}</p>
+            {driver.address ? <p className="mt-1 text-xs text-gray-500">Address: {driver.address}</p> : null}
           </div>
           <div className="flex gap-2">
             <Link to={`/vendor/drivers/${driver.id}/edit`} className="border border-gray-200 px-3 py-1.5 text-xs">Edit</Link>
             <button type="button" onClick={toggle} className="bg-[#217346] px-3 py-1.5 text-xs font-semibold text-white">
               {driver.status === "Inactive" ? "Activate" : "Deactivate"}
+            </button>
+            <button type="button" onClick={handleDelete} className="border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600">
+              Delete
             </button>
           </div>
         </div>

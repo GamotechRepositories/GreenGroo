@@ -4,6 +4,7 @@ import { driverApi } from "../../api/driverApi";
 import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import ConfirmPickupPhotos from "../../components/pickup/ConfirmPickupPhotos";
 import { usePolling } from "../../hooks/usePolling";
+import { driverNextStep } from "../../utils/driverFlow";
 
 function Info({ label, value }) {
   return (
@@ -116,7 +117,8 @@ export default function DriverPickupPage() {
     setError("");
     try {
       const res = await fn();
-      setPickup(res.data);
+      const payload = res.data || {};
+      setPickup(payload.status ? payload : payload.pickup || payload);
       if (okMessage) setSuccess(okMessage);
     } catch (err) {
       setError(err?.response?.data?.message || "Action failed");
@@ -138,6 +140,7 @@ export default function DriverPickupPage() {
     (status === "PICKED_UP" || status === "PICKUP_CONFIRMED" || pickup.pickupConfirmed) &&
     !["IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(status);
   const liveStatus = pickup.liveStatus || pickupStatusLabel(status);
+  const nextStep = driverNextStep(pickup);
 
   return (
     <div className="space-y-5 p-6">
@@ -147,7 +150,7 @@ export default function DriverPickupPage() {
           <h1 className="text-xl font-bold text-gray-900">Order {pickup.orderDisplayId}</h1>
           <p className="text-sm text-gray-500">{pickup.farmerName} · {pickup.productName}</p>
         </div>
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase">{pickupStatusLabel(status)}</span>
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase">{liveStatus}</span>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
       {success ? <div className="border border-green-200 bg-green-50 px-3 py-2 text-xs text-[#217346]">{success}</div> : null}
@@ -157,6 +160,7 @@ export default function DriverPickupPage() {
       <div className="border border-[#217346] bg-[#E8F5E9] p-4">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-[#217346]">Your current status</p>
         <p className="mt-1 text-base font-bold text-gray-900">{liveStatus}</p>
+        {nextStep ? <p className="mt-1 text-xs font-semibold text-[#217346]">Next: {nextStep.label}</p> : null}
         <p className="mt-1 text-xs text-gray-600">Update the step below so farmer, manager and vendor can see what you are doing.</p>
       </div>
 
@@ -237,6 +241,7 @@ export default function DriverPickupPage() {
             <Info label="Package Count" value={pickup.packageCount} />
             <Info label="Driver" value={pickup.driverName} />
             <Info label="Vehicle Number" value={pickup.vehicleNumber} />
+            {pickup.collectionBatchId ? <Info label="Lot / Batch ID" value={pickup.collectionBatchId} /> : null}
           </div>
           {canConfirm ? (
             <button type="button" disabled={busy} className="mt-4 bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60" onClick={() => { setConfirmPhotos([]); setConfirmOpen(true); }}>

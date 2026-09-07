@@ -17,9 +17,12 @@ export default function DriverFormPage() {
     vehicleType: "Van",
     licenseNumber: "",
     assignedArea: "",
+    address: "",
     documents: [],
     status: "Active",
     password: "",
+    driverId: "",
+    vehicleId: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -36,9 +39,12 @@ export default function DriverFormPage() {
           vehicleType: d.vehicleType || "Van",
           licenseNumber: d.licenseNumber || "",
           assignedArea: d.assignedArea || "",
+          address: d.address || "",
           documents: d.documents || [],
           status: d.status || "Active",
           password: "",
+          driverId: d.id || d.driverId || "",
+          vehicleId: d.vehicleId || "",
         });
       })
       .catch(() => setError("Driver not found"));
@@ -88,6 +94,18 @@ export default function DriverFormPage() {
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 
       <form onSubmit={handleSubmit} className="space-y-4 border border-gray-200 bg-white p-6">
+        {isEdit ? (
+          <div className="grid grid-cols-1 gap-3 border border-gray-100 bg-gray-50 px-3 py-2 sm:grid-cols-2">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Driver ID</p>
+              <p className="mt-0.5 font-mono text-xs font-semibold text-[#217346]">{form.driverId || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Vehicle ID</p>
+              <p className="mt-0.5 font-mono text-xs font-semibold text-[#217346]">{form.vehicleId || "—"}</p>
+            </div>
+          </div>
+        ) : null}
         <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">Driver Details</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -115,6 +133,15 @@ export default function DriverFormPage() {
           <div>
             <label className={LABEL}>Assigned Area</label>
             <input className={FIELD} value={form.assignedArea} onChange={(e) => set("assignedArea", e.target.value)} placeholder="Pune East" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={LABEL}>Address</label>
+            <textarea
+              className={`${FIELD} min-h-[72px] resize-y`}
+              value={form.address}
+              onChange={(e) => set("address", e.target.value)}
+              placeholder="House / street, village, city, pincode"
+            />
           </div>
           <div>
             <label className={LABEL}>Status</label>

@@ -440,13 +440,6 @@ function OrderActions({ order, onAccept, onReject, large = false }) {
           Prep
         </Link>
       ) : null}
-      {["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"].includes(
-        order.status
-      ) ? (
-        <Link to={`/farmer/orders/${id}`} className={primary}>
-          Pickup
-        </Link>
-      ) : null}
     </div>
   );
 }

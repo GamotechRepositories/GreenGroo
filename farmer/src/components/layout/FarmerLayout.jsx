@@ -33,8 +33,9 @@ function FarmerLayout() {
     if (!token) return;
     const path = location.pathname;
     const isManagerRoute = path.startsWith("/farmer/manager");
+    const isSharedScan = path.startsWith("/farmer/scan");
 
-    if (isManager && !isManagerRoute && path !== "/farmer/manager/dashboard") {
+    if (isManager && !isManagerRoute && !isSharedScan && path !== "/farmer/manager/dashboard") {
       navigate("/farmer/manager/dashboard", { replace: true });
     } else if (!isManager && isManagerRoute && path !== "/farmer/dashboard") {
       navigate("/farmer/dashboard", { replace: true });
@@ -46,7 +47,7 @@ function FarmerLayout() {
   }, [location.pathname]);
 
   if (!token) {
-    return <Navigate to="/farmer/login" replace />;
+    return <Navigate to="/farmer/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
   }
 
   return (
