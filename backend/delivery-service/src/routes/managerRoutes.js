@@ -43,6 +43,8 @@ import {
   updateSlotDateWise,
   deleteSlotDateWise,
   getSlotDetailsWithRiders,
+  updateShiftEarningSlabs,
+  getShiftEarningSlabs,
 } from "../controllers/shiftManagementController.js";
 
 import {
@@ -51,6 +53,11 @@ import {
   updateGig,
   deleteGig,
 } from "../controllers/gigManagementController.js";
+import {
+  getManagerCashOverview,
+  confirmRiderCash,
+  getRiderCashHistory,
+} from "../controllers/cashSettlementController.js";
 
 const router = express.Router();
 
@@ -91,6 +98,9 @@ router.get("/shifts/slots", listManagerSlots);
 router.put("/shifts/slots/:slotId", updateSlotDateWise);
 router.delete("/shifts/slots/:slotId", deleteSlotDateWise);
 router.get("/shifts/slots/:slotId/details", getSlotDetailsWithRiders);
+// Shift-level earning slabs management
+router.get("/shifts/:shiftId/earning-slabs", getShiftEarningSlabs);
+router.put("/shifts/:shiftId/earning-slabs", updateShiftEarningSlabs);
 
 // Gig & Incentive Management APIs
 router.post("/gigs", createGig);
@@ -101,5 +111,14 @@ router.delete("/gigs/:gigId", deleteGig);
 router.post("/peak-hours", setPeakHours);
 router.post("/riders/:riderId/document-status", updateRiderDocumentStatus);
 router.post("/order/assign", manualAssignOrder);
+
+// Cash Settlement (Dark Store view)
+router.get("/cash", getManagerCashOverview);
+router.post("/cash/confirm", confirmRiderCash);
+router.get("/cash/rider/:riderId", getRiderCashHistory);
+
+// Cash Settlement — Dark Store confirms physical cash receipt from riders
+router.get("/cash-settlements", getManagerCashOverview);
+router.post("/cash-settlements/confirm", confirmRiderCash);
 
 export default router;

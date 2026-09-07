@@ -33,9 +33,40 @@ export default function CreateShiftPage() {
     { startTime: "09:00 AM", endTime: "01:00 PM", capacity: 10 },
   ]);
 
+  // KM-based delivery earning slabs (what drivers earn per delivery distance)
+  const [earningSlabs, setEarningSlabs] = useState([
+    { minKm: 0, maxKm: 2, riderAmount: 30 },
+    { minKm: 2, maxKm: 5, riderAmount: 50 },
+    { minKm: 5, maxKm: 10, riderAmount: 80 },
+  ]);
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 4000);
+  };
+
+  const addEarningSlabRow = () => {
+    if (earningSlabs.length >= 8) {
+      showToast("Maximum 8 KM earning slabs allowed");
+      return;
+    }
+    const last = earningSlabs[earningSlabs.length - 1];
+    const nextMin = last ? Number(last.maxKm) || 0 : 0;
+    setEarningSlabs([
+      ...earningSlabs,
+      { minKm: nextMin, maxKm: nextMin + 3, riderAmount: last ? Number(last.riderAmount) + 20 : 30 },
+    ]);
+  };
+
+  const removeEarningSlabRow = (index) => {
+    if (earningSlabs.length <= 1) return;
+    setEarningSlabs(earningSlabs.filter((_, i) => i !== index));
+  };
+
+  const updateEarningSlabRow = (index, field, value) => {
+    const updated = [...earningSlabs];
+    updated[index] = { ...updated[index], [field]: value === "" ? "" : Number(value) };
+    setEarningSlabs(updated);
   };
 
   const handleShiftTypeChange = (typeId) => {
@@ -79,6 +110,28 @@ export default function CreateShiftPage() {
 
   const handleCreateShift = async (e) => {
     e.preventDefault();
+    const deliveryEarningSlabs = earningSlabs.map((s) => ({
+      minKm: Number(s.minKm),
+      maxKm: Number(s.maxKm),
+      riderAmount: Number(s.riderAmount),
+    }));
+
+    for (let i = 0; i < deliveryEarningSlabs.length; i++) {
+      const s = deliveryEarningSlabs[i];
+      if (isNaN(s.minKm) || s.minKm < 0) {
+        showToast(`Slab ${i + 1}: Min KM must be 0 or more`);
+        return;
+      }
+      if (isNaN(s.maxKm) || s.maxKm <= s.minKm) {
+        showToast(`Slab ${i + 1}: Max KM must be greater than Min KM`);
+        return;
+      }
+      if (isNaN(s.riderAmount) || s.riderAmount < 0) {
+        showToast(`Slab ${i + 1}: Rider earning (₹) must be 0 or more`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const res = await managerApi.createShift({
@@ -94,6 +147,7 @@ export default function CreateShiftPage() {
         recurrenceMode,
         targetDate,
         daysOfWeek: selectedDaysOfWeek,
+        deliveryEarningSlabs,
       });
 
       showToast(res.data.message || "Shift created successfully!");
@@ -112,7 +166,9 @@ export default function CreateShiftPage() {
       <div className="w-full max-w-2xl rounded-2xl border border-slate-200/80 bg-white p-6 md:p-8 shadow-xl space-y-6">
         <div className="border-b border-slate-100 pb-4">
           <h2 className="text-lg font-bold text-slate-900">Create Shift & Time Slots</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Configure shift preset, custom time slots, capacity, and schedule</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Configure shift preset, time slots, KM earning slabs for riders, and schedule
+          </p>
         </div>
 
         {toast && (
@@ -225,6 +281,85 @@ export default function CreateShiftPage() {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* KM-BASED DELIVERY EARNING SLABS */}
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wide">
+                  Delivery Charges / KM Earning Slabs
+                </h4>
+                <p className="text-[11px] text-emerald-800/80 mt-0.5">
+                  Set what riders earn per delivery by distance (e.g. 0–2 KM → ₹30, 2–5 KM → ₹50)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addEarningSlabRow}
+                className="shrink-0 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-2xs"
+              >
+                + Add KM Slab
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {earningSlabs.map((slab, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-3 rounded-xl bg-white p-3 border border-emerald-200 shadow-2xs"
+                >
+                  <span className="text-xs font-bold text-emerald-800 w-14 shrink-0">#{idx + 1}</span>
+                  <div className="flex-1 grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Min KM</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        required
+                        value={slab.minKm}
+                        onChange={(e) => updateEarningSlabRow(idx, "minKm", e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Max KM</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        required
+                        value={slab.maxKm}
+                        onChange={(e) => updateEarningSlabRow(idx, "maxKm", e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-emerald-700 uppercase mb-1">Rider Earn ₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={slab.riderAmount}
+                        onChange={(e) => updateEarningSlabRow(idx, "riderAmount", e.target.value)}
+                        className="w-full rounded-lg border border-emerald-200 bg-emerald-50/40 px-2.5 py-2 text-xs font-bold text-emerald-800"
+                      />
+                    </div>
+                  </div>
+                  {earningSlabs.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeEarningSlabRow(idx)}
+                      className="text-xs text-rose-600 font-bold p-1.5 hover:bg-rose-50 rounded-lg transition"
+                      title="Remove slab"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* RECURRENCE SCHEDULE */}

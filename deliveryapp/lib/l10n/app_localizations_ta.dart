@@ -1403,4 +1403,148 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get liveServerTime => 'நேரலை சர்வர் நேரம்';
+
+  @override
+  String get year => 'ஆண்டு';
+
+  @override
+  String get onlineTime => 'ஆன்லைன் நேரம்';
+
+  @override
+  String get shiftsBookedLabel => 'பதிவு செய்த ஷிப்டுகள்';
+
+  @override
+  String get completedShiftsLabel => 'முடிந்த ஷிப்டுகள்';
+
+  @override
+  String get earnShort => 'சம்பாதிப்பு';
+
+  @override
+  String get doneShort => 'முடிந்தது';
+
+  @override
+  String get couldNotLoadHistory => 'வரலாற்றை ஏற்ற முடியவில்லை';
+
+  @override
+  String get noActivityInPeriod => 'இந்த காலத்தில் செயல்பாடு இல்லை';
+
+  @override
+  String tripsCount(int count) {
+    return '$count பயணங்கள்';
+  }
+
+  @override
+  String tripCountOne(int count) {
+    return '$count பயணம்';
+  }
+
+  @override
+  String shiftsCount(int count) {
+    return '$count ஷிப்டுகள்';
+  }
+
+  @override
+  String shiftCountOne(int count) {
+    return '$count ஷிப்ட்';
+  }
+
+  @override
+  String completedCountLabel(int count) {
+    return '$count முடிந்தது';
+  }
+
+  @override
+  String shiftsBookedValue(int count) {
+    return '$count பதிவு';
+  }
+
+  @override
+  String shiftsDoneValue(int count) {
+    return '$count ஷிப்டுகள்';
+  }
+
+  @override
+  String tripsAndOnlineSummary(int trips, String onlineTime) {
+    return '$trips பயணங்கள் · $onlineTime';
+  }
+
+  @override
+  String get thisWeekEarningsTitle => 'இந்த வார சம்பாதிப்பு';
+
+  @override
+  String get fullWeekEarnings => 'முழு வார சம்பாதிப்பு';
+
+  @override
+  String deliveriesAndToday(int count, String amount) {
+    return '$count டெலிவரி · இன்று $amount';
+  }
+
+  @override
+  String withdrawRequestSubmitted(String amount) {
+    return '$amount திரும்பப் பெறும் கோரிக்கை சமர்ப்பிக்கப்பட்டது.';
+  }
+
+  @override
+  String get withdrawAvailableSaturday => 'இன்று (சனி) திரும்பப் பெறலாம்.';
+
+  @override
+  String get noEarningsToWithdraw =>
+      'இந்த வாரம் திரும்பப் பெற சம்பாதிப்பு இல்லை.';
+
+  @override
+  String get withdrawOpensSaturday =>
+      'திரும்பப் பெறுதல் சனிக்கிழமை மட்டும். வாரம் முடியும் வரை பூட்டப்படும்.';
+
+  @override
+  String get weeklyChart => 'வார விளக்கப்படம்';
+
+  @override
+  String get noEarningsThisWeekYet => 'இந்த வாரம் இன்னும் சம்பாதிப்பு இல்லை';
+
+  @override
+  String get dayWiseEarnings => 'நாள் வாரியான சம்பாதிப்பு';
+
+  @override
+  String get completeDeliveriesForWeekly =>
+      'வார சம்பாதிப்பைக் காண டெலிவரிகளை முடிக்கவும்.';
+
+  @override
+  String deliveriesCount(int count) {
+    return '$count டெலிவரிகள்';
+  }
+
+  @override
+  String todayWithLabel(String label) {
+    return 'இன்று · $label';
+  }
+
+  @override
+  String dayWithDate(String label, String date) {
+    return '$label · $date';
+  }
+
+  @override
+  String get todayTrips => 'இன்றைய பயணங்கள்';
+
+  @override
+  String get lifetimeEarnings => 'மொத்தம்';
+
+  @override
+  String get noDeliveriesTodayYet =>
+      'இன்று இன்னும் டெலிவரிகள் முடிக்கப்படவில்லை.';
+
+  @override
+  String orderNumberHash(String number) {
+    return 'ஆர்டர் #$number';
+  }
+
+  @override
+  String deliveriesUpdatedLive(int count, String updatedLive) {
+    return '$count டெலிவரிகள் · $updatedLive';
+  }
+
+  @override
+  String distanceKmValue(String km) {
+    return '$km கிமீ';
+  }
 }

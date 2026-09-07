@@ -153,6 +153,20 @@ const deliveryBoySchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    /** Past-day snapshots for history (online minutes / shifts). Newest last. */
+    dailyActivity: {
+      type: [
+        {
+          date: { type: String, required: true },
+          onlineMinutes: { type: Number, default: 0 },
+          earnings: { type: Number, default: 0 },
+          trips: { type: Number, default: 0 },
+          shiftsBooked: { type: Number, default: 0 },
+          shiftsCompleted: { type: Number, default: 0 },
+        },
+      ],
+      default: [],
+    },
     todayCompletedOrders: {
       type: Number,
       default: 0,
@@ -169,6 +183,14 @@ const deliveryBoySchema = new mongoose.Schema(
     // Add near todayEarnings — right after it
     walletBalance: { type: Number, default: 0 },
     totalLifetimeEarnings: { type: Number, default: 0 },
+
+    /**
+     * Cash collected from customers but not yet physically submitted to the Dark Store.
+     * Increased when rider confirms cash collection on an order.
+     * Decreased when the Dark Store confirms physical receipt.
+     * Cash is NOT rider earnings — it is a liability owed back to the store.
+     */
+    pendingCashAmount: { type: Number, default: 0, min: 0 },
 
     lastOrderAssignedAt: {
       type: Date,
@@ -313,6 +335,7 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     todayEarnings: this.todayEarnings || 0,
     walletBalance: this.walletBalance || 0,
     totalLifetimeEarnings: this.totalLifetimeEarnings || 0,
+    pendingCashAmount: this.pendingCashAmount || 0,
     lastOrderAssignedAt: this.lastOrderAssignedAt || this.lastAssignedAt,
     lastAssignedAt: this.lastAssignedAt || this.lastOrderAssignedAt,
     currentBooking: this.currentBooking?.shiftId

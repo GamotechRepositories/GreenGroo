@@ -1,6 +1,7 @@
 import Shift from "../models/Shift.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
+import { validateEarningSlabs } from "../services/ShiftEarningService.js";
 
 const getManager = async (req) => {
   const manager = await DeliveryManager.findById(req.user.id);
@@ -88,6 +89,7 @@ const generateDateWiseShifts = async ({
   type,
   capacity,
   customSlots,
+  deliveryEarningSlabs,
   manager,
   recurrenceMode,
   targetDate,
@@ -146,12 +148,16 @@ const generateDateWiseShifts = async ({
         date: slotDate,
         dateString: dateStr,
         slots: defaultSlots,
+        deliveryEarningSlabs: deliveryEarningSlabs || [],
       });
       createdShifts.push(newShift);
     } else {
       // Overwrite/update slots for this shift type on this date
       existing.name = name || existing.name;
       existing.slots = defaultSlots;
+      if (deliveryEarningSlabs !== undefined) {
+        existing.deliveryEarningSlabs = deliveryEarningSlabs;
+      }
       await existing.save();
       createdShifts.push(existing);
     }
@@ -173,7 +179,16 @@ export const createShift = async (req, res, next) => {
       targetDate,
       targetMonth,
       daysOfWeek = [],
+      deliveryEarningSlabs,
     } = req.body;
+
+    // Validate earning slabs if provided
+    if (deliveryEarningSlabs !== undefined) {
+      const slabValidation = validateEarningSlabs(deliveryEarningSlabs);
+      if (!slabValidation.valid) {
+        return res.status(400).json({ success: false, message: slabValidation.message });
+      }
+    }
 
     const shiftType = String(type).toLowerCase();
     const shiftName = name || `${shiftType.replace("_", " ").toUpperCase()} Shift`;
@@ -184,6 +199,7 @@ export const createShift = async (req, res, next) => {
       type: shiftType,
       capacity: slotCapacity,
       customSlots,
+      deliveryEarningSlabs: deliveryEarningSlabs || [],
       manager,
       recurrenceMode,
       targetDate,
@@ -254,7 +270,7 @@ export const updateSlotDateWise = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     const { slotId } = req.params;
-    const { capacity, status, startTime, endTime } = req.body;
+    const { capacity, status, startTime, endTime, deliveryEarningSlabs } = req.body;
 
     const shift = await Shift.findOne({
       managerId: manager._id,
@@ -266,6 +282,15 @@ export const updateSlotDateWise = async (req, res, next) => {
     }
 
     const slot = shift.slots.find((s) => s._id.toString() === slotId || shift._id.toString() === slotId);
+
+    // Validate earning slabs if provided
+    if (deliveryEarningSlabs !== undefined) {
+      const slabValidation = validateEarningSlabs(deliveryEarningSlabs);
+      if (!slabValidation.valid) {
+        return res.status(400).json({ success: false, message: slabValidation.message });
+      }
+      shift.deliveryEarningSlabs = deliveryEarningSlabs;
+    }
 
     if (slot) {
       if (capacity !== undefined) {
@@ -283,6 +308,9 @@ export const updateSlotDateWise = async (req, res, next) => {
       if (endTime) slot.endTime = endTime;
       shift.isCustomized = true;
 
+      await shift.save();
+    } else {
+      // No slot matched but deliveryEarningSlabs may have been updated
       await shift.save();
     }
 
@@ -404,6 +432,82 @@ export const deleteSlotDateWise = async (req, res, next) => {
       success: true,
       message: "Shift slot deleted for this date",
       scope: "this_date",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/delivery-managers/shifts/:shiftId/earning-slabs
+ * Return the earning slabs for a specific shift.
+ */
+export const getShiftEarningSlabs = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { shiftId } = req.params;
+
+    const shift = await Shift.findOne({ _id: shiftId, managerId: manager._id });
+    if (!shift) {
+      return res.status(404).json({ success: false, message: "Shift not found" });
+    }
+
+    return res.json({
+      success: true,
+      shiftId: shift._id.toString(),
+      shiftName: shift.name,
+      dateString: shift.dateString,
+      deliveryEarningSlabs: (shift.deliveryEarningSlabs || []).map((s) => ({
+        id: s._id ? s._id.toString() : undefined,
+        minKm: s.minKm,
+        maxKm: s.maxKm,
+        riderAmount: s.riderAmount,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/delivery-managers/shifts/:shiftId/earning-slabs
+ * Replace all earning slabs for a shift.
+ * Validates for overlaps and invalid ranges.
+ * Historical orders are NOT affected (earning is stored on each order at delivery time).
+ */
+export const updateShiftEarningSlabs = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { shiftId } = req.params;
+    const { deliveryEarningSlabs } = req.body;
+
+    if (!Array.isArray(deliveryEarningSlabs)) {
+      return res.status(400).json({ success: false, message: "deliveryEarningSlabs must be an array" });
+    }
+
+    const validation = validateEarningSlabs(deliveryEarningSlabs);
+    if (!validation.valid) {
+      return res.status(400).json({ success: false, message: validation.message });
+    }
+
+    const shift = await Shift.findOne({ _id: shiftId, managerId: manager._id });
+    if (!shift) {
+      return res.status(404).json({ success: false, message: "Shift not found" });
+    }
+
+    shift.deliveryEarningSlabs = deliveryEarningSlabs;
+    await shift.save();
+
+    return res.json({
+      success: true,
+      message: "Delivery earning slabs updated. Future deliveries under this shift will use these rates.",
+      shiftId: shift._id.toString(),
+      deliveryEarningSlabs: (shift.deliveryEarningSlabs || []).map((s) => ({
+        id: s._id ? s._id.toString() : undefined,
+        minKm: s.minKm,
+        maxKm: s.maxKm,
+        riderAmount: s.riderAmount,
+      })),
     });
   } catch (error) {
     next(error);

@@ -2,8 +2,9 @@
 export const MIN_ASSIGNMENT_DISTANCE_M = Number(
   process.env.MIN_ASSIGNMENT_DISTANCE_M || 0
 );
+/** Default 15 km — must stay aligned with go-online same-area radius so online drivers can receive offers. */
 export const MAX_ASSIGNMENT_DISTANCE_M = Number(
-  process.env.MAX_ASSIGNMENT_DISTANCE_M || 2000
+  process.env.MAX_ASSIGNMENT_DISTANCE_M || 15000
 );
 
 /** Driver must respond within this window (seconds). Backend is source of truth. */

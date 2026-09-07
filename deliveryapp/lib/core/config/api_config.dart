@@ -40,6 +40,8 @@ abstract final class ApiConfig {
   static const heartbeat = '/api/delivery-boys/heartbeat';
   static const areaManager = '/api/delivery-boys/area-manager';
   static const homeProgress = '/api/delivery-boys/home/progress';
+  static String activityHistory({String range = 'week'}) =>
+      '/api/delivery-boys/activity-history?range=$range';
   static const shifts = '/api/shifts';
   static const shiftBooking = '/api/delivery-boys/shift-booking';
   static const availableSlots = '/api/delivery-boys/available-slots';
@@ -60,6 +62,38 @@ abstract final class ApiConfig {
   static String submitPickupProof(String id) => '/api/delivery-boys/orders/$id/pickup-proof';
   static String completeDelivery(String id) => '/api/delivery-boys/orders/$id/complete';
   static String pickupQr(String id) => '/api/delivery-boys/orders/$id/pickup-qr';
+
+  // Extended delivery completion flow
+  static String uploadDeliveryProof(String id) => '/api/delivery-boys/orders/$id/delivery-proof';
+  static String verifyCustomerOtp(String id) => '/api/delivery-boys/orders/$id/verify-otp';
+  static String collectCash(String id) => '/api/delivery-boys/orders/$id/collect-cash';
+  static String confirmCashCollection(String id) =>
+      '/api/delivery-boys/orders/$id/collect-cash';
+  static String confirmOnlinePayment(String id) => '/api/delivery-boys/orders/$id/confirm-online-payment';
+  static String orderPaymentStatus(String id) => '/api/delivery-boys/orders/$id/payment-status';
+
+  // Cash liability
+  static const riderPendingCash = '/api/delivery-boys/cash/pending';
+  static const riderSubmitCash = '/api/delivery-boys/cash/submit';
+
+  // Earnings
+  static String earningsDetail({String? date, String? range}) {
+    final params = <String>[];
+    if (range != null && range.isNotEmpty) params.add('range=$range');
+    if (date != null && date.isNotEmpty) params.add('date=$date');
+    final qs = params.isEmpty ? '' : '?${params.join('&')}';
+    return '/api/delivery-boys/earnings/detail$qs';
+  }
+
+  // Shift earning slabs (rider reads from shift screen)
+  static String shiftEarningSlabs(String shiftId) =>
+      '/api/delivery-managers/shifts/$shiftId/earning-slabs';
+
+  // Manager cash settlement
+  static const managerCashOverview = '/api/delivery-managers/cash';
+  static const managerConfirmCash = '/api/delivery-managers/cash/confirm';
+  static String managerRiderCashHistory(String riderId) =>
+      '/api/delivery-managers/cash/rider/$riderId';
 }
 
 /// Friendly error message that tells the developer exactly what URL timed out.

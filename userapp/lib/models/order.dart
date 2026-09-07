@@ -199,6 +199,7 @@ class Order {
     this.couponCode = '',
     this.couponDiscount = 0,
     this.giftHamper,
+    this.deliveryOtp = '',
   });
 
   final String id;
@@ -223,6 +224,8 @@ class Order {
   final String couponCode;
   final double couponDiscount;
   final OrderGiftHamper? giftHamper;
+  /// 4-digit code customer shares with rider to complete delivery.
+  final String deliveryOtp;
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['deliveryAddress'];
@@ -280,6 +283,7 @@ class Order {
       giftHamper: json['giftHamper'] is Map<String, dynamic>
           ? OrderGiftHamper.fromJson(json['giftHamper'] as Map<String, dynamic>)
           : null,
+      deliveryOtp: (json['deliveryOtp'] ?? json['otpCode'])?.toString() ?? '',
     );
   }
 }

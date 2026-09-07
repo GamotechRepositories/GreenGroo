@@ -14,6 +14,7 @@ import Product3DImage from "./Product3DImage";
 import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
+import DeliveryOtpBanner from "./DeliveryOtpBanner";
 
 const ACTION_PINK = "#E23744";
 
@@ -97,6 +98,10 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
             <ShipmentTrackingBanner shipment={shipment} className="w-full" />
           </div>
         ) : null}
+
+        <div className="mb-4">
+          <DeliveryOtpBanner order={order} />
+        </div>
 
         {order.status === "delivered" && deliveryRating ? (
           <div className="mb-4 rounded-[10px] border border-[#FFD6DC] bg-[#FFF0F2] px-3.5 py-3">

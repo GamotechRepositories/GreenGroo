@@ -2769,6 +2769,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Live Server Time'**
   String get liveServerTime;
+
+  /// No description provided for @year.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get year;
+
+  /// No description provided for @onlineTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Online Time'**
+  String get onlineTime;
+
+  /// No description provided for @shiftsBookedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Shifts Booked'**
+  String get shiftsBookedLabel;
+
+  /// No description provided for @completedShiftsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed Shifts'**
+  String get completedShiftsLabel;
+
+  /// No description provided for @earnShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn'**
+  String get earnShort;
+
+  /// No description provided for @doneShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get doneShort;
+
+  /// No description provided for @couldNotLoadHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load history'**
+  String get couldNotLoadHistory;
+
+  /// No description provided for @noActivityInPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'No activity in this period'**
+  String get noActivityInPeriod;
+
+  /// No description provided for @tripsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Trips'**
+  String tripsCount(int count);
+
+  /// No description provided for @tripCountOne.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Trip'**
+  String tripCountOne(int count);
+
+  /// No description provided for @shiftsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Shifts'**
+  String shiftsCount(int count);
+
+  /// No description provided for @shiftCountOne.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Shift'**
+  String shiftCountOne(int count);
+
+  /// No description provided for @completedCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} Completed'**
+  String completedCountLabel(int count);
+
+  /// No description provided for @shiftsBookedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} booked'**
+  String shiftsBookedValue(int count);
+
+  /// No description provided for @shiftsDoneValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} shifts'**
+  String shiftsDoneValue(int count);
+
+  /// No description provided for @tripsAndOnlineSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{trips} trips · {onlineTime}'**
+  String tripsAndOnlineSummary(int trips, String onlineTime);
+
+  /// No description provided for @thisWeekEarningsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This week earnings'**
+  String get thisWeekEarningsTitle;
+
+  /// No description provided for @fullWeekEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Full week earnings'**
+  String get fullWeekEarnings;
+
+  /// No description provided for @deliveriesAndToday.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} deliveries · Today {amount}'**
+  String deliveriesAndToday(int count, String amount);
+
+  /// No description provided for @withdrawRequestSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw request for {amount} submitted.'**
+  String withdrawRequestSubmitted(String amount);
+
+  /// No description provided for @withdrawAvailableSaturday.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw is available today (Saturday).'**
+  String get withdrawAvailableSaturday;
+
+  /// No description provided for @noEarningsToWithdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'No earnings to withdraw this week.'**
+  String get noEarningsToWithdraw;
+
+  /// No description provided for @withdrawOpensSaturday.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw opens only on Saturday. Your weekly earnings stay locked until then.'**
+  String get withdrawOpensSaturday;
+
+  /// No description provided for @weeklyChart.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly chart'**
+  String get weeklyChart;
+
+  /// No description provided for @noEarningsThisWeekYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No earnings this week yet'**
+  String get noEarningsThisWeekYet;
+
+  /// No description provided for @dayWiseEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Day-wise earnings'**
+  String get dayWiseEarnings;
+
+  /// No description provided for @completeDeliveriesForWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete deliveries to see weekly earnings here.'**
+  String get completeDeliveriesForWeekly;
+
+  /// No description provided for @deliveriesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} deliveries'**
+  String deliveriesCount(int count);
+
+  /// No description provided for @todayWithLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Today · {label}'**
+  String todayWithLabel(String label);
+
+  /// No description provided for @dayWithDate.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} · {date}'**
+  String dayWithDate(String label, String date);
+
+  /// No description provided for @todayTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'Today trips'**
+  String get todayTrips;
+
+  /// No description provided for @lifetimeEarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'Lifetime'**
+  String get lifetimeEarnings;
+
+  /// No description provided for @noDeliveriesTodayYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No deliveries completed today yet.'**
+  String get noDeliveriesTodayYet;
+
+  /// No description provided for @orderNumberHash.
+  ///
+  /// In en, this message translates to:
+  /// **'Order #{number}'**
+  String orderNumberHash(String number);
+
+  /// No description provided for @deliveriesUpdatedLive.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} deliveries · {updatedLive}'**
+  String deliveriesUpdatedLive(int count, String updatedLive);
+
+  /// No description provided for @distanceKmValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{km} km'**
+  String distanceKmValue(String km);
 }
 
 class _AppLocalizationsDelegate

@@ -6,6 +6,7 @@ import Payment from "../models/payment/Payment.js";
 import Coupon from "../models/Coupon.js";
 import { reverseOrderRewardPoints } from "./rewardController.js";
 import {
+  attachCustomerDeliveryOtps,
   enrichOrderForResponse,
   finalizeOrder,
   normalizeOrderMessage,
@@ -675,9 +676,13 @@ export const getMyOrders = async (req, res) => {
       })
     );
 
+    const enriched = await attachCustomerDeliveryOtps(
+      orders.map((order) => enrichOrderForResponse(order, { customerView: true }))
+    );
+
     res.status(200).json({
       success: true,
-      data: orders.map((order) => enrichOrderForResponse(order, { customerView: true })),
+      data: enriched,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -715,9 +720,13 @@ export const getOrderById = async (req, res) => {
         .lean();
     }
 
+    const enriched = await attachCustomerDeliveryOtps(
+      enrichOrderForResponse(order, { customerView, verifiedAdvancePayment })
+    );
+
     res.status(200).json({
       success: true,
-      data: enrichOrderForResponse(order, { customerView, verifiedAdvancePayment }),
+      data: enriched,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

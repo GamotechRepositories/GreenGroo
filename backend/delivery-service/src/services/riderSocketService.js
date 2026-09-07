@@ -92,7 +92,10 @@ export async function buildStatusResponseExtras(rider) {
   }
 
   let todayMinutes = rider.todayOnlineMinutes || 0;
-  if (rider.status === "online" && rider.lastOnlineAt) {
+  if (
+    (rider.status === "online" || rider.status === "on_delivery") &&
+    rider.lastOnlineAt
+  ) {
     todayMinutes += addOnlineMinutesSince(rider, rider.lastOnlineAt);
   }
 

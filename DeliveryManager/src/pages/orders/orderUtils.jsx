@@ -69,10 +69,8 @@ export const STATUS_BADGE = Object.fromEntries(
 );
 
 export const STATUS_TABS = [
-  { id: "active", label: "Active" },
-  { id: "incoming", label: "New / Pack" },
-  { id: "packed", label: "Packed" },
-  { id: "out_for_delivery", label: "Out for Delivery" },
+  { id: "incoming", label: "Incoming" },
+  { id: "ongoing", label: "Ongoing" },
   { id: "delivered", label: "Delivered" },
   { id: "all", label: "All" },
 ];
@@ -80,14 +78,30 @@ export const STATUS_TABS = [
 export function matchesTab(order, tab) {
   const s = order.status;
   if (tab === "all") return true;
-  if (tab === "active") {
-    return ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery"].includes(s);
+  // New / pack queue awaiting action
+  if (tab === "incoming") {
+    return ["incoming", "order_received", "stock_issue", "packed", "offered"].includes(s);
   }
-  if (tab === "incoming") return ["incoming", "order_received", "stock_issue"].includes(s);
-  if (tab === "packed") return ["packed", "offered"].includes(s);
-  if (tab === "out_for_delivery") return ["assigned", "out_for_delivery"].includes(s);
+  // Assigned / out for delivery
+  if (tab === "ongoing") {
+    return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
+  }
   if (tab === "delivered") return s === "delivered";
+  // legacy aliases
+  if (tab === "active") {
+    return ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery", "pickup_verified"].includes(s);
+  }
+  if (tab === "packed") return ["packed", "offered"].includes(s);
+  if (tab === "out_for_delivery") return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
   return true;
+}
+
+export function countBySummaryBucket(orders = []) {
+  return {
+    incoming: orders.filter((o) => matchesTab(o, "incoming")).length,
+    ongoing: orders.filter((o) => matchesTab(o, "ongoing")).length,
+    delivered: orders.filter((o) => matchesTab(o, "delivered")).length,
+  };
 }
 
 export function formatOrderTime(value) {

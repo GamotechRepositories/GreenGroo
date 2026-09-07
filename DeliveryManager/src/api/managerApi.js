@@ -57,6 +57,9 @@ export const managerApi = {
   deleteSlotDateWise: (slotId, data = {}) =>
     api.delete(`${BASE}/shifts/slots/${slotId}`, { data }),
   getSlotDetailsWithRiders: (slotId) => api.get(`${BASE}/shifts/slots/${slotId}/details`),
+  getShiftEarningSlabs: (shiftId) => api.get(`${BASE}/shifts/${shiftId}/earning-slabs`),
+  updateShiftEarningSlabs: (shiftId, deliveryEarningSlabs) =>
+    api.put(`${BASE}/shifts/${shiftId}/earning-slabs`, { deliveryEarningSlabs }),
 
   // Gig & Incentive Management APIs
   createGig: (data) => api.post(`${BASE}/gigs`, data),

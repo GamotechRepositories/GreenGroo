@@ -179,6 +179,13 @@ const orderSchema = new mongoose.Schema(
       type: orderGiftHamperSchema,
       default: null,
     },
+    /** 4-digit OTP shown to customer; driver must enter it to complete delivery */
+    deliveryOtp: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 8,
+    },
   },
   { timestamps: true }
 );

@@ -7,6 +7,10 @@ import {
   getMyBooking,
 } from "./controllers/shiftController.js";
 import {
+  getRiderCashPending,
+  riderSubmitCash,
+} from "./controllers/cashSettlementController.js";
+import {
   listShifts,
 } from "./controllers/shiftManagementController.js";
 import {
@@ -27,6 +31,16 @@ import {
   getActiveDelivery,
   getPendingOffer,
   scanStoreQr,
+  uploadDeliveryProof,
+  verifyCustomerOtp,
+  confirmCashCollection,
+  confirmOnlinePaymentForOrder,
+  getOrderPaymentStatus,
+  scanPickupQr,
+  submitPickupProofByDriver,
+  verifyPickupByManager,
+  approvePickupProofByManager,
+  getManagerOrderPickupQr,
 } from "./controllers/riderOrderController.js";
 
 const riderRouter = express.Router();
@@ -39,7 +53,18 @@ riderRouter.post("/orders/:orderId/accept", protect, acceptOrderOffer);
 riderRouter.post("/orders/:orderId/decline", protect, declineOrderOffer);
 riderRouter.get("/active-delivery", protect, getActiveDelivery);
 riderRouter.post("/orders/:orderId/scan-store-qr", protect, scanStoreQr);
+riderRouter.post("/orders/:orderId/scan-pickup-qr", protect, scanPickupQr);
+riderRouter.post("/orders/:orderId/pickup-proof", protect, submitPickupProofByDriver);
+// Delivery completion flow
+riderRouter.post("/orders/:orderId/delivery-proof", protect, uploadDeliveryProof);
+riderRouter.post("/orders/:orderId/verify-otp", protect, verifyCustomerOtp);
+riderRouter.post("/orders/:orderId/collect-cash", protect, confirmCashCollection);
+riderRouter.post("/orders/:orderId/confirm-online-payment", protect, confirmOnlinePaymentForOrder);
+riderRouter.get("/orders/:orderId/payment-status", protect, getOrderPaymentStatus);
 riderRouter.post("/orders/:orderId/complete", protect, completeDelivery);
+// Cash liability
+riderRouter.get("/cash/pending", protect, getRiderCashPending);
+riderRouter.post("/cash/submit", protect, riderSubmitCash);
 
 const managerRouter = express.Router();
 managerRouter.use(protect, requireDeliveryManager);

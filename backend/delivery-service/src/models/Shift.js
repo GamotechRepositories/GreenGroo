@@ -122,6 +122,36 @@ const shiftSchema = new mongoose.Schema(
       index: true, // "YYYY-MM-DD" e.g. "2026-08-12"
     },
     slots: [slotSchema],
+
+    /**
+     * KM-based delivery earning slabs configured by the Dark Store manager.
+     * Example: [{ minKm: 0, maxKm: 2, riderAmount: 30 }, ...]
+     * The backend always uses these values — Flutter must never submit an earning amount.
+     */
+    deliveryEarningSlabs: {
+      type: [
+        {
+          minKm: { type: Number, required: true, min: 0 },
+          maxKm: { type: Number, required: true, min: 0 },
+          riderAmount: { type: Number, required: true, min: 0 },
+        },
+      ],
+      default: [],
+      validate: {
+        validator: function (slabs) {
+          for (let i = 0; i < slabs.length; i++) {
+            if (slabs[i].maxKm <= slabs[i].minKm) return false;
+            for (let j = i + 1; j < slabs.length; j++) {
+              // overlap check: [a.min, a.max) overlaps [b.min, b.max)
+              if (slabs[i].minKm < slabs[j].maxKm && slabs[i].maxKm > slabs[j].minKm) return false;
+            }
+          }
+          return true;
+        },
+        message: "Delivery earning slabs must not overlap and maxKm must be greater than minKm",
+      },
+    },
+
     isCustomized: {
       type: Boolean,
       default: false,
@@ -195,6 +225,12 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
     totalBooked,
     totalCapacity,
     isCustomized: this.isCustomized,
+    deliveryEarningSlabs: (this.deliveryEarningSlabs || []).map((s) => ({
+      id: s._id ? s._id.toString() : undefined,
+      minKm: s.minKm,
+      maxKm: s.maxKm,
+      riderAmount: s.riderAmount,
+    })),
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

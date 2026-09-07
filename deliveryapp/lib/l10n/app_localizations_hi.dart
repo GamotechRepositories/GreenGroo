@@ -1387,4 +1387,146 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get liveServerTime => 'लाइव सर्वर समय';
+
+  @override
+  String get year => 'वर्ष';
+
+  @override
+  String get onlineTime => 'ऑनलाइन समय';
+
+  @override
+  String get shiftsBookedLabel => 'बुक की गई शिफ़्ट';
+
+  @override
+  String get completedShiftsLabel => 'पूर्ण शिफ़्ट';
+
+  @override
+  String get earnShort => 'कमाई';
+
+  @override
+  String get doneShort => 'पूर्ण';
+
+  @override
+  String get couldNotLoadHistory => 'इतिहास लोड नहीं हो सका';
+
+  @override
+  String get noActivityInPeriod => 'इस अवधि में कोई गतिविधि नहीं';
+
+  @override
+  String tripsCount(int count) {
+    return '$count ट्रिप';
+  }
+
+  @override
+  String tripCountOne(int count) {
+    return '$count ट्रिप';
+  }
+
+  @override
+  String shiftsCount(int count) {
+    return '$count शिफ़्ट';
+  }
+
+  @override
+  String shiftCountOne(int count) {
+    return '$count शिफ़्ट';
+  }
+
+  @override
+  String completedCountLabel(int count) {
+    return '$count पूर्ण';
+  }
+
+  @override
+  String shiftsBookedValue(int count) {
+    return '$count बुक';
+  }
+
+  @override
+  String shiftsDoneValue(int count) {
+    return '$count शिफ़्ट';
+  }
+
+  @override
+  String tripsAndOnlineSummary(int trips, String onlineTime) {
+    return '$trips ट्रिप · $onlineTime';
+  }
+
+  @override
+  String get thisWeekEarningsTitle => 'इस सप्ताह की कमाई';
+
+  @override
+  String get fullWeekEarnings => 'पूरे सप्ताह की कमाई';
+
+  @override
+  String deliveriesAndToday(int count, String amount) {
+    return '$count डिलीवरी · आज $amount';
+  }
+
+  @override
+  String withdrawRequestSubmitted(String amount) {
+    return '$amount की निकासी अनुरोध भेजी गई।';
+  }
+
+  @override
+  String get withdrawAvailableSaturday => 'आज (शनिवार) निकासी उपलब्ध है।';
+
+  @override
+  String get noEarningsToWithdraw => 'इस सप्ताह निकालने के लिए कोई कमाई नहीं।';
+
+  @override
+  String get withdrawOpensSaturday =>
+      'निकासी केवल शनिवार को खुलती है। साप्ताहिक कमाई तब तक लॉक रहती है।';
+
+  @override
+  String get weeklyChart => 'साप्ताहिक चार्ट';
+
+  @override
+  String get noEarningsThisWeekYet => 'इस सप्ताह अभी कोई कमाई नहीं';
+
+  @override
+  String get dayWiseEarnings => 'दिनवार कमाई';
+
+  @override
+  String get completeDeliveriesForWeekly =>
+      'साप्ताहिक कमाई देखने के लिए डिलीवरी पूरी करें।';
+
+  @override
+  String deliveriesCount(int count) {
+    return '$count डिलीवरी';
+  }
+
+  @override
+  String todayWithLabel(String label) {
+    return 'आज · $label';
+  }
+
+  @override
+  String dayWithDate(String label, String date) {
+    return '$label · $date';
+  }
+
+  @override
+  String get todayTrips => 'आज की ट्रिप';
+
+  @override
+  String get lifetimeEarnings => 'कुल जीवनकाल';
+
+  @override
+  String get noDeliveriesTodayYet => 'आज अभी कोई डिलीवरी पूरी नहीं हुई।';
+
+  @override
+  String orderNumberHash(String number) {
+    return 'ऑर्डर #$number';
+  }
+
+  @override
+  String deliveriesUpdatedLive(int count, String updatedLive) {
+    return '$count डिलीवरी · $updatedLive';
+  }
+
+  @override
+  String distanceKmValue(String km) {
+    return '$km किमी';
+  }
 }

@@ -20,6 +20,7 @@ import OrderItemImage from "./OrderItemImage";
 import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
+import DeliveryOtpBanner from "./DeliveryOtpBanner";
 
 function StatusBadge({ status }) {
   const color = getOrderStatusColor(status);
@@ -216,6 +217,8 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 <MiniTracker activeIndex={activeIndex} isCancelled={isCancelled} isReturn={isReturn} />
               </div>
             </section>
+
+            <DeliveryOtpBanner order={order} />
 
             {order.status === "delivered" && deliveryRating ? (
               <section className="rounded-xl border border-[#FFD6DC] bg-[#FFF0F2] px-5 py-4">

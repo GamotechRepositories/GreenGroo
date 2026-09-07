@@ -1395,4 +1395,147 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get liveServerTime => 'లైవ్ సర్వర్ సమయం';
+
+  @override
+  String get year => 'సంవత్సరం';
+
+  @override
+  String get onlineTime => 'ఆన్‌లైన్ సమయం';
+
+  @override
+  String get shiftsBookedLabel => 'బుక్ చేసిన షిఫ్ట్‌లు';
+
+  @override
+  String get completedShiftsLabel => 'పూర్తైన షిఫ్ట్‌లు';
+
+  @override
+  String get earnShort => 'సంపాదన';
+
+  @override
+  String get doneShort => 'పూర్తి';
+
+  @override
+  String get couldNotLoadHistory => 'చరిత్ర లోడ్ కాలేదు';
+
+  @override
+  String get noActivityInPeriod => 'ఈ కాలంలో కార్యకలాపం లేదు';
+
+  @override
+  String tripsCount(int count) {
+    return '$count ట్రిప్‌లు';
+  }
+
+  @override
+  String tripCountOne(int count) {
+    return '$count ట్రిప్';
+  }
+
+  @override
+  String shiftsCount(int count) {
+    return '$count షిఫ్ట్‌లు';
+  }
+
+  @override
+  String shiftCountOne(int count) {
+    return '$count షిఫ్ట్';
+  }
+
+  @override
+  String completedCountLabel(int count) {
+    return '$count పూర్తి';
+  }
+
+  @override
+  String shiftsBookedValue(int count) {
+    return '$count బుక్';
+  }
+
+  @override
+  String shiftsDoneValue(int count) {
+    return '$count షిఫ్ట్‌లు';
+  }
+
+  @override
+  String tripsAndOnlineSummary(int trips, String onlineTime) {
+    return '$trips ట్రిప్‌లు · $onlineTime';
+  }
+
+  @override
+  String get thisWeekEarningsTitle => 'ఈ వారం సంపాదన';
+
+  @override
+  String get fullWeekEarnings => 'పూర్తి వారం సంపాదన';
+
+  @override
+  String deliveriesAndToday(int count, String amount) {
+    return '$count డెలివరీలు · ఈరోజు $amount';
+  }
+
+  @override
+  String withdrawRequestSubmitted(String amount) {
+    return '$amount ఉపసంహరణ అభ్యర్థన సమర్పించబడింది.';
+  }
+
+  @override
+  String get withdrawAvailableSaturday =>
+      'ఈరోజు (శనివారం) ఉపసంహరణ అందుబాటులో ఉంది.';
+
+  @override
+  String get noEarningsToWithdraw => 'ఈ వారం ఉపసంహరించడానికి సంపాదన లేదు.';
+
+  @override
+  String get withdrawOpensSaturday =>
+      'ఉపసంహరణ శనివారం మాత్రమే. వారపు సంపాదన అప్పటి వరకు లాక్.';
+
+  @override
+  String get weeklyChart => 'వారపు చార్ట్';
+
+  @override
+  String get noEarningsThisWeekYet => 'ఈ వారం ఇంకా సంపాదన లేదు';
+
+  @override
+  String get dayWiseEarnings => 'రోజువారీ సంపాదన';
+
+  @override
+  String get completeDeliveriesForWeekly =>
+      'వారపు సంపాదన చూడటానికి డెలివరీలు పూర్తి చేయండి.';
+
+  @override
+  String deliveriesCount(int count) {
+    return '$count డెలివరీలు';
+  }
+
+  @override
+  String todayWithLabel(String label) {
+    return 'ఈరోజు · $label';
+  }
+
+  @override
+  String dayWithDate(String label, String date) {
+    return '$label · $date';
+  }
+
+  @override
+  String get todayTrips => 'ఈరోజు ట్రిప్‌లు';
+
+  @override
+  String get lifetimeEarnings => 'మొత్తం';
+
+  @override
+  String get noDeliveriesTodayYet => 'ఈరోజు ఇంకా డెలివరీలు పూర్తి కాలేదు.';
+
+  @override
+  String orderNumberHash(String number) {
+    return 'ఆర్డర్ #$number';
+  }
+
+  @override
+  String deliveriesUpdatedLive(int count, String updatedLive) {
+    return '$count డెలివరీలు · $updatedLive';
+  }
+
+  @override
+  String distanceKmValue(String km) {
+    return '$km కి.మీ';
+  }
 }

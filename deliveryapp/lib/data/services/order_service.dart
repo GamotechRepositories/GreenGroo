@@ -66,6 +66,19 @@ class ActiveDeliveryData {
     this.customerLat,
     this.customerLng,
     this.otpCode,
+    // Payment
+    this.paymentMethod = '',
+    this.paymentStatus = 'pending',
+    this.amountToCollect = 0,
+    this.amountCollected = 0,
+    this.itemsTotal = 0,
+    this.deliveryFee = 0,
+    // Delivery proof & OTP
+    this.deliveryProofImageUrl = '',
+    this.customerOtpVerified = false,
+    // Earning (read-only — set by backend on delivery completion)
+    this.deliveryDistanceKm = 0.0,
+    this.riderDeliveryEarning = 0,
   });
 
   final String id;
@@ -89,6 +102,28 @@ class ActiveDeliveryData {
   final double? customerLat;
   final double? customerLng;
   final String? otpCode;
+  // Payment
+  final String paymentMethod;
+  final String paymentStatus;
+  final int amountToCollect;
+  final int amountCollected;
+  final int itemsTotal;
+  final int deliveryFee;
+  // Delivery proof & OTP
+  final String deliveryProofImageUrl;
+  final bool customerOtpVerified;
+  // Earning (backend-calculated, read-only)
+  final double deliveryDistanceKm;
+  final int riderDeliveryEarning;
+
+  /// True if payment is already settled online — rider must NOT collect cash
+  bool get isPaidOnline => paymentStatus == 'paid_online';
+
+  /// True if cash has been collected for this order
+  bool get isCashCollected => paymentStatus == 'collected';
+
+  /// True if payment is pending (customer needs to pay)
+  bool get isPaymentPending => paymentStatus == 'pending';
 
   factory ActiveDeliveryData.fromJson(Map<String, dynamic> json) => ActiveDeliveryData(
         id: json['id'] as String? ?? '',
@@ -111,6 +146,19 @@ class ActiveDeliveryData {
         darkStoreLng: json['darkStoreLng'] != null ? (json['darkStoreLng'] as num).toDouble() : null,
         customerLat: json['customerLat'] != null ? (json['customerLat'] as num).toDouble() : null,
         customerLng: json['customerLng'] != null ? (json['customerLng'] as num).toDouble() : null,
+        // Payment
+        paymentMethod: json['paymentMethod'] as String? ?? '',
+        paymentStatus: json['paymentStatus'] as String? ?? 'pending',
+        amountToCollect: (json['amountToCollect'] as num?)?.toInt() ?? 0,
+        amountCollected: (json['amountCollected'] as num?)?.toInt() ?? 0,
+        itemsTotal: (json['itemsTotal'] as num?)?.toInt() ?? 0,
+        deliveryFee: (json['deliveryFee'] as num?)?.toInt() ?? 0,
+        // Delivery proof & OTP
+        deliveryProofImageUrl: json['deliveryProofImageUrl'] as String? ?? '',
+        customerOtpVerified: json['customerOtpVerified'] as bool? ?? false,
+        // Earning
+        deliveryDistanceKm: (json['deliveryDistanceKm'] as num?)?.toDouble() ?? 0.0,
+        riderDeliveryEarning: (json['riderDeliveryEarning'] as num?)?.toInt() ?? 0,
         otpCode: json['otpCode'] as String?,
       );
 }
@@ -289,21 +337,171 @@ class OrderService extends ChangeNotifier {
     }
   }
 
-  Future<bool> completeDelivery(String orderId, String otp) async {
+  Future<({bool success, String? error})> completeDelivery(String orderId, String otp) async {
     try {
       final res = await apiPost(
         ApiConfig.completeDelivery(orderId),
         headers: AuthService.instance.authHeaders,
         body: jsonEncode({'otp': otp}),
       );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode == 200) {
         _activeDelivery = null;
         notifyListeners();
-        return true;
+        return (success: true, error: null);
       }
-      return false;
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Incorrect OTP. Ask the customer for their order OTP.',
+      );
     } catch (_) {
-      return false;
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  /// Upload delivery proof photo (base64 data URL or plain base64).
+  Future<({bool success, String? error})> uploadDeliveryProof(
+    String orderId,
+    String imageBase64,
+  ) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.uploadDeliveryProof(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'imageBase64': imageBase64}),
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Could not upload delivery photo.',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  /// Verify customer OTP on the backend.
+  Future<({bool success, String? error})> verifyCustomerOtp(
+    String orderId,
+    String otp,
+  ) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.verifyCustomerOtp(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'otp': otp}),
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return (success: true, error: null);
+      }
+      return (success: false, error: body['message'] as String? ?? 'OTP verification failed');
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  /// Confirm cash collection from the customer.
+  Future<({bool success, String? error, int? amountCollected})> confirmCashCollection(String orderId) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.confirmCashCollection(orderId),
+        headers: AuthService.instance.authHeaders,
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return (
+          success: true,
+          error: null,
+          amountCollected: (body['amountCollected'] as num?)?.toInt(),
+        );
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Cash confirmation failed',
+        amountCollected: null,
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.', amountCollected: null);
+    }
+  }
+
+  /// Confirm customer paid online (Razorpay / UPI scan).
+  Future<({bool success, String? error})> confirmOnlinePayment(String orderId) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.confirmOnlinePayment(orderId),
+        headers: AuthService.instance.authHeaders,
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Online payment confirmation failed',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  /// Get rider's pending cash liability.
+  Future<Map<String, dynamic>?> fetchPendingCash() async {
+    try {
+      final res = await apiGet(
+        ApiConfig.riderPendingCash,
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get per-order delivery earnings detail (today by default).
+  Future<Map<String, dynamic>?> fetchEarningsDetail({String? date}) async {
+    try {
+      final res = await apiGet(
+        ApiConfig.earningsDetail(date: date),
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Last 7 days earnings summary for wallet.
+  Future<Map<String, dynamic>?> fetchWeeklyEarnings() async {
+    try {
+      final res = await apiGet(
+        ApiConfig.earningsDetail(range: 'week'),
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 }

@@ -42,8 +42,12 @@ function waitingSince(driver) {
 
 function assignmentMaxDistanceM(darkStore) {
   const geofence = Number(darkStore?.geofenceRadius);
-  const fromStore = Number.isFinite(geofence) && geofence > 0 ? geofence : 500;
-  return Math.max(fromStore, MAX_ASSIGNMENT_DISTANCE_M, 2000);
+  const deliveryKm = Number(darkStore?.deliveryRadiusKm);
+  const fromGeofence = Number.isFinite(geofence) && geofence > 0 ? geofence : 500;
+  const fromDelivery =
+    Number.isFinite(deliveryKm) && deliveryKm > 0 ? deliveryKm * 1000 : 5000;
+  // Keep assign radius >= go-online same-area allowance so "online" drivers can get offers
+  return Math.max(fromGeofence, fromDelivery, MAX_ASSIGNMENT_DISTANCE_M, 15000);
 }
 
 export async function findEligibleDrivers(darkStore, excludedIds = []) {
@@ -52,13 +56,37 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
   const storeId = darkStore._id;
   const maxDistanceM = assignmentMaxDistanceM(darkStore);
 
+  if (storeLat == null || storeLng == null) {
+    console.warn(
+      `[assignment] store ${storeId} missing latitude/longitude — no drivers can be matched`
+    );
+  }
+
   const drivers = await DeliveryBoy.find({
-    managerId: storeId,
     isActive: true,
     status: "online",
     activeOrderId: null,
     _id: { $nin: excludedIds },
-    $or: [{ verificationStatus: "approved" }, { verificationStatus: { $exists: false } }],
+    $and: [
+      {
+        $or: [
+          { managerId: storeId },
+          {
+            managerId: { $in: [null, undefined] },
+            $or: [
+              { cityId: darkStore.cityId, area: darkStore.area },
+              { city: darkStore.city, area: darkStore.area },
+            ],
+          },
+        ],
+      },
+      {
+        $or: [
+          { verificationStatus: "approved" },
+          { verificationStatus: { $exists: false } },
+        ],
+      },
+    ],
   });
 
   const now = Date.now();
@@ -66,14 +94,26 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
 
   for (const driver of drivers) {
     const loc = driver.currentLocation;
-    if (!loc?.lat || !loc?.lng) continue;
-    if (!loc.updatedAt || now - new Date(loc.updatedAt).getTime() > LOCATION_FRESHNESS_MS) {
+    if (loc?.lat == null || loc?.lng == null) {
+      console.warn(`[assignment] skip ${driver._id}: missing currentLocation`);
+      continue;
+    }
+
+    const locUpdatedAt = loc.updatedAt || driver.lastStatusAt || driver.lastOnlineAt;
+    if (!locUpdatedAt || now - new Date(locUpdatedAt).getTime() > LOCATION_FRESHNESS_MS) {
+      console.warn(`[assignment] skip ${driver._id}: stale/missing location timestamp`);
       continue;
     }
 
     const distanceM = metersBetween(storeLat, storeLng, loc.lat, loc.lng);
-    if (distanceM == null) continue;
+    if (distanceM == null) {
+      console.warn(`[assignment] skip ${driver._id}: cannot compute distance (store coords?)`);
+      continue;
+    }
     if (distanceM < MIN_ASSIGNMENT_DISTANCE_M || distanceM > maxDistanceM) {
+      console.warn(
+        `[assignment] skip ${driver._id}: ${Math.round(distanceM)}m outside [${MIN_ASSIGNMENT_DISTANCE_M}, ${maxDistanceM}]m`
+      );
       continue;
     }
 
@@ -133,7 +173,18 @@ export async function assignNextDriver(orderId) {
       ...(order.excludedDriverIds || order.roundRobinRidersAttempted || []),
     ].map(String);
 
-    const eligible = await findEligibleDrivers(darkStore, excludedIds);
+    let eligible = await findEligibleDrivers(darkStore, excludedIds);
+
+    // After a full offer cycle (timeouts/declines), exclusions can leave zero candidates.
+    // Reset so the only/remaining online driver is not permanently stuck.
+    if (!eligible.length && excludedIds.length) {
+      console.warn(
+        `[assignment] order ${order.orderNumber || order._id}: no eligible with ${excludedIds.length} excluded — resetting exclusions`
+      );
+      order.excludedDriverIds = [];
+      order.roundRobinRidersAttempted = [];
+      eligible = await findEligibleDrivers(darkStore, []);
+    }
 
     if (!eligible.length) {
       order.status = "packed";
@@ -174,6 +225,13 @@ export async function assignNextDriver(orderId) {
 
     waitingOrderIds.delete(String(order._id));
     const { driver: selectedDriver, distanceM } = eligible[0];
+
+    // Bind store hub if driver was online via area match without managerId
+    if (!selectedDriver.managerId || String(selectedDriver.managerId) !== String(darkStore._id)) {
+      selectedDriver.managerId = darkStore._id;
+      await selectedDriver.save().catch(() => {});
+    }
+
     const offerDurationMs = OFFER_TIMEOUT_SECONDS * 1000;
     const startedAt = new Date();
     const expiresAt = new Date(Date.now() + offerDurationMs);
@@ -312,6 +370,10 @@ export async function acceptDriverOffer(orderId, driverId) {
   const now = new Date();
   clearOfferTimer(orderId);
 
+  // Resolve the rider's active shift booking (used for delivery earning calculation)
+  const acceptingDriver = await DeliveryBoy.findById(driverId).select("currentBooking");
+  const riderShiftId = acceptingDriver?.currentBooking?.shiftId || null;
+
   const order = await StoreOrder.findOneAndUpdate(
     {
       _id: orderId,
@@ -331,6 +393,8 @@ export async function acceptDriverOffer(orderId, driverId) {
         offerExpiresAt: null,
         pickupVerified: false,
         customerAddressUnlocked: false,
+        // Store rider's active shift so earning slabs can be resolved on delivery
+        ...(riderShiftId ? { shiftId: riderShiftId } : {}),
       },
     },
     { new: true }

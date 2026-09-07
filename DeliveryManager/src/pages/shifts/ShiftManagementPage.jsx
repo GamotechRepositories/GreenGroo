@@ -98,6 +98,37 @@ export default function ShiftManagementPage() {
     { startTime: "09:00 AM", endTime: "01:00 PM", capacity: 10 },
   ]);
 
+  // KM-based delivery earning slabs (what drivers earn per delivery distance)
+  const [earningSlabs, setEarningSlabs] = useState([
+    { minKm: 0, maxKm: 2, riderAmount: 30 },
+    { minKm: 2, maxKm: 5, riderAmount: 50 },
+    { minKm: 5, maxKm: 10, riderAmount: 80 },
+  ]);
+
+  const addEarningSlabRow = () => {
+    if (earningSlabs.length >= 8) {
+      showToast("Maximum 8 KM earning slabs allowed");
+      return;
+    }
+    const last = earningSlabs[earningSlabs.length - 1];
+    const nextMin = last ? Number(last.maxKm) || 0 : 0;
+    setEarningSlabs([
+      ...earningSlabs,
+      { minKm: nextMin, maxKm: nextMin + 3, riderAmount: last ? Number(last.riderAmount) + 20 : 30 },
+    ]);
+  };
+
+  const removeEarningSlabRow = (index) => {
+    if (earningSlabs.length <= 1) return;
+    setEarningSlabs(earningSlabs.filter((_, i) => i !== index));
+  };
+
+  const updateEarningSlabRow = (index, field, value) => {
+    const updated = [...earningSlabs];
+    updated[index] = { ...updated[index], [field]: value === "" ? "" : Number(value) };
+    setEarningSlabs(updated);
+  };
+
   // Edit slot form state
   const [editCapacity, setEditCapacity] = useState(10);
   const [editStatus, setEditStatus] = useState("AVAILABLE");
@@ -178,6 +209,28 @@ export default function ShiftManagementPage() {
 
   const handleCreateShift = async (e) => {
     e.preventDefault();
+    const deliveryEarningSlabs = earningSlabs.map((s) => ({
+      minKm: Number(s.minKm),
+      maxKm: Number(s.maxKm),
+      riderAmount: Number(s.riderAmount),
+    }));
+
+    for (let i = 0; i < deliveryEarningSlabs.length; i++) {
+      const s = deliveryEarningSlabs[i];
+      if (isNaN(s.minKm) || s.minKm < 0) {
+        showToast(`Slab ${i + 1}: Min KM must be 0 or more`);
+        return;
+      }
+      if (isNaN(s.maxKm) || s.maxKm <= s.minKm) {
+        showToast(`Slab ${i + 1}: Max KM must be greater than Min KM`);
+        return;
+      }
+      if (isNaN(s.riderAmount) || s.riderAmount < 0) {
+        showToast(`Slab ${i + 1}: Rider earning (₹) must be 0 or more`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const res = await managerApi.createShift({
@@ -193,6 +246,7 @@ export default function ShiftManagementPage() {
         recurrenceMode,
         targetDate,
         daysOfWeek: selectedDaysOfWeek,
+        deliveryEarningSlabs,
       });
 
       showToast(res.data.message || "Shift created successfully!");
@@ -581,6 +635,83 @@ export default function ShiftManagementPage() {
                         onClick={() => removeSlotRow(idx)}
                         className="text-xs text-rose-600 font-bold p-1 hover:bg-rose-50 rounded"
                         title="Remove Slot"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* KM-BASED DELIVERY EARNING SLABS */}
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-emerald-900 uppercase tracking-wide">
+                      Delivery Charges / KM Earning Slabs
+                    </label>
+                    <p className="text-[11px] text-emerald-800/80">
+                      Rider pay by delivery distance (e.g. 0–2 KM → ₹30)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addEarningSlabRow}
+                    className="shrink-0 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700 transition"
+                  >
+                    + Add KM Slab
+                  </button>
+                </div>
+
+                {earningSlabs.map((slab, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 rounded-xl bg-white p-2.5 border border-emerald-200"
+                  >
+                    <span className="text-[11px] font-bold text-emerald-800 w-5">#{idx + 1}</span>
+                    <div className="flex-1 grid grid-cols-3 gap-2">
+                      <div>
+                        <span className="block text-[9px] font-bold text-slate-400 uppercase">Min KM</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          required
+                          value={slab.minKm}
+                          onChange={(e) => updateEarningSlabRow(idx, "minKm", e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold text-slate-400 uppercase">Max KM</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          required
+                          value={slab.maxKm}
+                          onChange={(e) => updateEarningSlabRow(idx, "maxKm", e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold text-emerald-700 uppercase">Earn ₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          required
+                          value={slab.riderAmount}
+                          onChange={(e) => updateEarningSlabRow(idx, "riderAmount", e.target.value)}
+                          className="w-full rounded-lg border border-emerald-200 bg-emerald-50/40 px-2 py-1.5 text-xs font-bold text-emerald-800"
+                        />
+                      </div>
+                    </div>
+                    {earningSlabs.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeEarningSlabRow(idx)}
+                        className="text-xs text-rose-600 font-bold p-1 hover:bg-rose-50 rounded"
+                        title="Remove slab"
                       >
                         ✕
                       </button>

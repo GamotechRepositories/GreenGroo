@@ -33,6 +33,82 @@ String getOrderDisplayCode(Order order) {
   return getOrderNumber(order);
 }
 
+bool _shouldShowDeliveryOtp(Order order) {
+  final otp = order.deliveryOtp.trim();
+  if (otp.isEmpty) return false;
+  return const {'confirm', 'processing', 'shipping'}.contains(order.status);
+}
+
+class _DeliveryOtpBanner extends StatelessWidget {
+  const _DeliveryOtpBanner({required this.otp});
+
+  final String otp;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFA7F3D0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'DELIVERY OTP',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: Color(0xFF065F46),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Share this code with the delivery partner to complete your order.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF047857),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SelectableText(
+              otp,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 8,
+                color: Color(0xFF064E3B),
+                fontFamily: 'monospace',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: otp));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Delivery OTP copied')),
+                );
+              },
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: const Text('Copy OTP'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF065F46),
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class BlinkitOrderDetailBody extends ConsumerStatefulWidget {
   const BlinkitOrderDetailBody({
     super.key,
@@ -110,6 +186,8 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ],
                 if (order.status == 'delivered' && deliveryRating != null)
                   _RatingBanner(rating: deliveryRating),
+                if (_shouldShowDeliveryOtp(order))
+                  _DeliveryOtpBanner(otp: order.deliveryOtp),
                 _ShipmentStatusBlock(
                   shipmentNumber: _selectedShipment + 1,
                   statusLabel: statusLabel,

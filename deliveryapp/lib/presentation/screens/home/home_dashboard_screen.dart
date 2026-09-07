@@ -491,7 +491,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 _TodaysProgressSectionCard(
                   data: _todayProgress,
                   isLoading: _loadingProgress,
-                  onViewAll: () => Navigator.pushNamed(context, AppRoutes.earnings),
+                  onViewAll: () => Navigator.pushNamed(context, AppRoutes.deliveryHistory),
                 ),
                 const SizedBox(height: 18),
 
@@ -1018,10 +1018,14 @@ class _TodaysProgressSectionCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     final earningsStr = '₹${data.todayEarnings}';
-    final tripsStr = '${data.completedTrips} ${data.completedTrips == 1 ? 'Trip' : 'Trips'}';
+    final tripsStr = data.completedTrips == 1
+        ? l10n.tripCountOne(data.completedTrips)
+        : l10n.tripsCount(data.completedTrips);
     final onlineStr = data.onlineTime;
-    final shiftsStr = '${data.bookedShifts} ${data.bookedShifts == 1 ? 'Shift' : 'Shifts'}';
-    final completedStr = '${data.completedShifts} Completed';
+    final shiftsStr = data.bookedShifts == 1
+        ? l10n.shiftCountOne(data.bookedShifts)
+        : l10n.shiftsCount(data.bookedShifts);
+    final completedStr = l10n.completedCountLabel(data.completedShifts);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1067,27 +1071,27 @@ class _TodaysProgressSectionCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: const [
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
               BoxShadow(
-                color: Color(0x0A000000),
+                color: AppColors.shadow,
                 blurRadius: 10,
-                offset: Offset(0, 4),
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: isLoading
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: Color(0xFF16A34A),
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
@@ -1112,9 +1116,9 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(height: 1, color: Color(0xFFF3F4F6)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(height: 1, color: AppColors.border),
                     ),
 
                     // ROW 2: Today's Online Session & Today's Shifts Booked
@@ -1123,21 +1127,21 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                         Expanded(
                           child: _MetricTile(
                             value: onlineStr,
-                            label: 'Online Time',
+                            label: l10n.onlineTime,
                           ),
                         ),
                         const _VerticalDivider(),
                         Expanded(
                           child: _MetricTile(
                             value: shiftsStr,
-                            label: 'Shifts Booked',
+                            label: l10n.shiftsBookedLabel,
                           ),
                         ),
                       ],
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(height: 1, color: Color(0xFFF3F4F6)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Divider(height: 1, color: AppColors.border),
                     ),
 
                     // ROW 3: Today's Completed Shifts
@@ -1146,7 +1150,7 @@ class _TodaysProgressSectionCard extends StatelessWidget {
                         Expanded(
                           child: _MetricTile(
                             value: completedStr,
-                            label: 'Completed Shifts',
+                            label: l10n.completedShiftsLabel,
                           ),
                         ),
                       ],

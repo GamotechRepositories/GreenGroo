@@ -147,6 +147,48 @@ const storeOrderSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+
+    // ── Payment fields (extended for delivery workflow) ─────────────────────
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "online", "wallet", ""],
+      default: "",
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "collected", "paid_online", "failed", ""],
+      default: "pending",
+    },
+    amountToCollect: { type: Number, default: 0 },
+    amountCollected: { type: Number, default: 0 },
+
+    // ── Delivery proof / OTP (extended) ─────────────────────────────────────
+    deliveryProofImageUrl: { type: String, default: "" },
+    proofUploadedAt: { type: Date },
+    /** customerOtpVerified flags OTP validated on backend */
+    customerOtpVerified: { type: Boolean, default: false },
+    customerOtpVerifiedAt: { type: Date },
+    /** OTP attempt tracking to prevent brute-force */
+    otpAttempts: { type: Number, default: 0 },
+    otpLockedUntil: { type: Date },
+
+    // ── Shift reference: set when rider accepts; used for earning slab lookup ─
+    shiftId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shift",
+      default: null,
+      index: true,
+    },
+
+    // ── Distance & rider earning (calculated by backend on delivery) ─────────
+    deliveryDistanceKm: { type: Number, default: 0 },
+    riderDeliveryEarning: { type: Number, default: 0 },
+    earningSlab: {
+      minKm: { type: Number, default: 0 },
+      maxKm: { type: Number, default: 0 },
+      riderAmount: { type: Number, default: 0 },
+    },
+    earningCalculatedAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -221,6 +263,24 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     deliveredAt: this.deliveredAt,
     notes: this.notes,
     sourceOrderId: this.sourceOrderId ? this.sourceOrderId.toString() : null,
+    // Payment
+    paymentMethod: this.paymentMethod || "",
+    paymentStatus: this.paymentStatus || "pending",
+    amountToCollect: this.amountToCollect || 0,
+    amountCollected: this.amountCollected || 0,
+    // Delivery proof / OTP
+    deliveryProofImageUrl: this.deliveryProofImageUrl || "",
+    proofUploadedAt: this.proofUploadedAt,
+    customerOtpVerified: Boolean(this.customerOtpVerified),
+    customerOtpVerifiedAt: this.customerOtpVerifiedAt,
+    // Shift & earning
+    shiftId: this.shiftId ? this.shiftId.toString() : null,
+    deliveryDistanceKm: this.deliveryDistanceKm || 0,
+    riderDeliveryEarning: this.riderDeliveryEarning || 0,
+    earningSlab: this.earningSlab
+      ? { minKm: this.earningSlab.minKm, maxKm: this.earningSlab.maxKm, riderAmount: this.earningSlab.riderAmount }
+      : null,
+    earningCalculatedAt: this.earningCalculatedAt,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

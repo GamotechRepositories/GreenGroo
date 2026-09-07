@@ -1388,4 +1388,147 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get liveServerTime => 'Live Server Time';
+
+  @override
+  String get year => 'Year';
+
+  @override
+  String get onlineTime => 'Online Time';
+
+  @override
+  String get shiftsBookedLabel => 'Shifts Booked';
+
+  @override
+  String get completedShiftsLabel => 'Completed Shifts';
+
+  @override
+  String get earnShort => 'Earn';
+
+  @override
+  String get doneShort => 'Done';
+
+  @override
+  String get couldNotLoadHistory => 'Could not load history';
+
+  @override
+  String get noActivityInPeriod => 'No activity in this period';
+
+  @override
+  String tripsCount(int count) {
+    return '$count Trips';
+  }
+
+  @override
+  String tripCountOne(int count) {
+    return '$count Trip';
+  }
+
+  @override
+  String shiftsCount(int count) {
+    return '$count Shifts';
+  }
+
+  @override
+  String shiftCountOne(int count) {
+    return '$count Shift';
+  }
+
+  @override
+  String completedCountLabel(int count) {
+    return '$count Completed';
+  }
+
+  @override
+  String shiftsBookedValue(int count) {
+    return '$count booked';
+  }
+
+  @override
+  String shiftsDoneValue(int count) {
+    return '$count shifts';
+  }
+
+  @override
+  String tripsAndOnlineSummary(int trips, String onlineTime) {
+    return '$trips trips · $onlineTime';
+  }
+
+  @override
+  String get thisWeekEarningsTitle => 'This week earnings';
+
+  @override
+  String get fullWeekEarnings => 'Full week earnings';
+
+  @override
+  String deliveriesAndToday(int count, String amount) {
+    return '$count deliveries · Today $amount';
+  }
+
+  @override
+  String withdrawRequestSubmitted(String amount) {
+    return 'Withdraw request for $amount submitted.';
+  }
+
+  @override
+  String get withdrawAvailableSaturday =>
+      'Withdraw is available today (Saturday).';
+
+  @override
+  String get noEarningsToWithdraw => 'No earnings to withdraw this week.';
+
+  @override
+  String get withdrawOpensSaturday =>
+      'Withdraw opens only on Saturday. Your weekly earnings stay locked until then.';
+
+  @override
+  String get weeklyChart => 'Weekly chart';
+
+  @override
+  String get noEarningsThisWeekYet => 'No earnings this week yet';
+
+  @override
+  String get dayWiseEarnings => 'Day-wise earnings';
+
+  @override
+  String get completeDeliveriesForWeekly =>
+      'Complete deliveries to see weekly earnings here.';
+
+  @override
+  String deliveriesCount(int count) {
+    return '$count deliveries';
+  }
+
+  @override
+  String todayWithLabel(String label) {
+    return 'Today · $label';
+  }
+
+  @override
+  String dayWithDate(String label, String date) {
+    return '$label · $date';
+  }
+
+  @override
+  String get todayTrips => 'Today trips';
+
+  @override
+  String get lifetimeEarnings => 'Lifetime';
+
+  @override
+  String get noDeliveriesTodayYet => 'No deliveries completed today yet.';
+
+  @override
+  String orderNumberHash(String number) {
+    return 'Order #$number';
+  }
+
+  @override
+  String deliveriesUpdatedLive(int count, String updatedLive) {
+    return '$count deliveries · $updatedLive';
+  }
+
+  @override
+  String distanceKmValue(String km) {
+    return '$km km';
+  }
 }

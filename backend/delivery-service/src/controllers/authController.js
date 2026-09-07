@@ -14,6 +14,15 @@ import {
 import { isS3Configured, uploadDataUrlToS3 } from "../services/s3Service.js";
 import { areaMatches, placesEqual } from "../utils/matchPlace.js";
 import { findLiveGigForManager } from "./gigManagementController.js";
+import {
+  formatOnlineMinutes,
+  istDateString,
+  istDayRange,
+  listIstDatesInMonth,
+  listRecentIstDates,
+  liveOnlineMinutes,
+  snapshotDailyActivity,
+} from "../utils/onlineHoursHelper.js";
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -860,35 +869,38 @@ export const getTodayProgress = async (req, res, next) => {
       });
     }
 
-    // Today's date in Indian Standard Time (IST, UTC+5:30)
-    const todayISTDateString = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
+    const todayISTDateString = istDateString();
 
-    // Reset daily counters if date has changed in IST
-    if (rider.todayOnlineDate !== todayISTDateString) {
+    // Reset daily counters if IST day changed (and snapshot previous day)
+    if (rider.todayOnlineDate && rider.todayOnlineDate !== todayISTDateString) {
+      snapshotDailyActivity(rider, {
+        date: rider.todayOnlineDate,
+        onlineMinutes: rider.todayOnlineMinutes || 0,
+        earnings: rider.todayEarnings || 0,
+        trips: rider.todayCompletedOrders || rider.todayOrderCount || 0,
+      });
       rider.todayEarnings = 0;
       rider.todayCompletedOrders = 0;
       rider.todayOrderCount = 0;
       rider.todayOnlineMinutes = 0;
       rider.todayOnlineDate = todayISTDateString;
       await rider.save();
+    } else if (!rider.todayOnlineDate) {
+      rider.todayOnlineDate = todayISTDateString;
+      await rider.save();
     }
 
-    // Check if rider has any active booking pointer on the rider model itself
     const hasRiderBookingPointer = Boolean(
       (rider.currentBooking && rider.currentBooking.shiftId) ||
-      (rider.shiftBooking && rider.shiftBooking.bookingId)
+        (rider.shiftBooking && rider.shiftBooking.bookingId)
     );
 
-    // Query all Shift documents where this rider is booked
     const riderIdStr = rider._id.toString();
     const riderPhone = (rider.phone || "").trim();
 
+    // Only today's shifts (IST dateString)
     const shiftsFound = await Shift.find({
+      dateString: todayISTDateString,
       $or: [
         { "slots.bookings.deliveryPartnerId": rider._id },
         { "slots.bookings.deliveryPartnerPhone": riderPhone },
@@ -902,29 +914,30 @@ export const getTodayProgress = async (req, res, next) => {
     for (const shift of shiftsFound) {
       for (const slot of shift.slots || []) {
         for (const booking of slot.bookings || []) {
-          const bRiderId = booking.deliveryPartnerId ? booking.deliveryPartnerId.toString() : "";
+          const bRiderId = booking.deliveryPartnerId
+            ? booking.deliveryPartnerId.toString()
+            : "";
           const bRiderPhone = (booking.deliveryPartnerPhone || "").trim();
 
           const isRiderMatch =
             bRiderId === riderIdStr ||
             (riderPhone && bRiderPhone === riderPhone) ||
-            (rider.currentBooking?.bookingId && booking._id?.toString() === rider.currentBooking.bookingId.toString()) ||
-            (rider.shiftBooking?.bookingId && booking.bookingId === rider.shiftBooking.bookingId);
+            (rider.currentBooking?.bookingId &&
+              booking._id?.toString() === rider.currentBooking.bookingId.toString()) ||
+            (rider.shiftBooking?.bookingId &&
+              booking.bookingId === rider.shiftBooking.bookingId);
 
-          if (isRiderMatch) {
-            if (booking.status !== "CANCELLED") {
-              bookedShiftsCount++;
-            }
-            if (booking.status === "COMPLETED") {
-              completedShiftsCount++;
-            }
+          if (!isRiderMatch) continue;
+          if (booking.status !== "CANCELLED") bookedShiftsCount += 1;
+          if (booking.status === "COMPLETED" || booking.status === "ACTIVE") {
+            // ACTIVE/COMPLETED both count toward "worked" for the day; COMPLETED is done
           }
+          if (booking.status === "COMPLETED") completedShiftsCount += 1;
         }
       }
     }
 
-    // Direct fallback: If rider has an active booking on rider model or in DB, ensure bookedShiftsCount >= 1
-    if (bookedShiftsCount === 0 && (hasRiderBookingPointer || shiftsFound.length > 0)) {
+    if (bookedShiftsCount === 0 && hasRiderBookingPointer) {
       bookedShiftsCount = 1;
     }
 
@@ -933,24 +946,302 @@ export const getTodayProgress = async (req, res, next) => {
       0,
       Number(rider.todayCompletedOrders || rider.todayOrderCount || 0)
     );
-    const onlineMinutes = Math.max(0, Number(rider.todayOnlineMinutes || 0));
 
-    const hours = Math.floor(onlineMinutes / 60);
-    const mins = onlineMinutes % 60;
-    const onlineTime = `${hours}h ${mins}m`;
+    let computedEarnings = todayEarnings;
+    let computedTrips = completedTrips;
+    try {
+      const dayStart = new Date(`${todayISTDateString}T00:00:00+05:30`);
+      const dayEnd = new Date(`${todayISTDateString}T23:59:59.999+05:30`);
+      const todaysDeliveries = await StoreOrder.find({
+        assignedRiderId: rider._id,
+        status: "delivered",
+        deliveredAt: { $gte: dayStart, $lte: dayEnd },
+      }).select("riderDeliveryEarning");
+      computedTrips = todaysDeliveries.length || completedTrips;
+      computedEarnings = todaysDeliveries.reduce(
+        (sum, o) => sum + Number(o.riderDeliveryEarning || 0),
+        0
+      );
+      if (computedEarnings <= 0 && todayEarnings > 0) computedEarnings = todayEarnings;
+    } catch (_) {}
+
+    const onlineMinutes = liveOnlineMinutes(rider);
+    const onlineTime = formatOnlineMinutes(onlineMinutes);
+
+    // Keep today's snapshot fresh for history
+    snapshotDailyActivity(rider, {
+      date: todayISTDateString,
+      onlineMinutes,
+      earnings: computedEarnings,
+      trips: computedTrips,
+      shiftsBooked: bookedShiftsCount,
+      shiftsCompleted: completedShiftsCount,
+    });
+    await rider.save().catch(() => {});
 
     return res.json({
       success: true,
       data: {
-        todayEarnings,
-        completedTrips,
+        todayEarnings: computedEarnings,
+        completedTrips: computedTrips,
         onlineMinutes,
         onlineTime,
         bookedShifts: bookedShiftsCount,
         shiftsBooked: bookedShiftsCount,
-        bookedShiftsCount: bookedShiftsCount,
+        bookedShiftsCount,
         completedShifts: completedShiftsCount,
-        completedShiftsCount: completedShiftsCount,
+        completedShiftsCount,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /activity-history?range=week|month|year
+ * Day (or month for year) boxes: date, earn, online time, shifts booked/completed, trips, total.
+ */
+export const getActivityHistory = async (req, res, next) => {
+  try {
+    const riderId = req.user.id;
+    const rider = await DeliveryBoy.findById(riderId);
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Delivery partner not found" });
+    }
+
+    const range = String(req.query.range || "week").trim().toLowerCase();
+    const todayStr = istDateString();
+    const activityMap = new Map(
+      (rider.dailyActivity || []).map((row) => [row.date, row])
+    );
+
+    const riderIdStr = rider._id.toString();
+    const riderPhone = (rider.phone || "").trim();
+
+    const dayLabelFor = (dateString) => {
+      const { start } = istDayRange(dateString);
+      return new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        weekday: "short",
+      }).format(start);
+    };
+
+    const buildDayRows = async (dateList) => {
+      if (!dateList.length) {
+        return {
+          days: [],
+          totals: {
+            earnings: 0,
+            onlineMinutes: 0,
+            onlineTime: formatOnlineMinutes(0),
+            shiftsBooked: 0,
+            shiftsCompleted: 0,
+            trips: 0,
+            total: 0,
+          },
+        };
+      }
+
+      const shifts = await Shift.find({
+        dateString: { $in: dateList },
+        $or: [
+          { "slots.bookings.deliveryPartnerId": rider._id },
+          { "slots.bookings.deliveryPartnerPhone": riderPhone },
+        ],
+      }).lean();
+
+      const shiftStatsByDate = {};
+      for (const date of dateList) {
+        shiftStatsByDate[date] = { booked: 0, completed: 0 };
+      }
+
+      for (const shift of shifts) {
+        const date = shift.dateString;
+        if (!shiftStatsByDate[date]) continue;
+        for (const slot of shift.slots || []) {
+          for (const booking of slot.bookings || []) {
+            const bRiderId = booking.deliveryPartnerId
+              ? booking.deliveryPartnerId.toString()
+              : "";
+            const bPhone = (booking.deliveryPartnerPhone || "").trim();
+            const match =
+              bRiderId === riderIdStr || (riderPhone && bPhone === riderPhone);
+            if (!match) continue;
+            if (booking.status !== "CANCELLED") shiftStatsByDate[date].booked += 1;
+            if (booking.status === "COMPLETED") shiftStatsByDate[date].completed += 1;
+          }
+        }
+      }
+
+      const rangeStart = istDayRange(dateList[0]).start;
+      const rangeEnd = istDayRange(dateList[dateList.length - 1]).end;
+      const allOrders = await StoreOrder.find({
+        assignedRiderId: rider._id,
+        status: "delivered",
+        deliveredAt: { $gte: rangeStart, $lte: rangeEnd },
+      }).select("riderDeliveryEarning deliveredAt");
+
+      const orderStatsByDate = {};
+      for (const date of dateList) {
+        orderStatsByDate[date] = { earnings: 0, trips: 0 };
+      }
+      for (const order of allOrders) {
+        const d = istDateString(order.deliveredAt);
+        if (!orderStatsByDate[d]) continue;
+        orderStatsByDate[d].trips += 1;
+        orderStatsByDate[d].earnings += Number(order.riderDeliveryEarning || 0);
+      }
+
+      const rows = [];
+      let totalEarnings = 0;
+      let totalTrips = 0;
+      let totalOnline = 0;
+      let totalShiftsBooked = 0;
+      let totalShiftsCompleted = 0;
+
+      for (const date of dateList) {
+        const snap = activityMap.get(date);
+        let earnings = orderStatsByDate[date].earnings;
+        let trips = orderStatsByDate[date].trips;
+        let onlineMinutes = Number(snap?.onlineMinutes || 0);
+        let shiftsBooked = shiftStatsByDate[date].booked;
+        let shiftsCompleted = shiftStatsByDate[date].completed;
+
+        if (snap) {
+          if (earnings <= 0 && snap.earnings > 0) earnings = Number(snap.earnings);
+          if (trips <= 0 && snap.trips > 0) trips = Number(snap.trips);
+          shiftsBooked = Math.max(shiftsBooked, Number(snap.shiftsBooked || 0));
+          shiftsCompleted = Math.max(
+            shiftsCompleted,
+            Number(snap.shiftsCompleted || 0)
+          );
+        }
+
+        if (date === todayStr) {
+          onlineMinutes = Math.max(onlineMinutes, liveOnlineMinutes(rider));
+        }
+
+        const total = earnings;
+        totalEarnings += earnings;
+        totalTrips += trips;
+        totalOnline += onlineMinutes;
+        totalShiftsBooked += shiftsBooked;
+        totalShiftsCompleted += shiftsCompleted;
+
+        rows.push({
+          date,
+          dayLabel: dayLabelFor(date),
+          isToday: date === todayStr,
+          earnings,
+          onlineMinutes,
+          onlineTime: formatOnlineMinutes(onlineMinutes),
+          shiftsBooked,
+          shiftsCompleted,
+          trips,
+          total,
+        });
+      }
+
+      return {
+        days: [...rows].reverse(), // newest first
+        totals: {
+          earnings: totalEarnings,
+          onlineMinutes: totalOnline,
+          onlineTime: formatOnlineMinutes(totalOnline),
+          shiftsBooked: totalShiftsBooked,
+          shiftsCompleted: totalShiftsCompleted,
+          trips: totalTrips,
+          total: totalEarnings,
+        },
+      };
+    };
+
+    if (range === "year") {
+      // 12 month summary boxes (current month back)
+      const months = [];
+      let totalEarnings = 0;
+      let totalTrips = 0;
+      let totalOnline = 0;
+      let totalShiftsBooked = 0;
+      let totalShiftsCompleted = 0;
+
+      const nowParts = todayStr.split("-").map(Number);
+      let y = nowParts[0];
+      let m = nowParts[1];
+
+      for (let i = 0; i < 12; i++) {
+        const monthDates = listIstDatesInMonth(y, m).filter((d) => d <= todayStr);
+        const { days, totals } = await buildDayRows(monthDates);
+        const label = new Intl.DateTimeFormat("en-IN", {
+          timeZone: "Asia/Kolkata",
+          month: "short",
+          year: "numeric",
+        }).format(istDayRange(monthDates[0] || todayStr).start);
+
+        months.push({
+          date: `${y}-${String(m).padStart(2, "0")}`,
+          dayLabel: label,
+          isToday: y === nowParts[0] && m === nowParts[1],
+          earnings: totals.earnings,
+          onlineMinutes: totals.onlineMinutes,
+          onlineTime: totals.onlineTime,
+          shiftsBooked: totals.shiftsBooked,
+          shiftsCompleted: totals.shiftsCompleted,
+          trips: totals.trips,
+          total: totals.total,
+          dayCount: days.length,
+        });
+
+        totalEarnings += totals.earnings;
+        totalTrips += totals.trips;
+        totalOnline += totals.onlineMinutes;
+        totalShiftsBooked += totals.shiftsBooked;
+        totalShiftsCompleted += totals.shiftsCompleted;
+
+        m -= 1;
+        if (m < 1) {
+          m = 12;
+          y -= 1;
+        }
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          range: "year",
+          granularity: "month",
+          days: months,
+          totals: {
+            earnings: totalEarnings,
+            onlineMinutes: totalOnline,
+            onlineTime: formatOnlineMinutes(totalOnline),
+            shiftsBooked: totalShiftsBooked,
+            shiftsCompleted: totalShiftsCompleted,
+            trips: totalTrips,
+            total: totalEarnings,
+          },
+        },
+      });
+    }
+
+    let dateList;
+    if (range === "month") {
+      const [y, m] = todayStr.split("-").map(Number);
+      dateList = listIstDatesInMonth(y, m).filter((d) => d <= todayStr);
+    } else {
+      dateList = listRecentIstDates(7);
+    }
+
+    const { days, totals } = await buildDayRows(dateList);
+
+    return res.json({
+      success: true,
+      data: {
+        range: range === "month" ? "month" : "week",
+        granularity: "day",
+        days,
+        totals,
       },
     });
   } catch (error) {

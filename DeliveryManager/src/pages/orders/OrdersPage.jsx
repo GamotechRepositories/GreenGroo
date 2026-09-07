@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
 import { subscribeToSocketEvent } from "../../services/socket";
-import { STATUS_TABS, matchesTab, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary } from "./orderUtils";
+import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary } from "./orderUtils";
 
 export default function OrdersPage() {
   const { manager } = useAuth();
@@ -18,7 +18,7 @@ export default function OrdersPage() {
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("active");
+  const [activeTab, setActiveTab] = useState("incoming");
   const [pickupQrOrderId, setPickupQrOrderId] = useState(null);
   const [pickupQrLoading, setPickupQrLoading] = useState(false);
   const [pickupQrError, setPickupQrError] = useState("");
@@ -27,7 +27,10 @@ export default function OrdersPage() {
   const load = useCallback(async () => {
     try {
       const [ord, rid] = await Promise.all([
-        managerApi.orders(),
+        managerApi.orders({
+          status:
+            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered",
+        }),
         managerApi.riders(),
       ]);
       setOrders(ord.data.orders || []);
@@ -170,7 +173,37 @@ export default function OrdersPage() {
     return matchSearch && matchesTab(o, activeTab);
   });
 
-  const activeCount = orders.filter((o) => matchesTab(o, "active")).length;
+  const summary = countBySummaryBucket(orders);
+
+  const summaryCards = [
+    {
+      id: "incoming",
+      label: "Incoming Orders",
+      hint: "New & packed — awaiting dispatch",
+      count: summary.incoming,
+      accent: "border-blue-200 bg-blue-50",
+      countClass: "text-blue-800",
+      ring: "ring-blue-500",
+    },
+    {
+      id: "ongoing",
+      label: "Ongoing Orders",
+      hint: "Assigned / out for delivery",
+      count: summary.ongoing,
+      accent: "border-amber-200 bg-amber-50",
+      countClass: "text-amber-800",
+      ring: "ring-amber-500",
+    },
+    {
+      id: "delivered",
+      label: "Delivered Orders",
+      hint: "All completed deliveries",
+      count: summary.delivered,
+      accent: "border-emerald-200 bg-emerald-50",
+      countClass: "text-emerald-800",
+      ring: "ring-emerald-500",
+    },
+  ];
 
   return (
     <PageShell
@@ -187,6 +220,27 @@ export default function OrdersPage() {
           {error}
         </div>
       )}
+
+      {/* Summary boxes */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {summaryCards.map((card) => {
+          const selected = activeTab === card.id;
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => setActiveTab(card.id)}
+              className={`rounded-2xl border p-4 text-left transition shadow-xs ${card.accent} ${
+                selected ? `ring-2 ${card.ring}` : "hover:shadow-sm"
+              }`}
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">{card.label}</p>
+              <p className={`mt-1 text-3xl font-black ${card.countClass}`}>{card.count}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{card.hint}</p>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Online Riders Bar */}
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-3">
@@ -252,25 +306,37 @@ export default function OrdersPage() {
 
         {/* Status Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
-                activeTab === tab.id
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {tab.label}
-              {tab.id === "active" && activeCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-amber-400 text-slate-900 px-1.5 py-0.5 text-[10px] font-extrabold">
-                  {activeCount}
+          {STATUS_TABS.map((tab) => {
+            const count =
+              tab.id === "incoming"
+                ? summary.incoming
+                : tab.id === "ongoing"
+                  ? summary.ongoing
+                  : tab.id === "delivered"
+                    ? summary.delivered
+                    : orders.length;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
+                  activeTab === tab.id
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {tab.label}
+                <span
+                  className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${
+                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {count}
                 </span>
-              )}
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 

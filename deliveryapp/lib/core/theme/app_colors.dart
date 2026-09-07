@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Brand green: #0C831F (same in light & dark)
 class AppPalette {
@@ -118,16 +119,34 @@ class ThemeController extends ChangeNotifier {
   ThemeController._();
   static final ThemeController instance = ThemeController._();
 
+  static const _themeKey = 'theme_mode';
+
   ThemeMode _mode = ThemeMode.light;
+  bool _isLoaded = false;
 
   ThemeMode get mode => _mode;
   bool get isDark => _mode == ThemeMode.dark;
+  bool get isLoaded => _isLoaded;
   AppPalette get palette => isDark ? AppPalette.dark : AppPalette.light;
 
-  void setDarkMode(bool enabled) {
+  Future<void> loadSavedTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_themeKey);
+    if (saved == 'dark') {
+      _mode = ThemeMode.dark;
+    } else if (saved == 'light') {
+      _mode = ThemeMode.light;
+    }
+    _isLoaded = true;
+    notifyListeners();
+  }
+
+  Future<void> setDarkMode(bool enabled) async {
     final next = enabled ? ThemeMode.dark : ThemeMode.light;
     if (_mode == next) return;
     _mode = next;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeKey, enabled ? 'dark' : 'light');
     notifyListeners();
   }
 

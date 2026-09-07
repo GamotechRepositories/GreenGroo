@@ -89,7 +89,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
           children: [
             const SizedBox(height: 8),
             Text(
-              'Select Language',
+              l10n.chooseLanguage,
               style: GoogleFonts.inter(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -98,7 +98,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Choose your preferred language\nto continue',
+              l10n.selectLanguageSubtitle,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,

@@ -17,6 +17,12 @@ import { refreshStoreOrderCustomerCoords } from "../services/customerLocationSer
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import { getIO } from "../../../socket.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
+import { calculateRiderEarning } from "../services/ShiftEarningService.js";
+import { createCashLiability } from "../services/CashSettlementService.js";
+import { getPaymentSummary } from "../services/PaymentCollectionService.js";
+import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
+
+const MAX_OTP_ATTEMPTS = 5;
 
 function distanceLabel(meters) {
   if (meters == null) return "—";
@@ -87,6 +93,18 @@ export const acceptOrderOffer = async (req, res, next) => {
     }
 
     const { order, darkStore } = result;
+
+    // Store the rider's active shift booking on the order for earning slab lookup later
+    try {
+      const rider = await DeliveryBoy.findById(riderId).select("currentBooking");
+      if (rider?.currentBooking?.shiftId && !order.shiftId) {
+        await StoreOrder.findByIdAndUpdate(order._id, { shiftId: rider.currentBooking.shiftId });
+        order.shiftId = rider.currentBooking.shiftId;
+      }
+    } catch (shiftErr) {
+      console.warn("[acceptOrderOffer] shiftId linkage warning:", shiftErr.message);
+    }
+
     const pickupQr = await generateDriverPickupToken(order);
 
     return res.json({
@@ -197,6 +215,12 @@ export const getActiveDelivery = async (req, res, next) => {
     }
 
     const proofStatus = order.pickupProofStatus || "none";
+    const itemsTotal = (order.items || []).reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
+    const amountToCollect = Number(order.amountToCollect || 0);
+    const deliveryFee = Math.max(0, Math.round(amountToCollect - itemsTotal));
 
     const safeData = {
       id: order._id.toString(),
@@ -230,7 +254,16 @@ export const getActiveDelivery = async (req, res, next) => {
             : "Customer address unlocks after QR scan + manager item approval",
       customerLat: unlocked ? order.customerLat : null,
       customerLng: unlocked ? order.customerLng : null,
-      otpCode: unlocked ? order.otpCode || "4321" : null,
+      deliveryProofImageUrl: order.deliveryProofImageUrl || "",
+      customerOtpVerified: Boolean(order.customerOtpVerified),
+      paymentMethod: order.paymentMethod || "",
+      paymentStatus: order.paymentStatus || "pending",
+      amountToCollect,
+      amountCollected: order.amountCollected || 0,
+      itemsTotal: Math.round(itemsTotal),
+      deliveryFee,
+      // Never send OTP to rider — customer must share it from their order screen
+      otpCode: null,
     };
 
     return res.json({ success: true, activeDelivery: safeData });
@@ -377,11 +410,236 @@ export const scanStoreQr = async (req, res, next) => {
   }
 };
 
-export const completeDelivery = async (req, res, next) => {
+/**
+ * Upload delivery proof photo (rider captures photo at customer location).
+ * Saves to order.deliveryProofImageUrl. Must be called before OTP verification.
+ */
+export const uploadDeliveryProof = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+
+    const imageBase64 = String(
+      req.body.imageBase64 || req.body.image || req.body.deliveryProofImage || ""
+    ).trim();
+
+    if (!imageBase64) {
+      return res.status(400).json({ success: false, message: "Delivery proof image is required" });
+    }
+
+    const order = await StoreOrder.findOne({
+      _id: orderId,
+      assignedRiderId: riderId,
+      status: { $in: ["assigned", "pickup_verified", "out_for_delivery"] },
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Active order not found or not in delivery state",
+      });
+    }
+
+    if (!order.customerAddressUnlocked) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer address must be unlocked before uploading delivery proof",
+      });
+    }
+
+    // Upload to S3 if configured, otherwise store as-is (base64 data URL)
+    let proofUrl = imageBase64;
+    try {
+      if (isS3Configured() && imageBase64.startsWith("data:")) {
+        const s3Res = await uploadDataUrlToS3(imageBase64, "delivery-proofs");
+        if (s3Res?.url) {
+          proofUrl = s3Res.url;
+        } else if (typeof s3Res === "string") {
+          proofUrl = s3Res;
+        }
+      }
+    } catch (err) {
+      console.warn("[delivery-proof] S3 upload failed, storing data URL:", err.message);
+    }
+
+    order.deliveryProofImageUrl = String(proofUrl);
+    order.proofUploadedAt = new Date();
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "Delivery proof uploaded. Please ask customer for OTP.",
+      deliveryProofImageUrl: order.deliveryProofImageUrl,
+      proofUploadedAt: order.proofUploadedAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Verify customer OTP (backend validates — never trust Flutter).
+ * OTP is rate-limited to MAX_OTP_ATTEMPTS.
+ */
+export const verifyCustomerOtp = async (req, res, next) => {
   try {
     const { orderId } = req.params;
     const riderId = req.user.id;
     const otp = String(req.body.otp || "").trim();
+
+    if (!otp) {
+      return res.status(400).json({ success: false, message: "OTP is required" });
+    }
+
+    const order = await StoreOrder.findOne({
+      _id: orderId,
+      assignedRiderId: riderId,
+      status: { $in: ["pickup_verified", "out_for_delivery", "assigned"] },
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Active order not found" });
+    }
+
+    if (order.customerOtpVerified) {
+      return res.json({ success: true, alreadyVerified: true, message: "OTP already verified" });
+    }
+
+    // Rate-limit OTP attempts
+    const now = new Date();
+    if (order.otpLockedUntil && order.otpLockedUntil > now) {
+      const waitSecs = Math.ceil((order.otpLockedUntil - now) / 1000);
+      return res.status(429).json({
+        success: false,
+        message: `Too many incorrect OTP attempts. Try again in ${waitSecs} seconds.`,
+      });
+    }
+
+    const expectedOtp = String(order.otpCode || order.deliveryOtp || "").trim();
+    if (!expectedOtp || otp !== expectedOtp) {
+      order.otpAttempts = (order.otpAttempts || 0) + 1;
+      if (order.otpAttempts >= MAX_OTP_ATTEMPTS) {
+        order.otpLockedUntil = new Date(now.getTime() + 5 * 60 * 1000); // locked 5 min
+      }
+      await order.save();
+      return res.status(400).json({
+        success: false,
+        message: `Incorrect OTP. Ask the customer for the code in their GreenGroo order. ${Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts)} attempt(s) remaining.`,
+        attemptsRemaining: Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts),
+      });
+    }
+
+    // OTP correct
+    order.customerOtpVerified = true;
+    order.customerOtpVerifiedAt = now;
+    order.otpAttempts = 0;
+    order.otpLockedUntil = undefined;
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "OTP verified successfully. You can now complete the delivery.",
+      customerOtpVerified: true,
+      customerOtpVerifiedAt: order.customerOtpVerifiedAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Confirm cash collection from customer.
+ * Updates order payment fields and creates a CashSettlement record.
+ * Backend remains source of truth — Flutter cannot submit arbitrary amounts.
+ */
+export const confirmCashCollection = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+
+    const order = await StoreOrder.findOne({
+      _id: orderId,
+      assignedRiderId: riderId,
+      status: { $in: ["pickup_verified", "out_for_delivery", "assigned"] },
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Active order not found" });
+    }
+
+    // Guard: don't allow cash collection if already paid online
+    if (order.paymentStatus === "paid_online") {
+      return res.status(400).json({
+        success: false,
+        message: "This order is already paid online. No cash collection required.",
+      });
+    }
+
+    if (order.paymentStatus === "collected") {
+      return res.json({ success: true, alreadyCollected: true, message: "Cash already marked as collected" });
+    }
+
+    const amountToCollect = order.amountToCollect || 0;
+    if (amountToCollect <= 0) {
+      // Backfill from items for older orders missing amountToCollect
+      const itemsTotal = (order.items || []).reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+        0
+      );
+      if (itemsTotal <= 0) {
+        return res.status(400).json({ success: false, message: "No amount to collect for this order" });
+      }
+      order.amountToCollect = Math.round(itemsTotal);
+    }
+
+    // Update order payment status
+    order.paymentMethod = "COD";
+    order.paymentStatus = "collected";
+    order.amountCollected = order.amountToCollect;
+    await order.save();
+
+    // Create cash liability record and increment rider's pending cash
+    const darkStoreId = order.darkStoreId || order.managerId;
+    await createCashLiability({
+      orderId: order._id,
+      riderId,
+      darkStoreId,
+      amount: order.amountToCollect,
+      orderNumber: order.orderNumber,
+    });
+
+    return res.json({
+      success: true,
+      message: `Cash ₹${order.amountToCollect} collected. This amount must be submitted to the Dark Store.`,
+      amountCollected: order.amountToCollect,
+      paymentStatus: "collected",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Main delivery completion endpoint.
+ *
+ * Pre-conditions enforced by backend (not trusted from Flutter):
+ *   1. Order is in valid delivery state
+ *   2. Rider is assigned to this order
+ *   3. Customer address was unlocked (pickup verified)
+ *   4. Delivery proof photo uploaded
+ *   5. Customer OTP verified by backend
+ *   6. Payment: either paid_online OR cash collected (paymentStatus = collected)
+ *
+ * On success:
+ *   - Order status → delivered
+ *   - Calculate delivery distance and earning from Shift slabs
+ *   - Update rider statistics (todayEarnings, totalLifetimeEarnings, todayCompletedOrders)
+ *   - Note: Gig/incentive bonus is calculated separately via checkAndTrackIncentive
+ */
+export const completeDelivery = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
 
     const order = await StoreOrder.findById(orderId);
     if (!order) {
@@ -392,54 +650,137 @@ export const completeDelivery = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "You are not assigned to this order" });
     }
 
+    // Already delivered?
+    if (order.status === "delivered") {
+      return res.json({ success: true, alreadyDelivered: true, message: "Order already delivered", order: order.toSafeJSON() });
+    }
+
+    // ── Condition 1: Customer address must have been unlocked ──────────────
     if (!order.customerAddressUnlocked) {
       return res.status(400).json({
         success: false,
-        message: "Manager must approve item proof before delivery",
+        message: "Pickup must be verified and item proof approved before delivery",
       });
     }
 
-    const expectedOtp = order.otpCode || "4321";
-    if (otp !== expectedOtp && otp !== "4321") {
+    // ── Condition 2: Delivery proof photo must be uploaded ─────────────────
+    if (!order.deliveryProofImageUrl) {
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP. Ask customer for 4-digit OTP.",
+        message: "Delivery proof photo is required. Capture a photo at the customer's location.",
       });
     }
 
+    // ── Condition 3: Customer OTP must be verified ─────────────────────────
+    if (!order.customerOtpVerified) {
+      const otp = String(req.body.otp || "").trim();
+      if (!otp) {
+        return res.status(400).json({
+          success: false,
+          message: "Ask the customer for the Delivery OTP shown in their order screen.",
+        });
+      }
+
+      if (order.otpLockedUntil && order.otpLockedUntil > new Date()) {
+        const waitSecs = Math.ceil((order.otpLockedUntil - new Date()) / 1000);
+        return res.status(429).json({
+          success: false,
+          message: `Too many incorrect OTP attempts. Try again in ${waitSecs} seconds.`,
+        });
+      }
+
+      const expectedOtp = String(order.otpCode || order.deliveryOtp || "").trim();
+      if (!expectedOtp || otp !== expectedOtp) {
+        order.otpAttempts = (order.otpAttempts || 0) + 1;
+        if (order.otpAttempts >= MAX_OTP_ATTEMPTS) {
+          order.otpLockedUntil = new Date(Date.now() + 5 * 60 * 1000);
+        }
+        await order.save();
+        return res.status(400).json({
+          success: false,
+          message: `Incorrect OTP. Ask the customer for the code in their GreenGroo order. ${Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts)} attempt(s) remaining.`,
+          attemptsRemaining: Math.max(0, MAX_OTP_ATTEMPTS - order.otpAttempts),
+        });
+      }
+
+      order.customerOtpVerified = true;
+      order.customerOtpVerifiedAt = new Date();
+      order.otpAttempts = 0;
+      order.otpLockedUntil = undefined;
+    }
+
+    // ── Condition 4: Payment must be resolved ──────────────────────────────
+    // Accept: paid_online, collected (cash), or free/zero-amount orders
+    const paymentOk =
+      order.paymentStatus === "paid_online" ||
+      order.paymentStatus === "collected" ||
+      (order.amountToCollect || 0) === 0;
+
+    if (!paymentOk) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment must be collected or confirmed before completing delivery",
+      });
+    }
+
+    const now = new Date();
+
+    // ── Mark order delivered ───────────────────────────────────────────────
     order.status = "delivered";
     order.assignmentStatus = "DELIVERED";
-    order.deliveredAt = new Date();
+    order.deliveredAt = now;
+
+    // ── Calculate rider delivery earning from Shift KM slabs ───────────────
+    const rider = await DeliveryBoy.findById(riderId);
+    const darkStore = await DeliveryManager.findById(order.managerId);
+
+    const shiftIdForCalc = order.shiftId || rider?.currentBooking?.shiftId || null;
+    const earningResult = await calculateRiderEarning({
+      shiftId: shiftIdForCalc,
+      storeLat: darkStore?.latitude ?? null,
+      storeLng: darkStore?.longitude ?? null,
+      customerLat: order.customerLat ?? null,
+      customerLng: order.customerLng ?? null,
+    });
+
+    const distanceKm = earningResult.distanceKm;
+    const riderDeliveryEarning = earningResult.riderEarning;
+    const earningSlab = earningResult.earningSlab;
+
+    order.deliveryDistanceKm = distanceKm || 0;
+    order.riderDeliveryEarning = riderDeliveryEarning || 0;
+    if (earningSlab) order.earningSlab = earningSlab;
+    if (shiftIdForCalc && !order.shiftId) order.shiftId = shiftIdForCalc;
+    order.earningCalculatedAt = now;
+
     await order.save();
 
-    const rider = await DeliveryBoy.findById(riderId);
+    // ── Update rider statistics ────────────────────────────────────────────
     if (rider) {
-      const totalAmount = (order.items || []).reduce(
-        (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
-        0
-      );
-      const estimatedEarnings = Math.round(totalAmount * 0.12 + 45);
-
       rider.status = "online";
       rider.activeOrderId = null;
       rider.todayCompletedOrders = (rider.todayCompletedOrders || 0) + 1;
-      rider.todayEarnings = (rider.todayEarnings || 0) + estimatedEarnings;
-      rider.walletBalance = (rider.walletBalance || 0) + estimatedEarnings;
-      rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + estimatedEarnings;
-      rider.lastOrderCompletedAt = new Date();
-      rider.lastStatusAt = new Date();
-      rider.onlineSince = rider.onlineSince || new Date();
+      // Add only the configured delivery earning — NOT the customer's cash
+      rider.todayEarnings = (rider.todayEarnings || 0) + riderDeliveryEarning;
+      rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + riderDeliveryEarning;
+      rider.lastOrderCompletedAt = now;
+      rider.lastStatusAt = now;
+      rider.onlineSince = rider.onlineSince || now;
       await rider.save();
     }
 
+    // ── Gig / Incentive bonus (separate from delivery earning) ─────────────
     await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
 
+    // ── Notify Dark Store ──────────────────────────────────────────────────
     try {
       getIO().to(`store_${order.managerId}`).emit("order_delivered", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
         status: "delivered",
         deliveredAt: order.deliveredAt,
+        deliveryDistanceKm: order.deliveryDistanceKm,
+        riderDeliveryEarning: order.riderDeliveryEarning,
       });
     } catch (err) {}
 
@@ -447,6 +788,13 @@ export const completeDelivery = async (req, res, next) => {
       success: true,
       message: "Order delivered successfully!",
       order: order.toSafeJSON(),
+      deliverySummary: {
+        distanceKm: order.deliveryDistanceKm,
+        riderDeliveryEarning: order.riderDeliveryEarning,
+        earningSlab: order.earningSlab,
+        paymentStatus: order.paymentStatus,
+        amountCollected: order.amountCollected,
+      },
     });
   } catch (error) {
     next(error);
@@ -540,6 +888,69 @@ export const approvePickupProofByManager = async (req, res, next) => {
         ? "Item proof already approved."
         : "Item proof approved. Driver can now navigate to customer.",
       order: result.order.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Rider confirms online payment from customer (e.g. UPI/Razorpay at delivery).
+ * Backend must be the source of truth — Flutter cannot set paymentStatus directly.
+ * POST /rider/orders/:orderId/confirm-online-payment
+ */
+export const confirmOnlinePaymentForOrder = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+
+    const order = await StoreOrder.findOne({
+      _id: orderId,
+      assignedRiderId: riderId,
+    });
+
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    if (order.paymentStatus === "collected") {
+      return res.status(400).json({ success: false, message: "Cash already collected for this order." });
+    }
+    if (order.paymentStatus === "paid_online") {
+      return res.json({ success: true, message: "Order already marked as paid online.", paymentStatus: "paid_online" });
+    }
+
+    // TODO: In production, verify Razorpay payment here using razorpay_payment_id + signature
+    // For now, allow manager-confirmed / backend flow
+    order.paymentMethod = "online";
+    order.paymentStatus = "paid_online";
+    order.amountCollected = order.amountToCollect || 0;
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "Online payment confirmed.",
+      paymentStatus: "paid_online",
+      amountCollected: order.amountCollected,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get payment status for an order (rider view).
+ * GET /rider/orders/:orderId/payment-status
+ */
+export const getOrderPaymentStatus = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+
+    const order = await StoreOrder.findOne({ _id: orderId, assignedRiderId: riderId });
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+    return res.json({
+      success: true,
+      payment: getPaymentSummary(order),
     });
   } catch (error) {
     next(error);

@@ -323,6 +323,13 @@ export const createDemoStoreOrder = async (req, res, next) => {
         ? { lat: Number(req.body.customerLat), lng: Number(req.body.customerLng) }
         : null);
 
+    const itemsTotal = demoItems.reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
+    const demoDeliveryFee = 40;
+    const amountToCollect = Math.round(itemsTotal + demoDeliveryFee);
+
     const newOrder = await StoreOrder.create({
       orderNumber: orderNum,
       managerId: manager._id,
@@ -338,6 +345,9 @@ export const createDemoStoreOrder = async (req, res, next) => {
       status: "order_received",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
       otpCode: "4321",
+      paymentMethod: "COD",
+      paymentStatus: "pending",
+      amountToCollect,
     });
 
     try {

@@ -11,6 +11,7 @@ import '../../widgets/buttons/delivery_action_button.dart';
 import '../../widgets/buttons/primary_button.dart';
 import 'pickup_qr_scan_screen.dart';
 import 'item_proof_capture_screen.dart';
+import 'delivery_proof_capture_screen.dart';
 
 class ActiveDeliveryScreen extends StatefulWidget {
   const ActiveDeliveryScreen({super.key});
@@ -24,7 +25,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   bool _isLoading = true;
   Timer? _refreshTimer;
   StreamSubscription<Map<String, dynamic>>? _pickupSub;
-  final TextEditingController _otpController = TextEditingController(text: '4321');
+  final TextEditingController _otpController = TextEditingController();
 
   @override
   void initState() {
@@ -100,18 +101,56 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     }
   }
 
-  void _showCompleteDialog() {
-    showDialog(
+  Future<void> _startCompleteFlow() async {
+    if (_delivery == null) return;
+
+    final hasProof = (_delivery!.deliveryProofImageUrl).trim().isNotEmpty;
+    if (!hasProof) {
+      final uploaded = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DeliveryProofCaptureScreen(
+            orderId: _delivery!.id,
+            orderNumber: _delivery!.orderNumber,
+          ),
+        ),
+      );
+      if (uploaded != true || !mounted) return;
+      await _loadDelivery();
+      if (!mounted) return;
+    }
+
+    final otpOk = await _askCustomerOtp();
+    if (!otpOk || !mounted) return;
+
+    await _loadDelivery();
+    if (!mounted || _delivery == null) return;
+
+    // Already paid online / nothing to collect → finish
+    if (_delivery!.isPaidOnline ||
+        _delivery!.isCashCollected ||
+        _delivery!.amountToCollect <= 0) {
+      await _finishDelivery(otpAlreadyVerified: true);
+      return;
+    }
+
+    await _askPaymentMethodAndFinish();
+  }
+
+  Future<bool> _askCustomerOtp() async {
+    _otpController.clear();
+    final otp = await showDialog<String>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Complete Delivery', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Customer OTP', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Ask customer for the 4-digit Delivery OTP.',
+              'Ask the customer for the 4-digit Delivery OTP shown in their GreenGroo order screen.',
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -119,10 +158,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               controller: _otpController,
               keyboardType: TextInputType.number,
               maxLength: 4,
+              autofocus: true,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
               decoration: InputDecoration(
-                hintText: '4321',
+                hintText: '••••',
                 counterText: '',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -137,36 +177,202 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () async {
-              final otp = _otpController.text.trim();
-              Navigator.pop(ctx);
-              if (_delivery != null && otp.isNotEmpty) {
-                final messenger = ScaffoldMessenger.of(context);
-                final nav = Navigator.of(context);
-                final success = await OrderService.instance.completeDelivery(_delivery!.id, otp);
-                if (success) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Order delivered successfully! You are now back online for orders.'),
-                      backgroundColor: Color(0xFF059669),
-                    ),
-                  );
-                  nav.pop();
-                } else {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Invalid OTP code (Default: 4321)'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('COMPLETE ORDER'),
+            onPressed: () => Navigator.pop(ctx, _otpController.text.trim()),
+            child: const Text('VERIFY OTP'),
           ),
         ],
       ),
     );
+
+    if (otp == null || otp.isEmpty) return false;
+
+    final result = await OrderService.instance.verifyCustomerOtp(_delivery!.id, otp);
+    if (!result.success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Incorrect OTP'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _askPaymentMethodAndFinish() async {
+    final d = _delivery!;
+    final choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Payment Method', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Collect ₹${d.amountToCollect} from customer',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Item total ₹${d.itemsTotal}  ·  Delivery fee ₹${d.deliveryFee}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'online'),
+              icon: const Icon(Icons.qr_code_2_rounded),
+              label: const Text('Online (Razorpay / UPI scan)'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFB45309),
+                side: const BorderSide(color: Color(0xFFFBBF24)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'cash'),
+              icon: const Icon(Icons.payments_outlined),
+              label: const Text('Physical Cash (COD)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ],
+      ),
+    );
+
+    if (choice == null || !mounted) return;
+
+    if (choice == 'online') {
+      final pay = await OrderService.instance.confirmOnlinePayment(d.id);
+      if (!pay.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(pay.error ?? 'Online payment failed'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+      await _finishDelivery(otpAlreadyVerified: true);
+      return;
+    }
+
+    // Physical cash
+    final cash = await OrderService.instance.confirmCashCollection(d.id);
+    if (!cash.success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(cash.error ?? 'Cash confirmation failed'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Cash collected', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDBA74)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '⚠ Pay back to Dark Store Manager by end of day',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF9A3412),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Item total          ₹${d.itemsTotal}', style: const TextStyle(fontSize: 13)),
+                  Text('Delivery fee     ₹${d.deliveryFee}', style: const TextStyle(fontSize: 13)),
+                  const Divider(height: 16),
+                  Text(
+                    'Total to submit  ₹${d.amountToCollect}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF9A3412)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Order will be marked delivered. Keep this cash and submit it to your delivery manager before end of day.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('OK, COMPLETE ORDER'),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed == true) {
+      await _finishDelivery(otpAlreadyVerified: true);
+    }
+  }
+
+  Future<void> _finishDelivery({required bool otpAlreadyVerified}) async {
+    if (_delivery == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+
+    // OTP already verified — send a placeholder so backend path that expects otp still works if needed
+    final result = await OrderService.instance.completeDelivery(
+      _delivery!.id,
+      otpAlreadyVerified ? 'VERIFIED' : _otpController.text.trim(),
+    );
+
+    if (result.success) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Order delivered successfully! You are now back online for orders.'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
+      nav.pop();
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Could not complete delivery.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _navigateToDarkStore(ActiveDeliveryData d) async {
@@ -353,7 +559,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               onItemProof: _openItemProofCapture,
               onNavigateStore: () => _navigateToDarkStore(d),
               onNavigateCustomer: () => _navigateToCustomer(d),
-              onComplete: _showCompleteDialog,
+              onComplete: _startCompleteFlow,
+              hasDeliveryProof: d.deliveryProofImageUrl.trim().isNotEmpty,
             ),
           ],
         ),
@@ -903,6 +1110,7 @@ class _BottomActions extends StatelessWidget {
     required this.onNavigateStore,
     required this.onNavigateCustomer,
     required this.onComplete,
+    this.hasDeliveryProof = false,
   });
 
   final bool isUnlocked;
@@ -914,6 +1122,7 @@ class _BottomActions extends StatelessWidget {
   final VoidCallback onNavigateStore;
   final VoidCallback onNavigateCustomer;
   final VoidCallback onComplete;
+  final bool hasDeliveryProof;
 
   @override
   Widget build(BuildContext context) {
@@ -944,9 +1153,13 @@ class _BottomActions extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               DeliveryActionButton(
-                label: 'Complete Delivery',
-                subtitle: 'Enter customer OTP to finish',
-                icon: Icons.check_circle_outline_rounded,
+                label: hasDeliveryProof ? 'Complete Delivery' : 'Capture Proof & Complete',
+                subtitle: hasDeliveryProof
+                    ? 'Enter customer OTP to finish'
+                    : 'Take delivery photo, then enter customer OTP',
+                icon: hasDeliveryProof
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.photo_camera_outlined,
                 style: DeliveryActionStyle.outline,
                 onPressed: onComplete,
               ),

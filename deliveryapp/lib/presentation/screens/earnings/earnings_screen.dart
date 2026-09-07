@@ -2,14 +2,54 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/order_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
 import '../../widgets/cards/statistic_card.dart';
 import '../../widgets/common/empty_state.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
-class EarningsScreen extends StatelessWidget {
+class EarningsScreen extends StatefulWidget {
   const EarningsScreen({super.key});
+
+  @override
+  State<EarningsScreen> createState() => _EarningsScreenState();
+}
+
+class _EarningsScreenState extends State<EarningsScreen> {
+  bool _loading = true;
+  int _todayEarnings = 0;
+  int _orderCount = 0;
+  int _lifetime = 0;
+  List<Map<String, dynamic>> _deliveries = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final data = await OrderService.instance.fetchEarningsDetail();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (data != null) {
+        _todayEarnings = (data['totalEarnings'] as num?)?.toInt() ??
+            (data['todayEarnings'] as num?)?.toInt() ??
+            0;
+        _orderCount = (data['orderCount'] as num?)?.toInt() ?? 0;
+        _lifetime = (data['totalLifetimeEarnings'] as num?)?.toInt() ?? 0;
+        _deliveries = (data['deliveries'] as List<dynamic>? ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    });
+  }
+
+  String _rupee(int n) => '₹$n';
 
   @override
   Widget build(BuildContext context) {
@@ -20,141 +60,118 @@ class EarningsScreen extends StatelessWidget {
         subtitle: l10n.trackYourIncome,
         showBackButton: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          EarningsCard(
-            title: l10n.todaysEarnings,
-            amount: l10n.placeholderEarnings,
-            subtitle: l10n.updatedLive,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: StatisticCard(
-                  title: l10n.weekly,
-                  value: l10n.placeholderEarnings,
-                  icon: Icons.calendar_view_week_outlined,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: StatisticCard(
-                  title: l10n.monthly,
-                  value: l10n.placeholderEarnings,
-                  icon: Icons.calendar_month_outlined,
-                  iconColor: AppColors.info,
-                  iconBackground: Color(0xFFDBEAFE),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: StatisticCard(
-                  title: l10n.bonus,
-                  value: l10n.placeholderEarnings,
-                  icon: Icons.card_giftcard_outlined,
-                  iconColor: AppColors.warning,
-                  iconBackground: Color(0xFFFEF3C7),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: StatisticCard(
-                  title: l10n.incentives,
-                  value: l10n.placeholderEarnings,
-                  icon: Icons.emoji_events_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          SectionHeader(title: l10n.earningsChart),
-          const SizedBox(height: AppSpacing.md),
-          DashboardCard(
-            child: SizedBox(
-              height: 180,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: List.generate(7, (index) {
-                  final heights = [0.4, 0.55, 0.45, 0.7, 0.85, 0.6, 0.75];
-                  final days = [
-                    l10n.dayMon,
-                    l10n.dayTue,
-                    l10n.dayWed,
-                    l10n.dayThu,
-                    l10n.dayFri,
-                    l10n.daySat,
-                    l10n.daySun,
-                  ];
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: FractionallySizedBox(
-                              heightFactor: heights[index],
-                              child: Container(
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                children: [
+                  EarningsCard(
+                    title: l10n.todaysEarnings,
+                    amount: _rupee(_todayEarnings),
+                    subtitle: l10n.deliveriesUpdatedLive(
+                      _orderCount,
+                      l10n.updatedLive,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: StatisticCard(
+                          title: l10n.todayTrips,
+                          value: '$_orderCount',
+                          icon: Icons.local_shipping_outlined,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: StatisticCard(
+                          title: l10n.lifetimeEarnings,
+                          value: _rupee(_lifetime),
+                          icon: Icons.savings_outlined,
+                          iconColor: AppColors.info,
+                          iconBackground: AppColors.primaryLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  SectionHeader(title: l10n.todaysDeliveries),
+                  const SizedBox(height: AppSpacing.md),
+                  if (_deliveries.isEmpty)
+                    DashboardCard(
+                      child: Text(
+                        l10n.noDeliveriesTodayYet,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    )
+                  else
+                    ..._deliveries.map((d) {
+                      final amount =
+                          (d['riderDeliveryEarning'] as num?)?.toInt() ?? 0;
+                      final km =
+                          (d['deliveryDistanceKm'] as num?)?.toDouble() ?? 0;
+                      final orderNo = d['orderNumber']?.toString() ?? '—';
+                      final at = d['deliveredAt'] != null
+                          ? DateTime.tryParse(d['deliveredAt'].toString())
+                          : null;
+                      final time = at == null
+                          ? '—'
+                          : '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                        child: DashboardCard(
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
                                 decoration: BoxDecoration(
-                                  color: index == 4
-                                      ? AppColors.primary
-                                      : AppColors.primary.withValues(alpha: 0.25),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.radiusSm,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.payments_outlined,
+                                  color: AppColors.primary,
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.orderNumberHash(orderNo),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(fontSize: 15),
+                                    ),
+                                    Text(
+                                      '$time · ${l10n.distanceKmValue(km.toStringAsFixed(1))}',
+                                      style: Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                _rupee(amount),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(color: AppColors.primary),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(days[index], style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
+                        ),
+                      );
+                    }),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          SectionHeader(title: l10n.transactions),
-          const SizedBox(height: AppSpacing.md),
-          ...List.generate(4, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: DashboardCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      ),
-                      child: Icon(Icons.payments_outlined, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(l10n.deliveryPayment, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15)),
-                          Text(l10n.placeholderDash, style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                    Text(l10n.placeholderEarnings, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary)),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
       ),
     );
   }

@@ -503,5 +503,126 @@
   "selectYourShift": "Select Your Shift",
   "noAvailableSlotsForDate": "No Available Slots for this date",
   "allSlotsBookedOrEnded": "All slots for this date are booked or ended.",
-  "liveServerTime": "Live Server Time"
+  "liveServerTime": "Live Server Time",
+
+  "year": "Year",
+  "onlineTime": "Online Time",
+  "shiftsBookedLabel": "Shifts Booked",
+  "completedShiftsLabel": "Completed Shifts",
+  "earnShort": "Earn",
+  "doneShort": "Done",
+  "couldNotLoadHistory": "Could not load history",
+  "noActivityInPeriod": "No activity in this period",
+  "tripsCount": "{count} Trips",
+  "@tripsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tripCountOne": "{count} Trip",
+  "@tripCountOne": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "shiftsCount": "{count} Shifts",
+  "@shiftsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "shiftCountOne": "{count} Shift",
+  "@shiftCountOne": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "completedCountLabel": "{count} Completed",
+  "@completedCountLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "shiftsBookedValue": "{count} booked",
+  "@shiftsBookedValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "shiftsDoneValue": "{count} shifts",
+  "@shiftsDoneValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tripsAndOnlineSummary": "{trips} trips · {onlineTime}",
+  "@tripsAndOnlineSummary": {
+    "placeholders": {
+      "trips": { "type": "int" },
+      "onlineTime": { "type": "String" }
+    }
+  },
+  "thisWeekEarningsTitle": "This week earnings",
+  "fullWeekEarnings": "Full week earnings",
+  "deliveriesAndToday": "{count} deliveries · Today {amount}",
+  "@deliveriesAndToday": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "amount": { "type": "String" }
+    }
+  },
+  "withdrawRequestSubmitted": "Withdraw request for {amount} submitted.",
+  "@withdrawRequestSubmitted": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "withdrawAvailableSaturday": "Withdraw is available today (Saturday).",
+  "noEarningsToWithdraw": "No earnings to withdraw this week.",
+  "withdrawOpensSaturday": "Withdraw opens only on Saturday. Your weekly earnings stay locked until then.",
+  "weeklyChart": "Weekly chart",
+  "noEarningsThisWeekYet": "No earnings this week yet",
+  "dayWiseEarnings": "Day-wise earnings",
+  "completeDeliveriesForWeekly": "Complete deliveries to see weekly earnings here.",
+  "deliveriesCount": "{count} deliveries",
+  "@deliveriesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "todayWithLabel": "Today · {label}",
+  "@todayWithLabel": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
+  "dayWithDate": "{label} · {date}",
+  "@dayWithDate": {
+    "placeholders": {
+      "label": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "todayTrips": "Today trips",
+  "lifetimeEarnings": "Lifetime",
+  "noDeliveriesTodayYet": "No deliveries completed today yet.",
+  "orderNumberHash": "Order #{number}",
+  "@orderNumberHash": {
+    "placeholders": {
+      "number": { "type": "String" }
+    }
+  },
+  "deliveriesUpdatedLive": "{count} deliveries · {updatedLive}",
+  "@deliveriesUpdatedLive": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "updatedLive": { "type": "String" }
+    }
+  },
+  "distanceKmValue": "{km} km",
+  "@distanceKmValue": {
+    "placeholders": {
+      "km": { "type": "String" }
+    }
+  }
 }

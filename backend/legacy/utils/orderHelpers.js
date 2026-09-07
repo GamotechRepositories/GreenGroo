@@ -172,6 +172,7 @@ export function enrichOrderForResponse(
     ...doc,
     advancePaidAmount,
     giftHamper,
+    deliveryOtp: doc.deliveryOtp || "",
     items: (doc.items || []).map((item) => {
       const productImages =
         item.product && typeof item.product === "object" ? item.product.productImages || [] : [];
@@ -186,6 +187,37 @@ export function enrichOrderForResponse(
       };
     }),
   };
+}
+
+/**
+ * Attach delivery OTP from StoreOrder for customer-facing responses.
+ * Backfills older orders that only have otpCode on StoreOrder.
+ */
+export async function attachCustomerDeliveryOtps(enriched) {
+  const list = Array.isArray(enriched) ? enriched : [enriched];
+  const missing = list.filter((o) => o && !o.deliveryOtp && o._id);
+  if (missing.length) {
+    try {
+      const StoreOrder = (await import("../../delivery-service/src/models/StoreOrder.js")).default;
+      const storeOrders = await StoreOrder.find({
+        sourceOrderId: { $in: missing.map((o) => o._id) },
+      })
+        .select("sourceOrderId otpCode")
+        .lean();
+      const bySource = new Map(
+        storeOrders.map((s) => [String(s.sourceOrderId), String(s.otpCode || "").trim()])
+      );
+      for (const order of list) {
+        if (!order?.deliveryOtp && order?._id) {
+          const otp = bySource.get(String(order._id));
+          if (otp) order.deliveryOtp = otp;
+        }
+      }
+    } catch (err) {
+      console.warn("[attachCustomerDeliveryOtps]", err.message);
+    }
+  }
+  return Array.isArray(enriched) ? list : list[0];
 }
 
 function toCoord(value) {

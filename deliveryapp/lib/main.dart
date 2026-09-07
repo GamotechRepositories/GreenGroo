@@ -17,6 +17,7 @@ Future<void> main() async {
   await dotenv.load(fileName: '.env');
   debugPrint('GreenGroc API base URL: ${ApiConfig.baseUrl}');
   await LocaleController.instance.loadSavedLocale();
+  await ThemeController.instance.loadSavedTheme();
   await AuthService.instance.loadSession();
   runApp(const GreenGrocDeliveryApp());
 }

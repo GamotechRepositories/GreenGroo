@@ -127,6 +127,20 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     const roundedDistance =
       distanceKm != null ? Math.round(distanceKm * 10) / 10 : null;
 
+    const otpCode = String(Math.floor(1000 + Math.random() * 9000));
+    const itemsTotal = items.reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
+    const deliveryCharges = Number(ecommerceOrder.deliveryCharges || 0);
+    const orderTotal = Number(ecommerceOrder.total || itemsTotal + deliveryCharges);
+    const ecommercePayMethod = String(ecommerceOrder.paymentMethod || "").toLowerCase();
+    const isOnlinePaid =
+      ecommercePayMethod === "online" &&
+      ["paid", "paid_10"].includes(String(ecommerceOrder.paymentStatus || "").toLowerCase());
+    const storePaymentMethod =
+      ecommercePayMethod === "cod" || ecommercePayMethod === "COD" ? "COD" : ecommercePayMethod === "online" ? "online" : "COD";
+
     const storeOrder = await StoreOrder.create({
       orderNumber: orderNum,
       managerId: manager._id,
@@ -144,11 +158,24 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       items,
       status: "order_received",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
-      otpCode: String(Math.floor(1000 + Math.random() * 9000)),
+      otpCode,
+      paymentMethod: storePaymentMethod,
+      paymentStatus: isOnlinePaid ? "paid_online" : "pending",
+      amountToCollect: isOnlinePaid ? 0 : Math.round(orderTotal),
       notes: `Customer order ${ecommerceOrder.orderNumber || ecommerceOrder._id} routed by ${reason}${
         roundedDistance != null ? ` (${roundedDistance} km)` : ""
       }`,
     });
+
+    // Persist OTP on customer Order so frontend/userapp can show it to the customer
+    if (ecommerceOrder._id) {
+      try {
+        const Order = (await import("../models/order/Order.js")).default;
+        await Order.findByIdAndUpdate(ecommerceOrder._id, { deliveryOtp: otpCode });
+      } catch (err) {
+        console.warn("[deliveryDispatcher] failed to save deliveryOtp on Order:", err.message);
+      }
+    }
 
     console.log(
       `[deliveryDispatcher] Order ${orderNum} → ${manager.storeName || manager.area} (${reason})`

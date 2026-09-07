@@ -3,6 +3,7 @@ import { protect, optionalAuth } from "@greengrocc/shared";
 import {
   getAreaManager,
   getActiveHubs,
+  getActivityHistory,
   getTodayProgress,
   heartbeat,
   login,
@@ -26,14 +27,24 @@ import { getLoginHours } from "../controllers/gigController.js";
 import {
   acceptOrderOffer,
   completeDelivery,
+  confirmCashCollection,
+  confirmOnlinePaymentForOrder,
   declineOrderOffer,
   getActiveDelivery,
   getDriverPickupQr,
+  getOrderPaymentStatus,
   getPendingOffer,
   scanPickupQr,
   scanStoreQr,
   submitPickupProofByDriver,
+  uploadDeliveryProof,
+  verifyCustomerOtp,
 } from "../controllers/riderOrderController.js";
+import {
+  getRiderCashPending,
+  getRiderEarningsDetail,
+  riderSubmitCash,
+} from "../controllers/cashSettlementController.js";
 
 import {
   goOnline,
@@ -51,6 +62,7 @@ router.get("/me", protect, me);
 router.post("/slot-alerts/ack", protect, ackSlotAlerts);
 router.get("/home/progress", protect, getTodayProgress);
 router.get("/home-dashboard", protect, getTodayProgress);
+router.get("/activity-history", protect, getActivityHistory);
 router.get("/area-manager", getAreaManager);
 router.get("/active-hubs", getActiveHubs);
 router.patch("/onboarding", protect, updateOnboarding);
@@ -85,6 +97,17 @@ router.get("/orders/:orderId/pickup-qr", protect, getDriverPickupQr);
 router.post("/orders/:orderId/scan-pickup-qr", protect, scanPickupQr);
 router.post("/orders/:orderId/pickup-proof", protect, submitPickupProofByDriver);
 router.post("/orders/:orderId/scan-store-qr", protect, scanStoreQr);
+// New delivery completion flow
+router.post("/orders/:orderId/delivery-proof", protect, uploadDeliveryProof);
+router.post("/orders/:orderId/verify-otp", protect, verifyCustomerOtp);
+router.post("/orders/:orderId/confirm-cash", protect, confirmCashCollection);
+router.post("/orders/:orderId/collect-cash", protect, confirmCashCollection);
+router.post("/orders/:orderId/confirm-online-payment", protect, confirmOnlinePaymentForOrder);
+router.get("/orders/:orderId/payment-status", protect, getOrderPaymentStatus);
 router.post("/orders/:orderId/complete", protect, completeDelivery);
+// Cash & earnings
+router.get("/cash/pending", protect, getRiderCashPending);
+router.post("/cash/submit", protect, riderSubmitCash);
+router.get("/earnings/detail", protect, getRiderEarningsDetail);
 
 export default router;
