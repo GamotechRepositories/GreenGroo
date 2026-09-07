@@ -8,6 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import { formatProductPrice } from "../utils/productActions";
 import { formatCropDate, formatProductBusinessId } from "../utils/cropLinks";
+import CopyId from "../components/ui/CopyId";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -42,9 +43,10 @@ function productPhoto(product) {
 function ProductIdLabel({ product, className = "" }) {
   const id = formatProductBusinessId(product);
   return (
-    <p className={`font-mono font-semibold tracking-wide text-emerald-700 ${className}`} title={id}>
-      {id}
-    </p>
+    <CopyId
+      value={id}
+      textClassName={`font-mono font-semibold tracking-wide text-emerald-700 ${className}`}
+    />
   );
 }
 

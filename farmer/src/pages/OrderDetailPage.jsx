@@ -12,6 +12,7 @@ import RejectOrderModal from "../components/orders/RejectOrderModal";
 import OrderQrCode from "../components/orders/OrderQrCode";
 import { canAccept, canPrepare, canReject, formatMoney, formatOrderDate, rejectionText } from "../utils/orderDisplay";
 import { formatProductBusinessId } from "../utils/cropLinks";
+import CopyId from "../components/ui/CopyId";
 import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY } from "../utils/excelStyles";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
@@ -164,7 +165,7 @@ function OrderDetailPage() {
             ← Orders
           </Link>
           <h1 className="mt-0.5 text-lg font-bold text-[#1F2937]">{productName}</h1>
-          <p className="mt-0.5 font-mono text-[11px] text-[#6B7280]">{orderId}</p>
+          <CopyId value={orderId} className="mt-0.5" textClassName="font-mono text-[11px] text-[#6B7280]" />
         </div>
         <StatusBadge status={order.status} />
       </div>
@@ -185,7 +186,7 @@ function OrderDetailPage() {
       <Card title="Product">
         <p className="text-[15px] font-bold text-[#1F2937]">{productName}</p>
         {order.variety ? <p className="mt-0.5 text-[12px] text-[#6B7280]">Variety: {order.variety}</p> : null}
-        <p className="mt-0.5 break-all font-mono text-[11px] text-emerald-700">{productId}</p>
+        <CopyId value={productId} className="mt-0.5" textClassName="font-mono text-[11px] text-emerald-700" breakAll />
         {order.category ? <p className="mt-1 text-[11px] text-[#6B7280]">{order.category}</p> : null}
       </Card>
 

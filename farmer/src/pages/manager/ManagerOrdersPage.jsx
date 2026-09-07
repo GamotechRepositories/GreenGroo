@@ -13,14 +13,15 @@ import {
   yesterdayISODate,
 } from "../../utils/orderDisplay";
 import { formatProductBusinessId } from "../../utils/cropLinks";
+import CopyId, { CopyButton } from "../../components/ui/CopyId";
 import { isPendingProductApproval } from "../../utils/productActions";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 import StatusBadge from "../../components/ui/StatusBadge";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 
 const ACTION_BASE =
   "inline-flex h-6 min-w-[2.75rem] flex-1 items-center justify-center rounded px-1 text-[9px] font-semibold leading-none whitespace-nowrap";
 const ACTION_BTN = `${ACTION_BASE} border border-[#D4D4D4] bg-white text-[#1F2937] hover:bg-[#F3F4F6]`;
-const ACTION_BTN_DANGER = `${ACTION_BASE} border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50`;
 
 const TAB_STATEMENTS = "statements";
 const TAB_BY_PRODUCT = "by-product";
@@ -183,6 +184,47 @@ function orderViewPath(order) {
   return `/farmer/manager/orders/detail/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
 }
 
+function orderFormPath(order, mode) {
+  const id = order.id || order.orderId;
+  const params = new URLSearchParams();
+  if (order.farmerId) params.set("farmerId", order.farmerId);
+  const productId = order.productId || order.products?.[0]?.productId || order.products?.[0]?.id || "";
+  if (productId) params.set("productId", productId);
+  params.set(mode, id);
+  return `/farmer/manager/orders/create?${params.toString()}`;
+}
+
+function OrderActionButtons({ order, onDelete, deleting, size = "sm" }) {
+  const named = size === "lg";
+  const icon = named ? "h-3.5 w-3.5" : "h-3.5 w-3.5";
+  const btn = named
+    ? "inline-flex h-7 shrink-0 items-center justify-center gap-0.5 rounded-md border border-[#D4D4D4] bg-white px-1.5 text-[10px] font-semibold text-[#1F2937] hover:bg-[#F3F4F6]"
+    : "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#D4D4D4] bg-white text-[#1F2937] hover:bg-[#F3F4F6]";
+  const danger = named
+    ? "inline-flex h-7 shrink-0 items-center justify-center gap-0.5 rounded-md border border-red-200 bg-red-50 px-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
+    : "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50";
+  return (
+    <div className="flex flex-nowrap items-center justify-end gap-1">
+      <Link to={orderViewPath(order)} className={btn} title="View" aria-label="View">
+        {named ? <span>View</span> : <Eye className={icon} />}
+      </Link>
+      <Link to={orderFormPath(order, "edit")} className={btn} title="Edit" aria-label="Edit">
+        {named ? <span>Edit</span> : <Pencil className={icon} />}
+      </Link>
+      <button
+        type="button"
+        className={danger}
+        disabled={deleting || !order.farmerId}
+        onClick={() => onDelete(order)}
+        title="Delete"
+        aria-label="Delete"
+      >
+        {named ? <span>Delete</span> : <Trash2 className={icon} />}
+      </button>
+    </div>
+  );
+}
+
 function productGradeMap(product) {
   const unit = product.unit || "Kg";
   const map = {};
@@ -244,9 +286,11 @@ function ProductMobileCard({ product }) {
           {name}
           {product.variety ? <span className="font-semibold text-[#6B7280]"> · {product.variety}</span> : null}
         </p>
-        <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-700">
-          {formatProductBusinessId(product)}
-        </p>
+        <CopyId
+          value={formatProductBusinessId(product)}
+          className="min-w-0 flex-1"
+          textClassName="font-mono text-[10px] text-emerald-700"
+        />
         <span className="shrink-0 rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
           {product.status || "Active"}
         </span>
@@ -277,9 +321,11 @@ function OrderMobileCard({ order, farmerName, onDelete, deleting }) {
           {entry.productName}
           {entry.variety ? <span className="font-semibold text-[#6B7280]"> · {entry.variety}</span> : null}
         </p>
-        <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-700" title={id}>
-          {id}
-        </p>
+        <CopyId
+          value={id}
+          className="min-w-0 flex-1"
+          textClassName="font-mono text-[10px] text-emerald-700"
+        />
         <StatusBadge status={order.status} className="shrink-0" />
       </div>
       <p className="mt-1 truncate text-[11px] text-[#6B7280]">
@@ -300,23 +346,11 @@ function OrderMobileCard({ order, farmerName, onDelete, deleting }) {
         </span>
       </div>
       <GradeMiniTable map={map} unit={unit} />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[12px] font-semibold text-[#6B7280]">
+      <div className="mt-2 flex min-w-0 flex-nowrap items-center justify-between gap-1.5">
+        <p className="min-w-0 shrink truncate text-[12px] font-semibold text-[#6B7280]">
           Value <span className="font-bold text-[#1F2937]">{formatMoney(value)}</span>
         </p>
-        <div className="flex items-center gap-1">
-          <Link to={orderViewPath(order)} className={`${ACTION_BTN} !h-8 !min-w-[4.25rem] !text-[11px]`}>
-            View
-          </Link>
-          <button
-            type="button"
-            className={`${ACTION_BTN_DANGER} !h-8 !min-w-[4.25rem] !text-[11px]`}
-            disabled={deleting || !order.farmerId}
-            onClick={() => onDelete(order)}
-          >
-            {deleting ? "…" : "Delete"}
-          </button>
-        </div>
+        <OrderActionButtons order={order} onDelete={onDelete} deleting={deleting} size="lg" />
       </div>
     </article>
   );
@@ -712,7 +746,9 @@ export default function ManagerOrdersPage() {
                             {[p.variety, p.category].filter(Boolean).join(" · ") || "—"}
                           </p>
                         </td>
-                        <td className="px-3 py-2 font-mono text-[11px] text-emerald-700">{formatProductBusinessId(p)}</td>
+                        <td className="px-3 py-2">
+                          <CopyId value={formatProductBusinessId(p)} />
+                        </td>
                         <td className="px-3 py-2 font-semibold">
                           {qty} {p.unit || "Kg"}
                         </td>
@@ -842,10 +878,13 @@ export default function ManagerOrdersPage() {
                 return (
                   <tr key={id} className="hover:bg-[#F9FBF9]">
                     <td className={`${TD} text-center text-[#9CA3AF]`}>{idx + 1}</td>
-                    <td className={`${TD} whitespace-nowrap font-mono text-[10px] font-semibold text-[#217346] sm:text-[11px]`}>
-                      <Link to={orderViewPath(order)} className="hover:underline" title={id}>
-                        {id}
-                      </Link>
+                    <td className={`${TD} whitespace-nowrap sm:text-[11px]`}>
+                      <span className="inline-flex max-w-full items-center gap-0.5">
+                        <Link to={orderViewPath(order)} className="truncate font-mono text-[10px] font-semibold text-[#217346] hover:underline sm:text-[11px]" title={id}>
+                          {id}
+                        </Link>
+                        <CopyButton value={id} />
+                      </span>
                     </td>
                     <td className={TD} title={[entry.productName, variety].filter(Boolean).join(" · ")}>
                       <span className="block font-semibold text-[#1F2937]">{entry.productName}</span>
@@ -871,20 +910,7 @@ export default function ManagerOrdersPage() {
                       );
                     })}
                     <td className={`${TD} bg-white px-0.5 py-1 align-middle sm:px-1`}>
-                      <div className="mx-auto flex w-full max-w-[7.5rem] items-stretch justify-center gap-1">
-                        <Link to={orderViewPath(order)} className={ACTION_BTN}>
-                          View
-                        </Link>
-                        <button
-                          type="button"
-                          className={ACTION_BTN_DANGER}
-                          disabled={deletingId === id || !order.farmerId}
-                          onClick={() => handleDeleteOrder(order)}
-                          title="Delete order"
-                        >
-                          {deletingId === id ? "…" : "Delete"}
-                        </button>
-                      </div>
+                      <OrderActionButtons order={order} onDelete={handleDeleteOrder} deleting={deletingId === id} />
                     </td>
                   </tr>
                 );

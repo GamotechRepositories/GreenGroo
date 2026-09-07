@@ -9,6 +9,7 @@ import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import { formatMoney, formatOrderDate, rejectionText } from "../../utils/orderDisplay";
 import { formatProductBusinessId } from "../../utils/cropLinks";
+import CopyId from "../../components/ui/CopyId";
 import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
@@ -204,7 +205,11 @@ export default function ManagerOrderDetailPage() {
     grades.reduce((s, g) => s + Number(g.qty || 0), 0);
   const orderValue = Number(order.orderValue || order.totalAmount || order.amount || 0);
   const reason = rejectionText(order);
-  const pickup = order.pickup;
+  const formParams = new URLSearchParams();
+  if (resolvedFarmerId) formParams.set("farmerId", resolvedFarmerId);
+  if (order.productId) formParams.set("productId", order.productId);
+  formParams.set("edit", displayId);
+  const editPath = `/farmer/manager/orders/create?${formParams.toString()}`;
 
   const handleDelete = async () => {
     const id = order.orderId || order.id || orderId;
@@ -233,7 +238,7 @@ export default function ManagerOrderDetailPage() {
             ← Orders
           </Link>
           <h1 className="mt-0.5 text-lg font-bold text-[#1F2937]">{productName}</h1>
-          <p className="mt-0.5 font-mono text-[11px] text-[#6B7280]">{displayId}</p>
+          <CopyId value={displayId} className="mt-0.5" textClassName="font-mono text-[11px] text-[#6B7280]" />
         </div>
         <StatusBadge status={order.status} />
       </div>
@@ -247,7 +252,7 @@ export default function ManagerOrderDetailPage() {
       <Card title="Product">
         <p className="text-[15px] font-bold text-[#1F2937]">{productName}</p>
         {order.variety ? <p className="mt-0.5 text-[12px] text-[#6B7280]">Variety: {order.variety}</p> : null}
-        <p className="mt-0.5 break-all font-mono text-[11px] text-emerald-700">{productId}</p>
+        <CopyId value={productId} className="mt-0.5" textClassName="font-mono text-[11px] text-emerald-700" breakAll />
         <p className="mt-1 text-[12px] text-[#6B7280]">
           Farmer: <span className="font-semibold text-[#1F2937]">{farmerName}</span>
         </p>
@@ -309,6 +314,9 @@ export default function ManagerOrderDetailPage() {
       <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
         <Link to="/farmer/manager/orders" className={`${EXCEL_BTN} !min-h-10 w-full sm:w-auto`}>
           Back
+        </Link>
+        <Link to={editPath} className={`${EXCEL_BTN_PRIMARY} !min-h-10 w-full sm:w-auto`}>
+          Edit
         </Link>
         <button
           type="button"

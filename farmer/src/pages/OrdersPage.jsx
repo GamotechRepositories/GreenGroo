@@ -10,6 +10,7 @@ import RejectOrderModal from "../components/orders/RejectOrderModal";
 import { canAccept, canReject, formatMoney, formatOrderDate, orderTitle } from "../utils/orderDisplay";
 import { EXCEL_PAGE_TITLE } from "../utils/excelStyles";
 import StatusBadge from "../components/ui/StatusBadge";
+import CopyId from "../components/ui/CopyId";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 
@@ -267,9 +268,8 @@ function OrdersPage({ filter = "new" }) {
                 return (
                   <tr key={id} className="hover:bg-[#F9FBF9]">
                     <td className={`${TD} text-center text-[#9CA3AF]`}>{idx + 1}</td>
-                    <td className={`${TD} font-mono text-[9px] font-semibold text-[#217346] sm:text-[10px]`} title={oid.full}>
-                      <span className="hidden lg:inline">{oid.full}</span>
-                      <span className="lg:hidden">{oid.short}</span>
+                    <td className={`${TD} sm:text-[10px]`}>
+                      <CopyId value={oid.full} textClassName="font-mono text-[9px] font-semibold text-[#217346] sm:text-[10px]" />
                     </td>
                     <td className={`${TD} truncate`} title={[order.productName, order.variety].filter(Boolean).join(" · ")}>
                       <span className="font-semibold">{order.productName || "Product"}</span>
@@ -366,9 +366,11 @@ function OrderMobileCard({ order, gradeColumns, onAccept, onReject }) {
           {order.productName || "Product"}
           {order.variety ? <span className="font-semibold text-[#6B7280]"> · {order.variety}</span> : null}
         </p>
-        <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-700" title={oid.full}>
-          {oid.full}
-        </p>
+        <CopyId
+          value={oid.full}
+          className="min-w-0 flex-1"
+          textClassName="font-mono text-[10px] text-emerald-700"
+        />
         <StatusBadge status={order.status} className="shrink-0" />
       </div>
 

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { getManagerFarmers, getManagerFarmerProducts, createManagerOrder } from "../../api/farmerApi";
+import { getManagerFarmers, getManagerFarmerProducts, createManagerOrder, getManagerFarmerOrderById, getManagerAllHarvestOrders, updateManagerFarmerOrder } from "../../api/farmerApi";
 import { formatProductBusinessId, formatCropDate } from "../../utils/cropLinks";
+import CopyId from "../../components/ui/CopyId";
 import { EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PANEL } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
 
@@ -82,11 +83,75 @@ function productImageOf(product) {
   return product?.image || product?.imageUrl || product?.images?.[0] || "";
 }
 
+function toISODate(value) {
+  if (!value) return getTodayISODate();
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return getTodayISODate();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function toTimeInput(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return getNowTimeInput();
+  const ampm = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    const min = ampm[2];
+    const p = ampm[3].toUpperCase();
+    if (p === "PM" && h < 12) h += 12;
+    if (p === "AM" && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${min}`;
+  }
+  const m24 = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (m24) return `${String(Number(m24[1])).padStart(2, "0")}:${m24[2]}`;
+  return getNowTimeInput();
+}
+
+function mergeGradesFromOrder(productGrades, order) {
+  const fromOrder = [];
+  if (Array.isArray(order?.grades) && order.grades.length) {
+    order.grades.forEach((g, idx) => {
+      fromOrder.push({
+        name: g.label || g.name || `Grade ${idx + 1}`,
+        quantity: Number(g.quantity || 0) || "",
+        price: Number(g.price ?? g.rate ?? 0) || 0,
+      });
+    });
+  } else if (Array.isArray(order?.products) && order.products.length) {
+    order.products.forEach((p, idx) => {
+      fromOrder.push({
+        name: p.grade || p.gradeName || p.name || `Grade ${idx + 1}`,
+        quantity: Number(p.quantity || 0) || "",
+        price: Number(p.price || p.rate || 0) || 0,
+      });
+    });
+  }
+  const leftover = new Map(fromOrder.map((g) => [String(g.name).trim().toLowerCase(), g]));
+  const merged = (productGrades || []).map((g) => {
+    const hit = leftover.get(String(g.name).trim().toLowerCase());
+    if (!hit) return g;
+    leftover.delete(String(g.name).trim().toLowerCase());
+    return { ...g, quantity: hit.quantity, price: hit.price || g.price };
+  });
+  let i = 0;
+  leftover.forEach((g) => {
+    merged.push({ id: `ord_${i++}`, name: g.name, quantity: g.quantity, price: g.price, available: 0 });
+  });
+  return merged.length ? merged : productGrades;
+}
+
 export default function ManagerCreateOrderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const presetFarmerId = searchParams.get("farmerId") || "";
   const presetProductId = searchParams.get("productId") || "";
+  const editOrderId = searchParams.get("edit") || "";
+  const copyOrderId = searchParams.get("copy") || "";
+  const sourceOrderId = editOrderId || copyOrderId;
+  const isEdit = Boolean(editOrderId);
+  const isCopy = Boolean(copyOrderId) && !isEdit;
   const [farmers, setFarmers] = useState([]);
   const [selectedFarmerId, setSelectedFarmerId] = useState("");
   const [farmerProducts, setFarmerProducts] = useState([]);
@@ -94,13 +159,41 @@ export default function ManagerCreateOrderPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [orderDate] = useState(getTodayISODate());
+  const [sourceOrder, setSourceOrder] = useState(null);
+  const [orderDate, setOrderDate] = useState(getTodayISODate());
   const [pickupDate, setPickupDate] = useState(getTodayISODate());
   const [pickupTime, setPickupTime] = useState(getNowTimeInput());
   const [day, setDay] = useState(dayNameFromISO(getTodayISODate()));
   const [selectedProductId, setSelectedProductId] = useState("");
   const [productUnit, setProductUnit] = useState("Kg");
   const [grades, setGrades] = useState(() => defaultGradeRows(0));
+
+  useEffect(() => {
+    if (!sourceOrderId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (presetFarmerId) {
+          const o = await getManagerFarmerOrderById(presetFarmerId, sourceOrderId);
+          if (!cancelled) setSourceOrder(o);
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      try {
+        const data = await getManagerAllHarvestOrders();
+        const list = Array.isArray(data?.orders) ? data.orders : Array.isArray(data) ? data : [];
+        const found = list.find((o) => String(o.id || o.orderId) === String(sourceOrderId));
+        if (!cancelled) setSourceOrder(found || null);
+      } catch {
+        if (!cancelled) setSourceOrder(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceOrderId, presetFarmerId]);
 
   useEffect(() => {
     getManagerFarmers({ lite: true })
@@ -127,10 +220,16 @@ export default function ManagerCreateOrderPage() {
         const pList = Array.isArray(prods) ? prods : [];
         setFarmerProducts(pList);
         if (pList.length > 0) {
-          const match = pList.find((p) => productMatches(p, presetProductId)) || pList[0];
+          const orderPid =
+            sourceOrder?.productId || sourceOrder?.products?.[0]?.productId || sourceOrder?.products?.[0]?.id || "";
+          const match =
+            pList.find((p) => productMatches(p, orderPid || presetProductId)) ||
+            pList.find((p) => productMatches(p, presetProductId)) ||
+            pList[0];
           setSelectedProductId(match.id || match.productId);
-          setProductUnit(match.unit || "Kg");
-          setGrades(gradesFromProduct(match));
+          setProductUnit(sourceOrder?.unit || match.unit || "Kg");
+          const base = gradesFromProduct(match);
+          setGrades(sourceOrder ? mergeGradesFromOrder(base, sourceOrder) : base);
         } else {
           setSelectedProductId("");
           setGrades(defaultGradeRows(0));
@@ -138,7 +237,21 @@ export default function ManagerCreateOrderPage() {
       })
       .catch(() => setFarmerProducts([]))
       .finally(() => setLoadingProducts(false));
-  }, [selectedFarmerId]);
+  }, [selectedFarmerId, sourceOrder]);
+
+  useEffect(() => {
+    if (!sourceOrder) return;
+    if (farmers.length) {
+      const fid = sourceOrder.farmerId;
+      const match = farmers.find((f) => f.id === fid || f.farmerId === fid);
+      if (match) setSelectedFarmerId(match.id);
+    }
+    const iso = toISODate(sourceOrder.pickupDate || sourceOrder.requiredDate || sourceOrder.harvestDate);
+    setPickupDate(iso);
+    setDay(sourceOrder.day || dayNameFromISO(iso));
+    setPickupTime(toTimeInput(sourceOrder.pickupTime || sourceOrder.harvestTime));
+    setOrderDate(toISODate(sourceOrder.orderDate || sourceOrder.harvestDate || iso));
+  }, [sourceOrder, farmers]);
 
   const handleProductChange = (prodId) => {
     setSelectedProductId(prodId);
@@ -236,7 +349,7 @@ export default function ManagerCreateOrderPage() {
 
     setSubmitting(true);
     try {
-      await createManagerOrder(selectedFarmerId, {
+      const payload = {
         productId: orderProductId,
         productName: orderProductName,
         customer: {
@@ -267,18 +380,24 @@ export default function ManagerCreateOrderPage() {
         pickupTime,
         day,
         unit: productUnit,
-        rejectionQty: 0,
-        rejectionReason: "",
-        status: "NEW",
-        paymentStatus: "Pending",
-        deliveryStatus: "Pending",
-        variety: selectedProduct?.variety || "",
-        category: selectedProduct?.category || "",
-      });
-      toast.success(`Order created for ${selectedFarmer?.name}`);
+        rejectionQty: Number(sourceOrder?.rejectionQty || 0),
+        rejectionReason: sourceOrder?.rejectionReason || "",
+        status: isEdit ? sourceOrder?.status || "NEW" : "NEW",
+        paymentStatus: isEdit ? sourceOrder?.paymentStatus || "Pending" : "Pending",
+        deliveryStatus: isEdit ? sourceOrder?.deliveryStatus || "Pending" : "Pending",
+        variety: selectedProduct?.variety || sourceOrder?.variety || "",
+        category: selectedProduct?.category || sourceOrder?.category || "",
+      };
+      if (isEdit) {
+        await updateManagerFarmerOrder(selectedFarmerId, editOrderId, payload);
+        toast.success("Order updated");
+      } else {
+        await createManagerOrder(selectedFarmerId, payload);
+        toast.success(isCopy ? "Order copied" : `Order created for ${selectedFarmer?.name}`);
+      }
       navigate("/farmer/manager/orders");
     } catch (err) {
-      toast.error(err?.message || "Failed to create order");
+      toast.error(err?.message || (isEdit ? "Failed to update order" : "Failed to create order"));
     } finally {
       setSubmitting(false);
     }
@@ -291,7 +410,9 @@ export default function ManagerCreateOrderPage() {
           <Link to="/farmer/manager/orders" className="text-[11px] text-[#6B7280] hover:text-[#217346]">
             ← Orders
           </Link>
-          <h1 className="text-base font-bold text-[#1F2937]">Create Harvest Order</h1>
+          <h1 className="text-base font-bold text-[#1F2937]">
+            {isEdit ? "Edit Harvest Order" : isCopy ? "Copy Harvest Order" : "Create Harvest Order"}
+          </h1>
         </div>
         <button type="button" onClick={() => navigate("/farmer/manager/orders")} className={`${EXCEL_BTN} !py-1`}>
           Close
@@ -311,6 +432,7 @@ export default function ManagerCreateOrderPage() {
                 onChange={(e) => setSelectedFarmerId(e.target.value)}
                 className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
                 required
+                disabled={isEdit}
               >
                 {farmers.map((f) => (
                   <option key={f.id} value={f.id}>
@@ -331,6 +453,7 @@ export default function ManagerCreateOrderPage() {
                   onChange={(e) => handleProductChange(e.target.value)}
                   className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
                   required
+                  disabled={isEdit}
                 >
                   {farmerProducts.map((p) => {
                     const qty = productQty(p);
@@ -393,7 +516,7 @@ export default function ManagerCreateOrderPage() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 break-all font-mono text-[10px] text-emerald-700">{selectedBusinessId}</p>
+                  <CopyId value={selectedBusinessId} className="mt-0.5" textClassName="font-mono text-[10px] text-emerald-700" breakAll />
                   <p className="mt-1 text-[11px] text-[#6B7280]">
                     {[
                       selectedProduct.variety ? `Variety ${selectedProduct.variety}` : null,
@@ -584,7 +707,7 @@ export default function ManagerCreateOrderPage() {
               disabled={submitting || farmerProducts.length === 0}
               className={`${EXCEL_BTN_PRIMARY} !min-h-10 w-full sm:w-auto`}
             >
-              {submitting ? "Saving…" : "Save Order"}
+              {submitting ? "Saving…" : isEdit ? "Save Changes" : isCopy ? "Save Copy" : "Save Order"}
             </button>
           </div>
         </form>

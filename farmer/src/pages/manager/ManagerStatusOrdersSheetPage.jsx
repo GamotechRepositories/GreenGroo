@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 import { getManagerAllHarvestOrders } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
 import StatusBadge from "../../components/ui/StatusBadge";
+import CopyId from "../../components/ui/CopyId";
 import {
   canonicalOrderStatus,
   formatMoney,
@@ -256,7 +257,7 @@ export default function ManagerStatusOrdersSheetPage() {
                 <div key={id} className="px-3 py-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate font-mono text-[11px] font-bold text-[#217346]">{id}</p>
+                      <CopyId value={id} className="max-w-full" textClassName="font-mono text-[11px] font-bold text-[#217346]" />
                       <p className="mt-0.5 truncate text-[13px] font-semibold">{entry.productName}</p>
                       <p className="mt-0.5 text-[11px] text-[#6B7280]">{farmerName}</p>
                     </div>
@@ -323,14 +324,16 @@ export default function ManagerStatusOrdersSheetPage() {
                   const reason = rejectionText(order);
                   return (
                     <tr key={id} className="hover:bg-[#F9F9F9]">
-                      <td className={`${EXCEL_CELL} font-mono font-semibold text-[#217346]`}>{id}</td>
+                      <td className={EXCEL_CELL}>
+                        <CopyId value={id} textClassName="font-mono text-[11px] font-semibold text-[#217346]" />
+                      </td>
                       <td className={`${EXCEL_CELL} whitespace-nowrap`}>
                         {formatOrderDate(order.orderDate || order.harvestDate || order.date)}
                       </td>
                       <td className={EXCEL_CELL}>
                         <p className="font-semibold">{entry.productName}</p>
                         {entry.productId ? (
-                          <p className="font-mono text-[10px] text-emerald-700">{entry.productId}</p>
+                          <CopyId value={entry.productId} className="mt-0.5" textClassName="font-mono text-[10px] text-emerald-700" />
                         ) : null}
                       </td>
                       <td className={EXCEL_CELL}>{farmerName}</td>

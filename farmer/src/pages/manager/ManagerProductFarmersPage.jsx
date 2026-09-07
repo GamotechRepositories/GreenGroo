@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/farmerApi";
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import { isPendingProductApproval } from "../../utils/productActions";
+import CopyId from "../../components/ui/CopyId";
 import {
   EXCEL_PANEL,
   EXCEL_BTN,
@@ -134,7 +135,7 @@ function ProductSummaryMobile({ title, summary }) {
           <p className="mt-0.5 truncate text-[11px] text-[#6B7280]">
             {[summary.variety !== "—" ? summary.variety : null, summary.category].filter(Boolean).join(" · ") || "—"}
           </p>
-          <p className="mt-0.5 break-all font-mono text-[10px] text-emerald-700">{summary.productId}</p>
+          <CopyId value={summary.productId} className="mt-0.5" textClassName="font-mono text-[10px] text-emerald-700" breakAll />
         </div>
         <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(summary.status)}`}>
           {summary.status}
@@ -154,7 +155,7 @@ function FarmerCard({ product, farmerId, farmerLabel, busyId, onReview }) {
   const canReview = isPendingProductApproval(product.status);
   const unit = product.unit || "Kg";
   return (
-    <div className="min-w-0 rounded-lg border border-[#E5E7EB] p-2">
+    <div className="min-w-0 rounded-lg border border-[#E5E7EB] bg-white p-2">
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
           {farmerId ? (
@@ -172,7 +173,7 @@ function FarmerCard({ product, farmerId, farmerLabel, busyId, onReview }) {
           {product.status || "Active"}
         </span>
       </div>
-      <p className="mt-1 truncate font-mono text-[9px] text-emerald-700">{formatProductBusinessId(product)}</p>
+      <CopyId value={formatProductBusinessId(product)} className="mt-1" textClassName="font-mono text-[9px] text-emerald-700" />
       <p className="mt-1 text-[12px] font-bold tabular-nums text-[#1F2937]">
         {qty.toLocaleString("en-IN")} {unit}
       </p>
@@ -375,7 +376,9 @@ export default function ManagerProductFarmersPage() {
                             .join(" · ") || "—"}
                         </p>
                       </td>
-                      <td className="px-3 py-2 font-mono text-[11px] text-emerald-700">{summary.productId}</td>
+                      <td className="px-3 py-2">
+                        <CopyId value={summary.productId} />
+                      </td>
                       <td className="px-3 py-2 font-semibold text-[#1F2937]">
                         {Number(summary.totalQty || 0).toLocaleString("en-IN")} {summary.unit}
                       </td>
@@ -404,12 +407,12 @@ export default function ManagerProductFarmersPage() {
               No farmer has added this product yet.
             </div>
           ) : (
-            <section className={EXCEL_PANEL}>
-              <p className="border-b border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#1F2937]">
+            <section>
+              <p className="px-0.5 py-1 text-[12px] font-semibold text-[#1F2937] sm:hidden">
                 Farmers ({rows.length})
               </p>
 
-              <div className="grid grid-cols-2 gap-2 p-2 sm:hidden">
+              <div className="grid grid-cols-2 gap-2 sm:hidden">
                 {rows.map((p) => (
                   <FarmerCard
                     key={`${p.farmerId || ""}-${p.id || p.productId}`}
@@ -422,7 +425,10 @@ export default function ManagerProductFarmersPage() {
                 ))}
               </div>
 
-              <div className="hidden overflow-x-auto sm:block">
+              <div className={`${EXCEL_PANEL} hidden overflow-x-auto sm:block`}>
+                <p className="border-b border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#1F2937]">
+                  Farmers ({rows.length})
+                </p>
                 <table className="w-full min-w-[640px] text-xs">
                   <thead>
                     <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
@@ -455,8 +461,8 @@ export default function ManagerProductFarmersPage() {
                             )}
                           </td>
                           <td className="px-3 py-1.5 text-[#374151]">{p.variety || "—"}</td>
-                          <td className="px-3 py-1.5 font-mono text-[11px] text-emerald-700">
-                            {formatProductBusinessId(p)}
+                          <td className="px-3 py-1.5">
+                            <CopyId value={formatProductBusinessId(p)} />
                           </td>
                           <td className="px-3 py-1.5 font-semibold text-[#1F2937]">
                             {productQty(p).toLocaleString("en-IN")} {p.unit || "Kg"}

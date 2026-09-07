@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/farmerApi";
 import { isPendingProductApproval } from "../../utils/productActions";
 import { formatProductBusinessId } from "../../utils/cropLinks";
+import CopyId from "../../components/ui/CopyId";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
 function isBusinessProductId(value) {
@@ -279,7 +280,9 @@ export default function ManagerProductsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">{p.variety || "—"}</td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatProductBusinessId(p)}</td>
+                    <td className="px-3 py-2.5">
+                      <CopyId value={formatProductBusinessId(p)} />
+                    </td>
                     <td className="px-3 py-2.5 text-gray-600">
                       {p.category} {p.subCategory ? `· ${p.subCategory}` : ""}
                     </td>

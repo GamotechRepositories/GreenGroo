@@ -5,6 +5,7 @@ import { getCropPlans, updateCropPlan } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
+import CopyId from "../components/ui/CopyId";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -108,9 +109,7 @@ function CropPlanningPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-bold text-[#1F2937]">{plan.cropName || "Crop"}</p>
-                    <p className="mt-0.5 font-mono text-[11px] font-semibold tracking-wide text-emerald-700">
-                      {formatCropBusinessId(plan)}
-                    </p>
+                    <CopyId value={formatCropBusinessId(plan)} className="mt-0.5" textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700" />
                     <p className="text-[11px] text-[#6B7280]">
                       {plan.variety || "—"} • Harvest {formatCropDate(plan.harvestDate)}
                     </p>

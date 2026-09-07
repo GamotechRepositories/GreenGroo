@@ -10,6 +10,7 @@ import {
 import CropForm from "../../components/crops/CropForm";
 import LoadingState from "../../components/ui/LoadingState";
 import { formatCropBusinessId } from "../../utils/cropLinks";
+import CopyId from "../../components/ui/CopyId";
 import { EXCEL_PAGE_SUB, EXCEL_PANEL } from "../../utils/excelStyles";
 
 function ManagerFarmerCropFormPage() {
@@ -92,9 +93,7 @@ function ManagerFarmerCropFormPage() {
         </Link>
       </div>
       {isEdit && crop ? (
-        <p className="truncate font-mono text-[11px] font-semibold tracking-wide text-emerald-700 sm:text-[12px]">
-          {formatCropBusinessId(crop)}
-        </p>
+        <CopyId value={formatCropBusinessId(crop)} className="max-w-full" textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700 sm:text-[12px]" />
       ) : null}
       <div className={`${EXCEL_PANEL} p-2 sm:p-5`}>
         <CropForm

@@ -7,6 +7,7 @@ import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
+import CopyId from "../components/ui/CopyId";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -71,9 +72,7 @@ function CropDetailPage() {
           <p className={`${EXCEL_PAGE_SUB} break-words`}>
             {crop.variety} • {crop.farmName || "Farm"} {crop.farmLocation ? `• ${crop.farmLocation}` : ""}
           </p>
-          <p className="mt-1 font-mono text-[12px] font-semibold tracking-wide text-emerald-700">
-            {formatCropBusinessId(crop)}
-          </p>
+          <CopyId value={formatCropBusinessId(crop)} className="mt-1" textClassName="font-mono text-[12px] font-semibold tracking-wide text-emerald-700" />
         </div>
         <StatusBadge status={crop.status} />
       </div>
@@ -82,7 +81,7 @@ function CropDetailPage() {
         <h2 className={EXCEL_PANEL_HEAD}>Crop Details</h2>
         <div className="grid grid-cols-1 gap-3 p-3 text-xs sm:grid-cols-2">
           <Info label="Crop Name" value={crop.cropName} />
-          <Info label="Crop ID" value={formatCropBusinessId(crop)} />
+          <Info label="Crop ID" value={<CopyId value={formatCropBusinessId(crop)} />} />
           <Info label="Variety" value={crop.variety} />
           <Info label="Area" value={`${crop.area} ${crop.areaUnit}`} />
           <Info label="Sowing Date" value={formatCropDate(crop.sowingDate)} />

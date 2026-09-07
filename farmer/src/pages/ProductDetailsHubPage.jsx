@@ -7,6 +7,7 @@ import EmptyState from "../components/ui/EmptyState";
 import StatusBadge from "../components/ui/StatusBadge";
 import { EXCEL_BTN_PRIMARY, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL } from "../utils/excelStyles";
 import { formatProductBusinessId } from "../utils/cropLinks";
+import CopyId from "../components/ui/CopyId";
 
 function ProductDetailsHubPage() {
   const [products, setProducts] = useState([]);
@@ -54,9 +55,7 @@ function ProductDetailsHubPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-bold">{product.productName || product.name}</p>
-                  <p className="font-mono text-[11px] font-semibold tracking-wide text-emerald-700">
-                    {formatProductBusinessId(product)}
-                  </p>
+                  <CopyId value={formatProductBusinessId(product)} textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700" />
                   <p className="text-[11px] text-[#6B7280]">
                     {product.cropName} • {product.variety}
                   </p>

@@ -5,6 +5,7 @@ import { getManagerDashboard, getManagerAllHarvestOrders } from "../../api/farme
 import { usePolling } from "../../hooks/usePolling";
 import StatusBadge from "../../components/ui/StatusBadge";
 import OrderStatusChart from "../../components/orders/OrderStatusChart";
+import CopyId from "../../components/ui/CopyId";
 import { managerOrderBucket } from "../../utils/orderDisplay";
 import { EXCEL_PANEL, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB } from "../../utils/excelStyles";
 
@@ -103,7 +104,9 @@ export default function ManagerDashboardPage() {
               ) : (
                 stats.recentOrders.map((order) => (
                   <tr key={order.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="px-3 py-2 font-mono text-[#217346]">{order.id}</td>
+                    <td className="px-3 py-2">
+                      <CopyId value={order.id} textClassName="font-mono text-[11px] text-[#217346]" />
+                    </td>
                     <td className="px-3 py-2">{order.farmerName || "—"}</td>
                     <td className="px-3 py-2">{order.products?.[0]?.name || "—"}</td>
                     <td className="px-3 py-2">{order.totalQuantity} Kg</td>

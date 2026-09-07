@@ -15,6 +15,7 @@ import {
   rejectionText,
 } from "../../utils/orderDisplay";
 import { formatProductBusinessId } from "../../utils/cropLinks";
+import CopyId from "../../components/ui/CopyId";
 import {
   EXCEL_PANEL,
   EXCEL_INPUT,
@@ -367,9 +368,12 @@ export default function ManagerProductOrdersSpreadsheetPage() {
             ← Orders
           </Link>
           <h1 className="mt-0.5 text-base font-bold text-slate-900 sm:text-xl">{productTitle}</h1>
-          <p className="font-mono text-[11px] text-emerald-700">
-            {formatProductBusinessId({ productId: displayProductId, id: displayProductId })}
-            <span className="ml-2 font-sans text-[#9CA3AF]">
+          <p className="flex min-w-0 flex-wrap items-center gap-1">
+            <CopyId
+              value={formatProductBusinessId({ productId: displayProductId, id: displayProductId })}
+              textClassName="font-mono text-[11px] text-emerald-700"
+            />
+            <span className="font-sans text-[11px] text-[#9CA3AF]">
               {spreadsheetRows.length} orders · {uniqueFarmers} farmers · {totalVolume.toLocaleString("en-IN")} qty
             </span>
           </p>

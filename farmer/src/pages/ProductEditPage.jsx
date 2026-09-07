@@ -5,6 +5,7 @@ import ProductManageForm from "../components/products/ProductManageForm";
 import LoadingState from "../components/ui/LoadingState";
 import { getCrops, getMyProduct, updateMyProduct } from "../api/farmerApi";
 import { formatProductBusinessId } from "../utils/cropLinks";
+import CopyId from "../components/ui/CopyId";
 import { EXCEL_PAGE_SUB, EXCEL_PANEL } from "../utils/excelStyles";
 
 function ProductEditPage() {
@@ -45,9 +46,7 @@ function ProductEditPage() {
         <div className="min-w-0">
           <h1 className="text-base font-bold tracking-tight text-slate-900 sm:text-2xl">Edit Product</h1>
           <p className={`${EXCEL_PAGE_SUB} hidden truncate sm:block`}>{product.productName || product.name}</p>
-          <p className="truncate font-mono text-[11px] font-semibold tracking-wide text-emerald-700 sm:text-[12px]">
-            {formatProductBusinessId(product)}
-          </p>
+          <CopyId value={formatProductBusinessId(product)} className="max-w-full" textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700 sm:text-[12px]" />
         </div>
         <Link to={`/farmer/products/${id}`} className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm">
           View

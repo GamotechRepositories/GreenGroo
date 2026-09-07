@@ -15,6 +15,7 @@ import {
 } from "../../api/farmerApi";
 import { isPendingProductApproval } from "../../utils/productActions";
 import { formatCropDate, formatCropBusinessId, formatProductBusinessId } from "../../utils/cropLinks";
+import CopyId from "../../components/ui/CopyId";
 import FileUpload from "../../components/ui/FileUpload";
 import StatusBadge from "../../components/ui/StatusBadge";
 import {
@@ -272,7 +273,9 @@ export default function ManagerFarmerDetailPage() {
                 ) : crops.map((crop) => (
                   <tr key={crop.cropId || crop.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                     <td className="px-3 py-2.5 font-semibold">{crop.cropName}</td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatCropBusinessId(crop)}</td>
+                    <td className="px-3 py-2.5">
+                      <CopyId value={formatCropBusinessId(crop)} />
+                    </td>
                     <td className="px-3 py-2.5">{crop.variety || "—"}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{formatCropDate(crop.sowingDate)}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{formatCropDate(crop.expectedHarvestDate)}</td>
@@ -344,7 +347,9 @@ export default function ManagerFarmerDetailPage() {
                 ) : products.map((p) => (
                   <tr key={p.id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                     <td className="px-3 py-2.5 font-semibold">{p.name}</td>
-                    <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatProductBusinessId(p)}</td>
+                    <td className="px-3 py-2.5">
+                      <CopyId value={formatProductBusinessId(p)} />
+                    </td>
                     <td className="px-3 py-2.5">{p.category}</td>
                     <td className="px-3 py-2.5">
                       {p.grades?.map((g) => `${g.label}: ${g.quantity} Kg`).join(" · ") || "—"}
