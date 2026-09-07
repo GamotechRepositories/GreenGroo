@@ -119,6 +119,7 @@ function FarmerRoutes() {
           <Route path="manager/farmers/:farmerId/products/add" element={<ManagerProductAddPage />} />
           <Route path="manager/farmers/:farmerId" element={<ManagerFarmerDetailPage />} />
           <Route path="manager/products/add" element={<ManagerProductAddPage />} />
+          <Route path="manager/products/:productKey/farmers" element={<ManagerProductFarmersPage />} />
           <Route path="manager/products" element={<ManagerProductsPage />} />
           <Route path="manager/inventory" element={<ManagerInventoryPage />} />
           <Route path="manager/inventory/history" element={<ManagerInventoryHistoryPage />} />

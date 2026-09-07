@@ -9,6 +9,7 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import RejectOrderModal from "../components/orders/RejectOrderModal";
 import { canAccept, canReject, formatMoney, formatOrderDate, orderTitle } from "../utils/orderDisplay";
 import { EXCEL_PAGE_TITLE } from "../utils/excelStyles";
+import StatusBadge from "../components/ui/StatusBadge";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 
@@ -179,7 +180,19 @@ function OrdersPage({ filter = "new" }) {
       ) : orders.length === 0 ? (
         <EmptyState title={`No ${orderTitle(filter).toLowerCase()}`} description="Orders in this status will appear here." />
       ) : (
-        <div className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <>
+        <div className="space-y-2.5 md:hidden">
+          {orders.map((order) => (
+            <OrderMobileCard
+              key={order.orderId || order.id}
+              order={order}
+              gradeColumns={gradeColumns}
+              onAccept={() => setAcceptId(order.orderId || order.id)}
+              onReject={() => setRejectOrder(order)}
+            />
+          ))}
+        </div>
+        <div className="hidden w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
           <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
             <colgroup>
               <col className="w-[4%]" />
@@ -291,6 +304,7 @@ function OrdersPage({ filter = "new" }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <ConfirmDialog
@@ -339,10 +353,68 @@ function OrdersPage({ filter = "new" }) {
   );
 }
 
-function OrderActions({ order, onAccept, onReject }) {
+function OrderMobileCard({ order, gradeColumns, onAccept, onReject }) {
   const id = order.orderId || order.id;
-  const base =
-    "inline-flex h-6 min-w-[3.25rem] flex-1 items-center justify-center rounded px-1 text-[9px] font-semibold leading-none whitespace-nowrap";
+  const oid = shortOrderId(id);
+  const map = gradeDetailMap(order);
+  const unit = order.unit || "Kg";
+
+  return (
+    <article className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="min-w-0 truncate text-[13px] font-bold text-[#1F2937]">
+          {order.productName || "Product"}
+          {order.variety ? <span className="font-semibold text-[#6B7280]"> · {order.variety}</span> : null}
+        </p>
+        <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-700" title={oid.full}>
+          {oid.full}
+        </p>
+        <StatusBadge status={order.status} className="shrink-0" />
+      </div>
+
+      <div className="mt-2 flex min-w-0 items-center justify-between gap-2 text-[11px] text-[#6B7280]">
+        <span>
+          Order <span className="font-semibold text-[#1F2937]">{shortDate(order.orderDate || order.date || order.createdAt || order.requiredDate)}</span>
+        </span>
+        <span>
+          Pickup <span className="font-semibold text-[#1F2937]">{shortDate(order.pickupDate)}</span>
+        </span>
+        <span>
+          Time <span className="font-semibold text-[#1F2937]">{formatTime12h(order.pickupTime)}</span>
+        </span>
+      </div>
+
+      <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB]">
+        <div className="grid grid-cols-[1fr_1fr_1fr] bg-[#F8FAF8] px-2 py-1 text-[10px] font-bold text-[#6B7280]">
+          <span>Grade</span>
+          <span className="text-right">Qty</span>
+          <span className="text-right">Rate</span>
+        </div>
+        {gradeColumns.map((g) => {
+          const row = map[g] || { qty: 0, rate: 0, unit };
+          const tone = gradeTone(g);
+          return (
+            <div key={g} className={`grid grid-cols-[1fr_1fr_1fr] items-center border-t border-[#E5E7EB] px-2 py-1.5 text-[12px] ${tone.cell}`}>
+              <span className="font-semibold text-[#1F2937]">{g}</span>
+              <span className="text-right font-semibold tabular-nums">{formatQty(row.qty, row.unit || unit)}</span>
+              <span className="text-right font-semibold tabular-nums">{formatRate(row.rate, row.qty)}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3">
+        <OrderActions order={order} onAccept={onAccept} onReject={onReject} large />
+      </div>
+    </article>
+  );
+}
+
+function OrderActions({ order, onAccept, onReject, large = false }) {
+  const id = order.orderId || order.id;
+  const base = large
+    ? "inline-flex h-9 min-w-[4.5rem] flex-1 items-center justify-center rounded-lg px-2 text-[12px] font-semibold leading-none whitespace-nowrap"
+    : "inline-flex h-6 min-w-[3.25rem] flex-1 items-center justify-center rounded px-1 text-[9px] font-semibold leading-none whitespace-nowrap";
   const btn = `${base} border border-[#D4D4D4] bg-white text-[#1F2937] hover:bg-[#F3F4F6]`;
   const primary = `${base} border border-[#217346] bg-[#217346] text-white hover:bg-[#1a5c38]`;
   const danger = `${base} border border-[#FECACA] bg-white text-[#DC2626] hover:bg-[#FEF2F2]`;

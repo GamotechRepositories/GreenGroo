@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { getManagerFarmers, getManagerFarmerProducts, createManagerOrder } from "../../api/farmerApi";
-import { EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
+import { formatProductBusinessId, formatCropDate } from "../../utils/cropLinks";
+import { EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_PANEL } from "../../utils/excelStyles";
 import toast from "react-hot-toast";
 
 const UNIT_OPTIONS = ["Kg", "Crates", "Litre", "Bunch", "Boxes", "Quintal", "Dozen", "Packets"];
@@ -35,12 +36,27 @@ function formatDisplayDate(iso) {
   });
 }
 
+function productNameOf(item = {}) {
+  return item.productName || item.name || "Farm Produce";
+}
+
+function productQty(product) {
+  const gradesSum = (product?.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0);
+  return gradesSum || Number(product?.availableQuantity ?? product?.stock ?? product?.totalQuantity ?? 0);
+}
+
+function productMatches(product, needle) {
+  const n = String(needle || "").trim().toLowerCase();
+  if (!n) return false;
+  return [product.id, product.productId, product._id].some((v) => String(v || "").trim().toLowerCase() === n);
+}
+
 function defaultGradeRows(fallbackPrice = 0) {
   const price = Number(fallbackPrice) || 0;
   return [
-    { id: "g_a", name: "Grade A", quantity: "", price },
-    { id: "g_b", name: "Grade B", quantity: "", price },
-    { id: "g_c", name: "Grade C", quantity: "", price },
+    { id: "g_a", name: "Grade A", quantity: "", price, available: 0 },
+    { id: "g_b", name: "Grade B", quantity: "", price, available: 0 },
+    { id: "g_c", name: "Grade C", quantity: "", price, available: 0 },
   ];
 }
 
@@ -52,9 +68,18 @@ function gradesFromProduct(prod) {
       name: g.label || g.name || `Grade ${String.fromCharCode(65 + idx)}`,
       quantity: "",
       price: Number(g.price ?? g.rate ?? fallback) || 0,
+      available: Number(g.quantity ?? g.qty ?? 0) || 0,
     }));
   }
-  return defaultGradeRows(fallback);
+  const total = productQty(prod);
+  return defaultGradeRows(fallback).map((g, idx) => ({
+    ...g,
+    available: idx === 0 ? total : 0,
+  }));
+}
+
+function productImageOf(product) {
+  return product?.image || product?.imageUrl || product?.images?.[0] || "";
 }
 
 export default function ManagerCreateOrderPage() {
@@ -102,11 +127,13 @@ export default function ManagerCreateOrderPage() {
         const pList = Array.isArray(prods) ? prods : [];
         setFarmerProducts(pList);
         if (pList.length > 0) {
-          const match =
-            pList.find((p) => p.id === presetProductId || p.productId === presetProductId) || pList[0];
+          const match = pList.find((p) => productMatches(p, presetProductId)) || pList[0];
           setSelectedProductId(match.id || match.productId);
           setProductUnit(match.unit || "Kg");
           setGrades(gradesFromProduct(match));
+        } else {
+          setSelectedProductId("");
+          setGrades(defaultGradeRows(0));
         }
       })
       .catch(() => setFarmerProducts([]))
@@ -115,7 +142,7 @@ export default function ManagerCreateOrderPage() {
 
   const handleProductChange = (prodId) => {
     setSelectedProductId(prodId);
-    const prod = farmerProducts.find((p) => p.id === prodId || p.productId === prodId);
+    const prod = farmerProducts.find((p) => productMatches(p, prodId));
     if (prod) {
       if (prod.unit) setProductUnit(prod.unit);
       setGrades(gradesFromProduct(prod));
@@ -123,9 +150,11 @@ export default function ManagerCreateOrderPage() {
   };
 
   const selectedFarmer = farmers.find((f) => f.id === selectedFarmerId);
-  const selectedProduct = farmerProducts.find(
-    (p) => p.id === selectedProductId || p.productId === selectedProductId
-  );
+  const selectedProduct = farmerProducts.find((p) => productMatches(p, selectedProductId));
+  const selectedProductName = productNameOf(selectedProduct || {});
+  const selectedProductQty = productQty(selectedProduct || {});
+  const selectedProductImg = productImageOf(selectedProduct || {});
+  const selectedBusinessId = selectedProduct ? formatProductBusinessId(selectedProduct) : "";
 
   const handleGradeQtyChange = (gradeId, qty) => {
     const raw = String(qty ?? "").trim();
@@ -149,7 +178,7 @@ export default function ManagerCreateOrderPage() {
       0;
     setGrades((prev) => [
       ...prev,
-      { id: `custom_${Date.now()}`, name: name.trim(), quantity: "", price: fallback },
+      { id: `custom_${Date.now()}`, name: name.trim(), quantity: "", price: fallback, available: 0 },
     ]);
   };
 
@@ -183,15 +212,20 @@ export default function ManagerCreateOrderPage() {
       return;
     }
 
+    const orderProductId =
+      selectedProduct?.productId || selectedProduct?.id || selectedProductId;
+    const orderProductName = selectedProductName || "Produce";
+
     const orderProducts = grades
       .filter((g) => Number(g.quantity) > 0)
       .map((g) => {
         const qty = Number(g.quantity);
         const price = Number(g.price) || 0;
         return {
-          id: selectedProductId,
-          productId: selectedProductId,
-          name: selectedProduct?.productName || selectedProduct?.name || "Produce",
+          id: selectedProduct?.id || orderProductId,
+          productId: orderProductId,
+          name: orderProductName,
+          variety: selectedProduct?.variety || "",
           grade: g.name,
           quantity: qty,
           unit: productUnit,
@@ -203,8 +237,8 @@ export default function ManagerCreateOrderPage() {
     setSubmitting(true);
     try {
       await createManagerOrder(selectedFarmerId, {
-        productId: selectedProductId,
-        productName: selectedProduct?.productName || selectedProduct?.name || "Produce",
+        productId: orderProductId,
+        productName: orderProductName,
         customer: {
           name: "Daily Harvest Statement",
           phone: selectedFarmer?.mobile || "",
@@ -239,6 +273,7 @@ export default function ManagerCreateOrderPage() {
         paymentStatus: "Pending",
         deliveryStatus: "Pending",
         variety: selectedProduct?.variety || "",
+        category: selectedProduct?.category || "",
       });
       toast.success(`Order created for ${selectedFarmer?.name}`);
       navigate("/farmer/manager/orders");
@@ -288,6 +323,8 @@ export default function ManagerCreateOrderPage() {
               <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">Product</span>
               {loadingProducts ? (
                 <p className="py-2 text-[#6B7280]">…</p>
+              ) : farmerProducts.length === 0 ? (
+                <p className="py-2 text-[#DC2626]">No products for this farmer</p>
               ) : (
                 <select
                   value={selectedProductId}
@@ -295,11 +332,17 @@ export default function ManagerCreateOrderPage() {
                   className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
                   required
                 >
-                  {farmerProducts.map((p) => (
-                    <option key={p.id || p.productId} value={p.id || p.productId}>
-                      {p.productName || p.name}
-                    </option>
-                  ))}
+                  {farmerProducts.map((p) => {
+                    const qty = productQty(p);
+                    const variety = p.variety ? ` (${p.variety})` : "";
+                    return (
+                      <option key={p.id || p.productId} value={p.id || p.productId}>
+                        {productNameOf(p)}
+                        {variety}
+                        {qty ? ` · ${qty.toLocaleString("en-IN")} ${p.unit || "Kg"}` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </label>
@@ -319,6 +362,86 @@ export default function ManagerCreateOrderPage() {
               </select>
             </label>
           </div>
+
+          {selectedProduct ? (
+            <section className={`${EXCEL_PANEL} !rounded-lg border border-[#E5E7EB] p-2.5 sm:p-3`}>
+              <p className="mb-2 text-[11px] font-bold text-[#1F2937]">Product details</p>
+              <div className="flex items-start gap-3">
+                {selectedProductImg ? (
+                  <img
+                    src={selectedProductImg}
+                    alt={selectedProductName}
+                    className="h-14 w-14 shrink-0 rounded-lg border border-[#D4D4D4] object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#E8F5E9] text-lg font-bold text-[#217346]">
+                    {String(selectedProductName || "P").charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="text-[13px] font-bold text-[#1F2937]">{selectedProductName}</p>
+                    {selectedProduct.status ? (
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          selectedProduct.status === "Active" || selectedProduct.status === "Approved"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {selectedProduct.status}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 break-all font-mono text-[10px] text-emerald-700">{selectedBusinessId}</p>
+                  <p className="mt-1 text-[11px] text-[#6B7280]">
+                    {[
+                      selectedProduct.variety ? `Variety ${selectedProduct.variety}` : null,
+                      [selectedProduct.category, selectedProduct.subCategory].filter(Boolean).join(" · ") || null,
+                      selectedFarmer?.name ? `Farmer ${selectedFarmer.name}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join("  ·  ")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-md bg-[#F8FAF8] px-2 py-1.5">
+                  <p className="text-[10px] font-semibold text-[#6B7280]">Available</p>
+                  <p className="text-[12px] font-bold text-[#217346]">
+                    {Number(selectedProductQty || 0).toLocaleString("en-IN")} {productUnit}
+                  </p>
+                </div>
+                <div className="rounded-md bg-[#F8FAF8] px-2 py-1.5">
+                  <p className="text-[10px] font-semibold text-[#6B7280]">Harvest</p>
+                  <p className="text-[12px] font-bold text-[#1F2937]">
+                    {formatCropDate(selectedProduct.harvestDate) || "—"}
+                  </p>
+                </div>
+                <div className="rounded-md bg-[#F8FAF8] px-2 py-1.5">
+                  <p className="text-[10px] font-semibold text-[#6B7280]">Unit</p>
+                  <p className="text-[12px] font-bold text-[#1F2937]">{productUnit}</p>
+                </div>
+                <div className="rounded-md bg-[#F8FAF8] px-2 py-1.5">
+                  <p className="text-[10px] font-semibold text-[#6B7280]">Farm</p>
+                  <p className="truncate text-[12px] font-bold text-[#1F2937]">
+                    {selectedFarmer?.farmLocation || selectedProduct.farmLocation || "—"}
+                  </p>
+                </div>
+              </div>
+              {grades.some((g) => Number(g.available) > 0) ? (
+                <p className="mt-2 text-[11px] text-[#6B7280]">
+                  Grade stock:{" "}
+                  <span className="font-semibold text-[#1F2937]">
+                    {grades
+                      .filter((g) => Number(g.available) > 0)
+                      .map((g) => `${g.name} ${Number(g.available).toLocaleString("en-IN")} ${productUnit}`)
+                      .join(" · ")}
+                  </span>
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           {/* Left: schedule · Right: grades */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
@@ -385,45 +508,61 @@ export default function ManagerCreateOrderPage() {
               <div className="space-y-1.5">
                 <div className="grid grid-cols-[4rem_1fr_1fr_1.5rem] gap-1.5 px-0.5 text-[10px] font-semibold text-[#6B7280]">
                   <span>Grade</span>
-                  <span>Qty</span>
+                  <span>Order qty</span>
                   <span>Price</span>
                   <span />
                 </div>
-                {grades.map((g) => (
-                  <div key={g.id} className="grid grid-cols-[4rem_1fr_1fr_1.5rem] items-center gap-1.5">
-                    <span className="truncate text-[11px] font-semibold text-[#217346]">{g.name}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={g.quantity === "" || g.quantity === 0 ? "" : g.quantity}
-                      onChange={(e) => handleGradeQtyChange(g.id, e.target.value)}
-                      className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
-                      placeholder="Qty"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={g.price === 0 ? "" : g.price}
-                      onChange={(e) => handleGradePriceChange(g.id, e.target.value)}
-                      className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
-                      placeholder="₹"
-                    />
-                    {grades.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveGrade(g.id)}
-                        className="text-center text-[12px] font-bold text-red-500"
-                        aria-label={`Remove ${g.name}`}
-                      >
-                        ✕
-                      </button>
-                    ) : (
-                      <span />
-                    )}
-                  </div>
-                ))}
+                {grades.map((g) => {
+                  const ordered = Number(g.quantity || 0);
+                  const overAvail = Number(g.available) > 0 && ordered > Number(g.available);
+                  return (
+                    <div key={g.id} className="grid grid-cols-[4rem_1fr_1fr_1.5rem] items-start gap-1.5">
+                      <div className="min-w-0 pt-2">
+                        <span className="block truncate text-[11px] font-semibold text-[#217346]">{g.name}</span>
+                        {Number(g.available) > 0 ? (
+                          <span className="block text-[9px] text-[#6B7280]">
+                            Avail {Number(g.available).toLocaleString("en-IN")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={g.quantity === "" || g.quantity === 0 ? "" : g.quantity}
+                          onChange={(e) => handleGradeQtyChange(g.id, e.target.value)}
+                          className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5 ${overAvail ? "!border-amber-400" : ""}`}
+                          placeholder="Qty"
+                        />
+                        {overAvail ? (
+                          <p className="mt-0.5 text-[9px] text-amber-600">Over available</p>
+                        ) : null}
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={g.price === 0 ? "" : g.price}
+                        onChange={(e) => handleGradePriceChange(g.id, e.target.value)}
+                        className={`${EXCEL_INPUT} !py-2 font-semibold sm:!py-1.5`}
+                        placeholder="₹"
+                      />
+                      {grades.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGrade(g.id)}
+                          className="pt-2 text-center text-[12px] font-bold text-red-500"
+                          aria-label={`Remove ${g.name}`}
+                        >
+                          ✕
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <p className="text-right text-[11px] font-bold text-[#1F2937]">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/farmerApi";
@@ -6,12 +6,75 @@ import { isPendingProductApproval } from "../../utils/productActions";
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
+function isBusinessProductId(value) {
+  const id = String(value || "").trim();
+  return Boolean(id) && !/^[a-f0-9]{24}$/i.test(id);
+}
+
+function productNameOf(item = {}) {
+  return item.productName || item.name || "Farm Produce";
+}
+
+function productGroupKey(item = {}) {
+  const id = String(item.productId || item.id || "").trim();
+  if (isBusinessProductId(id)) return id.toUpperCase();
+  return `${productNameOf(item).trim().toLowerCase()}|${String(item.variety || "").trim().toLowerCase()}`;
+}
+
+function productQty(product) {
+  const gradesSum = (product.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0);
+  return gradesSum || Number(product.availableQuantity ?? product.stock ?? 0);
+}
+
+function productFarmersPath(product) {
+  const key = productGroupKey(product);
+  const params = new URLSearchParams({ name: productNameOf(product) });
+  const productId = [product.productId, product.id].find((v) => isBusinessProductId(v)) || product.productId || product.id || "";
+  if (productId) params.set("productId", productId);
+  return `/farmer/manager/products/${encodeURIComponent(key)}/farmers?${params.toString()}`;
+}
+
 function orderCreatePath(product) {
   const params = new URLSearchParams({
     farmerId: product.farmerId || "",
     productId: product.id || product.productId || "",
   });
   return `/farmer/manager/orders/create?${params.toString()}`;
+}
+
+function statusPriority(status) {
+  if (isPendingProductApproval(status)) return 0;
+  if (status === "Rejected") return 1;
+  if (status === "Draft" || status === "Paused") return 2;
+  return 3;
+}
+
+function groupByProduct(items) {
+  const map = new Map();
+  for (const p of items) {
+    const key = productGroupKey(p);
+    const qty = productQty(p);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        ...p,
+        groupKey: key,
+        listings: [p],
+        totalQty: qty,
+      });
+      continue;
+    }
+    existing.listings.push(p);
+    existing.totalQty += qty;
+    if (statusPriority(p.status) < statusPriority(existing.status)) {
+      existing.status = p.status;
+    }
+    if (!existing.image && p.image) existing.image = p.image;
+    const a = existing.harvestDate ? String(existing.harvestDate).slice(0, 10) : "";
+    const b = p.harvestDate ? String(p.harvestDate).slice(0, 10) : "";
+    if (a && b && a !== b) existing.harvestDate = "";
+  }
+  return Array.from(map.values());
 }
 
 const ACTION_BTN =
@@ -51,31 +114,34 @@ export default function ManagerProductsPage() {
 
   const farmerName = (farmerId) => farmers.find((f) => f.id === farmerId || f.farmerId === farmerId)?.name || "—";
 
-  const totalStockKg = products.reduce((sum, p) => {
-    const gradesSum = (p.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0);
-    return sum + (gradesSum || Number(p.stock || 0));
-  }, 0);
+  const totalStockKg = products.reduce((sum, p) => sum + productQty(p), 0);
   const pendingCount = products.filter((p) => isPendingProductApproval(p.status)).length;
   const allCategories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+  const uniqueProductCount = useMemo(() => groupByProduct(products).length, [products]);
 
-  const filtered = products.filter((p) => {
-    if (selectedFarmerId && p.farmerId !== selectedFarmerId) return false;
-    if (selectedCategory && p.category !== selectedCategory) return false;
-    if (selectedStatus === "Pending Approval" && !isPendingProductApproval(p.status)) return false;
-    if (selectedStatus && selectedStatus !== "Pending Approval" && p.status !== selectedStatus) return false;
-    if (!q) return true;
-    const query = q.toLowerCase();
-    return (
-      p.name?.toLowerCase().includes(query) ||
-      p.productName?.toLowerCase().includes(query) ||
-      p.variety?.toLowerCase().includes(query) ||
-      p.category?.toLowerCase().includes(query) ||
-      String(p.productId || p.id || "").toLowerCase().includes(query) ||
-      farmerName(p.farmerId).toLowerCase().includes(query)
-    );
-  });
+  const filtered = useMemo(() => {
+    const listings = products.filter((p) => {
+      if (selectedFarmerId && p.farmerId !== selectedFarmerId) return false;
+      if (selectedCategory && p.category !== selectedCategory) return false;
+      if (selectedStatus === "Pending Approval" && !isPendingProductApproval(p.status)) return false;
+      if (selectedStatus && selectedStatus !== "Pending Approval" && p.status !== selectedStatus) return false;
+      if (!q) return true;
+      const query = q.toLowerCase();
+      return (
+        p.name?.toLowerCase().includes(query) ||
+        p.productName?.toLowerCase().includes(query) ||
+        p.variety?.toLowerCase().includes(query) ||
+        p.category?.toLowerCase().includes(query) ||
+        String(p.productId || p.id || "").toLowerCase().includes(query) ||
+        farmerName(p.farmerId).toLowerCase().includes(query) ||
+        String(p.farmerName || "").toLowerCase().includes(query)
+      );
+    });
+    return groupByProduct(listings);
+  }, [products, farmers, selectedFarmerId, selectedCategory, selectedStatus, q]);
 
   const handleReview = async (product, decision) => {
+    if (!product) return;
     const id = product.id || product.productId;
     let reason = "";
     if (decision === "rejected") {
@@ -114,7 +180,7 @@ export default function ManagerProductsPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total Products", value: products.length, color: "text-[#217346]" },
+          { label: "Total Products", value: uniqueProductCount, color: "text-[#217346]" },
           { label: "Total Produce Stock", value: `${totalStockKg.toLocaleString("en-IN")} Kg`, color: "text-emerald-700" },
           { label: "Pending Approval", value: pendingCount, color: "text-amber-600" },
           { label: "Categories", value: allCategories.length || "—", color: "text-blue-700" },
@@ -179,10 +245,10 @@ export default function ManagerProductsPage() {
         </div>
       ) : (
         <div className={`${EXCEL_PANEL} overflow-x-auto`}>
-          <table className="w-full min-w-[980px] text-xs">
+          <table className="w-full min-w-[860px] text-xs">
             <thead>
               <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                {["Product", "Variety", "Product ID", "Farmer", "Category", "Qty", "Harvest", "Status"].map((h) => (
+                {["Product", "Variety", "Product ID", "Category", "Qty", "Harvest", "Status"].map((h) => (
                   <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
                 ))}
                 <th className="sticky right-0 z-20 whitespace-nowrap border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
@@ -192,11 +258,15 @@ export default function ManagerProductsPage() {
             </thead>
             <tbody>
               {filtered.map((p) => {
-                const id = p.id || p.productId;
-                const totalQty = (p.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0) || Number(p.stock || 0);
-                const name = p.productName || p.name;
+                const listings = p.listings || [p];
+                const single = listings.length === 1 ? listings[0] : null;
+                const reviewId = single ? single.id || single.productId : "";
+                const canReview = Boolean(single && isPendingProductApproval(single.status));
+                const name = productNameOf(p);
+                const farmersPath = productFarmersPath(p);
+                const createPath = single ? orderCreatePath(single) : farmersPath;
                 return (
-                  <tr key={id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                  <tr key={p.groupKey} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {p.image ? (
@@ -206,23 +276,18 @@ export default function ManagerProductsPage() {
                             {String(name || "P").charAt(0)}
                           </div>
                         )}
-                        <Link to={orderCreatePath(p)} className="font-semibold text-[#217346] hover:underline">
+                        <Link to={farmersPath} className="font-semibold text-[#217346] hover:underline">
                           {name}
                         </Link>
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">{p.variety || "—"}</td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-emerald-700">{formatProductBusinessId(p)}</td>
-                    <td className="px-3 py-2.5">
-                      <Link to={`/farmer/manager/farmers/${p.farmerId}`} className="font-semibold text-[#217346] hover:underline">
-                        {p.farmerName || farmerName(p.farmerId)}
-                      </Link>
-                    </td>
                     <td className="px-3 py-2.5 text-gray-600">
                       {p.category} {p.subCategory ? `· ${p.subCategory}` : ""}
                     </td>
                     <td className="px-3 py-2.5 font-bold text-[#217346]">
-                      {totalQty} {p.unit || "Kg"}
+                      {Number(p.totalQty || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
                     </td>
                     <td className="px-3 py-2.5 text-[#6B7280]">
                       {p.harvestDate ? new Date(p.harvestDate).toLocaleDateString("en-IN") : "—"}
@@ -244,24 +309,24 @@ export default function ManagerProductsPage() {
                     </td>
                     <td className="sticky right-0 z-10 whitespace-nowrap border-l border-[#D4D4D4] bg-white px-3 py-2.5">
                       <div className="flex flex-nowrap items-center justify-end gap-1">
-                        <Link to={orderCreatePath(p)} className={ACTION_BTN}>
+                        <Link to={createPath} className={ACTION_BTN}>
                           Create Order
                         </Link>
-                        <Link to={`/farmer/manager/farmers/${p.farmerId}`} className={ACTION_BTN}>
+                        <Link to={farmersPath} className={ACTION_BTN}>
                           View
                         </Link>
                         <button
                           type="button"
-                          disabled={busyId === id || !isPendingProductApproval(p.status)}
-                          onClick={() => handleReview(p, "approved")}
+                          disabled={busyId === reviewId || !canReview}
+                          onClick={() => handleReview(single, "approved")}
                           className={APPROVE_BTN}
                         >
                           Approve
                         </button>
                         <button
                           type="button"
-                          disabled={busyId === id || !isPendingProductApproval(p.status)}
-                          onClick={() => handleReview(p, "rejected")}
+                          disabled={busyId === reviewId || !canReview}
+                          onClick={() => handleReview(single, "rejected")}
                           className={REJECT_BTN}
                         >
                           Reject

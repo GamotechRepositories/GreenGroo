@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { deleteManagerFarmerOrder, getManagerAllHarvestOrders, getManagerAllProducts } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
 import {
+  formatMoney,
   formatOrderDate,
   managerOrderBucket,
   matchesManagerOrderFilter,
@@ -14,6 +15,7 @@ import {
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import { isPendingProductApproval } from "../../utils/productActions";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
+import StatusBadge from "../../components/ui/StatusBadge";
 
 const ACTION_BASE =
   "inline-flex h-6 min-w-[2.75rem] flex-1 items-center justify-center rounded px-1 text-[9px] font-semibold leading-none whitespace-nowrap";
@@ -181,6 +183,145 @@ function orderViewPath(order) {
   return `/farmer/manager/orders/detail/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
 }
 
+function productGradeMap(product) {
+  const unit = product.unit || "Kg";
+  const map = {};
+  (Array.isArray(product.grades) ? product.grades : []).forEach((g) => {
+    const label = String(g.label || g.name || "").trim();
+    if (!label) return;
+    if (!map[label]) map[label] = { qty: 0, rate: 0, unit };
+    map[label].qty += Number(g.quantity || 0);
+    const rate = Number(g.price ?? g.rate ?? g.pricePerKg ?? 0) || 0;
+    if (rate > 0) map[label].rate = rate;
+  });
+  if (!Object.keys(map).length) {
+    map["Grade A"] = { qty: productQty(product), rate: Number(product.pricePerKg || product.sellingPrice || 0) || 0, unit };
+  }
+  return map;
+}
+
+function gradeColumnList(map) {
+  const extras = Object.keys(map).filter((g) => !DEFAULT_GRADES.includes(g)).sort();
+  return [...DEFAULT_GRADES, ...extras];
+}
+
+function GradeMiniTable({ map, unit }) {
+  const columns = gradeColumnList(map);
+  return (
+    <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB]">
+      <div className="grid grid-cols-[1.1fr_1fr_1fr] bg-[#F8FAF8] px-2 py-1 text-[10px] font-bold text-[#6B7280]">
+        <span>Grade</span>
+        <span className="text-right">Qty</span>
+        <span className="text-right">Rate</span>
+      </div>
+      {columns.map((g) => {
+        const row = map[g] || { qty: 0, rate: 0, unit };
+        const tone = gradeTone(g);
+        return (
+          <div
+            key={g}
+            className={`grid grid-cols-[1.1fr_1fr_1fr] items-center border-t border-[#E5E7EB] px-2 py-1.5 text-[12px] ${tone.cell}`}
+          >
+            <span className="font-semibold text-[#1F2937]">{g}</span>
+            <span className="text-right font-semibold tabular-nums">{formatQty(row.qty, row.unit || unit)}</span>
+            <span className="text-right font-semibold tabular-nums">{formatRate(row.rate, row.qty)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProductMobileCard({ product }) {
+  const name = productNameOf(product);
+  const qty = productQty(product);
+  const unit = product.unit || "Kg";
+  const map = productGradeMap(product);
+  return (
+    <div className="px-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="min-w-0 truncate text-[13px] font-bold text-[#217346]">
+          {name}
+          {product.variety ? <span className="font-semibold text-[#6B7280]"> · {product.variety}</span> : null}
+        </p>
+        <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-700">
+          {formatProductBusinessId(product)}
+        </p>
+        <span className="shrink-0 rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+          {product.status || "Active"}
+        </span>
+      </div>
+      <GradeMiniTable map={map} unit={unit} />
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-[13px] font-bold text-[#1F2937]">
+          {qty.toLocaleString("en-IN")} {unit}
+        </p>
+        <Link to={productFarmersPath(product)} className={`${ACTION_BTN} !h-8 !min-w-[4.5rem] !text-[11px]`}>
+          View
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function OrderMobileCard({ order, farmerName, onDelete, deleting }) {
+  const entry = orderProductEntry(order);
+  const id = order.id || order.orderId;
+  const map = gradeDetailMap(order);
+  const unit = entry.unit || order.unit || "Kg";
+  const value = Number(order.orderValue || order.totalAmount || order.amount || entry.amount || 0);
+  return (
+    <article className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <p className="min-w-0 truncate text-[13px] font-bold text-[#1F2937]">
+          {entry.productName}
+          {entry.variety ? <span className="font-semibold text-[#6B7280]"> · {entry.variety}</span> : null}
+        </p>
+        <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-700" title={id}>
+          {id}
+        </p>
+        <StatusBadge status={order.status} className="shrink-0" />
+      </div>
+      <p className="mt-1 truncate text-[11px] text-[#6B7280]">
+        Farmer <span className="font-semibold text-[#1F2937]">{farmerName}</span>
+      </p>
+      <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2 text-[11px] text-[#6B7280]">
+        <span>
+          Order{" "}
+          <span className="font-semibold text-[#1F2937]">
+            {shortDate(order.orderDate || order.harvestDate || order.date || order.createdAt)}
+          </span>
+        </span>
+        <span>
+          Pickup <span className="font-semibold text-[#1F2937]">{shortDate(order.pickupDate)}</span>
+        </span>
+        <span>
+          Time <span className="font-semibold text-[#1F2937]">{formatTime12h(order.pickupTime)}</span>
+        </span>
+      </div>
+      <GradeMiniTable map={map} unit={unit} />
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-[12px] font-semibold text-[#6B7280]">
+          Value <span className="font-bold text-[#1F2937]">{formatMoney(value)}</span>
+        </p>
+        <div className="flex items-center gap-1">
+          <Link to={orderViewPath(order)} className={`${ACTION_BTN} !h-8 !min-w-[4.25rem] !text-[11px]`}>
+            View
+          </Link>
+          <button
+            type="button"
+            className={`${ACTION_BTN_DANGER} !h-8 !min-w-[4.25rem] !text-[11px]`}
+            disabled={deleting || !order.farmerId}
+            onClick={() => onDelete(order)}
+          >
+            {deleting ? "…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts }) {
   const base =
     "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition-colors sm:min-h-9 sm:flex-row sm:gap-1 sm:px-2";
@@ -271,109 +412,6 @@ function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts }) {
       >
         <span className={labelCls}>By Product</span>
       </button>
-    </div>
-  );
-}
-
-/** Simple donut + bars using the same 3 status colors as the filter chips */
-function OrderStatusChart({ counts, statusFilter, onStatus }) {
-  const segments = [
-    { key: "pending", label: "Approval Pending", value: Number(counts.pending || 0), color: "#0284C7" },
-    { key: "accepted", label: "Accepted", value: Number(counts.accepted || 0), color: "#047857" },
-    { key: "rejected", label: "Rejected", value: Number(counts.rejected || 0), color: "#DC2626" },
-  ];
-  const total = segments.reduce((s, x) => s + x.value, 0) || 0;
-  const max = Math.max(...segments.map((x) => x.value), 1);
-
-  const radius = 36;
-  const stroke = 12;
-  const c = 2 * Math.PI * radius;
-  let offset = 0;
-
-  return (
-    <div className={`${EXCEL_PANEL} flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-6`}>
-      <div className="flex shrink-0 items-center gap-3">
-        <div className="relative h-[88px] w-[88px]">
-          <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-            <circle cx="50" cy="50" r={radius} fill="none" stroke="#E5E7EB" strokeWidth={stroke} />
-            {total > 0
-              ? segments.map((seg) => {
-                  if (!(seg.value > 0)) return null;
-                  const len = (seg.value / total) * c;
-                  const dash = `${len} ${c - len}`;
-                  const el = (
-                    <circle
-                      key={seg.key}
-                      cx="50"
-                      cy="50"
-                      r={radius}
-                      fill="none"
-                      stroke={seg.color}
-                      strokeWidth={stroke}
-                      strokeDasharray={dash}
-                      strokeDashoffset={-offset}
-                      strokeLinecap="butt"
-                    />
-                  );
-                  offset += len;
-                  return el;
-                })
-              : null}
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-lg font-bold tabular-nums text-[#1F2937]">{total}</span>
-            <span className="text-[9px] font-semibold text-[#6B7280]">Orders</span>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          {segments.map((seg) => (
-            <button
-              key={seg.key}
-              type="button"
-              onClick={() => onStatus(statusFilter === seg.key ? "all" : seg.key)}
-              className={`flex items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-slate-50 ${
-                statusFilter === seg.key ? "ring-1 ring-slate-200" : ""
-              }`}
-            >
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
-              <span className="text-[11px] font-semibold" style={{ color: seg.color }}>
-                {seg.label}
-              </span>
-              <span className="text-[11px] font-bold tabular-nums text-[#1F2937]">{seg.value}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="min-w-0 flex-1 space-y-2">
-        {segments.map((seg) => {
-          const pct = total > 0 ? Math.round((seg.value / total) * 100) : 0;
-          const widthPct = Math.max((seg.value / max) * 100, seg.value > 0 ? 6 : 0);
-          return (
-            <button
-              key={`bar-${seg.key}`}
-              type="button"
-              onClick={() => onStatus(statusFilter === seg.key ? "all" : seg.key)}
-              className="block w-full text-left"
-            >
-              <div className="mb-0.5 flex items-center justify-between gap-2 text-[10px]">
-                <span className="font-semibold" style={{ color: seg.color }}>
-                  {seg.label}
-                </span>
-                <span className="tabular-nums text-[#6B7280]">
-                  {seg.value} · {pct}%
-                </span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-[#F3F4F6]">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${widthPct}%`, backgroundColor: seg.color }}
-                />
-              </div>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -571,10 +609,6 @@ export default function ManagerOrdersPage() {
         counts={statusCounts}
       />
 
-      {tab === TAB_STATEMENTS ? (
-        <OrderStatusChart counts={statusCounts} statusFilter={statusFilter} onStatus={setStatusFilter} />
-      ) : null}
-
       {tab === TAB_BY_PRODUCT ? (
         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
           {[
@@ -591,36 +625,36 @@ export default function ManagerOrdersPage() {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
         {tab === TAB_STATEMENTS ? (
-          <div className="flex flex-wrap items-end gap-1.5">
-            <label className="block">
+          <div className="flex min-w-0 flex-nowrap items-end gap-1 overflow-x-auto">
+            <label className="min-w-0 flex-1">
               <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">From</span>
               <input
                 type="date"
                 value={dateFrom}
                 max={dateTo || undefined}
                 onChange={(e) => setDateRange(e.target.value, dateTo)}
-                className={`${EXCEL_INPUT} !w-auto !py-2 !text-xs sm:!py-1.5`}
+                className={`${EXCEL_INPUT} min-w-0 !w-full !px-1.5 !py-1.5 !text-[11px]`}
               />
             </label>
-            <label className="block">
+            <label className="min-w-0 flex-1">
               <span className="mb-0.5 block text-[10px] font-semibold text-[#6B7280]">To</span>
               <input
                 type="date"
                 value={dateTo}
                 min={dateFrom || undefined}
                 onChange={(e) => setDateRange(dateFrom, e.target.value)}
-                className={`${EXCEL_INPUT} !w-auto !py-2 !text-xs sm:!py-1.5`}
+                className={`${EXCEL_INPUT} min-w-0 !w-full !px-1.5 !py-1.5 !text-[11px]`}
               />
             </label>
-            <button type="button" onClick={setTodayFilter} className={`${EXCEL_BTN} !min-h-9 !px-2.5 !text-[11px]`}>
+            <button type="button" onClick={setTodayFilter} className={`${EXCEL_BTN} !min-h-8 shrink-0 !px-2 !text-[11px]`}>
               Today
             </button>
-            <button type="button" onClick={setYesterdayFilter} className={`${EXCEL_BTN} !min-h-9 !px-2.5 !text-[11px]`}>
+            <button type="button" onClick={setYesterdayFilter} className={`${EXCEL_BTN} !min-h-8 shrink-0 !px-2 !text-[11px]`}>
               Yesterday
             </button>
             {dateFrom || dateTo ? (
-              <button type="button" onClick={clearDateFilter} className={`${EXCEL_BTN} !min-h-9 !px-2.5 !text-[11px]`}>
-                Clear date
+              <button type="button" onClick={clearDateFilter} className={`${EXCEL_BTN} !min-h-8 shrink-0 !px-2 !text-[11px]`}>
+                Clear
               </button>
             ) : null}
           </div>
@@ -644,37 +678,9 @@ export default function ManagerOrdersPage() {
         ) : (
           <div className={EXCEL_PANEL}>
             <div className="divide-y divide-[#E5E7EB] sm:hidden">
-              {availableProducts.map((p) => {
-                const id = p.id || p.productId;
-                const name = productNameOf(p);
-                const qty = productQty(p);
-                return (
-                  <div key={id} className="px-3 py-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <Link to={productFarmersPath(p)} className="block truncate text-[13px] font-semibold text-[#217346]">
-                          {name}
-                        </Link>
-                        <p className="mt-0.5 truncate text-[11px] text-[#9CA3AF]">
-                          {[p.variety, p.category].filter(Boolean).join(" · ") || "—"}
-                        </p>
-                        <p className="mt-0.5 break-all font-mono text-[10px] text-emerald-700">{formatProductBusinessId(p)}</p>
-                        <p className="mt-1.5 text-[13px] font-bold text-[#1F2937]">
-                          {qty.toLocaleString("en-IN")} {p.unit || "Kg"}
-                        </p>
-                      </div>
-                      <div className="flex w-[108px] shrink-0 flex-col items-stretch gap-1">
-                        <span className="self-end rounded bg-green-50 px-1.5 py-0.5 text-center text-[10px] font-semibold text-green-700">
-                          {p.status || "Active"}
-                        </span>
-                        <Link to={productFarmersPath(p)} className={`${ACTION_BTN} w-full`}>
-                          View
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {availableProducts.map((p) => (
+                <ProductMobileCard key={p.id || p.productId} product={p} />
+              ))}
             </div>
 
             <div className="hidden overflow-x-auto sm:block">
@@ -737,7 +743,24 @@ export default function ManagerOrdersPage() {
               : "No orders in this filter."}
         </div>
       ) : (
-        <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <>
+        <div className="space-y-2.5 md:hidden">
+          {filteredOrders.map((order) => {
+            const farmerName =
+              order.farmerName || farmers.find((f) => f.id === order.farmerId)?.name || "—";
+            const id = order.id || order.orderId;
+            return (
+              <OrderMobileCard
+                key={id}
+                order={order}
+                farmerName={farmerName}
+                deleting={deletingId === id}
+                onDelete={handleDeleteOrder}
+              />
+            );
+          })}
+        </div>
+        <div className="hidden w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
           <table className="w-full min-w-[920px] border-collapse text-[10px] sm:text-[11px]">
             <colgroup>
               <col className="w-10" />
@@ -869,6 +892,7 @@ export default function ManagerOrdersPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

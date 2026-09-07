@@ -60,9 +60,7 @@ async function apiFetch(path, options = {}) {
   const contentType = response.headers.get("content-type") || "";
   const raw = await response.text();
   if (!raw || contentType.includes("text/html")) {
-    const error = new Error(
-      "Cannot reach the API from this site. On Render, add a Rewrite /api/* → http://api.greengrocc.com/api/* or run farmer as a Web Service with npm start."
-    );
+    const error = new Error("Cannot reach the API. Check your connection and try again.");
     error.status = 0;
     throw error;
   }
@@ -71,7 +69,7 @@ async function apiFetch(path, options = {}) {
   try {
     data = JSON.parse(raw);
   } catch {
-    const error = new Error("API returned an invalid response. Check Render /api rewrite to http://api.greengrocc.com.");
+    const error = new Error("API returned an invalid response. Please try again.");
     error.status = 0;
     throw error;
   }

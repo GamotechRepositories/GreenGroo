@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { getManagerDashboard } from "../../api/farmerApi";
+import { getManagerDashboard, getManagerAllHarvestOrders } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
 import StatusBadge from "../../components/ui/StatusBadge";
+import OrderStatusChart from "../../components/orders/OrderStatusChart";
+import { managerOrderBucket } from "../../utils/orderDisplay";
 import { EXCEL_PANEL, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB } from "../../utils/excelStyles";
 
 function StatCard({ label, value, sub, to, color = "text-[#1F2937]" }) {
@@ -19,12 +21,25 @@ function StatCard({ label, value, sub, to, color = "text-[#1F2937]" }) {
 
 export default function ManagerDashboardPage() {
   const manager = useSelector((s) => s.farmer.farmer);
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [orderCounts, setOrderCounts] = useState({ pending: 0, accepted: 0, rejected: 0 });
   const [loading, setLoading] = useState(true);
 
   usePolling(() => {
-    getManagerDashboard()
-      .then(setStats)
+    Promise.all([
+      getManagerDashboard(),
+      getManagerAllHarvestOrders().catch(() => ({ orders: [] })),
+    ])
+      .then(([dash, harvest]) => {
+        setStats(dash);
+        const counts = { pending: 0, accepted: 0, rejected: 0 };
+        (Array.isArray(harvest?.orders) ? harvest.orders : []).forEach((o) => {
+          const bucket = managerOrderBucket(o.status);
+          if (counts[bucket] != null) counts[bucket] += 1;
+        });
+        setOrderCounts(counts);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [], 5000);
@@ -39,6 +54,15 @@ export default function ManagerDashboardPage() {
           Welcome back! Here's an overview of your assigned farmers.
         </p>
       </div>
+
+      {!loading ? (
+        <OrderStatusChart
+          counts={orderCounts}
+          onStatus={(key) => {
+            navigate(key === "all" ? "/farmer/manager/orders" : `/farmer/manager/orders?status=${key}`);
+          }}
+        />
+      ) : null}
 
       {/* Stats Grid */}
       {loading ? (

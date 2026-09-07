@@ -2,12 +2,14 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { deleteManagerFarmerOrder, getManagerAllHarvestOrders, getManagerFarmerById, getManagerFarmerOrderById } from "../../api/farmerApi";
+import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
 import StatusBadge from "../../components/ui/StatusBadge";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import { formatMoney, formatOrderDate, rejectionText } from "../../utils/orderDisplay";
-import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY, EXCEL_PAGE_TITLE } from "../../utils/excelStyles";
+import { formatProductBusinessId } from "../../utils/cropLinks";
+import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 
@@ -59,12 +61,18 @@ function gradeRows(order) {
     };
   }
   const extras = Object.keys(map).filter((g) => !DEFAULT_GRADES.includes(g)).sort();
-  return [...DEFAULT_GRADES, ...extras].map((label) => ({
-    label,
-    qty: map[label]?.qty || 0,
-    rate: map[label]?.rate || 0,
-    unit,
-  }));
+  const ordered = [...DEFAULT_GRADES, ...extras]
+    .filter((label) => Number(map[label]?.qty || 0) > 0)
+    .map((label) => ({
+      label,
+      qty: map[label].qty,
+      rate: map[label].rate,
+      amount: Number(map[label].qty || 0) * Number(map[label].rate || 0),
+      unit,
+    }));
+  return ordered.length
+    ? ordered
+    : [{ label: "Total", qty: Number(order.orderedQuantity || order.totalQuantity || 0), rate: 0, amount: 0, unit }];
 }
 
 function matchesOrderId(row, orderId) {
@@ -116,12 +124,23 @@ async function loadManagerOrder(farmerId, orderId) {
   }
 }
 
-function InfoRow({ label, value }) {
+function Fact({ label, value }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-[#F3F4F6] py-2 last:border-0">
-      <span className="shrink-0 text-[11px] font-semibold text-[#6B7280]">{label}</span>
-      <span className="text-right text-[12px] font-semibold text-[#1F2937]">{value || "—"}</span>
+    <div className="rounded-lg bg-[#F8FAF8] px-3 py-2">
+      <p className="text-[10px] font-semibold text-[#6B7280]">{label}</p>
+      <p className="mt-0.5 text-[13px] font-bold text-[#1F2937]">{value || "—"}</p>
     </div>
+  );
+}
+
+function Card({ title, children }) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      {title ? (
+        <p className="border-b border-[#F3F4F6] px-3 py-2 text-[12px] font-bold text-[#1F2937]">{title}</p>
+      ) : null}
+      <div className="px-3 py-2.5">{children}</div>
+    </section>
   );
 }
 
@@ -172,11 +191,18 @@ export default function ManagerOrderDetailPage() {
   const displayId = order.orderId || order.id || orderId;
   const resolvedFarmerId = order.farmerId || farmerId;
   const farmerName = order.farmerName || order.farmer?.name || "—";
+  const productName = order.productName || order.name || "Harvest Order";
+  const productId = formatProductBusinessId({
+    productId: order.productId,
+    name: productName,
+    productName,
+    variety: order.variety,
+    category: order.category,
+  });
   const totalQty =
     Number(order.orderedQuantity || order.totalQuantity || 0) ||
     grades.reduce((s, g) => s + Number(g.qty || 0), 0);
   const orderValue = Number(order.orderValue || order.totalAmount || order.amount || 0);
-  const productLabel = [order.productName || "Product", order.variety].filter(Boolean).join(" · ");
   const reason = rejectionText(order);
   const pickup = order.pickup;
 
@@ -200,30 +226,16 @@ export default function ManagerOrderDetailPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-3">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="mx-auto max-w-2xl space-y-3">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <Link to="/farmer/manager/orders" className="text-[11px] font-semibold text-[#217346] hover:underline">
-            ← Back to Orders
+            ← Orders
           </Link>
-          <h1 className={`${EXCEL_PAGE_TITLE} mt-1 break-all font-mono text-base sm:text-lg`}>{displayId}</h1>
-          <p className="mt-0.5 text-[13px] font-semibold text-[#1F2937]">{productLabel}</p>
+          <h1 className="mt-0.5 text-lg font-bold text-[#1F2937]">{productName}</h1>
+          <p className="mt-0.5 font-mono text-[11px] text-[#6B7280]">{displayId}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={order.status} />
-          <button
-            type="button"
-            className={`${EXCEL_BTN_DANGER} !min-h-8 px-3 text-[11px]`}
-            disabled={deleting || !resolvedFarmerId}
-            onClick={handleDelete}
-          >
-            {deleting ? "Deleting…" : "Delete"}
-          </button>
-          <Link to="/farmer/manager/orders" className={`${EXCEL_BTN} !min-h-8 px-3 text-[11px]`}>
-            Back
-          </Link>
-        </div>
+        <StatusBadge status={order.status} />
       </div>
 
       {reason ? (
@@ -232,96 +244,81 @@ export default function ManagerOrderDetailPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:items-start">
-        {/* Left — Order Info */}
-        <section className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 shadow-sm">
-          <p className="border-b border-[#F3F4F6] py-2 text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
-            Order Info
+      <Card title="Product">
+        <p className="text-[15px] font-bold text-[#1F2937]">{productName}</p>
+        {order.variety ? <p className="mt-0.5 text-[12px] text-[#6B7280]">Variety: {order.variety}</p> : null}
+        <p className="mt-0.5 break-all font-mono text-[11px] text-emerald-700">{productId}</p>
+        <p className="mt-1 text-[12px] text-[#6B7280]">
+          Farmer: <span className="font-semibold text-[#1F2937]">{farmerName}</span>
+        </p>
+        {order.collectionCentre || order.collectionCentreId ? (
+          <p className="mt-0.5 text-[11px] text-[#6B7280]">
+            Centre: {order.collectionCentre || order.collectionCentreId}
           </p>
-          <InfoRow label="Farmer" value={farmerName} />
-          <InfoRow
-            label="Order Date"
-            value={dateDMY(order.orderDate || order.harvestDate || order.date || order.createdAt)}
-          />
-          <InfoRow label="Pickup Date" value={dateDMY(order.pickupDate)} />
-          <InfoRow label="Pickup Time" value={time12h(order.pickupTime)} />
-          <InfoRow
-            label="Collection Centre"
-            value={
-              order.collectionCentre || order.collectionCentreId || order.vendorId
-                ? (
-                    <span className="inline-flex flex-col items-end gap-0.5">
-                      <span>{order.collectionCentre || "Collection Centre"}</span>
-                      <span className="font-mono text-[10px] font-semibold text-[#217346]">
-                        {order.collectionCentreId || order.vendorId || "—"}
-                      </span>
-                    </span>
-                  )
-                : "—"
-            }
-          />
-          <InfoRow label="Total Qty" value={`${totalQty.toLocaleString("en-IN")} ${unit}`} />
-          <InfoRow label="Order Value" value={formatMoney(orderValue)} />
-        </section>
+        ) : null}
+      </Card>
 
-        {/* Right — Grades */}
-        <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-          <p className="border-b border-[#E5E7EB] bg-[#F8FAF8] px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
-            Grade Qty & Rate
-          </p>
-          <table className="w-full border-collapse text-[12px]">
-            <thead>
-              <tr className="bg-[#F9FAFB] text-left text-[11px] text-[#6B7280]">
-                <th className="px-3 py-2 font-semibold">Grade</th>
-                <th className="px-3 py-2 text-right font-semibold">Qty</th>
-                <th className="px-3 py-2 text-right font-semibold">Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grades.map((g) => {
-                const hasQty = Number(g.qty) > 0;
-                return (
-                  <tr key={g.label} className="border-t border-[#F3F4F6]">
-                    <td className="px-3 py-2.5 font-semibold text-[#1F2937]">{g.label}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {hasQty ? (
-                        <span className="font-semibold">
-                          {Number(g.qty).toLocaleString("en-IN")} {g.unit}
-                        </span>
-                      ) : (
-                        <span className="text-[#9CA3AF]">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {hasQty && Number(g.rate) > 0 ? (
-                        <span className="font-semibold">{formatMoney(g.rate)}</span>
-                      ) : (
-                        <span className="text-[#9CA3AF]">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
+      <div className="grid grid-cols-2 gap-2">
+        <Fact label="Order date" value={dateDMY(order.orderDate || order.harvestDate || order.date || order.createdAt)} />
+        <Fact label="Pickup date" value={dateDMY(order.pickupDate)} />
+        <Fact label="Pickup time" value={time12h(order.pickupTime)} />
+        <Fact label="Total qty" value={`${totalQty.toLocaleString("en-IN")} ${unit}`} />
       </div>
 
-      {/* Pickup — only if present */}
+      <Card title="Grades">
+        <div className="space-y-2">
+          {grades.map((g) => (
+            <div key={g.label} className="flex items-center justify-between gap-2 border-b border-[#F3F4F6] pb-2 last:border-0 last:pb-0">
+              <div>
+                <p className="text-[13px] font-semibold text-[#1F2937]">{g.label}</p>
+                {Number(g.rate) > 0 ? (
+                  <p className="text-[11px] text-[#6B7280]">{formatMoney(g.rate)} / {g.unit}</p>
+                ) : null}
+              </div>
+              <div className="text-right">
+                <p className="text-[13px] font-bold text-[#217346]">
+                  {Number(g.qty).toLocaleString("en-IN")} {g.unit}
+                </p>
+                {Number(g.amount) > 0 ? (
+                  <p className="text-[11px] font-semibold text-[#1F2937]">{formatMoney(g.amount)}</p>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between border-t border-[#E5E7EB] pt-2">
+          <span className="text-[12px] font-semibold text-[#6B7280]">Order value</span>
+          <span className="text-[15px] font-bold text-[#1F2937]">{formatMoney(orderValue)}</span>
+        </div>
+      </Card>
+
       {pickup ? (
-        <section className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 shadow-sm">
-          <p className="border-b border-[#F3F4F6] py-2 text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
-            Pickup
-          </p>
-          <InfoRow label="Driver" value={pickup.driverName || "Not assigned"} />
-          <InfoRow label="Mobile" value={pickup.driverMobile || "—"} />
-          <InfoRow label="Vehicle" value={pickup.vehicleNumber || "—"} />
-          <InfoRow
-            label="Status"
-            value={String(pickup.liveStatus || pickup.status || "—").replace(/_/g, " ")}
-          />
-        </section>
+        <Card title="Pickup">
+          <div className="grid grid-cols-2 gap-2">
+            <Fact label="Driver" value={pickup.driverName || "Not assigned"} />
+            <Fact label="Mobile" value={pickup.driverMobile || "—"} />
+            <Fact label="Vehicle" value={pickup.vehicleNumber || "—"} />
+            <Fact label="Status" value={pickupStatusLabel(pickup.liveStatus || pickup.status)} />
+          </div>
+          <div className="mt-3">
+            <PickupTimeline status={pickup.status || order.status} />
+          </div>
+        </Card>
       ) : null}
+
+      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+        <Link to="/farmer/manager/orders" className={`${EXCEL_BTN} !min-h-10 w-full sm:w-auto`}>
+          Back
+        </Link>
+        <button
+          type="button"
+          className={`${EXCEL_BTN_DANGER} !min-h-10 w-full sm:w-auto`}
+          disabled={deleting || !resolvedFarmerId}
+          onClick={handleDelete}
+        >
+          {deleting ? "Deleting…" : "Delete"}
+        </button>
+      </div>
     </div>
   );
 }

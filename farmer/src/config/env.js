@@ -14,6 +14,21 @@ function hostnameOf(url) {
   }
 }
 
+function toHttpsIfKnownApi(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "http:" && (u.hostname === "api.greengrocc.com" || u.hostname === "api.greengrocc.in")) {
+      u.protocol = "https:";
+      return stripSlash(u.toString());
+    }
+  } catch {
+    // ignore
+  }
+  return url;
+}
+
+const LIVE_HTTPS_API = "https://api.greengrocc.com";
+
 export function getApiBaseUrl() {
   const envUrl = stripSlash(import.meta.env.VITE_API_URL || "");
   const inBrowser = typeof window !== "undefined";
@@ -25,9 +40,10 @@ export function getApiBaseUrl() {
   }
 
   // HTTPS pages cannot call http:// APIs (mixed content).
-  // Use this site origin so /api can be rewritten/proxied to http://api.greengrocc.com.
+  // Live API is HTTPS — call it directly. Same-origin /api only works with a Render rewrite.
   if (inBrowser && window.location.protocol === "https:") {
-    return window.location.origin;
+    if (envUrl) return toHttpsIfKnownApi(envUrl);
+    return LIVE_HTTPS_API;
   }
 
   if (envUrl) {
@@ -37,6 +53,6 @@ export function getApiBaseUrl() {
     }
   }
 
-  if (!onLocalPage && inBrowser) return window.location.origin;
+  if (!onLocalPage && inBrowser) return LIVE_HTTPS_API;
   return envUrl || "http://localhost:5001";
 }

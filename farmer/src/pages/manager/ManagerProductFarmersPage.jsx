@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
-import { getManagerAllProducts } from "../../api/farmerApi";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/farmerApi";
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import { isPendingProductApproval } from "../../utils/productActions";
 import {
@@ -42,18 +43,41 @@ function orderCreatePath(product) {
 function matchesViewedProduct(product, { productId, productName, productKey }) {
   const idNeedle = String(productId || "").trim();
   const nameNeedle = String(productName || "").trim().toLowerCase();
-  const keyNeedle = decodeURIComponent(String(productKey || "")).trim().toLowerCase();
+  const keyNeedle = decodeURIComponent(String(productKey || "")).trim();
   const pid = String(product.productId || product.id || "").trim();
   const pname = productNameOf(product).trim().toLowerCase();
+  const varietyKey = `${pname}|${String(product.variety || "").trim().toLowerCase()}`;
 
+  if (idNeedle && isBusinessProductId(idNeedle)) {
+    return pid.toUpperCase() === idNeedle.toUpperCase();
+  }
+  if (keyNeedle && isBusinessProductId(keyNeedle)) {
+    return pid.toUpperCase() === keyNeedle.toUpperCase();
+  }
+  if (keyNeedle.includes("|") && varietyKey === keyNeedle.toLowerCase()) return true;
   if (nameNeedle && pname === nameNeedle) return true;
-  if (idNeedle && isBusinessProductId(idNeedle) && pid === idNeedle) return true;
-  if (keyNeedle && (pid.toLowerCase() === keyNeedle || pname === keyNeedle)) return true;
+  if (keyNeedle && (pid.toLowerCase() === keyNeedle.toLowerCase() || pname === keyNeedle.toLowerCase())) return true;
   return false;
 }
 
-function FarmerCard({ product, farmerId, farmerLabel }) {
+const ACTION_BTN =
+  "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 whitespace-nowrap hover:bg-slate-50 disabled:opacity-40";
+const APPROVE_BTN =
+  "inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-green-100 px-2 text-[10px] font-semibold text-green-700 whitespace-nowrap hover:bg-green-200 disabled:opacity-40";
+const REJECT_BTN =
+  "inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-red-100 px-2 text-[10px] font-semibold text-red-700 whitespace-nowrap hover:bg-red-200 disabled:opacity-40";
+
+function statusClass(status) {
+  if (status === "Active" || status === "Approved") return "bg-green-50 text-green-700";
+  if (isPendingProductApproval(status)) return "bg-yellow-100 text-yellow-700";
+  if (status === "Rejected") return "bg-red-100 text-red-700";
+  return "bg-gray-100 text-gray-600";
+}
+
+function FarmerCard({ product, farmerId, farmerLabel, busyId, onReview }) {
   const qty = productQty(product);
+  const id = product.id || product.productId;
+  const canReview = isPendingProductApproval(product.status);
   return (
     <div className="border-b border-[#E5E7EB] px-3 py-2.5 last:border-0">
       <div className="flex items-start justify-between gap-2">
@@ -68,7 +92,7 @@ function FarmerCard({ product, farmerId, farmerLabel }) {
           <p className="mt-0.5 text-[11px] text-[#6B7280]">{product.variety || "—"}</p>
           <p className="mt-0.5 break-all font-mono text-[10px] text-emerald-700">{formatProductBusinessId(product)}</p>
         </div>
-        <span className="shrink-0 rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(product.status)}`}>
           {product.status || "Active"}
         </span>
       </div>
@@ -76,13 +100,23 @@ function FarmerCard({ product, farmerId, farmerLabel }) {
         <p className="text-[13px] font-bold text-[#1F2937]">
           {qty.toLocaleString("en-IN")} {product.unit || "Kg"}
         </p>
-        {isAvailableForOrder(product) ? (
-          <Link to={orderCreatePath(product)} className={`${EXCEL_BTN_PRIMARY} !min-h-9 px-3 py-1.5 text-[11px]`}>
-            Create Order
-          </Link>
-        ) : (
-          <span className="text-[10px] text-[#9CA3AF]">Not available</span>
-        )}
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {isAvailableForOrder(product) ? (
+            <Link to={orderCreatePath(product)} className={`${EXCEL_BTN_PRIMARY} !min-h-9 px-3 py-1.5 text-[11px]`}>
+              Create Order
+            </Link>
+          ) : null}
+          {canReview ? (
+            <>
+              <button type="button" disabled={busyId === id} onClick={() => onReview(product, "approved")} className={APPROVE_BTN}>
+                Approve
+              </button>
+              <button type="button" disabled={busyId === id} onClick={() => onReview(product, "rejected")} className={REJECT_BTN}>
+                Reject
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -90,32 +124,59 @@ function FarmerCard({ product, farmerId, farmerLabel }) {
 
 export default function ManagerProductFarmersPage() {
   const { productKey } = useParams();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const productId = searchParams.get("productId") || "";
   const productNameParam = searchParams.get("name") || "";
+  const fromProducts = location.pathname.includes("/manager/products/");
+  const backTo = fromProducts ? "/farmer/manager/products" : "/farmer/manager/orders?tab=by-product";
+  const backLabel = fromProducts ? "All Products" : "By Product";
 
   const [farmers, setFarmers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState("");
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await getManagerAllProducts().catch(() => ({ farmers: [], products: [] }));
+      setFarmers(Array.isArray(data?.farmers) ? data.farmers : []);
+      setProducts(Array.isArray(data?.products) ? data.products : []);
+    } catch {
+      setFarmers([]);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await getManagerAllProducts().catch(() => ({ farmers: [], products: [] }));
-        setFarmers(Array.isArray(data?.farmers) ? data.farmers : []);
-        setProducts(Array.isArray(data?.products) ? data.products : []);
-      } catch {
-        setFarmers([]);
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadData();
   }, [productKey, productId, productNameParam]);
 
   const farmerName = (farmerId, fallback) =>
     fallback || farmers.find((f) => f.id === farmerId || f.farmerId === farmerId)?.name || "—";
+
+  const handleReview = async (product, decision) => {
+    const id = product.id || product.productId;
+    let reason = "";
+    if (decision === "rejected") {
+      const typed = window.prompt("Reason for rejection (optional)");
+      if (typed === null) return;
+      reason = typed;
+    }
+    setBusyId(id);
+    try {
+      await reviewManagerFarmerProduct(product.farmerId, id, decision, reason);
+      toast.success(decision === "approved" ? "Product approved" : "Product rejected");
+      await loadData();
+    } catch (err) {
+      toast.error(err.message || "Failed to review product");
+    } finally {
+      setBusyId("");
+    }
+  };
 
   const rows = useMemo(
     () =>
@@ -197,15 +258,15 @@ export default function ManagerProductFarmersPage() {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1 text-[10px] text-[#6B7280]">
-            <Link to="/farmer/manager/orders?tab=by-product" className="hover:text-[#217346]">
-              By Product
+            <Link to={backTo} className="hover:text-[#217346]">
+              {backLabel}
             </Link>
             <span>›</span>
-            <span className="text-[#1F2937]">Details</span>
+            <span className="text-[#1F2937]">Farmers</span>
           </div>
           <h1 className="mt-0.5 truncate text-base font-bold text-[#1F2937] sm:text-lg">{title}</h1>
         </div>
-        <Link to="/farmer/manager/orders?tab=by-product" className={`${EXCEL_BTN} shrink-0 !min-h-9 px-3 py-1.5 text-[11px]`}>
+        <Link to={backTo} className={`${EXCEL_BTN} shrink-0 !min-h-9 px-3 py-1.5 text-[11px]`}>
           Back
         </Link>
       </div>
@@ -242,7 +303,7 @@ export default function ManagerProductFarmersPage() {
                         {Number(summary.totalQty || 0).toLocaleString("en-IN")} {summary.unit}
                       </td>
                       <td className="px-3 py-2">
-                        <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(summary.status)}`}>
                           {summary.status}
                         </span>
                       </td>
