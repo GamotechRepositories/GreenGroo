@@ -70,9 +70,6 @@ function groupByProduct(items) {
       existing.status = p.status;
     }
     if (!existing.image && p.image) existing.image = p.image;
-    const a = existing.harvestDate ? String(existing.harvestDate).slice(0, 10) : "";
-    const b = p.harvestDate ? String(p.harvestDate).slice(0, 10) : "";
-    if (a && b && a !== b) existing.harvestDate = "";
   }
   return Array.from(map.values());
 }
@@ -245,10 +242,10 @@ export default function ManagerProductsPage() {
         </div>
       ) : (
         <div className={`${EXCEL_PANEL} overflow-x-auto`}>
-          <table className="w-full min-w-[860px] text-xs">
+          <table className="w-full min-w-[780px] text-xs">
             <thead>
               <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                {["Product", "Variety", "Product ID", "Category", "Qty", "Harvest", "Status"].map((h) => (
+                {["Product", "Variety", "Product ID", "Category", "Qty", "Status"].map((h) => (
                   <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
                 ))}
                 <th className="sticky right-0 z-20 whitespace-nowrap border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
@@ -288,9 +285,6 @@ export default function ManagerProductsPage() {
                     </td>
                     <td className="px-3 py-2.5 font-bold text-[#217346]">
                       {Number(p.totalQty || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
-                    </td>
-                    <td className="px-3 py-2.5 text-[#6B7280]">
-                      {p.harvestDate ? new Date(p.harvestDate).toLocaleDateString("en-IN") : "—"}
                     </td>
                     <td className="px-3 py-2.5">
                       <span
