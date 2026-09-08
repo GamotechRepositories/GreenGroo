@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getManagerPickup, receiveManagerPickup, getManagerPickupReceipt } from "../../api/farmerApi";
+import { getManagerPickup, receiveManagerPickup, getManagerPickupReceipt, startManagerQuality } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
-import PickupTimeline, { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
+import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
+import ReceivingPhotos from "../../components/pickup/ReceivingPhotos";
+import QrScanModal from "../../components/pickup/QrScanModal";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -17,8 +19,23 @@ import {
 } from "../../utils/excelStyles";
 
 const UNITS = ["Kg", "Quintal", "Ton"];
-const STEPS = ["ARRIVED", "UNLOADING", "WEIGHT_CHECK", "RECEIVED"];
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
+const STEPS = [
+  { id: "scan", label: "Scan QR" },
+  { id: "details", label: "Order details" },
+  { id: "weight", label: "Weight" },
+  { id: "photos", label: "Photos" },
+];
+
+function qrMatches(pickup, qr) {
+  const raw = String(qr || "").trim();
+  if (!raw || !pickup) return false;
+  return (
+    raw === pickup.qrPayload ||
+    raw.includes(pickup.orderDisplayId || "") ||
+    raw.includes(pickup.orderId || "")
+  );
+}
 
 function orderGradeQty(pickup) {
   const map = {};
@@ -58,7 +75,6 @@ function weightGradeRows(pickup, previous = []) {
     return {
       label,
       expectedWeight: expected,
-      actualWeight: fromSave?.actualWeight ?? fromPrev?.actualWeight ?? "",
       acceptedWeight: fromSave?.acceptedWeight ?? fromPrev?.acceptedWeight ?? "",
     };
   });
@@ -68,15 +84,73 @@ function num(value) {
   return Number(value || 0);
 }
 
-function Info({ label, value }) {
+function Info({ label, value, className = "" }) {
   return (
-    <div>
+    <div className={`min-w-0 ${className}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">{label}</p>
       {isCopyableId(label, value) ? (
         <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-[#1F2937]" breakAll />
       ) : (
-        <p className="mt-0.5 text-xs font-semibold text-[#1F2937]">{value || "—"}</p>
+        <p className="mt-0.5 break-words text-xs font-semibold leading-snug text-[#1F2937]">{value || "—"}</p>
       )}
+    </div>
+  );
+}
+
+function StepPills({ step, done }) {
+  const current = STEPS.findIndex((s) => s.id === step);
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {STEPS.map((s, i) => {
+        const active = s.id === step;
+        const complete = done || i < current;
+        return (
+          <span
+            key={s.id}
+            className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+              active
+                ? "bg-emerald-700 text-white"
+                : complete
+                  ? "bg-[#E8F5E9] text-[#217346]"
+                  : "bg-slate-100 text-[#6B7280]"
+            }`}
+          >
+            {i + 1}. {s.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function OrderDetailsGrid({ pickup }) {
+  const unit = pickup.unit || "Kg";
+  const grades = Array.isArray(pickup.grades) ? pickup.grades : [];
+  return (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-3 p-3 text-xs lg:grid-cols-3">
+      <Info label="Order ID" value={pickup.orderDisplayId} className="col-span-2 lg:col-span-1" />
+      <Info label="Farmer Name" value={pickup.farmerName} />
+      <Info label="Farmer Mobile" value={pickup.farmerMobile} />
+      <Info label="Farmer Location" value={pickup.farmerLocation} className="col-span-2 lg:col-span-1" />
+      <Info label="Product" value={pickup.productName} />
+      <Info label="Variety" value={pickup.variety} />
+      <Info label="Grade" value={pickup.grade} />
+      <Info label="Ordered Qty" value={`${pickup.orderedQuantity || "—"} ${unit}`} />
+      <Info label="Packed Qty" value={`${pickup.packedQuantity || pickup.confirmedQuantity || pickup.expectedQuantity || "—"} ${unit}`} />
+      <Info label="Expected Qty" value={`${pickup.confirmedQuantity || pickup.packedQuantity || pickup.expectedQuantity || "—"} ${unit}`} />
+      <Info label="Packages" value={pickup.packageCount} />
+      <Info label="Driver" value={pickup.driverName || "—"} />
+      <Info label="Driver ID" value={pickup.driverId} />
+      <Info label="Vehicle" value={pickup.vehicleNumber || "—"} />
+      <Info label="Lot / Batch ID" value={pickup.collectionBatchId} className="col-span-2 lg:col-span-1" />
+      <Info label="Driver status" value={pickupLiveLabel(pickup)} className="col-span-2 lg:col-span-1" />
+      {grades.map((g, i) => (
+        <Info
+          key={`${g.label || g.name || i}`}
+          label={g.label || g.name || `Grade ${i + 1}`}
+          value={`${g.quantity || 0} ${g.unit || unit}`}
+        />
+      ))}
     </div>
   );
 }
@@ -84,16 +158,20 @@ function Info({ label, value }) {
 export default function ManagerReceivePage() {
   const { pickupId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const scannedQr = String(location.state?.qr || "").trim();
   const [pickup, setPickup] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [step, setStep] = useState(scannedQr ? "details" : "scan");
   const [form, setForm] = useState({
     receivingStatus: "ARRIVED",
     weightUnit: "Kg",
     grades: [],
     packageCount: "",
     photos: [],
-    qr: "",
+    qr: scannedQr,
   });
 
   const applyPickup = (p) => {
@@ -115,11 +193,22 @@ export default function ManagerReceivePage() {
       .catch((err) => setError(err.message || "Pickup not found"));
   }, [pickupId], 5000);
 
+  const qrOk = qrMatches(pickup, form.qr);
+  const done = pickup?.status === "COLLECTION_CENTRE_RECEIVED" || pickup?.receiving?.status === "RECEIVED";
+
+  useEffect(() => {
+    if (!pickup || done) return;
+    if (qrOk && step === "scan") setStep("details");
+  }, [pickup, qrOk, done, step]);
+
+  useEffect(() => {
+    if (done) setStep("photos");
+  }, [done]);
+
   const totals = useMemo(() => {
     const expected = (form.grades || []).reduce((s, g) => s + num(g.expectedWeight), 0);
-    const actual = (form.grades || []).reduce((s, g) => s + num(g.actualWeight), 0);
     const accepted = (form.grades || []).reduce((s, g) => s + num(g.acceptedWeight), 0);
-    return { expected, actual, accepted, difference: actual - expected };
+    return { expected, accepted, difference: accepted - expected };
   }, [form.grades]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const setGrade = (label, patch) => {
@@ -127,14 +216,6 @@ export default function ManagerReceivePage() {
       ...f,
       grades: (f.grades || []).map((g) => (g.label === label ? { ...g, ...patch } : g)),
     }));
-  };
-
-  const onPhoto = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => set("photos", [...form.photos, reader.result]);
-    reader.readAsDataURL(file);
   };
 
   const save = async (status) => {
@@ -145,21 +226,26 @@ export default function ManagerReceivePage() {
         ...form,
         receivingStatus: status || form.receivingStatus,
         expectedWeight: totals.expected,
-        actualWeight: totals.actual,
+        actualWeight: totals.accepted,
         acceptedWeight: totals.accepted,
         difference: totals.difference,
         grades: (form.grades || []).map((g) => ({
           label: g.label,
           expectedWeight: num(g.expectedWeight),
-          actualWeight: num(g.actualWeight),
+          actualWeight: num(g.acceptedWeight),
           acceptedWeight: num(g.acceptedWeight),
-          difference: num(g.actualWeight) - num(g.expectedWeight),
+          difference: num(g.acceptedWeight) - num(g.expectedWeight),
         })),
       });
       applyPickup(data);
       if ((status || form.receivingStatus) === "RECEIVED") {
         await getManagerPickupReceipt(pickup.id || pickupId).catch(() => null);
+        const qualityId = data.orderId || data.orderDisplayId || pickup.orderId || pickup.orderDisplayId;
         toast.success("Received at collection centre");
+        if (qualityId) {
+          await startManagerQuality(qualityId).catch(() => null);
+          navigate(`/farmer/manager/quality/${encodeURIComponent(qualityId)}`, { state: { autoStart: true } });
+        }
       } else {
         toast.success(`Marked ${String(status || "").replace(/_/g, " ")}`);
       }
@@ -174,12 +260,8 @@ export default function ManagerReceivePage() {
   if (!pickup && !error) return <p className="text-xs text-[#6B7280]">Loading incoming pickup…</p>;
   if (!pickup) return <p className="text-xs text-red-600">{error}</p>;
 
-  const qrOk =
-    form.qr.trim() &&
-    (form.qr.trim() === pickup.qrPayload ||
-      form.qr.includes(pickup.orderDisplayId || "") ||
-      form.qr.includes(pickup.orderId || ""));
-  const done = pickup.status === "COLLECTION_CENTRE_RECEIVED" || pickup.receiving?.status === "RECEIVED";
+  const weightReady = (form.grades || []).some((g) => String(g.acceptedWeight ?? "").trim() !== "");
+  const photosReady = (form.photos || []).length > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
@@ -187,143 +269,194 @@ export default function ManagerReceivePage() {
       <div>
         <h1 className={EXCEL_PAGE_TITLE}>Collection Centre Receiving</h1>
         <p className={EXCEL_PAGE_SUB}>
-          Next after driver on the way. Order {pickup.orderDisplayId} · {pickup.farmerName}
+          Scan QR, check order details, verify weight, take live photos, then confirm received.
         </p>
       </div>
+      <StepPills step={step} done={done} />
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 
-      <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>Pickup Timeline</h2>
-        <div className="p-3">
-          <PickupTimeline status={pickup.status} />
-        </div>
-      </section>
-
-      <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>Order</h2>
-        <div className="grid gap-3 p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
-          <Info label="Order ID" value={pickup.orderDisplayId} />
-          <Info label="Farmer" value={pickup.farmerName} />
-          <Info label="Product" value={pickup.productName} />
-          <Info label="Expected Qty" value={`${pickup.confirmedQuantity || pickup.packedQuantity || pickup.expectedQuantity} ${pickup.unit}`} />
-          <Info label="Packages" value={pickup.packageCount} />
-          <Info label="Driver" value={`${pickup.driverName || "—"} · ${pickup.vehicleNumber || ""}`} />
-          <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
-          <Info label="Driver status" value={pickupLiveLabel(pickup)} />
-        </div>
-      </section>
-
-      <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>1. Scan QR & verify</h2>
-        <div className="space-y-2 p-3">
-          <input className={EXCEL_INPUT} placeholder="Paste Farmer / order QR" value={form.qr} onChange={(e) => set("qr", e.target.value)} />
-          <p className={`text-[11px] ${form.qr ? (qrOk ? "text-emerald-700" : "text-red-600") : "text-[#6B7280]"}`}>
-            {form.qr ? (qrOk ? "QR matches this order." : "QR does not match this order.") : pickup.qrPayload ? `Expected: ${pickup.qrPayload}` : "Paste the order QR from the driver."}
-          </p>
-        </div>
-      </section>
-
-      <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>2. Weight verification</h2>
-        <div className="space-y-3 p-3">
-          <div className="flex flex-wrap gap-2">
-            {UNITS.map((u) => (
-              <button key={u} type="button" onClick={() => set("weightUnit", u)} className={form.weightUnit === u ? EXCEL_BTN_PRIMARY : EXCEL_BTN}>
-                {u}
+      {step === "scan" ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>1. Scan QR & verify</h2>
+          <div className="space-y-2 p-3">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                className={`${EXCEL_INPUT} flex-1`}
+                placeholder="Paste Farmer / order QR"
+                value={form.qr}
+                onChange={(e) => set("qr", e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={done}
+                className={`${EXCEL_BTN_PRIMARY} shrink-0 sm:min-w-[7.5rem]`}
+                onClick={() => setScanOpen(true)}
+              >
+                Scan QR
               </button>
-            ))}
+            </div>
+            <p className={`text-[11px] ${form.qr ? (qrOk ? "text-emerald-700" : "text-red-600") : "text-[#6B7280]"}`}>
+              {form.qr
+                ? qrOk
+                  ? "QR matches this order. Opening order details…"
+                  : "QR does not match this order."
+                : "Scan the order QR from the driver to continue."}
+            </p>
+            <Link to="/farmer/manager/pickups/incoming" className={EXCEL_BTN}>Back</Link>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-left text-xs">
-              <thead>
-                <tr className="bg-[#F8FAF8] text-[10px] font-bold uppercase tracking-wide text-[#6B7280]">
-                  <th className="border border-[#E5E7EB] px-2 py-2">Grade</th>
-                  <th className="border border-[#E5E7EB] px-2 py-2">Expected</th>
-                  <th className="border border-[#E5E7EB] px-2 py-2">Actual</th>
-                  <th className="border border-[#E5E7EB] px-2 py-2">Accepted</th>
-                  <th className="border border-[#E5E7EB] px-2 py-2">Difference</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(form.grades || []).map((g) => {
-                  const diff = num(g.actualWeight) - num(g.expectedWeight);
-                  return (
-                    <tr key={g.label}>
-                      <td className="border border-[#E5E7EB] px-2 py-1.5 font-semibold text-[#1F2937]">{g.label}</td>
-                      <td className="border border-[#E5E7EB] px-2 py-1.5 tabular-nums">{num(g.expectedWeight)} {form.weightUnit}</td>
-                      <td className="border border-[#E5E7EB] px-1 py-1">
-                        <input
-                          className={`${EXCEL_INPUT} !min-h-8 !rounded-lg !px-2 !py-1.5 !text-xs`}
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={g.actualWeight}
-                          onChange={(e) => setGrade(g.label, { actualWeight: e.target.value })}
-                        />
-                      </td>
-                      <td className="border border-[#E5E7EB] px-1 py-1">
-                        <input
-                          className={`${EXCEL_INPUT} !min-h-8 !rounded-lg !px-2 !py-1.5 !text-xs`}
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={g.acceptedWeight}
-                          onChange={(e) => setGrade(g.label, { acceptedWeight: e.target.value })}
-                        />
-                      </td>
-                      <td className={`border border-[#E5E7EB] px-2 py-1.5 font-semibold tabular-nums ${diff < 0 ? "text-red-600" : "text-[#1F2937]"}`}>
-                        {diff > 0 ? "+" : ""}{diff} {form.weightUnit}
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="bg-[#F8FAF8] font-bold">
-                  <td className="border border-[#E5E7EB] px-2 py-2">Total</td>
-                  <td className="border border-[#E5E7EB] px-2 py-2 tabular-nums">{totals.expected} {form.weightUnit}</td>
-                  <td className="border border-[#E5E7EB] px-2 py-2 tabular-nums">{totals.actual} {form.weightUnit}</td>
-                  <td className="border border-[#E5E7EB] px-2 py-2 tabular-nums">{totals.accepted} {form.weightUnit}</td>
-                  <td className={`border border-[#E5E7EB] px-2 py-2 tabular-nums ${totals.difference < 0 ? "text-red-600" : "text-[#1F2937]"}`}>
-                    {totals.difference > 0 ? "+" : ""}{totals.difference} {form.weightUnit}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div className="max-w-xs">
-            <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Package count</label>
-            <input className={EXCEL_INPUT} type="number" value={form.packageCount} onChange={(e) => set("packageCount", e.target.value)} />
-          </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
-      <section className={EXCEL_PANEL}>
-        <h2 className={EXCEL_PANEL_HEAD}>3. Photos</h2>
-        <div className="p-3">
-          <input type="file" accept="image/*" onChange={onPhoto} className="text-xs" />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {form.photos.map((src, i) => (
-              <img key={i} src={src} alt="" className="h-16 w-16 rounded-lg border border-slate-200 object-cover" />
-            ))}
+      {step === "details" ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>2. Order details</h2>
+          <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold text-emerald-700">QR verified. Check all order details, then verify weight.</p>
+          <OrderDetailsGrid pickup={pickup} />
+          <div className="flex flex-wrap gap-2 border-t border-slate-100 p-3">
+            <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => setStep("weight")}>
+              Verify Weight
+            </button>
+            <button type="button" className={EXCEL_BTN} onClick={() => setStep("scan")}>
+              Scan again
+            </button>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {STEPS.filter((s) => s !== "RECEIVED").map((s) => (
-          <button key={s} type="button" disabled={busy || done} className={EXCEL_BTN} onClick={() => save(s)}>
-            Mark {s.replace(/_/g, " ")}
-          </button>
-        ))}
-        <button type="button" disabled={busy || done || !qrOk} className={EXCEL_BTN_PRIMARY} onClick={() => save("RECEIVED")}>
-          {busy ? "Saving…" : "Confirm Received"}
-        </button>
-        {done ? (
-          <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => navigate(`/farmer/manager/quality/${pickup.orderId || pickup.orderDisplayId}`)}>
-            Start Quality Check
-          </button>
-        ) : null}
-        <Link to="/farmer/manager/pickups/incoming" className={EXCEL_BTN}>Back</Link>
-      </div>
+      {step === "weight" ? (
+        <section className={EXCEL_PANEL}>
+          <h2 className={EXCEL_PANEL_HEAD}>3. Weight verification</h2>
+          <div className="space-y-3 p-3">
+            <div className="flex flex-wrap gap-2">
+              {UNITS.map((u) => (
+                <button key={u} type="button" onClick={() => set("weightUnit", u)} className={form.weightUnit === u ? EXCEL_BTN_PRIMARY : EXCEL_BTN}>
+                  {u}
+                </button>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed border-collapse text-left text-[10px] md:min-w-[420px] md:table-auto md:text-xs">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[28%]" />
+                  <col className="w-[26%]" />
+                </colgroup>
+                <thead>
+                  <tr className="bg-[#F8FAF8] text-[9px] font-bold uppercase tracking-wide text-[#6B7280] md:text-[10px]">
+                    <th className="border border-[#E5E7EB] px-1 py-1.5 md:px-2 md:py-2">Grade</th>
+                    <th className="border border-[#E5E7EB] px-1 py-1.5 md:px-2 md:py-2">Expected</th>
+                    <th className="border border-[#E5E7EB] px-1 py-1.5 md:px-2 md:py-2">Accepted</th>
+                    <th className="border border-[#E5E7EB] px-1 py-1.5 md:px-2 md:py-2">Difference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(form.grades || []).map((g) => {
+                    const diff = num(g.acceptedWeight) - num(g.expectedWeight);
+                    return (
+                      <tr key={g.label}>
+                        <td className="border border-[#E5E7EB] px-1 py-1 font-semibold leading-tight text-[#1F2937] md:px-2 md:py-1.5">{g.label}</td>
+                        <td className="border border-[#E5E7EB] px-1 py-1 tabular-nums md:px-2 md:py-1.5">
+                          {num(g.expectedWeight)}
+                          <span className="hidden md:inline"> {form.weightUnit}</span>
+                        </td>
+                        <td className="border border-[#E5E7EB] p-0.5 md:px-1 md:py-1">
+                          <input
+                            className={`${EXCEL_INPUT} !min-h-8 !rounded-md !px-1 !py-1 !text-[11px] md:!rounded-lg md:!px-2 md:!py-1.5 md:!text-xs`}
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            inputMode="decimal"
+                            value={g.acceptedWeight}
+                            onChange={(e) => setGrade(g.label, { acceptedWeight: e.target.value })}
+                          />
+                        </td>
+                        <td className={`border border-[#E5E7EB] px-1 py-1 font-semibold tabular-nums md:px-2 md:py-1.5 ${diff < 0 ? "text-red-600" : "text-[#1F2937]"}`}>
+                          {diff > 0 ? "+" : ""}
+                          {diff}
+                          <span className="hidden md:inline"> {form.weightUnit}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-[#F8FAF8] font-bold">
+                    <td className="border border-[#E5E7EB] px-1 py-1.5 md:px-2 md:py-2">Total</td>
+                    <td className="border border-[#E5E7EB] px-1 py-1.5 tabular-nums md:px-2 md:py-2">
+                      {totals.expected}
+                      <span className="hidden md:inline"> {form.weightUnit}</span>
+                    </td>
+                    <td className="border border-[#E5E7EB] px-1 py-1.5 tabular-nums md:px-2 md:py-2">
+                      {totals.accepted}
+                      <span className="hidden md:inline"> {form.weightUnit}</span>
+                    </td>
+                    <td className={`border border-[#E5E7EB] px-1 py-1.5 tabular-nums md:px-2 md:py-2 ${totals.difference < 0 ? "text-red-600" : "text-[#1F2937]"}`}>
+                      {totals.difference > 0 ? "+" : ""}
+                      {totals.difference}
+                      <span className="hidden md:inline"> {form.weightUnit}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="max-w-xs">
+              <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Package count</label>
+              <input className={EXCEL_INPUT} type="number" value={form.packageCount} onChange={(e) => set("packageCount", e.target.value)} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={!weightReady} className={EXCEL_BTN_PRIMARY} onClick={() => setStep("photos")}>
+                Next: Live Photo
+              </button>
+              <button type="button" className={EXCEL_BTN} onClick={() => setStep("details")}>
+                Back
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {step === "photos" ? (
+        <>
+          <section className={EXCEL_PANEL}>
+            <h2 className={EXCEL_PANEL_HEAD}>4. Live photo</h2>
+            <div className="p-3">
+              <ReceivingPhotos photos={form.photos} onChange={(photos) => set("photos", photos)} disabled={done} />
+            </div>
+          </section>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || done || !qrOk || !photosReady}
+              className={EXCEL_BTN_PRIMARY}
+              onClick={() => save("RECEIVED")}
+            >
+              {busy ? "Saving…" : "Confirm Received"}
+            </button>
+            {done ? (
+              <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => navigate(`/farmer/manager/quality/${pickup.orderId || pickup.orderDisplayId}`)}>
+                Start Quality Check
+              </button>
+            ) : (
+              <button type="button" className={EXCEL_BTN} onClick={() => setStep("weight")}>
+                Back
+              </button>
+            )}
+            <Link to="/farmer/manager/pickups/incoming" className={EXCEL_BTN}>Incoming Pickups</Link>
+          </div>
+        </>
+      ) : null}
+
+      <QrScanModal
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        title="Scan order QR"
+        hint="Align the order QR inside the frame"
+        actionLabel="Use"
+        onScan={(value) => {
+          set("qr", String(value || "").trim());
+          setScanOpen(false);
+        }}
+      />
     </div>
   );
 }
+

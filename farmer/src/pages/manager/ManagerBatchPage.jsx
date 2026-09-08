@@ -4,7 +4,9 @@ import { getManagerBatch } from "../../api/farmerApi";
 import CopyId, { formatVehicleId } from "../../components/ui/CopyId";
 import { pickupLiveLabel, pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
-import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB } from "../../utils/excelStyles";
+import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
+import { parseOrderQrPayload } from "../../utils/orderQr";
+import QrScanModal from "../../components/pickup/QrScanModal";
 import { formatOrderDate } from "../../utils/orderDisplay";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
@@ -108,6 +110,75 @@ function Fact({ label, value }) {
   );
 }
 
+function orderMatchesQr(order, value) {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  const parsed = parseOrderQrPayload(raw);
+  const oid = String(order?.orderDisplayId || order?.orderId || "");
+  const pid = String(order?.id || "");
+  const qr = String(order?.qrPayload || "");
+  return Boolean(
+    (qr && (raw === qr || raw.includes(qr) || qr.includes(raw))) ||
+    (oid && (raw.includes(oid) || parsed === oid || (parsed && (oid.includes(parsed) || parsed.includes(oid))))) ||
+    (pid && (raw.includes(pid) || parsed === pid))
+  );
+}
+
+function receivePath(order) {
+  return `/farmer/manager/pickups/${order.id}/receive`;
+}
+
+function BatchOrderCard({ order, index, gradeColumns, onReceive, onScan }) {
+  const id = order.orderDisplayId || order.orderId || order.id;
+  const map = gradeDetailMap(order);
+  const unit = order.unit || "Kg";
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="p-3">
+        <p className="text-[10px] font-semibold text-[#9CA3AF]">#{index + 1}</p>
+        <p className="truncate text-[13px] font-bold text-[#1F2937]">
+          {order.productName || "Product"}
+          {order.variety ? <span className="font-semibold text-[#6B7280]"> · {order.variety}</span> : null}
+        </p>
+        <CopyId value={id} className="mt-0.5" textClassName="break-all font-mono text-[11px] font-semibold text-[#217346]" breakAll />
+        <p className="mt-1 truncate text-[11px] text-[#6B7280]">
+          Farmer <span className="font-semibold text-[#1F2937]">{order.farmerName || "—"}</span>
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#6B7280]">
+          <span>Order <span className="font-semibold text-[#1F2937]">{shortDate(order.orderDate || order.createdAt)}</span></span>
+          <span>Pickup <span className="font-semibold text-[#1F2937]">{shortDate(order.pickupDate || order.scheduledDate)}</span></span>
+          <span>Time <span className="font-semibold text-[#1F2937]">{formatTime12h(order.pickupTime || order.scheduledTime)}</span></span>
+        </div>
+        <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB]">
+          <div className="grid grid-cols-2 bg-[#F8FAF8] px-2 py-1 text-[10px] font-bold text-[#6B7280]">
+            <span>Grade</span>
+            <span className="text-right">Qty</span>
+          </div>
+          {gradeColumns.map((g) => {
+            const row = map[g] || { qty: 0, unit };
+            const tone = gradeTone(g);
+            return (
+              <div key={g} className={`grid grid-cols-2 items-center border-t border-[#E5E7EB] px-2 py-1.5 text-[12px] ${tone.cell}`}>
+                <span className="font-semibold">{g}</span>
+                <span className="text-right font-semibold tabular-nums">{formatQty(row.qty, row.unit || unit)}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-[#F8FAF8] p-3">
+        <button type="button" className={`${EXCEL_BTN} !min-h-10`} onClick={onScan}>
+          Scan QR
+        </button>
+        <button type="button" className={`${EXCEL_BTN_PRIMARY} !min-h-10`} onClick={onReceive}>
+          Receive
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function payloadFromPickups(batchId, pickups = []) {
   const first = pickups[0] || {};
   const driver = first.driver || {};
@@ -138,6 +209,8 @@ export default function ManagerBatchPage() {
     seedPickups.length ? payloadFromPickups(location.state?.batchId || id, seedPickups) : null
   );
   const [error, setError] = useState("");
+  const [scanOrder, setScanOrder] = useState(null);
+  const [scanError, setScanError] = useState("");
 
   usePolling(() => {
     getManagerBatch(id)
@@ -168,13 +241,44 @@ export default function ManagerBatchPage() {
     return [...DEFAULT_GRADES, ...extras];
   }, [orders]);
 
+  const openScan = (order) => {
+    setScanError("");
+    setScanOrder(order);
+  };
+
+  const onScanned = (value) => {
+    const raw = String(value || "").trim();
+    if (!scanOrder) return;
+    if (!orderMatchesQr(scanOrder, raw)) {
+      setScanError("QR does not match this order.");
+      return;
+    }
+    const order = scanOrder;
+    setScanOrder(null);
+    setScanError("");
+    navigate(receivePath(order), { state: { qr: raw } });
+  };
+
   if (!data && !error) return <p className="text-xs text-[#6B7280]">Loading batch…</p>;
   if (!data) return <p className="text-xs text-red-600">{error}</p>;
 
   return (
     <div className="space-y-4">
-      <Link to="/farmer/manager/pickups/incoming" className="text-xs font-semibold text-[#217346]">
-        ← Incoming at Centre
+      <Link
+        to={
+          location.state?.from === "all"
+            ? "/farmer/manager/pickups/all"
+            : location.state?.from === "centre"
+              ? "/farmer/manager/pickups/centre"
+              : "/farmer/manager/pickups/incoming"
+        }
+        className="text-xs font-semibold text-[#217346]"
+      >
+        {location.state?.from === "all"
+          ? "← All Pickups"
+          : location.state?.from === "centre"
+            ? "← Pickups at Centre"
+            : "← Incoming Pickups"}
       </Link>
       <div>
         <span className="inline-flex max-w-full rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[11px] font-semibold leading-tight text-[#217346]">
@@ -229,7 +333,20 @@ export default function ManagerBatchPage() {
           No orders in this batch.
         </p>
       ) : (
-      <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <>
+          <div className="space-y-2.5 md:hidden">
+            {orders.map((order, idx) => (
+              <BatchOrderCard
+                key={order.id || order.orderDisplayId || idx}
+                order={order}
+                index={idx}
+                gradeColumns={gradeColumns}
+                onReceive={() => navigate(receivePath(order))}
+                onScan={() => openScan(order)}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
         <table className="w-full min-w-[760px] border-collapse text-[11px]">
           <thead>
             <tr>
@@ -273,22 +390,42 @@ export default function ManagerBatchPage() {
                       </td>
                     );
                   })}
-                  <td className={`${TD} text-center`}>
-                    <button
-                      type="button"
-                      className="inline-flex h-7 items-center rounded-md border border-[#217346] bg-[#217346] px-2 text-[10px] font-semibold text-white"
-                      onClick={() => navigate(`/farmer/manager/pickups/${order.id}/receive`)}
-                    >
-                      Receive
-                    </button>
+                  <td className={`${TD} bg-white px-1 py-1 text-center`}>
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        className="inline-flex h-7 items-center rounded-md border border-[#D4D4D4] bg-white px-2 text-[10px] font-semibold text-[#1F2937]"
+                        onClick={() => openScan(order)}
+                      >
+                        Scan QR
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 items-center rounded-md border border-[#217346] bg-[#217346] px-2 text-[10px] font-semibold text-white"
+                        onClick={() => navigate(receivePath(order))}
+                      >
+                        Receive
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-      </div>
+          </div>
+        </>
       )}
+
+      <QrScanModal
+        open={Boolean(scanOrder)}
+        onClose={() => { setScanOrder(null); setScanError(""); }}
+        title="Scan order QR"
+        hint="Align this order QR inside the frame"
+        actionLabel="Use"
+        error={scanError}
+        onScan={onScanned}
+      />
     </div>
   );
 }

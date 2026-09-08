@@ -7,7 +7,6 @@ import CopyId, { CopyButton, formatVehicleId } from "../../components/ui/CopyId"
 import QrScanModal from "../../components/pickup/QrScanModal";
 import { parseBatchQrPayload } from "../../utils/batchQr";
 import { parseOrderQrPayload } from "../../utils/orderQr";
-import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY, EXCEL_BTN, EXCEL_INPUT } from "../../utils/excelStyles";
 import { formatMoney, formatOrderDate, todayISODate, yesterdayISODate } from "../../utils/orderDisplay";
@@ -17,8 +16,10 @@ const COPY = {
   assigned: { title: "Assigned Pickups", sub: "Pickups with a driver assigned.", filter: "assigned", empty: "No assigned pickups." },
   requests: { title: "Ready for Pickup", sub: "Orders from your assigned farmers waiting for a driver.", filter: "ready", empty: "No ready-for-pickup orders yet." },
   today: { title: "Today's Pickups", sub: "Scheduled for today and not yet picked up.", filter: "today", empty: "No pickups scheduled today." },
-  active: { title: "Active Pickups", sub: "In-progress pickups for your farmers.", filter: "active", empty: "No active pickups." },
-  incoming: { title: "Incoming at Centre", sub: "Driver is on the way. Receive, weigh, and confirm at the collection centre.", filter: "incoming", empty: "No incoming pickups yet." },
+  active: { title: "All Pickups", sub: "Every pickup for your assigned farmers, grouped by lot / batch.", filter: "all", empty: "No pickups yet." },
+  all: { title: "All Pickups", sub: "Every pickup for your assigned farmers, grouped by lot / batch.", filter: "all", empty: "No pickups yet." },
+  incoming: { title: "Incoming Pickups", sub: "Batches not yet received at the collection centre, with live status.", filter: "incoming", empty: "No incoming pickups yet." },
+  centre: { title: "Pickups at Centre", sub: "Batches that have reached the collection centre and are not yet received.", filter: "centre", empty: "No pickups at the collection centre." },
   completed: { title: "Picked Up", sub: "Confirmed pickups.", filter: "history", empty: "No completed pickups yet." },
   history: { title: "Picked Up", sub: "Completed pickup history for your farmers.", filter: "history", empty: "No pickup history yet." },
 };
@@ -27,6 +28,7 @@ const DONE_TODAY_STATUSES = new Set([
   "PICKED_UP",
   "PICKUP_CONFIRMED",
   "IN_TRANSIT",
+  "ARRIVED_AT_CENTRE",
   "COLLECTION_CENTRE_RECEIVED",
   "RECEIVED_AT_COLLECTION_CENTRE",
   "COMPLETED",
@@ -155,8 +157,15 @@ function pickupLocation(pickup) {
   return candidates.sort((a, b) => b.split(",").length - a.split(",").length || b.length - a.length)[0];
 }
 
+function isCentreIncoming(pickup) {
+  const status = String(pickup?.status || "").toUpperCase();
+  if (["IN_TRANSIT", "ARRIVED_AT_CENTRE", "PICKED_UP", "PICKUP_CONFIRMED"].includes(status)) return true;
+  return status === "COLLECTION_CENTRE_RECEIVED" && String(pickup?.receiving?.status || "").toUpperCase() !== "RECEIVED";
+}
+
 function pickupPath(pickup, isIncoming) {
-  return isIncoming ? `/farmer/manager/pickups/${pickup.id}/receive` : `/farmer/manager/pickups/${pickup.id}`;
+  const receive = isIncoming || isCentreIncoming(pickup);
+  return receive ? `/farmer/manager/pickups/${pickup.id}/receive` : `/farmer/manager/pickups/${pickup.id}`;
 }
 
 function orderPath(pickup) {
@@ -246,14 +255,14 @@ function PickupCard({ pickup, isIncoming, onView, onAssign }) {
           className={`${isIncoming || pickup.status === "READY_FOR_PICKUP" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} flex-1`}
           onClick={onAssign}
         >
-          {isIncoming ? "Receive" : pickup.status === "READY_FOR_PICKUP" ? "Assign Driver" : "Open"}
+          {isIncoming || isCentreIncoming(pickup) ? "Receive" : pickup.status === "READY_FOR_PICKUP" ? "Assign Driver" : "Open"}
         </button>
       </div>
     </article>
   );
 }
 
-function groupIncoming(pickups) {
+function groupByBatch(pickups) {
   const seen = new Map();
   const cards = [];
   for (const p of pickups) {
@@ -272,7 +281,7 @@ function groupIncoming(pickups) {
   return cards;
 }
 
-function IncomingBatchCard({ batchId, pickups, onOpen, onScan }) {
+function IncomingBatchCard({ batchId, pickups, onOpen, onScan, showScan = true }) {
   const first = pickups[0] || {};
   const driver = first.driver || {};
   const driverId = first.driverId || driver.id || driver.driverId || "";
@@ -283,9 +292,7 @@ function IncomingBatchCard({ batchId, pickups, onOpen, onScan }) {
     <article className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
       <div className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="inline-flex max-w-full rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[11px] font-semibold leading-tight text-[#217346]">
-            {pickupLiveLabel(first) || "On the way to centre"}
-          </span>
+          <StatusBadge status={first.status} />
           <span className="text-xs font-medium text-[#6B7280]">
             {pickups.length} order{pickups.length === 1 ? "" : "s"} in this batch
           </span>
@@ -310,11 +317,13 @@ function IncomingBatchCard({ batchId, pickups, onOpen, onScan }) {
         <p className="mt-2 text-[12px] font-semibold text-[#1F2937]">{farmers.join(", ") || "—"}</p>
         <p className="mt-0.5 text-[11px] text-[#6B7280]">{products.join(" · ") || "—"}</p>
       </div>
-      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-[#F8FAF8] p-3">
-        <button type="button" className={`${EXCEL_BTN_PRIMARY} !min-h-10`} onClick={onScan}>
-          Scan QR
-        </button>
-        <button type="button" className={`${EXCEL_BTN} !min-h-10`} onClick={onOpen}>
+      <div className={`${showScan ? "grid grid-cols-2 gap-2" : ""} border-t border-slate-100 bg-[#F8FAF8] p-3`}>
+        {showScan ? (
+          <button type="button" className={`${EXCEL_BTN_PRIMARY} !min-h-10`} onClick={onScan}>
+            Scan QR
+          </button>
+        ) : null}
+        <button type="button" className={`${showScan ? EXCEL_BTN : EXCEL_BTN_PRIMARY} !min-h-10 w-full`} onClick={onOpen}>
           View details
         </button>
       </div>
@@ -341,12 +350,25 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
       .finally(() => setLoading(false));
   }, [meta.filter], 5000);
 
-  const isIncoming = meta.filter === "incoming";
+  const isIncoming = meta.filter === "incoming" || meta.filter === "centre";
+  const isAll = meta.filter === "all";
+  const isBatchView = isIncoming || isAll;
   const pickups = useMemo(() => {
     const all = groups.flatMap((g) => g.pickups || []);
-    if (meta.filter !== "today") return all;
-    return all.filter((p) => !DONE_TODAY_STATUSES.has(String(p.status || "").toUpperCase()));
+    if (meta.filter === "today") {
+      return all.filter((p) => !DONE_TODAY_STATUSES.has(String(p.status || "").toUpperCase()));
+    }
+    if (meta.filter === "incoming" || meta.filter === "centre") {
+      return all.filter((p) => String(p.receiving?.status || "").toUpperCase() !== "RECEIVED");
+    }
+    return all;
   }, [groups, meta.filter]);
+  const batchFrom = meta.filter === "all" ? "all" : meta.filter === "centre" ? "centre" : "incoming";
+  const openBatch = (batchId, batchPickups) => {
+    navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(batchId)}`, {
+      state: { batchId, pickups: batchPickups, from: batchFrom },
+    });
+  };
   const farmerOptions = useMemo(() => {
     const map = new Map();
     pickups.forEach((p) => {
@@ -364,17 +386,17 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
     () => pickups.filter((p) => pickupMatches(p, { q, farmerId, product, pickupDate })),
     [pickups, q, farmerId, product, pickupDate]
   );
-  const incomingCards = useMemo(() => (isIncoming ? groupIncoming(filtered) : []), [isIncoming, filtered]);
+  const batchCards = useMemo(() => (isBatchView ? groupByBatch(filtered) : []), [isBatchView, filtered]);
   const hasFilter = Boolean(q || farmerId || product || pickupDate);
 
   const openScanned = (value) => {
     const batchId = parseBatchQrPayload(value);
     if (batchId) {
-      const card = incomingCards.find((c) => c.type === "batch" && c.batchId === batchId);
+      const card = batchCards.find((c) => c.type === "batch" && c.batchId === batchId);
       setScanOpen(false);
       setScanError("");
       navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(batchId)}`, {
-        state: card ? { batchId, pickups: card.pickups } : undefined,
+        state: card ? { batchId, pickups: card.pickups, from: batchFrom } : { from: batchFrom },
       });
       return;
     }
@@ -394,7 +416,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
       navigate(pickupPath(match, isIncoming));
       return;
     }
-    setScanError("QR does not match an incoming batch or order.");
+    setScanError("QR does not match a batch or order.");
   };
 
   const FILTER = `${EXCEL_INPUT} !min-h-9 !py-1.5 !text-xs`;
@@ -412,7 +434,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
           </button>
         ) : null}
       </div>
-      {isIncoming && scanError ? (
+      {isBatchView && scanError ? (
         <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{scanError}</div>
       ) : null}
 
@@ -486,20 +508,18 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
         <EmptyState title="No pickups" description={meta.empty} />
       ) : filtered.length === 0 ? (
         <EmptyState title="No matching pickups" description="No orders match this filter. Clear filters to see all." />
-      ) : isIncoming ? (
+      ) : isBatchView ? (
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-            {incomingCards.map((card) => {
+            {batchCards.map((card) => {
               if (card.type === "batch") {
+                const canScan = isIncoming || card.pickups.some(isCentreIncoming);
                 return (
                   <IncomingBatchCard
                     key={card.id}
                     batchId={card.batchId}
                     pickups={card.pickups}
-                    onOpen={() =>
-                      navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(card.batchId)}`, {
-                        state: { batchId: card.batchId, pickups: card.pickups },
-                      })
-                    }
+                    showScan={canScan}
+                    onOpen={() => openBatch(card.batchId, card.pickups)}
                     onScan={() => { setScanError(""); setScanOpen(true); }}
                   />
                 );
@@ -509,9 +529,9 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                 <PickupCard
                   key={p.id}
                   pickup={p}
-                  isIncoming
+                  isIncoming={isIncoming}
                   onView={() => navigate(orderPath(p))}
-                  onAssign={() => navigate(pickupPath(p, true))}
+                  onAssign={() => navigate(pickupPath(p, isIncoming))}
                 />
               );
             })}
@@ -560,7 +580,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                 {filtered.map((p, idx) => {
                   const id = p.orderDisplayId || p.orderId || p.id;
                   const location = pickupLocation(p);
-                  const secondLabel = p.status === "READY_FOR_PICKUP" ? "Assign Driver" : isIncoming ? "Receive" : "Open";
+                  const secondLabel = p.status === "READY_FOR_PICKUP" ? "Assign Driver" : isIncoming || isCentreIncoming(p) ? "Receive" : "Open";
                   return (
                     <tr key={p.id} className="hover:bg-[#F9FBF9]">
                       <td className={`${TD} min-w-0 text-center align-middle text-[#9CA3AF]`}>{idx + 1}</td>
@@ -607,10 +627,11 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
           </div>
         </>
       )}
-      {isIncoming ? (
+      {isBatchView ? (
         <QrScanModal
           open={scanOpen}
           title="Scan batch QR"
+          hint="Align the batch QR inside the frame"
           onClose={() => setScanOpen(false)}
           onScan={openScanned}
           error={scanError}

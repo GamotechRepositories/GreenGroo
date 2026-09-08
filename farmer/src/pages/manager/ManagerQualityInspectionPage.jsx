@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   getManagerQuality,
   startManagerQuality,
@@ -60,6 +60,8 @@ function num(v) {
 
 export default function ManagerQualityInspectionPage() {
   const { orderId } = useParams();
+  const location = useLocation();
+  const autoStartTried = useRef(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -143,6 +145,16 @@ export default function ManagerQualityInspectionPage() {
   };
 
   const startCheck = () => run("start", () => startManagerQuality(orderId));
+
+  useEffect(() => {
+    if (autoStartTried.current) return;
+    if (!location.state?.autoStart) return;
+    if (!data || data.status !== "QUALITY_PENDING") return;
+    autoStartTried.current = true;
+    startCheck().catch(() => {
+      autoStartTried.current = false;
+    });
+  }, [data, location.state, orderId]);
 
   const savePhotos = (photos) => {
     setForm((f) => ({ ...f, photos }));

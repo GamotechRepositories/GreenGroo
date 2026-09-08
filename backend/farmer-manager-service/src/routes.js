@@ -139,6 +139,7 @@ import {
   verifyDriverPickupQr,
   confirmDriverPickup,
   transitDriverPickup,
+  arriveAtCentreDriverPickup,
 } from "./pickupControllers.js";
 import { requireVendor, requireManager, requireFarmer, requireDriver, requireVendorOrManager } from "./middleware.js";
 import {
@@ -392,6 +393,7 @@ vendorRouter.post("/driver-desk/pickups/:pickupId/check-order", requireDriver, c
 vendorRouter.post("/driver-desk/pickups/:pickupId/verify-qr", requireDriver, verifyDriverPickupQr);
 vendorRouter.post("/driver-desk/pickups/:pickupId/confirm", requireDriver, confirmDriverPickup);
 vendorRouter.post("/driver-desk/pickups/:pickupId/transit", requireDriver, transitDriverPickup);
+vendorRouter.post("/driver-desk/pickups/:pickupId/arrive-centre", requireDriver, arriveAtCentreDriverPickup);
 
 
 // ------------------------------------
@@ -468,6 +470,7 @@ driverRouter.post("/pickups/:pickupId/check-order", requireDriver, checkDriverPi
 driverRouter.post("/pickups/:pickupId/verify-qr", requireDriver, verifyDriverPickupQr);
 driverRouter.post("/pickups/:pickupId/confirm", requireDriver, confirmDriverPickup);
 driverRouter.post("/pickups/:pickupId/transit", requireDriver, transitDriverPickup);
+driverRouter.post("/pickups/:pickupId/arrive-centre", requireDriver, arriveAtCentreDriverPickup);
 
 qualityRouter.get("/pending", requireVendorOrManager, listQualityPending);
 qualityRouter.post("/verify-qr", requireVendorOrManager, verifyQualityQr);

@@ -59,6 +59,7 @@ import ManagerFarmerEarningsSpreadsheetPage from "../pages/manager/ManagerFarmer
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
 import ManagerPickupsPage from "../pages/manager/ManagerPickupsPage";
+import ManagerDriversPage from "../pages/manager/ManagerDriversPage";
 import ManagerBatchPage from "../pages/manager/ManagerBatchPage";
 import ManagerPickupDetailPage from "../pages/manager/ManagerPickupDetailPage";
 import ManagerReceivePage from "../pages/manager/ManagerReceivePage";
@@ -137,13 +138,16 @@ function FarmerRoutes() {
           <Route path="manager/earnings" element={<ManagerEarningsPage />} />
           <Route path="manager/earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
           <Route path="manager/earnings/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
+          <Route path="manager/drivers" element={<ManagerDriversPage />} />
           <Route path="manager/pickups" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
           <Route path="manager/pickups/requests" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
           <Route path="manager/pickups/ready" element={<ManagerPickupsPage mode="ready" />} />
           <Route path="manager/pickups/assigned" element={<ManagerPickupsPage mode="assigned" />} />
           <Route path="manager/pickups/today" element={<ManagerPickupsPage mode="today" />} />
-          <Route path="manager/pickups/active" element={<ManagerPickupsPage mode="active" />} />
+          <Route path="manager/pickups/all" element={<ManagerPickupsPage mode="all" />} />
+          <Route path="manager/pickups/active" element={<Navigate to="/farmer/manager/pickups/all" replace />} />
           <Route path="manager/pickups/incoming" element={<ManagerPickupsPage mode="incoming" />} />
+          <Route path="manager/pickups/centre" element={<ManagerPickupsPage mode="centre" />} />
           <Route path="manager/pickups/batches/:batchId" element={<ManagerBatchPage />} />
           <Route path="manager/pickups/qr" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
           <Route path="manager/pickups/completed" element={<ManagerPickupsPage mode="history" />} />

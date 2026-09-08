@@ -4,7 +4,9 @@ import { driverApi } from "../../api/driverApi";
 import PickupTimeline, { pickupStatusLabel, pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import ConfirmPickupPhotos from "../../components/pickup/ConfirmPickupPhotos";
 import BatchQrModal from "../../components/pickup/BatchQrModal";
+import OrderQrModal from "../../components/pickup/OrderQrModal";
 import CopyId, { CopyButton, isCopyableId } from "../../components/ui/CopyId";
+import { orderQrValue } from "../../utils/orderQr";
 import { usePolling } from "../../hooks/usePolling";
 import { driverNextStep } from "../../utils/driverFlow";
 
@@ -106,6 +108,7 @@ export default function DriverPickupPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPhotos, setConfirmPhotos] = useState([]);
   const [qrOpen, setQrOpen] = useState(false);
+  const [orderQrOpen, setOrderQrOpen] = useState(false);
 
   const load = (silent = false) => {
     driverApi
@@ -145,7 +148,8 @@ export default function DriverPickupPage() {
   const canConfirm = status === "QR_VERIFIED" && pickup.qrVerified && !pickup.pickupConfirmed;
   const canTransit =
     (status === "PICKED_UP" || status === "PICKUP_CONFIRMED" || pickup.pickupConfirmed) &&
-    !["IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(status);
+    !["IN_TRANSIT", "ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(status);
+  const canArriveCentre = status === "IN_TRANSIT";
   const liveStatus = pickupLiveLabel(pickup) || pickupStatusLabel(status);
   const nextStep = driverNextStep(pickup);
 
@@ -169,24 +173,33 @@ export default function DriverPickupPage() {
         <p className="mt-1 text-base font-bold text-gray-900">{liveStatus}</p>
         {nextStep ? <p className="mt-1 text-xs font-semibold text-[#217346]">Next: {nextStep.label}</p> : null}
         <p className="mt-1 text-xs text-gray-600">Update the step below so farmer, manager and vendor can see what you are doing.</p>
-        {pickup.collectionBatchId ? (
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
-              <span className="text-[11px] text-gray-600">Lot / Batch ID</span>
-              <Link to={`/driver/batches/${encodeURIComponent(pickup.collectionBatchId)}`} className="min-w-0 truncate font-mono text-xs font-semibold text-[#217346]">
-                {pickup.collectionBatchId}
-              </Link>
-              <CopyButton value={pickup.collectionBatchId} />
-            </div>
-            <button
-              type="button"
-              className="inline-flex min-h-11 w-full items-center justify-center bg-[#217346] px-3 text-xs font-semibold text-white sm:w-auto"
-              onClick={() => setQrOpen(true)}
-            >
-              Show QR
-            </button>
-          </div>
-        ) : null}
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {pickup.collectionBatchId ? (
+            <>
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                <span className="text-[11px] text-gray-600">Lot / Batch ID</span>
+                <Link to={`/driver/batches/${encodeURIComponent(pickup.collectionBatchId)}`} className="min-w-0 truncate font-mono text-xs font-semibold text-[#217346]">
+                  {pickup.collectionBatchId}
+                </Link>
+                <CopyButton value={pickup.collectionBatchId} />
+              </div>
+              <button
+                type="button"
+                className="inline-flex min-h-11 w-full items-center justify-center bg-[#217346] px-3 text-xs font-semibold text-white sm:w-auto"
+                onClick={() => setQrOpen(true)}
+              >
+                Show batch QR
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="inline-flex min-h-11 w-full items-center justify-center border border-[#217346] px-3 text-xs font-semibold text-[#217346] sm:w-auto"
+            onClick={() => setOrderQrOpen(true)}
+          >
+            Show order QR
+          </button>
+        </div>
       </div>
 
       <div className="border border-gray-200 bg-white p-5">
@@ -223,7 +236,7 @@ export default function DriverPickupPage() {
         <p className="text-sm font-semibold text-[#217346]">Driver has arrived at pickup location.</p>
       ) : null}
 
-      {canCheck || ["ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"].includes(status) ? (
+      {canCheck || ["ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT", "ARRIVED_AT_CENTRE"].includes(status) ? (
         <div className="border border-gray-200 bg-white p-5">
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#217346]">Order Verification</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -255,7 +268,7 @@ export default function DriverPickupPage() {
         </div>
       ) : null}
 
-      {status === "QR_VERIFIED" || status === "PICKED_UP" || status === "IN_TRANSIT" ? (
+      {status === "QR_VERIFIED" || status === "PICKED_UP" || status === "IN_TRANSIT" || status === "ARRIVED_AT_CENTRE" ? (
         <div className="border border-gray-200 bg-white p-5">
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#217346]">Order Summary</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -290,12 +303,25 @@ export default function DriverPickupPage() {
         </button>
       ) : null}
 
-      {status === "IN_TRANSIT" ? (
-        <p className="text-sm font-semibold text-[#217346]">On the way to centre. Waiting for centre receiving.</p>
+      {canArriveCentre ? (
+        <button type="button" disabled={busy} className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60" onClick={() => run(() => driverApi.arriveCentre(pickup.id), "At collection centre.")}>
+          {busy ? "Updating…" : "Reached collection centre"}
+        </button>
+      ) : null}
+
+      {status === "ARRIVED_AT_CENTRE" ? (
+        <p className="text-sm font-semibold text-[#217346]">At collection centre. Waiting for centre receiving.</p>
+      ) : null}
+
+      {status === "COLLECTION_CENTRE_RECEIVED" || status === "RECEIVED_AT_COLLECTION_CENTRE" ? (
+        <p className="text-sm font-semibold text-[#217346]">Received at collection centre.</p>
       ) : null}
 
       {qrOpen && pickup.collectionBatchId ? (
         <BatchQrModal batchId={pickup.collectionBatchId} onClose={() => setQrOpen(false)} />
+      ) : null}
+      {orderQrOpen ? (
+        <OrderQrModal value={orderQrValue(pickup)} onClose={() => setOrderQrOpen(false)} />
       ) : null}
 
       {confirmOpen ? (

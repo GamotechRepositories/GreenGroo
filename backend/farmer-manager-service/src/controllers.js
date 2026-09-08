@@ -264,6 +264,7 @@ const ORDER_STATUS_ALIASES = {
   PICKUP_CONFIRMED: "PICKED_UP",
   PICKED_UP: "PICKED_UP",
   IN_TRANSIT: "IN_TRANSIT",
+  ARRIVED_AT_CENTRE: "ARRIVED_AT_CENTRE",
   COLLECTION_CENTRE_RECEIVED: "COLLECTION_CENTRE_RECEIVED",
   RECEIVED_AT_COLLECTION_CENTRE: "COLLECTION_CENTRE_RECEIVED",
   QUALITY_PENDING: "QUALITY_PENDING",
@@ -283,7 +284,7 @@ const ORDER_FILTERS = {
   new: ["NEW"],
   preparing: ["ACCEPTED", "PREPARING", "PACKING"],
   ready: ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"],
-  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "QUALITY_PENDING", "INSPECTION", "GRADING", "GRADE_CONFIRMED", "ORDER_COMPLETED"],
+  completed: ["PICKUP_CONFIRMED", "PICKED_UP", "COMPLETED", "IN_TRANSIT", "ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "QUALITY_PENDING", "INSPECTION", "GRADING", "GRADE_CONFIRMED", "ORDER_COMPLETED"],
   rejected: ["REJECTED", "CANCELLED"],
 };
 
@@ -2539,8 +2540,9 @@ async function enrichOwnOrder(order, farmer) {
               PICKED_UP: "Pickup confirmed",
               PICKUP_CONFIRMED: "Pickup confirmed",
               IN_TRANSIT: "On the way to centre",
-              COLLECTION_CENTRE_RECEIVED: "At collection centre",
-              RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
+              ARRIVED_AT_CENTRE: "At collection centre",
+              COLLECTION_CENTRE_RECEIVED: "Received",
+              RECEIVED_AT_COLLECTION_CENTRE: "Received",
             }[pickup.status] || String(pickup.status || "").replace(/_/g, " "),
           driverId: pickup.driverId || "",
           driverName: driver?.name || pickup.driverName || "",

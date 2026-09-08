@@ -46,6 +46,7 @@ async function runStep(key, id) {
   if (key === "start") return driverApi.start(id);
   if (key === "arrive") return driverApi.arrive(id);
   if (key === "transit") return driverApi.transit(id);
+  if (key === "arriveCentre") return driverApi.arriveCentre(id);
   return null;
 }
 
@@ -142,6 +143,8 @@ export default function DriverDashboardPage({ mode = "assigned" }) {
             if (card.type === "batch") {
               const orders = card.pickups;
               const first = orders[0];
+              const arrivePickup = orders.find((p) => p.status === "IN_TRANSIT") || first;
+              const step = driverNextStep(arrivePickup);
               const openBatch = () =>
                 navigate(`/driver/batches/${encodeURIComponent(card.batchId)}`, {
                   state: { batchId: card.batchId, pickups: orders },
@@ -186,6 +189,13 @@ export default function DriverDashboardPage({ mode = "assigned" }) {
                   <div className="grid grid-cols-2 gap-2 border-t border-gray-100 bg-[#F8FAF8] p-3">
                     <CardBtn onClick={() => setQrBatchId(card.batchId)}>Show QR</CardBtn>
                     <CardBtn variant="secondary" onClick={openBatch}>View details</CardBtn>
+                    {step && canRunFromList(step.key) ? (
+                      <div className="col-span-2">
+                        <CardBtn onClick={() => handleStep(arrivePickup, step)}>
+                          {busyId === arrivePickup.id ? "Updating…" : step.label}
+                        </CardBtn>
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               );

@@ -16,6 +16,7 @@ import {
   Sprout,
   Truck,
   UserRound,
+  IdCard,
   Users,
   Wallet,
   X,
@@ -38,13 +39,17 @@ const ICONS = {
   profile: UserRound,
   farmers: Users,
   pickup: Truck,
+  driver: IdCard,
   quality: BadgeCheck,
 };
 
 function NavGroup({ item, collapsed, onNavigate }) {
   const location = useLocation();
-  const isChildActive = item.children?.some((child) =>
-    location.pathname.startsWith(child.to)
+  const path = location.pathname;
+  const excluded = (item.excludeMatch || []).some((p) => path.startsWith(p));
+  const isChildActive = !excluded && Boolean(
+    (item.match && path.startsWith(item.match)) ||
+      item.children?.some((child) => path.startsWith(String(child.to || "").split("?")[0]))
   );
   const [open, setOpen] = useState(isChildActive);
   const Icon = ICONS[item.icon] || Package;

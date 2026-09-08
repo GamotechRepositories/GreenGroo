@@ -7,6 +7,7 @@ const STEPS = [
   "QR_VERIFIED",
   "PICKED_UP",
   "IN_TRANSIT",
+  "ARRIVED_AT_CENTRE",
   "COLLECTION_CENTRE_RECEIVED",
 ];
 
@@ -30,8 +31,9 @@ export const PICKUP_STATUS_LABELS = {
   PICKED_UP: "Pickup confirmed",
   PICKUP_CONFIRMED: "Pickup confirmed",
   IN_TRANSIT: "On the way to centre",
-  COLLECTION_CENTRE_RECEIVED: "At collection centre",
-  RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
+  ARRIVED_AT_CENTRE: "At collection centre",
+  COLLECTION_CENTRE_RECEIVED: "Received",
+  RECEIVED_AT_COLLECTION_CENTRE: "Received",
 };
 
 const LIVE_ALIASES = {
@@ -39,7 +41,7 @@ const LIVE_ALIASES = {
   "Checking the order": "Order checked",
   "QR verified — confirm pickup": "QR verified",
   "On the way to collection centre": "On the way to centre",
-  "Delivered at collection centre": "At collection centre",
+  "Delivered at collection centre": "Received",
   Incoming: "On the way to centre",
 };
 

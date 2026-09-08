@@ -42,7 +42,7 @@ function IdBlock({ label, value, large = false }) {
   );
 }
 
-export default function BatchDetailView({ data, backTo, backLabel = "Back", onOpenOrder }) {
+export default function BatchDetailView({ data, backTo, backLabel = "Back", onOpenOrder, action }) {
   const orders = data?.pickups || [];
   const first = orders[0] || {};
   const live = pickupLiveLabel(data) || pickupLiveLabel(first) || pickupStatusLabel(data?.status || first.status);
@@ -101,6 +101,16 @@ export default function BatchDetailView({ data, backTo, backLabel = "Back", onOp
       </section>
 
       <BatchOrderChart orders={orders} onView={onOpenOrder} />
+      {action ? (
+        <button
+          type="button"
+          disabled={action.busy}
+          className="w-full bg-[#217346] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-60"
+          onClick={action.onClick}
+        >
+          {action.busy ? "Updating…" : action.label}
+        </button>
+      ) : null}
     </div>
   );
 }

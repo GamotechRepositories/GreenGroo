@@ -93,11 +93,14 @@ async function ensureCentreBusinessId(centre, locationHint = {}) {
 
 export { ensureCentreBusinessId, isCollectionCentreBusinessId, ensureDefaultCentre };
 const ASSIGNED_STATUSES = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED"];
-const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
+const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT", "ARRIVED_AT_CENTRE"];
 const DRIVER_DONE_STATUSES = ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "COMPLETED"];
 const COMPLETED_PICKUP_STATUSES = DRIVER_DONE_STATUSES;
-const ACTIVE_DRIVER_WORK = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
+const ACTIVE_DRIVER_WORK = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT", "ARRIVED_AT_CENTRE"];
 const ACTIVE_PICKUP_STATUSES = [...ACTIVE_DRIVER_WORK];
+const OPEN_TRIP_STATUSES = ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT", "ARRIVED_AT_CENTRE"];
+const INCOMING_AT_CENTRE_STATUSES = ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT", "ARRIVED_AT_CENTRE"];
+const AT_CENTRE_STATUSES = ["ARRIVED_AT_CENTRE"];
 const DRIVER_LIVE_STATUS = {
   READY_FOR_PICKUP: "Ready for pickup",
   DRIVER_ASSIGNED: "Assigned",
@@ -109,14 +112,15 @@ const DRIVER_LIVE_STATUS = {
   PICKED_UP: "Pickup confirmed",
   PICKUP_CONFIRMED: "Pickup confirmed",
   IN_TRANSIT: "On the way to centre",
-  COLLECTION_CENTRE_RECEIVED: "At collection centre",
-  RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
+  ARRIVED_AT_CENTRE: "At collection centre",
+  COLLECTION_CENTRE_RECEIVED: "Received",
+  RECEIVED_AT_COLLECTION_CENTRE: "Received",
 };
 const HISTORY_PICKUP_STATUSES = DRIVER_DONE_STATUSES;
 const ASSIGNABLE_DRIVER_STATUSES = ["Active", "On Duty", "Available"];
 const PRE_ASSIGN_STATUSES = ["READY_FOR_PICKUP"];
 const REASSIGN_STATUSES = ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED"];
-const CENTRE_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"];
+const CENTRE_STATUSES = ["PICKED_UP", "COMPLETED", "IN_TRANSIT", "ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"];
 
 function normalizeDriverStatus(status) {
   if (status === "Available") return "Active";
@@ -1039,7 +1043,7 @@ async function assignCollectionBatch(pickup) {
       driverId,
       id: { $ne: pickup.id },
       collectionBatchId: { $gt: "" },
-      status: { $in: ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"] },
+      status: { $in: OPEN_TRIP_STATUSES },
     }).sort({ collectionBatchAssignedAt: -1, inTransitAt: -1, updatedAt: -1 });
     batchId = open?.collectionBatchId || "";
   }
@@ -1052,7 +1056,7 @@ async function assignCollectionBatch(pickup) {
       {
         vendorId,
         driverId,
-        status: { $in: ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT"] },
+        status: { $in: OPEN_TRIP_STATUSES },
         $or: [{ collectionBatchId: "" }, { collectionBatchId: { $exists: false } }, { collectionBatchId: null }],
       },
       { $set: { collectionBatchId: batchId, collectionBatchAssignedAt: now } }
@@ -1064,7 +1068,7 @@ async function assignCollectionBatch(pickup) {
 async function mergeDriverTripBatch(driverId) {
   const open = await Pickup.find({
     driverId,
-    status: { $in: ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT"] },
+    status: { $in: OPEN_TRIP_STATUSES },
   });
   if (!open.length) return;
   const missing = open.filter((p) => !String(p.collectionBatchId || "").trim());
@@ -1080,7 +1084,7 @@ async function mergeDriverTripBatch(driverId) {
 
 async function applyPickupReceiving(req, pickup) {
   if (![...CENTRE_STATUSES, "PICKUP_CONFIRMED"].includes(pickup.status)) {
-    const err = new Error("Pickup must be confirmed or on the way to the collection centre before receiving");
+    const err = new Error("Pickup must be on the way or at the collection centre before receiving");
     err.status = 400;
     throw err;
   }
@@ -1162,7 +1166,29 @@ async function applyPickupReceiving(req, pickup) {
     pushPickupTimeline(pickup, "COLLECTION_CENTRE_RECEIVED", "Received at collection centre.");
   }
   await pickup.save();
+  if (nextReceiving === "RECEIVED") {
+    await markBatchReceivedForDriver(pickup);
+  }
   return enrichPickup(pickup);
+}
+
+async function markBatchReceivedForDriver(sourcePickup) {
+  const batchId = String(sourcePickup.collectionBatchId || "").trim();
+  const driverId = String(sourcePickup.driverId || "").trim();
+  if (!batchId || !driverId) return;
+  const siblings = await Pickup.find({
+    collectionBatchId: batchId,
+    driverId,
+    id: { $ne: sourcePickup.id },
+    status: { $in: ["ARRIVED_AT_CENTRE", "IN_TRANSIT"] },
+  });
+  for (const p of siblings) {
+    p.status = "COLLECTION_CENTRE_RECEIVED";
+    p.driverStatus = "COLLECTION_CENTRE_RECEIVED";
+    pushPickupTimeline(p, "COLLECTION_CENTRE_RECEIVED", "Received at collection centre.");
+    await p.save();
+    emitPickupUpdate(p, { event: "COLLECTION_CENTRE_RECEIVED" });
+  }
 }
 
 export async function receiveVendorPickup(req, res) {
@@ -1225,6 +1251,7 @@ export async function listManagerPickups(req, res) {
           "PICKED_UP",
           "PICKUP_CONFIRMED",
           "IN_TRANSIT",
+          "ARRIVED_AT_CENTRE",
           "COLLECTION_CENTRE_RECEIVED",
           "RECEIVED_AT_COLLECTION_CENTRE",
           "COMPLETED",
@@ -1233,10 +1260,31 @@ export async function listManagerPickups(req, res) {
       };
     } else if (filterKey === "active") {
       filter.status = { $in: ACTIVE_PICKUP_STATUSES };
+    } else if (filterKey === "all") {
+      /* all pickups for assigned farmers — no status filter */
     } else if (filterKey === "completed" || filterKey === "history" || filterKey === "picked") {
       filter.status = { $in: HISTORY_PICKUP_STATUSES };
-    } else if (filterKey === "incoming" || filterKey === "centre") {
-      filter.status = { $in: ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"] };
+      filter.$or = [
+        { "receiving.status": "RECEIVED" },
+        { "receiving.receiptId": { $gt: "" } },
+        { status: "COMPLETED" },
+      ];
+    } else if (filterKey === "incoming") {
+      filter.$or = [
+        { status: { $in: INCOMING_AT_CENTRE_STATUSES } },
+        {
+          status: { $in: ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"] },
+          "receiving.status": { $ne: "RECEIVED" },
+        },
+      ];
+    } else if (filterKey === "centre") {
+      filter.$or = [
+        { status: { $in: AT_CENTRE_STATUSES } },
+        {
+          status: { $in: ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"] },
+          "receiving.status": { $ne: "RECEIVED" },
+        },
+      ];
     }
     const pickups = await Pickup.find(filter).sort({ updatedAt: -1 }).lean();
     const enriched = await Promise.all(pickups.map((p) => enrichPickup(p)));
@@ -1776,7 +1824,7 @@ export async function transitDriverPickup(req, res) {
   try {
     const pickup = await driverPickupOr404(req, res);
     if (!pickup) return;
-    const received = ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(pickup.status);
+    const received = ["ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(pickup.status);
     if (received) {
       return res.status(400).json({ message: "This pickup is already at the collection centre." });
     }
@@ -1807,5 +1855,43 @@ export async function transitDriverPickup(req, res) {
     res.json(await enrichDriverView(pickup));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to mark on the way" });
+  }
+}
+
+export async function arriveAtCentreDriverPickup(req, res) {
+  try {
+    const pickup = await driverPickupOr404(req, res);
+    if (!pickup) return;
+    const done = ["ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(pickup.status);
+    if (done) {
+      await assignCollectionBatch(pickup);
+      if (pickup.isModified()) await pickup.save();
+      return res.json(await enrichDriverView(pickup));
+    }
+    if (pickup.status !== "IN_TRANSIT") {
+      return res.status(400).json({
+        message: `Mark Reached collection centre after On the way to centre. Current status: ${pickup.status || "unknown"}.`,
+      });
+    }
+    const note = "Driver has arrived at the collection centre.";
+    const batchId = String(pickup.collectionBatchId || "").trim();
+    const targets = batchId
+      ? await Pickup.find({ driverId: pickup.driverId, collectionBatchId: batchId, status: "IN_TRANSIT" })
+      : [pickup];
+    const list = targets.length ? targets : [pickup];
+    for (const p of list) {
+      p.status = "ARRIVED_AT_CENTRE";
+      p.driverStatus = "ARRIVED_AT_CENTRE";
+      await assignCollectionBatch(p);
+      pushPickupTimeline(p, "ARRIVED_AT_CENTRE", note);
+      await p.save();
+      const order = await loadOrderForPickup(p);
+      await applyOrderStatus(order, "ARRIVED_AT_CENTRE", note);
+      emitPickupUpdate(p, { event: "ARRIVED_AT_CENTRE" });
+    }
+    const updated = list.find((p) => p.id === pickup.id) || pickup;
+    res.json(await enrichDriverView(updated));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to mark arrived at centre" });
   }
 }

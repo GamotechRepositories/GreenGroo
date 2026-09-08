@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import CopyId from "../ui/CopyId";
+import OrderQrModal from "./OrderQrModal";
+import { orderQrValue } from "../../utils/orderQr";
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 
@@ -111,7 +113,7 @@ function gradeColumnsOf(orders) {
   return [...DEFAULT_GRADES, ...extras];
 }
 
-function OrderMobileCard({ order, index, gradeColumns, onView }) {
+function OrderMobileCard({ order, index, gradeColumns, onView, onShowQr }) {
   const id = order.orderDisplayId || order.orderId || order.id;
   const map = gradeDetailMap(order);
   const unit = order.unit || "Kg";
@@ -130,13 +132,22 @@ function OrderMobileCard({ order, index, gradeColumns, onView }) {
             Farmer <span className="font-semibold text-[#1F2937]">{order.farmerName || "—"}</span>
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex h-8 shrink-0 items-center rounded-md border border-[#D4D4D4] bg-white px-3 text-[11px] font-semibold text-[#1F2937]"
-          onClick={() => onView?.(order)}
-        >
-          View
-        </button>
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <button
+            type="button"
+            className="inline-flex h-8 items-center rounded-md bg-[#217346] px-3 text-[11px] font-semibold text-white"
+            onClick={() => onShowQr?.(order)}
+          >
+            Show QR
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-8 items-center rounded-md border border-[#D4D4D4] bg-white px-3 text-[11px] font-semibold text-[#1F2937]"
+            onClick={() => onView?.(order)}
+          >
+            View
+          </button>
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#6B7280]">
         <span>Order <span className="font-semibold text-[#1F2937]">{shortDate(order.orderDate || order.createdAt)}</span></span>
@@ -165,6 +176,7 @@ function OrderMobileCard({ order, index, gradeColumns, onView }) {
 
 export default function BatchOrderChart({ orders = [], onView }) {
   const gradeColumns = useMemo(() => gradeColumnsOf(orders), [orders]);
+  const [qrOrder, setQrOrder] = useState(null);
 
   if (!orders.length) {
     return <p className="border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-400">No orders in this batch.</p>;
@@ -182,6 +194,7 @@ export default function BatchOrderChart({ orders = [], onView }) {
             index={idx}
             gradeColumns={gradeColumns}
             onView={onView}
+            onShowQr={setQrOrder}
           />
         ))}
       </div>
@@ -243,13 +256,22 @@ export default function BatchOrderChart({ orders = [], onView }) {
                     );
                   })}
                   <td className={`${TD} bg-white px-1 py-1 text-center`}>
-                    <button
-                      type="button"
-                      className="inline-flex h-7 min-w-[3.5rem] items-center justify-center rounded-md border border-[#D4D4D4] bg-white px-2 text-[10px] font-semibold text-[#1F2937] hover:bg-[#F3F4F6]"
-                      onClick={() => onView?.(order)}
-                    >
-                      View
-                    </button>
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        className="inline-flex h-7 min-w-[4.5rem] items-center justify-center rounded-md bg-[#217346] px-2 text-[10px] font-semibold text-white"
+                        onClick={() => setQrOrder(order)}
+                      >
+                        Show QR
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 min-w-[3.5rem] items-center justify-center rounded-md border border-[#D4D4D4] bg-white px-2 text-[10px] font-semibold text-[#1F2937] hover:bg-[#F3F4F6]"
+                        onClick={() => onView?.(order)}
+                      >
+                        View
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -257,6 +279,8 @@ export default function BatchOrderChart({ orders = [], onView }) {
           </tbody>
         </table>
       </div>
+
+      <OrderQrModal value={orderQrValue(qrOrder)} onClose={() => setQrOrder(null)} />
     </div>
   );
 }

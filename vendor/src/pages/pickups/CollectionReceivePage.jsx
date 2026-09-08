@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
+import ConfirmPickupPhotos from "../../components/pickup/ConfirmPickupPhotos";
+import QrScanModal from "../../components/pickup/QrScanModal";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 
 const UNITS = ["Kg", "Quintal", "Ton"];
-const STEPS = ["ARRIVED", "UNLOADING", "WEIGHT_CHECK", "RECEIVED"];
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 
 function orderGradeQty(pickup) {
@@ -46,7 +47,6 @@ function weightGradeRows(pickup, previous = []) {
     return {
       label,
       expectedWeight: expected,
-      actualWeight: fromSave?.actualWeight ?? fromPrev?.actualWeight ?? "",
       acceptedWeight: fromSave?.acceptedWeight ?? fromPrev?.acceptedWeight ?? "",
     };
   });
@@ -69,14 +69,14 @@ function fromKg(kg, unit) {
   return kg;
 }
 
-function Info({ label, value }) {
+function Info({ label, value, className = "" }) {
   return (
-    <div>
+    <div className={`min-w-0 ${className}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
       {isCopyableId(label, value) ? (
         <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-gray-900" breakAll />
       ) : (
-        <p className="mt-0.5 text-xs font-semibold text-gray-900">{value || "—"}</p>
+        <p className="mt-0.5 break-words text-xs font-semibold leading-snug text-gray-900">{value || "—"}</p>
       )}
     </div>
   );
@@ -87,6 +87,7 @@ export default function CollectionReceivePage() {
   const [pickup, setPickup] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [form, setForm] = useState({
     receivingStatus: "ARRIVED",
@@ -122,15 +123,13 @@ export default function CollectionReceivePage() {
 
   const totals = useMemo(() => {
     const expected = (form.grades || []).reduce((s, g) => s + num(g.expectedWeight), 0);
-    const actual = (form.grades || []).reduce((s, g) => s + num(g.actualWeight), 0);
     const accepted = (form.grades || []).reduce((s, g) => s + num(g.acceptedWeight), 0);
-    return { expected, actual, accepted, difference: actual - expected };
+    return { expected, accepted, difference: accepted - expected };
   }, [form.grades]);
 
   const converted = useMemo(() => {
     return {
       expectedKg: toKg(totals.expected, form.weightUnit),
-      actualKg: toKg(totals.actual, form.weightUnit),
       acceptedKg: toKg(totals.accepted, form.weightUnit),
     };
   }, [form.weightUnit, totals]);
@@ -150,22 +149,13 @@ export default function CollectionReceivePage() {
       grades: (f.grades || []).map((g) => ({
         ...g,
         expectedWeight: fromKg(toKg(g.expectedWeight, f.weightUnit), next),
-        actualWeight: g.actualWeight === "" ? "" : fromKg(toKg(g.actualWeight, f.weightUnit), next),
         acceptedWeight: g.acceptedWeight === "" ? "" : fromKg(toKg(g.acceptedWeight, f.weightUnit), next),
       })),
     }));
   };
 
-  const onPhoto = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => set("photos", [...form.photos, reader.result]);
-    reader.readAsDataURL(file);
-  };
-
   const save = async (status) => {
-    if (totals.expected < 0 || totals.actual < 0 || totals.accepted < 0) {
+    if (totals.expected < 0 || totals.accepted < 0) {
       setError("Weight values cannot be negative");
       return;
     }
@@ -176,15 +166,15 @@ export default function CollectionReceivePage() {
         ...form,
         receivingStatus: status || form.receivingStatus,
         expectedWeight: totals.expected,
-        actualWeight: totals.actual,
+        actualWeight: totals.accepted,
         acceptedWeight: totals.accepted,
         difference: totals.difference,
         grades: (form.grades || []).map((g) => ({
           label: g.label,
           expectedWeight: num(g.expectedWeight),
-          actualWeight: num(g.actualWeight),
+          actualWeight: num(g.acceptedWeight),
           acceptedWeight: num(g.acceptedWeight),
-          difference: num(g.actualWeight) - num(g.expectedWeight),
+          difference: num(g.acceptedWeight) - num(g.expectedWeight),
         })),
       });
       setPickup(res.data);
@@ -234,38 +224,53 @@ export default function CollectionReceivePage() {
         <div className="space-y-4 lg:col-span-2 print:col-span-3">
           <div className="border border-gray-200 bg-white p-5">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#217346]">Order</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Info label="Order ID" value={pickup.orderDisplayId} />
+            <div className="grid grid-cols-2 gap-x-3 gap-y-3 lg:grid-cols-3">
+              <Info label="Order ID" value={pickup.orderDisplayId} className="col-span-2 lg:col-span-1" />
               <Info label="Farmer" value={pickup.farmerName} />
               <Info label="Product" value={pickup.productName} />
               <Info label="Expected Quantity" value={`${pickup.confirmedQuantity || pickup.packedQuantity || pickup.expectedQuantity} ${pickup.unit}`} />
+              <Info label="Packages" value={pickup.packageCount} />
+              <Info label="Pickup ID" value={pickup.pickupId} className="col-span-2 lg:col-span-1" />
+              <Info label="Driver" value={pickup.driverName || "—"} />
+              <Info label="Vehicle" value={pickup.vehicleNumber || "—"} />
               <Info
                 label="Lot / Batch ID"
+                className="col-span-2 lg:col-span-1"
                 value={
                   pickup.collectionBatchId ? (
-                    <Link to={`/vendor/batches/${encodeURIComponent(pickup.collectionBatchId)}`} className="text-[#217346]">
+                    <Link to={`/vendor/batches/${encodeURIComponent(pickup.collectionBatchId)}`} className="break-all text-[#217346]">
                       {pickup.collectionBatchId}
                     </Link>
                   ) : "—"
                 }
               />
-              <Info label="Pickup ID" value={pickup.pickupId} />
-              <Info label="Packages" value={pickup.packageCount} />
-              <Info label="Driver" value={`${pickup.driverName || "—"} · ${pickup.vehicleNumber || ""}`} />
-              <Info label="Pickup Date" value={pickup.pickupConfirmedAt ? new Date(pickup.pickupConfirmedAt).toLocaleString("en-IN") : pickup.scheduledDate} />
+              <Info
+                label="Pickup Date"
+                className="col-span-2 lg:col-span-1"
+                value={pickup.pickupConfirmedAt ? new Date(pickup.pickupConfirmedAt).toLocaleString("en-IN") : pickup.scheduledDate}
+              />
             </div>
           </div>
 
           <div className="border border-gray-200 bg-white p-5 print:hidden">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#217346]">1. Scan QR & verify</p>
-            <input
-              className="w-full border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]"
-              placeholder="Paste greengroo:order:… or greengroo:batch:…"
-              value={form.qr}
-              onChange={(e) => set("qr", e.target.value)}
-            />
-            <p className={`mt-2 text-[11px] ${qrOk ? "text-green-700" : "text-red-600"}`}>
-              {form.qr ? (qrOk ? "QR matches this order." : "QR does not match this order.") : `Expected: ${pickup.qrPayload}`}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                className="w-full flex-1 border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]"
+                placeholder="Paste greengroo:order:… or greengroo:batch:…"
+                value={form.qr}
+                onChange={(e) => set("qr", e.target.value)}
+              />
+              <button
+                type="button"
+                className="shrink-0 bg-[#217346] px-4 py-1.5 text-xs font-semibold text-white sm:min-w-[7.5rem]"
+                onClick={() => setScanOpen(true)}
+              >
+                Scan QR
+              </button>
+            </div>
+            <p className={`mt-2 text-[11px] ${form.qr ? (qrOk ? "text-green-700" : "text-red-600") : "text-gray-500"}`}>
+              {form.qr ? (qrOk ? "QR matches this order." : "QR does not match this order.") : pickup.qrPayload ? `Expected: ${pickup.qrPayload}` : "Scan or paste the order QR from the driver."}
             </p>
           </div>
 
@@ -284,63 +289,71 @@ export default function CollectionReceivePage() {
               ))}
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-left text-xs">
+              <table className="w-full table-fixed border-collapse text-left text-[10px] md:min-w-[420px] md:table-auto md:text-xs">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[28%]" />
+                  <col className="w-[26%]" />
+                </colgroup>
                 <thead>
-                  <tr className="bg-gray-50 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-                    <th className="border border-gray-200 px-2 py-2">Grade</th>
-                    <th className="border border-gray-200 px-2 py-2">Expected</th>
-                    <th className="border border-gray-200 px-2 py-2">Actual</th>
-                    <th className="border border-gray-200 px-2 py-2">Accepted</th>
-                    <th className="border border-gray-200 px-2 py-2">Difference</th>
+                  <tr className="bg-gray-50 text-[9px] font-bold uppercase tracking-wide text-gray-500 md:text-[10px]">
+                    <th className="border border-gray-200 px-1 py-1.5 md:px-2 md:py-2">Grade</th>
+                    <th className="border border-gray-200 px-1 py-1.5 md:px-2 md:py-2">Expected</th>
+                    <th className="border border-gray-200 px-1 py-1.5 md:px-2 md:py-2">Accepted</th>
+                    <th className="border border-gray-200 px-1 py-1.5 md:px-2 md:py-2">Difference</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(form.grades || []).map((g) => {
-                    const diff = num(g.actualWeight) - num(g.expectedWeight);
+                    const diff = num(g.acceptedWeight) - num(g.expectedWeight);
                     return (
                       <tr key={g.label}>
-                        <td className="border border-gray-200 px-2 py-1.5 font-semibold text-gray-900">{g.label}</td>
-                        <td className="border border-gray-200 px-2 py-1.5 tabular-nums">{num(g.expectedWeight)} {form.weightUnit}</td>
-                        <td className="border border-gray-200 px-1 py-1">
-                          <input
-                            className="w-full border border-gray-200 px-2 py-1.5 text-xs"
-                            type="number"
-                            min="0"
-                            step="0.001"
-                            value={g.actualWeight}
-                            onChange={(e) => setGrade(g.label, { actualWeight: e.target.value })}
-                          />
+                        <td className="border border-gray-200 px-1 py-1 font-semibold leading-tight text-gray-900 md:px-2 md:py-1.5">{g.label}</td>
+                        <td className="border border-gray-200 px-1 py-1 tabular-nums md:px-2 md:py-1.5">
+                          {num(g.expectedWeight)}
+                          <span className="hidden md:inline"> {form.weightUnit}</span>
                         </td>
-                        <td className="border border-gray-200 px-1 py-1">
+                        <td className="border border-gray-200 p-0.5 md:px-1 md:py-1">
                           <input
-                            className="w-full border border-gray-200 px-2 py-1.5 text-xs"
+                            className="w-full border border-gray-200 px-1 py-1.5 text-[11px] md:px-2 md:text-xs"
                             type="number"
                             min="0"
                             step="0.001"
+                            inputMode="decimal"
                             value={g.acceptedWeight}
                             onChange={(e) => setGrade(g.label, { acceptedWeight: e.target.value })}
                           />
                         </td>
-                        <td className={`border border-gray-200 px-2 py-1.5 font-semibold tabular-nums ${diff < 0 ? "text-red-600" : "text-gray-900"}`}>
-                          {diff > 0 ? "+" : ""}{diff} {form.weightUnit}
+                        <td className={`border border-gray-200 px-1 py-1 font-semibold tabular-nums md:px-2 md:py-1.5 ${diff < 0 ? "text-red-600" : "text-gray-900"}`}>
+                          {diff > 0 ? "+" : ""}
+                          {diff}
+                          <span className="hidden md:inline"> {form.weightUnit}</span>
                         </td>
                       </tr>
                     );
                   })}
                   <tr className="bg-gray-50 font-bold">
-                    <td className="border border-gray-200 px-2 py-2">Total</td>
-                    <td className="border border-gray-200 px-2 py-2 tabular-nums">{totals.expected} {form.weightUnit}</td>
-                    <td className="border border-gray-200 px-2 py-2 tabular-nums">{totals.actual} {form.weightUnit}</td>
-                    <td className="border border-gray-200 px-2 py-2 tabular-nums">{totals.accepted} {form.weightUnit}</td>
-                    <td className={`border border-gray-200 px-2 py-2 tabular-nums ${totals.difference < 0 ? "text-red-600" : "text-gray-900"}`}>
-                      {totals.difference > 0 ? "+" : ""}{totals.difference} {form.weightUnit}
+                    <td className="border border-gray-200 px-1 py-1.5 md:px-2 md:py-2">Total</td>
+                    <td className="border border-gray-200 px-1 py-1.5 tabular-nums md:px-2 md:py-2">
+                      {totals.expected}
+                      <span className="hidden md:inline"> {form.weightUnit}</span>
+                    </td>
+                    <td className="border border-gray-200 px-1 py-1.5 tabular-nums md:px-2 md:py-2">
+                      {totals.accepted}
+                      <span className="hidden md:inline"> {form.weightUnit}</span>
+                    </td>
+                    <td className={`border border-gray-200 px-1 py-1.5 tabular-nums md:px-2 md:py-2 ${totals.difference < 0 ? "text-red-600" : "text-gray-900"}`}>
+                      {totals.difference > 0 ? "+" : ""}
+                      {totals.difference}
+                      <span className="hidden md:inline"> {form.weightUnit}</span>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p className="mt-2 text-[10px] text-gray-400">
-              Difference = Actual − Expected. Base: {converted.expectedKg} Kg expected / {converted.actualKg} Kg actual.
+              Difference = Accepted − Expected. Base: {converted.expectedKg} Kg expected / {converted.acceptedKg} Kg accepted.
             </p>
             <div className="mt-3">
               <label className="mb-1 block text-xs font-semibold">Package count</label>
@@ -349,21 +362,15 @@ export default function CollectionReceivePage() {
           </div>
 
           <div className="border border-gray-200 bg-white p-5 print:hidden">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#217346]">Product photos</p>
-            <input type="file" accept="image/*" onChange={onPhoto} className="text-xs" />
-            <div className="mt-3 flex flex-wrap gap-2">
-              {form.photos.map((src, i) => (
-                <img key={i} src={src} alt="" className="h-16 w-16 object-cover border border-gray-200" />
-              ))}
-            </div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#217346]">3. Photos</p>
+            <ConfirmPickupPhotos
+              photos={form.photos}
+              onChange={(photos) => set("photos", photos)}
+              disabled={pickup.receiving?.status === "RECEIVED"}
+            />
           </div>
 
           <div className="flex flex-wrap gap-2 print:hidden">
-            {STEPS.filter((s) => s !== "RECEIVED").map((s) => (
-              <button key={s} type="button" disabled={busy} className="border border-gray-200 px-3 py-1.5 text-xs" onClick={() => save(s)}>
-                Mark {s.replace(/_/g, " ")}
-              </button>
-            ))}
             <button type="button" disabled={busy || !qrOk} className="bg-[#217346] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-60" onClick={() => save("RECEIVED")}>
               Confirm Received
             </button>
@@ -382,14 +389,13 @@ export default function CollectionReceivePage() {
           <div className="mt-2"><Info label="Farmer" value={pickup.farmerName} /></div>
           <div className="mt-2"><Info label="Product" value={pickup.productName} /></div>
           <div className="mt-2"><Info label="Expected" value={`${totals.expected || "—"} ${form.weightUnit}`} /></div>
-          <div className="mt-2"><Info label="Actual" value={`${totals.actual || "—"} ${form.weightUnit}`} /></div>
           <div className="mt-2"><Info label="Accepted" value={`${totals.accepted || "—"} ${form.weightUnit}`} /></div>
           <div className="mt-2"><Info label="Difference" value={`${totals.difference} ${form.weightUnit}`} /></div>
           {(form.grades || []).map((g) => (
             <div key={g.label} className="mt-2">
               <Info
                 label={g.label}
-                value={`Exp ${num(g.expectedWeight)} · Act ${num(g.actualWeight)} · Acc ${num(g.acceptedWeight)} ${form.weightUnit}`}
+                value={`Exp ${num(g.expectedWeight)} · Acc ${num(g.acceptedWeight)} ${form.weightUnit}`}
               />
             </div>
           ))}
@@ -406,6 +412,17 @@ export default function CollectionReceivePage() {
           ) : null}
         </div>
       </div>
+
+      <QrScanModal
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        title="Scan order QR"
+        hint="Align the order QR inside the frame"
+        onScan={(value) => {
+          set("qr", String(value || "").trim());
+          setScanOpen(false);
+        }}
+      />
     </div>
   );
 }

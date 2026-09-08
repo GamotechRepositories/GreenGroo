@@ -54,7 +54,8 @@ export default function ManagerPickupDetailPage() {
 
   const canAssign = pickup.status === "READY_FOR_PICKUP";
   const canReassign = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED"].includes(pickup.status) && !pickup.pickupConfirmed;
-  const canReceive = ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"].includes(pickup.status);
+  const canReceive = ["IN_TRANSIT", "ARRIVED_AT_CENTRE", "PICKED_UP", "PICKUP_CONFIRMED"].includes(pickup.status)
+    || (pickup.status === "COLLECTION_CENTRE_RECEIVED" && pickup.receiving?.status !== "RECEIVED");
   const available = pickup.availableDrivers || [];
 
   const assign = async () => {
@@ -139,8 +140,8 @@ export default function ManagerPickupDetailPage() {
       <section className={EXCEL_PANEL}>
         <h2 className={EXCEL_PANEL_HEAD}>Pickup Status</h2>
         <div className="space-y-2 p-3 text-xs text-[#6B7280]">
-          <p>The assigned driver starts pickup, marks arrived, checks the order, scans the Farmer QR, confirms pickup, then marks on the way to the centre.</p>
-          <p>Farmer managers cannot confirm pickup. After the driver is on the way, you receive the order at the collection centre.</p>
+          <p>The assigned driver starts pickup, marks arrived, checks the order, scans the Farmer QR, confirms pickup, marks on the way to the centre, then reached collection centre.</p>
+          <p>Farmer managers cannot confirm pickup. After the driver reaches the collection centre, you receive the order there.</p>
           {pickup.pickupConfirmed ? (
             <p className="font-semibold text-[#217346]">Picked up at {pickup.pickupConfirmedAt ? new Date(pickup.pickupConfirmedAt).toLocaleString("en-IN") : "—"}.</p>
           ) : null}

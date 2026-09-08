@@ -56,6 +56,7 @@ const STATUS_STYLES = {
   PICKED_UP: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   COMPLETED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   IN_TRANSIT: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
+  ARRIVED_AT_CENTRE: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   COLLECTION_CENTRE_RECEIVED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   RECEIVED_AT_COLLECTION_CENTRE: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
   ARRIVED: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
@@ -91,8 +92,9 @@ const STATUS_LABELS = {
   PICKED_UP: "Pickup confirmed",
   PICKUP_CONFIRMED: "Pickup confirmed",
   IN_TRANSIT: "On the way to centre",
-  COLLECTION_CENTRE_RECEIVED: "At collection centre",
-  RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
+  ARRIVED_AT_CENTRE: "At collection centre",
+  COLLECTION_CENTRE_RECEIVED: "Received",
+  RECEIVED_AT_COLLECTION_CENTRE: "Received",
 };
 
 function StatusBadge({ status, className = "" }) {

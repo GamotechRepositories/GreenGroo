@@ -313,15 +313,30 @@ export const MANAGER_SIDEBAR_ITEMS = [
   { to: "/farmer/manager/earnings", label: "Earnings", icon: "earnings" },
   {
     id: "pickup",
-    label: "Pickup / Driver",
+    label: "Pickup",
     icon: "pickup",
+    match: "/farmer/manager/pickups",
+    excludeMatch: [
+      "/farmer/manager/pickups/ready",
+      "/farmer/manager/pickups/assigned",
+      "/farmer/manager/pickups/today",
+    ],
+    children: [
+      { to: "/farmer/manager/pickups/incoming", label: "Incoming Pickups" },
+      { to: "/farmer/manager/pickups/centre", label: "Pickups at Centre" },
+      { to: "/farmer/manager/pickups/all", label: "All Pickups" },
+    ],
+  },
+  {
+    id: "driver",
+    label: "Driver",
+    icon: "driver",
+    match: "/farmer/manager/drivers",
     children: [
       { to: "/farmer/manager/pickups/ready", label: "Ready for Pickup" },
       { to: "/farmer/manager/pickups/assigned", label: "Assigned Pickups" },
       { to: "/farmer/manager/pickups/today", label: "Today's Pickups" },
-      { to: "/farmer/manager/pickups/active", label: "Active Pickups" },
-      { to: "/farmer/manager/pickups/incoming", label: "Incoming at Centre" },
-      { to: "/farmer/manager/pickups/history", label: "Picked Up" },
+      { to: "/farmer/manager/drivers", label: "All Drivers", end: true },
     ],
   },
   {

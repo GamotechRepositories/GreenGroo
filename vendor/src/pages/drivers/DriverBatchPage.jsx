@@ -37,6 +37,7 @@ export default function DriverBatchPage() {
     seedPickups.length ? payloadFromPickups(location.state?.batchId || id, seedPickups) : null
   );
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   usePolling(() => {
     driverApi
@@ -59,6 +60,23 @@ export default function DriverBatchPage() {
   if (!data && !error) return <p className="p-6 text-xs text-gray-400">Loading…</p>;
   if (!data) return <p className="p-6 text-xs text-red-500">{error}</p>;
 
+  const orders = data.pickups || [];
+  const arrivePickup = orders.find((p) => p.status === "IN_TRANSIT");
+  const markArrived = async () => {
+    if (!arrivePickup || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await driverApi.arriveCentre(arrivePickup.id);
+      const r = await driverApi.getBatch(id);
+      setData(r.data || data);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not update status");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       {error ? <div className="mx-6 mt-4 border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
@@ -67,6 +85,11 @@ export default function DriverBatchPage() {
         backTo="/driver/progress"
         backLabel="← In Progress"
         onOpenOrder={(p) => navigate(`/driver/pickups/${p.id}`)}
+        action={
+          arrivePickup
+            ? { label: "Reached collection centre", busy, onClick: markArrived }
+            : null
+        }
       />
     </>
   );
