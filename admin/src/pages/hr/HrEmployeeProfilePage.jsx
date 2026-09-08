@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import opsApi from '../../api/opsApi';
-import { BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
-import { inr, Pill, pretty } from './hrShared';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
+import { inr, Pill, pretty, HrBackButtons } from './hrShared';
 
 export default function HrEmployeeProfilePage() {
   const { type, id } = useParams();
@@ -63,20 +63,37 @@ export default function HrEmployeeProfilePage() {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20 text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /></div>;
+    return (
+      <div>
+        <HrBackButtons />
+        <div className="flex justify-center py-20 text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
+      </div>
+    );
   }
   if (!data?.person) {
-    return <p className="text-sm text-rose-600">{error || 'Employee not found'}</p>;
+    return (
+      <div>
+        <HrBackButtons />
+        <p className="text-sm text-rose-600">{error || 'Employee not found'}</p>
+      </div>
+    );
   }
 
   const person = data.person;
   return (
     <div className="space-y-4">
       <div>
+        <HrBackButtons>
+          <Link
+            to={`/hr-management/employees?role=${encodeURIComponent(person.roleKey || '')}`}
+            className={BTN}
+          >
+            Back to {pretty(person.roleKey)} list
+          </Link>
+        </HrBackButtons>
         <p className={PAGE_KICKER}>Employee profile</p>
         <h1 className={PAGE_TITLE}>{person.name}</h1>
         <p className={PAGE_SUB}>{person.role} · {person.phone || '—'} · {person.email || '—'}</p>
-        <Link to={`/hr-management/employees?role=${encodeURIComponent(person.roleKey || '')}`} className="mt-2 inline-block text-xs font-semibold text-[#217346]">Back to {pretty(person.roleKey)} list</Link>
       </div>
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{error}</div> : null}
 

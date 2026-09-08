@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Plus, RefreshCw, X } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
-import { personKey, Pill, pretty } from './hrShared';
+import { personKey, Pill, pretty, HrBackButtons } from './hrShared';
 
 export default function HrLeavePage() {
   const [tab, setTab] = useState('requests');
@@ -76,6 +76,7 @@ export default function HrLeavePage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <HrBackButtons />
           <p className={PAGE_KICKER}>HR Management</p>
           <h1 className={PAGE_TITLE}>Leave</h1>
           <p className={PAGE_SUB}>Leave requests and annual policies for every login role.</p>

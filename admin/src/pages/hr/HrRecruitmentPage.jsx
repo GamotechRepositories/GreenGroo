@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Download, Loader2, Plus, RefreshCw, Star, X } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
-import { Pill, pretty } from './hrShared';
+import { Pill, pretty, HrBackButtons } from './hrShared';
 
 const STAGES = ['applied', 'screening', 'interview', 'shortlisted', 'selected', 'rejected'];
 
@@ -95,6 +95,7 @@ export default function HrRecruitmentPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <HrBackButtons />
           <p className={PAGE_KICKER}>HR Management</p>
           <h1 className={PAGE_TITLE}>Recruitment</h1>
           <p className={PAGE_SUB}>Post vacancies by role, screen, interview, shortlist, rate, and download CVs.</p>

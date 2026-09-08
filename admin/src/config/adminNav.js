@@ -262,7 +262,7 @@ export const NAV_GROUPS = [
           { name: 'Announcements', href: '/hr-management/announcements', icon: Megaphone },
           { name: 'Leave', href: '/hr-management/leave', icon: Palmtree },
           { name: 'Employees', href: '/hr-management/employees', icon: UserRound },
-          { name: 'Payroll', href: '/hr-management/payroll', icon: Wallet },
+          { name: 'Salary management', href: '/hr-management/payroll', icon: Wallet },
           { name: 'Recruitment', href: '/hr-management/recruitment', icon: UserPlus },
           { name: 'Attendance & Shifts', href: '/hr-management/attendance', icon: Clock3 },
         ],

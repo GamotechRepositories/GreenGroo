@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { ChevronRight, ArrowLeft, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
-import { ROLE_FIELDS, initials, inr, pretty } from './hrShared';
+import { ROLE_FIELDS, initials, inr, pretty, HrBackButtons } from './hrShared';
 
 const emptyForm = {
   name: '',
@@ -92,6 +92,14 @@ export default function HrEmployeesPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <HrBackButtons>
+            {role ? (
+              <button type="button" className={BTN} onClick={() => setParams({})}>
+                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                Back to roles
+              </button>
+            ) : null}
+          </HrBackButtons>
           <p className={PAGE_KICKER}>HR Management</p>
           <h1 className={PAGE_TITLE}>Employees</h1>
           <p className={PAGE_SUB}>Create a login for any role, then open the profile for full employment details.</p>
@@ -126,7 +134,10 @@ export default function HrEmployeesPage() {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className={BTN} onClick={() => setParams({})}>All roles</button>
+            <button type="button" className={BTN} onClick={() => setParams({})}>
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              Back to roles
+            </button>
             <p className="text-sm font-semibold">{role === 'all' ? 'All employees' : pretty(role)}</p>
             <div className="relative min-w-[220px] flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

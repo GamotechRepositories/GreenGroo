@@ -125,7 +125,9 @@ const hrEmploymentSchema = new mongoose.Schema(
     department: { type: String, default: "", trim: true },
     designation: { type: String, default: "", trim: true },
     joiningDate: { type: String, default: "", trim: true },
+    salaryDate: { type: String, default: "", trim: true },
     monthlySalary: { type: Number, default: 0, min: 0 },
+    salaryTax: { type: Number, default: 0, min: 0 },
     bankAccount: { type: String, default: "", trim: true },
     ifsc: { type: String, default: "", trim: true },
     upi: { type: String, default: "", trim: true },
@@ -135,12 +137,21 @@ const hrEmploymentSchema = new mongoose.Schema(
 );
 hrEmploymentSchema.index({ employeeType: 1, employeeId: 1 }, { unique: true });
 
+if (mongoose.models.AdminHrEmployment) {
+  mongoose.models.AdminHrEmployment.schema.add({
+    salaryDate: { type: String, default: "", trim: true },
+    salaryTax: { type: Number, default: 0, min: 0 },
+    workNotes: { type: String, default: "", trim: true },
+  });
+}
+
 const hrPayrollSchema = new mongoose.Schema(
   {
     employeeId: { type: String, required: true, trim: true, index: true },
     employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, required: true },
     name: { type: String, required: true, trim: true },
     role: { type: String, default: "", trim: true },
+    roleKey: { type: String, default: "", trim: true, index: true },
     month: { type: String, required: true, trim: true, index: true },
     gross: { type: Number, required: true, min: 0 },
     deductions: { type: Number, default: 0, min: 0 },

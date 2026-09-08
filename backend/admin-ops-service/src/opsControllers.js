@@ -121,7 +121,10 @@ function withEmployment(person, employment) {
     department: employment.department || person.department || "",
     designation: employment.designation || person.role,
     joiningDate: employment.joiningDate || "",
+    salaryDate: employment.salaryDate || "",
     monthlySalary: Number(employment.monthlySalary || 0),
+    salaryTax: Number(employment.salaryTax ?? employment.tax ?? 0),
+    finalSalary: Math.max(0, Number(employment.monthlySalary || 0) - Number(employment.salaryTax ?? employment.tax ?? 0)),
     bankAccount: employment.bankAccount || "",
     ifsc: employment.ifsc || "",
     upi: employment.upi || "",
@@ -139,10 +142,10 @@ export async function loadHrPeople() {
       .select("name phone city area status isActive verificationStatus managerId createdAt")
       .populate("managerId", "name storeName")
       .lean(),
-    HrEmployment.find().lean(),
+    HrEmployment.collection.find({}).toArray(),
     HrTask.find({ status: { $ne: "done" } }).lean(),
   ]);
-  const employmentMap = new Map(employments.map((row) => [`${row.employeeType}:${row.employeeId}`, row]));
+  const employmentMap = new Map(employments.map((row) => [`${row.employeeType}:${String(row.employeeId)}`, row]));
   const openTaskCount = new Map();
   openTasks.forEach((task) => {
     const key = `${task.employeeType}:${task.employeeId}`;
@@ -272,7 +275,9 @@ async function attachEmployment(employeeId, employeeType, name, roleLabel, body)
     role: roleLabel,
     department: body.department,
     joiningDate: body.joiningDate,
+    salaryDate: body.salaryDate,
     monthlySalary: Number.isFinite(monthlySalary) ? monthlySalary : 0,
+    salaryTax: body.salaryTax,
     bankAccount: body.bankAccount,
     ifsc: body.ifsc,
     upi: body.upi,
@@ -414,8 +419,10 @@ export async function updateHrStaff(req, res, next) {
     await staff.save();
     if (
       req.body.monthlySalary !== undefined ||
+      req.body.salaryTax !== undefined ||
       req.body.department !== undefined ||
       req.body.joiningDate !== undefined ||
+      req.body.salaryDate !== undefined ||
       req.body.bankAccount !== undefined
     ) {
       await upsertEmployment({
@@ -479,22 +486,30 @@ async function upsertEmployment(payload) {
     throw Object.assign(new Error("Employee is required"), { status: 400 });
   }
   const monthlySalary = Number(payload.monthlySalary ?? 0);
+  const gross = Number.isFinite(monthlySalary) ? Math.max(0, monthlySalary) : 0;
+  const salaryTax = Math.max(0, Number(payload.salaryTax ?? payload.tax ?? 0) || 0);
+  const now = new Date();
   const update = {
     name: String(payload.name || "").trim(),
     department: String(payload.department || "").trim(),
     designation: String(payload.designation || payload.role || "").trim(),
     joiningDate: String(payload.joiningDate || "").trim(),
-    monthlySalary: Number.isFinite(monthlySalary) ? Math.max(0, monthlySalary) : 0,
+    salaryDate: String(payload.salaryDate || "").trim(),
+    monthlySalary: gross,
     bankAccount: String(payload.bankAccount || "").trim(),
     ifsc: String(payload.ifsc || "").trim(),
     upi: String(payload.upi || "").trim(),
-    workNotes: String(payload.workNotes || "").trim(),
+    workNotes: String(payload.workNotes ?? "").trim(),
+    updatedAt: now,
   };
-  return HrEmployment.findOneAndUpdate(
+  if (payload.salaryTax !== undefined || payload.tax !== undefined) update.salaryTax = salaryTax;
+  if (payload.workNotes === undefined) delete update.workNotes;
+  await HrEmployment.collection.updateOne(
     { employeeId, employeeType },
-    { $set: update, $setOnInsert: { employeeId, employeeType } },
-    { new: true, upsert: true }
+    { $set: update, $setOnInsert: { employeeId, employeeType, createdAt: now } },
+    { upsert: true }
   );
+  return HrEmployment.collection.findOne({ employeeId, employeeType });
 }
 
 export async function upsertHrEmployment(req, res, next) {
@@ -571,6 +586,7 @@ export async function listHrPayroll(req, res, next) {
     const filter = {};
     if (req.query.month) filter.month = req.query.month;
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
+    if (req.query.roleKey && req.query.roleKey !== "all") filter.roleKey = req.query.roleKey;
     const rows = await HrPayroll.find(filter).sort({ month: -1, name: 1 }).lean();
     const pending = rows.filter((row) => row.status !== "paid");
     const paid = rows.filter((row) => row.status === "paid");
@@ -595,7 +611,15 @@ export async function runHrPayroll(req, res, next) {
     const month = String(req.body.month || currentPayrollMonth()).trim();
     if (!/^\d{4}-\d{2}$/.test(month)) return fail(res, 400, "Use month as YYYY-MM");
     const { people } = await loadHrPeople();
-    const payable = people.filter((person) => person.isActive && Number(person.monthlySalary) > 0);
+    const roleKey = String(req.body.roleKey || "").trim();
+    const employeeId = String(req.body.employeeId || "").trim();
+    const employeeType = String(req.body.employeeType || "").trim();
+    let payable = people.filter((person) => person.isActive && Number(person.monthlySalary) > 0);
+    if (roleKey) payable = payable.filter((person) => person.roleKey === roleKey);
+    if (employeeId) {
+      payable = people.filter((person) => person.id === employeeId && Number(person.monthlySalary) > 0);
+      if (employeeType) payable = payable.filter((person) => person.employeeType === employeeType);
+    }
     if (!payable.length) return fail(res, 400, "Set monthly salaries before generating payroll");
     const existing = await HrPayroll.find({ month }).lean();
     const seen = new Set(existing.map((row) => `${row.employeeType}:${row.employeeId}`));
@@ -605,17 +629,20 @@ export async function runHrPayroll(req, res, next) {
       const key = `${person.employeeType}:${person.id}`;
       if (seen.has(key)) continue;
       const gross = Number(person.monthlySalary);
+      const tax = Math.min(gross, Math.max(0, Number(person.salaryTax || 0)));
+      const net = Math.max(0, gross - tax);
       created.push(
         await HrPayroll.create({
           employeeId: person.id,
           employeeType: person.employeeType,
           name: person.name,
           role: person.role,
+          roleKey: person.roleKey || "",
           month,
           gross,
           deductions: 0,
-          tax: 0,
-          net: gross,
+          tax,
+          net,
           payrunId,
           status: "pending",
         })
@@ -629,30 +656,39 @@ export async function runHrPayroll(req, res, next) {
 
 export async function updateHrPayroll(req, res, next) {
   try {
-    const row = await HrPayroll.findById(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.id))) {
+      return fail(res, 404, "Payroll row not found");
+    }
+    const objectId = new mongoose.Types.ObjectId(String(req.params.id));
+    const row = await HrPayroll.collection.findOne({ _id: objectId });
     if (!row) return fail(res, 404, "Payroll row not found");
-    if (req.body.deductions !== undefined) row.deductions = Math.max(0, Number(req.body.deductions) || 0);
-    if (req.body.gross !== undefined) row.gross = Math.max(0, Number(req.body.gross) || 0);
-    if (req.body.tax !== undefined) row.tax = Math.max(0, Number(req.body.tax) || 0);
-    row.net = Math.max(0, Number(row.gross) - Number(row.deductions || 0) - Number(row.tax || 0));
-    if (req.body.notes !== undefined) row.notes = String(req.body.notes || "").trim();
+    const patch = {};
+    if (req.body.deductions !== undefined) patch.deductions = Math.max(0, Number(req.body.deductions) || 0);
+    if (req.body.gross !== undefined) patch.gross = Math.max(0, Number(req.body.gross) || 0);
+    if (req.body.tax !== undefined) patch.tax = Math.max(0, Number(req.body.tax) || 0);
+    const gross = patch.gross !== undefined ? patch.gross : Number(row.gross || 0);
+    const deductions = patch.deductions !== undefined ? patch.deductions : Number(row.deductions || 0);
+    const tax = patch.tax !== undefined ? patch.tax : Number(row.tax || 0);
+    patch.net = Math.max(0, gross - deductions - tax);
+    if (req.body.notes !== undefined) patch.notes = String(req.body.notes || "").trim();
     if (req.body.status === "paid" && row.status !== "paid") {
-      row.status = "paid";
-      row.paidAt = new Date();
+      patch.status = "paid";
+      patch.paidAt = new Date();
       await FinanceLedger.create({
         type: "payout",
         title: `Salary · ${row.name} · ${row.month}`,
-        amount: row.net,
+        amount: patch.net,
         reference: String(row._id),
         notes: `${row.role || "Staff"} payroll`,
         date: new Date(),
       });
     } else if (req.body.status === "pending") {
-      row.status = "pending";
-      row.paidAt = null;
+      patch.status = "pending";
+      patch.paidAt = null;
     }
-    await row.save();
-    return ok(res, row);
+    patch.updatedAt = new Date();
+    await HrPayroll.collection.updateOne({ _id: objectId }, { $set: patch });
+    return ok(res, await HrPayroll.collection.findOne({ _id: objectId }));
   } catch (error) {
     next(error);
   }

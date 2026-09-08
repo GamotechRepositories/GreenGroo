@@ -1,10 +1,14 @@
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { BTN } from '../../utils/ui';
+
 export const HR_LINKS = [
   { to: '/hr-management', label: 'Dashboard' },
   { to: '/hr-management/calendar', label: 'Calendar' },
   { to: '/hr-management/announcements', label: 'Announcements' },
   { to: '/hr-management/leave', label: 'Leave' },
   { to: '/hr-management/employees', label: 'Employees' },
-  { to: '/hr-management/payroll', label: 'Payroll' },
+  { to: '/hr-management/payroll', label: 'Salary' },
   { to: '/hr-management/recruitment', label: 'Recruitment' },
   { to: '/hr-management/attendance', label: 'Attendance' },
 ];
@@ -39,6 +43,28 @@ export function pretty(value) {
 
 export function personKey(person) {
   return `${person.employeeType}:${person.id}`;
+}
+
+export function goToPreviousPage(navigate, fallback = '/hr-management') {
+  const idx = window.history.state?.idx;
+  if (typeof idx === 'number' && idx > 0) {
+    navigate(-1);
+    return;
+  }
+  navigate(fallback);
+}
+
+export function HrBackButtons({ children, fallback = '/hr-management' }) {
+  const navigate = useNavigate();
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2">
+      <button type="button" className={BTN} onClick={() => goToPreviousPage(navigate, fallback)}>
+        <ArrowLeft className="mr-1.5 h-4 w-4" />
+        Back
+      </button>
+      {children}
+    </div>
+  );
 }
 
 export function Pill({ children, tone = 'slate' }) {

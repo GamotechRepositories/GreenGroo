@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Plus, RefreshCw, X } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
-import { Pill, pretty } from './hrShared';
+import { Pill, pretty, HrBackButtons } from './hrShared';
 
 const empty = { title: '', body: '', roleKey: 'all', status: 'draft', scheduledAt: '' };
 
@@ -59,6 +59,7 @@ export default function HrAnnouncementsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <HrBackButtons />
           <p className={PAGE_KICKER}>HR Management</p>
           <h1 className={PAGE_TITLE}>Announcements</h1>
           <p className={PAGE_SUB}>Create announcements for each role. Draft, schedule, then publish so only that role sees them.</p>

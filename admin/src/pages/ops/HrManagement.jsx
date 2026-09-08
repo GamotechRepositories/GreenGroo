@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, Clock3, Loader2, Megaphone, Palmtree, RefreshCw, UserPlus, UserRound, Users, Wallet } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
-import { inr } from '../hr/hrShared';
+import { inr, HrBackButtons } from '../hr/hrShared';
 
 const MODULES = [
   { to: '/hr-management/employees', label: 'Employees', text: 'Role-wise people, logins, and profiles', icon: UserRound },
@@ -112,6 +112,7 @@ export default function HrManagement() {
             <Users className="h-6 w-6" />
           </div>
           <div>
+            <HrBackButtons fallback="/welcome" />
             <p className={PAGE_KICKER}>HR Management</p>
             <h1 className={PAGE_TITLE}>Dashboard</h1>
             <p className={PAGE_SUB}>People, leave, payroll, recruitment, attendance, and staff logins in one place.</p>
