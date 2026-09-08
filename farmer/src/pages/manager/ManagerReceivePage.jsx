@@ -33,7 +33,8 @@ function qrMatches(pickup, qr) {
   return (
     raw === pickup.qrPayload ||
     raw.includes(pickup.orderDisplayId || "") ||
-    raw.includes(pickup.orderId || "")
+    raw.includes(pickup.orderId || "") ||
+    Boolean(pickup.collectionBatchId && raw.includes(pickup.collectionBatchId))
   );
 }
 

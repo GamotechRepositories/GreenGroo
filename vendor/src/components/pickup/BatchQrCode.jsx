@@ -1,9 +1,9 @@
-import { batchQrLabel, batchScanUrl, parseBatchQrPayload } from "../../utils/batchQr";
+import { batchQrEncodeValue, batchQrFacts, batchQrLabel } from "../../utils/batchQr";
 
-export default function BatchQrCode({ value, label = "Batch QR", compact = false }) {
-  const id = parseBatchQrPayload(value);
-  const qrValue = id ? batchScanUrl(id) : value || "";
-  const caption = id ? batchQrLabel(id) : value;
+export default function BatchQrCode({ value, record, label = "Batch QR", compact = false }) {
+  const qrValue = batchQrEncodeValue(value, record);
+  const caption = batchQrLabel(qrValue || value);
+  const facts = batchQrFacts(record || qrValue);
   const payload = encodeURIComponent(qrValue);
   const imgSize = compact
     ? "h-[7.25rem] w-[7.25rem] sm:h-40 sm:w-40 lg:h-44 lg:w-44"
@@ -13,7 +13,7 @@ export default function BatchQrCode({ value, label = "Batch QR", compact = false
     <div className={`flex w-full flex-col items-center gap-1.5 border border-gray-200 bg-white ${compact ? "p-2 sm:p-3" : "p-3 sm:p-4"}`}>
       {qrValue ? (
         <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${payload}`}
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&ecc=M&data=${payload}`}
           alt={label}
           className={`${imgSize} border border-gray-100 bg-white p-1`}
         />
@@ -23,6 +23,7 @@ export default function BatchQrCode({ value, label = "Batch QR", compact = false
       <p className="max-w-full break-all px-0.5 text-center font-mono text-[9px] font-semibold leading-tight text-gray-600 sm:text-[10px]">
         {caption}
       </p>
+      {facts ? <p className="max-w-full px-1 text-center text-[10px] leading-snug text-gray-500">{facts}</p> : null}
       <p className="hidden text-center text-[10px] text-gray-400 sm:block">Scan to view all batch details</p>
     </div>
   );

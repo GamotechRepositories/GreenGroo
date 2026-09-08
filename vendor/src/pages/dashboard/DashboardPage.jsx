@@ -70,47 +70,89 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4">
         <Link
           to="/inventory-requests"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-3 shadow-sm sm:p-5"
         >
-          <p className="text-sm text-amber-800">Pending restock requests</p>
-          <p className="mt-1 text-3xl font-bold text-amber-900">{loading ? "…" : pending.length}</p>
-          <p className="mt-1 text-xs text-amber-700">Waiting on Product Manager approval</p>
+          <p className="text-[11px] leading-tight text-amber-800 sm:text-sm">Pending restock</p>
+          <p className="mt-1 text-2xl font-bold text-amber-900 sm:text-3xl">{loading ? "…" : pending.length}</p>
+          <p className="mt-1 hidden text-xs text-amber-700 sm:block">Waiting on Product Manager approval</p>
         </Link>
-        <Link to="/inventory-requests" className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">All requests</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">{loading ? "…" : requests.length}</p>
-          <p className="mt-1 text-xs text-gray-400">From every dark store</p>
+        <Link to="/inventory-requests" className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
+          <p className="text-[11px] leading-tight text-gray-500 sm:text-sm">All requests</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">{loading ? "…" : requests.length}</p>
+          <p className="mt-1 hidden text-xs text-gray-400 sm:block">From every dark store</p>
         </Link>
         <Link
           to="/inventory-requests"
-          className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
+          className="col-span-2 rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:col-span-1 sm:p-5"
         >
-          <p className="text-sm text-gray-500">Approved</p>
-          <p className="mt-1 text-3xl font-bold text-[#217346]">{loading ? "…" : approvedToday}</p>
-          <p className="mt-1 text-xs text-gray-400">Stock added to the requesting store</p>
+          <p className="text-[11px] leading-tight text-gray-500 sm:text-sm">Approved</p>
+          <p className="mt-1 text-2xl font-bold text-[#217346] sm:text-3xl">{loading ? "…" : approvedToday}</p>
+          <p className="mt-1 hidden text-xs text-gray-400 sm:block">Stock added to the requesting store</p>
         </Link>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div>
-            <h2 className="text-base font-bold text-gray-900">Dark store restock requests</h2>
-            <p className="text-sm text-gray-500">
+        <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-gray-900 sm:text-base">Dark store restock requests</h2>
+            <p className="hidden text-sm text-gray-500 sm:block">
               Approve to add quantity to that store’s inventory
             </p>
           </div>
           <Link
             to="/inventory-requests"
-            className="text-sm font-semibold text-[#217346] hover:underline"
+            className="shrink-0 text-xs font-semibold text-[#217346] hover:underline sm:text-sm"
           >
-            View all →
+            View all
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-gray-100 lg:hidden">
+          {loading ? (
+            <p className="px-4 py-8 text-center text-sm text-gray-500">Loading restock requests…</p>
+          ) : pending.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-gray-500">No pending requests from dark stores yet.</p>
+          ) : (
+            pending.map((request) => (
+              <article key={request.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate text-[13px] font-semibold text-gray-900">{request.productName}</p>
+                  <p className="shrink-0 text-[12px] font-bold text-gray-800">
+                    {request.quantity} {request.unit}
+                  </p>
+                </div>
+                <p className="mt-0.5 truncate text-[11px] text-gray-500">
+                  {request.storeName}
+                  {request.managerName ? ` · ${request.managerName}` : ""}
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] text-gray-400">{request.requestNumber}</p>
+                <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={Boolean(busyId)}
+                    onClick={() => review(request.id, "approved")}
+                    className="inline-flex h-9 items-center justify-center rounded-lg bg-[#217346] text-[11px] font-semibold text-white disabled:opacity-50"
+                  >
+                    {busyId === `${request.id}-approved` ? "…" : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(busyId)}
+                    onClick={() => review(request.id, "rejected")}
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 text-[11px] font-semibold text-gray-600 disabled:opacity-50"
+                  >
+                    {busyId === `${request.id}-rejected` ? "…" : "Reject"}
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto lg:block">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
               <tr>

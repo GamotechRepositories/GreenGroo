@@ -280,7 +280,7 @@ export default function BatchOrderChart({ orders = [], onView }) {
         </table>
       </div>
 
-      <OrderQrModal value={orderQrValue(qrOrder)} onClose={() => setQrOrder(null)} />
+      <OrderQrModal value={orderQrValue(qrOrder)} record={qrOrder} onClose={() => setQrOrder(null)} />
     </div>
   );
 }

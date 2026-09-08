@@ -1,7 +1,7 @@
 import OrderQrCode from "./OrderQrCode";
 
-export default function OrderQrModal({ value, onClose }) {
-  if (!value) return null;
+export default function OrderQrModal({ value, record, onClose }) {
+  if (!value && !record) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
@@ -12,7 +12,7 @@ export default function OrderQrModal({ value, onClose }) {
             Close
           </button>
         </div>
-        <OrderQrCode value={value} />
+        <OrderQrCode value={value} record={record} />
       </div>
     </div>
   );

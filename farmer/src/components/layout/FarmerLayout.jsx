@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import FarmerSidebar from "./FarmerSidebar";
 import FarmerHeader from "./FarmerHeader";
+import ManagerBottomNav from "./ManagerBottomNav";
 import { FarmerToaster } from "../ui/FarmerToaster";
 import {
   fetchDocuments,
@@ -61,7 +62,11 @@ function FarmerLayout() {
           searchValue={search}
           onSearchChange={setSearch}
         />
-        <main className="farmer-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-5 lg:p-6">
+        <main
+          className={`farmer-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-5 lg:p-6 ${
+            isManager ? "max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : ""
+          }`}
+        >
           <RoleAnnouncements
             roleKey={isManager ? "farmer_manager" : "farmer"}
             load={() => getLiveAnnouncements(isManager ? "farmer_manager" : "farmer")}
@@ -69,6 +74,7 @@ function FarmerLayout() {
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>
+      {isManager ? <ManagerBottomNav /> : null}
       <FarmerToaster />
     </div>
   );

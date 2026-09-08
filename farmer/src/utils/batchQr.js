@@ -1,4 +1,31 @@
+function compactQr(obj = {}) {
+  const out = {};
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value == null || value === "") return;
+    if (Array.isArray(value) && !value.length) return;
+    out[key] = value;
+  });
+  return out;
+}
+
+export function parseQrJson(payload) {
+  const raw = String(payload || "").trim();
+  if (!raw.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {
+    /* not json */
+  }
+  return null;
+}
+
 export function parseBatchQrPayload(payload) {
+  const json = parseQrJson(payload);
+  if (json) {
+    if (json.t === "order") return String(json.batchId || "").trim();
+    return String(json.id || json.batchId || json.lotId || "").trim();
+  }
   const raw = String(payload || "").trim();
   if (!raw) return "";
   try {
@@ -15,4 +42,12 @@ export function parseBatchQrPayload(payload) {
   const tagged = raw.match(/(?:greengroo:batch:|ggp\.batch\.)([A-Za-z0-9_-]+)/i);
   if (tagged) return tagged[1];
   return "";
+}
+
+export function isBatchQrPayload(payload) {
+  const json = parseQrJson(payload);
+  if (json?.t === "order") return false;
+  if (json?.t === "batch") return true;
+  const raw = String(payload || "");
+  return /greengroo:batch:|ggp\.batch\.|\/batches\//i.test(raw) || /^GGC-BAT-/i.test(raw.trim());
 }

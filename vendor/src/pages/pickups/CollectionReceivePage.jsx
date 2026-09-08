@@ -206,7 +206,7 @@ export default function CollectionReceivePage() {
   return (
     <div className="space-y-5 p-6">
       <div className="flex items-center gap-2 text-xs text-gray-400 print:hidden">
-        <Link to="/vendor/collection-centre" className="hover:text-[#217346]">Collection Centre</Link>
+        <Link to="/vendor/pickups/centre" className="hover:text-[#217346]">Pickups at Centre</Link>
         <span>›</span>
         <CopyId value={pickup.orderDisplayId} textClassName="font-semibold text-gray-700" />
       </div>
@@ -270,7 +270,7 @@ export default function CollectionReceivePage() {
               </button>
             </div>
             <p className={`mt-2 text-[11px] ${form.qr ? (qrOk ? "text-green-700" : "text-red-600") : "text-gray-500"}`}>
-              {form.qr ? (qrOk ? "QR matches this order." : "QR does not match this order.") : pickup.qrPayload ? `Expected: ${pickup.qrPayload}` : "Scan or paste the order QR from the driver."}
+              {form.qr ? (qrOk ? "QR matches this order." : "QR does not match this order.") : pickup.orderDisplayId ? `Scan order QR for ${pickup.orderDisplayId}` : "Scan or paste the order QR from the driver."}
             </p>
           </div>
 

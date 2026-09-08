@@ -8,6 +8,7 @@ import {
 } from "./models.js";
 import { getIO } from "../../shared/socket.js";
 import { syncQualityToErp } from "../../erp-service/src/services/harvestSync.js";
+import { parsePickupQr } from "./pickupControllers.js";
 
 const QUALITY_PENDING = "QUALITY_PENDING";
 const INSPECTION = "INSPECTION";
@@ -118,24 +119,7 @@ function isWeightVerified(pickup) {
 }
 
 function parseQualityQr(payload) {
-  const raw = String(payload || "").trim();
-  try {
-    const u = new URL(raw);
-    const scan = u.pathname.match(/\/scan\/([^/]+)/i);
-    if (scan) return parseQualityQr(decodeURIComponent(scan[1]));
-    const q = u.searchParams.get("q") || u.searchParams.get("order") || u.searchParams.get("code");
-    if (q) return parseQualityQr(q);
-  } catch {
-    /* not a URL */
-  }
-  const pickupMatch = raw.match(/^(?:ggp\.|greengroo:pickup:)([A-Za-z0-9_-]+)$/i);
-  if (pickupMatch) return { token: pickupMatch[1] };
-  const biz = raw.match(/(GGC-ORD-[A-Za-z0-9-]+)/i);
-  if (biz) return { orderId: biz[1] };
-  const orderCode = raw.match(/(?:ggp\.order\.|greengroo:order:)([A-Za-z0-9_-]+)/i);
-  if (orderCode) return { orderId: orderCode[1] };
-  if (/^[A-Fa-f0-9]{20,}$/.test(raw)) return { token: raw };
-  return { orderId: raw.replace(/^order[:#\s]+/i, "").trim() };
+  return parsePickupQr(payload);
 }
 
 function qrMatches(pickup, order, raw) {

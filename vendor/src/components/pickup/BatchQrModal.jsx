@@ -1,7 +1,7 @@
 import BatchQrCode from "./BatchQrCode";
 
-export default function BatchQrModal({ batchId, onClose }) {
-  if (!batchId) return null;
+export default function BatchQrModal({ batchId, record, onClose }) {
+  if (!batchId && !record) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
@@ -15,7 +15,7 @@ export default function BatchQrModal({ batchId, onClose }) {
             Close
           </button>
         </div>
-        <BatchQrCode value={batchId} />
+        <BatchQrCode value={batchId} record={record} />
       </div>
     </div>
   );

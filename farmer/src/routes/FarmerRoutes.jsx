@@ -39,6 +39,7 @@ import CropPlanningPage from "../pages/CropPlanningPage";
 
 // Manager Pages
 import ManagerDashboardPage from "../pages/manager/ManagerDashboardPage";
+import ManagerSearchPage from "../pages/manager/ManagerSearchPage";
 import ManagerFarmersPage from "../pages/manager/ManagerFarmersPage";
 import ManagerAddFarmerPage from "../pages/manager/ManagerAddFarmerPage";
 import ManagerFarmerDetailPage from "../pages/manager/ManagerFarmerDetailPage";
@@ -115,6 +116,7 @@ function FarmerRoutes() {
 
           {/* ────────── MANAGER ROUTES ────────── */}
           <Route path="manager/dashboard" element={<ManagerDashboardPage />} />
+          <Route path="manager/search" element={<ManagerSearchPage />} />
           <Route path="manager/farmers" element={<ManagerFarmersPage />} />
           <Route path="manager/farmers/add" element={<ManagerAddFarmerPage />} />
           <Route path="manager/farmers/:farmerId/crops/add" element={<ManagerFarmerCropFormPage />} />

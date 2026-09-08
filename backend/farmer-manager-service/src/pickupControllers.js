@@ -325,8 +325,48 @@ function qrPayloadFromToken(token) {
   return `ggp.${token}`;
 }
 
-function parsePickupQr(payload) {
+function compactQr(obj = {}) {
+  const out = {};
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value == null || value === "") return;
+    if (Array.isArray(value) && !value.length) return;
+    out[key] = value;
+  });
+  return out;
+}
+
+function parseQrJson(payload) {
   const raw = String(payload || "").trim();
+  if (!raw.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch {
+    /* not json */
+  }
+  return null;
+}
+
+function clipQr(value, max = 80) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) : text;
+}
+
+export function parsePickupQr(payload) {
+  const raw = String(payload || "").trim();
+  const json = parseQrJson(raw);
+  if (json) {
+    if (json.t === "batch") {
+      return compactQr({ batchId: String(json.id || json.batchId || json.lotId || "").trim() });
+    }
+    return compactQr({
+      orderId: String(json.id || json.orderId || "").trim(),
+      pickupId: String(json.pickupId || "").trim(),
+      batchId: String(json.batchId || "").trim(),
+      token: String(json.token || "").trim(),
+    });
+  }
   try {
     const u = new URL(raw);
     const scan = u.pathname.match(/\/scan\/([^/]+)/i);
@@ -338,6 +378,10 @@ function parsePickupQr(payload) {
   }
   const pickupMatch = raw.match(/^(?:ggp\.|greengroo:pickup:)([A-Za-z0-9_-]+)$/i);
   if (pickupMatch) return { token: pickupMatch[1] };
+  const batchMatch = raw.match(/(GGC-BAT-[A-Za-z0-9-]+)/i);
+  if (batchMatch && /greengroo:batch:|ggp\.batch\.|\/batches\//i.test(raw)) {
+    return { batchId: batchMatch[1] };
+  }
   const biz = raw.match(/(GGC-ORD-[A-Za-z0-9-]+)/i);
   if (biz) return { orderId: biz[1] };
   const orderMatch = raw.match(/(?:greengroo:order:|ggp\.order\.)([A-Za-z0-9_-]+)/i);
@@ -373,9 +417,86 @@ function pushPickupTimeline(pickup, status, note) {
   pickup.timeline = [...(pickup.timeline || []), { status, at: new Date(), note: note || "" }];
 }
 
-function qrPayloadFor(order) {
-  const id = String(order?.orderId || order?.id || "").trim();
-  return id ? `greengroo:order:${id}` : "";
+export function qrPayloadFor(order, extra = {}) {
+  const pickup = extra.pickup && typeof extra.pickup === "object" ? extra.pickup : {};
+  const farmer = extra.farmer && typeof extra.farmer === "object" ? extra.farmer : {};
+  const centre = extra.centre && typeof extra.centre === "object" ? extra.centre : {};
+  const driver = extra.driver && typeof extra.driver === "object" ? extra.driver : {};
+  const flat = flattenOrder(order || {});
+  const id = String(
+    order?.orderId || extra.orderDisplayId || order?.id || pickup.orderId || extra.orderId || ""
+  ).trim();
+  if (!id) return "";
+  const qty = Number(
+    extra.packedQuantity ??
+      pickup.packedQuantity ??
+      order?.packedQuantity ??
+      extra.expectedQuantity ??
+      pickup.expectedQuantity ??
+      order?.orderedQuantity ??
+      flat.orderedQuantity
+  );
+  return JSON.stringify(
+    compactQr({
+      v: 1,
+      t: "order",
+      id,
+      pickupId: extra.pickupId || pickup.pickupId || pickup.id || "",
+      batchId: extra.collectionBatchId || extra.batchId || extra.lotId || pickup.collectionBatchId || "",
+      farmerId: extra.farmerId || order?.farmerId || pickup.farmerId || farmer.id || "",
+      farmer: clipQr(extra.farmerName || extra.farmer || farmer.name, 60),
+      mobile: extra.farmerMobile || extra.mobile || farmer.mobile || "",
+      loc: clipQr(extra.pickupLocation || extra.farmerLocation || extra.loc || farmerLocation(farmer) || pickup.pickupLocation, 100),
+      product: clipQr(extra.productName || extra.product || pickup.productName || flat.productName, 60),
+      productId: extra.productId || flat.productId || "",
+      variety: clipQr(extra.variety || pickup.variety || flat.variety, 40),
+      grade: clipQr(extra.grade || pickup.grade || flat.grade, 40),
+      qty: Number.isFinite(qty) && qty > 0 ? qty : undefined,
+      pkgs: Number(extra.packageCount || pickup.packageCount || order?.packingDetails?.packageCount) || undefined,
+      unit: extra.unit || pickup.unit || flat.unit || "",
+      date:
+        extra.orderDate ||
+        extra.scheduledDate ||
+        extra.pickupDate ||
+        extra.date ||
+        order?.orderDate ||
+        pickup.orderDate ||
+        pickup.scheduledDate ||
+        pickup.pickupDate ||
+        "",
+      time: extra.scheduledTime || extra.pickupTime || extra.time || pickup.scheduledTime || pickup.pickupTime || "",
+      centre: clipQr(extra.collectionCentreName || extra.centre || centre.name || order?.collectionCentre, 60),
+      driverId: extra.driverId || pickup.driverId || driver.id || driver.driverId || "",
+      driver: clipQr(extra.driverName || extra.driver || driver.name, 60),
+      vehicle: extra.vehicleNumber || extra.vehicle || driver.vehicleNumber || pickup.vehicleNumber || "",
+      vehicleId: extra.vehicleId || pickup.vehicleId || driver.vehicleId || "",
+    })
+  );
+}
+
+function batchQrPayloadFor(batchId, orders = []) {
+  const first = orders[0] || {};
+  const driver = first.driver || {};
+  const farmers = [...new Set(orders.map((p) => p.farmerName).filter(Boolean))];
+  const products = [...new Set(orders.map((p) => p.productName).filter(Boolean))];
+  const orderIds = [...new Set(orders.map((p) => p.orderDisplayId || p.orderId).filter(Boolean))].slice(0, 20);
+  if (!batchId) return "";
+  return JSON.stringify(
+    compactQr({
+      v: 1,
+      t: "batch",
+      id: batchId,
+      orders: orders.length || undefined,
+      orderIds: orderIds.length ? orderIds : undefined,
+      farmers: farmers.length ? farmers.map((name) => clipQr(name, 40)) : undefined,
+      products: products.length ? products.map((name) => clipQr(name, 40)) : undefined,
+      driverId: first.driverId || driver.id || driver.driverId || "",
+      driver: clipQr(first.driverName || driver.name, 60),
+      vehicleId: vehicleIdOf(first.vehicleId || driver.vehicleId, first.vehicleNumber || driver.vehicleNumber),
+      vehicle: first.vehicleNumber || driver.vehicleNumber || "",
+      centre: clipQr(first.collectionCentreName, 60),
+    })
+  );
 }
 
 function parseQrOrderId(payload) {
@@ -416,7 +537,7 @@ export async function ensurePickupForOrder(order, farmer) {
   const expected = packed || flat.orderedQuantity;
 
   if (existing) {
-    const stablePayload = qrPayloadFor(order);
+    const stablePayload = qrPayloadFor(order, { pickup: existing, farmer });
     if (!existing.qrToken) existing.qrToken = qrTokenForPickup();
     if (stablePayload) existing.qrPayload = stablePayload;
     existing.orderDate = resolveOrderDate(order, existing) || existing.orderDate;
@@ -466,7 +587,11 @@ export async function ensurePickupForOrder(order, farmer) {
     variety: flat.variety,
     grade: flat.grade,
     qrToken,
-    qrPayload: qrPayloadFor(order) || qrPayloadFromToken(qrToken),
+    qrPayload:
+      qrPayloadFor(order, {
+        farmer,
+        pickup: { pickupId, id: pickupId, packedQuantity: packed, packageCount: packages, pickupLocation: farmerLocation(farmer), scheduledDate: order.pickupDate || order.requiredDate || order.harvestDate || "", scheduledTime: order.harvestTime || order.pickupTime || "", unit: flat.unit, productName: flat.productName, variety: flat.variety, grade: flat.grade },
+      }) || qrPayloadFromToken(qrToken),
     pickupInstructions: String(order.packingDetails?.notes || ""),
     status: "READY_FOR_PICKUP",
     timeline: [{ status: "READY_FOR_PICKUP", at: new Date(), note: "Order marked ready for pickup." }],
@@ -592,7 +717,30 @@ async function enrichPickup(pickup) {
     collectionBatchId: plain.collectionBatchId || "",
     lotId: plain.collectionBatchId || "",
     qrPayload:
-      qrPayloadFor(order || { id: plain.orderId, orderId: order?.orderId }) ||
+      qrPayloadFor(order || { id: plain.orderId, orderId: order?.orderId || plain.orderId }, {
+        pickup: plain,
+        farmer,
+        centre,
+        driver,
+        farmerName: farmer?.name || "",
+        farmerMobile: farmer?.mobile || "",
+        farmerLocation: farmerLocation(farmer) || plain.pickupLocation || "",
+        collectionCentreName: centre?.name || order?.collectionCentre || "Main Collection Centre",
+        productName: plain.productName || flat.productName,
+        productId: flat.productId,
+        variety: plain.variety || flat.variety,
+        grade: plain.grade || flat.grade,
+        unit: plain.unit || flat.unit || "Kg",
+        packedQuantity: Number(plain.packedQuantity || order?.packedQuantity || 0),
+        packageCount: Number(plain.packageCount || order?.packingDetails?.packageCount || 0),
+        driverId: plain.driverId || driver?.id || "",
+        driverName: driver?.name || "",
+        vehicleNumber: driver?.vehicleNumber || plain.vehicleNumber || "",
+        vehicleId: vehicleIdOf(driver?.vehicleId || plain.vehicleId, driver?.vehicleNumber || plain.vehicleNumber),
+        orderDate: resolveOrderDate(order, plain),
+        scheduledDate: plain.pickupDate || plain.scheduledDate || "",
+        scheduledTime: plain.pickupTime || plain.scheduledTime || "",
+      }) ||
       plain.qrPayload ||
       (plain.qrToken ? qrPayloadFromToken(plain.qrToken) : ""),
     receiving: {
@@ -856,12 +1004,43 @@ export async function listVendorPickups(req, res) {
     const filter = { vendorId };
     if (filterKey === "ready") filter.status = { $in: PRE_ASSIGN_STATUSES };
     else if (filterKey === "assigned") {
-      filter.status = { $in: ["READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED"] };
+      filter.status = { $in: [...ASSIGNED_STATUSES, ...IN_PROGRESS_STATUSES] };
     } else if (filterKey === "today") {
       filter.$or = [{ pickupDate: todayStr() }, { scheduledDate: todayStr() }];
+      filter.status = {
+        $nin: [
+          "PICKED_UP",
+          "PICKUP_CONFIRMED",
+          "IN_TRANSIT",
+          "ARRIVED_AT_CENTRE",
+          "COLLECTION_CENTRE_RECEIVED",
+          "RECEIVED_AT_COLLECTION_CENTRE",
+          "COMPLETED",
+          "CANCELLED",
+        ],
+      };
     } else if (filterKey === "active") filter.status = { $in: ACTIVE_PICKUP_STATUSES };
-    else if (filterKey === "history") filter.status = { $in: HISTORY_PICKUP_STATUSES.concat(["COMPLETED", "PICKED_UP"]) };
-    else if (filterKey === "centre") filter.status = { $in: CENTRE_STATUSES };
+    else if (filterKey === "all") {
+      /* all vendor pickups — no status filter */
+    } else if (filterKey === "history") {
+      filter.status = { $in: HISTORY_PICKUP_STATUSES.concat(["COMPLETED", "PICKED_UP"]) };
+    } else if (filterKey === "incoming") {
+      filter.$or = [
+        { status: { $in: INCOMING_AT_CENTRE_STATUSES } },
+        {
+          status: { $in: ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"] },
+          "receiving.status": { $ne: "RECEIVED" },
+        },
+      ];
+    } else if (filterKey === "centre") {
+      filter.$or = [
+        { status: { $in: AT_CENTRE_STATUSES } },
+        {
+          status: { $in: ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"] },
+          "receiving.status": { $ne: "RECEIVED" },
+        },
+      ];
+    }
     if (req.query.driverId) filter.driverId = req.query.driverId;
     if (req.query.status) filter.status = req.query.status;
     const pickups = await Pickup.find(filter).sort({ updatedAt: -1 }).lean();
@@ -1488,7 +1667,6 @@ async function driverPickupOr404(req, res) {
 async function enrichDriverView(pickup) {
   const data = await enrichPickup(pickup);
   delete data.qrToken;
-  delete data.qrPayload;
   return data;
 }
 
@@ -1541,7 +1719,7 @@ function batchPayload(batchId, orders) {
   return {
     batchId,
     lotId: batchId,
-    qrPayload: `greengroo:batch:${batchId}`,
+    qrPayload: batchQrPayloadFor(batchId, orders) || `greengroo:batch:${batchId}`,
     status: first.status || "",
     liveStatus: first.liveStatus || "",
     orderCount: orders.length,
@@ -1720,6 +1898,7 @@ export async function verifyDriverPickupQr(req, res) {
     if (parsed.token && pickup.qrToken && parsed.token === pickup.qrToken) matched = true;
     if (pickup.qrPayload && raw === pickup.qrPayload) matched = true;
     if (parsed.orderId && order && [order.id, order.orderId, pickup.orderId].includes(parsed.orderId)) matched = true;
+    if (parsed.pickupId && [pickup.id, pickup.pickupId].filter(Boolean).includes(parsed.pickupId)) matched = true;
     if (!matched && order) {
       const ids = [order.id, order.orderId, pickup.orderId].filter(Boolean).map(String);
       if (ids.some((id) => id && raw.includes(id))) matched = true;

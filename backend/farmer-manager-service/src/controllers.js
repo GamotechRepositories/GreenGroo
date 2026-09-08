@@ -19,7 +19,7 @@ import {
   PickupDriver,
   CollectionCentre,
 } from "./models.js";
-import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, formatFarmLocation } from "./pickupControllers.js";
+import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { categoryFromName, cropCodeFromName, varietyCodeFromName, farmerSerialFromId } from "../../erp-service/src/config/idRegistry.js";
@@ -2406,8 +2406,8 @@ function publicMyOrder(order, extra = {}) {
     packedQuantity: Number(plain.packedQuantity || 0),
     preparationStatus: plain.preparationStatus || (status === "NEW" ? "NOT_STARTED" : status === "READY_FOR_PICKUP" ? "READY_FOR_PICKUP" : status === "PACKING" ? "PACKING" : status === "PREPARING" || status === "ACCEPTED" ? "PREPARING" : "NOT_STARTED"),
     packingDetails: plain.packingDetails || {},
-    qrPayload: extra.qrPayload || `greengroo:order:${plain.orderId || plain.id}`,
     ...extra,
+    qrPayload: extra.qrPayload || qrPayloadFor(order, extra) || `greengroo:order:${plain.orderId || plain.id}`,
   };
 }
 
@@ -2509,6 +2509,19 @@ async function enrichOwnOrder(order, farmer) {
         .select("name mobile vehicleNumber vehicleType licenseNumber assignedArea")
         .lean()
     : null;
+  const qrPayload = qrPayloadFor(order, {
+    farmer,
+    pickup,
+    farmerName: farmer?.name || "",
+    farmerMobile: farmer?.mobile || "",
+    farmerLocation: pickup?.pickupLocation || "",
+    collectionCentreName: order.collectionCentre || "",
+    packedQuantity: pickup?.packedQuantity || order.packedQuantity,
+    packageCount: pickup?.packageCount || order?.packingDetails?.packageCount,
+    driverId: pickup?.driverId || "",
+    driverName: driver?.name || pickup?.driverName || "",
+    vehicleNumber: driver?.vehicleNumber || pickup?.vehicleNumber || "",
+  });
   return publicMyOrder(order, {
     farmerName: farmer?.name || "",
     harvestDate: order.harvestDate || product?.harvestDate || "",
@@ -2565,12 +2578,12 @@ async function enrichOwnOrder(order, farmer) {
           qrVerifiedAt: pickup.qrVerifiedAt || null,
           pickupConfirmedAt: pickup.pickupConfirmedAt || null,
           pickupInstructions: pickup.pickupInstructions || "",
-          qrPayload: `greengroo:order:${order.orderId || order.id}`,
+          qrPayload,
           timeline: pickup.timeline || [],
           confirmationPhotos: pickup.confirmationPhotos || [],
         }
       : null,
-    qrPayload: `greengroo:order:${order.orderId || order.id}`,
+    qrPayload,
   });
 }
 
@@ -4478,7 +4491,7 @@ export async function getManagerDashboard(req, res) {
       });
     }
 
-    const [productAgg, orderAgg, earningAgg, recentOrders, lowStockProducts, pendingProductApprovals] = await Promise.all([
+    const [productAgg, orderAgg, earningAgg, farmerOrders, harvestRows, lowStockProducts, pendingProductApprovals] = await Promise.all([
       FarmerProduct.aggregate([
         { $match: { farmerId: { $in: farmerIds } } },
         { $group: { _id: null, totalProducts: { $sum: 1 }, totalInventory: { $sum: { $ifNull: ["$stock", 0] } } } },
@@ -4504,9 +4517,12 @@ export async function getManagerDashboard(req, res) {
         },
       ]),
       FarmerOrder.find({ farmerId: { $in: farmerIds } })
-        .sort({ orderDate: -1 })
-        .limit(10)
-        .select("id farmerId products totalQuantity totalAmount status orderDate rejectionReason rejectionNote")
+        .sort({ createdAt: -1, orderDate: -1 })
+        .limit(20)
+        .lean(),
+      FarmerHarvestOrder.find({ farmerId: { $in: farmerIds } })
+        .sort({ createdAt: -1 })
+        .limit(20)
         .lean(),
       FarmerProduct.find({ farmerId: { $in: farmerIds } })
         .select("farmerId name grades stock lowStockLimit")
@@ -4521,6 +4537,24 @@ export async function getManagerDashboard(req, res) {
     const p = productAgg[0] || { totalProducts: 0, totalInventory: 0 };
     const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0 };
     const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
+    const named = (ord) => ({
+      ...ord,
+      status: normalizeOrderStatus(ord.status),
+      farmerName: farmerNameMap.get(ord.farmerId) || ord.farmerName || "—",
+    });
+    const recentOrders = mergeHarvestLists(
+      harvestRows.map(named),
+      mapFarmerOrdersToHarvest(farmerOrders).map(named)
+    )
+      .slice(0, 10)
+      .map((ord) => ({
+        ...ord,
+        orderId: ord.orderId || ord.id,
+        productName: ord.productName || ord.products?.[0]?.name || "—",
+        totalQuantity: Number(ord.totalQuantity || ord.orderedQuantity || 0),
+        totalAmount: Number(ord.totalAmount || ord.orderValue || ord.amount || 0),
+        orderDate: ord.orderDate || ord.date || ord.createdAt,
+      }));
 
     res.json({
       totalFarmers: farmers.length,
@@ -4532,11 +4566,7 @@ export async function getManagerDashboard(req, res) {
       totalEarnings: e.totalEarnings,
       pendingEarnings: e.pendingEarnings,
       pendingProductApprovals,
-      recentOrders: recentOrders.map((ord) => ({
-        ...ord,
-        status: normalizeOrderStatus(ord.status),
-        farmerName: farmerNameMap.get(ord.farmerId) || "—",
-      })),
+      recentOrders,
       lowStock: lowStockProducts.map((prod) => ({
         farmerId: prod.farmerId,
         farmerName: farmerNameMap.get(prod.farmerId) || "—",

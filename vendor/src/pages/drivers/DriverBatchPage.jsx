@@ -4,14 +4,29 @@ import { driverApi } from "../../api/driverApi";
 import BatchDetailView from "../../components/pickup/BatchDetailView";
 import { formatVehicleId } from "../../components/ui/CopyId";
 import { usePolling } from "../../hooks/usePolling";
+import { buildBatchQrPayload } from "../../utils/batchQr";
 
 function payloadFromPickups(batchId, pickups = []) {
   const first = pickups[0] || {};
   const driver = first.driver || {};
+  const farmers = [...new Set(pickups.map((p) => p.farmerName).filter(Boolean))];
+  const products = [...new Set(pickups.map((p) => p.productName).filter(Boolean))];
+  const vehicleId = formatVehicleId(first.vehicleId || driver.vehicleId, first.vehicleNumber || driver.vehicleNumber);
   return {
     batchId,
     lotId: batchId,
-    qrPayload: `greengroo:batch:${batchId}`,
+    qrPayload: buildBatchQrPayload({
+      ...first,
+      batchId,
+      pickups,
+      driverId: first.driverId || driver.id,
+      driverName: first.driverName || driver.name,
+      vehicleId,
+      vehicleNumber: first.vehicleNumber || driver.vehicleNumber,
+      collectionCentreName: first.collectionCentreName,
+      farmers,
+      products,
+    }),
     liveStatus: first.liveStatus || "",
     status: first.status || "",
     collectionCentreName: first.collectionCentreName || "",
@@ -20,9 +35,9 @@ function payloadFromPickups(batchId, pickups = []) {
     driverMobile: first.driverMobile || driver.mobile || "",
     vehicleNumber: first.vehicleNumber || driver.vehicleNumber || "",
     vehicleType: first.vehicleType || driver.vehicleType || "",
-    vehicleId: formatVehicleId(first.vehicleId || driver.vehicleId, first.vehicleNumber || driver.vehicleNumber),
-    farmers: [...new Set(pickups.map((p) => p.farmerName).filter(Boolean))],
-    products: [...new Set(pickups.map((p) => p.productName).filter(Boolean))],
+    vehicleId,
+    farmers,
+    products,
     pickups,
   };
 }

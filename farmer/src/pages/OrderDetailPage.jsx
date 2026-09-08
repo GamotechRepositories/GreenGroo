@@ -248,7 +248,7 @@ function OrderDetailPage() {
 
       {stableOrderQrValue(order) ? (
         <Card title="Order QR">
-          <OrderQrCode value={stableOrderQrValue(order)} />
+          <OrderQrCode value={stableOrderQrValue(order)} record={order} />
         </Card>
       ) : null}
 

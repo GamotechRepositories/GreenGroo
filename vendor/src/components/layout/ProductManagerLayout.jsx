@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
+import VendorBottomNav from './VendorBottomNav'
 import { useVendorAuth } from '../../context/VendorAuthContext'
 import { useInventoryRequests } from '../../hooks/useInventoryRequests'
 import { vendorApi } from '../../api/vendorApi'
@@ -29,16 +30,24 @@ const navItems = [
     ],
   },
   {
-    id: 'delivery-drivers',
-    label: 'Delivery / Pickup',
+    id: 'pickup',
+    label: 'Pickup',
     icon: 'truck',
     children: [
-      { to: '/vendor/drivers', label: 'Drivers', end: true },
+      { to: '/vendor/pickups/incoming', label: 'Incoming Pickups' },
+      { to: '/vendor/pickups/centre', label: 'Pickups at Centre' },
+      { to: '/vendor/pickups/all', label: 'All Pickups' },
+    ],
+  },
+  {
+    id: 'driver',
+    label: 'Driver',
+    icon: 'user',
+    children: [
+      { to: '/vendor/pickups/ready', label: 'Ready for Pickup' },
       { to: '/vendor/pickups/assigned', label: 'Assigned Pickups' },
       { to: '/vendor/pickups/today', label: "Today's Pickups" },
-      { to: '/vendor/pickups/active', label: 'Active Pickups' },
-      { to: '/vendor/pickups/history', label: 'Pickup History' },
-      { to: '/vendor/collection-centre', label: 'Collection Centre' },
+      { to: '/vendor/drivers', label: 'All Drivers', end: true },
     ],
   },
   {
@@ -60,9 +69,9 @@ const footerItems = [
   { to: '/profile', label: 'My Profile', icon: 'user' },
 ]
 
-function NavItem({ item, badge }) {
+function NavItem({ item, badge, onNavigate }) {
   if (item.children) {
-    return <NavGroup item={item} />
+    return <NavGroup item={item} onNavigate={onNavigate} />
   }
 
   return (
@@ -70,6 +79,7 @@ function NavItem({ item, badge }) {
       <NavLink
         to={item.to}
         end={item.end}
+        onClick={onNavigate}
         className={({ isActive }) =>
           `flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
             isActive
@@ -90,7 +100,7 @@ function NavItem({ item, badge }) {
   )
 }
 
-function NavGroup({ item }) {
+function NavGroup({ item, onNavigate }) {
   const location = useLocation()
   const isChildActive = item.children.some((child) =>
     location.pathname.startsWith(child.to),
@@ -124,6 +134,7 @@ function NavGroup({ item }) {
               <NavLink
                 to={child.to}
                 end={child.end}
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   `block rounded-lg px-3 py-2 text-sm transition-colors ${
                     isActive
@@ -145,20 +156,48 @@ function NavGroup({ item }) {
 export default function ProductManagerLayout() {
   const vendor = useVendorAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { requests } = useInventoryRequests(12000)
   const pendingCount = requests.filter((request) => request.status === 'pending').length
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const closeMobile = () => setMobileOpen(false)
+
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [location.pathname])
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
-      <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col bg-green-dark text-white">
+    <div className="min-h-dvh bg-[#f8f9fa]">
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-[45] bg-black/40 lg:hidden"
+          onClick={closeMobile}
+        />
+      ) : null}
+
+      <aside
+        className={`fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col bg-green-dark text-white transition-transform duration-200 lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
         <div className="flex items-center gap-3 px-5 py-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-primary">
             <LogoIcon className="h-5 w-5 text-white" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-bold leading-tight text-white">GreenGroo</p>
             <p className="text-xs text-white/60">Vendor Panel</p>
           </div>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
+            onClick={closeMobile}
+            aria-label="Close menu"
+          >
+            <span className="text-lg leading-none">×</span>
+          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
@@ -167,6 +206,7 @@ export default function ProductManagerLayout() {
               <NavItem
                 key={item.to || item.id}
                 item={item}
+                onNavigate={closeMobile}
                 badge={item.to === '/inventory-requests' ? pendingCount : 0}
               />
             ))}
@@ -179,6 +219,7 @@ export default function ProductManagerLayout() {
               <li key={item.to}>
                 <NavLink
                   to={item.to}
+                  onClick={closeMobile}
                   className={({ isActive }) =>
                     `flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                       isActive
@@ -209,12 +250,28 @@ export default function ProductManagerLayout() {
         </div>
       </aside>
 
-      <div className="ml-64 min-h-screen">
-        <div className="px-6 pt-4">
+      <div className="min-h-dvh pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:ml-64 lg:pb-0">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 lg:hidden">
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Icon name="menu" size="sm" />
+          </button>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900">GreenGroo</p>
+            <p className="truncate text-[11px] text-gray-500">Vendor Panel</p>
+          </div>
+        </header>
+        <div className="px-4 pt-3 lg:px-6 lg:pt-4">
           <RoleAnnouncements roleKey="vendor" load={() => vendorApi.liveAnnouncements()} />
         </div>
         <Outlet />
       </div>
+
+      <VendorBottomNav />
     </div>
   )
 }
@@ -223,7 +280,13 @@ export function PageShell({ title, subtitle, children }) {
   return (
     <>
       <Header title={title} subtitle={subtitle} />
-      <main className="space-y-5 p-6">{children}</main>
+      <main className="space-y-4 p-4 sm:space-y-5 sm:p-6">
+        <div className="lg:hidden">
+          <h1 className="text-lg font-bold leading-tight text-gray-900">{title}</h1>
+          {subtitle ? <p className="mt-0.5 text-xs leading-snug text-gray-500">{subtitle}</p> : null}
+        </div>
+        {children}
+      </main>
     </>
   )
 }

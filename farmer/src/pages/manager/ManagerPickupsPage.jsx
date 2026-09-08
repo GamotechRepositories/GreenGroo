@@ -5,7 +5,7 @@ import StatusBadge from "../../components/ui/StatusBadge";
 import EmptyState from "../../components/ui/EmptyState";
 import CopyId, { CopyButton, formatVehicleId } from "../../components/ui/CopyId";
 import QrScanModal from "../../components/pickup/QrScanModal";
-import { parseBatchQrPayload } from "../../utils/batchQr";
+import { isBatchQrPayload, parseBatchQrPayload } from "../../utils/batchQr";
 import { parseOrderQrPayload } from "../../utils/orderQr";
 import { usePolling } from "../../hooks/usePolling";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY, EXCEL_BTN, EXCEL_INPUT } from "../../utils/excelStyles";
@@ -390,15 +390,17 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   const hasFilter = Boolean(q || farmerId || product || pickupDate);
 
   const openScanned = (value) => {
-    const batchId = parseBatchQrPayload(value);
-    if (batchId) {
-      const card = batchCards.find((c) => c.type === "batch" && c.batchId === batchId);
-      setScanOpen(false);
-      setScanError("");
-      navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(batchId)}`, {
-        state: card ? { batchId, pickups: card.pickups, from: batchFrom } : { from: batchFrom },
-      });
-      return;
+    if (isBatchQrPayload(value)) {
+      const batchId = parseBatchQrPayload(value);
+      if (batchId) {
+        const card = batchCards.find((c) => c.type === "batch" && c.batchId === batchId);
+        setScanOpen(false);
+        setScanError("");
+        navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(batchId)}`, {
+          state: card ? { batchId, pickups: card.pickups, from: batchFrom } : { from: batchFrom },
+        });
+        return;
+      }
     }
     const orderId = parseOrderQrPayload(value);
     const match = pickups.find((p) => {

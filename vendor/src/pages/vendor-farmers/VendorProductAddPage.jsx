@@ -219,7 +219,7 @@ export default function VendorProductAddPage() {
           </>
         ) : (
           <Link to="/vendor/products" className="hover:text-[#217346]">
-            Products
+            All Products
           </Link>
         )}
         <span>›</span>

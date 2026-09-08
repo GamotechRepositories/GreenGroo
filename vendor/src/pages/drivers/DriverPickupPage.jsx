@@ -318,10 +318,10 @@ export default function DriverPickupPage() {
       ) : null}
 
       {qrOpen && pickup.collectionBatchId ? (
-        <BatchQrModal batchId={pickup.collectionBatchId} onClose={() => setQrOpen(false)} />
+        <BatchQrModal batchId={pickup.collectionBatchId} record={pickup} onClose={() => setQrOpen(false)} />
       ) : null}
       {orderQrOpen ? (
-        <OrderQrModal value={orderQrValue(pickup)} onClose={() => setOrderQrOpen(false)} />
+        <OrderQrModal value={orderQrValue(pickup)} record={pickup} onClose={() => setOrderQrOpen(false)} />
       ) : null}
 
       {confirmOpen ? (

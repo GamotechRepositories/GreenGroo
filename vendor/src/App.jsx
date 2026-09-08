@@ -18,6 +18,7 @@ import AddFarmerPage from './pages/vendor-farmers/AddFarmerPage'
 import FarmerDetailPage from './pages/vendor-farmers/FarmerDetailPage'
 import VendorProductsPage from './pages/vendor-farmers/VendorProductsPage'
 import VendorProductAddPage from './pages/vendor-farmers/VendorProductAddPage'
+import VendorProductFarmersPage from './pages/vendor-farmers/VendorProductFarmersPage'
 import FarmerCropViewPage from './pages/vendor-farmers/FarmerCropViewPage'
 import FarmerCropFormPage from './pages/vendor-farmers/FarmerCropFormPage'
 import DriversPage from './pages/drivers/DriversPage'
@@ -33,6 +34,7 @@ import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
 import DriverBatchPage from './pages/drivers/DriverBatchPage'
 import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
+import VendorSearchPage from './pages/search/VendorSearchPage'
 
 function App() {
   return (
@@ -59,11 +61,13 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<ProductManagerLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/vendor/search" element={<VendorSearchPage />} />
                 <Route path="/vendor/farmer-managers" element={<FarmerManagersPage />} />
                 <Route path="/vendor/farmer-managers/add" element={<AddManagerPage />} />
                 <Route path="/vendor/farmer-managers/:managerId" element={<ManagerDetailPage />} />
                 <Route path="/vendor/all-farmers" element={<AllFarmersPage />} />
                 <Route path="/vendor/products/add" element={<VendorProductAddPage />} />
+                <Route path="/vendor/products/:productKey/farmers" element={<VendorProductFarmersPage />} />
                 <Route path="/vendor/products" element={<VendorProductsPage />} />
                 <Route path="/vendor/all-farmers/add" element={<AddFarmerPage />} />
                 <Route path="/vendor/all-farmers/:farmerId/crops/add" element={<FarmerCropFormPage />} />
@@ -75,13 +79,17 @@ function App() {
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId" element={<DriverDetailPage />} />
+                <Route path="/vendor/pickups/ready" element={<VendorPickupsPage mode="ready" />} />
                 <Route path="/vendor/pickups/assigned" element={<VendorPickupsPage mode="assigned" />} />
-                <Route path="/vendor/pickups/assignments" element={<VendorPickupsPage mode="assignments" />} />
+                <Route path="/vendor/pickups/assignments" element={<Navigate to="/vendor/pickups/ready" replace />} />
                 <Route path="/vendor/pickups/today" element={<VendorPickupsPage mode="today" />} />
-                <Route path="/vendor/pickups/active" element={<VendorPickupsPage mode="active" />} />
-                <Route path="/vendor/pickups/history" element={<VendorPickupsPage mode="history" />} />
+                <Route path="/vendor/pickups/incoming" element={<VendorPickupsPage mode="incoming" />} />
+                <Route path="/vendor/pickups/centre" element={<VendorPickupsPage mode="centre" />} />
+                <Route path="/vendor/pickups/all" element={<VendorPickupsPage mode="all" />} />
+                <Route path="/vendor/pickups/active" element={<Navigate to="/vendor/pickups/all" replace />} />
+                <Route path="/vendor/pickups/history" element={<Navigate to="/vendor/pickups/all" replace />} />
                 <Route path="/vendor/pickups/:pickupId" element={<VendorPickupDetailPage />} />
-                <Route path="/vendor/collection-centre" element={<VendorPickupsPage mode="centre" />} />
+                <Route path="/vendor/collection-centre" element={<Navigate to="/vendor/pickups/centre" replace />} />
                 <Route path="/vendor/collection-centre/:pickupId" element={<CollectionReceivePage />} />
                 <Route path="/vendor/batches/:batchId" element={<VendorBatchPage />} />
                 <Route path="/vendor/quality" element={<Navigate to="/vendor/quality/pending" replace />} />

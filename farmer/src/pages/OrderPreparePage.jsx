@@ -109,7 +109,7 @@ function OrderPreparePage() {
             <Info label="Preparation Status" value={order.preparationStatus} />
           </div>
         </section>
-        <OrderQrCode value={stableOrderQrValue(order)} />
+        <OrderQrCode value={stableOrderQrValue(order)} record={order} />
       </div>
 
       <section className={EXCEL_PANEL}>

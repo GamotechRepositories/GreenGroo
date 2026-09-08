@@ -34,7 +34,7 @@ function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceh
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <div className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-5">
+      <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-5 sm:py-3">
         <button type="button" onClick={onOpenSidebar} className={`${EXCEL_BTN} px-2.5 lg:hidden`} aria-label="Open menu">
           <Menu className="h-4 w-4" />
         </button>

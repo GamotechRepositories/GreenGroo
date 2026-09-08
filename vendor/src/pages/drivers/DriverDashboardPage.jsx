@@ -259,7 +259,15 @@ export default function DriverDashboardPage({ mode = "assigned" }) {
           })}
         </div>
       )}
-      <BatchQrModal batchId={qrBatchId} onClose={() => setQrBatchId("")} />
+      <BatchQrModal
+        batchId={qrBatchId}
+        record={
+          qrBatchId
+            ? { batchId: qrBatchId, pickups: rows.filter((p) => p.collectionBatchId === qrBatchId) }
+            : null
+        }
+        onClose={() => setQrBatchId("")}
+      />
     </div>
   );
 }

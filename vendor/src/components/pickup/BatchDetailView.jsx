@@ -79,7 +79,7 @@ export default function BatchDetailView({ data, backTo, backLabel = "Back", onOp
         <div className="p-3 sm:p-5">
           <div className="flex items-start gap-3">
             <div className="w-[8.25rem] shrink-0 sm:w-44 lg:w-52">
-              <BatchQrCode value={data?.qrPayload || batchId} compact />
+              <BatchQrCode value={data?.qrPayload || batchId} record={data} compact />
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <IdBlock label="Lot / Batch ID" value={batchId} large />
