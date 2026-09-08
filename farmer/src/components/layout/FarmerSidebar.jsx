@@ -135,7 +135,7 @@ function FarmerSidebar({ mobileOpen, onCloseMobile }) {
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r border-slate-200/80 bg-white shadow-xl transition-[width,transform] duration-200 lg:static lg:z-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col border-r border-slate-200/80 bg-white shadow-xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-0 lg:shadow-none ${
           compact ? "w-[76px]" : "w-[min(272px,86vw)]"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >

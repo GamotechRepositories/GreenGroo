@@ -53,15 +53,15 @@ function FarmerLayout() {
   }
 
   return (
-    <div className="farmer-panel flex min-h-dvh bg-[#f3f6f4] text-slate-900">
+    <div className="farmer-panel flex h-dvh overflow-hidden bg-[#f3f6f4] text-slate-900">
       <FarmerSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <FarmerHeader
           onOpenSidebar={() => setMobileOpen(true)}
           searchValue={search}
           onSearchChange={setSearch}
         />
-        <main className="farmer-scrollbar flex-1 overflow-x-hidden p-2 sm:p-5 lg:p-6">
+        <main className="farmer-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-5 lg:p-6">
           <RoleAnnouncements
             roleKey={isManager ? "farmer_manager" : "farmer"}
             load={() => getLiveAnnouncements(isManager ? "farmer_manager" : "farmer")}
