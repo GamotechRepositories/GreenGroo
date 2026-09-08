@@ -23,7 +23,18 @@ import BulkImportExport from './pages/ops/BulkImportExport';
 import CsvImportExport from './pages/ops/CsvImportExport';
 import MultiVendor from './pages/ops/MultiVendor';
 import HrManagement from './pages/ops/HrManagement';
+import HrCalendarPage from './pages/hr/HrCalendarPage';
+import HrAnnouncementsPage from './pages/hr/HrAnnouncementsPage';
+import HrLeavePage from './pages/hr/HrLeavePage';
+import HrEmployeesPage from './pages/hr/HrEmployeesPage';
+import HrEmployeeProfilePage from './pages/hr/HrEmployeeProfilePage';
+import HrPayrollPage from './pages/hr/HrPayrollPage';
+import HrRecruitmentPage from './pages/hr/HrRecruitmentPage';
+import HrAttendancePage from './pages/hr/HrAttendancePage';
 import DeliveryManagement from './pages/ops/DeliveryManagement';
+import DeliveryTeamPage from './pages/ops/DeliveryTeamPage';
+import DeliveryManager360Page from './pages/ops/DeliveryManager360Page';
+import DeliveryBoy360Page from './pages/ops/DeliveryBoy360Page';
 import DeliveryTracking from './pages/ops/DeliveryTracking';
 import StoreSupport from './pages/ops/StoreSupport';
 import FinanceManagement from './pages/ops/FinanceManagement';
@@ -58,7 +69,18 @@ export default function App() {
               <Route path="csv-import-export" element={<CsvImportExport />} />
               <Route path="multi-vendor" element={<MultiVendor />} />
               <Route path="hr-management" element={<HrManagement />} />
+              <Route path="hr-management/calendar" element={<HrCalendarPage />} />
+              <Route path="hr-management/announcements" element={<HrAnnouncementsPage />} />
+              <Route path="hr-management/leave" element={<HrLeavePage />} />
+              <Route path="hr-management/employees" element={<HrEmployeesPage />} />
+              <Route path="hr-management/employees/:type/:id" element={<HrEmployeeProfilePage />} />
+              <Route path="hr-management/payroll" element={<HrPayrollPage />} />
+              <Route path="hr-management/recruitment" element={<HrRecruitmentPage />} />
+              <Route path="hr-management/attendance" element={<HrAttendancePage />} />
               <Route path="delivery-management" element={<DeliveryManagement />} />
+              <Route path="delivery-team" element={<DeliveryTeamPage />} />
+              <Route path="delivery-team/managers/:id" element={<DeliveryManager360Page />} />
+              <Route path="delivery-team/boys/:id" element={<DeliveryBoy360Page />} />
               <Route path="delivery-tracking" element={<DeliveryTracking />} />
               <Route path="store-support" element={<StoreSupport />} />
               <Route path="finance" element={<FinanceManagement />} />

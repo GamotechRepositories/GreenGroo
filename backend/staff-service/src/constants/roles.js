@@ -26,6 +26,7 @@ export const ROLE_LABELS = {
   product_manager: "Product Manager",
   farmer_manager: "Farmer Manager",
   farmer: "Farmer",
+  pickup_driver: "Pickup Driver",
   delivery_manager: "Delivery Manager",
   delivery_boy: "Delivery Boy",
 };

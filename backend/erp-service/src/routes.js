@@ -13,6 +13,7 @@ import {
   globalSearch,
   generateBusinessId,
   listFarmers,
+  listFarmerManagers,
   getFarmer360,
   receiveGrn,
   detectId,
@@ -32,6 +33,7 @@ router.get("/detect", requirePermission("erp:read"), detectId);
 router.post("/ids/generate", requirePermission("erp:write"), generateBusinessId);
 
 router.get("/farmers", requirePermission("erp:read"), listFarmers);
+router.get("/farmer-managers", requirePermission("erp:read"), listFarmerManagers);
 router.get("/farmers/:id", requirePermission("erp:read"), getFarmer360);
 
 router.post("/goods_receipts/:id/receive", requirePermission("erp:write"), (req, res, next) => {

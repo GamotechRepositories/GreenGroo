@@ -14,6 +14,7 @@ import {
   Warehouse,
   Packaging,
   Dispatch,
+  Delivery,
   Vehicle,
   DriverMaster,
   CustomerOrder,
@@ -37,9 +38,26 @@ async function findByBusinessId(resourceKey, id) {
   return spec.model.findOne({ [spec.idField]: id, isDeleted: { $ne: true } }).lean();
 }
 
+function idVariants(id) {
+  const raw = String(id || "").trim();
+  const noHash = raw.replace(/^#+/, "").trim();
+  const variants = new Set([raw, noHash, noHash.toUpperCase(), noHash.toLowerCase()]);
+  const ggOrder = noHash.match(/^GG[-_]?(\d+)$/i);
+  if (ggOrder) {
+    variants.add(ggOrder[1]);
+    variants.add(ggOrder[1].padStart(6, "0"));
+  }
+  return [...variants].filter(Boolean);
+}
+
 async function findFarmer(id) {
+  const ids = idVariants(id);
   return Farmer.findOne({
-    $or: [{ farmerId: id }, { id }],
+    $or: [
+      { farmerId: { $in: ids } },
+      { id: { $in: ids } },
+      { farmerCode: { $in: ids } },
+    ],
     isDeleted: { $ne: true },
   }).lean();
 }
@@ -51,16 +69,17 @@ async function listBy(model, filter, limit = 50) {
 export async function getByFarmerId(farmerId) {
   const farmer = await findFarmer(farmerId);
   if (!farmer) return null;
-  const id = farmer.farmerId || farmer.id;
+  const ids = [...new Set([...idVariants(farmer.farmerId || farmer.id), ...idVariants(farmer.id), farmer.farmerCode].filter(Boolean))];
+  const related = { farmerId: { $in: ids } };
   const [farms, crops, articles, batches, crates, qrs, quality, procurements] = await Promise.all([
-    listBy(Farm, { farmerId: id }),
-    listBy(Crop, { farmerId: id }),
-    listBy(Article, { farmerId: id }),
-    listBy(Batch, { farmerId: id }),
-    listBy(Crate, { farmerId: id }),
-    listBy(QrCode, { farmerId: id }),
-    listBy(QualityCheck, { farmerId: id }),
-    listBy(Procurement, { farmerId: id }),
+    listBy(Farm, related),
+    listBy(Crop, related),
+    listBy(Article, related),
+    listBy(Batch, related),
+    listBy(Crate, related),
+    listBy(QrCode, related),
+    listBy(QualityCheck, related),
+    listBy(Procurement, related),
   ]);
   return { farmer, farms, crops, articles, batches, crates, qrs, quality, procurements };
 }
@@ -167,14 +186,19 @@ export async function getByQrId(qrId) {
 }
 
 export async function getByOrderId(orderId) {
-  const order = await findByBusinessId("customer_orders", orderId);
+  const ids = idVariants(orderId);
+  const order = await CustomerOrder.findOne({
+    isDeleted: { $ne: true },
+    $or: [{ orderId: { $in: ids } }, { sourceOrderId: { $in: ids } }],
+  }).lean();
   if (!order) return null;
+  const linkedOrderId = order.orderId || orderId;
   const [customer, deliveries, dispatches, invoices, payments] = await Promise.all([
     order.customerId ? findByBusinessId("customers", order.customerId) : null,
-    listBy(Delivery, { orderId }),
-    listBy(Dispatch, { orderId }),
-    listBy(Invoice, { orderId }),
-    listBy(ErpPayment, { orderId }),
+    listBy(Delivery, { orderId: linkedOrderId }),
+    listBy(Dispatch, { orderId: linkedOrderId }),
+    listBy(Invoice, { orderId: linkedOrderId }),
+    listBy(ErpPayment, { orderId: linkedOrderId }),
   ]);
   const batchIds = (order.items || []).map((i) => i.batchId).filter(Boolean);
   const batches = batchIds.length ? await Batch.find({ batchId: { $in: batchIds } }).lean() : [];
@@ -272,17 +296,29 @@ export async function getCompleteTraceability(id) {
   const raw = String(id || "").trim();
   if (!raw) return { found: false, error: "ID is required" };
 
-  const detected = detectEntity(raw);
+  const lookupId = raw.replace(/^#+/, "").trim() || raw;
+  const detected = detectEntity(lookupId) || detectEntity(raw);
   let entity = detected?.entity || null;
   let graph = null;
 
+  const tryLoad = async (loader, value) => {
+    try {
+      return await loader(value);
+    } catch (err) {
+      console.error(`[erp-search] loader failed for ${value}:`, err.message);
+      return null;
+    }
+  };
+
   if (entity && LOADERS[entity]) {
-    graph = await LOADERS[entity](raw);
+    graph = await tryLoad(LOADERS[entity], lookupId);
+    if (!graph && lookupId !== raw) graph = await tryLoad(LOADERS[entity], raw);
   }
 
   if (!graph) {
     for (const [key, loader] of Object.entries(LOADERS)) {
-      graph = await loader(raw);
+      graph = await tryLoad(loader, lookupId);
+      if (!graph && lookupId !== raw) graph = await tryLoad(loader, raw);
       if (graph) {
         entity = key;
         break;
@@ -292,7 +328,9 @@ export async function getCompleteTraceability(id) {
 
   if (!graph && detected?.entity) {
     const resourceKey = ENTITY_RESOURCE[detected.entity];
-    const record = resourceKey ? await findByBusinessId(resourceKey, raw) : null;
+    const record = resourceKey
+      ? (await findByBusinessId(resourceKey, lookupId)) || (await findByBusinessId(resourceKey, raw))
+      : null;
     if (record) {
       graph = { [detected.entity]: record };
       entity = detected.entity;

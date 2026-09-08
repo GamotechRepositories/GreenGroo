@@ -23,6 +23,10 @@ export const managerApi = {
   login: (data) => api.post(`${BASE}/login`, data),
   me: () => api.get(`${BASE}/me`),
   dashboard: () => api.get(`${BASE}/dashboard`),
+  liveAnnouncements: () =>
+    api
+      .get("/api/admin-ops/hr/announcements/live", { params: { role: "delivery_manager" } })
+      .then((res) => res.data?.data || []),
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
   listInventoryRequests: (params) =>

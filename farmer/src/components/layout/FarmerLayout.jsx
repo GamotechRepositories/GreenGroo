@@ -9,6 +9,8 @@ import {
   fetchFarmerProfile,
   selectIsManager,
 } from "../../store/farmerSlice";
+import { getLiveAnnouncements } from "../../api/farmerApi";
+import RoleAnnouncements from "../RoleAnnouncements";
 import "../../styles/farmer.css";
 
 function FarmerLayout() {
@@ -60,6 +62,10 @@ function FarmerLayout() {
           onSearchChange={setSearch}
         />
         <main className="farmer-scrollbar flex-1 overflow-x-hidden p-2 sm:p-5 lg:p-6">
+          <RoleAnnouncements
+            roleKey={isManager ? "farmer_manager" : "farmer"}
+            load={() => getLiveAnnouncements(isManager ? "farmer_manager" : "farmer")}
+          />
           <Outlet context={{ search, setSearch }} />
         </main>
       </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2, Truck } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 
@@ -49,6 +50,7 @@ export default function DeliveryManagement() {
         <div>
           <h1 className="font-display text-2xl font-bold">Delivery Management</h1>
           <p className="text-sm text-slate-500">Assign riders and update dark-store order status.</p>
+          <Link to="/delivery-team" className="mt-1 inline-block text-xs font-semibold text-emerald-700">Open delivery team directory →</Link>
         </div>
       </div>
       {error ? <div className="rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div> : null}
@@ -106,7 +108,7 @@ export default function DeliveryManagement() {
                     >
                       <option value="">Select rider</option>
                       {riders.map((rider) => (
-                        <option key={rider._id} value={rider._id}>
+                        <option key={rider.id || rider._id} value={rider.id || rider._id}>
                           {rider.name || rider.phone} ({rider.status})
                         </option>
                       ))}

@@ -91,12 +91,20 @@ const financeLedgerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const HR_EMPLOYEE_TYPES = [
+  "staff",
+  "farmer_manager",
+  "pickup_driver",
+  "delivery_manager",
+  "delivery_boy",
+];
+
 const hrAttendanceSchema = new mongoose.Schema(
   {
     employeeId: { type: String, required: true, trim: true, index: true },
     employeeType: {
       type: String,
-      enum: ["staff", "delivery_manager", "delivery_boy"],
+      enum: HR_EMPLOYEE_TYPES,
       default: "staff",
     },
     name: { type: String, required: true, trim: true },
@@ -105,6 +113,57 @@ const hrAttendanceSchema = new mongoose.Schema(
     clockIn: { type: Date, default: Date.now },
     clockOut: { type: Date, default: null },
     notes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+const hrEmploymentSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, required: true, index: true },
+    name: { type: String, default: "", trim: true },
+    department: { type: String, default: "", trim: true },
+    designation: { type: String, default: "", trim: true },
+    joiningDate: { type: String, default: "", trim: true },
+    monthlySalary: { type: Number, default: 0, min: 0 },
+    bankAccount: { type: String, default: "", trim: true },
+    ifsc: { type: String, default: "", trim: true },
+    upi: { type: String, default: "", trim: true },
+    workNotes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+hrEmploymentSchema.index({ employeeType: 1, employeeId: 1 }, { unique: true });
+
+const hrPayrollSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, required: true },
+    name: { type: String, required: true, trim: true },
+    role: { type: String, default: "", trim: true },
+    month: { type: String, required: true, trim: true, index: true },
+    gross: { type: Number, required: true, min: 0 },
+    deductions: { type: Number, default: 0, min: 0 },
+    net: { type: Number, required: true, min: 0 },
+    tax: { type: Number, default: 0, min: 0 },
+    payrunId: { type: String, default: "", trim: true, index: true },
+    status: { type: String, enum: ["pending", "paid"], default: "pending", index: true },
+    paidAt: { type: Date, default: null },
+    notes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+hrPayrollSchema.index({ employeeType: 1, employeeId: 1, month: 1 }, { unique: true });
+
+const hrTaskSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, required: true },
+    name: { type: String, required: true, trim: true },
+    title: { type: String, required: true, trim: true },
+    details: { type: String, default: "", trim: true },
+    dueDate: { type: String, default: "", trim: true },
+    status: { type: String, enum: ["open", "in_progress", "done"], default: "open", index: true },
   },
   { timestamps: true }
 );
@@ -121,3 +180,124 @@ export const FinanceLedger =
   mongoose.models.AdminFinanceLedger || mongoose.model("AdminFinanceLedger", financeLedgerSchema);
 export const HrAttendance =
   mongoose.models.AdminHrAttendance || mongoose.model("AdminHrAttendance", hrAttendanceSchema);
+export const HrEmployment =
+  mongoose.models.AdminHrEmployment || mongoose.model("AdminHrEmployment", hrEmploymentSchema);
+export const HrPayroll =
+  mongoose.models.AdminHrPayroll || mongoose.model("AdminHrPayroll", hrPayrollSchema);
+export const HrTask = mongoose.models.AdminHrTask || mongoose.model("AdminHrTask", hrTaskSchema);
+
+const HR_ROLE_KEYS = [
+  "vendor",
+  "segregation_manager",
+  "product_manager",
+  "farmer_manager",
+  "farmer",
+  "pickup_driver",
+  "delivery_manager",
+  "delivery_boy",
+];
+
+const hrAnnouncementSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    body: { type: String, default: "", trim: true },
+    roleKey: { type: String, default: "all", trim: true, index: true },
+    status: { type: String, enum: ["draft", "scheduled", "published"], default: "draft", index: true },
+    scheduledAt: { type: String, default: "", trim: true },
+    publishedAt: { type: Date, default: null },
+    createdBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+const hrLeavePolicySchema = new mongoose.Schema(
+  {
+    roleKey: { type: String, required: true, unique: true, trim: true },
+    casualDays: { type: Number, default: 12, min: 0 },
+    sickDays: { type: Number, default: 12, min: 0 },
+    earnedDays: { type: Number, default: 15, min: 0 },
+    notes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+const hrLeaveRequestSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, default: "staff" },
+    name: { type: String, required: true, trim: true },
+    role: { type: String, default: "", trim: true },
+    roleKey: { type: String, default: "", trim: true, index: true },
+    leaveType: { type: String, enum: ["casual", "sick", "earned", "unpaid"], default: "casual" },
+    fromDate: { type: String, required: true, trim: true },
+    toDate: { type: String, required: true, trim: true },
+    days: { type: Number, default: 1, min: 0 },
+    reason: { type: String, default: "", trim: true },
+    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
+    assignedBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+const hrShiftSchema = new mongoose.Schema(
+  {
+    employeeId: { type: String, required: true, trim: true, index: true },
+    employeeType: { type: String, enum: HR_EMPLOYEE_TYPES, default: "staff" },
+    name: { type: String, required: true, trim: true },
+    role: { type: String, default: "", trim: true },
+    roleKey: { type: String, default: "", trim: true, index: true },
+    date: { type: String, required: true, trim: true, index: true },
+    startTime: { type: String, default: "09:00", trim: true },
+    endTime: { type: String, default: "18:00", trim: true },
+    shiftName: { type: String, default: "General", trim: true },
+    notes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+const hrVacancySchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    roleKey: { type: String, required: true, trim: true, index: true },
+    openings: { type: Number, default: 1, min: 1 },
+    location: { type: String, default: "", trim: true },
+    description: { type: String, default: "", trim: true },
+    status: { type: String, enum: ["open", "closed"], default: "open", index: true },
+  },
+  { timestamps: true }
+);
+
+const hrCandidateSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, default: "", trim: true },
+    phone: { type: String, default: "", trim: true },
+    roleKey: { type: String, required: true, trim: true, index: true },
+    vacancyId: { type: String, default: "", trim: true, index: true },
+    stage: {
+      type: String,
+      enum: ["applied", "screening", "interview", "shortlisted", "selected", "rejected"],
+      default: "applied",
+      index: true,
+    },
+    rating: { type: Number, default: 0, min: 0, max: 5 },
+    notes: { type: String, default: "", trim: true },
+    resumeName: { type: String, default: "", trim: true },
+    resumeUrl: { type: String, default: "", trim: true },
+    resumeData: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+export const HrAnnouncement =
+  mongoose.models.AdminHrAnnouncement || mongoose.model("AdminHrAnnouncement", hrAnnouncementSchema);
+export const HrLeavePolicy =
+  mongoose.models.AdminHrLeavePolicy || mongoose.model("AdminHrLeavePolicy", hrLeavePolicySchema);
+export const HrLeaveRequest =
+  mongoose.models.AdminHrLeaveRequest || mongoose.model("AdminHrLeaveRequest", hrLeaveRequestSchema);
+export const HrShift = mongoose.models.AdminHrShift || mongoose.model("AdminHrShift", hrShiftSchema);
+export const HrVacancy =
+  mongoose.models.AdminHrVacancy || mongoose.model("AdminHrVacancy", hrVacancySchema);
+export const HrCandidate =
+  mongoose.models.AdminHrCandidate || mongoose.model("AdminHrCandidate", hrCandidateSchema);
+export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };

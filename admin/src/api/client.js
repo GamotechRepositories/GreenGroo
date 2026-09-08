@@ -12,7 +12,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('greengrocc_admin_token');
-  if (token) {
+  if (token && token !== 'demo_admin_jwt_token' && token !== 'mock_jwt_token') {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -24,7 +24,12 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.warn('Unauthorized admin request. Redirecting to login...');
+      const onLogin = window.location.pathname.includes('/login');
+      localStorage.removeItem('greengrocc_admin_token');
+      localStorage.removeItem('greengrocc_admin_user');
+      if (!onLogin) {
+        window.location.assign('/login');
+      }
     }
     return Promise.reject(error);
   }

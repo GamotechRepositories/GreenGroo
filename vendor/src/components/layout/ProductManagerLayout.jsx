@@ -4,6 +4,8 @@ import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
 import { useVendorAuth } from '../../context/VendorAuthContext'
 import { useInventoryRequests } from '../../hooks/useInventoryRequests'
+import { vendorApi } from '../../api/vendorApi'
+import RoleAnnouncements from '../RoleAnnouncements'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
@@ -208,6 +210,9 @@ export default function ProductManagerLayout() {
       </aside>
 
       <div className="ml-64 min-h-screen">
+        <div className="px-6 pt-4">
+          <RoleAnnouncements roleKey="vendor" load={() => vendorApi.liveAnnouncements()} />
+        </div>
         <Outlet />
       </div>
     </div>

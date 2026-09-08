@@ -42,4 +42,8 @@ export const staffApi = {
     api.get("/api/staff/inventory-requests", { params }),
   reviewInventoryRequest: (requestId, data) =>
     api.patch(`/api/staff/inventory-requests/${requestId}`, data),
+  liveAnnouncements: (role) =>
+    api
+      .get("/api/admin-ops/hr/announcements/live", { params: { role } })
+      .then((res) => res.data?.data || []),
 };

@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, LogoIcon } from '../ui/Icon'
 import Header from './Header'
 import { useAuth } from '../../context/AuthContext'
+import { staffApi } from '../../api/staffApi'
+import RoleAnnouncements from '../RoleAnnouncements'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
@@ -196,7 +198,13 @@ export function PageShell({ title, subtitle, children }) {
   return (
     <>
       <Header title={title} subtitle={subtitle} />
-      <main className="space-y-5 p-6">{children}</main>
+      <main className="space-y-5 p-6">
+        <RoleAnnouncements
+          roleKey="segregation_manager"
+          load={() => staffApi.liveAnnouncements('segregation_manager')}
+        />
+        {children}
+      </main>
     </>
   )
 }

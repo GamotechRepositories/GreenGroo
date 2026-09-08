@@ -7,6 +7,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/announcement_service.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/order_service.dart';
@@ -37,6 +38,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   String? _lastVerificationStatus;
   bool _showVerifiedBanner = false;
   List<GigInfo> _homeGigs = [];
+  List<HrAnnouncement> _announcements = [];
   TodayProgressData _todayProgress = TodayProgressData.fallback;
   bool _loadingProgress = false;
 
@@ -69,6 +71,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           _homeGigs = gigs;
         });
       }
+    } catch (_) {}
+  }
+
+  Future<void> _loadAnnouncements() async {
+    try {
+      final items = await AnnouncementService.instance.fetchLive();
+      if (mounted) setState(() => _announcements = items);
     } catch (_) {}
   }
 
@@ -106,6 +115,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _restoreActiveDelivery();
     _loadLiveData();
     _loadGigsData();
+    _loadAnnouncements();
     _fetchTodayProgress();
     _showSlotCancellationAlerts();
     _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
@@ -454,6 +464,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     loading: _loadingManager,
                   ),
                   const SizedBox(height: 14),
+                ],
+                if (_announcements.isNotEmpty) ...[
+                  ..._announcements.take(3).map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _HrAnnouncementCard(
+                        title: item.title,
+                        body: item.body,
+                      ),
+                    ),
+                  ),
                 ],
 
                 // ACTIVE ORDER CARD IF ON DELIVERY
@@ -1714,6 +1735,62 @@ class _ActiveDeliveryCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+}
+
+class _HrAnnouncementCard extends StatelessWidget {
+  const _HrAnnouncementCard({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFA7F3D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ANNOUNCEMENT',
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: const Color(0xFF047857),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF064E3B),
+            ),
+          ),
+          if (body.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              body,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                height: 1.35,
+                color: const Color(0xFF065F46),
+              ),
+            ),
+          ],
         ],
       ),
     );

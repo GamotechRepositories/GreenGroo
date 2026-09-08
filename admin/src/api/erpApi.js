@@ -5,6 +5,7 @@ export const erpApi = {
   search: (q) => apiClient.get('/erp/search', { params: { q } }),
   modules: () => apiClient.get('/erp/modules'),
   farmers: (params) => apiClient.get('/erp/farmers', { params }),
+  farmerManagers: () => apiClient.get('/erp/farmer-managers'),
   farmer: (id) => apiClient.get(`/erp/farmers/${encodeURIComponent(id)}`),
   list: (resource, params) => apiClient.get(`/erp/${resource}`, { params }),
   get: (resource, id) => apiClient.get(`/erp/${resource}/${encodeURIComponent(id)}`),

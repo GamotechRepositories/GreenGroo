@@ -83,6 +83,14 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
+export async function getLiveAnnouncements(roleKey) {
+  const data = await apiFetch(
+    `/api/admin-ops/hr/announcements/live?role=${encodeURIComponent(roleKey)}`,
+    { headers: authHeaders() }
+  );
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
 function computeVerificationStatus(docs) {
   if (!Array.isArray(docs)) return VERIFICATION_STATUS.PENDING;
   const required = docs.filter((d) => ["aadhaar", "pan", "bank", "address"].includes(d.type));

@@ -24,4 +24,8 @@ export const staffApi = {
   list: (params) => api.get("/api/staff", { params }),
   create: (data) => api.post("/api/staff", data),
   hierarchy: () => api.get("/api/staff/hierarchy"),
+  liveAnnouncements: (role = "segregation_manager") =>
+    api
+      .get("/api/admin-ops/hr/announcements/live", { params: { role } })
+      .then((res) => res.data?.data || []),
 };

@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import opsApi from '../../api/opsApi';
-
-const inputClass =
-  'mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 
 export default function AdminModulePage({
   title,
@@ -103,32 +101,17 @@ export default function AdminModulePage({
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-300">
+    <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-3">
-          {Icon ? (
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-              <Icon className="h-6 w-6" />
-            </div>
-          ) : null}
-          <div>
-            <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
-          </div>
+        <div>
+          <h1 className={PAGE_TITLE}>{title}</h1>
+          <p className={`mt-0.5 ${PAGE_SUB}`}>{description}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-          >
+          <button type="button" onClick={load} className={`${BTN} gap-1.5 text-xs`}>
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </button>
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-500"
-          >
+          <button type="button" onClick={openCreate} className={`${BTN_PRIMARY} gap-1.5 text-xs`}>
             <Plus className="h-3.5 w-3.5" /> {createLabel}
           </button>
         </div>
@@ -139,12 +122,9 @@ export default function AdminModulePage({
           {Object.entries(stats)
             .slice(0, 4)
             .map(([key, value]) => (
-              <div
-                key={key}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{key}</p>
-                <p className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+              <div key={key} className={`${PANEL} px-4 py-3`}>
+                <p className="text-xs text-[#6B7280]">{key}</p>
+                <p className="mt-1 text-lg font-bold text-[#1F2937]">
                   {typeof value === 'number' ? value.toLocaleString('en-IN') : String(value)}
                 </p>
               </div>
@@ -152,14 +132,14 @@ export default function AdminModulePage({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center dark:border-slate-800 dark:bg-slate-900">
+      <div className={`${PANEL} flex flex-col gap-2 p-3 sm:flex-row sm:items-center`}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={`Search ${title.toLowerCase()}...`}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm dark:border-slate-700 dark:bg-slate-800"
+            className={`${INPUT} pl-9`}
           />
         </div>
         {statusFilters.length > 0 ? (
@@ -171,8 +151,8 @@ export default function AdminModulePage({
                 onClick={() => setStatus(item)}
                 className={`rounded-lg px-2.5 py-1 text-[11px] font-bold capitalize ${
                   status === item
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                    ? 'bg-emerald-700 text-white'
+                    : 'bg-slate-100 text-slate-500'
                 }`}
               >
                 {item}
@@ -186,7 +166,7 @@ export default function AdminModulePage({
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className={`overflow-hidden ${PANEL}`}>
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -196,7 +176,7 @@ export default function AdminModulePage({
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800/80">
+              <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
                   {columns.map((col) => (
                     <th key={col.key} className="px-4 py-3 font-semibold">
@@ -208,9 +188,9 @@ export default function AdminModulePage({
               </thead>
               <tbody>
                 {filtered.map((row) => (
-                  <tr key={row[idKey]} className="border-t border-slate-100 dark:border-slate-800">
+                  <tr key={row[idKey]} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-3 text-slate-700 dark:text-slate-200">
+                      <td key={col.key} className="px-4 py-3 text-slate-700">
                         {col.render ? col.render(row) : String(row[col.key] ?? '—')}
                       </td>
                     ))}
@@ -244,10 +224,10 @@ export default function AdminModulePage({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <form
             onSubmit={handleSave}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-900"
+            className={`max-h-[90vh] w-full max-w-lg overflow-y-auto ${PANEL} p-5`}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-bold text-slate-900">
                 {editing ? `Edit ${title}` : createLabel}
               </h2>
               <button type="button" onClick={() => setModalOpen(false)} className="text-slate-400">
@@ -256,13 +236,13 @@ export default function AdminModulePage({
             </div>
             <div className="space-y-3">
               {fields.map((field) => (
-                <label key={field.name} className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <label key={field.name} className="block text-xs font-semibold text-slate-600">
                   {field.label}
                   {field.type === 'select' ? (
                     <select
                       value={form[field.name] ?? ''}
                       onChange={(e) => setForm((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                      className={inputClass}
+                      className={`${INPUT} mt-1`}
                     >
                       {(field.options || []).map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -274,7 +254,7 @@ export default function AdminModulePage({
                     <textarea
                       value={form[field.name] ?? ''}
                       onChange={(e) => setForm((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                      className={inputClass}
+                      className={`${INPUT} mt-1`}
                       rows={3}
                     />
                   ) : field.type === 'checkbox' ? (
@@ -289,7 +269,7 @@ export default function AdminModulePage({
                       type={field.type || 'text'}
                       value={form[field.name] ?? ''}
                       onChange={(e) => setForm((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                      className={inputClass}
+                      className={`${INPUT} mt-1`}
                       required={field.required}
                     />
                   )}
@@ -297,14 +277,10 @@ export default function AdminModulePage({
               ))}
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setModalOpen(false)} className="rounded-xl px-3 py-2 text-sm">
+              <button type="button" onClick={() => setModalOpen(false)} className={BTN}>
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-              >
+              <button type="submit" disabled={saving} className={`${BTN_PRIMARY} gap-2`}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Save
               </button>

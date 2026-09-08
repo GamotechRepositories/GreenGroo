@@ -36,6 +36,10 @@ export const vendorApi = {
 
   // Dashboard
   getDashboard: () => api.get("/api/vendor/dashboard"),
+  liveAnnouncements: () =>
+    api
+      .get("/api/admin-ops/hr/announcements/live", { params: { role: "vendor" } })
+      .then((res) => res.data?.data || []),
 
   // Managers
   getManagers: (params) => api.get("/api/vendor/managers", { params }),

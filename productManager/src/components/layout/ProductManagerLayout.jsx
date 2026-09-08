@@ -3,6 +3,8 @@ import { Icon, LogoIcon } from "../ui/Icon";
 import Header from "./Header";
 import { useAuth } from "../../context/AuthContext";
 import { useInventoryRequests } from "../../hooks/useInventoryRequests";
+import { staffApi } from "../../api/staffApi";
+import RoleAnnouncements from "../RoleAnnouncements";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
@@ -82,7 +84,13 @@ export function PageShell({ title, subtitle, children }) {
   return (
     <>
       <Header title={title} subtitle={subtitle} />
-      <main className="space-y-5 p-6">{children}</main>
+      <main className="space-y-5 p-6">
+        <RoleAnnouncements
+          roleKey="product_manager"
+          load={() => staffApi.liveAnnouncements("product_manager")}
+        />
+        {children}
+      </main>
     </>
   );
 }

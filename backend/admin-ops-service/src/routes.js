@@ -31,14 +31,50 @@ import {
   updateHrStaff,
   clockHrAttendance,
   listHrAttendance,
+  upsertHrEmployment,
+  listHrTasks,
+  createHrTask,
+  updateHrTask,
+  listHrPayroll,
+  runHrPayroll,
+  updateHrPayroll,
   listDeliveryOrders,
   assignDeliveryOrder,
   updateDeliveryOrderStatus,
   listRidersLite,
   listDeliveryTracking,
+  listDeliveryTeam,
+  getDeliveryManagerAdmin,
+  getDeliveryBoyAdmin,
   listStoreSupport,
   updateStoreSupport,
 } from "./opsControllers.js";
+import {
+  getHrPerson,
+  listHrRoles,
+  listHrAnnouncements,
+  listLiveHrAnnouncements,
+  createHrAnnouncement,
+  updateHrAnnouncement,
+  deleteHrAnnouncement,
+  listHrLeavePolicies,
+  upsertHrLeavePolicy,
+  listHrLeaves,
+  createHrLeave,
+  updateHrLeave,
+  listHrShifts,
+  createHrShift,
+  updateHrShift,
+  deleteHrShift,
+  listHrCalendar,
+  listHrVacancies,
+  createHrVacancy,
+  updateHrVacancy,
+  listHrCandidates,
+  createHrCandidate,
+  updateHrCandidate,
+  downloadHrCandidateCv,
+} from "./hrExtendedControllers.js";
 import {
   listFinance,
   createFinanceEntry,
@@ -54,6 +90,7 @@ const router = express.Router();
 
 router.post("/gift-cards/validate", optionalAuth, validateGiftCardPublic);
 router.get("/pricing/active", listActivePricingPublic);
+router.get("/hr/announcements/live", optionalAuth, listLiveHrAnnouncements);
 
 router.use(protect, requireAdmin);
 
@@ -85,12 +122,45 @@ router.delete("/vendors/:id", deleteVendorAdmin);
 
 router.get("/hr", listHrDirectory);
 router.post("/hr", createHrStaff);
-router.put("/hr/:id", updateHrStaff);
+router.post("/hr/employment", upsertHrEmployment);
+router.get("/hr/roles", listHrRoles);
+router.get("/hr/people/:type/:id", getHrPerson);
+router.get("/hr/calendar", listHrCalendar);
+router.get("/hr/announcements", listHrAnnouncements);
+router.post("/hr/announcements", createHrAnnouncement);
+router.put("/hr/announcements/:id", updateHrAnnouncement);
+router.delete("/hr/announcements/:id", deleteHrAnnouncement);
+router.get("/hr/leave-policies", listHrLeavePolicies);
+router.put("/hr/leave-policies/:roleKey", upsertHrLeavePolicy);
+router.get("/hr/leaves", listHrLeaves);
+router.post("/hr/leaves", createHrLeave);
+router.put("/hr/leaves/:id", updateHrLeave);
+router.get("/hr/shifts", listHrShifts);
+router.post("/hr/shifts", createHrShift);
+router.put("/hr/shifts/:id", updateHrShift);
+router.delete("/hr/shifts/:id", deleteHrShift);
+router.get("/hr/vacancies", listHrVacancies);
+router.post("/hr/vacancies", createHrVacancy);
+router.put("/hr/vacancies/:id", updateHrVacancy);
+router.get("/hr/candidates", listHrCandidates);
+router.post("/hr/candidates", createHrCandidate);
+router.put("/hr/candidates/:id", updateHrCandidate);
+router.get("/hr/candidates/:id/cv", downloadHrCandidateCv);
 router.get("/hr/attendance", listHrAttendance);
 router.post("/hr/attendance", clockHrAttendance);
+router.get("/hr/tasks", listHrTasks);
+router.post("/hr/tasks", createHrTask);
+router.put("/hr/tasks/:id", updateHrTask);
+router.get("/hr/payroll", listHrPayroll);
+router.post("/hr/payroll/run", runHrPayroll);
+router.put("/hr/payroll/:id", updateHrPayroll);
+router.put("/hr/:id", updateHrStaff);
 
 router.get("/delivery/orders", listDeliveryOrders);
 router.get("/delivery/riders", listRidersLite);
+router.get("/delivery/team", listDeliveryTeam);
+router.get("/delivery/managers/:id", getDeliveryManagerAdmin);
+router.get("/delivery/boys/:id", getDeliveryBoyAdmin);
 router.patch("/delivery/orders/:id/assign", assignDeliveryOrder);
 router.patch("/delivery/orders/:id/status", updateDeliveryOrderStatus);
 router.get("/tracking", listDeliveryTracking);

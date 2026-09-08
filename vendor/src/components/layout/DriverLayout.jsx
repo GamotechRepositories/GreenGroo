@@ -1,5 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useDriverAuth } from "../../context/DriverAuthContext";
+import { driverApi } from "../../api/driverApi";
+import RoleAnnouncements from "../RoleAnnouncements";
 
 const NAV = [
   { to: "/driver/assigned", label: "Assigned Pickups", short: "Assigned" },
@@ -60,6 +62,9 @@ export default function DriverLayout() {
       </header>
 
       <div className="min-h-screen pb-20 md:ml-56 md:pb-0">
+        <div className="px-4 pt-4">
+          <RoleAnnouncements roleKey="pickup_driver" load={() => driverApi.liveAnnouncements()} />
+        </div>
         <Outlet />
       </div>
 

@@ -1,0 +1,53 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
+.admin-panel {
+  --admin-border: #e2e8f0;
+  --admin-header: #f8fafc;
+  --admin-bg: #f3f6f4;
+  --admin-surface: #ffffff;
+  --admin-text: #0f172a;
+  --admin-muted: #64748b;
+  --admin-primary: #15803d;
+  --admin-primary-soft: #ecfdf3;
+  --admin-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.04);
+  color: var(--admin-text);
+  background: var(--admin-bg);
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin-panel * {
+  box-sizing: border-box;
+}
+
+.admin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-auth-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #dcfce7 0%, transparent 55%),
+    radial-gradient(900px 400px at 110% 10%, #e0f2fe 0%, transparent 50%),
+    #f3f6f4;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+@media (min-width: 1280px) {
+  .admin-panel main > * {
+    max-width: 1440px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}

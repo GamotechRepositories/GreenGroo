@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2, MapPinned } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 
@@ -35,10 +36,11 @@ export default function DeliveryTracking() {
         <div>
           <h1 className="font-display text-2xl font-bold">Delivery Tracking</h1>
           <p className="text-sm text-slate-500">Live rider status and last known GPS location. Refreshes every 15 seconds.</p>
+          <Link to="/delivery-team" className="mt-1 inline-block text-xs font-semibold text-emerald-700">Open full team profiles →</Link>
         </div>
       </div>
       {stats ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
           {Object.entries(stats).map(([key, value]) => (
             <div key={key} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
               <p className="text-[11px] font-semibold uppercase text-slate-400">{key}</p>
@@ -57,16 +59,24 @@ export default function DeliveryTracking() {
             const lng = rider.currentLocation?.lng;
             const maps = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
             return (
-              <article key={rider._id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <article key={rider.id || rider._id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold">{rider.name || rider.phone}</p>
-                    <p className="text-xs text-slate-500">{[rider.area, rider.city].filter(Boolean).join(', ') || 'No area'}</p>
+                    <Link to={`/delivery-team/boys/${rider.id || rider._id}`} className="font-semibold text-emerald-700 hover:underline">
+                      {rider.name || rider.phone}
+                    </Link>
+                    <p className="text-xs text-slate-500">
+                      {[rider.area, rider.city].filter(Boolean).join(', ') || 'No area'}
+                      {rider.manager?.storeName ? ` · ${rider.manager.storeName}` : ''}
+                    </p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold uppercase">{rider.status}</span>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
                   {maps ? `Last ping: ${lat.toFixed(4)}, ${lng.toFixed(4)}` : 'No live location yet'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  Today {rider.todayCompletedOrders || 0} delivered · KYC {rider.verificationStatus || '—'}
                 </p>
                 {maps ? (
                   <a href={maps} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-emerald-700">

@@ -1,25 +1,28 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext();
+
+function readStoredToken() {
+  const token = localStorage.getItem('greengrocc_admin_token');
+  if (!token || token === 'demo_admin_jwt_token' || token === 'mock_jwt_token') return '';
+  return token;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
+      if (!readStoredToken()) return null;
       const savedUser = localStorage.getItem('greengrocc_admin_user');
-      return savedUser ? JSON.parse(savedUser) : {
-        name: 'Super Admin',
-        email: 'admin@greengrocc.com',
-        role: 'superadmin',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      };
+      return savedUser ? JSON.parse(savedUser) : null;
     } catch {
       return null;
     }
   });
 
-  const [token, setToken] = useState(() => localStorage.getItem('greengrocc_admin_token') || 'demo_admin_jwt_token');
+  const [token, setToken] = useState(() => readStoredToken());
 
-  const login = (userData, jwtToken = 'mock_jwt_token') => {
+  const login = (userData, jwtToken) => {
+    if (!userData || !jwtToken) return;
     setUser(userData);
     setToken(jwtToken);
     localStorage.setItem('greengrocc_admin_user', JSON.stringify(userData));
@@ -34,7 +37,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated: !!user && !!token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

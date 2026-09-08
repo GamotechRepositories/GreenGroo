@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, Lock, Mail, ArrowRight, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
+import '../styles/admin.css';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -12,22 +14,14 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password.');
-      return;
-    }
-
+  const signIn = async (loginEmail, loginPassword) => {
     setLoading(true);
     setError('');
-
     try {
       const response = await apiClient.post('/users/login', {
-        email: email.trim().toLowerCase(),
-        password,
+        email: String(loginEmail || '').trim().toLowerCase(),
+        password: loginPassword,
       });
-
       if (response.data?.success && response.data?.data?.token) {
         const { user: authUser, token: authToken } = response.data.data;
         login(authUser, authToken);
@@ -36,139 +30,71 @@ export default function Login() {
         setError(response.data?.message || 'Login failed. Please check credentials.');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password. Please verify your credentials.');
+      setError(err.response?.data?.message || 'Invalid email or password.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickDemoLogin = async (roleName, roleEmail) => {
-    setEmail(roleEmail);
-    setPassword('admin123');
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await apiClient.post('/users/login', {
-        email: roleEmail.trim().toLowerCase(),
-        password: 'admin123',
-      });
-
-      if (response.data?.success && response.data?.data?.token) {
-        const { user: authUser, token: authToken } = response.data.data;
-        login(authUser, authToken);
-        navigate('/');
-      } else {
-        setError(response.data?.message || 'Quick login failed.');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please ensure backend is running.');
-    } finally {
-      setLoading(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Please enter both email and password.');
+      return;
     }
+    await signIn(email, password);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#08120d] text-slate-100 relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-emerald-600/20 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-green-500/15 blur-3xl pointer-events-none" />
+    <div className="admin-auth-shell flex min-h-dvh items-center justify-center px-4 py-8 text-slate-900">
+      <div className={`w-full max-w-md ${PANEL} p-5 sm:p-7`}>
+        <p className={PAGE_KICKER}>GreenGroo Admin</p>
+        <h1 className={`mt-1 ${PAGE_TITLE}`}>Sign in to Admin Panel</h1>
+        <p className={`mt-0.5 ${PAGE_SUB}`}>Enter your admin email and password to continue.</p>
 
-      <div className="w-full max-w-md space-y-6 relative z-10">
-        {/* Brand Logo & Title */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-400 text-white shadow-lg shadow-emerald-500/30">
-            <Leaf className="h-7 w-7" />
+        {error ? <p className="mt-3 text-xs text-[#DC2626]">{error}</p> : null}
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={INPUT}
+            />
           </div>
-          <h1 className="text-3xl font-black font-display tracking-tight text-white">
-            Green<span className="text-emerald-400">Grocc</span>
-          </h1>
-          <p className="text-xs text-emerald-200/80 font-medium uppercase tracking-wider flex items-center justify-center gap-1">
-            <ShieldCheck className="h-3.5 w-3.5" /> Central Administration Portal
-          </p>
-        </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={INPUT}
+            />
+          </div>
+          <button type="submit" disabled={loading} className={`w-full ${BTN_PRIMARY} py-2`}>
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Signing in...
+              </span>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+        </form>
 
-        {/* Card */}
-        <div className="rounded-3xl bg-slate-900/80 p-6 sm:p-8 border border-emerald-900/40 shadow-2xl backdrop-blur-xl space-y-6">
-          {error && (
-            <div className="rounded-xl bg-rose-950/50 border border-rose-800/60 p-3 text-xs text-rose-300">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs sm:text-sm">
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1.5">
-                Admin Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@greengrocc.com"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 py-2.5 pl-10 pr-4 text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1.5">
-                Master Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800/80 py-2.5 pl-10 pr-4 text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 py-3 font-bold text-white shadow-lg shadow-emerald-600/30 transition-all duration-200 disabled:opacity-60"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Authenticating...
-                </>
-              ) : (
-                <>
-                  Sign In to Command Center <ArrowRight className="h-4 w-4" />
-                </>
-              )}
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className={`${PAGE_SUB} mb-2 text-center text-xs`}>Quick demo access</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => signIn('admin@greengrocc.com', 'admin123')} className={BTN}>
+              Super Admin
             </button>
-          </form>
-
-          {/* One-click demo roles */}
-          <div className="pt-4 border-t border-slate-800">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center flex items-center justify-center gap-1">
-              <Sparkles className="h-3 w-3 text-emerald-400" /> Quick Demo Access
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('Super Admin', 'admin@greengrocc.com')}
-                className="rounded-xl border border-slate-700 bg-slate-800/60 p-2 text-xs font-semibold text-slate-200 hover:border-emerald-500 hover:bg-slate-800 transition-colors text-center"
-              >
-                Super Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin('Inventory Lead', 'inventory@greengrocc.com')}
-                className="rounded-xl border border-slate-700 bg-slate-800/60 p-2 text-xs font-semibold text-slate-200 hover:border-emerald-500 hover:bg-slate-800 transition-colors text-center"
-              >
-                Inventory Lead
-              </button>
-            </div>
+            <button type="button" onClick={() => signIn('inventory@greengrocc.com', 'admin123')} className={BTN}>
+              Inventory Lead
+            </button>
           </div>
         </div>
       </div>

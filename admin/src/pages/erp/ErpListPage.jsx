@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import erpApi from '../../api/erpApi';
+import { BTN, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
 
 const RESOURCE_META = {
   farms: { title: 'Farms', id: 'farmId', cols: ['farmId', 'farmerId', 'farmName', 'area', 'status'] },
@@ -71,9 +72,9 @@ export default function ErpListPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">ERP Master</p>
-          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">{meta.title}</h1>
-          <p className="text-xs text-slate-500">{total} records · IDs are permanent and never reused</p>
+          <p className={PAGE_KICKER}>ERP Master</p>
+          <h1 className={PAGE_TITLE}>{meta.title}</h1>
+          <p className={PAGE_SUB}>{total} records · IDs are permanent and never reused</p>
         </div>
         <input
           value={q}
@@ -82,25 +83,26 @@ export default function ErpListPage() {
             setQ(e.target.value);
           }}
           placeholder="Search ID or name"
-          className="w-full max-w-xs rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className={`${INPUT} max-w-xs`}
         />
       </div>
-      {error && <p className="text-sm text-rose-600">{error}</p>}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      {error && <p className="text-sm text-[#DC2626]">{error}</p>}
+      <div className={PANEL}>
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/80">
+            <thead className="bg-slate-50">
               <tr>
                 {cols.map((col) => (
-                  <th key={col} className="px-3 py-2 font-semibold">
+                  <th key={col} className={TH}>
                     {col}
                   </th>
                 ))}
-                <th className="px-3 py-2">Trace</th>
+                <th className={TH}>Trace</th>
               </tr>
             </thead>
             <tbody>
@@ -112,16 +114,16 @@ export default function ErpListPage() {
                 </tr>
               )}
               {items.map((row) => (
-                <tr key={row[meta.id] || row._id} className="border-t border-slate-100 dark:border-slate-800">
+                <tr key={row[meta.id] || row._id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                   {cols.map((col) => (
-                    <td key={col} className="px-3 py-2 font-mono text-xs text-slate-700 dark:text-slate-200">
+                    <td key={col} className="px-3 py-2.5 font-mono text-xs text-[#217346]">
                       {String(row[col] ?? '—')}
                     </td>
                   ))}
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <Link
                       to={`/traceability?q=${encodeURIComponent(row[meta.id] || '')}`}
-                      className="text-xs font-semibold text-emerald-700 hover:underline"
+                      className="text-xs font-semibold text-[#217346] hover:underline"
                     >
                       Open
                     </Link>
@@ -130,17 +132,18 @@ export default function ErpListPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       <div className="flex items-center justify-end gap-2 text-sm">
-        <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-lg border px-3 py-1 disabled:opacity-40">
+        <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className={`${BTN} disabled:opacity-40`}>
           Prev
         </button>
         <span className="text-slate-500">Page {page}</span>
         <button
           disabled={page * 20 >= total}
           onClick={() => setPage((p) => p + 1)}
-          className="rounded-lg border px-3 py-1 disabled:opacity-40"
+          className={`${BTN} disabled:opacity-40`}
         >
           Next
         </button>

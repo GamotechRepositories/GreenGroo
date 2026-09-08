@@ -35,4 +35,8 @@ export const driverApi = {
   verifyQr: (id, payload) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/verify-qr`, payload),
   confirm: (id, payload = {}) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/confirm`, payload),
   transit: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/transit`),
+  liveAnnouncements: () =>
+    driverHttp
+      .get("/api/admin-ops/hr/announcements/live", { params: { role: "pickup_driver" } })
+      .then((res) => res.data?.data || []),
 };
