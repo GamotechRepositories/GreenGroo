@@ -1,4 +1,5 @@
 import React from 'react';
+import { Leaf, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NAV_GROUPS } from '../config/adminNav';
@@ -13,12 +14,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className={PAGE_KICKER}>Admin Panel</p>
-        <h1 className={PAGE_TITLE}>Welcome, {user?.name || 'Administrator'}</h1>
-        <p className={PAGE_SUB}>
-          Signed in as {user?.email || 'admin@greengroo.com'}. Open a module below.
-        </p>
+      <div className={`${PANEL} p-6 sm:p-8`}>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-400 text-white shadow-xl shadow-emerald-500/20">
+            <Leaf className="h-8 w-8" />
+          </div>
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <ShieldCheck className="h-4 w-4" /> Admin Portal
+            </div>
+            <p className={PAGE_KICKER}>Admin Panel</p>
+            <h1 className={PAGE_TITLE}>
+              Welcome to <span className="text-emerald-600">GreenGroo</span> Admin
+            </h1>
+            <p className={PAGE_SUB}>
+              Signed in as <span className="font-semibold text-slate-800">{user?.name || 'Administrator'}</span> ({user?.email || 'admin@greengroo.com'}). Open a module below.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -193,6 +193,12 @@ export const NAV_GROUPS = [
         icon: Truck,
         implemented: true,
         description: 'Assign orders, manage delivery slots, zones, and rider allocation.',
+        capabilities: [
+          'Assign orders to delivery partners',
+          'Configure delivery zones and time slots',
+          'Monitor pending, in-transit, and delivered orders',
+          'Handle failed deliveries and reassignments',
+        ],
       },
       {
         name: 'Delivery Team',
@@ -207,6 +213,12 @@ export const NAV_GROUPS = [
         icon: MapPinned,
         implemented: true,
         description: 'Live location tracking of delivery partners on the map.',
+        capabilities: [
+          'View live GPS location of delivery boys',
+          'See active routes and ETAs on a map',
+          'Filter riders by store, status, or zone',
+          'Open a rider trail for delayed orders',
+        ],
       },
       {
         name: 'Multi Vendor',
@@ -238,6 +250,12 @@ export const NAV_GROUPS = [
         icon: Users,
         implemented: true,
         description: 'People, leave, payroll, recruitment, and attendance.',
+        capabilities: [
+          'Maintain staff profiles and role access',
+          'Track attendance and shift rosters',
+          'Manage payroll inputs for store and delivery staff',
+          'Assign employees to dark stores',
+        ],
         children: [
           { name: 'Dashboard', href: '/hr-management', icon: LayoutDashboard, end: true },
           { name: 'Calendar', href: '/hr-management/calendar', icon: CalendarDays },
