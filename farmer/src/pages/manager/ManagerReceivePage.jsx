@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getManagerPickup, receiveManagerPickup, getManagerPickupReceipt, startManagerQuality } from "../../api/farmerApi";
+import { getManagerPickup, receiveManagerPickup, getManagerPickupReceipt } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -241,11 +241,12 @@ export default function ManagerReceivePage() {
       applyPickup(data);
       if ((status || form.receivingStatus) === "RECEIVED") {
         await getManagerPickupReceipt(pickup.id || pickupId).catch(() => null);
-        const qualityId = data.orderId || data.orderDisplayId || pickup.orderId || pickup.orderDisplayId;
+        const qualityId = data.orderId || pickup.orderId || data.orderDisplayId || pickup.orderDisplayId;
         toast.success("Received at collection centre");
         if (qualityId) {
-          await startManagerQuality(qualityId).catch(() => null);
-          navigate(`/farmer/manager/quality/${encodeURIComponent(qualityId)}`, { state: { autoStart: true } });
+          navigate(`/farmer/manager/quality/${encodeURIComponent(qualityId)}`);
+        } else {
+          navigate("/farmer/manager/quality/inspection");
         }
       } else {
         toast.success(`Marked ${String(status || "").replace(/_/g, " ")}`);
@@ -433,9 +434,9 @@ export default function ManagerReceivePage() {
               {busy ? "Saving…" : "Confirm Received"}
             </button>
             {done ? (
-              <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => navigate(`/farmer/manager/quality/${pickup.orderId || pickup.orderDisplayId}`)}>
-                Start Quality Check
-              </button>
+              <Link to={`/farmer/manager/quality/${encodeURIComponent(pickup.orderId || pickup.orderDisplayId || "")}`} className={EXCEL_BTN}>
+                Quality and Grading Manager
+              </Link>
             ) : (
               <button type="button" className={EXCEL_BTN} onClick={() => setStep("weight")}>
                 Back

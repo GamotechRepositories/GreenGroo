@@ -4,9 +4,10 @@ import { driverApi } from "../../api/driverApi";
 import RoleAnnouncements from "../RoleAnnouncements";
 
 const NAV = [
+  { to: "/driver", label: "Dashboard", short: "Home", end: true },
   { to: "/driver/assigned", label: "Assigned Pickups", short: "Assigned" },
   { to: "/driver/progress", label: "In Progress", short: "Progress" },
-  { to: "/driver/completed", label: "Completed Pickups", short: "Completed" },
+  { to: "/driver/completed", label: "Completed Pickups", short: "Done" },
   { to: "/driver/history", label: "Pickup History", short: "History" },
 ];
 
@@ -31,6 +32,7 @@ export default function DriverLayout() {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={({ isActive }) =>
                 `block rounded-lg px-3 py-2.5 text-sm ${isActive ? "bg-green-primary font-medium" : "text-white/80 hover:bg-white/10"}`
               }
@@ -68,13 +70,14 @@ export default function DriverLayout() {
         <Outlet />
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-gray-200 bg-white md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-gray-200 bg-white md:hidden">
         {NAV.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.end}
             className={({ isActive }) =>
-              `flex min-h-14 items-center justify-center px-1 text-center text-[11px] font-semibold ${
+              `flex min-h-14 items-center justify-center px-0.5 text-center text-[10px] font-semibold ${
                 isActive ? "bg-[#E8F5E9] text-[#217346]" : "text-gray-500"
               }`
             }

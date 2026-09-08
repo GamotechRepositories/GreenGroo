@@ -679,6 +679,7 @@ const qualityInspectionSchema = new mongoose.Schema(
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
+    gradeQuality: { type: mongoose.Schema.Types.Mixed, default: {} },
     gradeAQuantity: { type: Number, default: 0 },
     gradeBQuantity: { type: Number, default: 0 },
     gradeCQuantity: { type: Number, default: 0 },

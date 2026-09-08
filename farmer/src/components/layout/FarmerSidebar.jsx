@@ -81,7 +81,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
         }`}
       >
         <Icon className={`h-5 w-5 shrink-0 ${isChildActive ? "text-emerald-700" : "text-slate-500"}`} strokeWidth={isChildActive ? 2.25 : 1.75} />
-        <span className="flex-1 truncate text-left">{item.label}</span>
+        <span className="flex-1 text-left leading-tight">{item.label}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (

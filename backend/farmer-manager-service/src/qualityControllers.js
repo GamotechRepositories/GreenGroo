@@ -102,13 +102,75 @@ function flattenOrder(order) {
   return {
     productId: plain.productId || first.id || first.productId || "",
     productName: plain.productName || first.name || "",
-    variety: plain.variety || "",
+    variety: plain.variety || first.variety || "",
     grade: plain.grade || first.grade || "",
     orderedQuantity: Number(plain.orderedQuantity || first.quantity || plain.totalQuantity || 0),
     unit: plain.unit || first.unit || "Kg",
     price: Number(plain.price || first.price || 0),
     orderValue: Number(plain.orderValue || plain.totalAmount || plain.amount || 0),
   };
+}
+
+function toISODate(value) {
+  if (!value) return "";
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function orderDateFromBusinessId(id) {
+  const m = String(id || "").match(/GGC-ORD-(\d{4})(\d{2})(\d{2})/i);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+
+function orderGrades(order) {
+  if (Array.isArray(order?.grades) && order.grades.length) return order.grades;
+  const first = order?.products?.[0];
+  if (Array.isArray(first?.grades) && first.grades.length) return first.grades;
+  return [];
+}
+
+function weightGradesOf(pickup, order) {
+  const rec = pickup?.receiving || {};
+  const rows = Array.isArray(rec.grades) ? rec.grades : [];
+  const out = [];
+  const seen = new Set();
+  for (const g of rows) {
+    const label = normalizeGradeKey(g.label || g.name) || String(g.label || g.name || "").trim();
+    if (!label) continue;
+    const expectedWeight = qty(g.expectedWeight);
+    const actualWeight = qty(g.actualWeight);
+    const acceptedWeight = qty(g.acceptedWeight);
+    if (!(expectedWeight > 0 || actualWeight > 0 || acceptedWeight > 0)) continue;
+    seen.add(label);
+    out.push({
+      label,
+      expectedWeight,
+      actualWeight,
+      acceptedWeight,
+      difference: g.difference != null && g.difference !== "" ? qty(g.difference) : qty(acceptedWeight - expectedWeight),
+    });
+  }
+  if (!out.length) {
+    for (const g of orderGrades(order)) {
+      const label = normalizeGradeKey(g.label || g.name || g.grade) || String(g.label || g.name || g.grade || "").trim();
+      const expectedWeight = qty(g.quantity || g.qty);
+      if (!label || seen.has(label) || !(expectedWeight > 0)) continue;
+      seen.add(label);
+      out.push({
+        label,
+        expectedWeight,
+        actualWeight: 0,
+        acceptedWeight: 0,
+        difference: qty(0 - expectedWeight),
+      });
+    }
+  }
+  const rank = { "Grade A": 0, "Grade B": 1, "Grade C": 2 };
+  out.sort((a, b) => (rank[a.label] ?? 9) - (rank[b.label] ?? 9) || String(a.label).localeCompare(String(b.label)));
+  return out;
 }
 
 function isWeightVerified(pickup) {
@@ -144,6 +206,76 @@ function receivedQuantity(pickup, order) {
 
 function parametersComplete(params = {}) {
   return REQUIRED_PARAMS.every((key) => String(params[key] || "").trim());
+}
+
+const GRADE_KEYS = ["Grade A", "Grade B", "Grade C"];
+
+function emptyParams() {
+  return Object.fromEntries(REQUIRED_PARAMS.map((key) => [key, ""]));
+}
+
+function normalizeGradeKey(value) {
+  const raw = String(value || "").trim();
+  if (GRADE_KEYS.includes(raw)) return raw;
+  const upper = raw.toUpperCase();
+  if (upper === "A" || upper.includes("GRADE A") || upper === "PREMIUM") return "Grade A";
+  if (upper === "B" || upper.includes("GRADE B") || upper === "STANDARD") return "Grade B";
+  if (upper === "C" || upper.includes("GRADE C") || upper.includes("LOW")) return "Grade C";
+  return "";
+}
+
+function gradeQualityOf(inspection = {}) {
+  const raw = inspection.gradeQuality && typeof inspection.gradeQuality === "object" ? inspection.gradeQuality : {};
+  const out = {};
+  for (const key of GRADE_KEYS) {
+    const row = raw[key] && typeof raw[key] === "object" ? raw[key] : {};
+    out[key] = {
+      parameters: { ...emptyParams(), ...(row.parameters || row.qualityParameters || {}) },
+      photos: Array.isArray(row.photos) ? row.photos : [],
+      remarks: String(row.remarks || ""),
+      rejectedQuantity: qty(row.rejectedQuantity),
+      rejectionReason: String(row.rejectionReason || ""),
+      rejectionRemarks: String(row.rejectionRemarks || ""),
+    };
+  }
+  const legacyParams = inspection.qualityParameters || {};
+  if (!parametersComplete(out["Grade A"].parameters) && parametersComplete(legacyParams)) {
+    out["Grade A"].parameters = { ...emptyParams(), ...legacyParams };
+  }
+  if (!(out["Grade A"].photos || []).length && Array.isArray(inspection.qualityPhotos) && inspection.qualityPhotos.length) {
+    out["Grade A"].photos = inspection.qualityPhotos;
+  }
+  return out;
+}
+
+function flattenGradeParams(gradeQuality) {
+  for (const key of GRADE_KEYS) {
+    if (parametersComplete(gradeQuality?.[key]?.parameters)) return gradeQuality[key].parameters;
+  }
+  return gradeQuality?.["Grade A"]?.parameters || emptyParams();
+}
+
+function flattenGradePhotos(gradeQuality) {
+  return GRADE_KEYS.flatMap((key) =>
+    (gradeQuality?.[key]?.photos || []).map((p) => ({
+      url: p.url || p.src || "",
+      label: p.label || key,
+      uploadedAt: p.uploadedAt,
+    }))
+  );
+}
+
+function gradeParametersComplete(inspection, split) {
+  const gq = gradeQualityOf(inspection);
+  const needed = [
+    [split.gradeA, "Grade A"],
+    [split.gradeB, "Grade B"],
+    [split.gradeC, "Grade C"],
+  ].filter(([quantity]) => quantity > 0);
+  if (!needed.length) {
+    return GRADE_KEYS.some((key) => parametersComplete(gq[key].parameters)) || parametersComplete(inspection.qualityParameters);
+  }
+  return needed.every(([, key]) => parametersComplete(gq[key].parameters));
 }
 
 function sanitizeParameters(body = {}) {
@@ -241,8 +373,14 @@ async function scopedFarmerIds(req) {
 }
 
 async function findPickupForOrder(orderId) {
-  return Pickup.findOne({
+  const pickup = await Pickup.findOne({
     $or: [{ orderId }, { id: orderId }, { pickupId: orderId }],
+  });
+  if (pickup) return pickup;
+  const order = await findOrder(orderId);
+  if (!order) return null;
+  return Pickup.findOne({
+    $or: [{ orderId: order.id }, { orderId: order.orderId }],
   });
 }
 
@@ -277,14 +415,96 @@ async function ensureInspection(pickup, order) {
   return inspection;
 }
 
+export async function beginQualityAfterReceive(req, pickup, order) {
+  if (!pickup) return null;
+  if (!isWeightVerified(pickup)) return null;
+  const resolvedOrder = order || (await findOrder(pickup.orderId));
+  const inspection = await ensureInspection(pickup, resolvedOrder);
+  if (!inspection || LOCKED_STATUSES.includes(inspection.status)) return inspection;
+  if (inspection.status !== QUALITY_PENDING && inspection.status !== INSPECTION) {
+    return inspection;
+  }
+  if (inspection.status === INSPECTION && inspection.inspectionStartedAt) {
+    return inspection;
+  }
+  const actor = actorOf(req);
+  const now = new Date();
+  inspection.status = INSPECTION;
+  inspection.inspectionStartedAt = inspection.inspectionStartedAt || now;
+  inspection.inspectorId = actor.id;
+  inspection.inspectorRole = actor.role;
+  inspection.inspectorName = actor.name;
+  recordAction(inspection, req, "START_QUALITY_CHECK");
+  await inspection.save();
+  await applyOrderStatus(resolvedOrder, INSPECTION, "Quality inspection started.");
+  const farmer = await Farmer.findOne({ id: pickup.farmerId }).lean();
+  emitQualityUpdate({
+    orderId: resolvedOrder?.id || pickup.orderId,
+    farmerId: inspection.farmerId,
+    vendorId: pickup.vendorId,
+    managerId: farmer?.managerId || pickup.managerId,
+    status: inspection.status,
+  });
+  return inspection;
+}
+
+function gradeRejectedTotal(gq) {
+  return qty(GRADE_KEYS.reduce((sum, key) => sum + qty(gq?.[key]?.rejectedQuantity), 0));
+}
+
+function firstGradeRejection(gq) {
+  for (const key of GRADE_KEYS) {
+    if (qty(gq?.[key]?.rejectedQuantity) > 0) {
+      return {
+        reason: String(gq[key].rejectionReason || "").trim(),
+        remarks: String(gq[key].rejectionRemarks || "").trim(),
+      };
+    }
+  }
+  return { reason: "", remarks: "" };
+}
+
+function applyGradeRejectionRows(inspection, incoming) {
+  if (!incoming || typeof incoming !== "object") return gradeQualityOf(inspection);
+  const gq = gradeQualityOf(inspection);
+  for (const key of GRADE_KEYS) {
+    const row = incoming[key];
+    if (!row || typeof row !== "object") continue;
+    if (row.rejectedQuantity != null) gq[key].rejectedQuantity = qty(row.rejectedQuantity);
+    if (row.rejectionReason != null) gq[key].rejectionReason = String(row.rejectionReason).trim();
+    if (row.rejectionRemarks != null) gq[key].rejectionRemarks = String(row.rejectionRemarks).trim();
+  }
+  return gq;
+}
+
 function splitTotals(inspection, totalReceived) {
   const gradeA = qty(inspection.gradeAQuantity);
   const gradeB = qty(inspection.gradeBQuantity);
   const gradeC = qty(inspection.gradeCQuantity);
-  const rejected = qty(inspection.rejectedQuantity);
+  const gq = gradeQualityOf(inspection);
+  const perGradeRejected = gradeRejectedTotal(gq);
+  const rejected = perGradeRejected > 0 ? perGradeRejected : qty(inspection.rejectedQuantity);
   const allocated = qty(gradeA + gradeB + gradeC + rejected);
   const remaining = qty(totalReceived - allocated);
   return { gradeA, gradeB, gradeC, rejected, allocated, remaining, totalReceived };
+}
+
+function assertGradeRejection(gq) {
+  for (const key of GRADE_KEYS) {
+    const rejected = qty(gq[key]?.rejectedQuantity);
+    if (!(rejected > 0)) continue;
+    const reason = String(gq[key]?.rejectionReason || "").trim();
+    if (!reason || !REJECTION_REASONS.includes(reason)) {
+      const err = new Error(`${key} rejected quantity requires a rejection reason`);
+      err.status = 400;
+      throw err;
+    }
+    if (reason === "Other" && !String(gq[key]?.rejectionRemarks || "").trim()) {
+      const err = new Error(`${key} other reason is required when rejection reason is Other`);
+      err.status = 400;
+      throw err;
+    }
+  }
 }
 
 function assertSplitValid(split, inspection) {
@@ -297,6 +517,11 @@ function assertSplitValid(split, inspection) {
     const err = new Error("Remaining quantity must be 0 before grading can be confirmed");
     err.status = 400;
     throw err;
+  }
+  const gq = gradeQualityOf(inspection);
+  if (gradeRejectedTotal(gq) > 0) {
+    assertGradeRejection(gq);
+    return;
   }
   if (split.rejected > 0) {
     const reason = String(inspection.rejectionReason || "").trim();
@@ -405,6 +630,11 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
   const payableQty = qty(split.gradeA + split.gradeB + split.gradeC);
   const finalAmount = qty(price ? payableQty * price : (order?.orderValue || 0));
   const locked = LOCKED_STATUSES.includes(inspection.status);
+  const gq = gradeQualityOf(inspection);
+  for (const key of GRADE_KEYS) {
+    gq[key].photos = sanitizePhotos(gq[key].photos || []);
+  }
+  const flatParams = flattenGradeParams(gq);
   return {
     inspectionId: inspection.inspectionId,
     orderId: order?.id || inspection.orderId,
@@ -418,14 +648,25 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     product: flat.productName,
     productName: flat.productName,
     variety: flat.variety || pickup?.variety || "",
+    orderDate:
+      toISODate(order?.orderDate) ||
+      toISODate(order?.createdAt) ||
+      toISODate(pickup?.orderDate) ||
+      orderDateFromBusinessId(order?.orderId || order?.id || pickup?.orderId) ||
+      "",
+    pickupDate: pickup?.pickupDate || pickup?.scheduledDate || order?.pickupDate || "",
+    pickupTime: pickup?.pickupTime || pickup?.scheduledTime || order?.pickupTime || "",
+    grades: orderGrades(order),
     orderedQuantity: qty(flat.orderedQuantity),
     receivedQuantity: totalReceived,
     actualWeight: qty(rec.actualWeight),
     acceptedWeight: qty(rec.acceptedWeight || totalReceived),
     acceptedQuantity: qty(rec.acceptedWeight || totalReceived),
     finalWeight: qty(rec.acceptedWeight || rec.actualWeight || totalReceived),
+    weightGrades: weightGradesOf(pickup, order),
     batchId: pickup?.collectionBatchId || inspection.batchId || pickup?.id || "",
     pickupId: pickup?.id || inspection.pickupId || "",
+    pickupStatus: pickup?.status || "",
     collectionCentreId: inspection.collectionCentreId || pickup?.collectionCentreId || "",
     collectionCentre: centre?.name || order?.collectionCentre || "Main Collection Centre",
     receivedDate: received.date,
@@ -435,16 +676,17 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     inspectorId: inspection.inspectorId,
     inspectorRole: inspection.inspectorRole,
     inspectorName: inspection.inspectorName,
+    gradeQuality: gq,
     qualityParameters: {
-      freshness: inspection.qualityParameters?.freshness || "",
-      size: inspection.qualityParameters?.size || "",
-      colour: inspection.qualityParameters?.colour || "",
-      appearance: inspection.qualityParameters?.appearance || "",
-      cleanliness: inspection.qualityParameters?.cleanliness || "",
-      damage: inspection.qualityParameters?.damage || "",
-      moisture: inspection.qualityParameters?.moisture || "",
-      weight: inspection.qualityParameters?.weight || "",
-      overallQuality: inspection.qualityParameters?.overallQuality || "",
+      freshness: flatParams.freshness || "",
+      size: flatParams.size || "",
+      colour: flatParams.colour || "",
+      appearance: flatParams.appearance || "",
+      cleanliness: flatParams.cleanliness || "",
+      damage: flatParams.damage || "",
+      moisture: flatParams.moisture || "",
+      weight: flatParams.weight || "",
+      overallQuality: flatParams.overallQuality || "",
     },
     qualityRemarks: inspection.qualityRemarks || "",
     qualityPhotos: (inspection.qualityPhotos || []).map((p) => ({
@@ -462,7 +704,7 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     rejectionRemarks: inspection.rejectionRemarks || "",
     status: inspection.status,
     qualityStatus: inspection.status,
-    parametersComplete: parametersComplete(inspection.qualityParameters),
+    parametersComplete: gradeParametersComplete(inspection, split),
     weightVerified: isWeightVerified(pickup),
     locked,
     inspectionStartedAt: inspection.inspectionStartedAt,
@@ -513,7 +755,7 @@ async function requireEligibleBundle(req, orderId) {
 }
 
 const BUCKETS = {
-  pending: [QUALITY_PENDING],
+  pending: [QUALITY_PENDING, INSPECTION, GRADING],
   inspection: [INSPECTION],
   grading: [GRADING],
   completed: [GRADE_CONFIRMED, ORDER_COMPLETED],
@@ -681,12 +923,27 @@ export async function saveQualityPhotos(req, res) {
       return res.status(400).json({ message: "Start quality check before uploading photos" });
     }
     const incoming = sanitizePhotos(req.body?.photos || req.body?.qualityPhotos || []);
-    if (req.body?.replace === true) {
+    const gradeKey = normalizeGradeKey(req.body?.grade);
+    if (gradeKey) {
+      const gq = gradeQualityOf(inspection);
+      if (req.body?.replace === true) {
+        gq[gradeKey].photos = incoming;
+      } else {
+        gq[gradeKey].photos = sanitizePhotos([...(gq[gradeKey].photos || []), ...incoming]);
+      }
+      if (req.body?.removeIndex != null) {
+        const idx = Number(req.body.removeIndex);
+        gq[gradeKey].photos = (gq[gradeKey].photos || []).filter((_, i) => i !== idx);
+      }
+      inspection.gradeQuality = gq;
+      inspection.markModified("gradeQuality");
+      inspection.qualityPhotos = sanitizePhotos(flattenGradePhotos(gq));
+    } else if (req.body?.replace === true) {
       inspection.qualityPhotos = incoming;
     } else {
       inspection.qualityPhotos = sanitizePhotos([...(inspection.qualityPhotos || []), ...incoming]);
     }
-    if (req.body?.removeIndex != null) {
+    if (!gradeKey && req.body?.removeIndex != null) {
       const idx = Number(req.body.removeIndex);
       inspection.qualityPhotos = (inspection.qualityPhotos || []).filter((_, i) => i !== idx);
     }
@@ -707,8 +964,37 @@ export async function saveQualityParameters(req, res) {
     if (inspection.status === QUALITY_PENDING) {
       return res.status(400).json({ message: "Start quality check before entering parameters" });
     }
-    const next = sanitizeParameters(req.body);
-    inspection.qualityParameters = { ...(inspection.qualityParameters || {}), ...next };
+    const gq = gradeQualityOf(inspection);
+    if (req.body.gradeQuality && typeof req.body.gradeQuality === "object") {
+      for (const key of GRADE_KEYS) {
+        const row = req.body.gradeQuality[key];
+        if (!row || typeof row !== "object") continue;
+        if (row.parameters || row.qualityParameters) {
+          gq[key].parameters = { ...gq[key].parameters, ...sanitizeParameters({ qualityParameters: row.parameters || row.qualityParameters }) };
+        }
+        if (row.remarks != null) gq[key].remarks = String(row.remarks);
+        if (row.rejectedQuantity != null) gq[key].rejectedQuantity = qty(row.rejectedQuantity);
+        if (row.rejectionReason != null) gq[key].rejectionReason = String(row.rejectionReason).trim();
+        if (row.rejectionRemarks != null) gq[key].rejectionRemarks = String(row.rejectionRemarks).trim();
+        if (Array.isArray(row.photos)) gq[key].photos = sanitizePhotos(row.photos);
+      }
+      inspection.gradeQuality = gq;
+      inspection.markModified("gradeQuality");
+      inspection.qualityParameters = flattenGradeParams(gq);
+      inspection.qualityPhotos = sanitizePhotos(flattenGradePhotos(gq));
+    } else {
+      const gradeKey = normalizeGradeKey(req.body.grade);
+      const next = sanitizeParameters(req.body);
+      if (gradeKey) {
+        gq[gradeKey].parameters = { ...gq[gradeKey].parameters, ...next };
+        if (req.body.gradeRemarks != null) gq[gradeKey].remarks = String(req.body.gradeRemarks);
+        inspection.gradeQuality = gq;
+        inspection.markModified("gradeQuality");
+        inspection.qualityParameters = flattenGradeParams(gq);
+      } else {
+        inspection.qualityParameters = { ...(inspection.qualityParameters || {}), ...next };
+      }
+    }
     if (req.body.qualityRemarks != null) inspection.qualityRemarks = String(req.body.qualityRemarks);
     recordAction(inspection, req, "SAVE_QUALITY_PARAMETERS");
     await inspection.save();
@@ -727,24 +1013,36 @@ export async function saveQualityGrading(req, res) {
     if (inspection.status === QUALITY_PENDING) {
       return res.status(400).json({ message: "Start quality check before grading" });
     }
-    if (!parametersComplete(inspection.qualityParameters)) {
-      return res.status(400).json({ message: "Complete all mandatory quality parameters before grading" });
-    }
     inspection.gradeAQuantity = qty(req.body.gradeAQuantity);
     inspection.gradeBQuantity = qty(req.body.gradeBQuantity);
     inspection.gradeCQuantity = qty(req.body.gradeCQuantity);
-    inspection.rejectedQuantity = qty(req.body.rejectedQuantity);
-    inspection.rejectionReason = String(req.body.rejectionReason || "").trim();
-    inspection.rejectionRemarks = String(req.body.rejectionRemarks || req.body.otherReason || "").trim();
+    if (req.body.gradeQuality) {
+      const gq = applyGradeRejectionRows(inspection, req.body.gradeQuality);
+      inspection.gradeQuality = gq;
+      inspection.markModified("gradeQuality");
+      inspection.rejectedQuantity = gradeRejectedTotal(gq);
+      const first = firstGradeRejection(gq);
+      inspection.rejectionReason = first.reason;
+      inspection.rejectionRemarks = first.remarks;
+    } else {
+      inspection.rejectedQuantity = qty(req.body.rejectedQuantity);
+      inspection.rejectionReason = String(req.body.rejectionReason || "").trim();
+      inspection.rejectionRemarks = String(req.body.rejectionRemarks || req.body.otherReason || "").trim();
+    }
     if (req.body.qualityRemarks != null) inspection.qualityRemarks = String(req.body.qualityRemarks);
     const split = splitTotals(inspection, receivedQuantity(pickup, order));
+    if (!gradeParametersComplete(inspection, split)) {
+      return res.status(400).json({ message: "Complete quality parameters for every allocated grade before grading" });
+    }
     if (split.allocated > split.totalReceived + 0.001) {
       return res.status(400).json({ message: "Grade quantities cannot exceed the received quantity" });
     }
-    if (split.rejected > 0 && !inspection.rejectionReason) {
+    if (gradeRejectedTotal(gradeQualityOf(inspection)) > 0) {
+      assertGradeRejection(gradeQualityOf(inspection));
+    } else if (split.rejected > 0 && !inspection.rejectionReason) {
       return res.status(400).json({ message: "Rejected quantity requires a rejection reason" });
     }
-    if (inspection.rejectionReason && !REJECTION_REASONS.includes(inspection.rejectionReason)) {
+    if (inspection.rejectionReason && !REJECTION_REASONS.includes(inspection.rejectionReason) && gradeRejectedTotal(gradeQualityOf(inspection)) <= 0) {
       return res.status(400).json({ message: "Invalid rejection reason" });
     }
     inspection.status = GRADING;
@@ -770,10 +1068,10 @@ export async function confirmQualityGrading(req, res) {
     if (LOCKED_STATUSES.includes(inspection.status)) {
       return res.status(409).json({ message: "Grading is already confirmed for this order" });
     }
-    if (!parametersComplete(inspection.qualityParameters)) {
-      return res.status(400).json({ message: "Complete all mandatory quality parameters before confirming grading" });
-    }
     const split = splitTotals(inspection, receivedQuantity(pickup, order));
+    if (!gradeParametersComplete(inspection, split)) {
+      return res.status(400).json({ message: "Complete quality parameters for every allocated grade before confirming grading" });
+    }
     assertSplitValid(split, inspection);
     const actor = actorOf(req);
     const now = new Date();

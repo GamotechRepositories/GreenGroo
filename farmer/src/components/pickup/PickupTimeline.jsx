@@ -109,40 +109,46 @@ export function DriverInfo({ pickup }) {
   );
 }
 
-export default function PickupTimeline({ status }) {
+export default function PickupTimeline({ status, vertical = false }) {
   const current = ALIAS[status] || status;
   const idx = STEPS.indexOf(current);
 
+  const stack = (
+    <ol>
+      {STEPS.map((step, i) => {
+        const done = idx >= 0 && i <= idx;
+        const lineDone = idx >= 0 && i < idx;
+        const last = i === STEPS.length - 1;
+        return (
+          <li key={step} className={`relative flex gap-3 ${last ? "" : "pb-3.5"}`}>
+            {!last ? (
+              <span
+                className={`absolute left-[8px] top-[18px] h-[calc(100%-4px)] w-[3px] ${
+                  lineDone ? "bg-[#217346]" : "bg-[#C9E4D3]"
+                }`}
+              />
+            ) : null}
+            <span
+              className={`relative z-10 mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[3px] bg-white ${
+                done ? "border-[#217346]" : "border-[#C9E4D3]"
+              }`}
+            >
+              {done ? <span className="h-[6px] w-[6px] rounded-full bg-[#217346]" /> : null}
+            </span>
+            <p className={`min-w-0 pt-px text-[13px] font-semibold leading-snug ${done ? "text-[#217346]" : "text-[#9CA3AF]"}`}>
+              {pickupStatusLabel(step)}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+
+  if (vertical) return stack;
+
   return (
     <>
-      <ol className="md:hidden">
-        {STEPS.map((step, i) => {
-          const done = idx >= 0 && i <= idx;
-          const lineDone = idx >= 0 && i < idx;
-          const last = i === STEPS.length - 1;
-          return (
-            <li key={step} className={`relative flex gap-3 ${last ? "" : "pb-3.5"}`}>
-              {!last ? (
-                <span
-                  className={`absolute left-[8px] top-[18px] h-[calc(100%-4px)] w-[3px] ${
-                    lineDone ? "bg-[#217346]" : "bg-[#C9E4D3]"
-                  }`}
-                />
-              ) : null}
-              <span
-                className={`relative z-10 mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[3px] bg-white ${
-                  done ? "border-[#217346]" : "border-[#C9E4D3]"
-                }`}
-              >
-                {done ? <span className="h-[6px] w-[6px] rounded-full bg-[#217346]" /> : null}
-              </span>
-              <p className={`min-w-0 pt-px text-[13px] font-semibold leading-snug ${done ? "text-[#217346]" : "text-[#9CA3AF]"}`}>
-                {pickupStatusLabel(step)}
-              </p>
-            </li>
-          );
-        })}
-      </ol>
+      <div className="md:hidden">{stack}</div>
 
       <div className="hidden md:block">
         <ol className="flex w-full items-start">

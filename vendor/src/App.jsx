@@ -31,6 +31,7 @@ import VendorBatchPage from './pages/pickups/VendorBatchPage'
 import QualityListPage from './pages/quality/QualityListPage'
 import QualityInspectionPage from './pages/quality/QualityInspectionPage'
 import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
+import DriverHomePage from './pages/drivers/DriverHomePage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
 import DriverBatchPage from './pages/drivers/DriverBatchPage'
 import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
@@ -48,6 +49,7 @@ function App() {
             <Route path="/driver/login" element={<Navigate to="/vendor/login" replace />} />
             <Route element={<DriverProtectedRoute />}>
               <Route element={<DriverLayout />}>
+                <Route path="/driver" element={<DriverHomePage />} />
                 <Route path="/driver/assigned" element={<DriverDashboardPage mode="assigned" />} />
                 <Route path="/driver/progress" element={<DriverDashboardPage mode="progress" />} />
                 <Route path="/driver/completed" element={<DriverDashboardPage mode="completed" />} />
@@ -55,7 +57,6 @@ function App() {
                 <Route path="/driver/today" element={<Navigate to="/driver/assigned" replace />} />
                 <Route path="/driver/batches/:batchId" element={<DriverBatchPage />} />
                 <Route path="/driver/pickups/:pickupId" element={<DriverPickupPage />} />
-                <Route path="/driver" element={<Navigate to="/driver/assigned" replace />} />
               </Route>
             </Route>
             <Route element={<ProtectedRoute />}>

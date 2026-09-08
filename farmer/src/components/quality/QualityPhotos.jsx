@@ -39,7 +39,7 @@ function compressDataUrl(dataUrl, maxW = 1280, quality = 0.72) {
   });
 }
 
-export default function QualityPhotos({ photos, onChange, disabled }) {
+export default function QualityPhotos({ photos, onChange, disabled, compact = false }) {
   const [mode, setMode] = useState("upload");
   const [camError, setCamError] = useState("");
   const [label, setLabel] = useState(LABELS[0]);
@@ -108,48 +108,50 @@ export default function QualityPhotos({ photos, onChange, disabled }) {
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="text-[11px] font-semibold text-[#6B7280]">
+    <div className={compact ? "space-y-1.5" : "space-y-3"}>
+      <div className={`flex ${compact ? "flex-wrap items-end gap-1.5" : "flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"}`}>
+        <label className={`${compact ? "text-[10px]" : "text-[11px]"} font-semibold text-[#6B7280]`}>
           Photo type
-          <select className={`mt-1 block ${EXCEL_SELECT}`} value={label} disabled={disabled} onChange={(e) => setLabel(e.target.value)}>
+          <select className={`mt-0.5 block ${compact ? "w-full rounded-lg border border-slate-200 px-1.5 py-1 text-[11px] sm:w-auto" : `w-full sm:w-auto ${EXCEL_SELECT}`}`} value={label} disabled={disabled} onChange={(e) => setLabel(e.target.value)}>
             {LABELS.map((l) => (
               <option key={l}>{l}</option>
             ))}
           </select>
         </label>
-        <button type="button" disabled={disabled} className={mode === "upload" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} onClick={() => setMode("upload")}>
-          Upload Photo
-        </button>
-        <button type="button" disabled={disabled} className={mode === "camera" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} onClick={() => setMode("camera")}>
-          Take Photo
-        </button>
+        <div className={`grid grid-cols-2 ${compact ? "gap-1" : "gap-2 sm:flex sm:flex-wrap"}`}>
+          <button type="button" disabled={disabled} className={`${mode === "upload" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} ${compact ? "!min-h-8 !rounded-lg !px-2 !py-1 !text-[11px]" : "w-full sm:w-auto"}`} onClick={() => setMode("upload")}>
+            {compact ? "Upload" : "Upload Photo"}
+          </button>
+          <button type="button" disabled={disabled} className={`${mode === "camera" ? EXCEL_BTN_PRIMARY : EXCEL_BTN} ${compact ? "!min-h-8 !rounded-lg !px-2 !py-1 !text-[11px]" : "w-full sm:w-auto"}`} onClick={() => setMode("camera")}>
+            {compact ? "Camera" : "Take Photo"}
+          </button>
+        </div>
       </div>
 
       {mode === "camera" ? (
-        <div className="space-y-2">
-          <video ref={videoRef} className="h-44 w-full bg-black object-cover" muted playsInline autoPlay />
+        <div className={compact ? "space-y-1.5" : "space-y-2"}>
+          <video ref={videoRef} className={`${compact ? "h-32" : "h-52 sm:h-44"} w-full rounded-xl bg-black object-cover`} muted playsInline autoPlay />
           {camError ? <p className="text-[11px] text-amber-700">{camError}</p> : null}
-          <button type="button" disabled={disabled || photos.length >= MAX_PHOTOS || Boolean(camError)} className={EXCEL_BTN} onClick={captureLive}>
+          <button type="button" disabled={disabled || photos.length >= MAX_PHOTOS || Boolean(camError)} className={`${EXCEL_BTN} ${compact ? "!min-h-8 !rounded-lg !px-2 !py-1 !text-[11px] w-full sm:w-auto" : "w-full sm:w-auto"}`} onClick={captureLive}>
             Capture Photo
           </button>
         </div>
       ) : (
-        <label className="block cursor-pointer border border-dashed border-[#D4D4D4] px-3 py-6 text-center text-xs text-[#6B7280]">
-          Upload quality inspection photos
+        <label className={`block cursor-pointer border border-dashed border-[#D4D4D4] ${compact ? "px-2 py-3" : "px-3 py-6"} text-center text-[11px] text-[#6B7280]`}>
+          {compact ? "Upload photos" : "Upload quality inspection photos"}
           <input type="file" accept="image/*" multiple className="hidden" disabled={disabled} onChange={onUpload} />
         </label>
       )}
 
       {photos.length ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className={`grid ${compact ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-2 sm:grid-cols-4"}`}>
           {photos.map((p, i) => (
-            <div key={`${i}-${(p.url || "").slice(-12)}`} className="border border-[#D4D4D4] p-1">
-              <img src={p.url} alt={p.label || "Quality"} className="h-20 w-full object-cover" />
-              <p className="mt-1 truncate text-[10px] text-[#6B7280]">{p.label || "Photo"}</p>
-              <div className="mt-1 flex gap-1">
-                <button type="button" className={EXCEL_BTN} onClick={() => setPreview(p)}>Preview</button>
-                <button type="button" disabled={disabled} className={EXCEL_BTN} onClick={() => onChange(photos.filter((_, idx) => idx !== i))}>
+            <div key={`${i}-${(p.url || "").slice(-12)}`} className={`border border-[#D4D4D4] ${compact ? "p-0.5" : "p-1"}`}>
+              <img src={p.url} alt={p.label || "Quality"} className={`${compact ? "h-14" : "h-20"} w-full object-cover`} />
+              <p className={`truncate text-[#6B7280] ${compact ? "mt-0.5 text-[9px]" : "mt-1 text-[10px]"}`}>{p.label || "Photo"}</p>
+              <div className={`grid grid-cols-2 ${compact ? "mt-0.5 gap-0.5" : "mt-1 gap-1"}`}>
+                <button type="button" className={`${EXCEL_BTN} ${compact ? "!min-h-6 !rounded-md !px-1 !py-0.5 !text-[9px]" : "px-1 text-[11px]"}`} onClick={() => setPreview(p)}>{compact ? "View" : "Preview"}</button>
+                <button type="button" disabled={disabled} className={`${EXCEL_BTN} ${compact ? "!min-h-6 !rounded-md !px-1 !py-0.5 !text-[9px]" : "px-1 text-[11px]"}`} onClick={() => onChange(photos.filter((_, idx) => idx !== i))}>
                   Remove
                 </button>
               </div>
@@ -157,7 +159,7 @@ export default function QualityPhotos({ photos, onChange, disabled }) {
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-[#9CA3AF]">No quality photos yet.</p>
+        <p className={`${compact ? "text-[10px]" : "text-[11px]"} text-[#9CA3AF]`}>{compact ? "No photos yet." : "No quality photos yet."}</p>
       )}
 
       {preview ? (

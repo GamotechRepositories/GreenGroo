@@ -341,7 +341,7 @@ export const MANAGER_SIDEBAR_ITEMS = [
   },
   {
     id: "quality",
-    label: "Quality & Grading",
+    label: "Quality and Grading Manager",
     icon: "quality",
     children: [
       { to: "/farmer/manager/quality/pending", label: "Pending Inspection" },

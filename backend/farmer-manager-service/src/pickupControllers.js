@@ -1347,6 +1347,13 @@ async function applyPickupReceiving(req, pickup) {
   await pickup.save();
   if (nextReceiving === "RECEIVED") {
     await markBatchReceivedForDriver(pickup);
+    try {
+      const { beginQualityAfterReceive } = await import("./qualityControllers.js");
+      const order = await loadOrderForPickup(pickup);
+      await beginQualityAfterReceive(req, pickup, order);
+    } catch (err) {
+      console.error("[receive] failed to start quality after receive:", err?.message || err);
+    }
   }
   return enrichPickup(pickup);
 }
@@ -1674,7 +1681,7 @@ export async function listDriverPickups(req, res) {
   try {
     const driverId = req.user?.driverId || req.user?.id;
     const filterKey = String(req.query.filter || "assigned");
-    if (filterKey === "progress" || filterKey === "completed" || filterKey === "history") {
+    if (filterKey === "progress" || filterKey === "completed" || filterKey === "history" || filterKey === "all") {
       await mergeDriverTripBatch(driverId);
     }
     const filter = { driverId };

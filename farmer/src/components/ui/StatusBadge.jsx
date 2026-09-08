@@ -95,12 +95,28 @@ const STATUS_LABELS = {
   ARRIVED_AT_CENTRE: "At collection centre",
   COLLECTION_CENTRE_RECEIVED: "Received",
   RECEIVED_AT_COLLECTION_CENTRE: "Received",
+  QUALITY_PENDING: "Pending",
+  QUALITY_CHECK: "Quality Check",
+  INSPECTION: "Quality Check",
+  GRADING: "Grading",
+  GRADE_CONFIRMED: "Grading Completed",
+  ORDER_COMPLETED: "Grading Completed",
 };
+
+const QUALITY_KEYS = new Set([
+  "QUALITY_PENDING",
+  "QUALITY_CHECK",
+  "INSPECTION",
+  "GRADING",
+  "GRADE_CONFIRMED",
+  "ORDER_COMPLETED",
+]);
 
 function StatusBadge({ status, className = "" }) {
   const key = String(status || "");
   const pickupLabel = pickupStatusLabel(key);
   const isPickup = PICKUP_KEYS.has(key) || PICKUP_LABELS.has(pickupLabel);
+  const isQuality = QUALITY_KEYS.has(key);
   const style = STATUS_STYLES[key] || (isPickup ? "border-[#217346] bg-[#E8F5E9] text-[#217346]" : "border-[#D4D4D4] bg-[#F2F2F2] text-[#374151]");
   const label =
     key === "not_uploaded"
@@ -112,7 +128,7 @@ function StatusBadge({ status, className = "" }) {
   return (
     <span
       className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-        isPickup ? "normal-case tracking-normal" : "uppercase tracking-wide"
+        isPickup || isQuality ? "normal-case tracking-normal" : "uppercase tracking-wide"
       } ${style} ${className}`}
     >
       {label}

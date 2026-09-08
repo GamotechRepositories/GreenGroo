@@ -43,7 +43,7 @@ export default function VendorLoginPage() {
     }
     if (driverOk && !vendorOk) {
       vendorLogout();
-      navigate(fromPath.startsWith("/driver/") ? fromPath : "/driver/assigned", { replace: true });
+      navigate(fromPath.startsWith("/driver/") ? fromPath : "/driver", { replace: true });
       return;
     }
     if (vendorOk && driverOk) {
