@@ -83,11 +83,13 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
         <div className="mx-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:mx-0">
           <p className="font-semibold">Set your delivery location</p>
           <p className="mt-1 text-amber-800">
-            Products shown here come from your nearest dark store inventory.{" "}
+          <p className="mt-1 text-amber-800">
+            All catalog products are listed here. Stock depends on your nearest dark store.{" "}
             <Link to="/location" className="font-semibold text-primary underline">
               Choose location
             </Link>{" "}
-            to see what&apos;s in stock near you.
+            to see what is available near you.
+          </p>
           </p>
         </div>
       ) : null}
@@ -100,9 +102,8 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
               : storeName}
           </p>
           <p className="mt-0.5 text-emerald-800">
-            Products below are from this area&apos;s dark store inventory
-            {nearest?.inStockCount ? ` · ${nearest.inStockCount} items in stock` : ""}.
-            Change location to see another area&apos;s products.
+            Catalog from admin. Items not stocked at this dark store are marked out of stock
+            {nearest?.inStockCount ? ` · ${nearest.inStockCount} items in stock nearby` : ""}.
           </p>
         </div>
       ) : null}

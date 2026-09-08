@@ -688,7 +688,7 @@ function ActionButtons({
           disabled={!inStock}
           className="flex-1 rounded-md bg-primary px-6 py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Add to Cart
+          {inStock ? "Add to Cart" : "Out of Stock"}
         </button>
       )}
       <ProductAdminShareMenu
@@ -1244,7 +1244,7 @@ function ProductDetail() {
                   disabled={!inStock}
                   className="h-12 min-w-[150px] shrink-0 rounded-xl bg-[#0C831F] px-6 text-[15px] font-bold text-white transition hover:bg-[#097019] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Add to cart
+                  {inStock ? "Add to cart" : "Out of Stock"}
                 </button>
               )}
             </div>

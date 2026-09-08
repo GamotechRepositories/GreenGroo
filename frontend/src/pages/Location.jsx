@@ -83,7 +83,7 @@ function Location() {
             <div>
               <h1 className="text-lg font-bold text-text-primary lg:text-xl">Select Location</h1>
               <p className="text-sm text-text-secondary">
-                We’ll show only items in stock at your nearest dark store
+                We’ll show all products. Items missing at your nearest dark store appear out of stock
               </p>
             </div>
           </div>
@@ -106,7 +106,7 @@ function Location() {
                 {detecting ? "Detecting current location…" : "Use current location"}
               </span>
               <span className="block text-xs text-text-secondary">
-                Match inventory from the nearest GreenGroo dark store
+                Availability is based on the nearest GreenGroo dark store
               </span>
             </span>
           </button>

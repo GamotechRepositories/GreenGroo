@@ -7,7 +7,6 @@ import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination
 import {
   attachStoreAvailability,
   loadNearestStoreCatalog,
-  mergeStoreFilter,
 } from "../../delivery-service/src/services/nearestStoreCatalog.js";
 import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
 
@@ -495,13 +494,13 @@ async function getPurchaseCountsByProductIds(productIds = []) {
 export const getProducts = async (req, res) => {
   try {
     const catalog = await loadNearestStoreCatalog(req.query);
-    const filter = mergeStoreFilter({ isActive: true }, catalog);
+    const filter = { isActive: true };
 
-    if (!catalog.requested && req.query.justArrived === "true") {
+    if (req.query.justArrived === "true") {
       filter.justArrived = true;
     }
 
-    if (!catalog.requested && req.query.hotSelling === "true") {
+    if (req.query.hotSelling === "true") {
       filter.hotSelling = true;
     }
 
@@ -530,7 +529,7 @@ export const getProducts = async (req, res) => {
         MOST_PURCHASE_TAG.toLowerCase()
     ) {
       filter.categories = MOST_PURCHASE_TAG;
-    } else if (req.query.categoryName?.trim() && !catalog.requested) {
+    } else if (req.query.categoryName?.trim()) {
       filter.categories = req.query.categoryName.trim();
     }
 
@@ -623,7 +622,7 @@ export const getProducts = async (req, res) => {
 
     const products = await query;
     const purchaseCounts = await getPurchaseCountsByProductIds(products.map((item) => item._id));
-    let data = await attachQuantityDiscounts(
+    const data = await attachQuantityDiscounts(
       attachStoreAvailability(
         products.map((item) => ({
           ...item.toObject(),
@@ -633,32 +632,6 @@ export const getProducts = async (req, res) => {
       )
     );
 
-    if (!data.length && catalog.items?.length) {
-      const cats = [...new Set(catalog.items.map((item) => item.category).filter(Boolean))];
-      const loose = await Product.find({
-        isActive: true,
-        ...(req.query.categoryName?.trim()
-          ? { categories: req.query.categoryName.trim() }
-          : cats.length
-            ? { categories: { $in: cats } }
-            : {}),
-      })
-        .sort(sort)
-        .limit(80);
-      const looseCounts = await getPurchaseCountsByProductIds(loose.map((item) => item._id));
-      data = await attachQuantityDiscounts(
-        attachStoreAvailability(
-          loose.map((item) => ({
-            ...item.toObject(),
-            purchaseCount: looseCounts.get(String(item._id)) || 0,
-          })),
-          catalog
-        )
-      );
-      if (req.query.limit) {
-        data = data.slice(0, Math.min(parseInt(req.query.limit, 10) || 15, 50));
-      }
-    }
     res.status(200).json({ success: true, data, store: catalog.store });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -871,7 +844,7 @@ export const getSimilarProducts = async (req, res) => {
     }
 
     const catalog = await loadNearestStoreCatalog(req.query);
-    const baseFilter = mergeStoreFilter({ isActive: true }, catalog);
+    const baseFilter = { isActive: true };
     const excludeIds = [product._id];
     const similar = [];
     const subcategories = getRelevantSubcategories(product);

@@ -103,14 +103,14 @@ function QuickCommerceProductCard({
       type="button"
       onClick={handleAdd}
       disabled={disabled}
-      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-white px-3 text-[12px] font-extrabold uppercase tracking-wide transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-white px-2 text-[11px] font-extrabold uppercase tracking-wide transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       style={{
-        borderColor: ADD_PINK,
-        color: ADD_PINK,
-        boxShadow: `2px 2px 0 0 ${ADD_PINK}`,
+        borderColor: disabled ? "#9CA3AF" : ADD_PINK,
+        color: disabled ? "#6B7280" : ADD_PINK,
+        boxShadow: disabled ? "none" : `2px 2px 0 0 ${ADD_PINK}`,
       }}
     >
-      ADD
+      {disabled ? "OOS" : "ADD"}
     </button>
   );
 
@@ -180,9 +180,14 @@ function QuickCommerceProductCard({
               fallbackSrc={fallbackImage}
               alt={product.name}
               fit="cover"
-              className="!aspect-square !bg-transparent"
+              className={`!aspect-square !bg-transparent ${disabled ? "opacity-50" : ""}`}
             />
           </Link>
+          {disabled ? (
+            <span className="absolute left-2 top-2 z-10 rounded bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">
+              Out of stock
+            </span>
+          ) : null}
           {product.badge && (
             <span
               className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white shadow-xs tracking-wide uppercase"

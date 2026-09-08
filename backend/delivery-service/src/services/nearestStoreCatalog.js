@@ -211,43 +211,44 @@ async function resolveMatchingProducts(items) {
   return matched;
 }
 
+function applyStoreStock(doc, item, catalog) {
+  const storeStock = item ? Number(item.stockCount) || 0 : 0;
+  const inStock = storeStock > 0;
+  const storePrice = Number(item?.price);
+  const variants = Array.isArray(doc.variants)
+    ? doc.variants.map((variant) => ({
+        ...variant,
+        inStock,
+        stock: storeStock,
+      }))
+    : doc.variants;
+  return {
+    ...doc,
+    variants,
+    inStock,
+    stock: storeStock,
+    storeStock,
+    storeSku: item?.sku || "",
+    storeCategory: item?.category || "",
+    storeId: catalog?.store?.id || null,
+    storeName: catalog?.store?.storeName || "",
+    storeArea: catalog?.store?.area || "",
+    ...(item && Number.isFinite(storePrice) && storePrice > 0
+      ? { discountedPrice: storePrice, price: Math.max(doc.price || storePrice, storePrice) }
+      : {}),
+  };
+}
+
 export function attachStoreAvailability(products, catalog) {
   const list = Array.isArray(products) ? products : [];
   if (!catalog?.requested) return list;
-  if (!catalog.items?.length) return [];
 
-  return list
-    .map((product) => {
-      const doc = product?.toObject ? product.toObject() : { ...product };
-      const item = matchProductToItem(doc, catalog.items);
-      if (!item) return null;
-      const inStock = Number(item.stockCount) > 0;
-      const storeStock = Number(item.stockCount) || 0;
-      const storePrice = Number(item.price);
-      const variants = Array.isArray(doc.variants)
-        ? doc.variants.map((variant) => ({
-            ...variant,
-            inStock,
-            stock: storeStock,
-          }))
-        : doc.variants;
-      return {
-        ...doc,
-        variants,
-        inStock,
-        stock: storeStock,
-        storeStock,
-        storeSku: item.sku,
-        storeCategory: item.category,
-        storeId: catalog.store?.id,
-        storeName: catalog.store?.storeName,
-        storeArea: catalog.store?.area,
-        ...(Number.isFinite(storePrice) && storePrice > 0
-          ? { discountedPrice: storePrice, price: Math.max(doc.price || storePrice, storePrice) }
-          : {}),
-      };
-    })
-    .filter(Boolean);
+  const items = Array.isArray(catalog.items) ? catalog.items : [];
+  return list.map((product) => {
+    const doc = product?.toObject ? product.toObject() : { ...product };
+    const item = items.length ? matchProductToItem(doc, items) : null;
+    return applyStoreStock(doc, item, catalog);
+  });
 }
 
 export async function loadNearestStoreCatalog(query = {}) {
@@ -271,15 +272,12 @@ export async function loadNearestStoreCatalog(query = {}) {
     };
   }
 
-  const stocked = await StoreInventory.find({
+  const inventory = await StoreInventory.find({
     managerId: manager._id,
     isActive: true,
-    stockCount: { $gt: 0 },
   }).lean();
 
-  const items = filterItemsByCategory(stocked, query.categoryName);
-  const matchedProducts = await resolveMatchingProducts(items);
-  const productIds = matchedProducts.map((product) => product._id);
+  const inStockItems = inventory.filter((item) => Number(item.stockCount) > 0);
 
   return {
     requested: true,
@@ -288,20 +286,16 @@ export async function loadNearestStoreCatalog(query = {}) {
     store: storePublicPayload(manager, {
       distanceKm: resolved.distanceKm,
       reason: resolved.reason,
-      inStockCount: stocked.length,
-      categories: [...new Set(stocked.map((item) => item.category).filter(Boolean))],
+      inStockCount: inStockItems.length,
+      categories: [...new Set(inventory.map((item) => item.category).filter(Boolean))],
     }),
-    items,
-    productIds,
-    productMatch: productIds.length
-      ? { _id: { $in: productIds } }
-      : mongoMatchForInventory(items),
+    items: inventory,
+    productIds: [],
+    productMatch: null,
     reason: resolved.reason,
   };
 }
 
-export function mergeStoreFilter(baseFilter, catalog) {
-  if (!catalog?.requested) return baseFilter;
-  if (!catalog.productMatch) return { ...baseFilter, _id: { $in: [] } };
-  return { $and: [baseFilter, catalog.productMatch] };
+export function mergeStoreFilter(baseFilter, _catalog) {
+  return baseFilter;
 }

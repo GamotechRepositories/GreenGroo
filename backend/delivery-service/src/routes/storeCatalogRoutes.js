@@ -9,7 +9,7 @@ router.get("/nearest", async (req, res, next) => {
     return res.json({
       success: true,
       store: catalog.store,
-      inStockCount: catalog.store?.inStockCount || catalog.items?.length || 0,
+      inStockCount: Number(catalog.store?.inStockCount) || 0,
       categories: catalog.store?.categories || [],
       needsLocation: Boolean(catalog.needsLocation),
       reason: catalog.reason,
