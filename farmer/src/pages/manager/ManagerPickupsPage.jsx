@@ -402,9 +402,9 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className={EXCEL_PAGE_TITLE}>{meta.title}</h1>
-          <p className={EXCEL_PAGE_SUB}>{meta.sub}</p>
+      <div>
+        <h1 className={EXCEL_PAGE_TITLE}>{meta.title}</h1>
+        <p className={EXCEL_PAGE_SUB}>{meta.sub}</p>
         </div>
         {isIncoming ? (
           <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => { setScanError(""); setScanOpen(true); }}>
@@ -528,7 +528,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                 onAssign={() => navigate(pickupPath(p, isIncoming))}
               />
             ))}
-          </div>
+            </div>
 
           <div className="hidden w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
             <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
@@ -543,8 +543,8 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                 <col className="w-[7%]" />
                 <col className="w-[15%]" />
               </colgroup>
-              <thead>
-                <tr>
+                <thead>
+                  <tr>
                   <th className={TH}>#</th>
                   <th className={TH}>Farmer</th>
                   <th className={TH}>Location</th>
@@ -554,9 +554,9 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                   <th className={TH}>Pickup Date</th>
                   <th className={TH}>Pickup Time</th>
                   <th className={TH}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </tr>
+                </thead>
+                <tbody>
                 {filtered.map((p, idx) => {
                   const id = p.orderDisplayId || p.orderId || p.id;
                   const location = pickupLocation(p);
@@ -589,21 +589,21 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
                         <div className="flex flex-wrap items-center justify-center gap-1">
                           <button type="button" className={ACTION_BTN} onClick={() => navigate(orderPath(p))}>
                             View
-                          </button>
-                          <button
-                            type="button"
+                            </button>
+                            <button
+                              type="button"
                             className={p.status === "READY_FOR_PICKUP" || isIncoming ? ACTION_BTN_PRIMARY : ACTION_BTN}
                             onClick={() => navigate(pickupPath(p, isIncoming))}
-                          >
+                            >
                             {secondLabel}
-                          </button>
+                            </button>
                         </div>
-                      </td>
+                          </td>
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
           </div>
         </>
       )}

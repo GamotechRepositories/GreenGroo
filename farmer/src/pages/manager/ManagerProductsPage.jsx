@@ -5,6 +5,7 @@ import { getManagerAllProducts, reviewManagerFarmerProduct } from "../../api/far
 import { isPendingProductApproval } from "../../utils/productActions";
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import CopyId from "../../components/ui/CopyId";
+import StatusBadge from "../../components/ui/StatusBadge";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
 function isBusinessProductId(value) {
@@ -81,6 +82,88 @@ const APPROVE_BTN =
   "inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-green-100 px-2 text-[10px] font-semibold text-green-700 whitespace-nowrap hover:bg-green-200 disabled:opacity-40";
 const REJECT_BTN =
   "inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-red-100 px-2 text-[10px] font-semibold text-red-700 whitespace-nowrap hover:bg-red-200 disabled:opacity-40";
+const MOBILE_BTN =
+  "inline-flex h-9 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700";
+const MOBILE_APPROVE =
+  "inline-flex h-9 w-full items-center justify-center rounded-lg bg-green-100 px-2 text-[11px] font-semibold text-green-700 disabled:opacity-40";
+const MOBILE_REJECT =
+  "inline-flex h-9 w-full items-center justify-center rounded-lg bg-red-100 px-2 text-[11px] font-semibold text-red-700 disabled:opacity-40";
+
+function productThumb(p, name) {
+  if (p.image) {
+    return <img src={p.image} alt={name} className="h-12 w-12 shrink-0 rounded-xl border border-[#D4D4D4] object-cover" />;
+  }
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E8F5E9] text-sm font-bold text-[#217346]">
+      {String(name || "P").charAt(0)}
+    </div>
+  );
+}
+
+function ProductMobileCard({ p, busyId, onReview }) {
+  const listings = p.listings || [p];
+  const single = listings.length === 1 ? listings[0] : null;
+  const reviewId = single ? single.id || single.productId : "";
+  const canReview = Boolean(single && isPendingProductApproval(single.status));
+  const name = productNameOf(p);
+  const farmersPath = productFarmersPath(p);
+  const createPath = single ? orderCreatePath(single) : farmersPath;
+  const farmerCount = new Set(listings.map((item) => item.farmerId).filter(Boolean)).size;
+  return (
+    <article className={`${EXCEL_PANEL} p-3`}>
+      <div className="flex items-start gap-2.5">
+        {productThumb(p, name)}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <Link to={farmersPath} className="min-w-0 truncate text-[13px] font-bold text-[#217346]">
+              {name}
+              {p.variety ? <span className="font-medium text-[#6B7280]"> · {p.variety}</span> : null}
+            </Link>
+            <StatusBadge status={p.status || "Draft"} className="max-w-[46%] shrink-0" />
+          </div>
+          <CopyId
+            value={formatProductBusinessId(p)}
+            className="mt-0.5"
+            textClassName="font-mono text-[10px] text-emerald-700"
+            breakAll
+          />
+          <p className="mt-0.5 truncate text-[11px] text-[#6B7280]">
+            {[p.category, p.subCategory].filter(Boolean).join(" · ") || "—"}
+            {" · "}
+            <span className="font-semibold text-[#217346]">
+              {Number(p.totalQty || 0).toLocaleString("en-IN")} {p.unit || "Kg"}
+            </span>
+            {farmerCount > 1 ? ` · ${farmerCount} farmers` : ""}
+          </p>
+        </div>
+      </div>
+      <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+        <Link to={createPath} className={MOBILE_BTN}>
+          Create Order
+        </Link>
+        <Link to={farmersPath} className={MOBILE_BTN}>
+          View
+        </Link>
+        <button
+          type="button"
+          disabled={busyId === reviewId || !canReview}
+          onClick={() => onReview(single, "approved")}
+          className={MOBILE_APPROVE}
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          disabled={busyId === reviewId || !canReview}
+          onClick={() => onReview(single, "rejected")}
+          className={MOBILE_REJECT}
+        >
+          Reject
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export default function ManagerProductsPage() {
   const [farmers, setFarmers] = useState([]);
@@ -160,79 +243,77 @@ export default function ManagerProductsPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+    <div className="min-w-0 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h1 className={EXCEL_PAGE_TITLE}>All Products</h1>
-          <p className={EXCEL_PAGE_SUB}>Approve farmer products before they go live</p>
+          <p className={`${EXCEL_PAGE_SUB} hidden md:block`}>Approve farmer products before they go live</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link to="/farmer/manager/products/add" className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}>
-            + Add Product
-          </Link>
-          <Link to="/farmer/manager/farmers/add" className={`${EXCEL_BTN_PRIMARY} inline-block px-3 py-1.5 text-xs`}>
-            + Add Farmer
-          </Link>
-        </div>
+        <Link
+          to="/farmer/manager/products/add"
+          className={`${EXCEL_BTN_PRIMARY} inline-flex h-9 shrink-0 items-center justify-center px-3 text-xs md:inline-block md:h-auto md:py-1.5`}
+        >
+          + Add Product
+        </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {[
           { label: "Total Products", value: uniqueProductCount, color: "text-[#217346]" },
           { label: "Total Produce Stock", value: `${totalStockKg.toLocaleString("en-IN")} Kg`, color: "text-emerald-700" },
           { label: "Pending Approval", value: pendingCount, color: "text-amber-600" },
           { label: "Categories", value: allCategories.length || "—", color: "text-blue-700" },
         ].map((s) => (
-          <div key={s.label} className={`${EXCEL_PANEL} p-3`}>
-            <p className="text-[11px] text-[#6B7280]">{s.label}</p>
-            <p className={`mt-0.5 text-xl font-bold ${s.color}`}>{s.value}</p>
+          <div key={s.label} className={`${EXCEL_PANEL} min-w-0 p-2.5 sm:p-3`}>
+            <p className="text-[11px] leading-tight text-[#6B7280]">{s.label}</p>
+            <p className={`mt-0.5 break-words text-lg font-bold sm:text-xl ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search by product, ID, or farmer…"
-          className={`${EXCEL_INPUT} max-w-xs`}
+          className={`${EXCEL_INPUT} md:max-w-xs`}
         />
-        <select
-          value={selectedFarmerId}
-          onChange={(e) => setSelectedFarmerId(e.target.value)}
-          className={`${EXCEL_INPUT} max-w-[200px]`}
-        >
-          <option value="">All Farmers ({farmers.length})</option>
-          {farmers.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-        {allCategories.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5 md:contents">
+          <select
+            value={selectedFarmerId}
+            onChange={(e) => setSelectedFarmerId(e.target.value)}
+            className={`${EXCEL_INPUT} min-w-0 !px-1.5 !py-2 !text-[11px] md:max-w-[200px] md:!px-3 md:!py-2.5 md:!text-sm`}
+          >
+            <option value="">All Farmers ({farmers.length})</option>
+            {farmers.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className={`${EXCEL_INPUT} max-w-[160px]`}
+            className={`${EXCEL_INPUT} min-w-0 !px-1.5 !py-2 !text-[11px] md:max-w-[160px] md:!px-3 md:!py-2.5 md:!text-sm`}
           >
             <option value="">All Categories</option>
             {allCategories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-        )}
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          className={`${EXCEL_INPUT} max-w-[180px]`}
-        >
-          <option value="">All Statuses</option>
-          <option value="Pending Approval">Pending Approval ({pendingCount})</option>
-          <option value="Active">Active</option>
-          <option value="Rejected">Rejected</option>
-          <option value="Draft">Draft</option>
-        </select>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className={`${EXCEL_INPUT} min-w-0 !px-1.5 !py-2 !text-[11px] md:max-w-[180px] md:!px-3 md:!py-2.5 md:!text-sm`}
+          >
+            <option value="">All Statuses</option>
+            <option value="Pending Approval">Pending Approval ({pendingCount})</option>
+            <option value="Active">Active</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Draft">Draft</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -242,7 +323,13 @@ export default function ManagerProductsPage() {
           {products.length === 0 ? "No products yet." : "No matching products found"}
         </div>
       ) : (
-        <div className={`${EXCEL_PANEL} overflow-x-auto`}>
+        <>
+          <div className="space-y-2.5 md:hidden">
+            {filtered.map((p) => (
+              <ProductMobileCard key={p.groupKey} p={p} busyId={busyId} onReview={handleReview} />
+            ))}
+          </div>
+          <div className={`${EXCEL_PANEL} hidden overflow-x-auto md:block`}>
           <table className="w-full min-w-[780px] text-xs">
             <thead>
               <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
@@ -335,7 +422,8 @@ export default function ManagerProductsPage() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
