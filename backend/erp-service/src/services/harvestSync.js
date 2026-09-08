@@ -20,10 +20,12 @@ export async function syncQualityToErp({ inspection, pickup, order, farmer, cent
     const farmerId = farmer?.farmerId || farmer?.id || inspection.farmerId;
     const cropCode = cropCodeFromName(order?.productName || order?.cropName || "VEG");
     const grade = primaryGrade(inspection);
-    const qty =
+    const allocated =
       (Number(inspection.gradeAQuantity) || 0) +
       (Number(inspection.gradeBQuantity) || 0) +
       (Number(inspection.gradeCQuantity) || 0);
+    const rejected = Number(inspection.rejectedQuantity) || 0;
+    const qty = Math.max(0, allocated - rejected);
 
     let article = await Article.findOne({
       farmerId,
@@ -73,7 +75,7 @@ export async function syncQualityToErp({ inspection, pickup, order, farmer, cent
       damage: inspection.qualityParameters?.damage || "",
       moisture: inspection.qualityParameters?.moisture || "",
       weight: inspection.qualityParameters?.weight || "",
-      rejectedQuantity: Number(inspection.rejectedQuantity) || 0,
+      rejectedQuantity: rejected,
       remarks: inspection.qualityRemarks || "",
       photos: (inspection.qualityPhotos || []).map((p) => p.url || p),
       sourceInspectionId: inspection.inspectionId,
@@ -114,8 +116,8 @@ export async function syncQualityToErp({ inspection, pickup, order, farmer, cent
         batchId,
         locationType: "COLLECTION_CENTRE",
         locationId: String(batch.currentLocationId),
-        inward: qty,
-        damaged: Number(inspection.rejectedQuantity) || 0,
+        inward: allocated > 0 ? allocated : qty,
+        damaged: rejected,
         unitValue: article.purchasePrice || 0,
       });
     }

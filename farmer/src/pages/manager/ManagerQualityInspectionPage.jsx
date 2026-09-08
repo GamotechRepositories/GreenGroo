@@ -241,6 +241,36 @@ function gradeDisplayedWeight(label, weightRows, formQty) {
   return num(formQty);
 }
 
+function gradeReceivedWeight(label, weightRows, formQty) {
+  const wr = (weightRows || []).find((g) => g.label === label);
+  if (wr) {
+    if (wr.acceptedWeight > 0) return wr.acceptedWeight;
+    if (wr.actualWeight > 0) return wr.actualWeight;
+  }
+  return num(formQty);
+}
+
+function assignQtyMap(data, weightRows, form) {
+  const received = num(data?.receivedQuantity);
+  const rows = GRADE_ROWS.map((row) => ({
+    key: row.key,
+    qty: gradeReceivedWeight(row.label, weightRows, form?.[row.key]),
+  }));
+  const sum = rows.reduce((total, row) => total + row.qty, 0);
+  if (received > 0 && sum > received + 0.001 && sum > 0) {
+    const scale = received / sum;
+    rows.forEach((row) => {
+      row.qty = Math.round(row.qty * scale * 1000) / 1000;
+    });
+    const drift = Math.round((received - rows.reduce((total, row) => total + row.qty, 0)) * 1000) / 1000;
+    if (drift) {
+      const top = rows.reduce((a, b) => (a.qty >= b.qty ? a : b));
+      top.qty = Math.round((top.qty + drift) * 1000) / 1000;
+    }
+  }
+  return Object.fromEntries(rows.map((row) => [row.key, row.qty]));
+}
+
 export default function ManagerQualityInspectionPage() {
   const { orderId } = useParams();
   const [data, setData] = useState(null);
@@ -299,21 +329,16 @@ export default function ManagerQualityInspectionPage() {
   const options = data?.paramOptions || {};
   const unit = data?.unit || "Kg";
 
-  const split = useMemo(() => {
-    const total = num(data?.receivedQuantity);
-    const a = num(form.gradeAQuantity);
-    const b = num(form.gradeBQuantity);
-    const c = num(form.gradeCQuantity);
-    const r = GRADE_ROWS.reduce((sum, row) => sum + num(form.gradeQuality[row.label]?.rejectedQuantity), 0);
-    const allocated = Math.round((a + b + c + r) * 1000) / 1000;
-    return { total, allocated, remaining: Math.round((total - allocated) * 1000) / 1000, a, b, c, r };
-  }, [form, data]);
-
-  const paramsComplete = GRADE_ROWS.every((row) => {
-    if (!(num(form[row.key]) > 0)) return true;
-    return PARAM_FIELDS.every((f) => String(form.gradeQuality[row.label]?.parameters?.[f.key] || "").trim());
-  });
-  const rejectionOk = GRADE_ROWS.every((row) => {
+  const weightRows = useMemo(() => weightGradeRows(data), [data]);
+  const qualityGrades = GRADE_ROWS.filter(
+    (row) => gradeDisplayedWeight(row.label, weightRows, form[row.key]) > 0
+  );
+  const paramsComplete =
+    qualityGrades.length > 0 &&
+    qualityGrades.every((row) =>
+      PARAM_FIELDS.every((f) => String(form.gradeQuality[row.label]?.parameters?.[f.key] || "").trim())
+    );
+  const rejectionOk = qualityGrades.every((row) => {
     const rejected = num(form.gradeQuality[row.label]?.rejectedQuantity);
     if (!(rejected > 0)) return true;
     const reason = String(form.gradeQuality[row.label]?.rejectionReason || "").trim();
@@ -321,11 +346,10 @@ export default function ManagerQualityInspectionPage() {
     if (reason === "Other" && !String(form.gradeQuality[row.label]?.rejectionRemarks || "").trim()) return false;
     return true;
   });
-  const canAssign = started && !locked && paramsComplete && split.remaining === 0 && rejectionOk;
-  const weightRows = useMemo(() => weightGradeRows(data), [data]);
-  const qualityGrades = GRADE_ROWS.filter(
-    (row) => gradeDisplayedWeight(row.label, weightRows, form[row.key]) > 0
-  );
+  const canAssign = started && !locked && paramsComplete && rejectionOk;
+
+  const assignQty = useMemo(() => assignQtyMap(data, weightRows, form), [data, weightRows, form]);
+  const gradeAssignQty = (key) => num(assignQty[key]);
   const summaryRows = useMemo(() => {
     const orderedMap = {};
     (Array.isArray(data?.grades) ? data.grades : []).forEach((g) => {
@@ -346,9 +370,10 @@ export default function ManagerQualityInspectionPage() {
         const row = GRADE_ROWS.find((r) => r.label === label);
         const wr = weightRows.find((g) => g.label === label);
         const ordered = orderedMap[label] || wr?.expectedWeight || 0;
-        const received = gradeDisplayedWeight(label, weightRows, row ? form[row.key] : 0);
+        const received = gradeReceivedWeight(label, weightRows, row ? form[row.key] : 0);
         const rejected = num(form.gradeQuality[label]?.rejectedQuantity);
-        const finalReceived = Math.round((ordered - rejected) * 1000) / 1000;
+        const base = received > 0 ? received : ordered;
+        const finalReceived = Math.max(0, Math.round((base - rejected) * 1000) / 1000);
         return { label, ordered, received, rejected, finalReceived };
       })
       .filter((row) => row.ordered > 0 || row.received > 0 || row.rejected > 0);
@@ -395,12 +420,13 @@ export default function ManagerQualityInspectionPage() {
     }));
   };
 
-  const run = async (key, fn) => {
+  const run = async (key, fn, { keepForm = false } = {}) => {
     setBusy(key);
     setError("");
     try {
       const d = await fn();
-      hydrate(d);
+      if (keepForm) setData(d);
+      else hydrate(d);
       return d;
     } catch (err) {
       setError(err.message || "Action failed");
@@ -442,7 +468,8 @@ export default function ManagerQualityInspectionPage() {
               rejectionRemarks: gq.rejectionRemarks || "",
             },
           },
-        })
+        }),
+        { keepForm: true }
       );
       toast.success(`${label} saved`);
     } catch {
@@ -463,7 +490,7 @@ export default function ManagerQualityInspectionPage() {
       },
     }));
     uploadManagerQualityPhotos(orderId, { grade: label, photos, replace: true })
-      .then(hydrate)
+      .then((d) => setData(d))
       .catch((err) => setError(err.message || "Failed to save photos"));
   };
 
@@ -471,9 +498,9 @@ export default function ManagerQualityInspectionPage() {
     await run("params", () => saveManagerQualityParameters(orderId, qualityCheckPayload()));
     await run("grade", () =>
       saveManagerQualityGrading(orderId, {
-        gradeAQuantity: num(form.gradeAQuantity),
-        gradeBQuantity: num(form.gradeBQuantity),
-        gradeCQuantity: num(form.gradeCQuantity),
+        gradeAQuantity: gradeAssignQty("gradeAQuantity"),
+        gradeBQuantity: gradeAssignQty("gradeBQuantity"),
+        gradeCQuantity: gradeAssignQty("gradeCQuantity"),
         rejectedQuantity: GRADE_ROWS.reduce((sum, row) => sum + num(form.gradeQuality[row.label]?.rejectedQuantity), 0),
         rejectionReason: GRADE_ROWS.map((row) => form.gradeQuality[row.label]).find((g) => num(g?.rejectedQuantity) > 0)?.rejectionReason || "",
         rejectionRemarks: GRADE_ROWS.map((row) => form.gradeQuality[row.label]).find((g) => num(g?.rejectedQuantity) > 0)?.rejectionRemarks || "",
@@ -509,7 +536,7 @@ export default function ManagerQualityInspectionPage() {
       </p>
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <StatusBadge status={data.status} className="shrink-0" />
-        <h1 className={`${EXCEL_PAGE_TITLE} min-w-0 shrink-0 text-[16px] sm:text-xl`}>Quality Inspection</h1>
+        <h1 className={`${EXCEL_PAGE_TITLE} min-w-0 shrink-0 text-[16px] sm:text-xl`}>Quality Inspection & Grading</h1>
         <p className={`${EXCEL_PAGE_SUB} min-w-0 truncate`}>{data.farmerName} · {data.productName}</p>
       </div>
       {data.status === "QUALITY_PENDING" ? (
@@ -562,7 +589,7 @@ export default function ManagerQualityInspectionPage() {
           ) : (
             qualityGrades.map((row) => {
               const gq = form.gradeQuality[row.label] || emptyGradeRow();
-              const weight = gradeDisplayedWeight(row.label, weightRows, form[row.key]);
+              const weight = gradeAssignQty(row.key) || gradeDisplayedWeight(row.label, weightRows, form[row.key]);
               const gradeOpen = Boolean(openGrades[row.label]);
               return (
                 <div key={row.label} className={`overflow-hidden rounded-lg border ${GRADE_TONE[row.label] || "border-[#D4D4D4]"}`}>
@@ -770,14 +797,12 @@ export default function ManagerQualityInspectionPage() {
           <div className="w-full max-w-md border border-[#D4D4D4] bg-white p-5">
             <p className="text-sm font-bold text-[#1F2937]">Are you sure you want to assign these grades?</p>
             <div className="mt-3 space-y-1 text-xs text-[#374151]">
-              {GRADE_ROWS.filter(
-                (row) => num(form[row.key]) > 0 || num(form.gradeQuality[row.label]?.rejectedQuantity) > 0
-              ).map((row) => (
+              {qualityGrades.map((row) => (
                 <p key={`confirm-${row.label}`}>
-                  {row.label} Quantity: {num(form[row.key])} {unit} · Rejected: {num(form.gradeQuality[row.label]?.rejectedQuantity)} {unit}
+                  {row.label} Quantity: {gradeAssignQty(row.key)} {unit} · Rejected: {num(form.gradeQuality[row.label]?.rejectedQuantity)} {unit} · Final: {Math.max(0, Math.round((gradeAssignQty(row.key) - num(form.gradeQuality[row.label]?.rejectedQuantity)) * 1000) / 1000)} {unit}
                 </p>
               ))}
-              <p>Total Rejected: {split.r} {unit}</p>
+              <p>Total Rejected: {qualityGrades.reduce((sum, row) => sum + num(form.gradeQuality[row.label]?.rejectedQuantity), 0)} {unit}</p>
             </div>
             <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button type="button" className={`${EXCEL_BTN} w-full sm:w-auto`} onClick={() => setConfirmOpen(false)}>Cancel</button>

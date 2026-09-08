@@ -693,6 +693,7 @@ const qualityInspectionSchema = new mongoose.Schema(
     lastActionBy: { type: String, default: "" },
     lastActionRole: { type: String, default: "" },
     lastActionAt: { type: Date, default: null },
+    inventorySyncedAt: { type: Date, default: null },
     actions: [
       {
         action: { type: String, default: "" },

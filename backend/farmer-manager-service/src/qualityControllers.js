@@ -2,6 +2,8 @@ import crypto from "crypto";
 import {
   Farmer,
   FarmerOrder,
+  FarmerProduct,
+  FarmerStockHistory,
   CollectionCentre,
   Pickup,
   QualityInspection,
@@ -477,6 +479,65 @@ function applyGradeRejectionRows(inspection, incoming) {
   return gq;
 }
 
+function receivingGradeQty(pickup, order, label) {
+  const wr = weightGradesOf(pickup, order).find((g) => g.label === label);
+  if (!wr) return 0;
+  if (wr.acceptedWeight > 0) return wr.acceptedWeight;
+  if (wr.actualWeight > 0) return wr.actualWeight;
+  return 0;
+}
+
+function clampGradesToReceived(a, b, c, totalReceived) {
+  let gradeA = qty(a);
+  let gradeB = qty(b);
+  let gradeC = qty(c);
+  const received = qty(totalReceived);
+  const allocated = qty(gradeA + gradeB + gradeC);
+  if (received > 0 && allocated > received + 0.001 && allocated > 0) {
+    const scale = received / allocated;
+    gradeA = qty(gradeA * scale);
+    gradeB = qty(gradeB * scale);
+    gradeC = qty(gradeC * scale);
+    const drift = qty(received - (gradeA + gradeB + gradeC));
+    if (drift !== 0) {
+      if (gradeA >= gradeB && gradeA >= gradeC) gradeA = qty(gradeA + drift);
+      else if (gradeB >= gradeC) gradeB = qty(gradeB + drift);
+      else gradeC = qty(gradeC + drift);
+    }
+  }
+  return { gradeA, gradeB, gradeC };
+}
+
+function applyAssignedGradeQuantities(inspection, pickup, order, body = {}) {
+  const received = receivedQuantity(pickup, order);
+  let gradeA = receivingGradeQty(pickup, order, "Grade A");
+  let gradeB = receivingGradeQty(pickup, order, "Grade B");
+  let gradeC = receivingGradeQty(pickup, order, "Grade C");
+  if (!(gradeA + gradeB + gradeC > 0)) {
+    gradeA = qty(body.gradeAQuantity);
+    gradeB = qty(body.gradeBQuantity);
+    gradeC = qty(body.gradeCQuantity);
+  }
+  const clamped = clampGradesToReceived(gradeA, gradeB, gradeC, received);
+  inspection.gradeAQuantity = clamped.gradeA;
+  inspection.gradeBQuantity = clamped.gradeB;
+  inspection.gradeCQuantity = clamped.gradeC;
+  let split = splitTotals(inspection, received);
+  if (received > 0 && split.remaining > 0.001) {
+    const filled = [
+      ["gradeAQuantity", split.gradeA],
+      ["gradeBQuantity", split.gradeB],
+      ["gradeCQuantity", split.gradeC],
+    ].filter(([, value]) => value > 0);
+    const target = filled.sort((a, b) => b[1] - a[1])[0];
+    if (target) {
+      inspection[target[0]] = qty(target[1] + split.remaining);
+      split = splitTotals(inspection, received);
+    }
+  }
+  return split;
+}
+
 function splitTotals(inspection, totalReceived) {
   const gradeA = qty(inspection.gradeAQuantity);
   const gradeB = qty(inspection.gradeBQuantity);
@@ -484,9 +545,124 @@ function splitTotals(inspection, totalReceived) {
   const gq = gradeQualityOf(inspection);
   const perGradeRejected = gradeRejectedTotal(gq);
   const rejected = perGradeRejected > 0 ? perGradeRejected : qty(inspection.rejectedQuantity);
-  const allocated = qty(gradeA + gradeB + gradeC + rejected);
+  const allocated = qty(gradeA + gradeB + gradeC);
   const remaining = qty(totalReceived - allocated);
   return { gradeA, gradeB, gradeC, rejected, allocated, remaining, totalReceived };
+}
+
+function orderedGradeQty(order, label) {
+  const fromGrades = orderGrades(order)
+    .filter((g) => normalizeGradeKey(g.label || g.name || g.grade) === label)
+    .reduce((sum, g) => sum + qty(g.quantity || g.qty), 0);
+  if (fromGrades > 0) return fromGrades;
+  const products = Array.isArray(order?.products) ? order.products : [];
+  const fromProducts = products
+    .filter((p) => normalizeGradeKey(p.grade) === label)
+    .reduce((sum, p) => sum + qty(p.quantity), 0);
+  if (fromProducts > 0) return fromProducts;
+  const flat = flattenOrder(order);
+  if (normalizeGradeKey(flat.grade) === label) return qty(flat.orderedQuantity);
+  return 0;
+}
+
+async function applyQualityToFarmerInventory({ inspection, order, farmer, split }) {
+  if (inspection.inventorySyncedAt) return;
+  const farmerId = farmer?.farmerId || farmer?.id || inspection.farmerId;
+  const flat = flattenOrder(order);
+  const productId = inspection.productId || flat.productId;
+  const orderRef = order?.id || inspection.orderId;
+  if (!farmerId || !orderRef) return;
+  const already = await FarmerStockHistory.findOne({
+    farmerId,
+    reference: orderRef,
+    reason: /Quality grading/i,
+  }).lean();
+  if (already) return;
+
+  let product = null;
+  if (productId) {
+    product = await FarmerProduct.findOne({
+      farmerId,
+      $or: [{ id: productId }, { productId }, { previousProductId: productId }],
+    });
+  }
+  if (!product && flat.productName) {
+    product = await FarmerProduct.findOne({
+      farmerId,
+      name: new RegExp(`^${String(flat.productName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+    });
+  }
+  if (!product) return;
+
+  const gq = gradeQualityOf(inspection);
+  const receivedByGrade = {
+    "Grade A": split.gradeA,
+    "Grade B": split.gradeB,
+    "Grade C": split.gradeC,
+  };
+  if (!Array.isArray(product.grades) || !product.grades.length) {
+    product.grades = [
+      { id: "g-a", label: "Grade A", quantity: product.gradeAQty || 0 },
+      { id: "g-b", label: "Grade B", quantity: product.gradeBQty || 0 },
+    ];
+  }
+
+  const history = [];
+  for (const label of GRADE_KEYS) {
+    const orderedQty = orderedGradeQty(order, label);
+    const receivedQty = qty(receivedByGrade[label]);
+    const rejectedQty = qty(gq[label]?.rejectedQuantity);
+    const acceptedQty = qty(Math.max(0, receivedQty - rejectedQty));
+    const addBack = qty(Math.max(0, (orderedQty > 0 ? orderedQty : 0) - acceptedQty));
+    if (!(addBack > 0)) continue;
+    let idx = product.grades.findIndex((g) => normalizeGradeKey(g.label || g.grade || g.name) === label);
+    if (idx < 0) {
+      product.grades.push({ id: `g-${label.slice(-1).toLowerCase()}`, label, quantity: 0 });
+      idx = product.grades.length - 1;
+    }
+    const prev = qty(product.grades[idx].quantity);
+    const next = qty(prev + addBack);
+    product.grades[idx].quantity = next;
+    history.push({ label, prev, addBack, next });
+  }
+  if (!history.length) {
+    inspection.inventorySyncedAt = new Date();
+    return;
+  }
+
+  const totalStock = product.grades.reduce((sum, g) => sum + qty(g.quantity), 0);
+  product.stock = totalStock;
+  product.availableQuantity = totalStock;
+  product.gradeAQty = qty(
+    product.grades.find((g) => normalizeGradeKey(g.label || g.grade) === "Grade A")?.quantity
+  );
+  product.gradeBQty = qty(
+    product.grades.find((g) => normalizeGradeKey(g.label || g.grade) === "Grade B")?.quantity
+  );
+  product.markModified("grades");
+  if (totalStock > 0 && product.status === "Out of Stock") product.status = "Approved";
+  await product.save();
+
+  for (const row of history) {
+    await FarmerStockHistory.create({
+      id: newId("sh"),
+      vendorId: product.vendorId,
+      managerId: product.managerId || farmer?.managerId || "",
+      farmerId,
+      productId: product.id,
+      productName: product.name,
+      grade: row.label,
+      action: "Stock Added",
+      previousStock: row.prev,
+      changedQuantity: row.addBack,
+      newStock: row.next,
+      reason: "Quality grading adjustment",
+      updatedBy: "Manager",
+      reference: orderRef,
+      at: new Date(),
+    }).catch(() => {});
+  }
+  inspection.inventorySyncedAt = new Date();
 }
 
 function assertGradeRejection(gq) {
@@ -627,7 +803,7 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
   const split = splitTotals(inspection, totalReceived);
   const unit = rec.weightUnit || pickup?.unit || flat.unit || "Kg";
   const price = flat.price;
-  const payableQty = qty(split.gradeA + split.gradeB + split.gradeC);
+  const payableQty = qty(Math.max(0, split.gradeA + split.gradeB + split.gradeC - split.rejected));
   const finalAmount = qty(price ? payableQty * price : (order?.orderValue || 0));
   const locked = LOCKED_STATUSES.includes(inspection.status);
   const gq = gradeQualityOf(inspection);
@@ -755,7 +931,8 @@ async function requireEligibleBundle(req, orderId) {
 }
 
 const BUCKETS = {
-  pending: [QUALITY_PENDING, INSPECTION, GRADING],
+  pending: [QUALITY_PENDING],
+  all: [QUALITY_PENDING, INSPECTION, GRADING],
   inspection: [INSPECTION],
   grading: [GRADING],
   completed: [GRADE_CONFIRMED, ORDER_COMPLETED],
@@ -1013,9 +1190,6 @@ export async function saveQualityGrading(req, res) {
     if (inspection.status === QUALITY_PENDING) {
       return res.status(400).json({ message: "Start quality check before grading" });
     }
-    inspection.gradeAQuantity = qty(req.body.gradeAQuantity);
-    inspection.gradeBQuantity = qty(req.body.gradeBQuantity);
-    inspection.gradeCQuantity = qty(req.body.gradeCQuantity);
     if (req.body.gradeQuality) {
       const gq = applyGradeRejectionRows(inspection, req.body.gradeQuality);
       inspection.gradeQuality = gq;
@@ -1030,7 +1204,7 @@ export async function saveQualityGrading(req, res) {
       inspection.rejectionRemarks = String(req.body.rejectionRemarks || req.body.otherReason || "").trim();
     }
     if (req.body.qualityRemarks != null) inspection.qualityRemarks = String(req.body.qualityRemarks);
-    const split = splitTotals(inspection, receivedQuantity(pickup, order));
+    const split = applyAssignedGradeQuantities(inspection, pickup, order, req.body);
     if (!gradeParametersComplete(inspection, split)) {
       return res.status(400).json({ message: "Complete quality parameters for every allocated grade before grading" });
     }
@@ -1068,7 +1242,7 @@ export async function confirmQualityGrading(req, res) {
     if (LOCKED_STATUSES.includes(inspection.status)) {
       return res.status(409).json({ message: "Grading is already confirmed for this order" });
     }
-    const split = splitTotals(inspection, receivedQuantity(pickup, order));
+    const split = applyAssignedGradeQuantities(inspection, pickup, order, inspection);
     if (!gradeParametersComplete(inspection, split)) {
       return res.status(400).json({ message: "Complete quality parameters for every allocated grade before confirming grading" });
     }
@@ -1084,6 +1258,10 @@ export async function confirmQualityGrading(req, res) {
       {
         $set: {
           status: GRADE_CONFIRMED,
+          gradeAQuantity: split.gradeA,
+          gradeBQuantity: split.gradeB,
+          gradeCQuantity: split.gradeC,
+          rejectedQuantity: split.rejected,
           inspectorId: inspection.inspectorId || actor.id,
           inspectorRole: inspection.inspectorRole || actor.role,
           inspectorName: inspection.inspectorName || actor.name,
@@ -1102,6 +1280,10 @@ export async function confirmQualityGrading(req, res) {
     if (!updated) {
       return res.status(409).json({ message: "Duplicate grading confirmation is not allowed" });
     }
+    updated.gradeAQuantity = split.gradeA;
+    updated.gradeBQuantity = split.gradeB;
+    updated.gradeCQuantity = split.gradeC;
+    updated.rejectedQuantity = split.rejected;
     order.gradeAQuantity = split.gradeA;
     order.gradeBQuantity = split.gradeB;
     order.gradeCQuantity = split.gradeC;
@@ -1115,6 +1297,12 @@ export async function confirmQualityGrading(req, res) {
     ];
     await updated.save();
     await applyOrderStatus(order, ORDER_COMPLETED, "Order completed after quality grading.");
+    try {
+      await applyQualityToFarmerInventory({ inspection: updated, order, farmer, split });
+      if (updated.inventorySyncedAt) await updated.save();
+    } catch (invErr) {
+      console.warn("[quality] farmer inventory update failed:", invErr.message);
+    }
     await syncQualityToErp({ inspection: updated, pickup, order, farmer, centre });
     emitQualityUpdate({
       orderId: order.id,

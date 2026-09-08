@@ -8,16 +8,16 @@ import { usePolling } from "../../hooks/usePolling";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB } from "../../utils/excelStyles";
 
 const COPY = {
-  pending: { title: "Pending Inspection", sub: "All orders that are not yet completed.", bucket: "pending", empty: "No pending quality inspections." },
-  inspection: { title: "Quality Inspection", sub: "Inspections in progress.", bucket: "inspection", empty: "No inspections in progress." },
-  grading: { title: "Grading", sub: "Orders ready for grade confirmation.", bucket: "grading", empty: "No orders in grading." },
+  pending: { title: "Pending Inspection", sub: "Orders waiting to start quality check.", bucket: "pending", empty: "No pending quality inspections." },
+  all: { title: "All Inspection", sub: "All orders that are not yet completed.", bucket: "all", empty: "No quality inspections." },
+  inspection: { title: "Quality Inspection & Grading", sub: "Inspections in progress.", bucket: "inspection", empty: "No inspections in progress." },
   completed: { title: "Completed", sub: "Grade confirmed and completed orders.", bucket: "completed", empty: "No completed quality inspections yet." },
 };
 
 const TABS = [
+  { mode: "all", to: "/farmer/manager/quality/all", label: "All" },
   { mode: "pending", to: "/farmer/manager/quality/pending", label: "Pending" },
-  { mode: "inspection", to: "/farmer/manager/quality/inspection", label: "Inspection" },
-  { mode: "grading", to: "/farmer/manager/quality/grading", label: "Grading" },
+  { mode: "inspection", to: "/farmer/manager/quality/inspection", label: "Inspection & Grading" },
   { mode: "completed", to: "/farmer/manager/quality/completed", label: "Completed" },
 ];
 
@@ -124,9 +124,9 @@ function gradeColumnList(map) {
   return [...preferred, ...extras];
 }
 
-function formatQty(qty, unit) {
+function formatQty(qty, unit, { allowZero = false } = {}) {
   const n = Number(qty || 0);
-  if (!(n > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
+  if (!(n > 0) && !allowZero) return <span className="font-semibold text-[#9CA3AF]">×</span>;
   return (
     <span>
       {n.toLocaleString("en-IN")}
@@ -135,28 +135,61 @@ function formatQty(qty, unit) {
   );
 }
 
-function GradeMiniTable({ map, unit }) {
+function rejectedBreakdown(row) {
+  const gq = row?.gradeQuality && typeof row.gradeQuality === "object" ? row.gradeQuality : {};
+  const perGrade = {};
+  DEFAULT_GRADES.forEach((label) => {
+    perGrade[label] = Number(gq[label]?.rejectedQuantity || 0);
+  });
+  Object.keys(gq).forEach((label) => {
+    if (DEFAULT_GRADES.includes(label)) return;
+    const n = Number(gq[label]?.rejectedQuantity || 0);
+    if (n > 0) perGrade[label] = n;
+  });
+  const fromGrades = Object.values(perGrade).reduce((sum, n) => sum + n, 0);
+  const total = fromGrades > 0 ? fromGrades : Number(row?.rejectedQuantity || 0);
+  return { total, perGrade };
+}
+
+function GradeMiniTable({ map, unit, rejected }) {
   const columns = gradeColumnList(map);
-  if (!columns.length) return null;
+  const showRejected = Boolean(rejected);
+  if (!columns.length && !(showRejected && Number(rejected?.total) > 0)) return null;
   return (
     <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB]">
-      <div className="grid grid-cols-2 bg-[#F8FAF8] px-2 py-1 text-[10px] font-bold text-[#6B7280]">
+      <div className={`grid ${showRejected ? "grid-cols-3" : "grid-cols-2"} bg-[#F8FAF8] px-2 py-1 text-[10px] font-bold text-[#6B7280]`}>
         <span>Grade</span>
         <span className="text-right">Qty</span>
+        {showRejected ? <span className="text-right">Rejected</span> : null}
       </div>
       {columns.map((g) => {
         const row = map[g] || { qty: 0, unit };
         const tone = gradeTone(g);
+        const rejectedQty = Number(rejected?.perGrade?.[g] || 0);
         return (
           <div
             key={g}
-            className={`grid grid-cols-2 items-center border-t border-[#E5E7EB] px-2 py-1.5 text-[12px] ${tone.cell}`}
+            className={`grid ${showRejected ? "grid-cols-3" : "grid-cols-2"} items-center border-t border-[#E5E7EB] px-2 py-1.5 text-[12px] ${tone.cell}`}
           >
             <span className="font-semibold text-[#1F2937]">{g}</span>
             <span className="text-right font-semibold tabular-nums">{formatQty(row.qty, row.unit || unit)}</span>
+            {showRejected ? (
+              <span className={`text-right font-semibold tabular-nums ${rejectedQty > 0 ? "text-[#DC2626]" : "text-[#9CA3AF]"}`}>
+                {formatQty(rejectedQty, row.unit || unit, { allowZero: true })}
+              </span>
+            ) : null}
           </div>
         );
       })}
+      {showRejected ? (
+        <div className="grid grid-cols-3 items-center border-t border-[#FECACA] bg-[#FEF2F2] px-2 py-1.5 text-[12px]">
+          <span className="font-semibold text-[#991B1B]">Rejected</span>
+          <span />
+          <span className="text-right font-semibold tabular-nums text-[#DC2626]">
+            {formatQty(rejected.total, unit, { allowZero: true })}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -167,11 +200,12 @@ function actionLabel(mode, row) {
   return "Start Inspection";
 }
 
-function QualityMobileCard({ row, onOpen, label = "Start Inspection" }) {
+function QualityMobileCard({ row, onOpen, label = "Start Inspection", showRejected = false }) {
   const map = gradeDetailMap(row);
   const unit = row.unit || "Kg";
   const product = row.productName || row.product || "Produce";
   const id = row.orderDisplayId || row.orderId;
+  const rejected = showRejected ? rejectedBreakdown(row) : null;
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
       <div className="flex min-w-0 items-center gap-1.5">
@@ -199,7 +233,7 @@ function QualityMobileCard({ row, onOpen, label = "Start Inspection" }) {
       <div className="mt-1.5">
         <StatusBadge status={row.status || row.qualityStatus} />
       </div>
-      <GradeMiniTable map={map} unit={unit} />
+      <GradeMiniTable map={map} unit={unit} rejected={rejected} />
       <button type="button" className={`${ACTION_BTN} mt-2 h-9 w-full`} onClick={() => onOpen(row)}>
         {label}
       </button>
@@ -221,6 +255,7 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
   }, [meta.bucket], 8000);
 
   const openRow = (row) => navigate(`/farmer/manager/quality/${row.orderId}`);
+  const showRejected = mode === "completed";
   const gradeColumns = useMemo(() => {
     const present = new Set();
     rows.forEach((row) => {
@@ -271,7 +306,13 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
         <>
           <div className="space-y-2.5 md:hidden">
             {rows.map((row) => (
-              <QualityMobileCard key={row.inspectionId} row={row} onOpen={openRow} label={actionLabel(mode, row)} />
+              <QualityMobileCard
+                key={row.inspectionId}
+                row={row}
+                onOpen={openRow}
+                label={actionLabel(mode, row)}
+                showRejected={showRejected}
+              />
             ))}
           </div>
 
@@ -287,6 +328,7 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
                 {gradeColumns.map((g) => (
                   <col key={`col-${g}`} className="w-[5.5rem]" />
                 ))}
+                {showRejected ? <col className="w-[5.5rem]" /> : null}
                 <col className="w-[7rem]" />
                 <col className="w-[6.5rem]" />
               </colgroup>
@@ -309,6 +351,11 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
                       </th>
                     );
                   })}
+                  {showRejected ? (
+                    <th className="border border-[#FECACA] bg-[#FEE2E2] px-0.5 py-1.5 text-center text-[9px] font-bold leading-tight text-[#991B1B] sm:text-[10px]">
+                      Rejected
+                    </th>
+                  ) : null}
                   <th className={TH}>Status</th>
                   <th className={TH}>Actions</th>
                 </tr>
@@ -318,6 +365,7 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
                   const id = r.orderDisplayId || r.orderId;
                   const map = gradeDetailMap(r);
                   const unit = r.unit || "Kg";
+                  const rejected = showRejected ? rejectedBreakdown(r) : null;
                   return (
                     <tr key={r.inspectionId} className="hover:bg-[#F9FBF9]">
                       <td className={`${TD} text-center text-[#9CA3AF]`}>{idx + 1}</td>
@@ -348,6 +396,11 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
                           </td>
                         );
                       })}
+                      {showRejected ? (
+                        <td className="border border-[#FECACA] bg-[#FEF2F2] px-0.5 py-1.5 text-center text-[10px] font-semibold tabular-nums text-[#DC2626] sm:text-[11px]">
+                          {formatQty(rejected?.total, unit, { allowZero: true })}
+                        </td>
+                      ) : null}
                       <td className={`${TD} bg-white px-0.5 py-1 text-center align-middle sm:px-1`}>
                         <StatusBadge status={r.status || r.qualityStatus} />
                       </td>

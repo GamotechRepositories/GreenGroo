@@ -156,10 +156,11 @@ function FarmerRoutes() {
           <Route path="manager/pickups/history" element={<ManagerPickupsPage mode="history" />} />
           <Route path="manager/pickups/:pickupId/receive" element={<ManagerReceivePage />} />
           <Route path="manager/pickups/:pickupId" element={<ManagerPickupDetailPage />} />
-          <Route path="manager/quality" element={<Navigate to="/farmer/manager/quality/pending" replace />} />
+          <Route path="manager/quality" element={<Navigate to="/farmer/manager/quality/all" replace />} />
           <Route path="manager/quality/pending" element={<ManagerQualityListPage mode="pending" />} />
+          <Route path="manager/quality/all" element={<ManagerQualityListPage mode="all" />} />
           <Route path="manager/quality/inspection" element={<ManagerQualityListPage mode="inspection" />} />
-          <Route path="manager/quality/grading" element={<ManagerQualityListPage mode="grading" />} />
+          <Route path="manager/quality/grading" element={<Navigate to="/farmer/manager/quality/inspection" replace />} />
           <Route path="manager/quality/completed" element={<ManagerQualityListPage mode="completed" />} />
           <Route path="manager/quality/:orderId" element={<ManagerQualityInspectionPage />} />
           <Route path="manager/documents" element={<ManagerDocumentsPage />} />
