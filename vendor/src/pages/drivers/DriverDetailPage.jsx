@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import CopyId, { formatVehicleId } from "../../components/ui/CopyId";
 
 const STATUS_COLORS = {
   Active: "bg-green-100 text-green-700",
@@ -64,8 +65,12 @@ export default function DriverDetailPage() {
         <tbody>
           {list.map((p) => (
             <tr key={p.id} className="border-b border-gray-50">
-              <td className="px-3 py-2 font-semibold">{p.orderDisplayId}</td>
-              <td className="px-3 py-2 font-mono text-[10px] text-[#217346]">{p.collectionBatchId || "—"}</td>
+              <td className="px-3 py-2 font-semibold">
+                <CopyId value={p.orderDisplayId} textClassName="font-semibold text-gray-900" />
+              </td>
+              <td className="px-3 py-2">
+                <CopyId value={p.collectionBatchId} textClassName="font-mono text-[10px] font-semibold text-[#217346]" />
+              </td>
               <td className="px-3 py-2">{p.farmerName}</td>
               <td className="px-3 py-2">{p.productName}</td>
               <td className="px-3 py-2">{p.packedQuantity || p.expectedQuantity} {p.unit}</td>
@@ -99,8 +104,14 @@ export default function DriverDetailPage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-500">{driver.mobile} · {driver.vehicleNumber || "No vehicle"} · {driver.vehicleType}</p>
-            <p className="mt-1 font-mono text-xs text-gray-500">Driver ID: {driver.id}</p>
-            <p className="mt-0.5 font-mono text-xs text-gray-500">Vehicle ID: {driver.vehicleId || "—"}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Driver ID{" "}
+              <CopyId value={driver.id} className="align-middle" textClassName="font-mono text-xs font-semibold text-gray-700" />
+            </p>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Vehicle ID{" "}
+              <CopyId value={formatVehicleId(driver.vehicleId, driver.vehicleNumber)} className="align-middle" textClassName="font-mono text-xs font-semibold text-gray-700" />
+            </p>
             <p className="mt-1 text-xs text-gray-400">License: {driver.licenseNumber || "—"}</p>
             {driver.address ? <p className="mt-1 text-xs text-gray-500">Address: {driver.address}</p> : null}
           </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useVendorAuth } from "../../context/VendorAuthContext";
 import { useDriverAuth } from "../../context/DriverAuthContext";
 
@@ -7,6 +7,8 @@ export default function VendorLoginPage() {
   const { login: vendorLogin, logout: vendorLogout } = useVendorAuth();
   const { login: driverLogin, logout: driverLogout } = useDriverAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromPath = location.state?.from?.pathname || "";
   const [form, setForm] = useState({ mobile: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -36,17 +38,17 @@ export default function VendorLoginPage() {
 
     if (vendorOk && !driverOk) {
       driverLogout();
-      navigate("/vendor/farmer-managers", { replace: true });
+      navigate(fromPath.startsWith("/vendor/") ? fromPath : "/vendor/farmer-managers", { replace: true });
       return;
     }
     if (driverOk && !vendorOk) {
       vendorLogout();
-      navigate("/driver/assigned", { replace: true });
+      navigate(fromPath.startsWith("/driver/") ? fromPath : "/driver/assigned", { replace: true });
       return;
     }
     if (vendorOk && driverOk) {
       driverLogout();
-      navigate("/vendor/farmer-managers", { replace: true });
+      navigate(fromPath.startsWith("/vendor/") ? fromPath : "/vendor/farmer-managers", { replace: true });
       return;
     }
 

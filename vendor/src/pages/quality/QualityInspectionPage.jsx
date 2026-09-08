@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import QualityPhotos from "../../components/quality/QualityPhotos";
+import { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
+import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 
 const PARAM_FIELDS = [
   { key: "freshness", label: "Freshness" },
@@ -25,7 +27,11 @@ function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-gray-900">{value ?? "—"}</p>
+      {isCopyableId(label, value) ? (
+        <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-gray-900" breakAll />
+      ) : (
+        <p className="mt-0.5 text-xs font-semibold text-gray-900">{value ?? "—"}</p>
+      )}
     </div>
   );
 }
@@ -161,18 +167,16 @@ export default function QualityInspectionPage() {
 
   return (
     <div className="space-y-5 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
-        <div>
-          <div className="mb-1 text-xs text-gray-400">
-            <Link to="/vendor/quality/pending" className="hover:text-[#217346]">Quality & Grading</Link>
-            <span> › {data.orderDisplayId}</span>
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Quality Inspection</h1>
-          <p className="text-sm text-gray-500">{data.farmerName} · {data.productName}</p>
-        </div>
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase">
-          {String(data.status || "").replace(/_/g, " ")}
-        </span>
+      <div className="mb-1 text-xs text-gray-400 print:hidden">
+        <Link to="/vendor/quality/pending" className="hover:text-[#217346]">Quality & Grading</Link>
+        <span> › {data.orderDisplayId}</span>
+      </div>
+      <span className="inline-flex max-w-full rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[11px] font-semibold text-[#217346]">
+        {pickupStatusLabel(data.status)}
+      </span>
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Quality Inspection</h1>
+        <p className="text-sm text-gray-500">{data.farmerName} · {data.productName}</p>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 print:hidden">{error}</div> : null}
 

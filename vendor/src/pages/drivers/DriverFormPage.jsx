@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import CopyId, { formatVehicleId } from "../../components/ui/CopyId";
 
 const FIELD = "w-full border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]";
 const LABEL = "mb-1 block text-xs font-semibold text-gray-700";
@@ -98,11 +99,11 @@ export default function DriverFormPage() {
           <div className="grid grid-cols-1 gap-3 border border-gray-100 bg-gray-50 px-3 py-2 sm:grid-cols-2">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Driver ID</p>
-              <p className="mt-0.5 font-mono text-xs font-semibold text-[#217346]">{form.driverId || "—"}</p>
+              <CopyId value={form.driverId} className="mt-0.5" textClassName="font-mono text-xs font-semibold text-[#217346]" breakAll />
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Vehicle ID</p>
-              <p className="mt-0.5 font-mono text-xs font-semibold text-[#217346]">{form.vehicleId || "—"}</p>
+              <CopyId value={formatVehicleId(form.vehicleId, form.vehicleNumber)} className="mt-0.5" textClassName="font-mono text-xs font-semibold text-[#217346]" breakAll />
             </div>
           </div>
         ) : null}

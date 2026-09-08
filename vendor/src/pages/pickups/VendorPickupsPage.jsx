@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
-import { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
+import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
+import CopyId, { CopyButton } from "../../components/ui/CopyId";
 
 const COPY = {
   assigned: {
@@ -80,8 +81,26 @@ export default function VendorPickupsPage({ mode = "assignments" }) {
             ) : (
               rows.map((p) => (
                 <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-3 py-2 font-semibold">{p.orderDisplayId}</td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-[#217346]">{p.collectionBatchId || "—"}</td>
+                  <td className="px-3 py-2">
+                    <CopyId value={p.orderDisplayId} textClassName="font-semibold text-gray-900" />
+                  </td>
+                  <td className="px-3 py-2">
+                    {p.collectionBatchId ? (
+                      <span className="inline-flex max-w-full min-w-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          className="min-w-0 truncate font-mono text-[10px] font-semibold text-[#217346] hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/vendor/batches/${encodeURIComponent(p.collectionBatchId)}`);
+                          }}
+                        >
+                          {p.collectionBatchId}
+                        </button>
+                        <CopyButton value={p.collectionBatchId} />
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td className="px-3 py-2">{p.farmerName}</td>
                   <td className="px-3 py-2 max-w-[140px] truncate">{p.farmerLocation || "—"}</td>
                   <td className="px-3 py-2">{p.productName}</td>
@@ -90,7 +109,7 @@ export default function VendorPickupsPage({ mode = "assignments" }) {
                   <td className="px-3 py-2">{p.scheduledDate || "—"} {p.scheduledTime || ""}</td>
                   <td className="px-3 py-2">{p.collectionCentreName || "—"}</td>
                   <td className="px-3 py-2">{p.driverName || "Unassigned"}</td>
-                  <td className="px-3 py-2">{p.liveStatus || pickupStatusLabel(p.status)}</td>
+                  <td className="px-3 py-2">{pickupLiveLabel(p)}</td>
                   <td className="px-3 py-2">
                     <button
                       type="button"

@@ -130,6 +130,9 @@ import {
   getDriverMe,
   listDriverPickups,
   getDriverPickup,
+  getDriverBatch,
+  getVendorBatch,
+  getManagerBatch,
   startDriverPickup,
   arriveDriverPickup,
   checkDriverPickupOrder,
@@ -369,6 +372,7 @@ vendorRouter.put("/drivers/:driverId", requireVendor, updateVendorDriver);
 vendorRouter.patch("/drivers/:driverId/status", requireVendor, setVendorDriverStatus);
 vendorRouter.delete("/drivers/:driverId", requireVendor, deleteVendorDriver);
 vendorRouter.get("/pickups", requireVendor, listVendorPickups);
+vendorRouter.get("/batches/:batchId", requireVendor, getVendorBatch);
 vendorRouter.get("/pickups/:pickupId", requireVendor, getVendorPickup);
 vendorRouter.post("/pickups/:pickupId/assign", requireVendor, assignVendorPickupDriver);
 vendorRouter.post("/pickups/:pickupId/reassign", requireVendor, reassignVendorPickupDriver);
@@ -380,6 +384,7 @@ vendorRouter.get("/collection-centres", requireVendor, listVendorCentres);
 vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
 
 vendorRouter.get("/driver-desk/pickups", requireDriver, listDriverPickups);
+vendorRouter.get("/driver-desk/batches/:batchId", requireDriver, getDriverBatch);
 vendorRouter.get("/driver-desk/pickups/:pickupId", requireDriver, getDriverPickup);
 vendorRouter.post("/driver-desk/pickups/:pickupId/start", requireDriver, startDriverPickup);
 vendorRouter.post("/driver-desk/pickups/:pickupId/arrive", requireDriver, arriveDriverPickup);
@@ -409,6 +414,7 @@ managerRouter.get("/stock-history", requireManager, getManagerAllStockHistory);
 managerRouter.get("/harvest-orders", requireManager, getManagerAllHarvestOrders);
 managerRouter.get("/earnings", requireManager, getManagerAllEarnings);
 managerRouter.get("/pickups", requireManager, listManagerPickups);
+managerRouter.get("/batches/:batchId", requireManager, getManagerBatch);
 managerRouter.get("/pickups/:pickupId", requireManager, getManagerPickup);
 managerRouter.post("/pickups/:pickupId/verify-qr", requireManager, verifyManagerPickupQr);
 managerRouter.post("/pickups/:pickupId/confirm", requireManager, confirmManagerPickup);

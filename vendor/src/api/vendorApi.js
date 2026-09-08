@@ -81,6 +81,7 @@ export const vendorApi = {
   // Pickups
   getPickups: (params) => api.get("/api/vendor/pickups", { params }),
   getPickup: (id) => api.get(`/api/vendor/pickups/${id}`),
+  getBatch: (id) => api.get(`/api/vendor/batches/${encodeURIComponent(id)}`),
   assignPickupDriver: (id, driverId) => api.post(`/api/vendor/pickups/${id}/assign`, { driverId }),
   reassignPickupDriver: (id, driverId) => api.post(`/api/vendor/pickups/${id}/reassign`, { driverId }),
   startPickup: (id, driverId) => api.post(`/api/vendor/pickups/${id}/start`, { driverId }),

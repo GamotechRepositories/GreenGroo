@@ -959,6 +959,12 @@ export async function getManagerPickup(pickupId) {
   });
 }
 
+export async function getManagerBatch(batchId) {
+  return apiFetch(`/api/farmer-manager/batches/${encodeURIComponent(batchId)}`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
 export async function verifyManagerPickupQr(pickupId, payload) {
   return apiFetch(`/api/farmer-manager/pickups/${pickupId}/verify-qr`, {
     method: "POST",

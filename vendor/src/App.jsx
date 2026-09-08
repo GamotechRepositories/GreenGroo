@@ -26,10 +26,12 @@ import DriverDetailPage from './pages/drivers/DriverDetailPage'
 import VendorPickupsPage from './pages/pickups/VendorPickupsPage'
 import VendorPickupDetailPage from './pages/pickups/VendorPickupDetailPage'
 import CollectionReceivePage from './pages/pickups/CollectionReceivePage'
+import VendorBatchPage from './pages/pickups/VendorBatchPage'
 import QualityListPage from './pages/quality/QualityListPage'
 import QualityInspectionPage from './pages/quality/QualityInspectionPage'
 import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
+import DriverBatchPage from './pages/drivers/DriverBatchPage'
 import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
 
 function App() {
@@ -49,6 +51,7 @@ function App() {
                 <Route path="/driver/completed" element={<DriverDashboardPage mode="completed" />} />
                 <Route path="/driver/history" element={<DriverDashboardPage mode="history" />} />
                 <Route path="/driver/today" element={<Navigate to="/driver/assigned" replace />} />
+                <Route path="/driver/batches/:batchId" element={<DriverBatchPage />} />
                 <Route path="/driver/pickups/:pickupId" element={<DriverPickupPage />} />
                 <Route path="/driver" element={<Navigate to="/driver/assigned" replace />} />
               </Route>
@@ -80,6 +83,7 @@ function App() {
                 <Route path="/vendor/pickups/:pickupId" element={<VendorPickupDetailPage />} />
                 <Route path="/vendor/collection-centre" element={<VendorPickupsPage mode="centre" />} />
                 <Route path="/vendor/collection-centre/:pickupId" element={<CollectionReceivePage />} />
+                <Route path="/vendor/batches/:batchId" element={<VendorBatchPage />} />
                 <Route path="/vendor/quality" element={<Navigate to="/vendor/quality/pending" replace />} />
                 <Route path="/vendor/quality/pending" element={<QualityListPage mode="pending" />} />
                 <Route path="/vendor/quality/inspection" element={<QualityListPage mode="inspection" />} />

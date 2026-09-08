@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getManagerPickup, assignManagerPickup, reassignManagerPickup } from "../../api/farmerApi";
+import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
-import PickupTimeline from "../../components/pickup/PickupTimeline";
+import PickupTimeline, { pickupLiveLabel, pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
 import {
   EXCEL_BTN,
@@ -18,7 +19,11 @@ function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-[#1F2937]">{value || "—"}</p>
+      {isCopyableId(label, value) ? (
+        <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-[#1F2937]" breakAll />
+      ) : (
+        <p className="mt-0.5 text-xs font-semibold text-[#1F2937]">{value || "—"}</p>
+      )}
     </div>
   );
 }
@@ -70,12 +75,10 @@ export default function ManagerPickupDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className={EXCEL_PAGE_TITLE}>Pickup {pickup.orderDisplayId}</h1>
-          <p className={EXCEL_PAGE_SUB}>{pickup.farmerName} · {pickup.productName}</p>
-        </div>
-        <StatusBadge status={pickup.status} />
+      <StatusBadge status={pickup.status} />
+      <div>
+        <h1 className={EXCEL_PAGE_TITLE}>Pickup {pickup.orderDisplayId}</h1>
+        <p className={EXCEL_PAGE_SUB}>{pickup.farmerName} · {pickup.productName}</p>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 
@@ -100,7 +103,7 @@ export default function ManagerPickupDetailPage() {
           <Info label="Packed Quantity" value={`${pickup.packedQuantity} ${pickup.unit}`} />
           <Info label="Package Count" value={pickup.packageCount} />
           <Info label="Ready Date/Time" value={pickup.readyAt ? new Date(pickup.readyAt).toLocaleString("en-IN") : "—"} />
-          <Info label="Pickup Status" value={pickup.status} />
+          <Info label="Pickup Status" value={pickupLiveLabel(pickup) || pickupStatusLabel(pickup.status)} />
           <Info label="Assigned Driver" value={pickup.driverName || "Not assigned"} />
           <Info label="Vehicle Number" value={pickup.vehicleNumber} />
           <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
@@ -123,7 +126,7 @@ export default function ManagerPickupDetailPage() {
           <h2 className={EXCEL_PANEL_HEAD}>Collection Centre Receiving</h2>
           <div className="space-y-2 p-3">
             <p className="text-xs text-[#6B7280]">
-              Driver status: <span className="font-semibold text-[#1F2937]">{pickup.liveStatus || pickup.status}</span>
+              Driver status: <span className="font-semibold text-[#1F2937]">{pickupLiveLabel(pickup)}</span>
             </p>
             <p className="text-xs text-[#6B7280]">Mark arrived, unload, verify weight, then confirm received. Quality check starts after this.</p>
             <Link to={`/farmer/manager/pickups/${pickupId}/receive`} className={EXCEL_BTN_PRIMARY}>

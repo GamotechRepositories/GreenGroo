@@ -99,16 +99,18 @@ const COMPLETED_PICKUP_STATUSES = DRIVER_DONE_STATUSES;
 const ACTIVE_DRIVER_WORK = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT"];
 const ACTIVE_PICKUP_STATUSES = [...ACTIVE_DRIVER_WORK];
 const DRIVER_LIVE_STATUS = {
-  DRIVER_ASSIGNED: "Assigned — waiting to leave",
-  PICKUP_SCHEDULED: "Assigned — waiting to leave",
+  READY_FOR_PICKUP: "Ready for pickup",
+  DRIVER_ASSIGNED: "Assigned",
+  PICKUP_SCHEDULED: "Assigned",
   DISPATCHED: "On the way to farm",
   DRIVER_ARRIVED: "Reached the farm",
-  ORDER_VERIFIED: "Checking the order",
-  QR_VERIFIED: "QR verified — confirm pickup",
+  ORDER_VERIFIED: "Order checked",
+  QR_VERIFIED: "QR verified",
   PICKED_UP: "Pickup confirmed",
-  IN_TRANSIT: "On the way to collection centre",
-  COLLECTION_CENTRE_RECEIVED: "Delivered at collection centre",
-  RECEIVED_AT_COLLECTION_CENTRE: "Delivered at collection centre",
+  PICKUP_CONFIRMED: "Pickup confirmed",
+  IN_TRANSIT: "On the way to centre",
+  COLLECTION_CENTRE_RECEIVED: "At collection centre",
+  RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
 };
 const HISTORY_PICKUP_STATUSES = DRIVER_DONE_STATUSES;
 const ASSIGNABLE_DRIVER_STATUSES = ["Active", "On Duty", "Available"];
@@ -151,6 +153,21 @@ function plateCode(vehicleNumber = "") {
   return String(vehicleNumber || "")
     .replace(/[^A-Za-z0-9]/g, "")
     .toUpperCase();
+}
+
+function vehicleIdOf(vehicleId, vehicleNumber) {
+  const plate = plateCode(vehicleNumber);
+  const stored = String(vehicleId || "").trim();
+  if (plate) {
+    const prefix = `GGC-VH-${plate}`;
+    if (stored.toUpperCase().startsWith(prefix.toUpperCase())) return stored;
+    return prefix;
+  }
+  return stored;
+}
+
+function isSerialVehicleId(id) {
+  return /^GGC-VH-\d{6}$/i.test(String(id || "").trim());
 }
 
 function pad6(n) {
@@ -534,16 +551,20 @@ async function enrichPickup(pickup) {
     driver: driver
       ? {
           id: driver.id,
+          driverId: driver.id,
           name: driver.name,
           mobile: driver.mobile,
           vehicleNumber: driver.vehicleNumber,
           vehicleType: driver.vehicleType,
+          vehicleId: vehicleIdOf(driver.vehicleId, driver.vehicleNumber),
           assignedArea: driver.assignedArea || "",
           currentLocation: driver.assignedArea || "",
           status: normalizeDriverStatus(driver.status),
           licenseNumber: driver.licenseNumber || "",
         }
       : null,
+    driverId: plain.driverId || driver?.id || "",
+    vehicleId: vehicleIdOf(driver?.vehicleId || plain.vehicleId, driver?.vehicleNumber || plain.vehicleNumber),
     collectionCentreName: centre?.name || order?.collectionCentre || "Main Collection Centre",
     collectionCentre: centre || null,
     productName: plain.productName || flat.productName,
@@ -577,6 +598,15 @@ async function enrichPickup(pickup) {
       acceptedWeight: Number(receiving.acceptedWeight || 0),
       difference: Number(receiving.difference || 0),
       weightUnit: receiving.weightUnit || plain.unit || "Kg",
+      grades: Array.isArray(receiving.grades)
+        ? receiving.grades.map((g) => ({
+            label: g.label || g.name || "",
+            expectedWeight: Number(g.expectedWeight || 0),
+            actualWeight: Number(g.actualWeight || 0),
+            acceptedWeight: Number(g.acceptedWeight || 0),
+            difference: Number(g.difference || Number(g.actualWeight || 0) - Number(g.expectedWeight || 0)),
+          }))
+        : [],
       photos: receiving.photos || [],
       receiptId: receiving.receiptId || "",
       receivedAt: receiving.receivedAt || null,
@@ -669,7 +699,7 @@ export async function listVendorDrivers(req, res) {
         return {
           ...rest,
           driverId: d.id,
-          vehicleId: d.vehicleId || "",
+          vehicleId: vehicleIdOf(d.vehicleId, d.vehicleNumber),
           status: normalizeDriverStatus(d.status),
           activePickups: countMap[d.id] || 0,
           tasks,
@@ -728,7 +758,7 @@ export async function getVendorDriver(req, res) {
     res.json({
       ...safe,
       driverId: driver.id,
-      vehicleId: driver.vehicleId || "",
+      vehicleId: vehicleIdOf(driver.vehicleId, driver.vehicleNumber),
       status: normalizeDriverStatus(driver.status),
       activePickups: enriched.filter((p) => ACTIVE_PICKUP_STATUSES.includes(p.status) || ACTIVE_DRIVER_WORK.includes(p.status)),
       completedPickups: enriched.filter((p) => HISTORY_PICKUP_STATUSES.includes(p.status)),
@@ -751,7 +781,7 @@ export async function updateVendorDriver(req, res) {
     }
     if (req.body.status) driver.status = normalizeDriverStatus(req.body.status);
     if (req.body.password) driver.password = await bcrypt.hash(String(req.body.password), 10);
-    if (!driver.vehicleId) {
+    if (req.body.vehicleNumber !== undefined || !driver.vehicleId || isSerialVehicleId(driver.vehicleId)) {
       driver.vehicleId = await uniqueVehicleId(vendorId, driver.vehicleNumber, driver.id);
     }
     await driver.save();
@@ -1000,37 +1030,52 @@ export async function createVendorCentre(req, res) {
 
 async function assignCollectionBatch(pickup) {
   if (!pickup) return "";
-  if (pickup.collectionBatchId) return pickup.collectionBatchId;
   const vendorId = pickup.vendorId;
   const driverId = pickup.driverId;
-  let batchId = "";
-  if (vendorId && driverId) {
+  let batchId = String(pickup.collectionBatchId || "").trim();
+  if (!batchId && vendorId && driverId) {
     const open = await Pickup.findOne({
       vendorId,
       driverId,
       id: { $ne: pickup.id },
-      collectionBatchId: { $nin: [null, ""] },
-      status: "IN_TRANSIT",
-    }).sort({ inTransitAt: -1, updatedAt: -1 });
+      collectionBatchId: { $gt: "" },
+      status: { $in: ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"] },
+    }).sort({ collectionBatchAssignedAt: -1, inTransitAt: -1, updatedAt: -1 });
     batchId = open?.collectionBatchId || "";
   }
   if (!batchId) batchId = await generateId({ module: "BAT" });
-  const now = new Date();
+  const now = pickup.collectionBatchAssignedAt || new Date();
   pickup.collectionBatchId = batchId;
-  pickup.collectionBatchAssignedAt = now;
+  pickup.collectionBatchAssignedAt = pickup.collectionBatchAssignedAt || now;
   if (vendorId && driverId) {
     await Pickup.updateMany(
       {
         vendorId,
         driverId,
-        id: { $ne: pickup.id },
-        status: { $in: ["PICKED_UP", "PICKUP_CONFIRMED"] },
-        $or: [{ collectionBatchId: "" }, { collectionBatchId: { $exists: false } }],
+        status: { $in: ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT"] },
+        $or: [{ collectionBatchId: "" }, { collectionBatchId: { $exists: false } }, { collectionBatchId: null }],
       },
       { $set: { collectionBatchId: batchId, collectionBatchAssignedAt: now } }
     );
   }
   return batchId;
+}
+
+async function mergeDriverTripBatch(driverId) {
+  const open = await Pickup.find({
+    driverId,
+    status: { $in: ["PICKED_UP", "PICKUP_CONFIRMED", "IN_TRANSIT"] },
+  });
+  if (!open.length) return;
+  const missing = open.filter((p) => !String(p.collectionBatchId || "").trim());
+  if (!missing.length) return;
+  const existingId = open.find((p) => String(p.collectionBatchId || "").trim())?.collectionBatchId;
+  const batchId = existingId || (await generateId({ module: "BAT" }));
+  const now = new Date();
+  await Pickup.updateMany(
+    { id: { $in: missing.map((p) => p.id) } },
+    { $set: { collectionBatchId: batchId, collectionBatchAssignedAt: now } }
+  );
 }
 
 async function applyPickupReceiving(req, pickup) {
@@ -1041,10 +1086,43 @@ async function applyPickupReceiving(req, pickup) {
   }
   const body = req.body || {};
   const unit = body.weightUnit || pickup.receiving?.weightUnit || pickup.unit || "Kg";
-  const expected = body.expectedWeight != null ? Number(body.expectedWeight) : Number(pickup.expectedQuantity || pickup.packedQuantity || 0);
-  const actual = body.actualWeight != null ? Number(body.actualWeight) : Number(pickup.receiving?.actualWeight || 0);
-  const accepted = body.acceptedWeight != null ? Number(body.acceptedWeight) : Number(pickup.receiving?.acceptedWeight || 0);
-  if (expected < 0 || actual < 0 || accepted < 0) {
+  const gradeRows = Array.isArray(body.grades)
+    ? body.grades
+        .map((g) => {
+          const expectedWeight = Number(g.expectedWeight || 0);
+          const actualWeight = Number(g.actualWeight || 0);
+          const acceptedWeight = Number(g.acceptedWeight || 0);
+          return {
+            label: String(g.label || g.name || "").trim(),
+            expectedWeight,
+            actualWeight,
+            acceptedWeight,
+            difference: actualWeight - expectedWeight,
+          };
+        })
+        .filter((g) => g.label)
+    : Array.isArray(pickup.receiving?.grades)
+      ? pickup.receiving.grades
+      : [];
+  const expected =
+    gradeRows.length
+      ? gradeRows.reduce((s, g) => s + Number(g.expectedWeight || 0), 0)
+      : body.expectedWeight != null
+        ? Number(body.expectedWeight)
+        : Number(pickup.expectedQuantity || pickup.packedQuantity || 0);
+  const actual =
+    gradeRows.length
+      ? gradeRows.reduce((s, g) => s + Number(g.actualWeight || 0), 0)
+      : body.actualWeight != null
+        ? Number(body.actualWeight)
+        : Number(pickup.receiving?.actualWeight || 0);
+  const accepted =
+    gradeRows.length
+      ? gradeRows.reduce((s, g) => s + Number(g.acceptedWeight || 0), 0)
+      : body.acceptedWeight != null
+        ? Number(body.acceptedWeight)
+        : Number(pickup.receiving?.acceptedWeight || 0);
+  if (expected < 0 || actual < 0 || accepted < 0 || gradeRows.some((g) => Number(g.expectedWeight || 0) < 0 || Number(g.actualWeight || 0) < 0 || Number(g.acceptedWeight || 0) < 0)) {
     const err = new Error("Weight values cannot be negative");
     err.status = 400;
     throw err;
@@ -1065,6 +1143,7 @@ async function applyPickupReceiving(req, pickup) {
     acceptedWeight: accepted,
     difference,
     weightUnit: unit,
+    grades: gradeRows,
     photos: Array.isArray(body.photos) ? body.photos : pickup.receiving?.photos || [],
     receiptId: pickup.receiving?.receiptId || "",
     receivedAt: pickup.receiving?.receivedAt || null,
@@ -1141,6 +1220,17 @@ export async function listManagerPickups(req, res) {
       filter.status = { $in: [...ASSIGNED_STATUSES, ...IN_PROGRESS_STATUSES] };
     } else if (filterKey === "today") {
       filter.$or = [{ pickupDate: todayStr() }, { scheduledDate: todayStr() }];
+      filter.status = {
+        $nin: [
+          "PICKED_UP",
+          "PICKUP_CONFIRMED",
+          "IN_TRANSIT",
+          "COLLECTION_CENTRE_RECEIVED",
+          "RECEIVED_AT_COLLECTION_CENTRE",
+          "COMPLETED",
+          "CANCELLED",
+        ],
+      };
     } else if (filterKey === "active") {
       filter.status = { $in: ACTIVE_PICKUP_STATUSES };
     } else if (filterKey === "completed" || filterKey === "history" || filterKey === "picked") {
@@ -1289,7 +1379,7 @@ function publicDriver(driver) {
   return {
     ...plain,
     driverId: plain.id,
-    vehicleId: plain.vehicleId || "",
+    vehicleId: vehicleIdOf(plain.vehicleId, plain.vehicleNumber),
     status: normalizeDriverStatus(plain.status),
   };
 }
@@ -1358,6 +1448,9 @@ export async function listDriverPickups(req, res) {
   try {
     const driverId = req.user?.driverId || req.user?.id;
     const filterKey = String(req.query.filter || "assigned");
+    if (filterKey === "progress" || filterKey === "completed" || filterKey === "history") {
+      await mergeDriverTripBatch(driverId);
+    }
     const filter = { driverId };
     if (filterKey === "assigned" || filterKey === "pending") {
       filter.status = { $in: ASSIGNED_STATUSES };
@@ -1391,6 +1484,82 @@ export async function getDriverPickup(req, res) {
     res.json(await enrichDriverView(pickup));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load pickup" });
+  }
+}
+
+function batchPayload(batchId, orders) {
+  const first = orders[0] || {};
+  const driver = first.driver || {};
+  return {
+    batchId,
+    lotId: batchId,
+    qrPayload: `greengroo:batch:${batchId}`,
+    status: first.status || "",
+    liveStatus: first.liveStatus || "",
+    orderCount: orders.length,
+    farmers: [...new Set(orders.map((p) => p.farmerName).filter(Boolean))],
+    products: [...new Set(orders.map((p) => p.productName).filter(Boolean))],
+    driverName: first.driverName || driver.name || "",
+    driverId: first.driverId || driver.id || driver.driverId || "",
+    driverMobile: first.driverMobile || driver.mobile || "",
+    vehicleNumber: first.vehicleNumber || driver.vehicleNumber || "",
+    vehicleType: first.vehicleType || driver.vehicleType || "",
+    vehicleId: vehicleIdOf(first.vehicleId || driver.vehicleId, first.vehicleNumber || driver.vehicleNumber),
+    collectionCentreName: first.collectionCentreName || "",
+    pickups: orders,
+  };
+}
+
+export async function getDriverBatch(req, res) {
+  try {
+    const driverId = req.user?.driverId || req.user?.id;
+    const batchId = String(req.params.batchId || "").trim();
+    if (!batchId) return res.status(400).json({ message: "Batch ID is required" });
+    await mergeDriverTripBatch(driverId);
+    const pickups = await Pickup.find({ driverId, collectionBatchId: batchId }).sort({ createdAt: 1 });
+    if (!pickups.length) return res.status(404).json({ message: "Batch not found" });
+    const orders = await Promise.all(pickups.map((p) => enrichDriverView(p)));
+    res.json(batchPayload(batchId, orders));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load batch" });
+  }
+}
+
+export async function getVendorBatch(req, res) {
+  try {
+    const vendorId = vendorIdOf(req);
+    const batchId = String(req.params.batchId || "").trim();
+    if (!batchId) return res.status(400).json({ message: "Batch ID is required" });
+    const pickups = await Pickup.find({ vendorId, collectionBatchId: batchId }).sort({ createdAt: 1 });
+    if (!pickups.length) return res.status(404).json({ message: "Batch not found" });
+    const orders = await Promise.all(pickups.map((p) => enrichPickup(p)));
+    res.json(batchPayload(batchId, orders));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load batch" });
+  }
+}
+
+export async function getManagerBatch(req, res) {
+  try {
+    const farmers = await managerFarmerIds(req);
+    const farmerIds = farmers.map((f) => f.id);
+    const batchId = decodeURIComponent(String(req.params.batchId || "").trim());
+    if (!batchId) return res.status(400).json({ message: "Batch ID is required" });
+    const vendorId = req.user?.vendorId;
+    const ownedQuery = { collectionBatchId: batchId, farmerId: { $in: farmerIds } };
+    if (vendorId) ownedQuery.vendorId = vendorId;
+    const owned = await Pickup.find(ownedQuery).sort({ createdAt: 1 });
+    if (!owned.length) return res.status(404).json({ message: "Batch not found" });
+    let pickups = owned;
+    const batchVendorId = owned[0].vendorId || vendorId;
+    if (batchVendorId) {
+      const all = await Pickup.find({ collectionBatchId: batchId, vendorId: batchVendorId }).sort({ createdAt: 1 });
+      if (all.length) pickups = all;
+    }
+    const orders = await Promise.all(pickups.map((p) => enrichPickup(p)));
+    res.json(batchPayload(batchId, orders));
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load batch" });
   }
 }
 
@@ -1612,6 +1781,8 @@ export async function transitDriverPickup(req, res) {
       return res.status(400).json({ message: "This pickup is already at the collection centre." });
     }
     if (pickup.status === "IN_TRANSIT") {
+      await assignCollectionBatch(pickup);
+      if (pickup.isModified()) await pickup.save();
       return res.json(await enrichDriverView(pickup));
     }
     const confirmed =

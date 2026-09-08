@@ -17,7 +17,7 @@ export function driverNextStep(pickup) {
   }
   if (status === "PICKED_UP" || status === "PICKUP_CONFIRMED" || (pickup?.pickupConfirmed && status !== "IN_TRANSIT")) {
     if (["IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(status)) return null;
-    return { key: "transit", label: "On the way to collection centre", hint: "Status will become On the way to centre" };
+    return { key: "transit", label: "On the way to centre", hint: "Status will become On the way to centre" };
   }
   return null;
 }

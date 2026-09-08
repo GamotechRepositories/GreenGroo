@@ -162,15 +162,13 @@ function OrderDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <Link to="/farmer/orders/new" className="text-[11px] font-semibold text-[#217346] hover:underline">
-            ← Orders
-          </Link>
-          <h1 className="mt-0.5 text-lg font-bold text-[#1F2937]">{productName}</h1>
-          <CopyId value={orderId} className="mt-0.5" textClassName="font-mono text-[11px] text-[#6B7280]" />
-        </div>
-        <StatusBadge status={order.status} />
+      <Link to="/farmer/orders/new" className="text-[11px] font-semibold text-[#217346] hover:underline">
+        ← Orders
+      </Link>
+      <StatusBadge status={order.status} />
+      <div className="min-w-0">
+        <h1 className="mt-0.5 text-lg font-bold text-[#1F2937]">{productName}</h1>
+        <CopyId value={orderId} className="mt-0.5" textClassName="font-mono text-[11px] text-[#6B7280]" />
       </div>
 
       {showTracking ? (

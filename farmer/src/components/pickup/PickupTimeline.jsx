@@ -14,6 +14,7 @@ const ALIAS = {
   PICKUP_SCHEDULED: "DRIVER_ASSIGNED",
   ARRIVED: "DRIVER_ARRIVED",
   COMPLETED: "PICKED_UP",
+  PICKUP_CONFIRMED: "PICKED_UP",
   RECEIVED_AT_COLLECTION_CENTRE: "COLLECTION_CENTRE_RECEIVED",
 };
 
@@ -27,14 +28,35 @@ export const PICKUP_STATUS_LABELS = {
   ORDER_VERIFIED: "Order checked",
   QR_VERIFIED: "QR verified",
   PICKED_UP: "Pickup confirmed",
+  PICKUP_CONFIRMED: "Pickup confirmed",
   IN_TRANSIT: "On the way to centre",
   COLLECTION_CENTRE_RECEIVED: "At collection centre",
   RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
 };
 
+const LIVE_ALIASES = {
+  "Assigned — waiting to leave": "Assigned",
+  "Checking the order": "Order checked",
+  "QR verified — confirm pickup": "QR verified",
+  "On the way to collection centre": "On the way to centre",
+  "Delivered at collection centre": "At collection centre",
+  Incoming: "On the way to centre",
+};
+
 export function pickupStatusLabel(status) {
-  const key = String(status || "");
-  return PICKUP_STATUS_LABELS[key] || key.replace(/_/g, " ");
+  const key = String(status || "").trim();
+  if (!key) return "";
+  if (PICKUP_STATUS_LABELS[key]) return PICKUP_STATUS_LABELS[key];
+  if (LIVE_ALIASES[key]) return LIVE_ALIASES[key];
+  if (Object.values(PICKUP_STATUS_LABELS).includes(key)) return key;
+  return key.replace(/_/g, " ");
+}
+
+export function pickupLiveLabel(pickup) {
+  if (!pickup) return "";
+  const key = String(pickup.status || "").trim();
+  if (PICKUP_STATUS_LABELS[key]) return PICKUP_STATUS_LABELS[key];
+  return pickupStatusLabel(pickup.liveStatus || pickup.status);
 }
 
 export function pickupFlowStatus(pickup, orderStatus) {

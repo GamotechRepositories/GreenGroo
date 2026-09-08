@@ -1,3 +1,8 @@
+import { pickupStatusLabel, PICKUP_STATUS_LABELS } from "../pickup/PickupTimeline";
+
+const PICKUP_KEYS = new Set(Object.keys(PICKUP_STATUS_LABELS));
+const PICKUP_LABELS = new Set(Object.values(PICKUP_STATUS_LABELS));
+
 const STATUS_STYLES = {
   pending: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
   PENDING: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
@@ -84,6 +89,7 @@ const STATUS_LABELS = {
   ORDER_VERIFIED: "Order checked",
   QR_VERIFIED: "QR verified",
   PICKED_UP: "Pickup confirmed",
+  PICKUP_CONFIRMED: "Pickup confirmed",
   IN_TRANSIT: "On the way to centre",
   COLLECTION_CENTRE_RECEIVED: "At collection centre",
   RECEIVED_AT_COLLECTION_CENTRE: "At collection centre",
@@ -91,12 +97,21 @@ const STATUS_LABELS = {
 
 function StatusBadge({ status, className = "" }) {
   const key = String(status || "");
-  const style = STATUS_STYLES[key] || "border-[#D4D4D4] bg-[#F2F2F2] text-[#374151]";
-  const label = key === "not_uploaded" ? "Not Uploaded" : STATUS_LABELS[key] || key.replace(/_/g, " ");
+  const pickupLabel = pickupStatusLabel(key);
+  const isPickup = PICKUP_KEYS.has(key) || PICKUP_LABELS.has(pickupLabel);
+  const style = STATUS_STYLES[key] || (isPickup ? "border-[#217346] bg-[#E8F5E9] text-[#217346]" : "border-[#D4D4D4] bg-[#F2F2F2] text-[#374151]");
+  const label =
+    key === "not_uploaded"
+      ? "Not Uploaded"
+      : isPickup
+        ? pickupLabel
+        : STATUS_LABELS[key] || key.replace(/_/g, " ");
 
   return (
     <span
-      className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${style} ${className}`}
+      className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+        isPickup ? "normal-case tracking-normal" : "uppercase tracking-wide"
+      } ${style} ${className}`}
     >
       {label}
     </span>

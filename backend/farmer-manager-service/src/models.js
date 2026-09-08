@@ -610,6 +610,15 @@ const pickupSchema = new mongoose.Schema(
       acceptedWeight: { type: Number, default: 0 },
       difference: { type: Number, default: 0 },
       weightUnit: { type: String, default: "Kg" },
+      grades: [
+        {
+          label: { type: String, default: "" },
+          expectedWeight: { type: Number, default: 0 },
+          actualWeight: { type: Number, default: 0 },
+          acceptedWeight: { type: Number, default: 0 },
+          difference: { type: Number, default: 0 },
+        },
+      ],
       photos: [{ type: String }],
       receiptId: { type: String, default: "" },
       receivedAt: { type: Date, default: null },

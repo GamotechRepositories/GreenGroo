@@ -13,12 +13,12 @@ import {
 import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
 import StatusBadge from "../../components/ui/StatusBadge";
+import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import Modal from "../../components/ui/Modal";
 import { formatMoney, formatOrderDate, rejectionText } from "../../utils/orderDisplay";
 import { formatProductBusinessId } from "../../utils/cropLinks";
-import CopyId from "../../components/ui/CopyId";
 import FarmLocationMap from "../../components/profile/FarmLocationMap";
 import { EXCEL_BTN, EXCEL_BTN_DANGER, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
@@ -198,7 +198,11 @@ function Fact({ label, value }) {
   return (
     <div className="rounded-lg bg-[#F8FAF8] px-3 py-2">
       <p className="text-[10px] font-semibold text-[#6B7280]">{label}</p>
-      <p className="mt-0.5 text-[13px] font-bold text-[#1F2937]">{value || "—"}</p>
+      {isCopyableId(label, value) ? (
+        <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-[13px] font-bold text-[#1F2937]" breakAll />
+      ) : (
+        <p className="mt-0.5 text-[13px] font-bold text-[#1F2937]">{value || "—"}</p>
+      )}
     </div>
   );
 }
@@ -364,15 +368,13 @@ export default function ManagerOrderDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <Link to={backTo} className="text-[11px] font-semibold text-[#217346] hover:underline">
-            {backLabel}
-          </Link>
-          <h1 className="mt-0.5 text-lg font-bold text-[#1F2937]">{productName}</h1>
-          <CopyId value={displayId} className="mt-0.5" textClassName="font-mono text-[11px] text-[#6B7280]" />
-        </div>
-        <StatusBadge status={order.status} />
+      <Link to={backTo} className="text-[11px] font-semibold text-[#217346] hover:underline">
+        {backLabel}
+      </Link>
+      <StatusBadge status={pickup?.status || order.status} />
+      <div className="min-w-0">
+        <h1 className="text-lg font-bold text-[#1F2937]">{productName}</h1>
+        <CopyId value={displayId} className="mt-0.5" textClassName="font-mono text-[11px] text-[#6B7280]" />
       </div>
 
       {reason ? (

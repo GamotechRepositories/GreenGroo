@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import { formatVehicleId } from "../../components/ui/CopyId";
 
 const STATUS_COLORS = {
   Active: "bg-green-100 text-green-700",
@@ -174,8 +175,8 @@ export default function DriversPage() {
                     </td>
                     <td className="min-w-0 px-4 py-3">
                       <p className="truncate font-semibold text-gray-900">{d.vehicleNumber || "—"}</p>
-                      <p className="truncate font-mono text-[10px] text-gray-400" title={d.vehicleId || ""}>
-                        {d.vehicleId || d.vehicleType || "—"}
+                      <p className="truncate font-mono text-[10px] text-gray-400" title={formatVehicleId(d.vehicleId, d.vehicleNumber) || ""}>
+                        {formatVehicleId(d.vehicleId, d.vehicleNumber) || d.vehicleType || "—"}
                       </p>
                     </td>
                     <td className="min-w-0 truncate px-4 py-3 text-gray-600" title={d.assignedArea || ""}>

@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getManagerPickup, receiveManagerPickup, getManagerPickupReceipt } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
+import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
-import PickupTimeline from "../../components/pickup/PickupTimeline";
+import PickupTimeline, { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -17,12 +18,65 @@ import {
 
 const UNITS = ["Kg", "Quintal", "Ton"];
 const STEPS = ["ARRIVED", "UNLOADING", "WEIGHT_CHECK", "RECEIVED"];
+const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
+
+function orderGradeQty(pickup) {
+  const map = {};
+  (Array.isArray(pickup?.grades) ? pickup.grades : []).forEach((g) => {
+    const label = String(g.label || g.name || "").trim();
+    if (!label) return;
+    map[label] = (map[label] || 0) + Number(g.quantity || 0);
+  });
+  if (!Object.keys(map).length) {
+    map["Grade A"] = Number(pickup?.confirmedQuantity || pickup?.packedQuantity || pickup?.expectedQuantity || 0);
+  }
+  return map;
+}
+
+function weightGradeRows(pickup, previous = []) {
+  const qty = orderGradeQty(pickup);
+  const saved = {};
+  (Array.isArray(pickup?.receiving?.grades) ? pickup.receiving.grades : []).forEach((g) => {
+    const label = String(g.label || "").trim();
+    if (label) saved[label] = g;
+  });
+  const prev = {};
+  previous.forEach((g) => {
+    const label = String(g.label || "").trim();
+    if (label) prev[label] = g;
+  });
+  const labels = new Set(DEFAULT_GRADES);
+  Object.keys(qty).forEach((label) => labels.add(label));
+  Object.keys(saved).forEach((label) => labels.add(label));
+  const extras = Array.from(labels).filter((g) => !DEFAULT_GRADES.includes(g)).sort();
+  return [...DEFAULT_GRADES, ...extras].map((label) => {
+    const fromSave = saved[label];
+    const fromPrev = prev[label];
+    const expected = fromSave?.expectedWeight != null && fromSave.expectedWeight !== ""
+      ? fromSave.expectedWeight
+      : qty[label] || 0;
+    return {
+      label,
+      expectedWeight: expected,
+      actualWeight: fromSave?.actualWeight ?? fromPrev?.actualWeight ?? "",
+      acceptedWeight: fromSave?.acceptedWeight ?? fromPrev?.acceptedWeight ?? "",
+    };
+  });
+}
+
+function num(value) {
+  return Number(value || 0);
+}
 
 function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-[#1F2937]">{value || "—"}</p>
+      {isCopyableId(label, value) ? (
+        <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-[#1F2937]" breakAll />
+      ) : (
+        <p className="mt-0.5 text-xs font-semibold text-[#1F2937]">{value || "—"}</p>
+      )}
     </div>
   );
 }
@@ -36,9 +90,7 @@ export default function ManagerReceivePage() {
   const [form, setForm] = useState({
     receivingStatus: "ARRIVED",
     weightUnit: "Kg",
-    expectedWeight: "",
-    actualWeight: "",
-    acceptedWeight: "",
+    grades: [],
     packageCount: "",
     photos: [],
     qr: "",
@@ -51,11 +103,9 @@ export default function ManagerReceivePage() {
       ...f,
       receivingStatus: p.receiving?.status || "ARRIVED",
       weightUnit: unit,
-      expectedWeight: p.receiving?.expectedWeight || p.confirmedQuantity || p.packedQuantity || p.expectedQuantity || "",
-      actualWeight: p.receiving?.actualWeight || "",
-      acceptedWeight: p.receiving?.acceptedWeight || "",
-      packageCount: p.packageCount || "",
-      photos: p.receiving?.photos || [],
+      grades: f.grades?.length ? f.grades : weightGradeRows(p, f.grades),
+      packageCount: f.packageCount || p.packageCount || "",
+      photos: f.photos?.length ? f.photos : p.receiving?.photos || [],
     }));
   };
 
@@ -65,8 +115,19 @@ export default function ManagerReceivePage() {
       .catch((err) => setError(err.message || "Pickup not found"));
   }, [pickupId], 5000);
 
-  const difference = useMemo(() => Number(form.actualWeight || 0) - Number(form.expectedWeight || 0), [form.expectedWeight, form.actualWeight]);
+  const totals = useMemo(() => {
+    const expected = (form.grades || []).reduce((s, g) => s + num(g.expectedWeight), 0);
+    const actual = (form.grades || []).reduce((s, g) => s + num(g.actualWeight), 0);
+    const accepted = (form.grades || []).reduce((s, g) => s + num(g.acceptedWeight), 0);
+    return { expected, actual, accepted, difference: actual - expected };
+  }, [form.grades]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setGrade = (label, patch) => {
+    setForm((f) => ({
+      ...f,
+      grades: (f.grades || []).map((g) => (g.label === label ? { ...g, ...patch } : g)),
+    }));
+  };
 
   const onPhoto = (e) => {
     const file = e.target.files?.[0];
@@ -83,7 +144,17 @@ export default function ManagerReceivePage() {
       const data = await receiveManagerPickup(pickup.id || pickupId, {
         ...form,
         receivingStatus: status || form.receivingStatus,
-        difference,
+        expectedWeight: totals.expected,
+        actualWeight: totals.actual,
+        acceptedWeight: totals.accepted,
+        difference: totals.difference,
+        grades: (form.grades || []).map((g) => ({
+          label: g.label,
+          expectedWeight: num(g.expectedWeight),
+          actualWeight: num(g.actualWeight),
+          acceptedWeight: num(g.acceptedWeight),
+          difference: num(g.actualWeight) - num(g.expectedWeight),
+        })),
       });
       applyPickup(data);
       if ((status || form.receivingStatus) === "RECEIVED") {
@@ -112,14 +183,12 @@ export default function ManagerReceivePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className={EXCEL_PAGE_TITLE}>Collection Centre Receiving</h1>
-          <p className={EXCEL_PAGE_SUB}>
-            Next after driver on the way. Order {pickup.orderDisplayId} · {pickup.farmerName}
-          </p>
-        </div>
-        <StatusBadge status={pickup.receiving?.status || pickup.status} />
+      <StatusBadge status={pickup.status} />
+      <div>
+        <h1 className={EXCEL_PAGE_TITLE}>Collection Centre Receiving</h1>
+        <p className={EXCEL_PAGE_SUB}>
+          Next after driver on the way. Order {pickup.orderDisplayId} · {pickup.farmerName}
+        </p>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 
@@ -140,7 +209,7 @@ export default function ManagerReceivePage() {
           <Info label="Packages" value={pickup.packageCount} />
           <Info label="Driver" value={`${pickup.driverName || "—"} · ${pickup.vehicleNumber || ""}`} />
           <Info label="Lot / Batch ID" value={pickup.collectionBatchId} />
-          <Info label="Driver status" value={pickup.liveStatus || pickup.status} />
+          <Info label="Driver status" value={pickupLiveLabel(pickup)} />
         </div>
       </section>
 
@@ -164,25 +233,61 @@ export default function ManagerReceivePage() {
               </button>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Expected Weight</label>
-              <input className={EXCEL_INPUT} type="number" value={form.expectedWeight} onChange={(e) => set("expectedWeight", e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Actual Weight</label>
-              <input className={EXCEL_INPUT} type="number" value={form.actualWeight} onChange={(e) => set("actualWeight", e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Accepted Weight</label>
-              <input className={EXCEL_INPUT} type="number" value={form.acceptedWeight} onChange={(e) => set("acceptedWeight", e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Difference</label>
-              <p className={`rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold ${difference < 0 ? "text-red-600" : "text-slate-900"}`}>
-                {difference > 0 ? "+" : ""}{difference} {form.weightUnit}
-              </p>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-left text-xs">
+              <thead>
+                <tr className="bg-[#F8FAF8] text-[10px] font-bold uppercase tracking-wide text-[#6B7280]">
+                  <th className="border border-[#E5E7EB] px-2 py-2">Grade</th>
+                  <th className="border border-[#E5E7EB] px-2 py-2">Expected</th>
+                  <th className="border border-[#E5E7EB] px-2 py-2">Actual</th>
+                  <th className="border border-[#E5E7EB] px-2 py-2">Accepted</th>
+                  <th className="border border-[#E5E7EB] px-2 py-2">Difference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(form.grades || []).map((g) => {
+                  const diff = num(g.actualWeight) - num(g.expectedWeight);
+                  return (
+                    <tr key={g.label}>
+                      <td className="border border-[#E5E7EB] px-2 py-1.5 font-semibold text-[#1F2937]">{g.label}</td>
+                      <td className="border border-[#E5E7EB] px-2 py-1.5 tabular-nums">{num(g.expectedWeight)} {form.weightUnit}</td>
+                      <td className="border border-[#E5E7EB] px-1 py-1">
+                        <input
+                          className={`${EXCEL_INPUT} !min-h-8 !rounded-lg !px-2 !py-1.5 !text-xs`}
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={g.actualWeight}
+                          onChange={(e) => setGrade(g.label, { actualWeight: e.target.value })}
+                        />
+                      </td>
+                      <td className="border border-[#E5E7EB] px-1 py-1">
+                        <input
+                          className={`${EXCEL_INPUT} !min-h-8 !rounded-lg !px-2 !py-1.5 !text-xs`}
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={g.acceptedWeight}
+                          onChange={(e) => setGrade(g.label, { acceptedWeight: e.target.value })}
+                        />
+                      </td>
+                      <td className={`border border-[#E5E7EB] px-2 py-1.5 font-semibold tabular-nums ${diff < 0 ? "text-red-600" : "text-[#1F2937]"}`}>
+                        {diff > 0 ? "+" : ""}{diff} {form.weightUnit}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-[#F8FAF8] font-bold">
+                  <td className="border border-[#E5E7EB] px-2 py-2">Total</td>
+                  <td className="border border-[#E5E7EB] px-2 py-2 tabular-nums">{totals.expected} {form.weightUnit}</td>
+                  <td className="border border-[#E5E7EB] px-2 py-2 tabular-nums">{totals.actual} {form.weightUnit}</td>
+                  <td className="border border-[#E5E7EB] px-2 py-2 tabular-nums">{totals.accepted} {form.weightUnit}</td>
+                  <td className={`border border-[#E5E7EB] px-2 py-2 tabular-nums ${totals.difference < 0 ? "text-red-600" : "text-[#1F2937]"}`}>
+                    {totals.difference > 0 ? "+" : ""}{totals.difference} {form.weightUnit}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
           <div className="max-w-xs">
             <label className="mb-1 block text-[11px] font-semibold text-[#4B5563]">Package count</label>

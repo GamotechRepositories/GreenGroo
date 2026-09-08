@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { driverApi } from "../../api/driverApi";
-import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
+import PickupTimeline, { pickupStatusLabel, pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import ConfirmPickupPhotos from "../../components/pickup/ConfirmPickupPhotos";
+import BatchQrModal from "../../components/pickup/BatchQrModal";
+import CopyId, { CopyButton, isCopyableId } from "../../components/ui/CopyId";
 import { usePolling } from "../../hooks/usePolling";
 import { driverNextStep } from "../../utils/driverFlow";
 
@@ -10,7 +12,11 @@ function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-gray-900">{value || "—"}</p>
+      {isCopyableId(label, value) ? (
+        <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-gray-900" breakAll />
+      ) : (
+        <p className="mt-0.5 text-xs font-semibold text-gray-900">{value || "—"}</p>
+      )}
     </div>
   );
 }
@@ -99,6 +105,7 @@ export default function DriverPickupPage() {
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPhotos, setConfirmPhotos] = useState([]);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const load = (silent = false) => {
     driverApi
@@ -139,18 +146,18 @@ export default function DriverPickupPage() {
   const canTransit =
     (status === "PICKED_UP" || status === "PICKUP_CONFIRMED" || pickup.pickupConfirmed) &&
     !["IN_TRANSIT", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE"].includes(status);
-  const liveStatus = pickup.liveStatus || pickupStatusLabel(status);
+  const liveStatus = pickupLiveLabel(pickup) || pickupStatusLabel(status);
   const nextStep = driverNextStep(pickup);
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
       <Link to="/driver/assigned" className="text-xs text-[#217346]">← Pickup Orders</Link>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Order {pickup.orderDisplayId}</h1>
-          <p className="text-sm text-gray-500">{pickup.farmerName} · {pickup.productName}</p>
-        </div>
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase">{liveStatus}</span>
+      <span className="inline-flex max-w-full rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[11px] font-semibold normal-case text-[#217346]">
+        {liveStatus}
+      </span>
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Order {pickup.orderDisplayId}</h1>
+        <p className="text-sm text-gray-500">{pickup.farmerName} · {pickup.productName}</p>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
       {success ? <div className="border border-green-200 bg-green-50 px-3 py-2 text-xs text-[#217346]">{success}</div> : null}
@@ -162,6 +169,24 @@ export default function DriverPickupPage() {
         <p className="mt-1 text-base font-bold text-gray-900">{liveStatus}</p>
         {nextStep ? <p className="mt-1 text-xs font-semibold text-[#217346]">Next: {nextStep.label}</p> : null}
         <p className="mt-1 text-xs text-gray-600">Update the step below so farmer, manager and vendor can see what you are doing.</p>
+        {pickup.collectionBatchId ? (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <span className="text-[11px] text-gray-600">Lot / Batch ID</span>
+              <Link to={`/driver/batches/${encodeURIComponent(pickup.collectionBatchId)}`} className="min-w-0 truncate font-mono text-xs font-semibold text-[#217346]">
+                {pickup.collectionBatchId}
+              </Link>
+              <CopyButton value={pickup.collectionBatchId} />
+            </div>
+            <button
+              type="button"
+              className="inline-flex min-h-11 w-full items-center justify-center bg-[#217346] px-3 text-xs font-semibold text-white sm:w-auto"
+              onClick={() => setQrOpen(true)}
+            >
+              Show QR
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="border border-gray-200 bg-white p-5">
@@ -260,13 +285,17 @@ export default function DriverPickupPage() {
       ) : null}
 
       {canTransit ? (
-        <button type="button" disabled={busy} className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60" onClick={() => run(() => driverApi.transit(pickup.id), "On the way to collection centre.")}>
-          {busy ? "Updating…" : "On the way back to collection centre"}
+        <button type="button" disabled={busy} className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60" onClick={() => run(() => driverApi.transit(pickup.id), "On the way to centre.")}>
+          {busy ? "Updating…" : "On the way to centre"}
         </button>
       ) : null}
 
       {status === "IN_TRANSIT" ? (
-        <p className="text-sm font-semibold text-[#217346]">On the way to collection centre. Waiting for centre receiving.</p>
+        <p className="text-sm font-semibold text-[#217346]">On the way to centre. Waiting for centre receiving.</p>
+      ) : null}
+
+      {qrOpen && pickup.collectionBatchId ? (
+        <BatchQrModal batchId={pickup.collectionBatchId} onClose={() => setQrOpen(false)} />
       ) : null}
 
       {confirmOpen ? (

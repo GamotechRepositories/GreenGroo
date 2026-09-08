@@ -2,19 +2,24 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useDriverAuth } from "../../context/DriverAuthContext";
 
 const NAV = [
-  { to: "/driver/assigned", label: "Assigned Pickups" },
-  { to: "/driver/progress", label: "In Progress" },
-  { to: "/driver/completed", label: "Completed Pickups" },
-  { to: "/driver/history", label: "Pickup History" },
+  { to: "/driver/assigned", label: "Assigned Pickups", short: "Assigned" },
+  { to: "/driver/progress", label: "In Progress", short: "Progress" },
+  { to: "/driver/completed", label: "Completed Pickups", short: "Completed" },
+  { to: "/driver/history", label: "Pickup History", short: "History" },
 ];
 
 export default function DriverLayout() {
   const { driver, logout } = useDriverAuth();
   const navigate = useNavigate();
 
+  const onLogout = () => {
+    logout();
+    navigate("/vendor/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
-      <aside className="fixed left-0 top-0 flex h-screen w-56 flex-col bg-green-dark text-white">
+      <aside className="fixed left-0 top-0 hidden h-screen w-56 flex-col bg-green-dark text-white md:flex">
         <div className="px-5 py-6">
           <p className="text-sm font-bold">GreenGroo</p>
           <p className="text-xs text-white/60">Pickup Orders</p>
@@ -33,22 +38,46 @@ export default function DriverLayout() {
           ))}
         </nav>
         <div className="border-t border-white/10 px-3 py-4">
-          <p className="mb-2 px-3 text-xs text-white/60">{driver?.name}</p>
+          <p className="mb-2 truncate px-3 text-xs text-white/60">{driver?.name}</p>
           <button
             type="button"
             className="w-full rounded-lg px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
-            onClick={() => {
-              logout();
-              navigate("/vendor/login", { replace: true });
-            }}
+            onClick={onLogout}
           >
             Logout
           </button>
         </div>
       </aside>
-      <div className="ml-56 min-h-screen">
+
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 md:hidden">
+        <div>
+          <p className="text-sm font-bold text-gray-900">GreenGroo</p>
+          <p className="text-[11px] text-gray-500">{driver?.name || "Pickup Orders"}</p>
+        </div>
+        <button type="button" className="text-xs font-semibold text-[#217346]" onClick={onLogout}>
+          Logout
+        </button>
+      </header>
+
+      <div className="min-h-screen pb-20 md:ml-56 md:pb-0">
         <Outlet />
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-gray-200 bg-white md:hidden">
+        {NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `flex min-h-14 items-center justify-center px-1 text-center text-[11px] font-semibold ${
+                isActive ? "bg-[#E8F5E9] text-[#217346]" : "text-gray-500"
+              }`
+            }
+          >
+            {item.short}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

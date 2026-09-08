@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
-import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
+import PickupTimeline, { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
+import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import { usePolling } from "../../hooks/usePolling";
 
 function Info({ label, value }) {
   return (
     <div>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-gray-900">{value || "—"}</p>
+      {isCopyableId(label, value) ? (
+        <CopyId value={value} className="mt-0.5" textClassName="break-all font-mono text-xs font-semibold text-gray-900" breakAll />
+      ) : (
+        <p className="mt-0.5 text-xs font-semibold text-gray-900">{value || "—"}</p>
+      )}
     </div>
   );
 }
@@ -37,17 +42,17 @@ export default function VendorPickupDetailPage() {
       <div className="flex items-center gap-2 text-xs text-gray-400">
         <Link to="/vendor/pickups/assigned" className="hover:text-[#217346]">Assigned Pickups</Link>
         <span>›</span>
-        <span className="font-semibold text-gray-700">{pickup.orderDisplayId}</span>
+        <span className="font-semibold text-gray-700">
+          <CopyId value={pickup.orderDisplayId} textClassName="font-semibold text-gray-700" />
+        </span>
       </div>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Pickup {pickup.pickupId}</h1>
-          <p className="text-sm text-gray-500">Order {pickup.orderDisplayId} · {pickup.farmerName}</p>
-        </div>
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase text-gray-700">
-          {pickup.liveStatus || pickupStatusLabel(pickup.status)}
-        </span>
+      <span className="inline-flex max-w-full rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[11px] font-semibold text-[#217346]">
+        {pickupLiveLabel(pickup)}
+      </span>
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Pickup {pickup.pickupId}</h1>
+        <p className="text-sm text-gray-500">Order {pickup.orderDisplayId} · {pickup.farmerName}</p>
       </div>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{error}</div> : null}
 

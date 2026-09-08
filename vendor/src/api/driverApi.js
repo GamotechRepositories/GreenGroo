@@ -28,6 +28,7 @@ export const driverApi = {
   me: () => driverHttp.get("/api/vendor/auth/driver/me"),
   getPickups: (params) => driverHttp.get("/api/vendor/driver-desk/pickups", { params }),
   getPickup: (id) => driverHttp.get(`/api/vendor/driver-desk/pickups/${id}`),
+  getBatch: (id) => driverHttp.get(`/api/vendor/driver-desk/batches/${encodeURIComponent(id)}`),
   start: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/start`),
   arrive: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/arrive`),
   checkOrder: (id) => driverHttp.post(`/api/vendor/driver-desk/pickups/${id}/check-order`),

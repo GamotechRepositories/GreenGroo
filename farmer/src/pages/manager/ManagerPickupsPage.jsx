@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { getManagerPickups } from "../../api/farmerApi";
 import StatusBadge from "../../components/ui/StatusBadge";
 import EmptyState from "../../components/ui/EmptyState";
-import CopyId, { CopyButton } from "../../components/ui/CopyId";
+import CopyId, { CopyButton, formatVehicleId } from "../../components/ui/CopyId";
+import QrScanModal from "../../components/pickup/QrScanModal";
+import { parseBatchQrPayload } from "../../utils/batchQr";
+import { parseOrderQrPayload } from "../../utils/orderQr";
+import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import { usePolling } from "../../hooks/usePolling";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY, EXCEL_BTN, EXCEL_INPUT } from "../../utils/excelStyles";
 import { formatMoney, formatOrderDate, todayISODate, yesterdayISODate } from "../../utils/orderDisplay";
@@ -12,12 +16,22 @@ const COPY = {
   ready: { title: "Ready for Pickup", sub: "Orders from your assigned farmers waiting for a driver.", filter: "ready", empty: "No ready-for-pickup orders yet." },
   assigned: { title: "Assigned Pickups", sub: "Pickups with a driver assigned.", filter: "assigned", empty: "No assigned pickups." },
   requests: { title: "Ready for Pickup", sub: "Orders from your assigned farmers waiting for a driver.", filter: "ready", empty: "No ready-for-pickup orders yet." },
-  today: { title: "Today's Pickups", sub: "Scheduled for today.", filter: "today", empty: "No pickups scheduled today." },
+  today: { title: "Today's Pickups", sub: "Scheduled for today and not yet picked up.", filter: "today", empty: "No pickups scheduled today." },
   active: { title: "Active Pickups", sub: "In-progress pickups for your farmers.", filter: "active", empty: "No active pickups." },
   incoming: { title: "Incoming at Centre", sub: "Driver is on the way. Receive, weigh, and confirm at the collection centre.", filter: "incoming", empty: "No incoming pickups yet." },
   completed: { title: "Picked Up", sub: "Confirmed pickups.", filter: "history", empty: "No completed pickups yet." },
   history: { title: "Picked Up", sub: "Completed pickup history for your farmers.", filter: "history", empty: "No pickup history yet." },
 };
+
+const DONE_TODAY_STATUSES = new Set([
+  "PICKED_UP",
+  "PICKUP_CONFIRMED",
+  "IN_TRANSIT",
+  "COLLECTION_CENTRE_RECEIVED",
+  "RECEIVED_AT_COLLECTION_CENTRE",
+  "COMPLETED",
+  "CANCELLED",
+]);
 
 const DEFAULT_GRADES = ["Grade A", "Grade B", "Grade C"];
 const TH =
@@ -122,7 +136,8 @@ function pickupMatches(pickup, { q, farmerId, product, pickupDate }) {
     pickup.orderId,
     pickup.productName,
     pickup.variety,
-    pickup.driverName,
+    pickup.collectionBatchId,
+    pickup.lotId,
   ]
     .filter(Boolean)
     .join(" ")
@@ -169,12 +184,12 @@ function PickupCard({ pickup, isIncoming, onView, onAssign }) {
 
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-bold text-[#1F2937]">{pickup.farmerName || "Farmer"}</p>
-          <p className="mt-0.5 break-words text-[11px] font-semibold text-[#6B7280]">{location || "Location not set"}</p>
-        </div>
-        <StatusBadge status={pickup.status} className="shrink-0" />
+      <div className="mb-2">
+        <StatusBadge status={pickup.status} />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[14px] font-bold text-[#1F2937]">{pickup.farmerName || "Farmer"}</p>
+        <p className="mt-0.5 break-words text-[11px] font-semibold text-[#6B7280]">{location || "Location not set"}</p>
       </div>
       <div className="mt-2 min-w-0">
         <p className="truncate text-[13px] font-bold text-[#1F2937]">
@@ -238,6 +253,75 @@ function PickupCard({ pickup, isIncoming, onView, onAssign }) {
   );
 }
 
+function groupIncoming(pickups) {
+  const seen = new Map();
+  const cards = [];
+  for (const p of pickups) {
+    const bid = String(p.collectionBatchId || p.lotId || "").trim();
+    if (!bid) {
+      cards.push({ type: "order", pickup: p, id: p.id });
+      continue;
+    }
+    if (!seen.has(bid)) {
+      const group = { type: "batch", batchId: bid, pickups: [], id: bid };
+      seen.set(bid, group);
+      cards.push(group);
+    }
+    seen.get(bid).pickups.push(p);
+  }
+  return cards;
+}
+
+function IncomingBatchCard({ batchId, pickups, onOpen, onScan }) {
+  const first = pickups[0] || {};
+  const driver = first.driver || {};
+  const driverId = first.driverId || driver.id || driver.driverId || "";
+  const vehicleId = formatVehicleId(first.vehicleId || driver.vehicleId, first.vehicleNumber || driver.vehicleNumber);
+  const farmers = [...new Set(pickups.map((p) => p.farmerName).filter(Boolean))];
+  const products = [...new Set(pickups.map((p) => p.productName).filter(Boolean))];
+  return (
+    <article className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="inline-flex max-w-full rounded-full bg-[#E8F5E9] px-2.5 py-1 text-[11px] font-semibold leading-tight text-[#217346]">
+            {pickupLiveLabel(first) || "On the way to centre"}
+          </span>
+          <span className="text-xs font-medium text-[#6B7280]">
+            {pickups.length} order{pickups.length === 1 ? "" : "s"} in this batch
+          </span>
+        </div>
+        <p className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">Lot / Batch ID</p>
+        <CopyId
+          value={batchId}
+          className="mt-1"
+          textClassName="break-all font-mono text-[15px] font-bold leading-snug text-[#217346]"
+          breakAll
+        />
+        <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">Driver ID</p>
+            <CopyId value={driverId} className="mt-0.5" textClassName="break-all font-mono text-[12px] font-semibold text-[#1F2937]" breakAll />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">Vehicle ID</p>
+            <CopyId value={vehicleId} className="mt-0.5" textClassName="break-all font-mono text-[12px] font-semibold text-[#1F2937]" breakAll />
+          </div>
+        </div>
+        <p className="mt-2 text-[12px] font-semibold text-[#1F2937]">{farmers.join(", ") || "—"}</p>
+        <p className="mt-0.5 text-[11px] text-[#6B7280]">{products.join(" · ") || "—"}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 bg-[#F8FAF8] p-3">
+        <button type="button" className={`${EXCEL_BTN_PRIMARY} !min-h-10`} onClick={onScan}>
+          Scan QR
+        </button>
+        <button type="button" className={`${EXCEL_BTN} !min-h-10`} onClick={onOpen}>
+          View details
+        </button>
+      </div>
+    </article>
+  );
+}
+
 export default function ManagerPickupsPage({ mode = "ready" }) {
   const meta = COPY[mode] || COPY.ready;
   const navigate = useNavigate();
@@ -247,6 +331,8 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   const [farmerId, setFarmerId] = useState("");
   const [product, setProduct] = useState("");
   const [pickupDate, setPickupDate] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanError, setScanError] = useState("");
 
   usePolling(() => {
     getManagerPickups({ filter: meta.filter })
@@ -256,7 +342,11 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   }, [meta.filter], 5000);
 
   const isIncoming = meta.filter === "incoming";
-  const pickups = useMemo(() => groups.flatMap((g) => g.pickups || []), [groups]);
+  const pickups = useMemo(() => {
+    const all = groups.flatMap((g) => g.pickups || []);
+    if (meta.filter !== "today") return all;
+    return all.filter((p) => !DONE_TODAY_STATUSES.has(String(p.status || "").toUpperCase()));
+  }, [groups, meta.filter]);
   const farmerOptions = useMemo(() => {
     const map = new Map();
     pickups.forEach((p) => {
@@ -274,16 +364,57 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
     () => pickups.filter((p) => pickupMatches(p, { q, farmerId, product, pickupDate })),
     [pickups, q, farmerId, product, pickupDate]
   );
+  const incomingCards = useMemo(() => (isIncoming ? groupIncoming(filtered) : []), [isIncoming, filtered]);
   const hasFilter = Boolean(q || farmerId || product || pickupDate);
+
+  const openScanned = (value) => {
+    const batchId = parseBatchQrPayload(value);
+    if (batchId) {
+      const card = incomingCards.find((c) => c.type === "batch" && c.batchId === batchId);
+      setScanOpen(false);
+      setScanError("");
+      navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(batchId)}`, {
+        state: card ? { batchId, pickups: card.pickups } : undefined,
+      });
+      return;
+    }
+    const orderId = parseOrderQrPayload(value);
+    const match = pickups.find((p) => {
+      const oid = String(p.orderDisplayId || p.orderId || "");
+      const qr = String(p.qrPayload || "");
+      return (
+        (orderId && oid && (oid === orderId || oid.includes(orderId) || orderId.includes(oid))) ||
+        (qr && String(value).includes(qr)) ||
+        (oid && String(value).includes(oid))
+      );
+    });
+    if (match) {
+      setScanOpen(false);
+      setScanError("");
+      navigate(pickupPath(match, isIncoming));
+      return;
+    }
+    setScanError("QR does not match an incoming batch or order.");
+  };
 
   const FILTER = `${EXCEL_INPUT} !min-h-9 !py-1.5 !text-xs`;
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className={EXCEL_PAGE_TITLE}>{meta.title}</h1>
-        <p className={EXCEL_PAGE_SUB}>{meta.sub}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className={EXCEL_PAGE_TITLE}>{meta.title}</h1>
+          <p className={EXCEL_PAGE_SUB}>{meta.sub}</p>
+        </div>
+        {isIncoming ? (
+          <button type="button" className={EXCEL_BTN_PRIMARY} onClick={() => { setScanError(""); setScanOpen(true); }}>
+            Scan QR
+          </button>
+        ) : null}
       </div>
+      {isIncoming && scanError ? (
+        <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{scanError}</div>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-[11rem] flex-1 sm:max-w-xs">
@@ -292,7 +423,7 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Farmer, location, order, product…"
+            placeholder="Farmer, location, order, product, batch…"
             className={FILTER}
           />
         </label>
@@ -355,7 +486,37 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
         <EmptyState title="No pickups" description={meta.empty} />
       ) : filtered.length === 0 ? (
         <EmptyState title="No matching pickups" description="No orders match this filter. Clear filters to see all." />
-      ) : (
+      ) : isIncoming ? (
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            {incomingCards.map((card) => {
+              if (card.type === "batch") {
+                return (
+                  <IncomingBatchCard
+                    key={card.id}
+                    batchId={card.batchId}
+                    pickups={card.pickups}
+                    onOpen={() =>
+                      navigate(`/farmer/manager/pickups/batches/${encodeURIComponent(card.batchId)}`, {
+                        state: { batchId: card.batchId, pickups: card.pickups },
+                      })
+                    }
+                    onScan={() => { setScanError(""); setScanOpen(true); }}
+                  />
+                );
+              }
+              const p = card.pickup;
+              return (
+                <PickupCard
+                  key={p.id}
+                  pickup={p}
+                  isIncoming
+                  onView={() => navigate(orderPath(p))}
+                  onAssign={() => navigate(pickupPath(p, true))}
+                />
+              );
+            })}
+          </div>
+        ) : (
         <>
           <div className="space-y-2.5 md:hidden">
             {filtered.map((p) => (
@@ -446,6 +607,15 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
           </div>
         </>
       )}
+      {isIncoming ? (
+        <QrScanModal
+          open={scanOpen}
+          title="Scan batch QR"
+          onClose={() => setScanOpen(false)}
+          onScan={openScanned}
+          error={scanError}
+        />
+      ) : null}
     </div>
   );
 }
