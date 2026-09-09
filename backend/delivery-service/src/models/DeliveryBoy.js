@@ -5,6 +5,8 @@ const documentMetaSchema = new mongoose.Schema(
   {
     /// AWS S3 hosted image URL
     url: { type: String, default: "" },
+    /// Fallback when S3 is unavailable (manager verification still needs the image)
+    imageBase64: { type: String, default: "" },
     status: {
       type: String,
       enum: ["pending", "captured", "uploaded", "verified", "rejected"],

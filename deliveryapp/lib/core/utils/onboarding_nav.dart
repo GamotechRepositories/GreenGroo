@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../routes/app_routes.dart';
 import '../theme/app_colors.dart';
-import '../../data/services/auth_service.dart';
+import '../../data/services/auth_service.dart' show AuthApiException, AuthService;
 
 /// Shared app-bar back button. Pops if possible, otherwise goes to [fallbackRoute].
 class AppBackButton extends StatelessWidget {
@@ -31,7 +31,8 @@ void goBack(BuildContext context, {String? fallbackRoute}) {
 }
 
 /// Saves onboarding progress (+ optional profile fields) then navigates.
-Future<void> goOnboardingStep(
+/// Returns false (and shows a snackbar) if the API save fails.
+Future<bool> goOnboardingStep(
   BuildContext context, {
   required String step,
   required String route,
@@ -39,21 +40,46 @@ Future<void> goOnboardingStep(
   Object? arguments,
   Map<String, dynamic>? data,
 }) async {
-  await AuthService.instance.updateOnboarding(step: step, data: data);
-  if (!context.mounted) return;
+  try {
+    await AuthService.instance.updateOnboarding(step: step, data: data);
+  } catch (e) {
+    if (!context.mounted) return false;
+    final msg = e is AuthApiException ? e.message : e.toString();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: AppColors.error,
+      ),
+    );
+    return false;
+  }
+  if (!context.mounted) return false;
   if (replace) {
     Navigator.pushReplacementNamed(context, route, arguments: arguments);
   } else {
     Navigator.pushNamed(context, route, arguments: arguments);
   }
+  return true;
 }
 
 Future<void> completeOnboarding(BuildContext context) async {
-  await AuthService.instance.updateOnboarding(
-    step: 'home',
-    complete: true,
-    data: {'livenessPassed': true},
-  );
+  try {
+    await AuthService.instance.updateOnboarding(
+      step: 'home',
+      complete: true,
+      data: {'livenessPassed': true},
+    );
+  } catch (e) {
+    if (!context.mounted) return;
+    final msg = e is AuthApiException ? e.message : e.toString();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: AppColors.error,
+      ),
+    );
+    return;
+  }
   if (!context.mounted) return;
   Navigator.pushNamedAndRemoveUntil(
     context,

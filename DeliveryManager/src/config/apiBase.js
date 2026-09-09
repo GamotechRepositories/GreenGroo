@@ -1,4 +1,4 @@
-const LIVE_API = "http://api.greengrocc.com";
+const LIVE_API = "https://api.greengrocc.com";
 const LOCAL_API = "http://localhost:5001";
 
 export function getApiBaseUrl() {
@@ -16,8 +16,21 @@ export function getApiBaseUrl() {
   const forceLocal =
     String(import.meta.env.VITE_USE_LOCAL_API || "").toLowerCase() === "true";
 
+  // Prefer https live host if someone still has http://api.greengrocc.com in .env
+  const normalizeLive = (url) => {
+    if (!url) return LIVE_API;
+    try {
+      const u = new URL(url);
+      if (u.hostname === "api.greengrocc.com" && u.protocol === "http:") {
+        u.protocol = "https:";
+        return u.toString().replace(/\/+$/, "");
+      }
+    } catch (_) {}
+    return url;
+  };
+
   if (forceLocal) return local || LOCAL_API;
-  if (forceLive) return live || LIVE_API;
+  if (forceLive) return normalizeLive(live || LIVE_API);
   if (import.meta.env.DEV) return local || LOCAL_API;
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
@@ -25,5 +38,5 @@ export function getApiBaseUrl() {
       return local || LOCAL_API;
     }
   }
-  return live || LIVE_API;
+  return normalizeLive(live || LIVE_API);
 }

@@ -19,6 +19,7 @@ import {
   formatOnlineMinutes,
 } from "../utils/onlineHoursHelper.js";
 import { buildRiderActivityHistory } from "../services/activityHistoryService.js";
+import { areaMatches, placesEqual } from "../utils/matchPlace.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
@@ -95,14 +96,33 @@ const areaMatch = (manager) => ({
   $or: [
     { managerId: manager._id },
     {
-      managerId: { $in: [null, undefined] },
-      $or: [
-        { cityId: manager.cityId, area: manager.area },
-        { city: manager.city, area: manager.area },
+      $and: [
+        {
+          $or: [{ managerId: null }, { managerId: { $exists: false } }],
+        },
+        {
+          $or: [
+            { cityId: manager.cityId, area: manager.area },
+            { city: manager.city, area: manager.area },
+          ],
+        },
       ],
     },
   ],
 });
+
+/** Softer match for pending KYC — handles Hinjawadi/Hinjewadi and cityId mismatches */
+function riderBelongsToManagerHub(rider, manager) {
+  if (rider.managerId && String(rider.managerId) === String(manager._id)) {
+    return true;
+  }
+  if (!areaMatches(rider.area, manager.area)) return false;
+  if (placesEqual(rider.cityId, manager.cityId)) return true;
+  if (placesEqual(rider.city, manager.city)) return true;
+  // Area matched and rider not tied to another manager
+  if (!rider.managerId) return true;
+  return false;
+}
 
 const approvedFilter = {
   $or: [
@@ -514,15 +534,14 @@ export const listPendingDrivers = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     const riders = await DeliveryBoy.find({
-      $and: [
-        areaMatch(manager),
-        { verificationStatus: "pending" },
-      ],
+      verificationStatus: "pending",
     }).sort({ createdAt: -1, updatedAt: -1 });
+
+    const filtered = riders.filter((r) => riderBelongsToManagerHub(r, manager));
 
     return res.json({
       success: true,
-      riders: riders.map(serializeRider),
+      riders: filtered.map(serializeRider),
     });
   } catch (error) {
     next(error);
@@ -546,11 +565,8 @@ export const verifyDriver = async (req, res, next) => {
       });
     }
 
-    let rider = await DeliveryBoy.findOne({
-      _id: riderId,
-      $and: [areaMatch(manager)],
-    });
-    if (!rider) {
+    let rider = await DeliveryBoy.findById(riderId);
+    if (!rider || !riderBelongsToManagerHub(rider, manager)) {
       return res.status(404).json({
         success: false,
         message: "Driver not found in your hub area",

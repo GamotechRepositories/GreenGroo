@@ -8,6 +8,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/image_upload_utils.dart';
 import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 
@@ -119,10 +120,59 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
 
     if (source == null) return;
 
-    final file = await _picker.pickImage(source: source, imageQuality: 70);
+    // Keep each photo small so bank + docs can reach the API (one request used to
+    // send 6 full camera images and silently fail — bank/docs never saved).
+    final file = await _picker.pickImage(
+      source: source,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 55,
+    );
     if (file == null || !mounted) return;
 
     setState(() => _files[type] = file);
+  }
+
+  Future<void> _uploadAndContinue() async {
+    setState(() => _submitting = true);
+    try {
+      final auth = AuthService.instance;
+      // 1) Bank first (small payload) — must succeed before leaving this screen.
+      await auth.updateOnboarding(
+        data: {
+          'bankDetails': {
+            'accountHolderName': _accountHolder.text.trim(),
+            'accountNumber': _accountNumber.text.trim(),
+            'ifscCode': _ifsc.text.trim(),
+            'bankName': _bankName.text.trim(),
+            'upiId': _upiId.text.trim(),
+          },
+        },
+      );
+      // 2) One document per request so S3 / body size / timeouts don't wipe everything.
+      for (final key in _docKeys) {
+        final payload = await documentPayload(_files[key]);
+        await auth.updateOnboarding(
+          data: {
+            'documents': {key: payload},
+          },
+        );
+      }
+      if (!mounted) return;
+      await goOnboardingStep(
+        context,
+        step: 'selfie',
+        route: AppRoutes.takeSelfie,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is AuthApiException ? e.message : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -290,34 +340,7 @@ class _UploadDocumentsScreenState extends State<UploadDocumentsScreen> {
               child: PrimaryButton(
                 label: _submitting ? 'Uploading…' : l10n.next,
                 onPressed: _canContinue && !_submitting
-                    ? () async {
-                        setState(() => _submitting = true);
-                        try {
-                          final docs = <String, dynamic>{};
-                          for (final key in _docKeys) {
-                            docs[key] = await documentPayload(_files[key]);
-                          }
-                          if (!mounted) return;
-                          final currentContext = context;
-                          await goOnboardingStep(
-                            currentContext,
-                            step: 'selfie',
-                            route: AppRoutes.takeSelfie,
-                            data: {
-                              'bankDetails': {
-                                'accountHolderName': _accountHolder.text.trim(),
-                                'accountNumber': _accountNumber.text.trim(),
-                                'ifscCode': _ifsc.text.trim(),
-                                'bankName': _bankName.text.trim(),
-                                'upiId': _upiId.text.trim(),
-                              },
-                              'documents': docs,
-                            },
-                          );
-                        } finally {
-                          if (mounted) setState(() => _submitting = false);
-                        }
-                      }
+                    ? _uploadAndContinue
                     : null,
               ),
             ),

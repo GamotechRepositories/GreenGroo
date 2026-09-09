@@ -309,32 +309,40 @@ class AuthService {
   }
 
   /// Saves onboarding fields into the same DeliveryBoy document.
-  Future<void> updateOnboarding({
+  /// Returns true on success. Throws [AuthApiException] on API failure.
+  Future<bool> updateOnboarding({
     String? step,
     bool? complete,
     Map<String, dynamic>? data,
+    Duration timeout = const Duration(seconds: 60),
   }) async {
-    if (!isLoggedIn) return;
-    try {
-      final res = await apiPatch(
-        ApiConfig.onboarding,
-        headers: _authHeaders,
-        body: jsonEncode({
-          if (step != null) 'onboardingStep': step,
-          if (complete != null) 'onboardingComplete': complete,
-          ...?data,
-        }),
-      );
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        final boy = DeliveryBoy.fromJson(
-          body['deliveryBoy'] as Map<String, dynamic>,
-        );
-        await _persist(_token!, boy);
-      }
-    } catch (_) {
-      // Offline / unreachable — keep local progress; sync later.
+    if (!isLoggedIn) {
+      throw AuthApiException('Please login again to continue onboarding');
     }
+    final res = await apiPatch(
+      ApiConfig.onboarding,
+      headers: _authHeaders,
+      body: jsonEncode({
+        if (step != null) 'onboardingStep': step,
+        if (complete != null) 'onboardingComplete': complete,
+        ...?data,
+      }),
+      timeout: timeout,
+    );
+    if (res.statusCode != 200) {
+      String message = 'Could not save onboarding data (${res.statusCode})';
+      try {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        message = body['message']?.toString() ?? message;
+      } catch (_) {}
+      throw AuthApiException(message);
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final boy = DeliveryBoy.fromJson(
+      body['deliveryBoy'] as Map<String, dynamic>,
+    );
+    await _persist(_token!, boy);
+    return true;
   }
 
   /// Immediate online/offline update in DB.

@@ -80,19 +80,34 @@ const applyDocumentMeta = async (target, incoming, folder = "delivery-boys/docum
     target.url = String(incoming.url);
   }
 
-  // Upload to AWS S3 if S3 is configured and imageBase64 is provided
-  if (isS3Configured() && imageBase64.startsWith("data:image/")) {
-    try {
-      const s3Res = await uploadDataUrlToS3(imageBase64, folder);
-      if (s3Res && s3Res.url) {
-        target.url = s3Res.url;
+  // Prefer S3 URL; always keep base64 fallback so manager verification can show the image
+  if (imageBase64.startsWith("data:image/")) {
+    let uploaded = false;
+    if (isS3Configured()) {
+      try {
+        const s3Res = await uploadDataUrlToS3(imageBase64, folder);
+        if (s3Res && s3Res.url) {
+          target.url = s3Res.url;
+          uploaded = true;
+        }
+      } catch (err) {
+        console.error("[AWS S3 Upload Error]", err.message || err);
       }
-    } catch (err) {
-      console.error("[AWS S3 Upload Error]", err);
     }
+    // Save base64 when S3 is off or upload failed (so Delivery Manager can still view docs)
+    if (!uploaded || !target.url) {
+      target.imageBase64 = imageBase64;
+    } else {
+      // URL saved — clear huge base64 to keep DB smaller
+      target.imageBase64 = "";
+    }
+  } else if (incoming.imageBase64 !== undefined && incoming.imageBase64) {
+    target.imageBase64 = String(incoming.imageBase64);
   }
 
   if (incoming.status !== undefined) target.status = String(incoming.status);
+  else if (imageBase64 || target.url) target.status = "uploaded";
+
   target.capturedAt = incoming.capturedAt
     ? new Date(incoming.capturedAt)
     : new Date();
@@ -611,15 +626,22 @@ export const getAreaManager = async (req, res, next) => {
       });
     }
 
-    const all = await DeliveryManager.find({ isActive: true }).lean();
+    const all = await DeliveryManager.find({ isActive: { $ne: false } }).lean();
     const sameCity = (m) => {
       if (queryCityId && placesEqual(m.cityId, queryCityId)) return true;
       if (queryCity && placesEqual(m.city, queryCity)) return true;
+      // If manager has no city fields, don't exclude on city alone
+      if (!m.cityId && !m.city) return true;
       return !queryCityId && !queryCity;
     };
-    const matched = all.filter(
+    let matched = all.filter(
       (m) => areaMatches(m.area, queryArea) && sameCity(m)
     );
+
+    // Fallback: area match only (fixes cityId mismatch between app & registered store)
+    if (!matched.length) {
+      matched = all.filter((m) => areaMatches(m.area, queryArea));
+    }
 
     matched.sort(
       (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
