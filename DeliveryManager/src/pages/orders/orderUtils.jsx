@@ -7,6 +7,8 @@ export const STATUS_LABELS = {
   assigned: { text: "ASSIGNED", className: "text-teal-700" },
   out_for_delivery: { text: "OUT FOR DELIVERY", className: "text-emerald-700" },
   delivered: { text: "DELIVERED", className: "text-emerald-800" },
+  cancelled: { text: "CANCELLED", className: "text-rose-700" },
+  pickup_verified: { text: "PICKUP VERIFIED", className: "text-sky-700" },
   stock_issue: { text: "STOCK ISSUE", className: "text-rose-700" },
 };
 
@@ -72,6 +74,7 @@ export const STATUS_TABS = [
   { id: "incoming", label: "Incoming" },
   { id: "ongoing", label: "Ongoing" },
   { id: "delivered", label: "Delivered" },
+  { id: "cancelled", label: "Cancelled" },
   { id: "all", label: "All" },
 ];
 
@@ -87,6 +90,7 @@ export function matchesTab(order, tab) {
     return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
   }
   if (tab === "delivered") return s === "delivered";
+  if (tab === "cancelled") return s === "cancelled";
   // legacy aliases
   if (tab === "active") {
     return ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery", "pickup_verified"].includes(s);
@@ -101,6 +105,7 @@ export function countBySummaryBucket(orders = []) {
     incoming: orders.filter((o) => matchesTab(o, "incoming")).length,
     ongoing: orders.filter((o) => matchesTab(o, "ongoing")).length,
     delivered: orders.filter((o) => matchesTab(o, "delivered")).length,
+    cancelled: orders.filter((o) => matchesTab(o, "cancelled")).length,
   };
 }
 
@@ -169,5 +174,5 @@ export function allItemsAvailable(order) {
 export const actionBtnOutline =
   "rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition whitespace-nowrap";
 
-export const actionBtnPrimary =
-  "rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-xs hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition whitespace-nowrap";
+export const actionBtnDanger =
+  "rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition whitespace-nowrap";

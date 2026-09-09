@@ -36,9 +36,25 @@ export default function DeliveryManagement() {
     await load();
   };
 
-  const updateStatus = async (orderId, nextStatus) => {
-    await opsApi.patch(`delivery/orders/${orderId}/status`, { status: nextStatus });
-    await load();
+  const updateStatus = async (orderId, nextStatus, previousStatus) => {
+    if (nextStatus === previousStatus) return;
+    const confirmComplete =
+      nextStatus === 'delivered'
+        ? 'Mark this delivery complete? The customer order will be completed even if the rider has not finished OTP or proof.'
+        : nextStatus === 'cancelled'
+          ? 'Cancel this order? The customer order will also be cancelled.'
+          : '';
+    if (confirmComplete && !window.confirm(confirmComplete)) {
+      await load();
+      return;
+    }
+    try {
+      await opsApi.patch(`delivery/orders/${orderId}/status`, { status: nextStatus });
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not update status');
+      await load();
+    }
   };
 
   return (
@@ -49,7 +65,7 @@ export default function DeliveryManagement() {
         </div>
         <div>
           <h1 className="font-display text-2xl font-bold">Delivery Management</h1>
-          <p className="text-sm text-slate-500">Assign riders and update dark-store order status.</p>
+          <p className="text-sm text-slate-500">Assign riders and update dark-store status. Completing or cancelling here also updates the customer order.</p>
           <Link to="/delivery-team" className="mt-1 inline-block text-xs font-semibold text-emerald-700">Open delivery team directory →</Link>
         </div>
       </div>
@@ -92,10 +108,10 @@ export default function DeliveryManagement() {
                   <td className="px-4 py-3">
                     <select
                       value={order.status}
-                      onChange={(e) => updateStatus(order._id, e.target.value)}
+                      onChange={(e) => updateStatus(order._id, e.target.value, order.status)}
                       className="rounded-lg border px-2 py-1 text-xs"
                     >
-                      {['order_received', 'packed', 'assigned', 'out_for_delivery', 'delivered', 'cancelled'].map((item) => (
+                      {['incoming', 'order_received', 'stock_issue', 'packed', 'offered', 'assigned', 'pickup_verified', 'out_for_delivery', 'delivered', 'cancelled'].map((item) => (
                         <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>
                       ))}
                     </select>

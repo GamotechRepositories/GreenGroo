@@ -11,6 +11,7 @@ import {
   listPendingDrivers,
   listRiders,
   markDelivered,
+  cancelStoreOrder,
   verifyDriver,
   getDriverDetails,
   getDriverActivityHistory,
@@ -95,6 +96,7 @@ router.post("/orders/:orderId/confirm-cash", confirmOrderCash);
 router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);
+router.post("/orders/:orderId/cancel", cancelStoreOrder);
 
 // Shift & Slot Management APIs
 router.post("/shifts", createShift);

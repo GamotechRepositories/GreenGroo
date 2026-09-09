@@ -21,6 +21,7 @@ import { calculateRiderEarning, estimateOfferEarning } from "../services/ShiftEa
 import { createCashLiability } from "../services/CashSettlementService.js";
 import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
+import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -779,6 +780,7 @@ export const completeDelivery = async (req, res, next) => {
     order.earningCalculatedAt = now;
 
     await order.save();
+    await syncCustomerOrderFromStore(order, "delivered");
 
     // ── Update rider statistics ────────────────────────────────────────────
     if (rider) {

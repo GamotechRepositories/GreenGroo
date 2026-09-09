@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
 import { subscribeToSocketEvent } from "../../services/socket";
-import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, isCodPayment, formatRupee } from "./orderUtils";
+import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, actionBtnDanger, isCodPayment, formatRupee } from "./orderUtils";
 
 export default function OrdersPage() {
   const { manager } = useAuth();
@@ -29,7 +29,7 @@ export default function OrdersPage() {
       const [ord, rid] = await Promise.all([
         managerApi.orders({
           status:
-            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered",
+            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,cancelled",
         }),
         managerApi.riders(),
       ]);
@@ -149,6 +149,21 @@ export default function OrdersPage() {
     }
   };
 
+  const onCancelOrder = async (orderId, orderNumber) => {
+    if (!window.confirm(`Cancel order #${orderNumber || ""}? The customer order will also be cancelled.`)) return;
+    const key = `cancel-${orderId}`;
+    setBusyKey(key);
+    try {
+      const res = await managerApi.cancelOrder(orderId);
+      showToast(res.data.message || "Order cancelled");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not cancel order");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
   const onCreateDemoOrder = async () => {
     setBusyKey("create-demo");
     try {
@@ -202,6 +217,15 @@ export default function OrdersPage() {
       accent: "border-emerald-200 bg-emerald-50",
       countClass: "text-emerald-800",
       ring: "ring-emerald-500",
+    },
+    {
+      id: "cancelled",
+      label: "Cancelled",
+      hint: "Cancelled by this store",
+      count: summary.cancelled || 0,
+      accent: "border-rose-200 bg-rose-50",
+      countClass: "text-rose-800",
+      ring: "ring-rose-500",
     },
   ];
 
@@ -433,6 +457,16 @@ export default function OrdersPage() {
                               className={actionBtnPrimary}
                             >
                               {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
+                            </button>
+                          )}
+                          {order.status !== "delivered" && order.status !== "cancelled" && (
+                            <button
+                              type="button"
+                              disabled={busyKey === `cancel-${oid}`}
+                              onClick={() => onCancelOrder(oid, order.orderNumber)}
+                              className={actionBtnDanger}
+                            >
+                              {busyKey === `cancel-${oid}` ? "Cancelling…" : "Cancel"}
                             </button>
                           )}
                         </div>

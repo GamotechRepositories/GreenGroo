@@ -49,6 +49,8 @@ export const managerApi = {
     api.post(`${BASE}/orders/${orderId}/assign`, { riderId }),
   markDelivered: (orderId) =>
     api.patch(`${BASE}/orders/${orderId}/delivered`),
+  cancelOrder: (orderId) =>
+    api.post(`${BASE}/orders/${orderId}/cancel`),
   getPickupQr: (orderId) => api.get(`${BASE}/orders/${orderId}/pickup-qr`),
   verifyPickup: (orderId, qrPayload) =>
     api.post(`${BASE}/orders/${orderId}/verify-pickup`, { qrPayload }),

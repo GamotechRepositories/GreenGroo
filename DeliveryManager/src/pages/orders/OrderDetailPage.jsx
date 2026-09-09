@@ -15,6 +15,7 @@ import {
   isInitialOrderStatus,
   allItemsAvailable,
   actionBtnPrimary,
+  actionBtnDanger,
 } from "./orderUtils";
 
 export default function OrderDetailPage() {
@@ -47,7 +48,7 @@ export default function OrderDetailPage() {
       const [ord, req] = await Promise.all([
         managerApi.orders({
           status:
-            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered",
+            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,cancelled",
         }),
         managerApi.listInventoryRequests({ status: "pending" }).catch(() => ({ data: { requests: [] } })),
       ]);
@@ -157,6 +158,22 @@ export default function OrderDetailPage() {
     }
   };
 
+  const onCancelOrder = async () => {
+    const oid = order?.id || order?._id;
+    if (!oid) return;
+    if (!window.confirm(`Cancel order #${order.orderNumber || ""}? The customer order will also be cancelled.`)) return;
+    setBusyKey(`cancel-${oid}`);
+    try {
+      const res = await managerApi.cancelOrder(oid);
+      showToast(res.data.message || "Order cancelled");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not cancel order");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
   const submitRequest = async (e) => {
     e.preventDefault();
     if (!requestItem) return;
@@ -258,6 +275,16 @@ export default function OrderDetailPage() {
               className={actionBtnPrimary}
             >
               {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
+            </button>
+          )}
+          {order.status !== "delivered" && order.status !== "cancelled" && (
+            <button
+              type="button"
+              disabled={busyKey === `cancel-${oid}`}
+              onClick={onCancelOrder}
+              className={actionBtnDanger}
+            >
+              {busyKey === `cancel-${oid}` ? "Cancelling…" : "Cancel order"}
             </button>
           )}
           <Link

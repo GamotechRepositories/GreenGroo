@@ -87,3 +87,17 @@ export async function deductOrderStock(managerId, order) {
   await order.save();
   return { deducted: true, alreadyDeducted: false, shortages: [] };
 }
+
+/** Put deducted units back when a packed/assigned order is cancelled. */
+export async function restoreOrderStock(managerId, order) {
+  if (!order?.stockDeductedAt) return { restored: false };
+  const fulfilable = (order.items || []).filter((item) => !item.customerInformed);
+  for (const item of fulfilable) {
+    await StoreInventory.findOneAndUpdate(
+      { managerId, sku: item.sku },
+      { $inc: { stockCount: item.quantity } }
+    );
+  }
+  order.stockDeductedAt = null;
+  return { restored: true };
+}

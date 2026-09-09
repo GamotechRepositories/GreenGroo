@@ -13,6 +13,8 @@ import { seedManagerStore } from "../services/seedManagerStore.js";
 import { pickDemoOrderItems } from "../data/storeProductCatalog.js";
 import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
 import { calculateRiderEarning } from "../services/ShiftEarningService.js";
+import { applyStoreOrderStatus } from "../services/storeOrderLifecycle.js";
+import { syncCustomerOrderFromStore } from "../services/syncCustomerOrderFromStore.js";
 import {
   ensureTodayOnlineTracking,
   liveOnlineMinutes,
@@ -856,18 +858,56 @@ export const markDelivered = async (req, res, next) => {
     }
     order.status = "delivered";
     order.deliveredAt = new Date();
+    order.assignmentStatus = "DELIVERED";
     await order.save();
 
     if (order.assignedRiderId) {
       await DeliveryBoy.findByIdAndUpdate(order.assignedRiderId, {
-        $set: { status: "online", lastStatusAt: new Date() },
+        $set: { status: "online", lastStatusAt: new Date(), activeOrderId: null },
+      });
+    }
+
+    await syncCustomerOrderFromStore(order, "delivered");
+
+    const stockMap = await stockMapForManager(manager._id);
+    return res.json({
+      success: true,
+      order: order.toSafeJSON(stockMap),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Cancel a dark-store order and the linked customer order. */
+export const cancelStoreOrder = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const order = await StoreOrder.findOne({
+      _id: req.params.orderId,
+      managerId: manager._id,
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    const result = await applyStoreOrderStatus({
+      storeOrderId: order._id,
+      status: "cancelled",
+      restoreStockOnCancel: true,
+    });
+    if (!result.success) {
+      return res.status(result.statusCode || 400).json({
+        success: false,
+        message: result.message,
       });
     }
 
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,
-      order: order.toSafeJSON(stockMap),
+      message: result.message || "Order cancelled",
+      order: result.order.toSafeJSON ? result.order.toSafeJSON(stockMap) : result.order,
     });
   } catch (error) {
     next(error);

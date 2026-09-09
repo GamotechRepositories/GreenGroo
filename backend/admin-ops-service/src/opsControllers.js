@@ -8,6 +8,7 @@ import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import SupportMessage from "../../legacy/models/support/SupportMessage.js";
 import { FarmerManager, PickupDriver, Vendor } from "../../farmer-manager-service/src/models.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
+import { applyStoreOrderStatus } from "../../delivery-service/src/services/storeOrderLifecycle.js";
 import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask } from "./models.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
@@ -737,15 +738,15 @@ export async function assignDeliveryOrder(req, res, next) {
 
 export async function updateDeliveryOrderStatus(req, res, next) {
   try {
-    const order = await StoreOrder.findById(req.params.id);
-    if (!order) return fail(res, 404, "Delivery order not found");
     const status = String(req.body.status || "").trim();
-    const allowed = StoreOrder.schema.path("status").enumValues;
-    if (!allowed.includes(status)) return fail(res, 400, "Invalid order status");
-    order.status = status;
-    if (status === "delivered") order.deliveredAt = new Date();
-    await order.save();
-    return ok(res, order);
+    const result = await applyStoreOrderStatus({
+      storeOrderId: req.params.id,
+      status,
+      skipCompletionGuards: true,
+      restoreStockOnCancel: true,
+    });
+    if (!result.success) return fail(res, result.statusCode || 400, result.message);
+    return ok(res, result.order, { message: result.message });
   } catch (error) {
     next(error);
   }

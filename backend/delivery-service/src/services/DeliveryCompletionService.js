@@ -25,6 +25,7 @@ import DeliveryManager from "../models/DeliveryManager.js";
 import { calculateRiderEarning } from "./ShiftEarningService.js";
 import { validatePaymentForCompletion } from "./PaymentCollectionService.js";
 import { getIO } from "../../../socket.js";
+import { syncCustomerOrderFromStore } from "./syncCustomerOrderFromStore.js";
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -249,6 +250,12 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
         deliveredAt: now,
       });
     } catch (_) {}
+
+    try {
+      await syncCustomerOrderFromStore(order, "delivered");
+    } catch (err) {
+      console.warn("[completion] customer order sync failed:", err.message);
+    }
 
     return {
       success: true,
