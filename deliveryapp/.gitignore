@@ -49,6 +49,11 @@ app.*.map.json
 .env.local
 .env.*.local
 
+# Firebase client files (do not commit)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+
 # Android release signing (copy android/key.properties.example → android/key.properties)
 android/key.properties
 *.jks

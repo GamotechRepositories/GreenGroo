@@ -30,6 +30,11 @@ const AndroidNotificationChannel highImportanceChannel =
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Background isolate — load env before Firebase options.
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint('FCM background message: ${message.messageId}');
   debugPrint('FCM background data: ${message.data}');
@@ -37,6 +42,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load .env first so Firebase options are not hardcoded in source.
+  await dotenv.load(fileName: '.env');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -50,7 +58,6 @@ Future<void> main() async {
   const initSettings = InitializationSettings(android: androidInit);
   await flutterLocalNotificationsPlugin.initialize(settings: initSettings);
 
-  await dotenv.load(fileName: '.env');
   debugPrint('GreenGroc API base URL: ${ApiConfig.baseUrl}');
   await LocaleController.instance.loadSavedLocale();
   await ThemeController.instance.loadSavedTheme();
