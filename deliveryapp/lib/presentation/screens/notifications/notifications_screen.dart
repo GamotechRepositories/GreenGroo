@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_spacing.dart';
-import '../../../data/services/announcement_service.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../data/services/notification_inbox_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../shell/shell_navigation.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 import '../../widgets/tiles/notification_tile.dart';
 
@@ -16,86 +18,161 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<HrAnnouncement> _announcements = const [];
+  final _inbox = NotificationInboxService.instance;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _inbox.ensureSocketListeners();
+    _inbox.addListener(_onInbox);
+    _inbox.refresh();
   }
 
-  Future<void> _load() async {
-    try {
-      final items = await AnnouncementService.instance.fetchLive();
-      if (mounted) setState(() => _announcements = items);
-    } catch (_) {}
+  @override
+  void dispose() {
+    _inbox.removeListener(_onInbox);
+    super.dispose();
   }
 
-  String _timeLabel(HrAnnouncement item) {
-    final when = item.publishedAt;
+  void _onInbox() {
+    if (mounted) setState(() {});
+  }
+
+  String _timeLabel(DateTime? when) {
     if (when == null) return '';
-    final diff = DateTime.now().difference(when);
+    final local = when.toLocal();
+    final diff = DateTime.now().difference(local);
+    if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    return '${local.day}/${local.month}/${local.year}';
+  }
+
+  void _openRelated(RiderNotification item) {
+    _inbox.markRead(item.id);
+    final screen = item.screen.toLowerCase();
+    final type = item.type.toUpperCase();
+
+    if (screen == 'wallet' ||
+        type == 'ORDER_COMPLETED' ||
+        type == 'WALLET_CREDITED') {
+      if (widget.embedded) {
+        ShellNavigation.instance.goToTab(3);
+      } else {
+        Navigator.pushNamed(context, AppRoutes.wallet);
+      }
+      return;
+    }
+    if (screen == 'shifts' ||
+        type == 'SHIFT_STARTED' ||
+        type == 'SHIFT_REMINDER') {
+      if (widget.embedded) {
+        ShellNavigation.instance.goToTab(1);
+      } else {
+        Navigator.pushNamed(context, AppRoutes.myShifts);
+      }
+      return;
+    }
+    if (screen == 'gigs' || type == 'NEW_GIG') {
+      Navigator.pushNamed(context, AppRoutes.gigs);
+      return;
+    }
+    if (type == 'ORDER_RECEIVED') {
+      if (widget.embedded) {
+        ShellNavigation.instance.goToTab(0);
+      } else {
+        Navigator.pushNamed(context, AppRoutes.home);
+      }
+      return;
+    }
+    if (type == 'VERIFICATION_COMPLETED') {
+      if (widget.embedded) {
+        ShellNavigation.instance.goToTab(0);
+      } else {
+        Navigator.pushNamed(context, AppRoutes.home);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final body = ListView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      children: [
-        if (_announcements.isEmpty)
-          NotificationTile(
-            title: l10n.notificationAnnouncement,
-            message: l10n.notificationAnnouncementMessage,
-            time: l10n.timeDayAgo,
-            type: NotificationType.announcement,
-          )
-        else
-          ..._announcements.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: NotificationTile(
-                title: item.title,
-                message: item.body.isEmpty ? l10n.notificationAnnouncement : item.body,
-                time: _timeLabel(item),
-                type: NotificationType.announcement,
-                isUnread: true,
+    final items = _inbox.items;
+
+    final body = RefreshIndicator(
+      onRefresh: _inbox.refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        children: [
+          if (_inbox.hasUnread)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _inbox.markAllRead,
+                child: const Text('Mark all read'),
               ),
             ),
-          ),
-        if (_announcements.isNotEmpty) const SizedBox(height: AppSpacing.md),
-        NotificationTile(
-          title: l10n.notificationNewOrder,
-          message: l10n.notificationNewOrderMessage,
-          time: l10n.timeMinAgo,
-          type: NotificationType.order,
-          isUnread: true,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        NotificationTile(
-          title: l10n.notificationPaymentReceived,
-          message: l10n.notificationPaymentMessage,
-          time: l10n.timeHourAgo,
-          type: NotificationType.payment,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        NotificationTile(
-          title: l10n.notificationIncentiveUnlocked,
-          message: l10n.notificationIncentiveMessage,
-          time: l10n.timeHourAgo,
-          type: NotificationType.incentive,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        NotificationTile(
-          title: l10n.notificationSupportUpdate,
-          message: l10n.notificationSupportMessage,
-          time: l10n.timeDayAgo,
-          type: NotificationType.support,
-        ),
-      ],
+          if (_inbox.loading && items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.notifications_none_rounded,
+                    size: 48,
+                    color: Theme.of(context).disabledColor,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No notifications yet',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Orders, shifts, gigs and wallet updates will show here.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            )
+          else
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Dismissible(
+                  key: ValueKey(item.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDC2626),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.delete_outline, color: Colors.white),
+                  ),
+                  onDismissed: (_) => _inbox.deleteOne(item.id),
+                  child: NotificationTile(
+                    title: item.title,
+                    message: item.body.isEmpty ? item.title : item.body,
+                    time: _timeLabel(item.createdAt),
+                    type: NotificationTile.typeFromString(item.type),
+                    isUnread: !item.isRead,
+                    badge: item.badge,
+                    amount: item.amount,
+                    onTap: () => _openRelated(item),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
 
     if (widget.embedded) return body;

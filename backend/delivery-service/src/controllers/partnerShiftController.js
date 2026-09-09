@@ -2,7 +2,7 @@ import Shift from "../models/Shift.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import { getIO } from "../../../socket.js";
-import { emitRiderStatusUpdated } from "../services/riderSocketService.js";
+import { emitRiderStatusUpdated, applyGigStatusChange } from "../services/riderSocketService.js";
 import { checkInToBooking, formatDateStringIST } from "./shiftController.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
 import { findLiveGigForManager } from "./gigManagementController.js";
@@ -228,6 +228,7 @@ export const bookSlot = async (req, res, next) => {
     const todayStr = formatDateStringIST(now);
     const currentMin = getCurrentMinutesIST(now);
 
+    // Check only THIS date — booking Mon must not block Tue–Sun
     const allShiftsForDate = await Shift.find({
       managerId: shiftDoc.managerId,
       dateString: dateStr,
@@ -236,7 +237,6 @@ export const bookSlot = async (req, res, next) => {
 
     for (const sh of allShiftsForDate) {
       for (const sl of sh.slots) {
-        const slotEndMin = timeToMinutes(sl.endTime);
         const isSlotExpired =
           (dateStr === todayStr && isSlotEnded(sl.startTime, sl.endTime, currentMin)) ||
           dateStr < todayStr;
@@ -244,13 +244,11 @@ export const bookSlot = async (req, res, next) => {
         const found = sl.bookings.find((b) => {
           if (b.deliveryPartnerId.toString() !== rider._id.toString()) return false;
           if (b.status === "CANCELLED" || b.status === "EXPIRED" || b.status === "COMPLETED") return false;
-          // If the shift slot end time has passed today, it is no longer an active blocking shift
           if (isSlotExpired) return false;
           return true;
         });
 
         if (found) {
-          // If booking exact same slot, allow rebooking
           if (sl._id.toString() !== slotDoc._id.toString()) {
             alreadyBooked = true;
           }
@@ -262,7 +260,7 @@ export const bookSlot = async (req, res, next) => {
     if (alreadyBooked) {
       return res.status(400).json({
         success: false,
-        message: `You already have an active unexpired shift slot booked for ${dateStr}. You can book a new slot once your current shift ends!`,
+        message: `You already have a shift booked for ${dateStr}. Other days are still available.`,
       });
     }
 
@@ -384,10 +382,10 @@ export const getMyBookings = async (req, res, next) => {
             bookedAt: userBooking.bookedAt,
           };
 
-          upcomingBookings.push(bookingInfo);
-
           if (shift.dateString === todayStr) {
             todayBooking = bookingInfo;
+          } else if (shift.dateString > todayStr) {
+            upcomingBookings.push(bookingInfo);
           }
         }
       }
@@ -623,6 +621,19 @@ export const goOnline = async (req, res, next) => {
       });
     }
 
+    // Bank any open session before resetting lastOnlineAt (re-check-in / refresh)
+    const { ensureTodayOnlineTracking, addOnlineMinutesSince, liveOnlineMinutes } =
+      await import("../utils/onlineHoursHelper.js");
+    ensureTodayOnlineTracking(rider);
+    if (
+      (rider.status === "online" || rider.status === "on_delivery") &&
+      rider.lastOnlineAt
+    ) {
+      rider.todayOnlineMinutes =
+        (rider.todayOnlineMinutes || 0) +
+        addOnlineMinutesSince(rider, rider.lastOnlineAt, new Date());
+    }
+
     rider.status = "online";
     rider.lastOnlineAt = new Date();
     rider.onlineSince = rider.onlineSince || new Date();
@@ -648,7 +659,9 @@ export const goOnline = async (req, res, next) => {
     }
     await checkAndTrackIncentive(rider._id, manager._id).catch(() => {});
 
-    await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
+    await emitRiderStatusUpdated(rider, {
+      todayOnlineMinutes: liveOnlineMinutes(rider),
+    });
 
     const minutesUntilStart =
       targetSlot && startMin > currentMin ? startMin - currentMin : 0;
@@ -684,10 +697,12 @@ export const goOffline = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Rider not found" });
     }
 
-    rider.status = "offline";
+    await applyGigStatusChange(rider, "offline");
     await rider.save();
 
-    await emitRiderStatusUpdated(rider, { todayOnlineMinutes: 0 });
+    await emitRiderStatusUpdated(rider, {
+      todayOnlineMinutes: rider.todayOnlineMinutes || 0,
+    });
 
     return res.json({
       success: true,

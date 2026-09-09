@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
 import { subscribeToSocketEvent } from "../../services/socket";
-import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary } from "./orderUtils";
+import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, isCodPayment, formatRupee } from "./orderUtils";
 
 export default function OrdersPage() {
   const { manager } = useAuth();
@@ -373,14 +373,33 @@ export default function OrdersPage() {
                 return (
                   <tr key={oid} className="hover:bg-slate-50/60 transition">
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                      <div>#{order.orderNumber}</div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/orders/${oid}`, { state: { order } })}
+                        className="text-left hover:text-emerald-700 hover:underline"
+                      >
+                        <div>#{order.orderNumber}</div>
+                      </button>
                       <div className="text-[10px] text-slate-400 font-sans font-normal">
                         {order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900">{order.customerName || "Customer"}</div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/orders/${oid}`, { state: { order } })}
+                        className="text-left"
+                      >
+                        <div className="font-bold text-slate-900 hover:text-emerald-700 hover:underline">
+                          {order.customerName || "Customer"}
+                        </div>
+                      </button>
                       <div className="text-slate-500 text-[11px]">{order.customerPhone || "N/A"}</div>
+                      {order.status === "delivered" && isCodPayment(order.paymentMethod) && order.collectFromDriver && (
+                        <div className="mt-1 text-[10px] font-bold text-amber-700">
+                          Collect {formatRupee(order.collectFromDriver.amount)} from driver
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-slate-700 max-w-xs">
                       <div className="truncate">{order.customerAddress || "Store Pickup"}</div>

@@ -13,6 +13,7 @@ import {
   markDelivered,
   verifyDriver,
   getDriverDetails,
+  getDriverActivityHistory,
   toggleRiderActive,
   packOrder,
   createDemoStoreOrder,
@@ -56,6 +57,7 @@ import {
 import {
   getManagerCashOverview,
   confirmRiderCash,
+  confirmOrderCash,
   getRiderCashHistory,
 } from "../controllers/cashSettlementController.js";
 
@@ -79,6 +81,8 @@ router.get("/riders/pending", listPendingDrivers);
 router.get("/riders/live", getLiveRiders);
 router.get("/drivers/:driverId", getDriverDetails);
 router.get("/riders/:driverId", getDriverDetails);
+router.get("/drivers/:driverId/activity-history", getDriverActivityHistory);
+router.get("/riders/:driverId/activity-history", getDriverActivityHistory);
 router.post("/drivers/:driverId/toggle-active", toggleRiderActive);
 router.post("/riders", createDeliveryBoyByManager);
 router.post("/riders/:riderId/verify", verifyDriver);
@@ -87,6 +91,7 @@ router.post("/orders/:orderId/pack", packOrder);
 router.get("/orders/:orderId/pickup-qr", getManagerOrderPickupQr);
 router.post("/orders/:orderId/verify-pickup", verifyPickupByManager);
 router.post("/orders/:orderId/approve-pickup-proof", approvePickupProofByManager);
+router.post("/orders/:orderId/confirm-cash", confirmOrderCash);
 router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);

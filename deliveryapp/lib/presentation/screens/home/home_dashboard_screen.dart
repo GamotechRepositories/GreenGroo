@@ -13,6 +13,7 @@ import '../../../data/services/location_service.dart';
 import '../../../data/services/order_service.dart';
 import '../../../data/services/rider_live_service.dart';
 import '../../../data/services/shift_service.dart';
+import '../../../data/services/socket_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../shifts/select_shift_screen.dart';
 import '../../widgets/dialogs/order_dispatch_dialog.dart';
@@ -32,6 +33,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Timer? _heartbeat;
   Timer? _verifyPoll;
   Timer? _offerPoll;
+  StreamSubscription<Map<String, dynamic>>? _offerSocketSub;
   bool _isShowingOffer = false;
   AreaManagerInfo? _areaManager;
   bool _loadingManager = false;
@@ -111,13 +113,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       _startHeartbeat();
       _startOfferPoll();
     }
-    _refreshVerificationInfo();
-    _restoreActiveDelivery();
-    _loadLiveData();
-    _loadGigsData();
-    _loadAnnouncements();
-    _fetchTodayProgress();
-    _showSlotCancellationAlerts();
+    _listenForOffers();
+    _bootstrapHome();
     _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
       if (_verificationPending ||
           _lastVerificationStatus == 'pending' ||
@@ -127,11 +124,58 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
   }
 
+  /// One coordinated load: single /me + parallel page data (no stacked waits).
+  Future<void> _bootstrapHome() async {
+    final meFuture = AuthService.instance.fetchMe();
+
+    await Future.wait<void>([
+      meFuture.then((boy) {
+        if (!mounted) return;
+        _applyVerificationFromBoy(boy);
+        setState(() {
+          _isOnline = boy?.isOnline ?? _isOnline;
+        });
+        if (_hasActiveOrder && _isOnline) {
+          _startHeartbeat();
+        }
+      }),
+      OrderService.instance.fetchActiveDelivery().then((_) {
+        if (mounted) setState(() {});
+      }),
+      RiderLiveService.instance.refreshLoginHours().then((_) async {
+        await RiderLiveService.instance.refreshPeakHours('store_1');
+        if (mounted) setState(() {});
+      }),
+      _loadGigsData(),
+      _fetchTodayProgress(),
+    ]);
+
+    if (!mounted) return;
+    // After first /me settles, check slot alerts (shares fetchMe in-flight when possible).
+    _showSlotCancellationAlerts();
+  }
+
+  void _applyVerificationFromBoy(DeliveryBoy? boy) {
+    final status = boy?.verificationStatus ?? 'pending';
+    if (_lastVerificationStatus == 'pending' && status == 'approved') {
+      setState(() => _showVerifiedBanner = true);
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _showVerifiedBanner = false);
+      });
+    }
+    _lastVerificationStatus = status;
+    if (boy != null && (boy.isVerificationPending || status == 'rejected')) {
+      _fetchAreaManagerDetails();
+    }
+  }
+
   void _startOfferPoll() {
     _offerPoll?.cancel();
-    _offerPoll = Timer.periodic(const Duration(seconds: 2), (_) {
+    _offerPoll = Timer.periodic(const Duration(seconds: 5), (_) {
       _checkOrderOffers();
     });
+    // Catch an offer that arrived while going online.
+    _checkOrderOffers();
   }
 
   void _stopOfferPoll() {
@@ -139,34 +183,54 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _offerPoll = null;
   }
 
+  void _listenForOffers() {
+    _offerSocketSub?.cancel();
+    _offerSocketSub = SocketService.instance.onOrderOfferReceived.listen((data) {
+      if (!_isOnline || _hasActiveOrder || _isShowingOffer || !mounted) return;
+      try {
+        final offer = OrderOffer.fromJson(data);
+        if (offer.orderId.isEmpty) return;
+        _showOfferDialog(offer);
+      } catch (_) {}
+    });
+  }
+
   Future<void> _checkOrderOffers() async {
     if (!_isOnline || _hasActiveOrder || _isShowingOffer) return;
     try {
       final offer = await OrderService.instance.checkForOffer();
       if (offer != null && mounted && !_isShowingOffer) {
-        _isShowingOffer = true;
-        await OrderDispatchDialog.show(
-          context,
-          offer: offer,
-          onAccept: () async {
-            final ok = await OrderService.instance.acceptOffer(offer.orderId);
-            if (ok && mounted) {
-              await AuthService.instance.fetchMe();
-              if (mounted) {
-                setState(() {
-                  _isOnline = true;
-                });
-                Navigator.pushNamed(context, AppRoutes.activeDelivery);
-              }
-            }
-          },
-          onDecline: () async {
-            await OrderService.instance.declineOffer(offer.orderId);
-          },
-        );
-        _isShowingOffer = false;
+        await _showOfferDialog(offer);
       }
     } catch (_) {
+      _isShowingOffer = false;
+    }
+  }
+
+  Future<void> _showOfferDialog(OrderOffer offer) async {
+    if (_isShowingOffer || !mounted) return;
+    _isShowingOffer = true;
+    try {
+      await OrderDispatchDialog.show(
+        context,
+        offer: offer,
+        onAccept: () async {
+          final ok = await OrderService.instance.acceptOffer(offer.orderId);
+          if (ok && mounted) {
+            await AuthService.instance.fetchMe();
+            if (mounted) {
+              setState(() {
+                _isOnline = true;
+              });
+              Navigator.pushNamed(context, AppRoutes.activeDelivery);
+            }
+          }
+        },
+        onDecline: () async {
+          await OrderService.instance.declineOffer(offer.orderId);
+        },
+      );
+    } finally {
       _isShowingOffer = false;
     }
   }
@@ -174,22 +238,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _refreshVerificationInfo() async {
     final boy = await AuthService.instance.fetchMe();
     if (!mounted) return;
-
-    final status = boy?.verificationStatus ?? 'pending';
-    if (_lastVerificationStatus == 'pending' && status == 'approved') {
-      setState(() {
-        _showVerifiedBanner = true;
-      });
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) setState(() => _showVerifiedBanner = false);
-      });
-    }
-    _lastVerificationStatus = status;
+    _applyVerificationFromBoy(boy);
     setState(() {});
-
-    if (boy != null && (boy.isVerificationPending || status == 'rejected')) {
-      _fetchAreaManagerDetails();
-    }
   }
 
   Future<void> _fetchAreaManagerDetails() async {
@@ -217,32 +267,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
-  Future<void> _loadLiveData() async {
-    await RiderLiveService.instance.refreshLoginHours();
-    if (mounted) {
-      await RiderLiveService.instance.refreshPeakHours('store_1');
-      setState(() {});
-    }
-  }
-
-  Future<void> _restoreActiveDelivery() async {
-    await AuthService.instance.fetchMe();
-    await OrderService.instance.fetchActiveDelivery();
-    if (!mounted) return;
-    final hasDelivery = _hasActiveOrder;
-    setState(() {
-      _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? _isOnline;
-    });
-    if (hasDelivery && _isOnline) {
-      _startHeartbeat();
-    }
-  }
-
   @override
   void dispose() {
     _heartbeat?.cancel();
     _verifyPoll?.cancel();
     _offerPoll?.cancel();
+    _offerSocketSub?.cancel();
     super.dispose();
   }
 
@@ -1739,8 +1769,6 @@ class _ActiveDeliveryCard extends StatelessWidget {
       ),
     );
   }
-}
-
 }
 
 class _HrAnnouncementCard extends StatelessWidget {

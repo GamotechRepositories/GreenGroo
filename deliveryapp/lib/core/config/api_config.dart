@@ -9,12 +9,12 @@ abstract final class ApiConfig {
   static String get baseUrl {
     final local = dotenv.env['API_BASE_URL']?.trim() ?? '';
     final live =
-        dotenv.env['API_LIVE_URL']?.trim() ?? 'http://api.greengrocc.com';
+        dotenv.env['API_LIVE_URL']?.trim() ?? 'https://api.greengrocc.com';
     final useLive =
         dotenv.env['USE_LIVE_API']?.trim().toLowerCase() == 'true';
     String url;
     if (kReleaseMode || useLive) {
-      url = live.isNotEmpty ? live : 'http://api.greengrocc.com';
+      url = live.isNotEmpty ? live : 'https://api.greengrocc.com';
     } else {
       url = local.isNotEmpty ? local : 'http://127.0.0.1:5001';
     }
@@ -38,6 +38,16 @@ abstract final class ApiConfig {
   static const onboarding = '/api/delivery-boys/onboarding';
   static const status = '/api/delivery-boys/status';
   static const heartbeat = '/api/delivery-boys/heartbeat';
+  static const fcmToken = '/api/delivery-boys/fcm-token';
+  static const notifications = '/api/delivery-boys/notifications';
+  static const notificationsUnreadCount =
+      '/api/delivery-boys/notifications/unread-count';
+  static const notificationsReadAll =
+      '/api/delivery-boys/notifications/read-all';
+  static String notificationRead(String id) =>
+      '/api/delivery-boys/notifications/$id/read';
+  static String notificationDelete(String id) =>
+      '/api/delivery-boys/notifications/$id';
   static const areaManager = '/api/delivery-boys/area-manager';
   static const homeProgress = '/api/delivery-boys/home/progress';
   static String activityHistory({String range = 'week'}) =>
@@ -104,10 +114,13 @@ String _timeoutMessage(String url) =>
     '(e.g. http://192.168.1.56:5001).\n'
     'For emulators use: http://10.0.2.2:5001';
 
+const Duration _kDefaultTimeout = Duration(seconds: 20);
+
 Future<http.Response> apiPost(
   String path, {
   Object? body,
   Map<String, String>? headers,
+  Duration timeout = _kDefaultTimeout,
 }) async {
   final url = '${ApiConfig.baseUrl}$path';
   try {
@@ -117,7 +130,7 @@ Future<http.Response> apiPost(
           headers: {...ApiConfig.defaultHeaders, ...?headers},
           body: body,
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(timeout);
   } on Exception catch (e) {
     final msg = e.toString();
     if (msg.contains('TimeoutException') || msg.contains('SocketException')) {
@@ -130,6 +143,7 @@ Future<http.Response> apiPost(
 Future<http.Response> apiGet(
   String path, {
   Map<String, String>? headers,
+  Duration timeout = _kDefaultTimeout,
 }) async {
   final url = '${ApiConfig.baseUrl}$path';
   try {
@@ -138,7 +152,7 @@ Future<http.Response> apiGet(
           Uri.parse(url),
           headers: {...ApiConfig.defaultHeaders, ...?headers},
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(timeout);
   } on Exception catch (e) {
     final msg = e.toString();
     if (msg.contains('TimeoutException') || msg.contains('SocketException')) {
@@ -152,6 +166,7 @@ Future<http.Response> apiPatch(
   String path, {
   Object? body,
   Map<String, String>? headers,
+  Duration timeout = _kDefaultTimeout,
 }) async {
   final url = '${ApiConfig.baseUrl}$path';
   try {
@@ -161,7 +176,7 @@ Future<http.Response> apiPatch(
           headers: {...ApiConfig.defaultHeaders, ...?headers},
           body: body,
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(timeout);
   } on Exception catch (e) {
     final msg = e.toString();
     if (msg.contains('TimeoutException') || msg.contains('SocketException')) {

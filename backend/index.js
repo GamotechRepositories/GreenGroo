@@ -27,6 +27,8 @@ import { seedDefaultAdminIfEmpty } from "./legacy/controllers/userController.js"
 import rewardRoutes from "./legacy/routes/rewardRoutes.js";
 import { seedDefaultRewardSettingsIfEmpty } from "./legacy/controllers/rewardController.js";
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
+import { initShiftEndOfflineCron } from "./delivery-service/src/services/shiftEndOfflineService.js";
+import { initShiftStartNotifyCron } from "./delivery-service/src/services/shiftStartNotifyService.js";
 import adminDarkStoreRoutes from "./delivery-service/src/routes/adminDarkStoreRoutes.js";
 import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes.js";
 import adminOpsRoutes from "./admin-ops-service/src/routes.js";
@@ -131,6 +133,21 @@ connectDB("server").then(async () => {
   await seedDefaultRewardSettingsIfEmpty();
   await seedDefaultPricingRule();
   initIncentiveCron();
+  initShiftEndOfflineCron();
+  initShiftStartNotifyCron();
+  try {
+    const { getFirebaseAdmin } = await import("./legacy/config/firebaseAdmin.js");
+    const appFb = getFirebaseAdmin();
+    if (appFb) {
+      console.log("[Firebase] Admin ready — push notifications enabled.");
+    } else {
+      console.warn(
+        "[Firebase] Admin not configured — put bulkserviceAccount.json in backend/legacy/config/ (top pushes disabled; inbox still works)."
+      );
+    }
+  } catch (err) {
+    console.warn("[Firebase] Admin init failed:", err.message);
+  }
   const server = http.createServer(app);
   initSocket(server);
   server.listen(PORT, "0.0.0.0", () => {

@@ -36,10 +36,12 @@ class OrderOffer {
         darkStoreAddress: json['darkStoreAddress'] as String? ?? '',
         itemCount: json['itemCount'] as int? ?? 1,
         itemsSummary: json['itemsSummary'] as String? ?? '',
-        estimatedEarnings: json['estimatedEarnings'] as int? ?? 50,
+        estimatedEarnings: (json['estimatedEarnings'] as num?)?.toInt() ??
+            (json['earnUpTo'] as num?)?.toInt() ??
+            50,
         distanceKm: json['distanceKm'] as String? ?? 'nearby',
-        remainingSeconds: json['remainingSeconds'] as int? ?? 20,
-        timeoutSeconds: json['timeoutSeconds'] as int? ?? 20,
+        remainingSeconds: (json['remainingSeconds'] as num?)?.toInt() ?? 20,
+        timeoutSeconds: (json['timeoutSeconds'] as num?)?.toInt() ?? 20,
       );
 }
 

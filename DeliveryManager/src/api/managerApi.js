@@ -34,6 +34,8 @@ export const managerApi = {
   requestInventory: (data) => api.post(`${BASE}/inventory-requests`, data),
   riders: () => api.get(`${BASE}/riders`),
   getDriverDetails: (driverId) => api.get(`${BASE}/drivers/${driverId}`),
+  getDriverActivityHistory: (driverId, range = "week") =>
+    api.get(`${BASE}/drivers/${driverId}/activity-history`, { params: { range } }),
   toggleRiderActive: (driverId) => api.post(`${BASE}/drivers/${driverId}/toggle-active`),
   createRider: (data) => api.post(`${BASE}/riders`, data),
   pendingRiders: () => api.get(`${BASE}/riders/pending`),
@@ -52,6 +54,8 @@ export const managerApi = {
     api.post(`${BASE}/orders/${orderId}/verify-pickup`, { qrPayload }),
   approvePickupProof: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/approve-pickup-proof`),
+  confirmOrderCash: (orderId) =>
+    api.post(`${BASE}/orders/${orderId}/confirm-cash`),
 
   // Shift & Slot Management APIs
   createShift: (data) => api.post(`${BASE}/shifts`, data),

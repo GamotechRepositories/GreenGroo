@@ -8,6 +8,8 @@ import '../../core/l10n/locale_controller.dart';
 import '../../core/routes/app_routes.dart';
 import 'rider_live_service.dart';
 import 'location_service.dart';
+import 'notification_inbox_service.dart';
+import 'push_notification_service.dart';
 import 'socket_service.dart';
 
 class DeliveryBoy {
@@ -216,10 +218,13 @@ class AuthService {
     if (boy.id.isNotEmpty) {
       SocketService.instance.connect(boy.id);
     }
+    // Keep FCM token registered for Zomato-style pushes when app is closed.
+    PushNotificationService.instance.syncTokenNow();
   }
 
   Future<void> clearSession() async {
     SocketService.instance.disconnect();
+    NotificationInboxService.instance.clear();
     _token = null;
     _deliveryBoy = null;
     final prefs = await SharedPreferences.getInstance();
@@ -274,8 +279,18 @@ class AuthService {
     }
   }
 
+  Future<DeliveryBoy?>? _fetchMeInFlight;
+
   Future<DeliveryBoy?> fetchMe() async {
     if (!isLoggedIn) return null;
+    if (_fetchMeInFlight != null) return _fetchMeInFlight;
+    _fetchMeInFlight = _fetchMeInternal().whenComplete(() {
+      _fetchMeInFlight = null;
+    });
+    return _fetchMeInFlight;
+  }
+
+  Future<DeliveryBoy?> _fetchMeInternal() async {
     try {
       final res = await apiGet(ApiConfig.me, headers: _authHeaders);
       if (res.statusCode != 200) {
@@ -365,9 +380,16 @@ class AuthService {
       final res = await apiGet(ApiConfig.me, headers: _authHeaders);
       if (res.statusCode != 200) return [];
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final boy = body['deliveryBoy'];
-      if (boy is! Map<String, dynamic>) return [];
-      final raw = boy['pendingSlotAlerts'];
+      final boyMap = body['deliveryBoy'];
+      if (boyMap is! Map<String, dynamic>) return [];
+
+      // Keep local session fresh from this same response (avoids an extra /me).
+      try {
+        final boy = DeliveryBoy.fromJson(boyMap);
+        await _persist(_token!, boy);
+      } catch (_) {}
+
+      final raw = boyMap['pendingSlotAlerts'];
       final messages = <String>[];
       if (raw is List) {
         for (final item in raw) {

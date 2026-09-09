@@ -218,6 +218,25 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     return base;
   });
 
+  const itemsTotal = Math.round(
+    (this.items || []).reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    )
+  );
+  const amountToCollect = Number(this.amountToCollect || 0);
+  const deliveryFee = Math.max(0, Math.round(amountToCollect - itemsTotal));
+
+  const startAt = this.assignedAt || this.packedAt || this.createdAt;
+  const endAt = this.deliveredAt || null;
+  let tripDurationMinutes = null;
+  if (startAt && endAt) {
+    tripDurationMinutes = Math.max(
+      0,
+      Math.round((new Date(endAt).getTime() - new Date(startAt).getTime()) / 60000)
+    );
+  }
+
   return {
     id: this._id.toString(),
     orderNumber: this.orderNumber,
@@ -233,6 +252,9 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     customerLng: this.customerLng,
     distanceKm: this.distanceKm,
     items,
+    itemsTotal,
+    deliveryFee,
+    orderTotal: amountToCollect > 0 ? amountToCollect : itemsTotal + deliveryFee,
     status: this.status,
     assignmentStatus: this.assignmentStatus || "NONE",
     currentOfferDriverId: this.currentOfferDriverId
@@ -261,12 +283,13 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     stockDeductedAt: this.stockDeductedAt,
     assignedAt: this.assignedAt,
     deliveredAt: this.deliveredAt,
+    tripDurationMinutes,
     notes: this.notes,
     sourceOrderId: this.sourceOrderId ? this.sourceOrderId.toString() : null,
     // Payment
     paymentMethod: this.paymentMethod || "",
     paymentStatus: this.paymentStatus || "pending",
-    amountToCollect: this.amountToCollect || 0,
+    amountToCollect: amountToCollect,
     amountCollected: this.amountCollected || 0,
     // Delivery proof / OTP
     deliveryProofImageUrl: this.deliveryProofImageUrl || "",

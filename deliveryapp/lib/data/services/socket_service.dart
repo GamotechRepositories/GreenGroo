@@ -25,6 +25,10 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _pickupVerifiedController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _riderNotificationController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _notificationBadgeController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<Map<String, dynamic>> get onOrderAssigned =>
       _orderAssignedController.stream;
@@ -38,6 +42,10 @@ class SocketService {
       _peakHoursController.stream;
   Stream<Map<String, dynamic>> get onPickupVerified =>
       _pickupVerifiedController.stream;
+  Stream<Map<String, dynamic>> get onRiderNotification =>
+      _riderNotificationController.stream;
+  Stream<Map<String, dynamic>> get onNotificationBadge =>
+      _notificationBadgeController.stream;
 
   void connect(String riderId) {
     if (riderId.isEmpty) return;
@@ -130,6 +138,20 @@ class SocketService {
       debugPrint('[Socket] Event peak_hours_active: $data');
       if (data is Map) {
         _peakHoursController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('rider_notification', (data) {
+      debugPrint('[Socket] Event rider_notification: $data');
+      if (data is Map) {
+        _riderNotificationController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('notification_badge', (data) {
+      debugPrint('[Socket] Event notification_badge: $data');
+      if (data is Map) {
+        _notificationBadgeController.add(Map<String, dynamic>.from(data));
       }
     });
   }

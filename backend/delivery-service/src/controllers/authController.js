@@ -912,6 +912,9 @@ export const getTodayProgress = async (req, res, next) => {
     let completedShiftsCount = 0;
 
     for (const shift of shiftsFound) {
+      // Strict: only this IST calendar day (00:00–23:59)
+      if (shift.dateString !== todayISTDateString) continue;
+
       for (const slot of shift.slots || []) {
         for (const booking of slot.bookings || []) {
           const bRiderId = booking.deliveryPartnerId
@@ -929,26 +932,24 @@ export const getTodayProgress = async (req, res, next) => {
 
           if (!isRiderMatch) continue;
           if (booking.status !== "CANCELLED") bookedShiftsCount += 1;
-          if (booking.status === "COMPLETED" || booking.status === "ACTIVE") {
-            // ACTIVE/COMPLETED both count toward "worked" for the day; COMPLETED is done
-          }
           if (booking.status === "COMPLETED") completedShiftsCount += 1;
         }
       }
     }
 
-    if (bookedShiftsCount === 0 && hasRiderBookingPointer) {
-      bookedShiftsCount = 1;
+    // Only count booking pointer if it belongs to today's shift
+    if (bookedShiftsCount === 0 && hasRiderBookingPointer && rider.currentBooking?.shiftId) {
+      const ptrShift = shiftsFound.find(
+        (s) =>
+          s._id.toString() === rider.currentBooking.shiftId.toString() &&
+          s.dateString === todayISTDateString
+      );
+      if (ptrShift) bookedShiftsCount = 1;
     }
 
-    const todayEarnings = Math.max(0, Number(rider.todayEarnings || 0));
-    const completedTrips = Math.max(
-      0,
-      Number(rider.todayCompletedOrders || rider.todayOrderCount || 0)
-    );
-
-    let computedEarnings = todayEarnings;
-    let computedTrips = completedTrips;
+    // Source of truth for today: delivered orders in IST midnight → 23:59:59.999
+    let computedEarnings = 0;
+    let computedTrips = 0;
     try {
       const dayStart = new Date(`${todayISTDateString}T00:00:00+05:30`);
       const dayEnd = new Date(`${todayISTDateString}T23:59:59.999+05:30`);
@@ -957,13 +958,25 @@ export const getTodayProgress = async (req, res, next) => {
         status: "delivered",
         deliveredAt: { $gte: dayStart, $lte: dayEnd },
       }).select("riderDeliveryEarning");
-      computedTrips = todaysDeliveries.length || completedTrips;
+      computedTrips = todaysDeliveries.length;
       computedEarnings = todaysDeliveries.reduce(
         (sum, o) => sum + Number(o.riderDeliveryEarning || 0),
         0
       );
-      if (computedEarnings <= 0 && todayEarnings > 0) computedEarnings = todayEarnings;
-    } catch (_) {}
+    } catch (_) {
+      // Fallback only if query fails — still clamp to today's counters after day reset above
+      computedEarnings = Math.max(0, Number(rider.todayEarnings || 0));
+      computedTrips = Math.max(
+        0,
+        Number(rider.todayCompletedOrders || rider.todayOrderCount || 0)
+      );
+    }
+
+    // Keep rider daily counters aligned to this IST day only
+    rider.todayEarnings = computedEarnings;
+    rider.todayCompletedOrders = computedTrips;
+    rider.todayOrderCount = computedTrips;
+    rider.todayOnlineDate = todayISTDateString;
 
     const onlineMinutes = liveOnlineMinutes(rider);
     const onlineTime = formatOnlineMinutes(onlineMinutes);

@@ -17,7 +17,7 @@ import { refreshStoreOrderCustomerCoords } from "../services/customerLocationSer
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import { getIO } from "../../../socket.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
-import { calculateRiderEarning } from "../services/ShiftEarningService.js";
+import { calculateRiderEarning, estimateOfferEarning } from "../services/ShiftEarningService.js";
 import { createCashLiability } from "../services/CashSettlementService.js";
 import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
@@ -46,6 +46,7 @@ export const getPendingOffer = async (req, res, next) => {
     }
 
     const manager = await DeliveryManager.findById(order.managerId);
+    const rider = await DeliveryBoy.findById(riderId).select("currentBooking");
     const totalAmount = order.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -53,6 +54,23 @@ export const getPendingOffer = async (req, res, next) => {
 
     const remainingMs = new Date(order.offerExpiresAt).getTime() - Date.now();
     const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+
+    let estimatedEarnings = 0;
+    try {
+      const estimate = await estimateOfferEarning({
+        shiftId: order.shiftId || rider?.currentBooking?.shiftId || null,
+        managerId: order.managerId,
+        riderId,
+        storeLat: manager?.latitude,
+        storeLng: manager?.longitude,
+        customerLat: order.customerLat,
+        customerLng: order.customerLng,
+      });
+      estimatedEarnings = Math.round(estimate.earnUpTo || estimate.estimatedEarnings || 0);
+    } catch (_) {}
+    if (estimatedEarnings <= 0) {
+      estimatedEarnings = Math.round(totalAmount * 0.12 + 45);
+    }
 
     return res.json({
       success: true,
@@ -66,7 +84,8 @@ export const getPendingOffer = async (req, res, next) => {
         darkStoreLng: manager?.longitude,
         itemCount: order.items.length,
         itemsSummary: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
-        estimatedEarnings: Math.round(totalAmount * 0.12 + 45),
+        estimatedEarnings,
+        earnUpTo: estimatedEarnings,
         distanceKm: "nearby",
         remainingSeconds,
         timeoutSeconds: OFFER_TIMEOUT_SECONDS,
@@ -737,6 +756,9 @@ export const completeDelivery = async (req, res, next) => {
     const shiftIdForCalc = order.shiftId || rider?.currentBooking?.shiftId || null;
     const earningResult = await calculateRiderEarning({
       shiftId: shiftIdForCalc,
+      managerId: order.managerId,
+      riderId,
+      atDate: order.assignedAt || order.packedAt || now,
       storeLat: darkStore?.latitude ?? null,
       storeLng: darkStore?.longitude ?? null,
       customerLat: order.customerLat ?? null,
@@ -750,6 +772,9 @@ export const completeDelivery = async (req, res, next) => {
     order.deliveryDistanceKm = distanceKm || 0;
     order.riderDeliveryEarning = riderDeliveryEarning || 0;
     if (earningSlab) order.earningSlab = earningSlab;
+    if (earningResult.shift?._id && !order.shiftId) {
+      order.shiftId = earningResult.shift._id;
+    }
     if (shiftIdForCalc && !order.shiftId) order.shiftId = shiftIdForCalc;
     order.earningCalculatedAt = now;
 
@@ -771,6 +796,19 @@ export const completeDelivery = async (req, res, next) => {
 
     // ── Gig / Incentive bonus (separate from delivery earning) ─────────────
     await checkAndTrackIncentive(riderId, order.managerId).catch(() => {});
+
+    if (riderDeliveryEarning > 0) {
+      try {
+        const { notifyOrderCompleted } = await import("../services/RiderNotificationService.js");
+        await notifyOrderCompleted(riderId, {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          amount: riderDeliveryEarning,
+        });
+      } catch (err) {
+        console.warn("[completeDelivery] wallet notification failed:", err.message);
+      }
+    }
 
     // ── Notify Dark Store ──────────────────────────────────────────────────
     try {

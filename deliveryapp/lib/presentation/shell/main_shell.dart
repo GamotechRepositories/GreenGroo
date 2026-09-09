@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/services/notification_inbox_service.dart';
+import '../../data/services/push_notification_service.dart';
 import '../widgets/layout/app_bottom_navigation.dart';
 import '../widgets/layout/app_drawer.dart';
 import '../widgets/layout/custom_app_bar.dart';
@@ -29,10 +31,19 @@ class _MainShellState extends State<MainShell> {
     ShellNavigation.instance.bind(_tabIndex);
     _tabIndex.addListener(_onTabChanged);
     ThemeController.instance.addListener(_onThemeChanged);
+    NotificationInboxService.instance.addListener(_onInboxChanged);
+    NotificationInboxService.instance.ensureSocketListeners();
+    NotificationInboxService.instance.refreshUnreadOnly();
+    PushNotificationService.instance.syncTokenNow();
+    // Apply FCM tap deep-link after cold start / background resume.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushNotificationService.instance.consumePendingTap();
+    });
   }
 
   @override
   void dispose() {
+    NotificationInboxService.instance.removeListener(_onInboxChanged);
     ThemeController.instance.removeListener(_onThemeChanged);
     _tabIndex.removeListener(_onTabChanged);
     ShellNavigation.instance.unbind();
@@ -41,6 +52,13 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _onTabChanged() {
+    if (mounted) setState(() {});
+    if (_tabIndex.value == 4) {
+      NotificationInboxService.instance.refresh();
+    }
+  }
+
+  void _onInboxChanged() {
     if (mounted) setState(() {});
   }
 
@@ -123,6 +141,7 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: AppBottomNavigation(
         currentIndex: _currentIndex,
+        notificationBadgeCount: NotificationInboxService.instance.unreadCount,
         onTap: (index) => _tabIndex.value = index,
       ),
     );

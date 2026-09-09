@@ -15,6 +15,7 @@ import {
   getRiderPendingCash,
   riderSubmitsCash,
   confirmCashReceipt,
+  confirmCashForOrder,
 } from "../services/CashSettlementService.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
@@ -286,6 +287,39 @@ export const confirmRiderCash = async (req, res, next) => {
           : "No settlements to confirm.",
       confirmed: result.confirmed,
       totalAmount: result.totalAmount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /orders/:orderId/confirm-cash
+ * Tick "Received cash from delivery boy" for one COD order.
+ */
+export const confirmOrderCash = async (req, res, next) => {
+  try {
+    const managerId = req.user.id;
+    const { orderId } = req.params;
+
+    const result = await confirmCashForOrder({
+      darkStoreId: managerId,
+      managerId,
+      orderId,
+    });
+
+    const amount = result.totalAmount || 0;
+    return res.json({
+      success: true,
+      alreadyConfirmed: Boolean(result.alreadyConfirmed),
+      message: result.alreadyConfirmed
+        ? `Cash ₹${amount} was already confirmed for this order.`
+        : `Received ₹${amount} cash from delivery boy. Amount credited to the store.`,
+      totalAmount: amount,
+      cashSettlement: result.settlement?.toSafeJSON
+        ? result.settlement.toSafeJSON()
+        : result.settlement,
+      order: result.order?.toSafeJSON ? result.order.toSafeJSON() : undefined,
     });
   } catch (error) {
     next(error);

@@ -53,6 +53,13 @@ import {
 
 import { getPartnerGigs } from "../controllers/gigManagementController.js";
 import { getAvailableIncentives } from "../controllers/incentiveController.js";
+import {
+  getMyUnreadNotificationCount,
+  listMyNotifications,
+  markAllMyNotificationsRead,
+  markMyNotificationRead,
+  deleteMyNotification,
+} from "../controllers/riderNotificationController.js";
 
 const router = express.Router();
 
@@ -69,6 +76,11 @@ router.patch("/onboarding", protect, updateOnboarding);
 router.patch("/status", protect, updateStatus);
 router.post("/heartbeat", protect, heartbeat);
 router.post("/fcm-token", protect, updateFcmToken);
+router.get("/notifications", protect, listMyNotifications);
+router.get("/notifications/unread-count", protect, getMyUnreadNotificationCount);
+router.patch("/notifications/:notificationId/read", protect, markMyNotificationRead);
+router.delete("/notifications/:notificationId", protect, deleteMyNotification);
+router.post("/notifications/read-all", protect, markAllMyNotificationsRead);
 router.post("/location", protect, updateLocation);
 router.post("/rider/:riderId/rate", updateRiderRating);
 router.post("/shift-booking", protect, bookSlot);

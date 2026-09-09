@@ -333,10 +333,10 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                 )
               else
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                   decoration: BoxDecoration(
                     color: AppColors.cardBackground,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: ThemeController.instance.isDark ? const Color(0xFF047857) : const Color(0xFFBBF7D0),
                       width: 1.5,
@@ -344,8 +344,8 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.shadow,
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -353,55 +353,94 @@ class _MyShiftsScreenState extends State<MyShiftsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: ThemeController.instance.isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               _todayBooking!.status,
                               style: GoogleFonts.inter(
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 color: ThemeController.instance.isDark ? const Color(0xFF6EE7B7) : const Color(0xFF15803D),
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${_todayBooking!.startTime} – ${_todayBooking!.endTime}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
                           TextButton.icon(
                             onPressed: () => _cancelBooking(_todayBooking!.id),
-                            icon: const Icon(Icons.close_rounded, size: 16, color: Colors.red),
-                            label: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.close_rounded, size: 14, color: Colors.red),
+                            label: const Text(
+                              'Cancel',
+                              style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.storefront_rounded, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              _todayBooking!.storeName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        '${_todayBooking!.startTime} – ${_todayBooking!.endTime}',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            _todayBooking!.storeName,
-                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton(
+                          onPressed: _goOnlineWithLocation,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      PrimaryButton(
-                        label: l10n.verifyLocationAndGoOnline,
-                        onPressed: _goOnlineWithLocation,
+                          child: Text(
+                            l10n.verifyLocationAndGoOnline,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

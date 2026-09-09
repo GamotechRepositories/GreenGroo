@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// Soft full-screen backdrop: glow, skyline, clouds, leaves.
+/// Soft full-screen backdrop: glow, skyline, clouds, leaves (full height).
 class SplashBackground extends StatelessWidget {
   const SplashBackground({super.key});
 
@@ -52,7 +52,7 @@ class _SplashDecorPainter extends CustomPainter {
   }
 
   void _paintLogoGlow(Canvas canvas, Size size) {
-    final center = Offset(size.width * 0.5, size.height * 0.2);
+    final center = Offset(size.width * 0.5, size.height * 0.28);
     final glow = Paint()
       ..shader = RadialGradient(
         colors: [
@@ -61,48 +61,65 @@ class _SplashDecorPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: const [0.0, 0.55, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.48));
-    canvas.drawCircle(center, size.width * 0.48, glow);
+      ).createShader(
+        Rect.fromCircle(center: center, radius: size.height * 0.42),
+      );
+    canvas.drawCircle(center, size.height * 0.42, glow);
   }
 
   void _paintSkyline(Canvas canvas, Size size) {
+    // Back row — taller, softer buildings across full lower half
+    _drawBuildingRow(
+      canvas,
+      size,
+      baseY: size.height * 0.92,
+      alpha: isDark ? 0.10 : 0.05,
+      heights: const [
+        0.22, 0.34, 0.18, 0.42, 0.26, 0.38, 0.20, 0.46, 0.24, 0.36,
+        0.19, 0.40, 0.23, 0.33, 0.21,
+      ],
+    );
+    // Front row — clearer skyline near the scooter path
+    _drawBuildingRow(
+      canvas,
+      size,
+      baseY: size.height * 0.72,
+      alpha: isDark ? 0.18 : 0.10,
+      heights: const [
+        0.14, 0.22, 0.12, 0.28, 0.16, 0.24, 0.13, 0.30, 0.15, 0.23,
+        0.12, 0.26, 0.14, 0.21, 0.13,
+      ],
+    );
+  }
+
+  void _drawBuildingRow(
+    Canvas canvas,
+    Size size, {
+    required double baseY,
+    required double alpha,
+    required List<double> heights,
+  }) {
     final paint = Paint()
-      ..color = const Color(0xFF0C831F).withValues(alpha: isDark ? 0.16 : 0.08)
+      ..color = const Color(0xFF0C831F).withValues(alpha: alpha)
       ..style = PaintingStyle.fill;
 
-    final baseY = size.height * 0.54;
     final path = Path()..moveTo(0, baseY);
+    final step = 1.0 / heights.length;
 
-    final buildings = <(double, double)>[
-      (0.0, 32),
-      (0.06, 52),
-      (0.12, 28),
-      (0.18, 68),
-      (0.25, 40),
-      (0.32, 58),
-      (0.38, 30),
-      (0.45, 72),
-      (0.52, 38),
-      (0.58, 55),
-      (0.65, 28),
-      (0.72, 62),
-      (0.80, 36),
-      (0.88, 50),
-      (0.94, 34),
-    ];
-
-    for (final (xFactor, height) in buildings) {
-      final x = size.width * xFactor;
+    for (var i = 0; i < heights.length; i++) {
+      final x = size.width * (i * step);
+      final h = size.height * heights[i];
+      final w = size.width * step * 0.85;
       path
         ..lineTo(x, baseY)
-        ..lineTo(x, baseY - height)
-        ..lineTo(x + size.width * 0.05, baseY - height)
-        ..lineTo(x + size.width * 0.05, baseY);
+        ..lineTo(x, baseY - h)
+        ..lineTo(x + w, baseY - h)
+        ..lineTo(x + w, baseY);
     }
     path
       ..lineTo(size.width, baseY)
-      ..lineTo(size.width, baseY + 6)
-      ..lineTo(0, baseY + 6)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
       ..close();
 
     canvas.drawPath(path, paint);
@@ -120,9 +137,17 @@ class _SplashDecorPainter extends CustomPainter {
       canvas.drawCircle(center + Offset(0, 6 * scale), 12 * scale, paint);
     }
 
-    cloud(Offset(size.width * 0.16, size.height * 0.14), 1.0);
-    cloud(Offset(size.width * 0.78, size.height * 0.12), 0.9);
-    cloud(Offset(size.width * 0.48, size.height * 0.22), 0.65);
+    // Spread clouds across full screen height
+    cloud(Offset(size.width * 0.14, size.height * 0.10), 1.15);
+    cloud(Offset(size.width * 0.78, size.height * 0.08), 1.0);
+    cloud(Offset(size.width * 0.48, size.height * 0.18), 0.75);
+    cloud(Offset(size.width * 0.22, size.height * 0.36), 0.9);
+    cloud(Offset(size.width * 0.86, size.height * 0.40), 0.85);
+    cloud(Offset(size.width * 0.55, size.height * 0.48), 0.7);
+    cloud(Offset(size.width * 0.12, size.height * 0.62), 0.8);
+    cloud(Offset(size.width * 0.80, size.height * 0.68), 0.75);
+    cloud(Offset(size.width * 0.40, size.height * 0.82), 0.9);
+    cloud(Offset(size.width * 0.68, size.height * 0.90), 0.7);
   }
 
   void _paintLeaves(Canvas canvas, Size size) {
@@ -143,10 +168,19 @@ class _SplashDecorPainter extends CustomPainter {
       canvas.restore();
     }
 
-    leaf(Offset(size.width * 0.1, size.height * 0.1), -0.5, 1.0);
-    leaf(Offset(size.width * 0.9, size.height * 0.11), 0.6, 0.95);
-    leaf(Offset(size.width * 0.14, size.height * 0.28), 0.4, 0.75);
-    leaf(Offset(size.width * 0.86, size.height * 0.26), -0.4, 0.7);
+    // Leaves across full height
+    leaf(Offset(size.width * 0.08, size.height * 0.08), -0.5, 1.1);
+    leaf(Offset(size.width * 0.92, size.height * 0.10), 0.6, 1.0);
+    leaf(Offset(size.width * 0.12, size.height * 0.24), 0.4, 0.85);
+    leaf(Offset(size.width * 0.88, size.height * 0.28), -0.4, 0.8);
+    leaf(Offset(size.width * 0.06, size.height * 0.42), -0.3, 0.95);
+    leaf(Offset(size.width * 0.94, size.height * 0.46), 0.5, 0.9);
+    leaf(Offset(size.width * 0.10, size.height * 0.58), 0.55, 0.75);
+    leaf(Offset(size.width * 0.90, size.height * 0.62), -0.45, 0.8);
+    leaf(Offset(size.width * 0.14, size.height * 0.76), -0.2, 0.9);
+    leaf(Offset(size.width * 0.86, size.height * 0.80), 0.35, 0.85);
+    leaf(Offset(size.width * 0.20, size.height * 0.92), 0.6, 0.7);
+    leaf(Offset(size.width * 0.78, size.height * 0.94), -0.55, 0.75);
   }
 
   @override

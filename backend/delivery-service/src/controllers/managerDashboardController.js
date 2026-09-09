@@ -3,6 +3,7 @@ import DeliveryManager from "../models/DeliveryManager.js";
 import StoreInventory from "../models/StoreInventory.js";
 import StoreOrder from "../models/StoreOrder.js";
 import Shift from "../models/Shift.js";
+import CashSettlement from "../models/CashSettlement.js";
 import { getIO } from "../../../socket.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
@@ -11,6 +12,13 @@ import { deductOrderStock } from "../services/storeStockService.js";
 import { seedManagerStore } from "../services/seedManagerStore.js";
 import { pickDemoOrderItems } from "../data/storeProductCatalog.js";
 import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
+import { calculateRiderEarning } from "../services/ShiftEarningService.js";
+import {
+  ensureTodayOnlineTracking,
+  liveOnlineMinutes,
+  formatOnlineMinutes,
+} from "../utils/onlineHoursHelper.js";
+import { buildRiderActivityHistory } from "../services/activityHistoryService.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
@@ -34,6 +42,54 @@ const stockMapForManager = async (managerId) => {
   const rows = await StoreInventory.find({ managerId, isActive: true });
   return new Map(rows.map((r) => [r.sku, r]));
 };
+
+/** Recalculate and persist rider fee when a delivered order still has ₹0. */
+async function backfillRiderEarningIfMissing(order, darkStore) {
+  if (!order || order.status !== "delivered") return order;
+  if (Number(order.riderDeliveryEarning || 0) > 0) return order;
+
+  try {
+    const earningResult = await calculateRiderEarning({
+      shiftId: order.shiftId || null,
+      managerId: order.managerId,
+      riderId: order.assignedRiderId,
+      atDate: order.assignedAt || order.deliveredAt || order.createdAt || new Date(),
+      storeLat: darkStore?.latitude ?? null,
+      storeLng: darkStore?.longitude ?? null,
+      customerLat: order.customerLat ?? null,
+      customerLng: order.customerLng ?? null,
+    });
+
+    if (!(earningResult.riderEarning > 0)) return order;
+
+    order.riderDeliveryEarning = earningResult.riderEarning;
+    order.deliveryDistanceKm =
+      order.deliveryDistanceKm || earningResult.distanceKm || 0;
+    if (earningResult.earningSlab) {
+      order.earningSlab = {
+        minKm: earningResult.earningSlab.minKm,
+        maxKm: earningResult.earningSlab.maxKm,
+        riderAmount: earningResult.earningSlab.riderAmount,
+      };
+    }
+    if (earningResult.shift?._id && !order.shiftId) {
+      order.shiftId = earningResult.shift._id;
+    }
+    order.earningCalculatedAt = new Date();
+    await order.save();
+
+    if (order.assignedRiderId) {
+      await DeliveryBoy.findByIdAndUpdate(order.assignedRiderId, {
+        $inc: {
+          todayEarnings: earningResult.riderEarning,
+          totalLifetimeEarnings: earningResult.riderEarning,
+        },
+      });
+    }
+  } catch (_) {}
+
+  return order;
+}
 
 const areaMatch = (manager) => ({
   $or: [
@@ -169,7 +225,31 @@ export const listIncomingOrders = async (req, res, next) => {
       : [];
     const riderMap = new Map(riders.map((r) => [r._id.toString(), r]));
 
+    const deliveredCodIds = orders
+      .filter(
+        (o) =>
+          o.status === "delivered" &&
+          String(o.paymentMethod || "").toUpperCase() === "COD"
+      )
+      .map((o) => o._id);
+
+    const settlements = deliveredCodIds.length
+      ? await CashSettlement.find({ orderId: { $in: deliveredCodIds } }).select(
+          "orderId amount status collectedAt submittedAt confirmedAt"
+        )
+      : [];
+    const settlementMap = new Map(
+      settlements.map((s) => [s.orderId.toString(), s])
+    );
+
     const stockMap = await stockMapForManager(manager._id);
+
+    // Backfill missing delivery-boy fees for delivered trips (older completions).
+    for (const o of orders) {
+      if (o.status === "delivered" && !(Number(o.riderDeliveryEarning || 0) > 0)) {
+        await backfillRiderEarningIfMissing(o, manager);
+      }
+    }
 
     return res.json({
       success: true,
@@ -184,6 +264,15 @@ export const listIncomingOrders = async (req, res, next) => {
         const offered = o.currentOfferDriverId
           ? riderMap.get(o.currentOfferDriverId.toString())
           : null;
+        const settlement = settlementMap.get(o._id.toString());
+        const isCod = String(o.paymentMethod || "").toUpperCase() === "COD";
+        const cashAmount =
+          Number(settlement?.amount) ||
+          Number(o.amountCollected) ||
+          Number(o.amountToCollect) ||
+          0;
+        const cashStatus = settlement?.status || (isCod && o.status === "delivered" ? "PENDING" : null);
+
         return {
           ...json,
           assignedRider: assigned
@@ -192,6 +281,23 @@ export const listIncomingOrders = async (req, res, next) => {
           offeredRider: offered
             ? { id: offered._id.toString(), name: offered.name, phone: offered.phone }
             : null,
+          cashSettlement: settlement
+            ? {
+                amount: settlement.amount,
+                status: settlement.status,
+                collectedAt: settlement.collectedAt,
+                submittedAt: settlement.submittedAt,
+                confirmedAt: settlement.confirmedAt,
+              }
+            : null,
+          collectFromDriver:
+            isCod && o.status === "delivered" && cashStatus !== "COMPLETED"
+              ? {
+                  amount: cashAmount,
+                  driverName: assigned?.name || "Driver",
+                  status: cashStatus || "PENDING",
+                }
+              : null,
         };
       }),
     });
@@ -502,7 +608,16 @@ export const verifyDriver = async (req, res, next) => {
       rider.verificationNote = note;
       await rider.save();
 
-
+      if (decision === "approved") {
+        try {
+          const { notifyVerificationCompleted } = await import(
+            "../services/RiderNotificationService.js"
+          );
+          await notifyVerificationCompleted(rider._id);
+        } catch (err) {
+          console.warn("[verifyDriver] notification failed:", err.message);
+        }
+      }
 
       try {
         getIO().to(`store_${manager._id}`).emit("rider_document_updated", {
@@ -807,10 +922,10 @@ export const getDriverDetails = async (req, res, next) => {
       }
     }
 
-    const onlineMins = rider.todayOnlineMinutes || 0;
-    const hours = Math.floor(onlineMins / 60);
-    const mins = onlineMins % 60;
-    const onlineTimeStr = `${hours}h ${mins}m`;
+    // Live online minutes (includes current open session while partner is online)
+    ensureTodayOnlineTracking(rider);
+    const onlineMins = liveOnlineMinutes(rider);
+    const onlineTimeStr = formatOnlineMinutes(onlineMins);
 
     return res.json({
       success: true,
@@ -835,7 +950,44 @@ export const getDriverDetails = async (req, res, next) => {
         livenessPassedAt: rider.livenessPassedAt || null,
         bankDetails: rider.bankDetails || {},
         todayShifts,
-        recentShifts: recentShifts.slice(0, 10),
+        recentShifts: recentShifts.slice(0, 60),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /drivers/:driverId/activity-history?range=week|month|year
+ * Day-wise (or month for year) performance: online time, shifts, wallet, trips.
+ */
+export const getDriverActivityHistory = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { driverId } = req.params;
+    const range = String(req.query.range || "week").trim().toLowerCase();
+
+    const rider = await DeliveryBoy.findOne({
+      _id: driverId,
+      $and: [areaMatch(manager)],
+    });
+    if (!rider) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner not found in your hub area",
+      });
+    }
+
+    ensureTodayOnlineTracking(rider);
+    const data = await buildRiderActivityHistory(rider, range);
+
+    return res.json({
+      success: true,
+      data: {
+        driverId: rider._id.toString(),
+        driverName: rider.name || rider.phone,
+        ...data,
       },
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 import Order from "../models/Order.js";
-import Rider from "../models/Rider.js";
-import Manager from "../models/Manager.js";
+import DeliveryBoy from "../models/DeliveryBoy.js";
+import DeliveryManager from "../models/DeliveryManager.js";
 import { upsertDailyIncentive } from "./incentiveController.js";
 import { serializeOrderForRider } from "../utils/orderSerializer.js";
 import { getIO } from "../../../socket.js";
@@ -17,7 +17,7 @@ export async function autoAssignRider(order) {
     if (!order || order.status !== "packed") return order;
 
     const managerId = order.managerId || order.storeId;
-    const manager = await Manager.findById(managerId);
+    const manager = await DeliveryManager.findById(managerId);
 
     // Query online riders matching store manager's city/area
     const query = {
@@ -31,7 +31,7 @@ export async function autoAssignRider(order) {
       ];
     }
 
-    const onlineRiders = await Rider.find(query).sort({
+    const onlineRiders = await DeliveryBoy.find(query).sort({
       lastAssignedAt: 1,
       lastOrderAssignedAt: 1,
       createdAt: 1,
@@ -100,7 +100,7 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const manager = await Manager.findById(managerId);
+    const manager = await DeliveryManager.findById(managerId);
 
     // IF AND ONLY IF at least one driver is online for this store location, then only accept incoming order
     const query = {
@@ -113,7 +113,7 @@ export const createOrder = async (req, res) => {
         { city: manager.city, area: manager.area },
       ];
     }
-    const onlineRidersCount = await Rider.countDocuments(query);
+    const onlineRidersCount = await DeliveryBoy.countDocuments(query);
 
     if (onlineRidersCount === 0) {
       return res.status(400).json({
@@ -257,7 +257,7 @@ export const rejectOrder = async (req, res) => {
     await order.save();
 
     // Reset rider status back to online
-    const rider = await Rider.findById(riderId);
+    const rider = await DeliveryBoy.findById(riderId);
     if (rider) {
       rider.status = "online";
       await rider.save();
@@ -482,7 +482,7 @@ export const uploadProofAndDeliver = async (req, res) => {
     const orderEarnings = (order.deliveryFee || 0) + peakBonus;
 
     // Update Rider status and metrics
-    const rider = await Rider.findById(riderId);
+    const rider = await DeliveryBoy.findById(riderId);
     let todayCount = 1;
     if (rider) {
       rider.status = "online";
@@ -562,7 +562,7 @@ export const manualAssignOrder = async (req, res) => {
       });
     }
 
-    const rider = await Rider.findById(riderId);
+    const rider = await DeliveryBoy.findById(riderId);
     if (!rider) {
       return res.status(404).json({ success: false, message: "Rider not found" });
     }
@@ -648,7 +648,7 @@ export const cancelOrder = async (req, res) => {
 
     // If a rider was assigned, free up rider status back to online
     if (order.assignedRiderId) {
-      const rider = await Rider.findById(order.assignedRiderId);
+      const rider = await DeliveryBoy.findById(order.assignedRiderId);
       if (rider && rider.status === "on_delivery") {
         rider.status = "online";
         await rider.save();

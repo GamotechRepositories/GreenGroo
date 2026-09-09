@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -26,11 +28,30 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
   bool _loading = true;
   AvailableSlotsResponse? _slotsResponse;
   String? _error;
+  String _clockText = '--:--';
+  Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
+    _tickClock();
+    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) => _tickClock());
     _loadSlots();
+  }
+
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Live IST clock (UTC+5:30) so header always shows current India time.
+  void _tickClock() {
+    final ist = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+    final hh = ist.hour.toString().padLeft(2, '0');
+    final mm = ist.minute.toString().padLeft(2, '0');
+    if (!mounted) return;
+    setState(() => _clockText = '$hh:$mm');
   }
 
   String _formatDateString(DateTime dt) {
@@ -38,6 +59,13 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
     final m = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
+  }
+
+  String get _headerTime {
+    // Prefer live IST clock; fall back to API IST if timer not ready yet
+    if (_clockText != '--:--') return _clockText;
+    final fromApi = _slotsResponse?.serverTimeIST.trim() ?? '';
+    return fromApi.isNotEmpty ? fromApi : '--:--';
   }
 
   Future<void> _loadSlots() async {
@@ -296,77 +324,61 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF047857), Color(0xFF059669)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.primary.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          AppLocalizations.of(context).todayUpper,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.access_time_rounded, color: Colors.white, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                _slotsResponse?.serverTime.isNotEmpty == true
-                                    ? _slotsResponse!.serverTime.substring(11, 16)
-                                    : AppLocalizations.of(context).liveServerTime,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
                     Text(
-                      dateStr,
+                      AppLocalizations.of(context).todayUpper,
                       style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
                         color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                        letterSpacing: 0.8,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        dateStr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.access_time_rounded, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
                     Text(
-                      _slotsResponse?.storeName ?? 'Dark Store Hub',
-                      style: GoogleFonts.inter(fontSize: 13, color: Colors.white70),
+                      _headerTime,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               SizedBox(
                 height: 40,
@@ -440,7 +452,12 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                   ),
                 )
               else () {
-                final activeSlotId = _slotsResponse?.activeBooking?.slotId;
+                final selectedDateStr = dateStr;
+                final activeForSelectedDay =
+                    _slotsResponse?.activeBooking?.dateString == selectedDateStr
+                        ? _slotsResponse?.activeBooking
+                        : null;
+                final activeSlotId = activeForSelectedDay?.slotId;
                 final availableSlotsList = (_slotsResponse?.slots ?? []).where((slot) {
                   final isUserBooked = activeSlotId != null &&
                       activeSlotId.isNotEmpty &&
@@ -482,7 +499,8 @@ class _SelectShiftScreenState extends State<SelectShiftScreen> {
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final slot = availableSlotsList[index];
-                    final isUserBooked = slot.isBookedByMe || _slotsResponse?.activeBooking?.slotId == slot.id;
+                    final isUserBooked = slot.isBookedByMe ||
+                        (activeSlotId != null && activeSlotId == slot.id);
 
                     final isEnded = slot.status == 'ENDED';
                     final isFull = slot.status == 'FULL' || slot.remainingCapacity == 0;

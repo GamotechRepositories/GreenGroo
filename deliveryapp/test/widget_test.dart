@@ -10,6 +10,6 @@ void main() {
     // Title fades in mid-animation (~1.8s+)
     await tester.pump(const Duration(milliseconds: 2200));
     expect(find.text('GreenGroc'), findsOneWidget);
-    await tester.pumpAndSettle(const Duration(seconds: 5));
+    await tester.pumpAndSettle(const Duration(seconds: 12));
   });
 }

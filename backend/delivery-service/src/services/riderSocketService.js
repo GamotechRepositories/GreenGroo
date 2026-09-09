@@ -4,6 +4,7 @@ import { resolveStoreIdForRider } from "../utils/storeResolver.js";
 import {
   ensureTodayOnlineTracking,
   addOnlineMinutesSince,
+  liveOnlineMinutes,
 } from "../utils/onlineHoursHelper.js";
 import { isCurrentlyPeak } from "../utils/peakHoursHelper.js";
 
@@ -18,7 +19,7 @@ export async function emitRiderStatusUpdated(rider, extra = {}) {
         riderId: rider._id.toString(),
         name: rider.name || rider.phone,
         status: rider.status,
-        todayOnlineMinutes: rider.todayOnlineMinutes || 0,
+        todayOnlineMinutes: liveOnlineMinutes(rider),
         updatedAt: new Date().toISOString(),
         ...extra,
       });
@@ -50,6 +51,14 @@ export async function applyGigStatusChange(rider, nextStatus) {
   ensureTodayOnlineTracking(rider);
 
   if (nextStatus === "online") {
+    if (
+      (rider.status === "online" || rider.status === "on_delivery") &&
+      rider.lastOnlineAt
+    ) {
+      rider.todayOnlineMinutes =
+        (rider.todayOnlineMinutes || 0) +
+        addOnlineMinutesSince(rider, rider.lastOnlineAt, now);
+    }
     rider.lastOnlineAt = now;
     rider.status = "online";
   } else if (nextStatus === "offline") {

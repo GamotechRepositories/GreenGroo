@@ -11,10 +11,12 @@ class AppBottomNavigation extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.notificationBadgeCount = 0,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final int notificationBadgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +71,7 @@ class AppBottomNavigation extends StatelessWidget {
                         Icons.notifications_outlined,
                         Icons.notifications,
                         l10n.notifications,
-                        badgeCount: 3,
+                        badgeCount: notificationBadgeCount,
                       ),
                     ],
                   ),

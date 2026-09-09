@@ -166,17 +166,20 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
     // Determine which shift to use: order.shiftId (set at accept time) or rider's currentBooking
     const rider = await DeliveryBoy.findById(riderId).session(session);
     const shiftId = order.shiftId || rider?.currentBooking?.shiftId || null;
+    const now = new Date();
 
     // Calculate earning (backend is source of truth)
     const earningResult = await calculateRiderEarning({
       shiftId,
+      managerId: order.managerId,
+      riderId,
+      atDate: order.assignedAt || order.packedAt || now,
       storeLat,
       storeLng,
       customerLat,
       customerLng,
     });
 
-    const now = new Date();
     const riderEarning = earningResult.riderEarning;
     const distanceKm = earningResult.distanceKm;
     const earningSlab = earningResult.earningSlab;
@@ -189,6 +192,9 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
     order.riderDeliveryEarning = riderEarning;
     if (earningSlab) {
       order.earningSlab = { minKm: earningSlab.minKm, maxKm: earningSlab.maxKm, riderAmount: earningSlab.riderAmount };
+    }
+    if (earningResult.shift?._id && !order.shiftId) {
+      order.shiftId = earningResult.shift._id;
     }
     order.earningCalculatedAt = now;
     await order.save({ session });
@@ -209,6 +215,20 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
 
     await session.commitTransaction();
     committed = true;
+
+    // Wallet / earning credit notification
+    if (riderEarning > 0) {
+      try {
+        const { notifyOrderCompleted } = await import("./RiderNotificationService.js");
+        await notifyOrderCompleted(riderId, {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          amount: riderEarning,
+        });
+      } catch (err) {
+        console.warn("[completion] wallet notification failed:", err.message);
+      }
+    }
 
     // Emit socket events (non-blocking)
     try {

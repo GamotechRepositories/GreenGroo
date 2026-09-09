@@ -12,6 +12,7 @@
 import mongoose from "mongoose";
 import CashSettlement from "../models/CashSettlement.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
+import StoreOrder from "../models/StoreOrder.js";
 
 /**
  * Create a cash settlement record when a rider collects cash.
@@ -140,6 +141,92 @@ export async function confirmCashReceipt({ darkStoreId, riderId, managerId, sett
   } finally {
     session.endSession();
   }
+}
+
+/**
+ * Manager confirms physical cash for one delivered COD order.
+ * Creates a settlement if missing, then marks it COMPLETED.
+ */
+export async function confirmCashForOrder({ darkStoreId, managerId, orderId }) {
+  const order = await StoreOrder.findById(orderId);
+  if (!order) {
+    const err = new Error("Order not found");
+    err.statusCode = 404;
+    throw err;
+  }
+  if (String(order.managerId) !== String(darkStoreId)) {
+    const err = new Error("Order does not belong to your dark store");
+    err.statusCode = 403;
+    throw err;
+  }
+  if (order.status !== "delivered") {
+    const err = new Error("Only delivered orders can have cash confirmed");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (String(order.paymentMethod || "").toUpperCase() !== "COD") {
+    const err = new Error("Order is not COD / physical cash");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!order.assignedRiderId) {
+    const err = new Error("No driver assigned on this order");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  let settlement = await CashSettlement.findOne({ orderId: order._id });
+  if (settlement?.status === "COMPLETED") {
+    return {
+      confirmed: 0,
+      alreadyConfirmed: true,
+      totalAmount: settlement.amount,
+      settlement,
+      order,
+    };
+  }
+
+  const amount =
+    Number(settlement?.amount) ||
+    Number(order.amountCollected) ||
+    Number(order.amountToCollect) ||
+    0;
+
+  if (amount <= 0) {
+    const err = new Error("No cash amount to confirm for this order");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!settlement) {
+    settlement = await createCashLiability({
+      darkStoreId,
+      riderId: order.assignedRiderId,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      amount,
+    });
+  }
+
+  const result = await confirmCashReceipt({
+    darkStoreId,
+    riderId: order.assignedRiderId,
+    managerId,
+    settlementIds: [settlement._id],
+  });
+
+  order.paymentStatus = "collected";
+  if (!order.amountCollected) order.amountCollected = amount;
+  await order.save();
+
+  const updated = await CashSettlement.findById(settlement._id);
+  return {
+    confirmed: result.confirmed,
+    alreadyConfirmed: false,
+    totalAmount: result.totalAmount || amount,
+    settlement: updated,
+    order,
+  };
 }
 
 /**

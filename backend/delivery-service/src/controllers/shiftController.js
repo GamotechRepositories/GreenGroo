@@ -22,6 +22,15 @@ export const formatDateStringIST = (d) => {
   return formatter.format(date); // YYYY-MM-DD
 };
 
+/** Current clock time in IST as HH:mm (24h) */
+export const formatClockTimeIST = (d = new Date()) =>
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+
 /** Converts "09:30 AM" or "17:30" to minutes from start of day */
 export { timeToMinutes } from "../utils/shiftTimeHelper.js";
 
@@ -130,6 +139,14 @@ export const bookSlot = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Shift slot is no longer available" });
     }
 
+    const todayStrIST = formatDateStringIST(new Date());
+    if (targetShift.dateString && targetShift.dateString < todayStrIST) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot book a shift for a past date. Please book today's or a future day's shift.",
+      });
+    }
+
     if (targetSlot.status === "CANCELLED") {
       return res.status(409).json({
         success: false,
@@ -159,6 +176,29 @@ export const bookSlot = async (req, res, next) => {
         currentBooking: rider.currentBooking,
         shift: targetShift.toSafeJSON(),
       });
+    }
+
+    // Check if rider already has an active booking on THIS DATE only
+    // (booking for Mon must not block Tue–Sun)
+    const sameDayShifts = await Shift.find({
+      managerId: targetShift.managerId,
+      dateString: targetShift.dateString,
+    });
+    for (const sh of sameDayShifts) {
+      for (const sl of sh.slots || []) {
+        const found = (sl.bookings || []).find(
+          (b) =>
+            b.deliveryPartnerId?.toString() === rider._id.toString() &&
+            b.status !== "CANCELLED" &&
+            b.status !== "COMPLETED"
+        );
+        if (!found) continue;
+        if (sl._id.toString() === targetSlot._id.toString()) continue;
+        return res.status(400).json({
+          success: false,
+          message: `You already have a shift booked for ${targetShift.dateString}. You can still book other days.`,
+        });
+      }
     }
 
     if (targetSlot.bookedCount >= targetSlot.capacity) {
@@ -387,8 +427,9 @@ export const cancelBooking = async (req, res, next) => {
 };
 
 /**
- * 3. getMyBooking — Reads DeliveryBoy.currentBooking, populates parent Shift,
- * returns just that slot + booking's live details without needing client-side Shift parsing.
+ * 3. getMyBookings — Today's booking + future bookings only.
+ * Past-day bookings (e.g. yesterday) must NEVER appear as today's shift.
+ * Each calendar day requires its own booking.
  */
 export const getMyBookings = async (req, res, next) => {
   try {
@@ -400,18 +441,41 @@ export const getMyBookings = async (req, res, next) => {
     const todayStrIST = formatDateStringIST(new Date());
     const riderIdStr = rider._id.toString();
 
-    // Query shifts matching riderId as BOTH ObjectId and String
+    // Only today + future shifts — never return yesterday's booking as "today"
     const shifts = await Shift.find({
+      dateString: { $gte: todayStrIST },
       $or: [
         { "slots.bookings.deliveryPartnerId": rider._id },
         { "slots.bookings.deliveryPartnerId": riderIdStr },
       ],
-    }).populate("managerId", "storeName storeAddress latitude longitude geofenceRadius");
+    })
+      .sort({ dateString: 1 })
+      .populate("managerId", "storeName storeAddress latitude longitude geofenceRadius");
 
     const upcomingBookings = [];
     let todayBooking = null;
 
+    const buildBookingInfo = (shift, slot, userBooking) => ({
+      id: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
+      bookingId: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
+      slotId: slot._id.toString(),
+      shiftId: shift._id.toString(),
+      dateString: shift.dateString,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      status: userBooking.status,
+      storeName:
+        shift.managerId?.storeName || `${shift.managerId?.area || "Dark"} Store`,
+      storeAddress:
+        shift.managerId?.storeAddress ||
+        `${shift.managerId?.area || ""}, ${shift.managerId?.city || ""}`,
+      notificationEnabled: userBooking.notificationEnabled || false,
+      notificationTimeMinutes: userBooking.notificationTimeMinutes || 15,
+      bookedAt: userBooking.bookedAt,
+    });
+
     for (const shift of shifts) {
+      const dateStr = String(shift.dateString || "");
       for (const slot of shift.slots) {
         const userBooking = (slot.bookings || []).find(
           (b) =>
@@ -420,69 +484,64 @@ export const getMyBookings = async (req, res, next) => {
             b.status !== "CANCELLED"
         );
 
-        if (userBooking) {
-          const bookingInfo = {
-            id: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
-            bookingId: userBooking._id ? userBooking._id.toString() : userBooking.bookingId,
-            slotId: slot._id.toString(),
-            shiftId: shift._id.toString(),
-            dateString: shift.dateString,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            status: userBooking.status,
-            storeName: shift.managerId?.storeName || `${shift.managerId?.area || "Dark"} Store`,
-            storeAddress: shift.managerId?.storeAddress || `${shift.managerId?.area || ""}, ${shift.managerId?.city || ""}`,
-            notificationEnabled: userBooking.notificationEnabled || false,
-            notificationTimeMinutes: userBooking.notificationTimeMinutes || 15,
-            bookedAt: userBooking.bookedAt,
-          };
+        if (!userBooking) continue;
 
-          if (shift.dateString === todayStrIST || !todayBooking) {
+        const bookingInfo = buildBookingInfo(shift, slot, userBooking);
+
+        if (dateStr === todayStrIST) {
+          // Prefer ACTIVE over UPCOMING if multiple slots same day
+          if (
+            !todayBooking ||
+            (userBooking.status === "ACTIVE" && todayBooking.status !== "ACTIVE")
+          ) {
             todayBooking = bookingInfo;
-          } else {
-            upcomingBookings.push(bookingInfo);
           }
+        } else if (dateStr > todayStrIST) {
+          upcomingBookings.push(bookingInfo);
         }
       }
     }
 
-    // Direct fallback from rider.currentBooking pointer if shifts query missed it
-    if (!todayBooking && rider.currentBooking?.shiftId) {
+    // Fallback from rider.currentBooking — only if that shift is today or future
+    if (rider.currentBooking?.shiftId) {
       const shift = await Shift.findById(rider.currentBooking.shiftId).populate(
         "managerId",
         "storeName storeAddress"
       );
-      if (shift) {
+
+      if (!shift || !shift.dateString || shift.dateString < todayStrIST) {
+        // Stale pointer to a past-day shift — clear so it can't look like today's booking
+        rider.currentBooking = { shiftId: null, slotId: null, bookingId: null };
+        await rider.save();
+      } else if (!todayBooking || shift.dateString > todayStrIST) {
         const slot = shift.slots.id(rider.currentBooking.slotId);
         if (slot) {
           const b =
             slot.bookings.id(rider.currentBooking.bookingId) ||
             slot.bookings.find(
-              (x) => x.deliveryPartnerId && x.deliveryPartnerId.toString() === riderIdStr && x.status !== "CANCELLED"
+              (x) =>
+                x.deliveryPartnerId &&
+                x.deliveryPartnerId.toString() === riderIdStr &&
+                x.status !== "CANCELLED"
             );
           if (b && b.status !== "CANCELLED") {
-            const fallbackBooking = {
-              id: b._id ? b._id.toString() : b.bookingId,
-              bookingId: b._id ? b._id.toString() : b.bookingId,
-              slotId: slot._id.toString(),
-              shiftId: shift._id.toString(),
-              dateString: shift.dateString,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              status: b.status,
-              storeName: shift.managerId?.storeName || "Dark Store",
-              storeAddress: shift.managerId?.storeAddress || "",
-              bookedAt: b.bookedAt,
-            };
-            if (shift.dateString === todayStrIST || !todayBooking) {
+            const fallbackBooking = buildBookingInfo(shift, slot, b);
+            if (shift.dateString === todayStrIST && !todayBooking) {
               todayBooking = fallbackBooking;
-            } else {
+            } else if (
+              shift.dateString > todayStrIST &&
+              !upcomingBookings.some((u) => u.bookingId === fallbackBooking.bookingId)
+            ) {
               upcomingBookings.push(fallbackBooking);
             }
           }
         }
       }
     }
+
+    upcomingBookings.sort((a, b) =>
+      String(a.dateString).localeCompare(String(b.dateString))
+    );
 
     return res.json({
       success: true,
@@ -566,27 +625,28 @@ export const getAvailableSlots = async (req, res, next) => {
       return res.json({
         success: true,
         serverTime: nowTime.toISOString(),
+        serverTimeIST: formatClockTimeIST(nowTime),
+        serverDateString: todayStr,
         date: queryDateStr,
         storeName: "No Store Assigned",
         storeAddress: "",
         slots: [],
         shifts: [],
         activeBooking: null,
+        userHasBookingForDate: false,
         verificationPending: rider ? rider.verificationStatus !== "approved" : false,
         riderVerificationStatus: rider ? rider.verificationStatus || "pending" : "pending",
         message: "No delivery manager has registered a dark store hub in your area yet.",
       });
     }
 
-    // 1. Query shifts for the requested date for rider's store manager
-    let shifts = await Shift.find({ managerId: manager._id, dateString: queryDateStr }).sort({ createdAt: -1 });
+    // 1. Query shifts ONLY for the requested date (never pull other week days)
+    let shifts = await Shift.find({
+      managerId: manager._id,
+      dateString: queryDateStr,
+    }).sort({ createdAt: -1 });
 
-    // 2. Fallback: If no shifts for exact queryDateStr, fetch active shifts for this manager today or future dates
-    if (shifts.length === 0) {
-      shifts = await Shift.find({ managerId: manager._id, dateString: { $gte: todayStr } }).sort({ dateString: 1, createdAt: -1 });
-    }
-
-    // 3. Fallback: If still 0 shifts in DB, auto-seed default shifts for the date
+    // 2. If none exist for that date, auto-seed default slots for THAT date only
     if (shifts.length === 0) {
       const defaultManagerId = manager?._id || new mongoose.Types.ObjectId();
       const defaultShiftsData = [
@@ -631,7 +691,7 @@ export const getAvailableSlots = async (req, res, next) => {
         await Shift.create({
           managerId: defaultManagerId,
           storeId: defaultManagerId.toString(),
-          area: manager?.area || rider.area || "Store Hub",
+          area: manager?.area || rider?.area || "Store Hub",
           name: def.name,
           type: def.type,
           dateString: queryDateStr,
@@ -648,12 +708,19 @@ export const getAvailableSlots = async (req, res, next) => {
         }).catch((err) => console.error("Error auto-seeding shift:", err.message));
       }
 
-      shifts = await Shift.find({ managerId: manager._id, dateString: queryDateStr }).sort({ createdAt: -1 });
+      shifts = await Shift.find({
+        managerId: manager._id,
+        dateString: queryDateStr,
+      }).sort({ createdAt: -1 });
     }
+
+    // Hard filter — never leak other dates into this response
+    shifts = shifts.filter((s) => s.dateString === queryDateStr);
 
     const now = new Date();
     const currentMinutesIST = getCurrentMinutesIST(now);
     const isToday = queryDateStr === todayStr;
+    const clockIST = formatClockTimeIST(now);
 
     const availableSlots = [];
     let riderActiveBooking = null;
@@ -662,17 +729,23 @@ export const getAvailableSlots = async (req, res, next) => {
       const shiftJson = shift.toSafeJSON();
 
       for (const slot of shiftJson.slots) {
-        const userBooking = (slot.bookings || []).find(
-          (b) => b.deliveryPartnerId === rider._id.toString() && b.status !== "CANCELLED"
-        );
+        const userBooking =
+          rider &&
+          (slot.bookings || []).find(
+            (b) =>
+              b.deliveryPartnerId === rider._id.toString() &&
+              b.status !== "CANCELLED" &&
+              b.status !== "COMPLETED"
+          );
 
-        if (userBooking) {
+        // activeBooking is only for the date being viewed
+        if (userBooking && shift.dateString === queryDateStr) {
           riderActiveBooking = {
             id: userBooking.bookingId,
             bookingId: userBooking.bookingId,
             slotId: slot.id,
             shiftId: shift._id.toString(),
-            dateString: shift.dateString || queryDateStr,
+            dateString: queryDateStr,
             startTime: slot.startTime,
             endTime: slot.endTime,
             status: userBooking.status,
@@ -691,6 +764,7 @@ export const getAvailableSlots = async (req, res, next) => {
           status: slotStatus,
           shiftName: shift.name,
           shiftType: shift.type,
+          dateString: queryDateStr,
           storeName: manager?.storeName || "Dark Store",
           isBookedByMe: !!userBooking,
         });
@@ -700,14 +774,17 @@ export const getAvailableSlots = async (req, res, next) => {
     return res.json({
       success: true,
       serverTime: now.toISOString(),
+      serverTimeIST: clockIST,
+      serverDateString: todayStr,
       date: queryDateStr,
       storeName: manager?.storeName || "Dark Store Hub",
       storeAddress: manager?.storeAddress || "",
       slots: availableSlots,
       shifts: shifts.map((s) => s.toSafeJSON()),
+      userHasBookingForDate: !!riderActiveBooking,
       activeBooking: riderActiveBooking,
-      verificationPending: rider.verificationStatus !== "approved",
-      riderVerificationStatus: rider.verificationStatus || "pending",
+      verificationPending: rider ? rider.verificationStatus !== "approved" : false,
+      riderVerificationStatus: rider ? rider.verificationStatus || "pending" : "pending",
     });
   } catch (error) {
     next(error);

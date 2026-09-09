@@ -94,6 +94,7 @@ class ShiftBookingInfo {
 
 class AvailableSlotsResponse {
   final String serverTime;
+  final String serverTimeIST;
   final String serverDateString;
   final String date;
   final String storeName;
@@ -104,6 +105,7 @@ class AvailableSlotsResponse {
 
   const AvailableSlotsResponse({
     required this.serverTime,
+    this.serverTimeIST = '',
     required this.serverDateString,
     required this.date,
     required this.storeName,
@@ -158,6 +160,7 @@ class ShiftService {
 
       return AvailableSlotsResponse(
         serverTime: body['serverTime']?.toString() ?? '',
+        serverTimeIST: body['serverTimeIST']?.toString() ?? '',
         serverDateString: body['serverDateString']?.toString() ?? '',
         date: body['date']?.toString() ?? date,
         storeName: body['storeName']?.toString() ?? 'Dark Store',
@@ -202,14 +205,37 @@ class ShiftService {
       final todayBookingJson = body['todayBooking'] as Map<String, dynamic>?;
       final rawUpcoming = body['upcomingBookings'] as List? ?? [];
 
+      // Client-side guard: never treat a past date as "today"
+      final todayStr = _todayDateStringLocal();
+      ShiftBookingInfo? todayBooking;
+      if (todayBookingJson != null) {
+        final parsed = ShiftBookingInfo.fromJson(todayBookingJson);
+        if (parsed.dateString.isEmpty || parsed.dateString == todayStr) {
+          todayBooking = parsed;
+        }
+      }
+
+      final upcoming = rawUpcoming
+          .map((b) => ShiftBookingInfo.fromJson(b as Map<String, dynamic>))
+          .where((b) => b.dateString.isEmpty || b.dateString.compareTo(todayStr) > 0)
+          .toList();
+
       return {
-        'todayBooking': todayBookingJson != null ? ShiftBookingInfo.fromJson(todayBookingJson) : null,
-        'upcomingBookings': rawUpcoming.map((b) => ShiftBookingInfo.fromJson(b as Map<String, dynamic>)).toList(),
+        'todayBooking': todayBooking,
+        'upcomingBookings': upcoming,
       };
     } catch (e) {
       debugPrint('[ShiftService] fetchMyBookings error: $e');
       return {};
     }
+  }
+
+  String _todayDateStringLocal() {
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 
   Future<bool> toggleNotification(String bookingId, bool enabled, int minutes) async {

@@ -46,6 +46,16 @@ const bookingSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
     },
+    /** Set when "shift started" push was sent (avoid duplicate FCM). */
+    shiftStartNotifiedAt: {
+      type: Date,
+      default: null,
+    },
+    /** Set when pre-shift reminder push was sent. */
+    shiftReminderNotifiedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { _id: true, timestamps: true }
 );

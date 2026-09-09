@@ -11,6 +11,7 @@ import {
   MIN_ASSIGNMENT_DISTANCE_M,
   OFFER_TIMEOUT_SECONDS,
 } from "../config/orderAssignmentConfig.js";
+import { estimateOfferEarning } from "./ShiftEarningService.js";
 
 const activeOfferTimers = new Map();
 const waitingOrderIds = new Set();
@@ -262,7 +263,29 @@ export async function assignNextDriver(orderId) {
     });
 
     const orderTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const estimatedEarnings = Math.round(orderTotal * 0.12 + 45);
+    let estimatedEarnings = 0;
+    try {
+      const shiftId =
+        order.shiftId ||
+        selectedDriver.currentBooking?.shiftId ||
+        null;
+      const estimate = await estimateOfferEarning({
+        shiftId,
+        managerId: order.managerId || darkStore?._id,
+        riderId: selectedDriver._id,
+        storeLat: darkStore.latitude,
+        storeLng: darkStore.longitude,
+        customerLat: order.customerLat,
+        customerLng: order.customerLng,
+      });
+      estimatedEarnings = Math.round(estimate.earnUpTo || estimate.estimatedEarnings || 0);
+    } catch (_) {
+      estimatedEarnings = 0;
+    }
+    // Last-resort fallback only if shift slabs are missing
+    if (estimatedEarnings <= 0) {
+      estimatedEarnings = Math.round(orderTotal * 0.12 + 45);
+    }
 
     const offerPayload = {
       orderId: order._id.toString(),
@@ -275,6 +298,7 @@ export async function assignNextDriver(orderId) {
       itemCount: order.items.length,
       itemsSummary: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
       estimatedEarnings,
+      earnUpTo: estimatedEarnings,
       distanceMeters: Math.round(distanceM),
       distanceKm: formatDistance(distanceM),
       offerStartedAt: startedAt.toISOString(),
@@ -308,6 +332,18 @@ export async function assignNextDriver(orderId) {
         });
     } catch (err) {
       console.warn("[assignment] socket emit failed:", err.message);
+    }
+
+    // Persist + FCM (background tray) / socket (foreground badge only)
+    try {
+      const { notifyOrderReceived } = await import("./RiderNotificationService.js");
+      await notifyOrderReceived(selectedDriver._id, {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        estimatedEarnings,
+      });
+    } catch (err) {
+      console.warn("[assignment] rider notification failed:", err.message);
     }
 
     const timerId = setTimeout(async () => {

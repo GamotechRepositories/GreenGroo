@@ -15,6 +15,35 @@ import { loadHrPeople } from "./opsControllers.js";
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 
+async function notifyDeliveryBoysAnnouncement(row) {
+  try {
+    const roleKey = String(row.roleKey || "all").toLowerCase();
+    if (roleKey !== "all" && roleKey !== "delivery_boy") return;
+
+    const DeliveryBoy = (await import("../../delivery-service/src/models/DeliveryBoy.js")).default;
+    const { notifyRiders } = await import(
+      "../../delivery-service/src/services/RiderNotificationService.js"
+    );
+    const riders = await DeliveryBoy.find({ isActive: { $ne: false } }).select("_id");
+    if (!riders.length) return;
+    await notifyRiders({
+      riderIds: riders.map((r) => r._id),
+      type: "ANNOUNCEMENT",
+      title: row.title || "New announcement",
+      message: row.body || "You have a new announcement",
+      priority: "normal",
+      dedupeKey: `announcement:${String(row._id || "")}`,
+      data: {
+        announcementId: String(row._id || ""),
+        screen: "notifications",
+        badge: "new",
+      },
+    });
+  } catch (err) {
+    console.warn("[HR] announcement notify failed:", err.message);
+  }
+}
+
 export const HR_ROLES = [
   { value: "all", label: "All roles" },
   ...HR_ROLE_KEYS.map((value) => ({ value, label: ROLE_LABELS[value] || value.replaceAll("_", " ") })),
@@ -102,19 +131,21 @@ function mapJwtRoleToHrKey(role) {
 
 async function publishDueAnnouncements() {
   const now = new Date();
-  const scheduled = await HrAnnouncement.find({ status: "scheduled" }).select("_id scheduledAt").lean();
-  const dueIds = scheduled
-    .filter((row) => {
-      if (!row.scheduledAt) return false;
-      const when = new Date(row.scheduledAt);
-      return !Number.isNaN(when.getTime()) && when <= now;
-    })
-    .map((row) => row._id);
+  const scheduled = await HrAnnouncement.find({ status: "scheduled" }).select("_id scheduledAt title body roleKey").lean();
+  const due = scheduled.filter((row) => {
+    if (!row.scheduledAt) return false;
+    const when = new Date(row.scheduledAt);
+    return !Number.isNaN(when.getTime()) && when <= now;
+  });
+  const dueIds = due.map((row) => row._id);
   if (dueIds.length) {
     await HrAnnouncement.updateMany(
       { _id: { $in: dueIds } },
       { $set: { status: "published", publishedAt: now } }
     );
+    for (const row of due) {
+      notifyDeliveryBoysAnnouncement({ ...row, status: "published" }).catch(() => {});
+    }
   }
 }
 
@@ -176,6 +207,9 @@ export async function createHrAnnouncement(req, res, next) {
       publishedAt: status === "published" ? new Date() : null,
       createdBy: req.user?.email || req.user?.name || "admin",
     });
+    if (row.status === "published") {
+      notifyDeliveryBoysAnnouncement(row).catch(() => {});
+    }
     return res.status(201).json({ success: true, data: row });
   } catch (error) {
     next(error);
@@ -194,6 +228,9 @@ export async function updateHrAnnouncement(req, res, next) {
       if (row.status === "published" && !row.publishedAt) row.publishedAt = new Date();
     }
     await row.save();
+    if (row.status === "published") {
+      notifyDeliveryBoysAnnouncement(row).catch(() => {});
+    }
     return ok(res, row);
   } catch (error) {
     next(error);

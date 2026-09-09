@@ -115,6 +115,47 @@ export function formatOrderTime(value) {
   });
 }
 
+export function formatRupee(amount) {
+  const n = Number(amount) || 0;
+  return `₹${n.toLocaleString("en-IN")}`;
+}
+
+export function formatTripDuration(minutes) {
+  if (minutes == null || Number.isNaN(Number(minutes))) return "—";
+  const m = Math.max(0, Math.round(Number(minutes)));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem ? `${h}h ${rem}m` : `${h}h`;
+}
+
+export function paymentMethodLabel(method) {
+  const m = String(method || "").toUpperCase();
+  if (m === "COD") return "COD (Physical cash)";
+  if (m === "ONLINE") return "Online payment";
+  if (m === "WALLET") return "Wallet";
+  return method ? String(method) : "Not set";
+}
+
+export function isCodPayment(method) {
+  return String(method || "").toUpperCase() === "COD";
+}
+
+export function getOrderItemsTotal(order) {
+  if (order?.itemsTotal != null) return Number(order.itemsTotal) || 0;
+  return (order?.items || []).reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * (item.quantity || 0),
+    0
+  );
+}
+
+export function getOrderDeliveryFee(order) {
+  if (order?.deliveryFee != null) return Number(order.deliveryFee) || 0;
+  const amount = Number(order?.amountToCollect) || 0;
+  const itemsTotal = getOrderItemsTotal(order);
+  return Math.max(0, Math.round(amount - itemsTotal));
+}
+
 export function isInitialOrderStatus(status) {
   return ["incoming", "order_received", "stock_issue"].includes(status);
 }

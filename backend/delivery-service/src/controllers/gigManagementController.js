@@ -106,6 +106,16 @@ export const createGig = async (req, res, next) => {
       isActive: true,
     });
 
+    try {
+      const { notifyNewGig } = await import("../services/RiderNotificationService.js");
+      await notifyNewGig(manager._id, {
+        gigId: gig._id,
+        title,
+      });
+    } catch (err) {
+      console.warn("[createGig] notification failed:", err.message);
+    }
+
     return res.status(201).json({
       success: true,
       message: "Gig incentive created successfully",

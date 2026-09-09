@@ -6,6 +6,12 @@ import {
   OrderStatusText,
   DriverAssignmentText,
   formatOrderTime,
+  formatRupee,
+  formatTripDuration,
+  paymentMethodLabel,
+  isCodPayment,
+  getOrderItemsTotal,
+  getOrderDeliveryFee,
   isInitialOrderStatus,
   allItemsAvailable,
   actionBtnPrimary,
@@ -27,6 +33,7 @@ export default function OrderDetailPage() {
   const [requestQty, setRequestQty] = useState(20);
   const [requestNote, setRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingCash, setConfirmingCash] = useState(false);
 
   const pendingSkuSet = useMemo(() => new Set(pendingSkus), [pendingSkus]);
 
@@ -38,7 +45,10 @@ export default function OrderDetailPage() {
   const load = useCallback(async () => {
     try {
       const [ord, req] = await Promise.all([
-        managerApi.orders(),
+        managerApi.orders({
+          status:
+            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered",
+        }),
         managerApi.listInventoryRequests({ status: "pending" }).catch(() => ({ data: { requests: [] } })),
       ]);
 
@@ -132,6 +142,21 @@ export default function OrderDetailPage() {
     }
   };
 
+  const onConfirmCashReceived = async () => {
+    const oid = order?.id || order?._id;
+    if (!oid || confirmingCash) return;
+    setConfirmingCash(true);
+    try {
+      const res = await managerApi.confirmOrderCash(oid);
+      showToast(res.data.message || "Cash received from delivery boy.");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not confirm cash receipt");
+    } finally {
+      setConfirmingCash(false);
+    }
+  };
+
   const submitRequest = async (e) => {
     e.preventDefault();
     if (!requestItem) return;
@@ -156,13 +181,27 @@ export default function OrderDetailPage() {
 
   const items = order?.items || [];
   const itemCount = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  const estimatedTotal = items.reduce(
-    (sum, item) => sum + (Number(item.price) || 0) * (item.quantity || 0),
-    0
-  );
+  const itemsTotal = getOrderItemsTotal(order);
+  const deliveryFee = getOrderDeliveryFee(order);
+  const orderTotal =
+    Number(order?.orderTotal) ||
+    Number(order?.amountToCollect) ||
+    itemsTotal + deliveryFee;
   const isInitial = isInitialOrderStatus(order?.status);
   const allAvailable = allItemsAvailable(order);
   const oid = order?.id || order?._id;
+  const isDelivered = order?.status === "delivered";
+  const driverName =
+    order?.assignedRider?.name ||
+    order?.assignedRider?.phone ||
+    "Unassigned";
+  const collectInfo = order?.collectFromDriver;
+  const collectAmount =
+    Number(collectInfo?.amount) ||
+    Number(order?.amountCollected) ||
+    Number(order?.amountToCollect) ||
+    orderTotal;
+  const cashDone = order?.cashSettlement?.status === "COMPLETED";
 
   if (loading && !order) {
     return (
@@ -235,6 +274,111 @@ export default function OrderDetailPage() {
         </p>
       )}
 
+      {isDelivered && (
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                Completed delivery
+              </p>
+              <h3 className="mt-1 text-lg font-extrabold text-slate-900">
+                Order completed{order.deliveredAt ? ` · ${formatOrderTime(order.deliveredAt)}` : ""}
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Driver: <span className="font-bold text-slate-900">{driverName}</span>
+                {order.assignedRider?.phone ? (
+                  <span className="text-slate-500"> · {order.assignedRider.phone}</span>
+                ) : null}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white border border-emerald-200 px-3 py-2 text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Payment</p>
+              <p className="text-sm font-extrabold text-slate-900">
+                {paymentMethodLabel(order.paymentMethod)}
+              </p>
+            </div>
+          </div>
+
+          {isCodPayment(order.paymentMethod) && (
+            <div
+              className={`rounded-xl border px-4 py-3 ${
+                cashDone
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-amber-300 bg-amber-50"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  {cashDone ? (
+                    <p className="text-sm font-semibold text-emerald-800">
+                      ✓ Cash {formatRupee(collectAmount)} received from{" "}
+                      <span className="font-extrabold">{driverName}</span> — credited to store
+                    </p>
+                  ) : (
+                    <p className="text-sm font-extrabold text-amber-900">
+                      Collect {formatRupee(collectAmount)} from driver ({driverName})
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-slate-600">
+                    COD — physical cash must be handed to this dark store.
+                  </p>
+                </div>
+                {!cashDone && (
+                  <button
+                    type="button"
+                    disabled={confirmingCash}
+                    onClick={onConfirmCashReceived}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {confirmingCash ? (
+                      "Confirming…"
+                    ) : (
+                      <>
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-white text-[11px]">
+                          ✓
+                        </span>
+                        Received cash
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FeeStat
+              label="Total time"
+              value={formatTripDuration(order.tripDurationMinutes)}
+              hint={
+                order.deliveryDistanceKm
+                  ? `${Number(order.deliveryDistanceKm).toFixed(1)} km`
+                  : "Trip duration"
+              }
+            />
+            <FeeStat
+              label="Order total"
+              value={formatRupee(orderTotal)}
+              hint="Items + delivery"
+            />
+            <FeeStat
+              label="Delivery charges"
+              value={formatRupee(deliveryFee)}
+              hint="Customer delivery fee"
+            />
+            <FeeStat
+              label="Delivery boy fee"
+              value={formatRupee(order.riderDeliveryEarning || 0)}
+              hint={
+                order.earningSlab?.riderAmount
+                  ? `Slab ${order.earningSlab.minKm}–${order.earningSlab.maxKm} km`
+                  : "Shift earning"
+              }
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <InfoCard title="Customer">
           <p className="font-bold text-slate-900">{order.customerName || "Customer"}</p>
@@ -250,6 +394,11 @@ export default function OrderDetailPage() {
         </InfoCard>
         <InfoCard title="Status">
           <OrderStatusText status={order.status} />
+          {!isDelivered && order.paymentMethod && (
+            <p className="mt-2 text-xs font-semibold text-slate-600">
+              {paymentMethodLabel(order.paymentMethod)}
+            </p>
+          )}
         </InfoCard>
         <InfoCard title="Assigned Driver">
           <DriverAssignmentText order={order} />
@@ -294,10 +443,10 @@ export default function OrderDetailPage() {
               {items.length} product{items.length === 1 ? "" : "s"} · {itemCount} total units
             </p>
           </div>
-          {estimatedTotal > 0 && (
+          {itemsTotal > 0 && (
             <div className="rounded-xl bg-slate-50 px-4 py-2 text-right">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Est. value</p>
-              <p className="text-lg font-extrabold text-slate-900">₹{estimatedTotal.toLocaleString("en-IN")}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Items total</p>
+              <p className="text-lg font-extrabold text-slate-900">{formatRupee(itemsTotal)}</p>
             </div>
           )}
         </div>
@@ -335,14 +484,14 @@ export default function OrderDetailPage() {
                       <td className="px-5 py-4">
                         <p className="font-bold text-slate-900">{item.name}</p>
                         {lineTotal > 0 && (
-                          <p className="text-xs text-slate-500">Line total: ₹{lineTotal.toLocaleString("en-IN")}</p>
+                          <p className="text-xs text-slate-500">Line total: {formatRupee(lineTotal)}</p>
                         )}
                       </td>
                       <td className="px-5 py-4 font-mono text-xs text-slate-600">{item.sku || "—"}</td>
                       <td className="px-5 py-4 font-bold text-slate-900">{item.quantity}</td>
                       <td className="px-5 py-4 text-slate-600">{item.unit || "pcs"}</td>
                       <td className="px-5 py-4 text-slate-700">
-                        {item.price != null ? `₹${Number(item.price).toLocaleString("en-IN")}` : "—"}
+                        {item.price != null ? formatRupee(item.price) : "—"}
                       </td>
                       <td className="px-5 py-4">
                         <span
@@ -459,6 +608,16 @@ export default function OrderDetailPage() {
         </div>
       )}
     </PageShell>
+  );
+}
+
+function FeeStat({ label, value, hint }) {
+  return (
+    <div className="rounded-xl border border-emerald-100 bg-white px-3 py-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-extrabold text-slate-900">{value}</p>
+      {hint ? <p className="mt-0.5 text-[11px] text-slate-500">{hint}</p> : null}
+    </div>
   );
 }
 
