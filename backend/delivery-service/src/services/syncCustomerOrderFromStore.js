@@ -1,6 +1,6 @@
-import EcommerceOrder from "../../legacy/models/order/Order.js";
-import { notifyOrderStatusChange } from "../../legacy/services/orderNotificationDispatcher.js";
-import { reverseOrderRewardPoints } from "../../legacy/controllers/rewardController.js";
+import EcommerceOrder from "../../../legacy/models/order/Order.js";
+import { notifyOrderStatusChange } from "../../../legacy/services/orderNotificationDispatcher.js";
+import { reverseOrderRewardPoints } from "../../../legacy/controllers/rewardController.js";
 
 const CUSTOMER_STATUS_BY_STORE = {
   incoming: "confirm",
