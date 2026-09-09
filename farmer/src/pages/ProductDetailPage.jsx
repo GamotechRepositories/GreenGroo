@@ -99,7 +99,14 @@ function ProductDetailPage() {
           <Info label="Available Quantity" value={`${product.availableQuantity} ${product.unit}`} />
           <Info label="Selling Price" value={formatProductPrice(product.pricePerKg, product.unit)} />
           <Info label="MOQ" value={`${product.minimumOrderQuantity} ${product.unit}`} />
-          <Info label="Harvest Date" value={formatCropDate(product.harvestDate)} />
+          <Info
+            label="Sowing Date"
+            value={formatCropDate(product.crop?.sowingDate || product.sowingDate)}
+          />
+          <Info
+            label="Harvest Date"
+            value={formatCropDate(product.harvestDate || product.crop?.expectedHarvestDate)}
+          />
           <Info label="Grade" value={primaryGradeLabel(product)} />
           <Info label="Organic / Conventional" value={product.farmingType} />
           <Info label="Available From" value={formatCropDate(product.availableFrom)} />
@@ -129,8 +136,15 @@ function ProductDetailPage() {
         <div className="grid gap-3 p-3 sm:grid-cols-2 text-xs">
           <Info label="Farm Name" value={product.farmName} />
           <Info label="Farm Location" value={product.farmLocation} />
-          <Info label="Crop Harvest" value={formatCropDate(product.crop?.expectedHarvestDate)} />
-          <Info label="Estimated Crop Qty" value={product.crop ? `${product.crop.estimatedQuantity} ${product.crop.unit}` : "—"} />
+          <Info label="Sowing Date" value={formatCropDate(product.crop?.sowingDate || product.sowingDate)} />
+          <Info
+            label="Harvest Date"
+            value={formatCropDate(product.harvestDate || product.crop?.expectedHarvestDate)}
+          />
+          <Info
+            label="Estimated Crop Qty"
+            value={product.crop ? `${product.crop.estimatedQuantity} ${product.crop.unit}` : "—"}
+          />
         </div>
       </section>
 

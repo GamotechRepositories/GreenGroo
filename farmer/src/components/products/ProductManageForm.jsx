@@ -34,6 +34,7 @@ function emptyForm(defaults = {}) {
     availableQuantity: defaults.availableQuantity ?? "",
     unit: defaults.unit || "Kg",
     harvestDate: defaults.harvestDate || "",
+    sowingDate: defaults.sowingDate || defaults.crop?.sowingDate || "",
     farmingType: defaults.farmingType || "",
     availableFrom: defaults.availableFrom || "",
     availableUntil: defaults.availableUntil || "",
@@ -115,6 +116,7 @@ export default function ProductManageForm({
       cropName: crop?.cropName || "",
       productName: crop?.cropName || "",
       variety: crop?.variety || "",
+      sowingDate: crop?.sowingDate || "",
       harvestDate: crop?.expectedHarvestDate || prev.harvestDate,
       unit: crop?.unit || prev.unit,
       farmingType: crop?.farmingType || prev.farmingType,
@@ -259,6 +261,9 @@ export default function ProductManageForm({
               ))}
             </select>
           </div>
+        </Field>
+        <Field label="Sowing Date">
+          <input className={FORM_INPUT} type="date" value={form.sowingDate} disabled readOnly />
         </Field>
         <Field label="Harvest Date" required error={errors.harvestDate}>
           <input className={FORM_INPUT} type="date" value={form.harvestDate} disabled={locked} onChange={(e) => setField("harvestDate", e.target.value)} />

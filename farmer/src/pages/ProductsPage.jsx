@@ -193,12 +193,13 @@ function ProductsPage() {
                 <col className="w-[110px]" />
                 <col className="w-[120px]" />
                 <col className="w-[120px]" />
+                <col className="w-[120px]" />
                 <col className="w-[150px]" />
                 <col className="w-[210px]" />
               </colgroup>
               <thead>
                 <tr>
-                  {["Product", "Product ID", "Crop", "Qty", "Harvest", "Status"].map((h) => (
+                  {["Product", "Product ID", "Crop", "Qty", "Sowing", "Harvest", "Status"].map((h) => (
                     <th key={h} className={`${EXCEL_HEAD} whitespace-nowrap`}>
                       {h}
                     </th>
@@ -227,7 +228,12 @@ function ProductsPage() {
                       <td className={`${EXCEL_CELL} whitespace-nowrap`}>
                         {product.availableQuantity || 0} {product.unit || "Kg"}
                       </td>
-                      <td className={`${EXCEL_CELL} whitespace-nowrap`}>{formatCropDate(product.harvestDate)}</td>
+                      <td className={`${EXCEL_CELL} whitespace-nowrap`}>
+                        {formatCropDate(product.crop?.sowingDate || product.sowingDate)}
+                      </td>
+                      <td className={`${EXCEL_CELL} whitespace-nowrap`}>
+                        {formatCropDate(product.harvestDate || product.crop?.expectedHarvestDate)}
+                      </td>
                       <td className={EXCEL_CELL}>
                         <StatusBadge status={product.stockStatus || product.status} />
                       </td>

@@ -9,6 +9,7 @@ import {
   saveManagerQualityGrading,
   confirmManagerQuality,
 } from "../../api/farmerApi";
+import { formatMoney } from "../../utils/orderDisplay";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import QualityPhotos from "../../components/quality/QualityPhotos";
@@ -352,32 +353,46 @@ export default function ManagerQualityInspectionPage() {
   const gradeAssignQty = (key) => num(assignQty[key]);
   const summaryRows = useMemo(() => {
     const orderedMap = {};
-    (Array.isArray(data?.grades) ? data.grades : []).forEach((g) => {
+    const orderedSource =
+      Array.isArray(data?.orderedGrades) && data.orderedGrades.length
+        ? data.orderedGrades
+        : Array.isArray(data?.grades)
+          ? data.grades
+          : [];
+    orderedSource.forEach((g) => {
       const label = String(g.label || g.name || g.grade || "").trim();
       if (!label) return;
-      orderedMap[label] = (orderedMap[label] || 0) + num(g.quantity || g.qty);
+      orderedMap[label] = (orderedMap[label] || 0) + num(g.orderedQuantity ?? g.quantity ?? g.qty);
     });
     const labels = new Set(GRADE_ROWS.map((row) => row.label));
     weightRows.forEach((g) => labels.add(g.label));
     Object.keys(orderedMap).forEach((label) => labels.add(label));
     const preferred = GRADE_ROWS.map((row) => row.label);
     const orderedLabels = [
-      ...preferred.filter((label) => labels.has(label)),
+      ...preferred,
       ...Array.from(labels).filter((label) => !preferred.includes(label)).sort(),
     ];
     return orderedLabels
       .map((label) => {
         const row = GRADE_ROWS.find((r) => r.label === label);
         const wr = weightRows.find((g) => g.label === label);
+        const orderedHit = orderedSource.find((g) => String(g.label || g.name || g.grade || "").trim() === label);
         const ordered = orderedMap[label] || wr?.expectedWeight || 0;
-        const received = gradeReceivedWeight(label, weightRows, row ? form[row.key] : 0);
+        const received = row ? gradeAssignQty(row.key) : gradeReceivedWeight(label, weightRows, 0);
         const rejected = num(form.gradeQuality[label]?.rejectedQuantity);
-        const base = received > 0 ? received : ordered;
-        const finalReceived = Math.max(0, Math.round((base - rejected) * 1000) / 1000);
-        return { label, ordered, received, rejected, finalReceived };
+        const finalReceived = Math.max(0, Math.round((received - rejected) * 1000) / 1000);
+        const rate = num(orderedHit?.price ?? orderedHit?.rate ?? data?.price);
+        const amount = Math.round(finalReceived * rate * 1000) / 1000;
+        return { label, ordered, received, rejected, finalReceived, rate, amount };
       })
-      .filter((row) => row.ordered > 0 || row.received > 0 || row.rejected > 0);
-  }, [data, weightRows, form]);
+      .filter(
+        (row) =>
+          GRADE_ROWS.some((g) => g.label === row.label) ||
+          row.ordered > 0 ||
+          row.received > 0 ||
+          row.rejected > 0
+      );
+  }, [data, weightRows, form, assignQty]);
   const summaryTotals = useMemo(
     () =>
       summaryRows.reduce(
@@ -386,8 +401,9 @@ export default function ManagerQualityInspectionPage() {
           received: acc.received + row.received,
           rejected: acc.rejected + row.rejected,
           finalReceived: acc.finalReceived + row.finalReceived,
+          amount: acc.amount + row.amount,
         }),
-        { ordered: 0, received: 0, rejected: 0, finalReceived: 0 }
+        { ordered: 0, received: 0, rejected: 0, finalReceived: 0, amount: 0 }
       ),
     [summaryRows]
   );
@@ -720,19 +736,15 @@ export default function ManagerQualityInspectionPage() {
             <Info label="Product" value={data.productName} />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[320px] table-fixed border-collapse text-left text-[10px] md:text-xs">
-              <colgroup>
-                <col className="w-[22%]" />
-                <col className="w-[26%]" />
-                <col className="w-[26%]" />
-                <col className="w-[26%]" />
-              </colgroup>
+            <table className="w-full min-w-[520px] border-collapse text-left text-[10px] md:text-xs">
               <thead>
                 <tr className="bg-[#F8FAF8] text-[9px] font-bold uppercase tracking-wide text-[#6B7280] md:text-[10px]">
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 md:px-2 md:py-2">Grade</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Ordered</th>
                   <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Rejected</th>
-                  <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Final Received</th>
+                  <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Final Qty</th>
+                  <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Rate</th>
+                  <th className="border border-[#E5E7EB] px-1.5 py-1.5 text-right md:px-2 md:py-2">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -749,11 +761,17 @@ export default function ManagerQualityInspectionPage() {
                       <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums md:px-2 md:py-2">
                         {row.finalReceived} {unit}
                       </td>
+                      <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums md:px-2 md:py-2">
+                        {row.rate > 0 ? formatMoney(row.rate) : "—"}
+                      </td>
+                      <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right font-semibold tabular-nums text-[#217346] md:px-2 md:py-2">
+                        {row.amount > 0 ? formatMoney(row.amount) : "—"}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-[#9CA3AF] md:px-2 md:py-2" colSpan={4}>
+                    <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-[#9CA3AF] md:px-2 md:py-2" colSpan={6}>
                       No grade quantities yet.
                     </td>
                   </tr>
@@ -768,6 +786,10 @@ export default function ManagerQualityInspectionPage() {
                   </td>
                   <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums md:px-2 md:py-2">
                     {summaryTotals.finalReceived} {unit}
+                  </td>
+                  <td className="border border-[#E5E7EB] px-1.5 py-1.5 md:px-2 md:py-2" />
+                  <td className="border border-[#E5E7EB] px-1.5 py-1.5 text-right tabular-nums text-[#217346] md:px-2 md:py-2">
+                    {formatMoney(summaryTotals.amount || data.finalAmount || 0)}
                   </td>
                 </tr>
               </tbody>

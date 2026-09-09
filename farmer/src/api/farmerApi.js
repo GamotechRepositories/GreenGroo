@@ -579,6 +579,10 @@ export async function getMyOrder(orderId) {
   return apiFetch(`/api/farmer/orders/${orderId}`, { headers: authHeaders() });
 }
 
+export async function getMyQualityReport(orderId) {
+  return apiFetch(`/api/farmer/orders/${orderId}/quality-report`, { headers: authHeaders() });
+}
+
 export async function acceptMyOrder(orderId) {
   return apiFetch(`/api/farmer/orders/${orderId}/accept`, {
     method: "PATCH",

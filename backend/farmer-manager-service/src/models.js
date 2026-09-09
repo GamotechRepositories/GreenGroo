@@ -338,11 +338,16 @@ const farmerEarningSchema = new mongoose.Schema(
     orderId: { type: String, default: "" },
     date: { type: String, default: "" },
     cropName: { type: String, default: "" },
+    variety: { type: String, default: "" },
+    pickupDate: { type: String, default: "" },
+    pickupTime: { type: String, default: "" },
+    unit: { type: String, default: "Kg" },
     quantity: { type: Number, default: 0 },
     ratePerKg: { type: Number, default: 0 },
     grossEarnings: { type: Number, default: 0 },
     deductions: { type: Number, default: 0 },
     netEarnings: { type: Number, default: 0 },
+    grades: [{ type: mongoose.Schema.Types.Mixed }],
     status: { type: String, enum: ["Paid", "Pending", "Available"], default: "Pending" },
   },
   { timestamps: true }
@@ -440,6 +445,7 @@ farmerOrderSchema.index({ status: 1 });
 // Farmer Earning Indexes
 farmerEarningSchema.index({ farmerId: 1, date: -1 });
 farmerEarningSchema.index({ farmerId: 1, status: 1 });
+farmerEarningSchema.index({ farmerId: 1, orderId: 1 });
 farmerEarningSchema.index({ vendorId: 1, status: 1 });
 
 // Farmer Document Indexes

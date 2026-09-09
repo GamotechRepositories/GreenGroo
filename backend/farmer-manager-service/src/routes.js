@@ -38,6 +38,7 @@ import {
   patchMyProductStatus,
   listMyOrders,
   getMyOrder,
+  getMyQualityReport,
   acceptMyOrder,
   rejectMyOrder,
   prepareMyOrder,
@@ -193,6 +194,7 @@ farmerRouter.patch("/products/:productId/price", requireFarmer, patchMyProductPr
 farmerRouter.patch("/products/:productId/stock", requireFarmer, patchMyProductStock);
 farmerRouter.patch("/products/:productId/status", requireFarmer, patchMyProductStatus);
 farmerRouter.get("/orders", requireFarmer, listMyOrders);
+farmerRouter.get("/orders/:orderId/quality-report", requireFarmer, getMyQualityReport);
 farmerRouter.get("/orders/:orderId", requireFarmer, getMyOrder);
 farmerRouter.patch("/orders/:orderId/accept", requireFarmer, acceptMyOrder);
 farmerRouter.patch("/orders/:orderId/reject", requireFarmer, rejectMyOrder);

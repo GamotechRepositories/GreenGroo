@@ -111,7 +111,8 @@ function CropPlanningPage() {
                     <p className="text-xs font-bold text-[#1F2937]">{plan.cropName || "Crop"}</p>
                     <CopyId value={formatCropBusinessId(plan)} className="mt-0.5" textClassName="font-mono text-[11px] font-semibold tracking-wide text-emerald-700" />
                     <p className="text-[11px] text-[#6B7280]">
-                      {plan.variety || "—"} • Harvest {formatCropDate(plan.harvestDate)}
+                      {plan.variety || "—"} • Sowing {formatCropDate(plan.sowingDate)} • Harvest{" "}
+                      {formatCropDate(plan.harvestDate || plan.expectedHarvestDate)}
                     </p>
                   </div>
                   <span className="text-[10px] font-semibold uppercase text-[#6B7280]">{plan.status}</span>

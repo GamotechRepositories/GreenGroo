@@ -27,6 +27,7 @@ import OrderPreparePage from "../pages/OrderPreparePage";
 import OrderScanPage from "../pages/OrderScanPage";
 import HarvestOrdersPage from "../pages/HarvestOrdersPage";
 import EarningsPage from "../pages/EarningsPage";
+import EarningReportPage from "../pages/EarningReportPage";
 import FarmerProfilePage from "../pages/FarmerProfilePage";
 import FarmProfilePage from "../pages/FarmProfilePage";
 import FarmLocationPage from "../pages/FarmLocationPage";
@@ -72,6 +73,8 @@ function FarmerRoutes() {
           <Route path="scan/:code" element={<OrderScanPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="earnings" element={<EarningsPage />} />
+          <Route path="earnings/product/:productId" element={<EarningsPage />} />
+          <Route path="earnings/:orderId" element={<EarningReportPage />} />
           <Route path="profile" element={<FarmerProfilePage />} />
           <Route path="farm-profile" element={<FarmProfilePage />} />
           <Route path="farm-location" element={<FarmLocationPage />} />

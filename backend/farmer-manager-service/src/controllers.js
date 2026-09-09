@@ -18,6 +18,7 @@ import {
   Pickup,
   PickupDriver,
   CollectionCentre,
+  QualityInspection,
 } from "./models.js";
 import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
@@ -33,6 +34,7 @@ import {
   upgradeFarmerProductId,
   productIdFromCropId,
 } from "../../erp-service/src/services/farmerSync.js";
+import { overlayQualityOnOrder, presentInspection } from "./qualityControllers.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -1869,7 +1871,8 @@ function publicMyProduct(product, farmer, crop) {
           cropId: crop.cropId || crop.id,
           cropName: crop.cropName,
           variety: crop.variety,
-          expectedHarvestDate: crop.expectedHarvestDate,
+          sowingDate: crop.sowingDate || "",
+          expectedHarvestDate: crop.expectedHarvestDate || "",
           estimatedQuantity: crop.estimatedQuantity,
           unit: crop.unit,
           farmingType: crop.farmingType,
@@ -2498,7 +2501,7 @@ async function loadOrderProduct(order) {
   });
 }
 
-async function enrichOwnOrder(order, farmer) {
+async function enrichOwnOrder(order, farmer, inspectionDoc = null) {
   const product = await loadOrderProduct(order);
   const sellable = productSellable(product);
   const pickup = await Pickup.findOne({
@@ -2509,6 +2512,13 @@ async function enrichOwnOrder(order, farmer) {
         .select("name mobile vehicleNumber vehicleType licenseNumber assignedArea")
         .lean()
     : null;
+  let inspection = inspectionDoc;
+  if (!inspection) {
+    inspection = await QualityInspection.findOne({
+      $or: [{ orderId: order.id }, { orderId: order.orderId }],
+    }).lean();
+  }
+  const qualityOverlay = overlayQualityOnOrder(toPlain(order), inspection);
   const qrPayload = qrPayloadFor(order, {
     farmer,
     pickup,
@@ -2583,7 +2593,10 @@ async function enrichOwnOrder(order, farmer) {
           confirmationPhotos: pickup.confirmationPhotos || [],
         }
       : null,
+    pickupDate: pickup?.pickupDate || pickup?.scheduledDate || order.pickupDate || "",
+    pickupTime: pickup?.pickupTime || pickup?.scheduledTime || order.pickupTime || "",
     qrPayload,
+    ...qualityOverlay,
   });
 }
 
@@ -2594,11 +2607,21 @@ export async function listMyOrders(req, res) {
     const q = String(req.query.q || "").trim().toLowerCase();
     const { farmer, ids } = await resolveFarmerIdentity(farmerId);
     const orders = await FarmerOrder.find({ farmerId: { $in: ids } }).sort({ createdAt: -1, orderDate: -1 });
+    const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId].filter(Boolean)).map(String))];
+    const inspections = orderIds.length
+      ? await QualityInspection.find({ orderId: { $in: orderIds } }).lean()
+      : [];
+    const inspectionByOrder = new Map();
+    inspections.forEach((item) => {
+      if (item?.orderId) inspectionByOrder.set(String(item.orderId), item);
+    });
     let rows = [];
     for (const order of orders) {
       const status = normalizeOrderStatus(order.status);
       if (filter && ORDER_FILTERS[filter] && !ORDER_FILTERS[filter].includes(status)) continue;
-      const row = await enrichOwnOrder(order, farmer);
+      const inspection =
+        inspectionByOrder.get(String(order.id)) || inspectionByOrder.get(String(order.orderId || ""));
+      const row = await enrichOwnOrder(order, farmer, inspection);
       if (q) {
         const hay = `${row.orderId} ${row.productName} ${row.customerName} ${row.variety}`.toLowerCase();
         if (!hay.includes(q)) continue;
@@ -2619,6 +2642,50 @@ export async function getMyOrder(req, res) {
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load order" });
+  }
+}
+
+export async function getMyQualityReport(req, res) {
+  try {
+    const order = await loadOwnOrder(req, res);
+    if (!order) return;
+    const farmer = await Farmer.findOne({ id: order.farmerId });
+    const pickup = await Pickup.findOne({
+      $or: [{ orderId: order.id }, { orderId: order.orderId }],
+    }).lean();
+    const inspection = await QualityInspection.findOne({
+      $or: [{ orderId: order.id }, { orderId: order.orderId }],
+    }).lean();
+    if (!inspection || !["GRADE_CONFIRMED", "ORDER_COMPLETED"].includes(inspection.status)) {
+      return res.status(404).json({ message: "Quality report is available after grading is confirmed" });
+    }
+    const centre = pickup?.collectionCentreId
+      ? await CollectionCentre.findOne({ id: pickup.collectionCentreId }).lean()
+      : null;
+    const presented = await presentInspection(inspection, pickup, order, farmer, centre);
+    const overlay = overlayQualityOnOrder(toPlain(order), inspection);
+    const enriched = await enrichOwnOrder(order, farmer, inspection);
+    res.json({
+      ...presented,
+      order: enriched,
+      orderedGrades: overlay.orderedGrades?.length ? overlay.orderedGrades : presented.orderedGrades,
+      finalStatement: overlay.finalStatement?.length
+        ? overlay.finalStatement
+        : overlay.grades?.length
+          ? overlay.grades
+          : presented.finalStatement || [],
+      grades: overlay.grades?.length ? overlay.grades : presented.grades,
+      gradeAAssigned: overlay.gradeAAssigned ?? presented.gradeAAssigned ?? presented.gradeAQuantity,
+      gradeBAssigned: overlay.gradeBAssigned ?? presented.gradeBAssigned ?? presented.gradeBQuantity,
+      gradeCAssigned: overlay.gradeCAssigned ?? presented.gradeCAssigned ?? presented.gradeCQuantity,
+      gradeARejected: overlay.gradeARejected ?? 0,
+      gradeBRejected: overlay.gradeBRejected ?? 0,
+      gradeCRejected: overlay.gradeCRejected ?? 0,
+      totalAmount: overlay.totalAmount ?? presented.finalAmount,
+      orderValue: overlay.orderValue ?? presented.finalAmount,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load quality report" });
   }
 }
 
@@ -3729,22 +3796,6 @@ export async function createFarmerOrder(req, res) {
         }
       }
     }
-
-    // Create Farmer Earning entry
-    await FarmerEarning.create({
-      id: `earn-${Date.now()}`,
-      vendorId: farmer.vendorId || DEFAULT_VENDOR_ID,
-      farmerId,
-      orderId: id,
-      date: new Date().toISOString().split("T")[0],
-      cropName: products?.[0]?.name || productName || "Produce",
-      quantity: totalQuantity,
-      ratePerKg: totalQuantity > 0 ? Math.round(totalAmount / totalQuantity) : 0,
-      grossEarnings: totalAmount,
-      deductions: 0,
-      netEarnings: totalAmount,
-      status: paymentStatus === "Paid" ? "Paid" : "Pending",
-    }).catch(() => {});
     }
 
     res.status(201).json(order);

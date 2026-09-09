@@ -4,6 +4,7 @@ import {
   FarmerOrder,
   FarmerProduct,
   FarmerStockHistory,
+  FarmerEarning,
   CollectionCentre,
   Pickup,
   QualityInspection,
@@ -550,6 +551,153 @@ function splitTotals(inspection, totalReceived) {
   return { gradeA, gradeB, gradeC, rejected, allocated, remaining, totalReceived };
 }
 
+function assignedQtyForGrade(split, label) {
+  if (label === "Grade A") return qty(split.gradeA);
+  if (label === "Grade B") return qty(split.gradeB);
+  if (label === "Grade C") return qty(split.gradeC);
+  return 0;
+}
+
+function rateForGrade(order, label) {
+  const hit = orderGrades(order).find(
+    (g) => normalizeGradeKey(g.label || g.name || g.grade) === label
+  );
+  const fromGrade = Number(hit?.price ?? hit?.rate ?? hit?.pricePerKg ?? hit?.sellingPrice ?? 0);
+  if (fromGrade > 0) return fromGrade;
+  const fromProduct = (Array.isArray(order?.products) ? order.products : []).find(
+    (p) => normalizeGradeKey(p.grade) === label
+  );
+  const productRate = Number(fromProduct?.price || 0);
+  if (productRate > 0) return productRate;
+  const flat = flattenOrder(order);
+  if (Number(flat.price) > 0) return Number(flat.price);
+  const orderedQty = orderedGradeQty(order, label) || Number(flat.orderedQuantity || 0);
+  if (orderedQty > 0 && Number(flat.orderValue) > 0) return qty(Number(flat.orderValue) / orderedQty);
+  return 0;
+}
+
+function rejectedQtyForGrade(inspection, label) {
+  return qty(gradeQualityOf(inspection)?.[label]?.rejectedQuantity);
+}
+
+function buildFinalStatementGrades(order, inspection, split = {}) {
+  const labels = [...GRADE_KEYS];
+  for (const g of orderGrades(order)) {
+    const label = normalizeGradeKey(g.label || g.name || g.grade) || String(g.label || g.name || g.grade || "").trim();
+    if (label && !labels.includes(label)) labels.push(label);
+  }
+  const unit = flattenOrder(order).unit || order?.unit || "Kg";
+  return labels
+    .map((label) => {
+      const assigned = assignedQtyForGrade(split, label);
+      const rejected = rejectedQtyForGrade(inspection, label);
+      const ordered = orderedGradeQty(order, label);
+      const rate = rateForGrade(order, label);
+      const quantity = qty(Math.max(0, assigned - rejected));
+      return {
+        label,
+        name: label,
+        orderedQuantity: ordered,
+        assignedQuantity: assigned,
+        rejectedQuantity: rejected,
+        quantity,
+        price: rate,
+        rate,
+        amount: qty(quantity * rate),
+        unit,
+      };
+    })
+    .filter((g) => g.orderedQuantity > 0 || g.assignedQuantity > 0 || g.rejectedQuantity > 0 || g.quantity > 0);
+}
+
+function overlayQualityOnOrder(plain = {}, inspection) {
+  if (!inspection || !LOCKED_STATUSES.includes(inspection.status)) return {};
+  const split = {
+    gradeA: qty(inspection.gradeAQuantity),
+    gradeB: qty(inspection.gradeBQuantity),
+    gradeC: qty(inspection.gradeCQuantity),
+    rejected: qty(inspection.rejectedQuantity),
+  };
+  const source = {
+    ...plain,
+    grades:
+      Array.isArray(plain.orderedGrades) && plain.orderedGrades.length
+        ? plain.orderedGrades
+        : plain.grades,
+  };
+  const grades = buildFinalStatementGrades(source, inspection, split);
+  const gq = gradeQualityOf(inspection);
+  const finalA = grades.find((g) => g.label === "Grade A")?.quantity || 0;
+  const finalB = grades.find((g) => g.label === "Grade B")?.quantity || 0;
+  const finalC = grades.find((g) => g.label === "Grade C")?.quantity || 0;
+  return {
+    grades,
+    orderedGrades: source.grades || [],
+    gradeAQuantity: finalA,
+    gradeBQuantity: finalB,
+    gradeCQuantity: finalC,
+    gradeAAssigned: split.gradeA,
+    gradeBAssigned: split.gradeB,
+    gradeCAssigned: split.gradeC,
+    gradeARejected: grades.find((g) => g.label === "Grade A")?.rejectedQuantity || 0,
+    gradeBRejected: grades.find((g) => g.label === "Grade B")?.rejectedQuantity || 0,
+    gradeCRejected: grades.find((g) => g.label === "Grade C")?.rejectedQuantity || 0,
+    rejectedQuantity: qty(grades.reduce((sum, g) => sum + qty(g.rejectedQuantity), 0)) || split.rejected,
+    totalQuantity: qty(finalA + finalB + finalC),
+    totalAmount: qty(grades.reduce((sum, g) => sum + qty(g.amount), 0)),
+    amount: qty(grades.reduce((sum, g) => sum + qty(g.amount), 0)),
+    orderValue: qty(grades.reduce((sum, g) => sum + qty(g.amount), 0)),
+    qualityStatus: inspection.status,
+    qualityRemarks: inspection.qualityRemarks || "",
+    qualityParameters: inspection.qualityParameters || flattenGradeParams(gq),
+    qualityPhotos: inspection.qualityPhotos || [],
+    gradeQuality: gq,
+    gradingConfirmedAt: inspection.gradingConfirmedAt || null,
+    finalStatement: grades,
+  };
+}
+
+export { overlayQualityOnOrder, presentInspection };
+
+async function upsertFarmerEarningFromFinalSummary({ order, farmer, grades, pickup }) {
+  const farmerId = farmer?.farmerId || farmer?.id || order?.farmerId;
+  const orderId = order?.orderId || order?.id;
+  if (!farmerId || !orderId) return;
+  const flat = flattenOrder(order);
+  const quantity = qty(grades.reduce((sum, g) => sum + qty(g.quantity), 0));
+  const netEarnings = qty(grades.reduce((sum, g) => sum + qty(g.amount), 0));
+  const ids = [...new Set([order.id, order.orderId].filter(Boolean))];
+  const existing = await FarmerEarning.findOne({ farmerId, orderId: { $in: ids } });
+  const payload = {
+    vendorId: farmer?.vendorId || order.vendorId || "vendor-1",
+    farmerId,
+    orderId,
+    date: new Date().toISOString().split("T")[0],
+    cropName: flat.productName || order.productName || "Produce",
+    variety: order.variety || flat.variety || "",
+    pickupDate: pickup?.pickupDate || pickup?.scheduledDate || order.pickupDate || "",
+    pickupTime: pickup?.pickupTime || pickup?.scheduledTime || order.pickupTime || "",
+    unit: flat.unit || order.unit || "Kg",
+    quantity,
+    ratePerKg: quantity > 0 ? Math.round(netEarnings / quantity) : 0,
+    grossEarnings: netEarnings,
+    deductions: qty(grades.reduce((sum, g) => sum + qty(g.rejectedQuantity), 0)),
+    netEarnings,
+    status: "Pending",
+    grades,
+  };
+  if (existing) {
+    Object.assign(existing, payload);
+    existing.markModified("grades");
+    await existing.save();
+    return;
+  }
+  await FarmerEarning.create({
+    id: `earn-${String(orderId).replace(/[^A-Za-z0-9-]/g, "")}-${Date.now()}`,
+    ...payload,
+  });
+}
+
 function orderedGradeQty(order, label) {
   const fromGrades = orderGrades(order)
     .filter((g) => normalizeGradeKey(g.label || g.name || g.grade) === label)
@@ -832,7 +980,15 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
       "",
     pickupDate: pickup?.pickupDate || pickup?.scheduledDate || order?.pickupDate || "",
     pickupTime: pickup?.pickupTime || pickup?.scheduledTime || order?.pickupTime || "",
-    grades: orderGrades(order),
+    grades:
+      Array.isArray(order?.orderedGrades) && order.orderedGrades.length
+        ? order.orderedGrades
+        : orderGrades(order),
+    orderedGrades:
+      Array.isArray(order?.orderedGrades) && order.orderedGrades.length
+        ? order.orderedGrades
+        : orderGrades(order),
+    finalStatement: overlayQualityOnOrder(toPlain(order), inspection).finalStatement || [],
     orderedQuantity: qty(flat.orderedQuantity),
     receivedQuantity: totalReceived,
     actualWeight: qty(rec.actualWeight),
@@ -873,6 +1029,9 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     gradeAQuantity: split.gradeA,
     gradeBQuantity: split.gradeB,
     gradeCQuantity: split.gradeC,
+    gradeAAssigned: split.gradeA,
+    gradeBAssigned: split.gradeB,
+    gradeCAssigned: split.gradeC,
     rejectedQuantity: split.rejected,
     allocatedQuantity: split.allocated,
     remainingQuantity: split.remaining,
@@ -1285,11 +1444,36 @@ export async function confirmQualityGrading(req, res) {
     updated.gradeBQuantity = split.gradeB;
     updated.gradeCQuantity = split.gradeC;
     updated.rejectedQuantity = split.rejected;
-    order.gradeAQuantity = split.gradeA;
-    order.gradeBQuantity = split.gradeB;
-    order.gradeCQuantity = split.gradeC;
+    const originalGrades = orderGrades(order);
+    if (!Array.isArray(order.orderedGrades) || !order.orderedGrades.length) {
+      order.orderedGrades = originalGrades;
+      order.markModified("orderedGrades");
+    }
+    const finalGrades = buildFinalStatementGrades(order, updated, split);
+    const finalA = finalGrades.find((g) => g.label === "Grade A")?.quantity || 0;
+    const finalB = finalGrades.find((g) => g.label === "Grade B")?.quantity || 0;
+    const finalC = finalGrades.find((g) => g.label === "Grade C")?.quantity || 0;
+    const payableQty = qty(finalA + finalB + finalC);
+    const payableAmount = qty(finalGrades.reduce((sum, g) => sum + qty(g.amount), 0));
+    order.grades = finalGrades;
+    order.markModified("grades");
+    order.gradeAQuantity = finalA;
+    order.gradeBQuantity = finalB;
+    order.gradeCQuantity = finalC;
+    order.gradeARejected = finalGrades.find((g) => g.label === "Grade A")?.rejectedQuantity || 0;
+    order.gradeBRejected = finalGrades.find((g) => g.label === "Grade B")?.rejectedQuantity || 0;
+    order.gradeCRejected = finalGrades.find((g) => g.label === "Grade C")?.rejectedQuantity || 0;
     order.rejectedQuantity = split.rejected;
+    order.totalQuantity = payableQty;
+    order.totalAmount = payableAmount;
+    order.amount = payableAmount;
+    order.orderValue = payableAmount;
     order.qualityStatus = GRADE_CONFIRMED;
+    order.qualityRemarks = updated.qualityRemarks || order.qualityRemarks || "";
+    order.gradeQuality = gradeQualityOf(updated);
+    order.markModified("gradeQuality");
+    order.pickupDate = pickup?.pickupDate || pickup?.scheduledDate || order.pickupDate || "";
+    order.pickupTime = pickup?.pickupTime || pickup?.scheduledTime || order.pickupTime || "";
     await applyOrderStatus(order, GRADE_CONFIRMED, "Grading confirmed.");
     updated.status = ORDER_COMPLETED;
     updated.actions = [
@@ -1298,6 +1482,11 @@ export async function confirmQualityGrading(req, res) {
     ];
     await updated.save();
     await applyOrderStatus(order, ORDER_COMPLETED, "Order completed after quality grading.");
+    try {
+      await upsertFarmerEarningFromFinalSummary({ order, farmer, grades: finalGrades, pickup });
+    } catch (earnErr) {
+      console.warn("[quality] farmer earning update failed:", earnErr.message);
+    }
     try {
       await applyQualityToFarmerInventory({ inspection: updated, order, farmer, split });
       if (updated.inventorySyncedAt) await updated.save();

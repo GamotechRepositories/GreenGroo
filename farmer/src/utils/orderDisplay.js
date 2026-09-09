@@ -60,6 +60,8 @@ const ORDER_STATUS_ALIASES = {
   Cancelled: "CANCELLED",
   COMPLETED: "COMPLETED",
   Completed: "COMPLETED",
+  GRADE_CONFIRMED: "GRADE_CONFIRMED",
+  ORDER_COMPLETED: "ORDER_COMPLETED",
 };
 
 export function canonicalOrderStatus(status) {

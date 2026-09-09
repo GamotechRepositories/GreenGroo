@@ -80,7 +80,8 @@ function CropPlanPage() {
       <div>
         <h1 className={EXCEL_PAGE_TITLE}>Crop Plan — {crop.cropName}</h1>
         <p className={EXCEL_PAGE_SUB}>
-          Variety {crop.variety} • Harvest {formatCropDate(crop.expectedHarvestDate)}
+          Variety {crop.variety} • Sowing {formatCropDate(crop.sowingDate)} • Harvest{" "}
+          {formatCropDate(crop.expectedHarvestDate)}
         </p>
         <p className="mt-1 font-mono text-[12px] font-semibold tracking-wide text-emerald-700">
           {formatCropBusinessId(crop)}
@@ -93,6 +94,7 @@ function CropPlanPage() {
           <Read label="Crop" value={crop.cropName} />
           <Read label="Crop ID" value={formatCropBusinessId(crop)} />
           <Read label="Variety" value={crop.variety} />
+          <Read label="Sowing Date" value={formatCropDate(crop.sowingDate)} />
           <Read label="Harvest Date" value={formatCropDate(crop.expectedHarvestDate)} />
           <Field
             label={`Estimated Production (${crop.unit})`}
