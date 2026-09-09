@@ -16,8 +16,6 @@ import {
 } from "../utils/excelStyles";
 import "../styles/farmer.css";
 
-const MANAGER_APP_URL = String(import.meta.env.VITE_FARMER_MANAGER_URL || "http://localhost:5178").replace(/\/+$/, "");
-
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
   password: z.string().min(4, "Password is required"),
@@ -38,6 +36,7 @@ function FarmerLoginPage() {
     resolver: zodResolver(schema),
     defaultValues: { mobile: "", password: "" },
   });
+  const mobileField = register("mobile");
 
   if (token && role !== "FARMER_MANAGER") {
     const from = location.state?.from;
@@ -72,14 +71,23 @@ function FarmerLoginPage() {
       <div className={`w-full max-w-md ${EXCEL_PANEL} p-5 sm:p-7`}>
         <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">GreenGroo Farmer</p>
         <h1 className={`mt-1 ${EXCEL_PAGE_TITLE}`}>Sign in to Farmer Panel</h1>
-        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
-          Enter your registered mobile number and password to sign in.
-        </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-3">
           <div>
             <label className="mb-1 block text-xs font-semibold">Mobile Number</label>
-            <input {...register("mobile")} className={EXCEL_INPUT} />
+            <input
+              {...mobileField}
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              autoComplete="tel"
+              placeholder="10-digit mobile number"
+              className={EXCEL_INPUT}
+              onChange={(e) => {
+                e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                mobileField.onChange(e);
+              }}
+            />
             {errors.mobile ? (
               <p className="mt-1 text-xs text-[#DC2626]">{errors.mobile.message}</p>
             ) : null}
@@ -98,19 +106,11 @@ function FarmerLoginPage() {
 
         <p className={`mt-4 text-center ${EXCEL_PAGE_SUB}`}>
           New farmer?{" "}
-          <Link to="/farmer/register" className="font-semibold text-[#217346] hover:underline">
+          <Link
+            to="/farmer/register"
+            className="relative z-10 font-semibold text-[#217346] underline underline-offset-2 hover:text-[#1B5E3B]"
+          >
             Register here
-          </Link>
-        </p>
-        <p className={`mt-2 text-center ${EXCEL_PAGE_SUB}`}>
-          Farmer manager?{" "}
-          <a href={`${MANAGER_APP_URL}/manager/login`} className="font-semibold text-[#217346] hover:underline">
-            Open Manager Panel
-          </a>
-        </p>
-        <p className={`mt-2 text-center ${EXCEL_PAGE_SUB}`}>
-          <Link to="/" className="font-semibold text-[#217346] hover:underline">
-            ← Back to marketplace
           </Link>
         </p>
       </div>

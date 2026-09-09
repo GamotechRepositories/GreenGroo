@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { registerFarmerAccount } from "../store/farmerSlice";
+import { logoutFarmer, registerFarmerAccount } from "../store/farmerSlice";
 import { FarmerToaster } from "../components/ui/FarmerToaster";
 import ImageUploadField from "../components/ui/ImageUploadField";
 import { farmerRegistrationSchema, REGISTRATION_DEFAULTS } from "../auth/registrationSchema";
@@ -42,8 +42,12 @@ function FarmerRegisterPage() {
     defaultValues: REGISTRATION_DEFAULTS,
   });
 
-  if (token && role === "FARMER_MANAGER") {
-    return <Navigate to="/farmer/manager/dashboard" replace />;
+  useEffect(() => {
+    if (role === "FARMER_MANAGER") dispatch(logoutFarmer());
+  }, [dispatch, role]);
+
+  if (token && role !== "FARMER_MANAGER") {
+    return <Navigate to="/farmer/dashboard" replace />;
   }
 
   const onSubmit = async (values) => {

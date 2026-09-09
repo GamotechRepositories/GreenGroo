@@ -81,6 +81,7 @@ function FarmerRoutes() {
           <Route path="crops/:cropId/plan" element={<CropPlanPage />} />
           <Route path="crops/:cropId" element={<CropDetailPage />} />
           <Route path="crop-planning" element={<CropPlanningPage />} />
+          <Route path="manager/*" element={<Navigate to="/farmer/login" replace />} />
           <Route path="*" element={<Navigate to="/farmer/dashboard" replace />} />
         </Route>
       </Routes>
