@@ -21,8 +21,8 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { SIDEBAR_ITEMS, MANAGER_SIDEBAR_ITEMS } from "../../utils/constants";
-import { setSidebarCollapsed, toggleSidebar, selectIsManager } from "../../store/farmerSlice";
+import { SIDEBAR_ITEMS } from "../../utils/constants";
+import { setSidebarCollapsed, toggleSidebar } from "../../store/farmerSlice";
 
 const ICONS = {
   documents: FileText,
@@ -110,12 +110,10 @@ function NavGroup({ item, collapsed, onNavigate }) {
 function FarmerSidebar({ mobileOpen, onCloseMobile }) {
   const dispatch = useDispatch();
   const collapsed = useSelector((s) => s.farmer.sidebarCollapsed);
-  const isManager = useSelector(selectIsManager);
-  const farmer = useSelector((s) => s.farmer.farmer);
 
-  const items = isManager ? MANAGER_SIDEBAR_ITEMS : SIDEBAR_ITEMS;
-  const panelLabel = isManager ? "Manager Panel" : "Farmer Panel";
-  const vendorName = isManager ? (farmer?.vendorName || "GreenGroo") : "GreenGroo";
+  const items = SIDEBAR_ITEMS;
+  const panelLabel = "Farmer Panel";
+  const vendorName = "GreenGroo";
   const compact = collapsed && !mobileOpen;
 
   const onNavigate = () => {

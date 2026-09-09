@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
-import { loginFarmer } from "../store/farmerSlice";
+import { loginFarmer, logoutFarmer } from "../store/farmerSlice";
 import { FarmerToaster } from "../components/ui/FarmerToaster";
 import {
   EXCEL_BTN_PRIMARY,
@@ -15,6 +15,8 @@ import {
   EXCEL_PAGE_TITLE,
 } from "../utils/excelStyles";
 import "../styles/farmer.css";
+
+const MANAGER_APP_URL = String(import.meta.env.VITE_FARMER_MANAGER_URL || "http://localhost:5178").replace(/\/+$/, "");
 
 const schema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number"),
@@ -37,12 +39,12 @@ function FarmerLoginPage() {
     defaultValues: { mobile: "", password: "" },
   });
 
-  if (token) {
+  if (token && role !== "FARMER_MANAGER") {
     const from = location.state?.from;
-    if (from && String(from).startsWith("/farmer")) {
+    if (from && String(from).startsWith("/farmer") && !String(from).startsWith("/farmer/manager")) {
       return <Navigate to={from} replace />;
     }
-    return <Navigate to={role === "FARMER_MANAGER" ? "/farmer/manager/dashboard" : "/farmer/dashboard"} replace />;
+    return <Navigate to="/farmer/dashboard" replace />;
   }
 
   const onSubmit = async (values) => {
@@ -50,9 +52,14 @@ function FarmerLoginPage() {
     try {
       const result = await dispatch(loginFarmer(values)).unwrap();
       const userRole = result?.farmer?.role;
-      toast.success("Welcome to " + (userRole === "FARMER_MANAGER" ? "Manager Panel" : "Farmer Panel"));
-      const defaultPath = userRole === "FARMER_MANAGER" ? "/farmer/manager/dashboard" : "/farmer/dashboard";
-      navigate(location.state?.from || defaultPath, { replace: true });
+      if (userRole === "FARMER_MANAGER") {
+        dispatch(logoutFarmer());
+        toast.error("This login is for farmers. Use the Farmer Manager panel.");
+        return;
+      }
+      toast.success("Welcome to Farmer Panel");
+      const from = location.state?.from;
+      navigate(from && String(from).startsWith("/farmer") ? from : "/farmer/dashboard", { replace: true });
     } catch (err) {
       toast.error(err?.message || "Login failed");
     } finally {
@@ -94,6 +101,12 @@ function FarmerLoginPage() {
           <Link to="/farmer/register" className="font-semibold text-[#217346] hover:underline">
             Register here
           </Link>
+        </p>
+        <p className={`mt-2 text-center ${EXCEL_PAGE_SUB}`}>
+          Farmer manager?{" "}
+          <a href={`${MANAGER_APP_URL}/manager/login`} className="font-semibold text-[#217346] hover:underline">
+            Open Manager Panel
+          </a>
         </p>
         <p className={`mt-2 text-center ${EXCEL_PAGE_SUB}`}>
           <Link to="/" className="font-semibold text-[#217346] hover:underline">

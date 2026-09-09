@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Bell, LogOut, Menu, Search } from "lucide-react";
-import { logoutFarmer, selectIsManager } from "../../store/farmerSlice";
+import { logoutFarmer } from "../../store/farmerSlice";
 import { VERIFICATION_STATUS } from "../../utils/constants";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_INPUT } from "../../utils/excelStyles";
 
@@ -30,7 +30,6 @@ function VerificationPill({ status }) {
 function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceholder }) {
   const dispatch = useDispatch();
   const farmer = useSelector((s) => s.farmer.farmer);
-  const isManager = useSelector(selectIsManager);
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
@@ -57,13 +56,13 @@ function FarmerHeader({ onOpenSidebar, searchValue, onSearchChange, searchPlaceh
         </button>
 
         <Link
-          to={isManager ? "/farmer/manager/profile" : "/farmer/profile"}
+          to="/farmer/profile"
           className={`${EXCEL_BTN} hidden items-center gap-2 pr-3 sm:inline-flex`}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800">
-            {(farmer?.name || (isManager ? "M" : "F")).charAt(0)}
+            {(farmer?.name || "F").charAt(0)}
           </span>
-          <span className="max-w-[120px] truncate text-sm font-semibold">{farmer?.name || (isManager ? "Manager" : "Farmer")}</span>
+          <span className="max-w-[120px] truncate text-sm font-semibold">{farmer?.name || "Farmer"}</span>
         </Link>
 
         <button type="button" onClick={() => dispatch(logoutFarmer())} className={`${EXCEL_BTN_PRIMARY} gap-1.5 px-3`}>

@@ -27,7 +27,6 @@ import OrderPreparePage from "../pages/OrderPreparePage";
 import OrderScanPage from "../pages/OrderScanPage";
 import HarvestOrdersPage from "../pages/HarvestOrdersPage";
 import EarningsPage from "../pages/EarningsPage";
-import ProfilePage from "../pages/ProfilePage";
 import FarmerProfilePage from "../pages/FarmerProfilePage";
 import FarmProfilePage from "../pages/FarmProfilePage";
 import FarmLocationPage from "../pages/FarmLocationPage";
@@ -37,36 +36,6 @@ import CropDetailPage from "../pages/CropDetailPage";
 import CropPlanPage from "../pages/CropPlanPage";
 import CropPlanningPage from "../pages/CropPlanningPage";
 
-// Manager Pages
-import ManagerDashboardPage from "../pages/manager/ManagerDashboardPage";
-import ManagerSearchPage from "../pages/manager/ManagerSearchPage";
-import ManagerFarmersPage from "../pages/manager/ManagerFarmersPage";
-import ManagerAddFarmerPage from "../pages/manager/ManagerAddFarmerPage";
-import ManagerFarmerDetailPage from "../pages/manager/ManagerFarmerDetailPage";
-import ManagerFarmerCropViewPage from "../pages/manager/ManagerFarmerCropViewPage";
-import ManagerFarmerCropFormPage from "../pages/manager/ManagerFarmerCropFormPage";
-import ManagerProductsPage from "../pages/manager/ManagerProductsPage";
-import ManagerProductAddPage from "../pages/manager/ManagerProductAddPage";
-import ManagerInventoryPage from "../pages/manager/ManagerInventoryPage";
-import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistoryPage";
-import ManagerOrdersPage from "../pages/manager/ManagerOrdersPage";
-import ManagerOrderDetailPage from "../pages/manager/ManagerOrderDetailPage";
-import ManagerStatusOrdersSheetPage from "../pages/manager/ManagerStatusOrdersSheetPage";
-import ManagerProductFarmersPage from "../pages/manager/ManagerProductFarmersPage";
-import ManagerProductOrdersSpreadsheetPage from "../pages/manager/ManagerProductOrdersSpreadsheetPage";
-import ManagerCreateOrderPage from "../pages/manager/ManagerCreateOrderPage";
-import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
-import ManagerFarmerEarningsSpreadsheetPage from "../pages/manager/ManagerFarmerEarningsSpreadsheetPage";
-import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
-import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
-import ManagerPickupsPage from "../pages/manager/ManagerPickupsPage";
-import ManagerDriversPage from "../pages/manager/ManagerDriversPage";
-import ManagerBatchPage from "../pages/manager/ManagerBatchPage";
-import ManagerPickupDetailPage from "../pages/manager/ManagerPickupDetailPage";
-import ManagerReceivePage from "../pages/manager/ManagerReceivePage";
-import ManagerQualityListPage from "../pages/manager/ManagerQualityListPage";
-import ManagerQualityInspectionPage from "../pages/manager/ManagerQualityInspectionPage";
-
 function FarmerRoutes() {
   return (
     <Provider store={farmerStore}>
@@ -75,7 +44,6 @@ function FarmerRoutes() {
         <Route path="register" element={<FarmerRegisterPage />} />
         <Route path="register/success" element={<FarmerRegistrationSuccessPage />} />
         <Route element={<FarmerLayout />}>
-          {/* ────────── FARMER ROUTES ────────── */}
           <Route index element={<Navigate to="/farmer/dashboard" replace />} />
           <Route path="kyc" element={<FarmerKycPage />} />
           <Route path="documents" element={<DocumentsPage />} />
@@ -113,59 +81,6 @@ function FarmerRoutes() {
           <Route path="crops/:cropId/plan" element={<CropPlanPage />} />
           <Route path="crops/:cropId" element={<CropDetailPage />} />
           <Route path="crop-planning" element={<CropPlanningPage />} />
-
-          {/* ────────── MANAGER ROUTES ────────── */}
-          <Route path="manager/dashboard" element={<ManagerDashboardPage />} />
-          <Route path="manager/search" element={<ManagerSearchPage />} />
-          <Route path="manager/farmers" element={<ManagerFarmersPage />} />
-          <Route path="manager/farmers/add" element={<ManagerAddFarmerPage />} />
-          <Route path="manager/farmers/:farmerId/crops/add" element={<ManagerFarmerCropFormPage />} />
-          <Route path="manager/farmers/:farmerId/crops/:cropId/edit" element={<ManagerFarmerCropFormPage />} />
-          <Route path="manager/farmers/:farmerId/crops/:cropId" element={<ManagerFarmerCropViewPage />} />
-          <Route path="manager/farmers/:farmerId/products/add" element={<ManagerProductAddPage />} />
-          <Route path="manager/farmers/:farmerId" element={<ManagerFarmerDetailPage />} />
-          <Route path="manager/products/add" element={<ManagerProductAddPage />} />
-          <Route path="manager/products/:productKey/farmers" element={<ManagerProductFarmersPage />} />
-          <Route path="manager/products" element={<ManagerProductsPage />} />
-          <Route path="manager/inventory" element={<ManagerInventoryPage />} />
-          <Route path="manager/inventory/history" element={<ManagerInventoryHistoryPage />} />
-          <Route path="manager/orders" element={<ManagerOrdersPage />} />
-          <Route path="manager/orders/accepted" element={<ManagerStatusOrdersSheetPage />} />
-          <Route path="manager/orders/rejected" element={<ManagerStatusOrdersSheetPage />} />
-          <Route path="manager/orders/create" element={<ManagerCreateOrderPage />} />
-          <Route path="manager/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
-          <Route path="manager/orders/product/:productKey/farmers" element={<ManagerProductFarmersPage />} />
-          <Route path="manager/orders/product/:productKey" element={<ManagerProductOrdersSpreadsheetPage />} />
-          <Route path="manager/orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
-          <Route path="manager/earnings" element={<ManagerEarningsPage />} />
-          <Route path="manager/earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
-          <Route path="manager/earnings/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
-          <Route path="manager/drivers" element={<ManagerDriversPage />} />
-          <Route path="manager/pickups" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
-          <Route path="manager/pickups/requests" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
-          <Route path="manager/pickups/ready" element={<ManagerPickupsPage mode="ready" />} />
-          <Route path="manager/pickups/assigned" element={<ManagerPickupsPage mode="assigned" />} />
-          <Route path="manager/pickups/today" element={<ManagerPickupsPage mode="today" />} />
-          <Route path="manager/pickups/all" element={<ManagerPickupsPage mode="all" />} />
-          <Route path="manager/pickups/active" element={<Navigate to="/farmer/manager/pickups/all" replace />} />
-          <Route path="manager/pickups/incoming" element={<ManagerPickupsPage mode="incoming" />} />
-          <Route path="manager/pickups/centre" element={<ManagerPickupsPage mode="centre" />} />
-          <Route path="manager/pickups/batches/:batchId" element={<ManagerBatchPage />} />
-          <Route path="manager/pickups/qr" element={<Navigate to="/farmer/manager/pickups/ready" replace />} />
-          <Route path="manager/pickups/completed" element={<ManagerPickupsPage mode="history" />} />
-          <Route path="manager/pickups/history" element={<ManagerPickupsPage mode="history" />} />
-          <Route path="manager/pickups/:pickupId/receive" element={<ManagerReceivePage />} />
-          <Route path="manager/pickups/:pickupId" element={<ManagerPickupDetailPage />} />
-          <Route path="manager/quality" element={<Navigate to="/farmer/manager/quality/all" replace />} />
-          <Route path="manager/quality/pending" element={<ManagerQualityListPage mode="pending" />} />
-          <Route path="manager/quality/all" element={<ManagerQualityListPage mode="all" />} />
-          <Route path="manager/quality/inspection" element={<ManagerQualityListPage mode="inspection" />} />
-          <Route path="manager/quality/grading" element={<Navigate to="/farmer/manager/quality/inspection" replace />} />
-          <Route path="manager/quality/completed" element={<ManagerQualityListPage mode="completed" />} />
-          <Route path="manager/quality/:orderId" element={<ManagerQualityInspectionPage />} />
-          <Route path="manager/documents" element={<ManagerDocumentsPage />} />
-          <Route path="manager/profile" element={<ProfilePage />} />
-          <Route path="manager" element={<Navigate to="/farmer/manager/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/farmer/dashboard" replace />} />
         </Route>
       </Routes>

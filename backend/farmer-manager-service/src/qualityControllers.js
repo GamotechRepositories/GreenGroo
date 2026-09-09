@@ -932,6 +932,7 @@ async function requireEligibleBundle(req, orderId) {
 
 const BUCKETS = {
   pending: [QUALITY_PENDING],
+  in_progress: [INSPECTION, GRADING],
   all: [QUALITY_PENDING, INSPECTION, GRADING],
   inspection: [INSPECTION],
   grading: [GRADING],
