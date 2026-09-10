@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import categoryApi from '../api/categoryApi';
 import sectionApi from '../api/sectionApi';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 
 const API_BASE = 'http://localhost:5001';
 
@@ -62,23 +63,23 @@ const PRESET_COLORS = [
   { name: 'Mint', hex: '#E2F0D9' },
   { name: 'Emerald', hex: '#E8F5E9' },
   { name: 'Pistachio', hex: '#F0F7ED' },
-  { name: 'Yellow', hex: '#F7F1DC' },
+  { name: 'Warm sand', hex: '#F7F1DC' },
   { name: 'Cream', hex: '#FFF8E7' },
-  { name: 'Orange', hex: '#F5EDE0' },
-  { name: 'Blue', hex: '#E8F4FC' },
-  { name: 'Purple', hex: '#F3E8FF' },
-  { name: 'Pink', hex: '#FFE8E8' },
+  { name: 'Soft amber', hex: '#F5EDE0' },
+  { name: 'Sky mist', hex: '#E8F4FC' },
+  { name: 'Teal wash', hex: '#E6F7F4' },
+  { name: 'Slate soft', hex: '#F1F5F9' },
 ];
 
 const SECTION_THEME_COLORS = [
-  { name: 'Emerald Green', hex: '#10B981' },
-  { name: 'Warm Orange', hex: '#EA580C' },
-  { name: 'Royal Blue', hex: '#2563EB' },
-  { name: 'Vibrant Purple', hex: '#8B5CF6' },
-  { name: 'Amber Gold', hex: '#F59E0B' },
-  { name: 'Rose Pink', hex: '#F43F5E' },
-  { name: 'Cyan Teal', hex: '#06B6D4' },
-  { name: 'Forest Green', hex: '#059669' },
+  { name: 'Brand green', hex: '#217346' },
+  { name: 'Emerald', hex: '#10B981' },
+  { name: 'Forest', hex: '#059669' },
+  { name: 'Teal', hex: '#0D9488' },
+  { name: 'Sky', hex: '#0284C7' },
+  { name: 'Amber', hex: '#D97706' },
+  { name: 'Warm orange', hex: '#EA580C' },
+  { name: 'Slate', hex: '#475569' },
 ];
 
 const formatHexGlow = (val) => {
@@ -818,9 +819,9 @@ export default function Categories() {
                         onClick={() => setSecFormData((prev) => ({ ...prev, color: col.hex }))}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-slate-900 dark:border-white ring-2 ring-emerald-500/40 shadow-xs'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
-                        } bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200`}
+                            ? 'border-emerald-600 ring-2 ring-emerald-100 shadow-sm bg-emerald-50 text-emerald-900'
+                            : 'border-slate-200 hover:border-emerald-300 bg-white text-slate-700'
+                        }`}
                       >
                         <span
                           className="h-3.5 w-3.5 rounded-full shadow-2xs shrink-0"
@@ -870,16 +871,16 @@ export default function Categories() {
             </div>
 
             {/* STEP 3: Display Order & Status */}
-            <div className="bg-indigo-50/40 dark:bg-indigo-950/20 p-5 sm:p-6 space-y-4">
+            <div className="bg-slate-50 p-5 sm:p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-1">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-xs shadow-xs">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-xs shadow-xs">
                   3
                 </span>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                  <h3 className="text-sm font-bold text-slate-900 leading-tight">
                     Display Order & Visibility
                   </h3>
-                  <p className="text-[11px] text-indigo-800/80 dark:text-indigo-300">
+                  <p className="text-[11px] text-slate-500">
                     Sort sequence and customer app visibility
                   </p>
                 </div>

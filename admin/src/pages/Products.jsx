@@ -47,13 +47,14 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import axios from 'axios';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 
 const API_BASE = 'http://localhost:5001';
 
 const DEPARTMENT_OPTIONS = [
-  { slug: 'greengrocc', name: 'GreenGrocc', color: 'emerald', dot: 'bg-emerald-500', bg: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
-  { slug: 'ready2cook', name: 'Ready2Cook', color: 'amber', dot: 'bg-amber-500', bg: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
-  { slug: 'supermall', name: 'SuperMall', color: 'blue', dot: 'bg-sky-500', bg: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  { slug: 'greengrocc', name: 'GreenGrocc', color: 'emerald', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  { slug: 'ready2cook', name: 'Ready2Cook', color: 'amber', dot: 'bg-amber-500', bg: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  { slug: 'supermall', name: 'SuperMall', color: 'sky', dot: 'bg-sky-500', bg: 'bg-sky-50 text-sky-700 ring-sky-200' },
 ];
 
 export const FORM_STEPS = [
@@ -167,10 +168,10 @@ const PRODUCT_GLOW_THEMES = [
   { name: 'Emerald Fresh', hex: '#10B981', borderHex: '#10B981' },
   { name: 'Warm Amber', hex: '#F59E0B', borderHex: '#F59E0B' },
   { name: 'Sky Azure', hex: '#0EA5E9', borderHex: '#0EA5E9' },
-  { name: 'Royal Purple', hex: '#8B5CF6', borderHex: '#8B5CF6' },
-  { name: 'Rose Blush', hex: '#EC4899', borderHex: '#EC4899' },
-  { name: 'Citrus Gold', hex: '#EAB308', borderHex: '#EAB308' },
-  { name: 'Ocean Cyan', hex: '#06B6D4', borderHex: '#06B6D4' },
+  { name: 'Leaf Green', hex: '#217346', borderHex: '#217346' },
+  { name: 'Soft Rose', hex: '#E11D48', borderHex: '#E11D48' },
+  { name: 'Citrus Gold', hex: '#CA8A04', borderHex: '#CA8A04' },
+  { name: 'Teal', hex: '#0D9488', borderHex: '#0D9488' },
   { name: 'Forest Jade', hex: '#059669', borderHex: '#059669' },
 ];
 
@@ -1103,54 +1104,45 @@ export default function Products() {
     return (
       <div className="space-y-6 pb-12">
         {/* Top Header & Breadcrumb Bar */}
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                <button
-                  type="button"
-                  onClick={() => setIsEditorOpen(false)}
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5 cursor-pointer font-bold text-slate-600 dark:text-slate-300"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Back to Products</span>
-                </button>
-                <span>/</span>
-                <span className="text-slate-900 dark:text-white font-semibold">
-                  {editingProduct ? `Edit: ${editingProduct.name}` : 'New Product'}
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add New Product to Store'}
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Configure department mapping, pricing, stock inventory, and media gallery
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className={`${PANEL} p-4 sm:p-5`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
               <button
                 type="button"
                 onClick={() => setIsEditorOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className={`${BTN} mb-2`}
               >
+                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                Back to products
+              </button>
+              <p className={PAGE_KICKER}>Catalog</p>
+              <h1 className={PAGE_TITLE}>
+                {editingProduct ? `Edit · ${editingProduct.name}` : 'New product'}
+              </h1>
+              <p className={PAGE_SUB}>
+                Department, pricing, stock, media, and farmer traceability
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button type="button" onClick={() => setIsEditorOpen(false)} className={BTN}>
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+                className={BTN_PRIMARY}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Saving...</span>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Saving…
                   </>
                 ) : (
                   <>
-                    <Check className="h-3.5 w-3.5" />
-                    <span>{editingProduct ? 'Update Product' : 'Publish Product'}</span>
+                    <Check className="mr-1.5 h-4 w-4" />
+                    {editingProduct ? 'Update product' : 'Publish product'}
                   </>
                 )}
               </button>
@@ -1263,8 +1255,8 @@ export default function Products() {
                           }}
                           className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer text-center ${
                             isSelected
-                              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-2xs'
-                              : 'bg-slate-50/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           {dept.name}
@@ -2841,125 +2833,65 @@ export default function Products() {
   // -------------------------------------------------------------
   return (
     <div className="space-y-5 pb-10">
-      {/* Alert Notices */}
-      {successMsg && (
-        <div className="flex items-center gap-2.5 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-bold shadow-xs">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+      {successMsg ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
           <span>{successMsg}</span>
         </div>
-      )}
+      ) : null}
 
-      {error && (
-        <div className="flex items-center gap-2.5 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-bold shadow-xs">
-          <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+      {error ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
-      )}
+      ) : null}
 
-      {/* Hero Header & Metric Stats Ribbon (ONE Single Unified Card) */}
-      <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm space-y-5">
-        {/* Header Title & Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <Package className="h-4 w-4" />
-              </span>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Product Inventory & Catalog
-              </h1>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Manage store products, live pricing, stock availability, and department mapping
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={fetchData}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenCreate}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New Product</span>
-            </button>
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={PAGE_KICKER}>Catalog</p>
+          <h1 className={PAGE_TITLE}>Product Management</h1>
+          <p className={PAGE_SUB}>Pricing, stock, media, and department mapping for the storefront</p>
         </div>
-
-        {/* Simple & Professional Metric Stats Strip (No Separate Cards) */}
-        <div className="flex flex-wrap items-center gap-y-2.5 gap-x-6 sm:gap-x-8 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Total Products:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs">
-              {metrics.total}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-              In Stock:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs">
-              {metrics.inStockCount}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${metrics.outOfStockCount > 0 ? 'bg-rose-500' : 'bg-slate-400'}`} />
-              Out of Stock:
-            </span>
-            <span className={`font-bold tabular-nums px-2 py-0.5 rounded-md text-xs ${
-              metrics.outOfStockCount > 0
-                ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-            }`}>
-              {metrics.outOfStockCount}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />
-              Active in Store:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-700 dark:text-sky-300 text-xs">
-              {metrics.activeCount}
-            </span>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={fetchData} disabled={loading} className={BTN}>
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button type="button" onClick={handleOpenCreate} className={BTN_PRIMARY}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            New product
+          </button>
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-2xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total products', value: metrics.total, hint: 'In catalog', tone: 'slate' },
+          { label: 'In stock', value: metrics.inStockCount, hint: 'Available to sell', tone: 'green' },
+          { label: 'Out of stock', value: metrics.outOfStockCount, hint: 'Needs restock', tone: 'rose' },
+          { label: 'Active in store', value: metrics.activeCount, hint: 'Visible to customers', tone: 'emerald' },
+        ].map((item) => (
+          <div key={item.label} className={`${PANEL} p-4`}>
+            <p className="text-xs font-medium text-slate-500">{item.label}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{item.value}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{item.hint}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className={`${PANEL} space-y-3 p-4`}>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative max-w-md flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search products by title, SKU, or brand..."
+              placeholder="Search title, SKU, or brand…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              className={`${INPUT} pl-9`}
             />
-            {searchQuery && (
+            {searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
@@ -2967,21 +2899,19 @@ export default function Products() {
               >
                 <X className="h-3.5 w-3.5" />
               </button>
-            )}
+            ) : null}
           </div>
 
-          {/* Department, Category, Stock Dropdowns & View Toggle */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Department */}
             <select
               value={selectedDepartment}
               onChange={(e) => {
                 setSelectedDepartment(e.target.value);
                 setSelectedCategory('all');
               }}
-              className="flex-1 sm:flex-none px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer min-w-[130px]"
+              className={`${INPUT} min-w-[140px]`}
             >
-              <option value="all">All Departments</option>
+              <option value="all">All departments</option>
               {DEPARTMENT_OPTIONS.map((dept) => (
                 <option key={dept.slug} value={dept.slug}>
                   {dept.name}
@@ -2989,13 +2919,12 @@ export default function Products() {
               ))}
             </select>
 
-            {/* Category */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="flex-1 sm:flex-none px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer min-w-[130px]"
+              className={`${INPUT} min-w-[140px]`}
             >
-              <option value="all">All Categories</option>
+              <option value="all">All categories</option>
               {categories.map((c) => (
                 <option key={c._id || c.slug} value={c.categoryName}>
                   {c.categoryName}
@@ -3003,86 +2932,112 @@ export default function Products() {
               ))}
             </select>
 
-            {/* Stock */}
             <select
               value={stockFilter}
               onChange={(e) => setStockFilter(e.target.value)}
-              className="flex-1 sm:flex-none px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 cursor-pointer min-w-[110px]"
+              className={`${INPUT} min-w-[120px]`}
             >
-              <option value="all">All Stock</option>
-              <option value="in_stock">In Stock Only</option>
-              <option value="out_of_stock">Out of Stock</option>
+              <option value="all">All stock</option>
+              <option value="in_stock">In stock</option>
+              <option value="out_of_stock">Out of stock</option>
             </select>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-xs' : 'text-slate-400'
+                className={`rounded-lg p-2 transition ${
+                  viewMode === 'table' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
-                title="Table View"
+                title="Table view"
               >
-                <List className="h-3.5 w-3.5" />
+                <List className="h-4 w-4" />
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'grid' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-xs' : 'text-slate-400'
+                className={`rounded-lg p-2 transition ${
+                  viewMode === 'grid' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
-                title="Grid View"
+                title="Grid view"
               >
-                <LayoutGrid className="h-3.5 w-3.5" />
+                <LayoutGrid className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* PRODUCTS DISPLAY */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
-          <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
-          <p className="text-xs font-semibold text-slate-500">Loading catalog items...</p>
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 text-center space-y-3">
-          <div className="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600">
-            <Package className="h-6 w-6" />
-          </div>
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No products found</h3>
-          <p className="text-xs text-slate-400 max-w-sm">
-            {searchQuery || selectedDepartment !== 'all' || selectedCategory !== 'all'
-              ? 'Try clearing your filters or search keywords to view products.'
-              : 'Your store catalog is empty. Click "+ New Product" to add your first item.'}
-          </p>
+        <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
-            onClick={handleOpenCreate}
-            className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold cursor-pointer"
+            onClick={() => {
+              setSelectedDepartment('all');
+              setSelectedCategory('all');
+            }}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              selectedDepartment === 'all'
+                ? 'bg-emerald-700 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
           >
-            + Add Product
+            All
+          </button>
+          {DEPARTMENT_OPTIONS.map((dept) => (
+            <button
+              key={dept.slug}
+              type="button"
+              onClick={() => {
+                setSelectedDepartment(dept.slug);
+                setSelectedCategory('all');
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                selectedDepartment === dept.slug
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${selectedDepartment === dept.slug ? 'bg-white' : dept.dot}`} />
+              {dept.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className={`${PANEL} flex justify-center py-20 text-slate-400`}>
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className={`${PANEL} px-6 py-16 text-center`}>
+          <Package className="mx-auto h-10 w-10 text-emerald-600/30" />
+          <p className="mt-3 text-base font-semibold text-slate-800">No products found</p>
+          <p className="mt-1 text-sm text-slate-400">
+            {searchQuery || selectedDepartment !== 'all' || selectedCategory !== 'all'
+              ? 'Try clearing filters or search.'
+              : 'Add your first product to start the catalog.'}
+          </p>
+          <button type="button" onClick={handleOpenCreate} className={`${BTN_PRIMARY} mt-4`}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add product
           </button>
         </div>
       ) : viewMode === 'table' ? (
-        /* TABLE VIEW */
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
+        <div className={`${PANEL} overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
-              <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/70 dark:border-slate-800 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-slate-100 bg-slate-50/80">
                 <tr>
-                  <th className="px-4 py-3">Product</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3">Price & MRP</th>
-                  <th className="px-4 py-3">Stock</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  {['Product', 'Department', 'Category', 'Price', 'Stock', 'Status', ''].map((h) => (
+                    <th
+                      key={h || 'actions'}
+                      className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              <tbody>
                 {filteredProducts.map((p) => {
                   const img = Array.isArray(p.productImages) && p.productImages[0] ? p.productImages[0] : '';
                   const dept = DEPARTMENT_OPTIONS.find((d) => d.slug === p.section) || DEPARTMENT_OPTIONS[0];
@@ -3092,18 +3047,11 @@ export default function Products() {
                     <tr
                       key={p._id}
                       onClick={() => handleOpenEdit(p)}
-                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+                      className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80"
                     >
-                      {/* Product Thumbnail & Title */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         <div className="flex items-center gap-3">
-                          <div
-                            className="h-10 w-10 rounded-lg border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden transition-colors"
-                            style={{
-                              backgroundColor: getGlowBgStyle(p.cardGlowColor, '15'),
-                              borderColor: getGlowBgStyle(p.cardGlowColor, '40'),
-                            }}
-                          >
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                             {img ? (
                               <img src={img} alt={p.name} className="h-full w-full object-cover" />
                             ) : (
@@ -3111,132 +3059,82 @@ export default function Products() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white line-clamp-1 text-xs">
-                              {p.cardGlowColor && (
-                                <span
-                                  className="h-2 w-2 rounded-full shrink-0 shadow-2xs"
-                                  style={{ backgroundColor: formatHexGlow(p.cardGlowColor) }}
-                                  title={`Glow: ${p.cardGlowColor}`}
-                                />
-                              )}
-                              <span className="truncate">{p.name}</span>
-                              {p.badge && (
-                                <span
-                                  className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-2xs shrink-0"
-                                  style={{ backgroundColor: formatHexGlow(p.cardGlowColor) || '#10B981' }}
-                                >
-                                  {p.badge}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap pt-0.5">
-                              <span className="font-mono text-[10px]">SKU: {p.sku || '—'}</span>
-                              <span>•</span>
-                              <span>{p.brandName || 'GreenGrocc'}</span>
-                              {(p.unit || (Array.isArray(p.variants) && p.variants.length > 0)) && (
-                                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                                  {p.unit || `${p.variants.length} Units`}
-                                </span>
-                              )}
-                              {(p.farmerName || p.farmerDetails?.name) && (
-                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                  <span>👨‍🌾</span>
-                                  <span>{p.farmerName || p.farmerDetails?.name}</span>
-                                </span>
-                              )}
-                              {Array.isArray(p.productImages) && p.productImages.length > 1 && (
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                  • {p.productImages.length} photos
-                                </span>
-                              )}
-                              {p.videoUrl && (
-                                <span className="text-[10px] font-medium text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
-                                  <Film className="h-2.5 w-2.5" />
-                                  <span>Video</span>
-                                </span>
-                              )}
-                            </div>
+                            <p className="truncate font-semibold text-slate-900">{p.name}</p>
+                            <p className="mt-0.5 text-[11px] text-slate-400">
+                              <span className="font-mono">SKU {p.sku || '—'}</span>
+                              {p.brandName ? ` · ${p.brandName}` : ''}
+                              {p.unit ? ` · ${p.unit}` : ''}
+                              {p.videoUrl ? ' · Video' : ''}
+                            </p>
                           </div>
                         </div>
                       </td>
-
-                      {/* Department */}
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium ${dept.bg}`}>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${dept.bg}`}
+                        >
                           <span className={`h-1.5 w-1.5 rounded-full ${dept.dot}`} />
-                          <span>{dept.name}</span>
+                          {dept.name}
                         </span>
                       </td>
-
-                      {/* Category & Subcategory */}
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-slate-800 dark:text-slate-200 text-xs">{primaryCat || '—'}</div>
-                        <div className="text-[11px] text-slate-400 font-normal">{p.subcategory || 'General'}</div>
+                      <td className="px-3 py-3">
+                        <p className="text-sm font-medium text-slate-800">{primaryCat || '—'}</p>
+                        <p className="text-[11px] text-slate-400">{p.subcategory || 'General'}</p>
                       </td>
-
-                      {/* Pricing */}
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-slate-900 dark:text-white tabular-nums text-xs">
+                      <td className="px-3 py-3">
+                        <p className="font-semibold tabular-nums text-slate-900">
                           ₹{p.discountedPrice != null ? p.discountedPrice : p.price}
-                        </div>
-                        {p.price > p.discountedPrice && (
-                          <div className="flex items-center gap-1 text-[11px] pt-0.5">
-                            <span className="text-slate-400 line-through tabular-nums">₹{p.price}</span>
-                            <span className="font-medium text-emerald-600 dark:text-emerald-400 text-[10px]">
-                              {p.discountedPercent}% off
-                            </span>
-                          </div>
-                        )}
-                        {Array.isArray(p.variants) && p.variants.length > 1 && (
-                          <div className="text-[10px] text-slate-400">
-                            {p.variants.length} unit prices
-                          </div>
-                        )}
+                        </p>
+                        {p.price > p.discountedPrice ? (
+                          <p className="text-[11px] text-slate-400">
+                            <span className="line-through">₹{p.price}</span>
+                            {p.discountedPercent ? (
+                              <span className="ml-1 font-medium text-emerald-700">{p.discountedPercent}% off</span>
+                            ) : null}
+                          </p>
+                        ) : null}
                       </td>
-
-                      {/* Stock Toggle */}
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => handleToggleStock(p)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium cursor-pointer transition-colors ${
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset transition ${
                             p.inStock
-                              ? 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200'
-                              : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400'
+                              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 ring-rose-200 hover:bg-rose-100'
                           }`}
-                          title="Click to toggle stock status"
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${p.inStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                          <span className="tabular-nums">{p.inStock ? `${p.stock ?? 0} in stock` : 'Out of stock'}</span>
+                          {p.inStock ? `${p.stock ?? 0} in stock` : 'Out of stock'}
                         </button>
                       </td>
-
-                      {/* Active Status */}
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${
-                          p.isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
-                        }`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${p.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                          <span>{p.isActive ? 'Active' : 'Hidden'}</span>
+                      <td className="px-3 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
+                            p.isActive ? 'text-emerald-700' : 'text-slate-400'
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${p.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                          />
+                          {p.isActive ? 'Active' : 'Hidden'}
                         </span>
                       </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(p)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title="Edit Product"
+                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
+                            title="Edit"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => confirmDelete(p)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                            title="Delete Product"
+                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                            title="Delete"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -3250,170 +3148,117 @@ export default function Products() {
           </div>
         </div>
       ) : (
-        /* GRID VIEW */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProducts.map((p) => {
             const img = Array.isArray(p.productImages) && p.productImages[0] ? p.productImages[0] : '';
             const dept = DEPARTMENT_OPTIONS.find((d) => d.slug === p.section) || DEPARTMENT_OPTIONS[0];
-            const hasGlow = Boolean(p.cardGlowColor);
-            const cardBgStyle = getGlowBgStyle(p.cardGlowColor, '0D');
-            const cardBorderStyle = getGlowBgStyle(p.cardGlowColor, '40');
-            const imgBgStyle = getGlowBgStyle(p.cardGlowColor, '15');
+            const primaryCat = Array.isArray(p.categories) ? p.categories[0] : p.category;
 
             return (
-              <div
+              <button
                 key={p._id}
+                type="button"
                 onClick={() => handleOpenEdit(p)}
-                className="rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer group bg-white dark:bg-slate-900"
-                style={{
-                  backgroundColor: cardBgStyle,
-                  borderColor: cardBorderStyle,
-                  boxShadow: hasGlow ? `0 8px 24px -4px ${getGlowBgStyle(p.cardGlowColor, '25')}` : undefined,
-                }}
+                className={`${PANEL} group overflow-hidden text-left transition hover:border-emerald-300 hover:shadow-md`}
               >
-                <div>
-                  {/* Image container */}
-                  <div
-                    className="relative h-36 w-full flex items-center justify-center p-3 transition-colors bg-slate-50/50 dark:bg-slate-800/40"
-                    style={{ backgroundColor: imgBgStyle || undefined }}
-                  >
-                    {img ? (
-                      <img src={img} alt={p.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-200" />
-                    ) : (
-                      <Package className="h-8 w-8 text-slate-300" />
-                    )}
-
-                    {/* Top overlay badges */}
-                    <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1 pointer-events-none">
-                      {p.discountedPercent > 0 ? (
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold text-[9px] shadow-xs shrink-0">
-                          {p.discountedPercent}% OFF
-                        </span>
-                      ) : <span />}
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        {p.badge && (
-                          <span
-                            className="px-1.5 py-0.5 rounded text-white font-bold text-[9px] shadow-xs tracking-wide"
-                            style={{ backgroundColor: formatHexGlow(p.cardGlowColor) || '#10B981' }}
-                          >
-                            {p.badge}
-                          </span>
-                        )}
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${dept.bg}`}>
-                          <span className={`h-1 w-1 rounded-full ${dept.dot}`} />
-                          <span>{dept.name}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bottom overlay media count indicators */}
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1 pointer-events-none">
-                      {Array.isArray(p.productImages) && p.productImages.length > 1 && (
-                        <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-xs text-white text-[9px] font-medium shadow-xs">
-                          {p.productImages.length} photos
-                        </span>
-                      )}
-                      {p.videoUrl && (
-                        <span className="px-1.5 py-0.5 rounded bg-purple-600/90 backdrop-blur-xs text-white text-[9px] font-medium shadow-xs flex items-center gap-0.5">
-                          <Play className="h-2 w-2 fill-white" />
-                          <span>Video</span>
-                        </span>
-                      )}
-                    </div>
+                <div className="relative flex h-36 items-center justify-center bg-slate-50 p-3">
+                  {img ? (
+                    <img
+                      src={img}
+                      alt={p.name}
+                      className="max-h-full max-w-full object-contain transition group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <Package className="h-8 w-8 text-slate-300" />
+                  )}
+                  <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1">
+                    {p.discountedPercent > 0 ? (
+                      <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-bold text-white">
+                        {p.discountedPercent}% off
+                      </span>
+                    ) : null}
                   </div>
-
-                  {/* Body */}
-                  <div className="p-3.5 space-y-1.5">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-semibold text-slate-400 truncate">
-                        {primaryCat || 'General'}
-                      </span>
-                      {(p.unit || (Array.isArray(p.variants) && p.variants.length > 0)) && (
-                        <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
-                          {p.unit || `${p.variants.length} Units`}
-                        </span>
-                      )}
-                    </div>
-
-                    <h4 className="font-semibold text-xs text-slate-900 dark:text-white line-clamp-1">
-                      {p.name}
-                    </h4>
-
-                    {(p.farmerName || p.farmerDetails?.name) && (
-                      <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 truncate">
-                        👨‍🌾 {p.farmerName || p.farmerDetails?.name}
-                      </p>
-                    )}
-
-                    <div className="flex items-baseline gap-2 pt-0.5">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white tabular-nums">
-                        ₹{p.discountedPrice != null ? p.discountedPrice : p.price}
-                      </span>
-                      {p.price > p.discountedPrice && (
-                        <span className="text-[11px] text-slate-400 line-through tabular-nums">₹{p.price}</span>
-                      )}
-                    </div>
+                  <div className="absolute right-2.5 top-2.5">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${dept.bg}`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${dept.dot}`} />
+                      {dept.name}
+                    </span>
                   </div>
                 </div>
-
-                {/* Footer Action Strip */}
-                <div className="px-3.5 py-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${p.inStock ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-500'}`}>
+                <div className="space-y-1.5 p-3.5">
+                  <p className="text-[11px] font-medium text-slate-400">{primaryCat || 'General'}</p>
+                  <h4 className="line-clamp-1 text-sm font-semibold text-slate-900">{p.name}</h4>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-bold tabular-nums text-slate-900">
+                      ₹{p.discountedPrice != null ? p.discountedPrice : p.price}
+                    </span>
+                    {p.price > p.discountedPrice ? (
+                      <span className="text-xs text-slate-400 line-through">₹{p.price}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-3.5 py-2">
+                  <span
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                      p.inStock ? 'text-emerald-700' : 'text-rose-600'
+                    }`}
+                  >
                     <span className={`h-1.5 w-1.5 rounded-full ${p.inStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    <span>{p.inStock ? `${p.stock ?? 0} in stock` : 'Out of stock'}</span>
+                    {p.inStock ? `${p.stock ?? 0} in stock` : 'Out of stock'}
                   </span>
                   <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleOpenEdit(p)}
-                      className="p-1 rounded-md text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-slate-700 transition-colors"
-                      title="Edit"
+                      onKeyDown={(e) => e.key === 'Enter' && handleOpenEdit(p)}
+                      className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-emerald-700"
                     >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
                       onClick={() => confirmDelete(p)}
-                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                      title="Delete"
+                      onKeyDown={(e) => e.key === 'Enter' && confirmDelete(p)}
+                      className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-rose-600"
                     >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </span>
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
-      {deleteModalOpen && productToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 flex items-center justify-center">
+      {deleteModalOpen && productToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+          <div className={`w-full max-w-md ${PANEL} space-y-4 p-5 shadow-xl`}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete Product</h3>
-                <p className="text-xs text-slate-400">This action cannot be undone</p>
+                <h3 className="text-base font-bold text-slate-900">Delete product</h3>
+                <p className="text-xs text-slate-400">This cannot be undone</p>
               </div>
             </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              Are you sure you want to delete <strong className="text-slate-900 dark:text-white">"{productToDelete.name}"</strong>? It will be removed from customer searches and storefront inventory.
+            <p className="text-sm text-slate-600">
+              Remove <strong className="text-slate-900">&quot;{productToDelete.name}&quot;</strong> from the
+              catalog?
             </p>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {
                   setDeleteModalOpen(false);
                   setProductToDelete(null);
                 }}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className={BTN}
               >
                 Cancel
               </button>
@@ -3421,15 +3266,15 @@ export default function Products() {
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-600/20 disabled:opacity-50"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
-                {isDeleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                <span>Delete Product</span>
+                {isDeleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                Delete
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
