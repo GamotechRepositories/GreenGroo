@@ -346,6 +346,16 @@ export async function updateHrLeave(req, res, next) {
   }
 }
 
+export async function deleteHrLeave(req, res, next) {
+  try {
+    const row = await HrLeaveRequest.findByIdAndDelete(req.params.id);
+    if (!row) return fail(res, 404, "Leave request not found");
+    return ok(res, { id: req.params.id });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listHrShifts(req, res, next) {
   try {
     const filter = {};
@@ -386,7 +396,7 @@ export async function updateHrShift(req, res, next) {
   try {
     const row = await HrShift.findById(req.params.id);
     if (!row) return fail(res, 404, "Shift not found");
-    ["date", "startTime", "endTime", "shiftName", "notes"].forEach((key) => {
+    ["date", "startTime", "endTime", "shiftName", "notes", "name", "role", "roleKey"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
     await row.save();
@@ -409,6 +419,22 @@ export async function deleteHrShift(req, res, next) {
 export async function listHrCalendar(req, res, next) {
   try {
     const month = String(req.query.month || new Date().toISOString().slice(0, 7));
+    const roleKey = String(req.query.roleKey || "all").trim();
+    const { people } = await loadHrPeople();
+    const peopleByKey = new Map(
+      people.map((person) => [`${person.employeeType}:${String(person.id)}`, person])
+    );
+    const resolvedRole = (row) => {
+      const stored = String(row.roleKey || "").trim();
+      if (stored) return stored;
+      const person = peopleByKey.get(`${row.employeeType}:${String(row.employeeId || "")}`);
+      return String(person?.roleKey || "all").trim() || "all";
+    };
+    const matchesRole = (row) => {
+      const key = resolvedRole(row);
+      if (!roleKey || roleKey === "all") return true;
+      return key === roleKey;
+    };
     const [leaves, announcements, shifts] = await Promise.all([
       HrLeaveRequest.find({
         status: { $ne: "rejected" },
@@ -420,33 +446,39 @@ export async function listHrCalendar(req, res, next) {
       HrShift.find({ date: { $regex: `^${month}` } }).lean(),
     ]);
     const events = [
-      ...leaves.map((row) => ({
+      ...leaves.filter(matchesRole).map((row) => ({
         id: String(row._id),
         kind: "leave",
         title: `${row.name} · ${row.leaveType} leave`,
         date: row.fromDate,
-        toDate: row.toDate,
+        toDate: row.toDate || row.fromDate,
+        roleKey: resolvedRole(row),
         status: row.status,
+        body: row.reason || "",
         meta: row,
       })),
-      ...announcements.map((row) => ({
+      ...announcements.filter(matchesRole).map((row) => ({
         id: String(row._id),
         kind: "announcement",
         title: row.title,
         date: (row.scheduledAt || row.publishedAt || row.createdAt || "").toString().slice(0, 10),
+        roleKey: resolvedRole(row),
         status: row.status,
+        body: row.body || "",
         meta: row,
       })),
-      ...shifts.map((row) => ({
+      ...shifts.filter(matchesRole).map((row) => ({
         id: String(row._id),
         kind: "shift",
         title: `${row.name} · ${row.shiftName}`,
         date: row.date,
+        roleKey: resolvedRole(row),
         status: "shift",
+        body: `${row.startTime || ""}–${row.endTime || ""}`.trim(),
         meta: row,
       })),
     ];
-    return ok(res, events, { month });
+    return ok(res, events, { month, roleKey, roles: HR_ROLES });
   } catch (error) {
     next(error);
   }

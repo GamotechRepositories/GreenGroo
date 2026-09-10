@@ -62,6 +62,7 @@ import {
   listHrLeaves,
   createHrLeave,
   updateHrLeave,
+  deleteHrLeave,
   listHrShifts,
   createHrShift,
   updateHrShift,
@@ -135,6 +136,7 @@ router.put("/hr/leave-policies/:roleKey", upsertHrLeavePolicy);
 router.get("/hr/leaves", listHrLeaves);
 router.post("/hr/leaves", createHrLeave);
 router.put("/hr/leaves/:id", updateHrLeave);
+router.delete("/hr/leaves/:id", deleteHrLeave);
 router.get("/hr/shifts", listHrShifts);
 router.post("/hr/shifts", createHrShift);
 router.put("/hr/shifts/:id", updateHrShift);

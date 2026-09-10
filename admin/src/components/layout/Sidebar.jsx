@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+
+function withHrRole(href, search) {
+  const role = new URLSearchParams(search).get('role');
+  if (!role || !href.startsWith('/hr-management') || href === '/hr-management') return href;
+  return `${href}?role=${encodeURIComponent(role)}`;
+}
 import { ChevronDown, ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
 import { NAV_GROUPS } from '../../config/adminNav';
 import { useAuth } from '../../context/AuthContext';
@@ -12,10 +18,11 @@ function pathMatches(item, pathname) {
 }
 
 function NavItem({ item, compact, onNavigate, nested }) {
+  const location = useLocation();
   const Icon = item.icon;
   return (
     <NavLink
-      to={item.href}
+      to={withHrRole(item.href, location.search)}
       end={item.end}
       title={compact ? item.name : undefined}
       onClick={onNavigate}
