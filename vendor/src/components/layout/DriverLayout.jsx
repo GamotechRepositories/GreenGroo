@@ -65,7 +65,11 @@ export default function DriverLayout() {
 
       <div className="min-h-screen pb-20 md:ml-56 md:pb-0">
         <div className="px-4 pt-4">
-          <RoleAnnouncements roleKey="pickup_driver" load={() => driverApi.liveAnnouncements()} />
+          <RoleAnnouncements
+            roleKey="pickup_driver"
+            load={() => driverApi.liveAnnouncements()}
+            loadCalendar={() => driverApi.liveCalendar()}
+          />
         </div>
         <Outlet />
       </div>

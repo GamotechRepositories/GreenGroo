@@ -266,7 +266,11 @@ export default function ProductManagerLayout() {
           </div>
         </header>
         <div className="px-4 pt-3 lg:px-6 lg:pt-4">
-          <RoleAnnouncements roleKey="vendor" load={() => vendorApi.liveAnnouncements()} />
+          <RoleAnnouncements
+            roleKey="vendor"
+            load={() => vendorApi.liveAnnouncements()}
+            loadCalendar={() => vendorApi.liveCalendar()}
+          />
         </div>
         <Outlet />
       </div>

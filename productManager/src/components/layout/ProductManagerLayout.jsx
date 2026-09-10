@@ -88,6 +88,7 @@ export function PageShell({ title, subtitle, children }) {
         <RoleAnnouncements
           roleKey="product_manager"
           load={() => staffApi.liveAnnouncements("product_manager")}
+          loadCalendar={() => staffApi.liveCalendar("product_manager")}
         />
         {children}
       </main>

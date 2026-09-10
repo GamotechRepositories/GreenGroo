@@ -202,6 +202,7 @@ export function PageShell({ title, subtitle, children }) {
         <RoleAnnouncements
           roleKey="segregation_manager"
           load={() => staffApi.liveAnnouncements('segregation_manager')}
+          loadCalendar={() => staffApi.liveCalendar('segregation_manager')}
         />
         {children}
       </main>

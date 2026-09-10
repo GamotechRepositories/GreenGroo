@@ -213,6 +213,12 @@ const hrAnnouncementSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     body: { type: String, default: "", trim: true },
     roleKey: { type: String, default: "all", trim: true, index: true },
+    category: {
+      type: String,
+      enum: ["announcement", "holiday", "note"],
+      default: "announcement",
+      index: true,
+    },
     status: { type: String, enum: ["draft", "scheduled", "published"], default: "draft", index: true },
     scheduledAt: { type: String, default: "", trim: true },
     publishedAt: { type: Date, default: null },
@@ -244,6 +250,7 @@ const hrLeaveRequestSchema = new mongoose.Schema(
     toDate: { type: String, required: true, trim: true },
     days: { type: Number, default: 1, min: 0 },
     reason: { type: String, default: "", trim: true },
+    adminNotes: { type: String, default: "", trim: true },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
     assignedBy: { type: String, default: "", trim: true },
   },
@@ -262,6 +269,7 @@ const hrShiftSchema = new mongoose.Schema(
     endTime: { type: String, default: "18:00", trim: true },
     shiftName: { type: String, default: "General", trim: true },
     notes: { type: String, default: "", trim: true },
+    status: { type: String, enum: ["scheduled", "published"], default: "published", index: true },
   },
   { timestamps: true }
 );

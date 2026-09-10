@@ -8,14 +8,23 @@ class HrAnnouncement {
     required this.title,
     required this.body,
     this.publishedAt,
+    this.kind = 'announcement',
+    this.status = 'published',
+    this.date,
   });
 
   final String id;
   final String title;
   final String body;
   final DateTime? publishedAt;
+  final String kind;
+  final String status;
+  final String? date;
 
   factory HrAnnouncement.fromJson(Map<String, dynamic> json) {
+    final kind = json['kind']?.toString() ??
+        json['category']?.toString() ??
+        'announcement';
     return HrAnnouncement(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
@@ -23,6 +32,12 @@ class HrAnnouncement {
       publishedAt: json['publishedAt'] != null
           ? DateTime.tryParse(json['publishedAt'].toString())
           : null,
+      kind: kind,
+      status: json['status']?.toString() ?? 'published',
+      date: (json['date'] ?? json['scheduledAt'] ?? json['publishedAt'])
+          ?.toString()
+          .split('T')
+          .first,
     );
   }
 }
@@ -32,18 +47,41 @@ class AnnouncementService {
   static final AnnouncementService instance = AnnouncementService._();
 
   Future<List<HrAnnouncement>> fetchLive() async {
-    final res = await apiGet(
-      '/api/admin-ops/hr/announcements/live?role=delivery_boy',
-    );
-    if (res.statusCode < 200 || res.statusCode >= 300) return [];
+    final results = await Future.wait([
+      _getList('/api/admin-ops/hr/announcements/live?role=delivery_boy'),
+      _getList('/api/admin-ops/hr/calendar/live?role=delivery_boy'),
+    ]);
+    final announcements = results[0]
+        .map(HrAnnouncement.fromJson)
+        .where((item) => item.title.isNotEmpty)
+        .toList();
+    final seen = announcements.map((item) => item.id).toSet();
+    final calendarExtras = results[1]
+        .map(HrAnnouncement.fromJson)
+        .where((item) {
+          if (item.title.isEmpty || item.id.isEmpty) return false;
+          if (seen.contains(item.id)) return false;
+          if (item.status == 'published' &&
+              (item.kind == 'announcement' ||
+                  item.kind == 'holiday' ||
+                  item.kind == 'note')) {
+            return false;
+          }
+          return true;
+        });
+    return [...announcements, ...calendarExtras].take(5).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _getList(String path) async {
+    final res = await apiGet(path);
+    if (res.statusCode < 200 || res.statusCode >= 300) return const [];
     final decoded = jsonDecode(res.body);
     final rows = decoded is Map && decoded['data'] is List
         ? decoded['data'] as List
         : const [];
     return rows
         .whereType<Map>()
-        .map((row) => HrAnnouncement.fromJson(Map<String, dynamic>.from(row)))
-        .where((item) => item.title.isNotEmpty)
+        .map((row) => Map<String, dynamic>.from(row))
         .toList();
   }
 }

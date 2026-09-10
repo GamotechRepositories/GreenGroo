@@ -129,14 +129,39 @@ function mapJwtRoleToHrKey(role) {
   return map[compact] || null;
 }
 
+function todayYmd(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Date-only YYYY-MM-DD is due on that calendar day; full timestamps use wall-clock. */
+function isScheduleDue(scheduledAt, now = new Date()) {
+  const raw = String(scheduledAt || "").trim();
+  if (!raw) return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw <= todayYmd(now);
+  const when = new Date(raw);
+  return !Number.isNaN(when.getTime()) && when <= now;
+}
+
+function resolveAnnouncementStatus({ status, scheduledAt }) {
+  const date = String(scheduledAt || "").trim();
+  const wanted = String(status || "").trim().toLowerCase();
+  if (wanted === "draft") return "draft";
+  if (wanted === "published") return "published";
+  if (date) return isScheduleDue(date) ? "published" : "scheduled";
+  if (wanted === "scheduled") return "draft";
+  // Default: publish immediately so role apps/panels can see it
+  return "published";
+}
+
 async function publishDueAnnouncements() {
   const now = new Date();
-  const scheduled = await HrAnnouncement.find({ status: "scheduled" }).select("_id scheduledAt title body roleKey").lean();
-  const due = scheduled.filter((row) => {
-    if (!row.scheduledAt) return false;
-    const when = new Date(row.scheduledAt);
-    return !Number.isNaN(when.getTime()) && when <= now;
-  });
+  const scheduled = await HrAnnouncement.find({ status: "scheduled" })
+    .select("_id scheduledAt title body roleKey category")
+    .lean();
+  const due = scheduled.filter((row) => isScheduleDue(row.scheduledAt, now));
   const dueIds = due.map((row) => row._id);
   if (dueIds.length) {
     await HrAnnouncement.updateMany(
@@ -147,6 +172,26 @@ async function publishDueAnnouncements() {
       notifyDeliveryBoysAnnouncement({ ...row, status: "published" }).catch(() => {});
     }
   }
+}
+
+async function publishDueShifts() {
+  const today = todayYmd();
+  await HrShift.updateMany(
+    { status: "scheduled", date: { $lte: today } },
+    { $set: { status: "published" } }
+  );
+}
+
+function announcementKind(row) {
+  const cat = String(row.category || "announcement").toLowerCase();
+  if (cat === "holiday" || cat === "note") return cat;
+  return "announcement";
+}
+
+function normalizeAnnouncementCategory(value) {
+  const cat = String(value || "announcement").toLowerCase().trim();
+  if (cat === "holiday" || cat === "note" || cat === "announcement") return cat;
+  return "announcement";
 }
 
 export async function listLiveHrAnnouncements(req, res, next) {
@@ -161,9 +206,16 @@ export async function listLiveHrAnnouncements(req, res, next) {
     })
       .sort({ publishedAt: -1, createdAt: -1 })
       .limit(20)
-      .select("title body roleKey publishedAt createdAt")
+      .select("title body roleKey category scheduledAt publishedAt createdAt")
       .lean();
-    return ok(res, rows);
+    return ok(
+      res,
+      rows.map((row) => ({
+        ...row,
+        kind: announcementKind(row),
+        category: announcementKind(row),
+      }))
+    );
   } catch (error) {
     next(error);
   }
@@ -196,12 +248,13 @@ export async function createHrAnnouncement(req, res, next) {
     const title = String(req.body.title || "").trim();
     if (!title) return fail(res, 400, "Title is required");
     const scheduledAt = String(req.body.scheduledAt || "").trim();
-    let status = req.body.status === "published" ? "published" : scheduledAt ? "scheduled" : "draft";
-    if (req.body.status === "draft") status = "draft";
+    const status = resolveAnnouncementStatus({ status: req.body.status, scheduledAt });
+    const category = normalizeAnnouncementCategory(req.body.category || req.body.kind);
     const row = await HrAnnouncement.create({
       title,
       body: String(req.body.body || "").trim(),
       roleKey: String(req.body.roleKey || "all").trim() || "all",
+      category,
       status,
       scheduledAt,
       publishedAt: status === "published" ? new Date() : null,
@@ -223,9 +276,16 @@ export async function updateHrAnnouncement(req, res, next) {
     ["title", "body", "roleKey", "scheduledAt"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
-    if (req.body.status) {
-      row.status = req.body.status;
-      if (row.status === "published" && !row.publishedAt) row.publishedAt = new Date();
+    if (req.body.category !== undefined || req.body.kind !== undefined) {
+      row.category = normalizeAnnouncementCategory(req.body.category || req.body.kind);
+    }
+    if (req.body.status !== undefined || req.body.scheduledAt !== undefined) {
+      const status = resolveAnnouncementStatus({
+        status: req.body.status !== undefined ? req.body.status : row.status,
+        scheduledAt: row.scheduledAt,
+      });
+      row.status = status;
+      if (status === "published" && !row.publishedAt) row.publishedAt = new Date();
     }
     await row.save();
     if (row.status === "published") {
@@ -290,11 +350,27 @@ export async function listHrLeaves(req, res, next) {
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
     if (req.query.roleKey && req.query.roleKey !== "all") filter.roleKey = req.query.roleKey;
     const rows = await HrLeaveRequest.find(filter).sort({ createdAt: -1 }).limit(400).lean();
+    const allForStats =
+      req.query.roleKey && req.query.roleKey !== "all"
+        ? await HrLeaveRequest.find({}).select("roleKey status").lean()
+        : rows;
+    const byRole = {};
+    allForStats.forEach((row) => {
+      const key = String(row.roleKey || "other").trim() || "other";
+      if (!byRole[key]) byRole[key] = { total: 0, pending: 0, approved: 0, rejected: 0 };
+      byRole[key].total += 1;
+      if (row.status === "pending") byRole[key].pending += 1;
+      else if (row.status === "approved") byRole[key].approved += 1;
+      else if (row.status === "rejected") byRole[key].rejected += 1;
+    });
     return ok(res, rows, {
+      roles: HR_ROLES.filter((role) => role.value !== "all"),
+      byRole,
       stats: {
         pending: rows.filter((row) => row.status === "pending").length,
         approved: rows.filter((row) => row.status === "approved").length,
         rejected: rows.filter((row) => row.status === "rejected").length,
+        total: rows.length,
       },
     });
   } catch (error) {
@@ -335,10 +411,13 @@ export async function updateHrLeave(req, res, next) {
   try {
     const row = await HrLeaveRequest.findById(req.params.id);
     if (!row) return fail(res, 404, "Leave request not found");
-    ["leaveType", "fromDate", "toDate", "reason", "status"].forEach((key) => {
+    ["leaveType", "fromDate", "toDate", "reason", "adminNotes", "status"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
     if (row.fromDate && row.toDate) row.days = daysBetween(row.fromDate, row.toDate);
+    if (req.body.status === "approved" || req.body.status === "rejected") {
+      row.assignedBy = req.user?.email || req.user?.name || row.assignedBy || "admin";
+    }
     await row.save();
     return ok(res, row);
   } catch (error) {
@@ -374,6 +453,8 @@ export async function createHrShift(req, res, next) {
     const name = String(req.body.name || "").trim();
     const date = String(req.body.date || "").trim();
     if (!employeeId || !name || !date) return fail(res, 400, "Employee and date are required");
+    let status = req.body.status === "scheduled" ? "scheduled" : "published";
+    if (status === "scheduled" && isScheduleDue(date)) status = "published";
     const row = await HrShift.create({
       employeeId,
       employeeType: req.body.employeeType || "staff",
@@ -385,6 +466,7 @@ export async function createHrShift(req, res, next) {
       endTime: String(req.body.endTime || "18:00"),
       shiftName: String(req.body.shiftName || "General").trim(),
       notes: String(req.body.notes || "").trim(),
+      status,
     });
     return res.status(201).json({ success: true, data: row });
   } catch (error) {
@@ -399,6 +481,11 @@ export async function updateHrShift(req, res, next) {
     ["date", "startTime", "endTime", "shiftName", "notes", "name", "role", "roleKey"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
+    if (req.body.status !== undefined) {
+      let status = req.body.status === "scheduled" ? "scheduled" : "published";
+      if (status === "scheduled" && isScheduleDue(row.date)) status = "published";
+      row.status = status;
+    }
     await row.save();
     return ok(res, row);
   } catch (error) {
@@ -418,8 +505,13 @@ export async function deleteHrShift(req, res, next) {
 
 export async function listHrCalendar(req, res, next) {
   try {
-    const month = String(req.query.month || new Date().toISOString().slice(0, 7));
+    await publishDueAnnouncements();
+    await publishDueShifts();
+    const month = String(req.query.month || todayYmd().slice(0, 7));
+    if (!/^\d{4}-\d{2}$/.test(month)) return fail(res, 400, "month must be YYYY-MM");
     const roleKey = String(req.query.roleKey || "all").trim();
+    const monthStart = new Date(`${month}-01T00:00:00`);
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
     const { people } = await loadHrPeople();
     const peopleByKey = new Map(
       people.map((person) => [`${person.employeeType}:${String(person.id)}`, person])
@@ -433,52 +525,139 @@ export async function listHrCalendar(req, res, next) {
     const matchesRole = (row) => {
       const key = resolvedRole(row);
       if (!roleKey || roleKey === "all") return true;
-      return key === roleKey;
+      return key === roleKey || key === "all";
     };
-    const [leaves, announcements, shifts] = await Promise.all([
-      HrLeaveRequest.find({
-        status: { $ne: "rejected" },
-        $or: [{ fromDate: { $regex: `^${month}` } }, { toDate: { $regex: `^${month}` } }],
-      }).lean(),
+    const inMonth = (value) => {
+      const day = String(value || "").slice(0, 10);
+      return day.startsWith(month);
+    };
+    const [announcements, shifts] = await Promise.all([
       HrAnnouncement.find({
-        $or: [{ scheduledAt: { $regex: `^${month}` } }, { publishedAt: { $gte: new Date(`${month}-01`) } }],
+        $or: [
+          { scheduledAt: { $regex: `^${month}` } },
+          { publishedAt: { $gte: monthStart, $lt: monthEnd } },
+          {
+            $and: [
+              { $or: [{ scheduledAt: "" }, { scheduledAt: null }, { scheduledAt: { $exists: false } }] },
+              { createdAt: { $gte: monthStart, $lt: monthEnd } },
+            ],
+          },
+        ],
       }).lean(),
       HrShift.find({ date: { $regex: `^${month}` } }).lean(),
     ]);
     const events = [
-      ...leaves.filter(matchesRole).map((row) => ({
-        id: String(row._id),
-        kind: "leave",
-        title: `${row.name} · ${row.leaveType} leave`,
-        date: row.fromDate,
-        toDate: row.toDate || row.fromDate,
-        roleKey: resolvedRole(row),
-        status: row.status,
-        body: row.reason || "",
-        meta: row,
-      })),
-      ...announcements.filter(matchesRole).map((row) => ({
-        id: String(row._id),
-        kind: "announcement",
-        title: row.title,
-        date: (row.scheduledAt || row.publishedAt || row.createdAt || "").toString().slice(0, 10),
-        roleKey: resolvedRole(row),
-        status: row.status,
-        body: row.body || "",
-        meta: row,
-      })),
+      ...announcements
+        .filter(matchesRole)
+        .map((row) => {
+          const date = (row.scheduledAt || row.publishedAt || row.createdAt || "")
+            .toString()
+            .slice(0, 10);
+          const kind = announcementKind(row);
+          return {
+            id: String(row._id),
+            kind,
+            title: row.title,
+            date,
+            roleKey: resolvedRole(row),
+            status: row.status,
+            body: row.body || "",
+            meta: row,
+          };
+        })
+        .filter((row) => inMonth(row.date)),
       ...shifts.filter(matchesRole).map((row) => ({
         id: String(row._id),
         kind: "shift",
         title: `${row.name} · ${row.shiftName}`,
         date: row.date,
         roleKey: resolvedRole(row),
-        status: "shift",
+        status: row.status || "published",
         body: `${row.startTime || ""}–${row.endTime || ""}`.trim(),
         meta: row,
       })),
     ];
     return ok(res, events, { month, roleKey, roles: HR_ROLES });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/** Role apps/panels: upcoming calendar notes + shifts for this role (role-scoped). */
+export async function listLiveHrCalendar(req, res, next) {
+  try {
+    await publishDueAnnouncements();
+    await publishDueShifts();
+    const queried = String(req.query.role || "").trim().toLowerCase();
+    const roleKey = HR_ROLE_KEYS.includes(queried) ? queried : mapJwtRoleToHrKey(req.user?.role);
+    if (!roleKey) return fail(res, 400, "role is required");
+    const today = todayYmd();
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + 30);
+    const until = todayYmd(horizon);
+    const recentCut = new Date();
+    recentCut.setDate(recentCut.getDate() - 14);
+    const recentDay = todayYmd(recentCut);
+
+    const [announcements, shifts] = await Promise.all([
+      HrAnnouncement.find({
+        status: { $in: ["published", "scheduled"] },
+        roleKey: { $in: ["all", roleKey] },
+      })
+        .sort({ scheduledAt: 1, publishedAt: -1, createdAt: -1 })
+        .limit(40)
+        .select("title body roleKey category status scheduledAt publishedAt createdAt")
+        .lean(),
+      HrShift.find({
+        roleKey: { $in: ["all", roleKey] },
+        date: { $gte: today, $lte: until },
+        $or: [{ status: "published" }, { status: { $exists: false } }, { status: null }],
+      })
+        .sort({ date: 1, startTime: 1 })
+        .limit(40)
+        .lean(),
+    ]);
+
+    const announcementEvents = announcements
+      .map((row) => {
+        const date = (row.scheduledAt || row.publishedAt || row.createdAt || "")
+          .toString()
+          .slice(0, 10);
+        if (!date) return null;
+        if (row.status === "scheduled") {
+          if (date < today || date > until) return null;
+        } else if (date < recentDay) {
+          return null;
+        }
+        const kind = announcementKind(row);
+        return {
+          id: String(row._id),
+          kind,
+          category: kind,
+          title: row.title,
+          body: row.body || "",
+          date,
+          roleKey: row.roleKey || "all",
+          status: row.status,
+        };
+      })
+      .filter(Boolean);
+
+    const shiftEvents = shifts.map((row) => ({
+      id: String(row._id),
+      kind: "shift",
+      title: `${row.name || "Shift"} · ${row.shiftName || "General"}`,
+      body: `${row.startTime || ""}–${row.endTime || ""}`.trim(),
+      date: row.date,
+      roleKey: row.roleKey || roleKey,
+      status: row.status || "published",
+    }));
+
+    const events = [...announcementEvents, ...shiftEvents].sort((a, b) =>
+      String(a.date).localeCompare(String(b.date))
+    );
+
+    return ok(res, events.slice(0, 20));
   } catch (error) {
     next(error);
   }

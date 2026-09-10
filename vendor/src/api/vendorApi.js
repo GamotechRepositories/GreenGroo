@@ -40,6 +40,10 @@ export const vendorApi = {
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "vendor" } })
       .then((res) => res.data?.data || []),
+  liveCalendar: () =>
+    api
+      .get("/api/admin-ops/hr/calendar/live", { params: { role: "vendor" } })
+      .then((res) => res.data?.data || []),
 
   // Managers
   getManagers: (params) => api.get("/api/vendor/managers", { params }),

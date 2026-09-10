@@ -27,6 +27,10 @@ export const managerApi = {
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "delivery_manager" } })
       .then((res) => res.data?.data || []),
+  liveCalendar: () =>
+    api
+      .get("/api/admin-ops/hr/calendar/live", { params: { role: "delivery_manager" } })
+      .then((res) => res.data?.data || []),
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
   listInventoryRequests: (params) =>

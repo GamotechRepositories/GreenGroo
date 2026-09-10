@@ -4,7 +4,7 @@ import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
 import { Pill, pretty, HrBackButtons } from './hrShared';
 
-const empty = { title: '', body: '', roleKey: 'all', status: 'draft', scheduledAt: '' };
+const empty = { title: '', body: '', roleKey: 'all', status: 'published', scheduledAt: '' };
 
 export default function HrAnnouncementsPage() {
   const [rows, setRows] = useState([]);
@@ -62,7 +62,7 @@ export default function HrAnnouncementsPage() {
           <HrBackButtons />
           <p className={PAGE_KICKER}>HR Management</p>
           <h1 className={PAGE_TITLE}>Announcements</h1>
-          <p className={PAGE_SUB}>Create announcements for each role. Draft, schedule, then publish so only that role sees them.</p>
+          <p className={PAGE_SUB}>Create announcements for each role. Publish now so that role&apos;s app and panel see them immediately, or schedule for a future date.</p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={load} className={BTN}><RefreshCw className="mr-1.5 h-4 w-4" />Refresh</button>
@@ -148,9 +148,9 @@ export default function HrAnnouncementsPage() {
               <label className="block text-xs font-semibold text-slate-600">
                 Status
                 <select className={`${INPUT} mt-1.5`} value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
-                  <option value="draft">Draft</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="published">Publish now</option>
+                  <option value="published">Publish now (visible in app/panel)</option>
+                  <option value="scheduled">Schedule for date</option>
+                  <option value="draft">Draft (hidden)</option>
                 </select>
               </label>
             </div>

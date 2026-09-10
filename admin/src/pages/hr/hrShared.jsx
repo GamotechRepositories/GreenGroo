@@ -74,6 +74,8 @@ export function Pill({ children, tone = 'slate' }) {
     amber: 'bg-amber-50 text-amber-700',
     rose: 'bg-rose-50 text-rose-700',
     blue: 'bg-sky-50 text-sky-700',
+    violet: 'bg-violet-50 text-violet-700',
+    orange: 'bg-orange-50 text-orange-700',
   };
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${tones[tone] || tones.slate}`}>{children}</span>;
 }

@@ -6,7 +6,7 @@ import FarmerHeader from "./FarmerHeader";
 import ManagerBottomNav from "./ManagerBottomNav";
 import { FarmerToaster } from "../ui/FarmerToaster";
 import { fetchFarmerProfile, selectIsManager } from "../../store/farmerSlice";
-import { getLiveAnnouncements } from "../../api/farmerApi";
+import { getLiveAnnouncements, getLiveCalendar } from "../../api/farmerApi";
 import RoleAnnouncements from "../RoleAnnouncements";
 import "../../styles/farmer.css";
 
@@ -47,6 +47,7 @@ function FarmerLayout() {
           <RoleAnnouncements
             roleKey="farmer_manager"
             load={() => getLiveAnnouncements("farmer_manager")}
+            loadCalendar={() => getLiveCalendar("farmer_manager")}
           />
           <Outlet context={{ search, setSearch }} />
         </main>

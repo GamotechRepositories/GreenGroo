@@ -204,6 +204,7 @@ export default function ManagerLayout() {
             <RoleAnnouncements
               roleKey="delivery_manager"
               load={() => managerApi.liveAnnouncements()}
+              loadCalendar={() => managerApi.liveCalendar()}
             />
             <Outlet />
           </div>

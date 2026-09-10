@@ -68,6 +68,7 @@ import {
   updateHrShift,
   deleteHrShift,
   listHrCalendar,
+  listLiveHrCalendar,
   listHrVacancies,
   createHrVacancy,
   updateHrVacancy,
@@ -92,6 +93,7 @@ const router = express.Router();
 router.post("/gift-cards/validate", optionalAuth, validateGiftCardPublic);
 router.get("/pricing/active", listActivePricingPublic);
 router.get("/hr/announcements/live", optionalAuth, listLiveHrAnnouncements);
+router.get("/hr/calendar/live", optionalAuth, listLiveHrCalendar);
 
 router.use(protect, requireAdmin);
 

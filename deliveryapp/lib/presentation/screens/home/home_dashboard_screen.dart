@@ -190,6 +190,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       }),
       _loadGigsData(),
       _fetchTodayProgress(),
+      _loadAnnouncements(),
     ]);
 
     if (!mounted) return;
@@ -543,6 +544,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       child: _HrAnnouncementCard(
                         title: item.title,
                         body: item.body,
+                        kind: item.kind,
+                        status: item.status,
+                        date: item.date,
                       ),
                     ),
                   ),
@@ -1813,32 +1817,115 @@ class _ActiveDeliveryCard extends StatelessWidget {
 }
 
 class _HrAnnouncementCard extends StatelessWidget {
-  const _HrAnnouncementCard({required this.title, required this.body});
+  const _HrAnnouncementCard({
+    required this.title,
+    required this.body,
+    this.kind = 'announcement',
+    this.status = 'published',
+    this.date,
+  });
 
   final String title;
   final String body;
+  final String kind;
+  final String status;
+  final String? date;
 
   @override
   Widget build(BuildContext context) {
+    final isShift = kind == 'shift';
+    final isHoliday = kind == 'holiday';
+    final isNote = kind == 'note';
+    final isUpcoming = status == 'scheduled';
+    final bg = isHoliday
+        ? const Color(0xFFFFF1F2)
+        : isShift
+            ? const Color(0xFFEFF6FF)
+            : isNote
+                ? const Color(0xFFFFF7ED)
+                : isUpcoming
+                    ? const Color(0xFFFFFBEB)
+                    : const Color(0xFFF5F3FF);
+    final border = isHoliday
+        ? const Color(0xFFFECDD3)
+        : isShift
+            ? const Color(0xFFBFDBFE)
+            : isNote
+                ? const Color(0xFFFED7AA)
+                : isUpcoming
+                    ? const Color(0xFFFDE68A)
+                    : const Color(0xFFDDD6FE);
+    final labelColor = isHoliday
+        ? const Color(0xFFBE123C)
+        : isShift
+            ? const Color(0xFF1D4ED8)
+            : isNote
+                ? const Color(0xFFC2410C)
+                : isUpcoming
+                    ? const Color(0xFFB45309)
+                    : const Color(0xFF6D28D9);
+    final titleColor = isHoliday
+        ? const Color(0xFF9F1239)
+        : isShift
+            ? const Color(0xFF1E3A8A)
+            : isNote
+                ? const Color(0xFF9A3412)
+                : isUpcoming
+                    ? const Color(0xFF78350F)
+                    : const Color(0xFF4C1D95);
+    final bodyColor = isHoliday
+        ? const Color(0xFFBE123C)
+        : isShift
+            ? const Color(0xFF1E40AF)
+            : isNote
+                ? const Color(0xFFC2410C)
+                : isUpcoming
+                    ? const Color(0xFF92400E)
+                    : const Color(0xFF5B21B6);
+    final label = isHoliday
+        ? 'HOLIDAY'
+        : isShift
+            ? 'SHIFT'
+            : isNote
+                ? 'NOTE'
+                : isUpcoming
+                    ? 'UPCOMING'
+                    : 'ANNOUNCEMENT';
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFECFDF5),
+        color: bg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFA7F3D0)),
+        border: Border.all(color: border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ANNOUNCEMENT',
-            style: GoogleFonts.inter(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.8,
-              color: const Color(0xFF047857),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: labelColor,
+                  ),
+                ),
+              ),
+              if ((date ?? '').isNotEmpty)
+                Text(
+                  date!,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: bodyColor,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -1846,7 +1933,7 @@ class _HrAnnouncementCard extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF064E3B),
+              color: titleColor,
             ),
           ),
           if (body.trim().isNotEmpty) ...[
@@ -1856,7 +1943,7 @@ class _HrAnnouncementCard extends StatelessWidget {
               style: GoogleFonts.inter(
                 fontSize: 13,
                 height: 1.35,
-                color: const Color(0xFF065F46),
+                color: bodyColor,
               ),
             ),
           ],
