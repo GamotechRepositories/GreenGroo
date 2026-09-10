@@ -26,6 +26,7 @@ import HrManagement from './pages/ops/HrManagement';
 import HrCalendarPage from './pages/hr/HrCalendarPage';
 import HrAnnouncementsPage from './pages/hr/HrAnnouncementsPage';
 import HrLeavePage from './pages/hr/HrLeavePage';
+import HrMyLeavePage from './pages/hr/HrMyLeavePage';
 import HrEmployeesPage from './pages/hr/HrEmployeesPage';
 import HrEmployeeProfilePage from './pages/hr/HrEmployeeProfilePage';
 import HrPayrollPage from './pages/hr/HrPayrollPage';
@@ -72,6 +73,7 @@ export default function App() {
               <Route path="hr-management/calendar" element={<HrCalendarPage />} />
               <Route path="hr-management/announcements" element={<HrAnnouncementsPage />} />
               <Route path="hr-management/leave" element={<HrLeavePage />} />
+              <Route path="hr-management/my-leave" element={<HrMyLeavePage />} />
               <Route path="hr-management/employees" element={<HrEmployeesPage />} />
               <Route path="hr-management/employees/:type/:id" element={<HrEmployeeProfilePage />} />
               <Route path="hr-management/payroll" element={<HrPayrollPage />} />

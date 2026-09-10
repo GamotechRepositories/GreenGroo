@@ -44,4 +44,8 @@ export const driverApi = {
     driverHttp
       .get("/api/admin-ops/hr/calendar/live", { params: { role: "pickup_driver" } })
       .then((res) => res.data?.data || []),
+  applyLeave: (data) =>
+    driverHttp.post("/api/admin-ops/hr/leaves/apply", data).then((res) => res.data?.data),
+  myLeaves: () =>
+    driverHttp.get("/api/admin-ops/hr/leaves/mine").then((res) => res.data?.data || []),
 };

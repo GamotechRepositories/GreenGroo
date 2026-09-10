@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,7 @@ const ICONS = {
   pickup: Truck,
   driver: IdCard,
   quality: BadgeCheck,
+  calendar: CalendarDays,
 };
 
 function NavGroup({ item, collapsed, onNavigate }) {

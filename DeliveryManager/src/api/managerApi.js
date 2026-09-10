@@ -31,6 +31,10 @@ export const managerApi = {
     api
       .get("/api/admin-ops/hr/calendar/live", { params: { role: "delivery_manager" } })
       .then((res) => res.data?.data || []),
+  applyLeave: (data) =>
+    api.post("/api/admin-ops/hr/leaves/apply", data).then((res) => res.data?.data),
+  myLeaves: () =>
+    api.get("/api/admin-ops/hr/leaves/mine").then((res) => res.data?.data || []),
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
   listInventoryRequests: (params) =>

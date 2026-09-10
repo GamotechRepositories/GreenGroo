@@ -206,6 +206,7 @@ const HR_ROLE_KEYS = [
   "pickup_driver",
   "delivery_manager",
   "delivery_boy",
+  "admin",
 ];
 
 const hrAnnouncementSchema = new mongoose.Schema(
@@ -249,6 +250,7 @@ const hrLeaveRequestSchema = new mongoose.Schema(
     fromDate: { type: String, required: true, trim: true },
     toDate: { type: String, required: true, trim: true },
     days: { type: Number, default: 1, min: 0 },
+    dates: { type: [String], default: [] },
     reason: { type: String, default: "", trim: true },
     adminNotes: { type: String, default: "", trim: true },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },
@@ -293,17 +295,76 @@ const hrCandidateSchema = new mongoose.Schema(
     phone: { type: String, default: "", trim: true },
     roleKey: { type: String, required: true, trim: true, index: true },
     vacancyId: { type: String, default: "", trim: true, index: true },
+    /** Pipeline bucket: applied → selected → finalize → recruited */
+    section: {
+      type: String,
+      enum: ["applied", "selected", "finalize", "recruited"],
+      default: "applied",
+      index: true,
+    },
+    /** Decision status while in Applied section */
+    applicationStatus: {
+      type: String,
+      enum: ["pending", "in_review", "accepted", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    /** Status while in Finalize section */
+    finalizeStatus: {
+      type: String,
+      enum: [
+        "",
+        "selected_for_interview",
+        "selected_for_training",
+        "selected_for_offer",
+        "on_hold",
+        "cleared",
+      ],
+      default: "",
+      index: true,
+    },
+    /** Legacy stage kept for compatibility */
     stage: {
       type: String,
-      enum: ["applied", "screening", "interview", "shortlisted", "selected", "rejected"],
+      enum: [
+        "applied",
+        "screening",
+        "interview",
+        "shortlisted",
+        "selected",
+        "rejected",
+        "in_review",
+        "finalize",
+        "recruited",
+      ],
       default: "applied",
       index: true,
     },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     notes: { type: String, default: "", trim: true },
+    adminNotes: { type: String, default: "", trim: true },
+    address: { type: String, default: "", trim: true },
+    city: { type: String, default: "", trim: true },
+    experience: { type: String, default: "", trim: true },
+    education: { type: String, default: "", trim: true },
+    currentCompany: { type: String, default: "", trim: true },
+    expectedCtc: { type: String, default: "", trim: true },
+    noticePeriod: { type: String, default: "", trim: true },
+    coverLetter: { type: String, default: "", trim: true },
+    linkedin: { type: String, default: "", trim: true },
     resumeName: { type: String, default: "", trim: true },
     resumeUrl: { type: String, default: "", trim: true },
     resumeData: { type: String, default: "" },
+    stageHistory: [
+      {
+        section: { type: String, default: "" },
+        status: { type: String, default: "" },
+        label: { type: String, default: "" },
+        notes: { type: String, default: "" },
+        by: { type: String, default: "" },
+        at: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

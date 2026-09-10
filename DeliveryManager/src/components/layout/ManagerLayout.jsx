@@ -32,6 +32,7 @@ const navItems = [
   { to: "/drivers", label: "Approved Drivers", icon: "truck", end: true },
   { to: "/drivers/pending", label: "Driver Verification", icon: "user" },
   { to: "/alerts", label: "Operational Alerts", icon: "bell" },
+  { to: "/leave", label: "Apply Leave", icon: "calendar" },
 ];
 
 export default function ManagerLayout() {

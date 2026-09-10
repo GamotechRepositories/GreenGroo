@@ -99,6 +99,22 @@ export async function getLiveCalendar(roleKey) {
   return Array.isArray(data?.data) ? data.data : [];
 }
 
+export async function applyLeave(payload) {
+  const data = await apiFetch(`/api/admin-ops/hr/leaves/apply`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return data?.data;
+}
+
+export async function listMyLeaves() {
+  const data = await apiFetch(`/api/admin-ops/hr/leaves/mine`, {
+    headers: authHeaders(),
+  });
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
 function computeVerificationStatus(docs) {
   if (!Array.isArray(docs)) return VERIFICATION_STATUS.PENDING;
   const required = docs.filter((d) => ["aadhaar", "pan", "bank", "address"].includes(d.type));

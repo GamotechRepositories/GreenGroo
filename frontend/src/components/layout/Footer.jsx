@@ -9,6 +9,7 @@ const essentialLinks = [
   { to: "/categories", label: "Categories" },
   { to: "/product", label: "Shop" },
   { to: "/about", label: "About Us" },
+  { to: "/careers", label: "Careers" },
   { to: "/contact", label: "Contact" },
   { to: "/support", label: "Support" },
 ];

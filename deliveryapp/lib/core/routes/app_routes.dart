@@ -25,6 +25,7 @@ abstract final class AppRoutes {
   static const wallet = '/wallet';
   static const gigs = '/gigs';
   static const attendance = '/attendance';
+  static const leave = '/leave';
   static const performance = '/performance';
   static const notifications = '/notifications';
   static const profile = '/profile';

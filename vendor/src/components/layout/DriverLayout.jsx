@@ -9,6 +9,7 @@ const NAV = [
   { to: "/driver/progress", label: "In Progress", short: "Progress" },
   { to: "/driver/completed", label: "Completed Pickups", short: "Done" },
   { to: "/driver/history", label: "Pickup History", short: "History" },
+  { to: "/driver/leave", label: "Apply Leave", short: "Leave" },
 ];
 
 export default function DriverLayout() {

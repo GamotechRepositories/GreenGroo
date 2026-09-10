@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../presentation/screens/active_delivery/active_delivery_screen.dart';
 import '../../presentation/screens/attendance/attendance_screen.dart';
+import '../../presentation/screens/leave/apply_leave_screen.dart';
 import '../../presentation/screens/documents/documents_screen.dart';
 import '../../presentation/screens/earnings/earnings_screen.dart';
 import '../../presentation/screens/gigs/all_gigs_screen.dart';
@@ -77,6 +78,7 @@ class AppRouter {
           AppRoutes.wallet => const WalletScreen(),
           AppRoutes.gigs => const AllGigsScreen(),
           AppRoutes.attendance => const AttendanceScreen(),
+          AppRoutes.leave => const ApplyLeaveScreen(),
           AppRoutes.performance => const PerformanceScreen(),
           AppRoutes.notifications => const NotificationsScreen(),
           AppRoutes.profile => const ProfileScreen(),

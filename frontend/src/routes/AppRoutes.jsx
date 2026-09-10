@@ -10,6 +10,7 @@ import OrderDetail from "../pages/OrderDetail";
 import OrderInvoice from "../pages/OrderInvoice";
 import Profile from "../pages/Profile";
 import About from "../pages/About";
+import Careers from "../pages/Careers";
 import Contact from "../pages/Contact";
 import Support from "../pages/Support";
 import Product from "../pages/Product";
@@ -199,6 +200,7 @@ export function AppRoutes() {
 
       {/* Additional Static / Informational Pages */}
       <Route path="/about" element={<MobileLayout><About /></MobileLayout>} />
+      <Route path="/careers" element={<MobileLayout><Careers /></MobileLayout>} />
       <Route path="/contact" element={<MobileLayout><Contact /></MobileLayout>} />
       <Route path="/support" element={<MobileLayout><Support /></MobileLayout>} />
       <Route path="/blog" element={<MobileLayout><Blog /></MobileLayout>} />
@@ -213,6 +215,7 @@ export function AppRoutes() {
           <Layout>
             <Routes>
               <Route path="/about" element={<About />} />
+              <Route path="/careers" element={<Careers />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/support" element={<Support />} />

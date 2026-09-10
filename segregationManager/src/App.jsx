@@ -7,6 +7,7 @@ import DashboardPage from './pages/dashboard/DashboardPage'
 import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
 import ProductManagersPage from './pages/team/ProductManagersPage'
 import LoginPage from './pages/auth/LoginPage'
+import ApplyLeavePage from './pages/leave/ApplyLeavePage'
 
 function App() {
   return (
@@ -184,6 +185,7 @@ function App() {
                   <PlaceholderPage title="My Profile" subtitle="Your account details" />
                 }
               />
+              <Route path="/leave" element={<ApplyLeavePage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -36,6 +36,8 @@ import DriverPickupPage from './pages/drivers/DriverPickupPage'
 import DriverBatchPage from './pages/drivers/DriverBatchPage'
 import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
 import VendorSearchPage from './pages/search/VendorSearchPage'
+import ApplyLeavePage from './pages/leave/ApplyLeavePage'
+import DriverLeavePage from './pages/drivers/DriverLeavePage'
 
 function App() {
   return (
@@ -55,6 +57,7 @@ function App() {
                 <Route path="/driver/completed" element={<DriverDashboardPage mode="completed" />} />
                 <Route path="/driver/history" element={<DriverDashboardPage mode="history" />} />
                 <Route path="/driver/today" element={<Navigate to="/driver/assigned" replace />} />
+                <Route path="/driver/leave" element={<DriverLeavePage />} />
                 <Route path="/driver/batches/:batchId" element={<DriverBatchPage />} />
                 <Route path="/driver/pickups/:pickupId" element={<DriverPickupPage />} />
               </Route>
@@ -100,6 +103,7 @@ function App() {
                 <Route path="/vendor/quality/completed" element={<QualityListPage mode="completed" />} />
                 <Route path="/vendor/quality/:orderId" element={<QualityInspectionPage />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
+                <Route path="/leave" element={<ApplyLeavePage />} />
                 <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Panel configuration" />} />
                 <Route path="/profile" element={<PlaceholderPage title="My Profile" subtitle="Your account details" />} />
               </Route>

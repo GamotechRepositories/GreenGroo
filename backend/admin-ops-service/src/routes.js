@@ -61,6 +61,8 @@ import {
   upsertHrLeavePolicy,
   listHrLeaves,
   createHrLeave,
+  applyHrLeave,
+  listMyHrLeaves,
   updateHrLeave,
   deleteHrLeave,
   listHrShifts,
@@ -70,10 +72,13 @@ import {
   listHrCalendar,
   listLiveHrCalendar,
   listHrVacancies,
+  listOpenHrVacancies,
   createHrVacancy,
   updateHrVacancy,
   listHrCandidates,
+  getHrCandidate,
   createHrCandidate,
+  applyHrCandidate,
   updateHrCandidate,
   downloadHrCandidateCv,
 } from "./hrExtendedControllers.js";
@@ -94,6 +99,10 @@ router.post("/gift-cards/validate", optionalAuth, validateGiftCardPublic);
 router.get("/pricing/active", listActivePricingPublic);
 router.get("/hr/announcements/live", optionalAuth, listLiveHrAnnouncements);
 router.get("/hr/calendar/live", optionalAuth, listLiveHrCalendar);
+router.post("/hr/leaves/apply", protect, applyHrLeave);
+router.get("/hr/leaves/mine", protect, listMyHrLeaves);
+router.get("/hr/vacancies/open", listOpenHrVacancies);
+router.post("/hr/candidates/apply", applyHrCandidate);
 
 router.use(protect, requireAdmin);
 
@@ -148,6 +157,7 @@ router.post("/hr/vacancies", createHrVacancy);
 router.put("/hr/vacancies/:id", updateHrVacancy);
 router.get("/hr/candidates", listHrCandidates);
 router.post("/hr/candidates", createHrCandidate);
+router.get("/hr/candidates/:id", getHrCandidate);
 router.put("/hr/candidates/:id", updateHrCandidate);
 router.get("/hr/candidates/:id/cv", downloadHrCandidateCv);
 router.get("/hr/attendance", listHrAttendance);

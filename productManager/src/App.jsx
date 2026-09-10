@@ -5,6 +5,7 @@ import ProductManagerLayout from "./components/layout/ProductManagerLayout";
 import LoginPage from "./pages/auth/LoginPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import InventoryRequestsPage from "./pages/inventory-requests/InventoryRequestsPage";
+import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route element={<ProductManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
+              <Route path="/leave" element={<ApplyLeavePage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/inventory-requests" replace />} />

@@ -11,6 +11,7 @@ import ProductMegaMenu from "./ProductMegaMenu";
 const NAV_LINKS = [
   { to: "/", label: "Home", end: true },
   { to: "/about", label: "About" },
+  { to: "/careers", label: "Careers" },
   { to: "/contact", label: "Contact" },
   { to: "/blog", label: "Blog" },
 ];

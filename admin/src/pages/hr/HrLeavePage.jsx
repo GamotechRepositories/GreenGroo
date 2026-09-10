@@ -393,7 +393,9 @@ export default function HrLeavePage() {
                           {row.days === 1 ? '' : 's'}
                         </p>
                         <p className="mt-1 text-xs tabular-nums text-slate-400">
-                          {row.fromDate} → {row.toDate}
+                          {Array.isArray(row.dates) && row.dates.length
+                            ? row.dates.join(', ')
+                            : `${row.fromDate} → ${row.toDate}`}
                         </p>
                         {row.reason ? (
                           <p className="mt-2 text-sm text-slate-600">

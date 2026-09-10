@@ -261,6 +261,7 @@ export const NAV_GROUPS = [
           { name: 'Calendar', href: '/hr-management/calendar', icon: CalendarDays },
           { name: 'Announcements', href: '/hr-management/announcements', icon: Megaphone },
           { name: 'Leave', href: '/hr-management/leave', icon: Palmtree },
+          { name: 'My Leave', href: '/hr-management/my-leave', icon: Palmtree },
           { name: 'Employees', href: '/hr-management/employees', icon: UserRound },
           { name: 'Salary management', href: '/hr-management/payroll', icon: Wallet },
           { name: 'Recruitment', href: '/hr-management/recruitment', icon: UserPlus },

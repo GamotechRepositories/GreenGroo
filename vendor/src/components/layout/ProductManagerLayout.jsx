@@ -65,6 +65,7 @@ const navItems = [
 ]
 
 const footerItems = [
+  { to: '/leave', label: 'Apply Leave', icon: 'calendar' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
   { to: '/profile', label: 'My Profile', icon: 'user' },
 ]

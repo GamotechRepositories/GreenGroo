@@ -91,6 +91,11 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _nav(context, AppRoutes.attendance),
                   ),
                   _DrawerItem(
+                    icon: Icons.event_busy_outlined,
+                    label: 'Apply Leave',
+                    onTap: () => _nav(context, AppRoutes.leave),
+                  ),
+                  _DrawerItem(
                     icon: Icons.insights_outlined,
                     label: l10n.performance,
                     onTap: () => _nav(context, AppRoutes.performance),

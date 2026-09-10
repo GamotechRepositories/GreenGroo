@@ -17,6 +17,7 @@ import CreateShiftPage from "./pages/shifts/CreateShiftPage";
 import IncentivesPage from "./pages/incentives/IncentivesPage";
 import CreateGigPage from "./pages/incentives/CreateGigPage";
 import AlertsPage from "./pages/alerts/AlertsPage";
+import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
               <Route path="/incentives" element={<IncentivesPage />} />
               <Route path="/incentives/create" element={<CreateGigPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/leave" element={<ApplyLeavePage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

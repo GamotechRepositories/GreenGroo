@@ -8,6 +8,7 @@ import ShareWebsiteButton from "../layout/ShareWebsiteButton";
 const PAGE_LINKS = [
   { to: "/wishlist", label: "Wishlist" },
   { to: "/about", label: "About" },
+  { to: "/careers", label: "Careers" },
   { to: "/support", label: "Support" },
   { to: "/contact", label: "Contact" },
   { to: "/orders", label: "My Orders" },

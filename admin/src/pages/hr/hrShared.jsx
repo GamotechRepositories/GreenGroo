@@ -7,6 +7,7 @@ export const HR_LINKS = [
   { to: '/hr-management/calendar', label: 'Calendar' },
   { to: '/hr-management/announcements', label: 'Announcements' },
   { to: '/hr-management/leave', label: 'Leave' },
+  { to: '/hr-management/my-leave', label: 'My Leave' },
   { to: '/hr-management/employees', label: 'Employees' },
   { to: '/hr-management/payroll', label: 'Salary' },
   { to: '/hr-management/recruitment', label: 'Recruitment' },

@@ -351,6 +351,7 @@ export const MANAGER_SIDEBAR_ITEMS = [
     ],
   },
   { to: "/manager/documents", label: "Documents", icon: "documents" },
+  { to: "/manager/leave", label: "Apply Leave", icon: "calendar" },
   { to: "/manager/profile", label: "Profile", icon: "profile" },
 ];
 
