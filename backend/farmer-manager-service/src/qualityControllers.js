@@ -804,7 +804,9 @@ async function applyQualityToFarmerInventory({ inspection, order, farmer, split 
       previousStock: row.prev,
       changedQuantity: row.addBack,
       newStock: row.next,
-      reason: "Quality grading adjustment",
+      reason: `Quality grading · from farmer · Order ${order?.orderId || orderRef}${
+        inspection?.batchId ? ` · Batch ${inspection.batchId}` : ""
+      }`,
       updatedBy: "Manager",
       reference: orderRef,
       at: new Date(),

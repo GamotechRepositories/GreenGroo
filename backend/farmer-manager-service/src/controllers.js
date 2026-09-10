@@ -4726,9 +4726,121 @@ export async function getManagerAllStockHistory(req, res) {
       .sort({ at: -1 })
       .limit(500)
       .lean();
+
+    const refs = [
+      ...new Set(
+        history
+          .map((h) => String(h.reference || "").trim())
+          .filter((r) => r && r !== "—")
+      ),
+    ];
+    const [orders, inspections, pickups, centres] = await Promise.all([
+      refs.length
+        ? FarmerOrder.find({
+            $or: [{ id: { $in: refs } }, { orderId: { $in: refs } }],
+          }).lean()
+        : [],
+      refs.length
+        ? QualityInspection.find({
+            $or: [{ orderId: { $in: refs } }, { inspectionId: { $in: refs } }],
+          }).lean()
+        : [],
+      refs.length
+        ? Pickup.find({
+            $or: [{ orderId: { $in: refs } }, { pickupId: { $in: refs } }, { id: { $in: refs } }],
+          }).lean()
+        : [],
+      CollectionCentre.find({}).lean(),
+    ]);
+
+    const orderByRef = new Map();
+    orders.forEach((o) => {
+      if (o.id) orderByRef.set(String(o.id), o);
+      if (o.orderId) orderByRef.set(String(o.orderId), o);
+    });
+    const inspectionByOrder = new Map();
+    inspections.forEach((ins) => {
+      if (ins.orderId) inspectionByOrder.set(String(ins.orderId), ins);
+      if (ins.inspectionId) inspectionByOrder.set(String(ins.inspectionId), ins);
+    });
+    const pickupByOrder = new Map();
+    pickups.forEach((p) => {
+      if (p.orderId) pickupByOrder.set(String(p.orderId), p);
+      if (p.pickupId) pickupByOrder.set(String(p.pickupId), p);
+      if (p.id) pickupByOrder.set(String(p.id), p);
+    });
+    const centreById = new Map(
+      centres.map((c) => [String(c.id || c.centreId || c.collectionCentreId || ""), c])
+    );
+
+    const enriched = history.map((h) => {
+      const ref = String(h.reference || "").trim();
+      const order = orderByRef.get(ref) || null;
+      const orderKey = order?.orderId || order?.id || ref;
+      const inspection = inspectionByOrder.get(ref) || inspectionByOrder.get(String(orderKey)) || null;
+      const pickup =
+        pickupByOrder.get(ref) ||
+        pickupByOrder.get(String(order?.id || "")) ||
+        pickupByOrder.get(String(order?.orderId || "")) ||
+        pickupByOrder.get(String(inspection?.pickupId || "")) ||
+        null;
+      const centreId =
+        inspection?.collectionCentreId ||
+        pickup?.collectionCentreId ||
+        order?.collectionCentreId ||
+        "";
+      const centre = centreById.get(String(centreId)) || null;
+      const batchId =
+        inspection?.batchId ||
+        pickup?.collectionBatchId ||
+        pickup?.batchId ||
+        "";
+      const orderDisplayId = order?.orderId || order?.id || (ref && ref !== "—" ? ref : "");
+      const reason = String(h.reason || "");
+      const isQuality = /quality|grading/i.test(reason) || Boolean(inspection);
+      const sourceType = isQuality
+        ? "Quality & Grading"
+        : /order/i.test(String(h.action || "")) || /order/i.test(reason)
+          ? "Order"
+          : String(h.updatedBy || "").toLowerCase() === "farmer"
+            ? "Farmer Stock"
+            : "Manual Update";
+      const sourceFrom = farmerNameMap.get(h.farmerId) || h.farmerId || "—";
+      const centreName =
+        centre?.name ||
+        centre?.centreName ||
+        order?.collectionCentre ||
+        pickup?.collectionCentreName ||
+        "";
+      const sourceDetail = [
+        sourceType,
+        sourceFrom ? `from ${sourceFrom}` : "",
+        orderDisplayId ? `Order ${orderDisplayId}` : "",
+        batchId ? `Batch ${batchId}` : "",
+        centreName ? `Centre ${centreName}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
+      return {
+        ...h,
+        farmerName: sourceFrom,
+        sourceType,
+        sourceFrom,
+        sourceDetail: sourceDetail || reason || h.action || "—",
+        orderId: orderDisplayId || "",
+        batchId: batchId || "",
+        pickupId: pickup?.pickupId || pickup?.id || inspection?.pickupId || "",
+        collectionCentreId: centreId || "",
+        collectionCentreName: centreName || "",
+        variety: order?.variety || inspection?.variety || "",
+        unit: order?.unit || "Kg",
+      };
+    });
+
     res.json({
       farmers,
-      history: history.map((h) => ({ ...h, farmerName: farmerNameMap.get(h.farmerId) || h.farmerId })),
+      history: enriched,
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch stock history" });

@@ -1,209 +1,296 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { getManagerAllInventory, adjustManagerFarmerStock } from "../../api/farmerApi";
-import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
-import toast from "react-hot-toast";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { listManagerQuality } from "../../api/farmerApi";
+import { CopyButton } from "../../components/ui/CopyId";
+import EmptyState from "../../components/ui/EmptyState";
+import { formatProductBusinessId } from "../../utils/cropLinks";
+import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_INPUT } from "../../utils/excelStyles";
 
-function AdjustModal({ farmer, product, grade, onClose, onDone }) {
-  const [mode, setMode] = useState("add");
-  const [qty, setQty] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+const TH =
+  "border border-[#E5E7EB] bg-[#F3F4F6] px-1 py-1.5 text-left text-[9px] font-semibold text-[#374151] sm:px-3 sm:py-3 sm:text-[12px]";
+const TD =
+  "border border-[#E5E7EB] px-1 py-1.5 text-[9px] leading-tight text-[#1F2937] sm:px-3 sm:py-3 sm:text-[12px]";
+const GRADE_TH =
+  "border px-1 py-1.5 text-center text-[9px] font-semibold sm:px-3 sm:py-3 sm:text-[12px]";
+const GRADE_TD = "border px-1 py-1.5 text-center sm:px-3 sm:py-3";
 
-  const currentStock = grade?.quantity ?? product?.stock ?? 0;
+function productNameOf(row = {}) {
+  return row.productName || row.product || row.name || "Product";
+}
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    const n = Number(qty);
-    if (!n || n <= 0) { toast.error("Enter a valid quantity"); return; }
-    setSubmitting(true);
-    try {
-      await adjustManagerFarmerStock(farmer.id, {
-        productId: product.id,
-        change: mode === "add" ? n : -n,
-        grade: grade?.label || "All",
-        reason: "Manual Update",
-        updatedBy: "Manager",
-      });
-      toast.success("Stock updated");
-      onDone();
-      onClose();
-    } catch (err) {
-      toast.error(err?.message || "Failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+function productGroupKey(row = {}) {
+  const id = String(row.productId || "").trim();
+  if (id && !/^[a-f0-9]{24}$/i.test(id)) return id.toUpperCase();
+  const biz = formatProductBusinessId(row);
+  if (biz && biz !== "—" && !/^[a-f0-9]{24}$/i.test(biz)) return String(biz).toUpperCase();
+  return `${productNameOf(row).trim().toLowerCase()}|${String(row.variety || "").trim().toLowerCase()}`;
+}
 
+function gradeLetterQty(row, letter) {
+  const label = `Grade ${letter}`;
+  const fromAssigned = Number(
+    row[`grade${letter}Quantity`] ?? row[`grade${letter}Qty`] ?? row[`grade${letter}Assigned`] ?? 0
+  );
+  const grades = Array.isArray(row.grades) ? row.grades : [];
+  const fromGrades = grades.find((g) => {
+    const key = String(g.grade || g.label || "")
+      .replace(/grade\s*/i, "")
+      .trim()
+      .toUpperCase();
+    return key === letter || String(g.label || "").trim() === label;
+  });
+  const finalRows = Array.isArray(row.finalStatement) ? row.finalStatement : [];
+  const fromFinal = finalRows.find((g) => {
+    const key = String(g.grade || g.label || "")
+      .replace(/grade\s*/i, "")
+      .trim()
+      .toUpperCase();
+    return key === letter || String(g.label || "").trim() === label;
+  });
+  const gq = row.gradeQuality && typeof row.gradeQuality === "object" ? row.gradeQuality : {};
+  const rejected = Number(gq[label]?.rejectedQuantity || fromFinal?.rejectedQuantity || 0);
+  const base = Number(
+    fromFinal?.finalQty ??
+      fromFinal?.quantity ??
+      fromFinal?.qty ??
+      fromGrades?.quantity ??
+      fromGrades?.qty ??
+      (fromAssigned > 0 ? fromAssigned : 0)
+  );
+  const qty = Math.max(0, base - (fromFinal?.finalQty != null ? 0 : rejected));
+  return Number.isFinite(qty) ? qty : 0;
+}
+
+function formatQty(qty) {
+  const n = Number(qty || 0);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className={`${EXCEL_PANEL} w-full max-w-sm p-5`}>
-        <p className="mb-3 text-sm font-bold text-[#1F2937]">
-          Adjust Stock — {product.name} ({grade?.label || "All"})
-        </p>
-        <p className="mb-3 text-xs text-[#6B7280]">
-          Current Stock: <span className="font-bold text-[#1F2937]">{currentStock} Kg</span>
-        </p>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setMode("add")}
-              className={`flex-1 py-1.5 text-xs font-semibold border ${mode === "add" ? "border-[#217346] bg-[#E8F5E9] text-[#217346]" : "border-[#D4D4D4]"}`}
-            >
-              + Add Stock
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("remove")}
-              className={`flex-1 py-1.5 text-xs font-semibold border ${mode === "remove" ? "border-[#DC2626] bg-red-50 text-[#DC2626]" : "border-[#D4D4D4]"}`}
-            >
-              − Remove Stock
-            </button>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold">Quantity (Kg)</label>
-            <input
-              type="number"
-              min="1"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              className={EXCEL_INPUT}
-              placeholder="Enter quantity"
-            />
-          </div>
-          {qty && (
-            <p className="text-xs text-[#6B7280]">
-              Updated Total: <span className="font-bold text-[#1F2937]">
-                {mode === "add" ? currentStock + Number(qty) : Math.max(0, currentStock - Number(qty))} Kg
-              </span>
-            </p>
-          )}
-          <div className="flex gap-2">
-            <button type="submit" disabled={submitting} className={`flex-1 ${EXCEL_BTN_PRIMARY} py-2`}>
-              {submitting ? "Updating…" : "Update Stock"}
-            </button>
-            <button type="button" onClick={onClose} className={`flex-1 ${EXCEL_BTN} py-2`}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <span className="font-bold tabular-nums text-[#111827] text-[10px] sm:text-[13px]">
+      {n.toLocaleString("en-IN")}
+    </span>
   );
 }
 
-export default function ManagerInventoryPage() {
-  const [farmers, setFarmers] = useState([]);
-  const [inventoryByFarmer, setInventoryByFarmer] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [adjustTarget, setAdjustTarget] = useState(null); // { farmer, product, grade }
-
-  const loadAll = async () => {
-    setLoading(true);
-    try {
-      const data = await getManagerAllInventory();
-      const fs = Array.isArray(data?.farmers) ? data.farmers : [];
-      const inventory = Array.isArray(data?.inventory) ? data.inventory : [];
-      setFarmers(fs);
-      const map = {};
-      inventory.forEach((item) => {
-        if (!map[item.farmerId]) map[item.farmerId] = [];
-        map[item.farmerId].push(item);
-      });
-      setInventoryByFarmer(map);
-    } catch {
-      setFarmers([]);
-      setInventoryByFarmer({});
-    } finally {
-      setLoading(false);
-    }
+function splitProductId(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "—") return { line1: "—", line2: "" };
+  const parts = text.split("-");
+  if (parts.length < 4) {
+    const mid = Math.ceil(text.length / 2);
+    return { line1: text.slice(0, mid), line2: text.slice(mid) };
+  }
+  const mid = Math.ceil(parts.length / 2);
+  return {
+    line1: parts.slice(0, mid).join("-"),
+    line2: parts.slice(mid).join("-"),
   };
+}
 
-  useEffect(() => { loadAll(); }, []);
+function ProductIdTwoLines({ value }) {
+  const { line1, line2 } = splitProductId(value);
+  const full = String(value || "").trim() || "—";
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-start gap-0.5">
+      <span
+        className="min-w-0 font-mono text-[7px] font-semibold leading-snug tracking-wide text-[#217346] sm:text-[10px]"
+        title={full}
+      >
+        <span className="hidden truncate sm:block">{full}</span>
+        <span className="block sm:hidden">{line1}</span>
+        {line2 ? <span className="block sm:hidden">{line2}</span> : null}
+      </span>
+      <CopyButton value={full === "—" ? "" : full} />
+    </span>
+  );
+}
+
+function stockStatusOf(gradeA, gradeB, gradeC) {
+  const total = Number(gradeA || 0) + Number(gradeB || 0) + Number(gradeC || 0);
+  return total > 0 ? "In Stock" : "Out of Stock";
+}
+
+export default function ManagerInventoryPage() {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    listManagerQuality({ bucket: "completed" })
+      .then((data) => {
+        setItems(Array.isArray(data?.items) ? data.items : []);
+      })
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const rows = useMemo(() => {
+    const map = new Map();
+    items.forEach((row) => {
+      const key = productGroupKey(row);
+      const unit = row.unit || "Kg";
+      const gradeA = gradeLetterQty(row, "A");
+      const gradeB = gradeLetterQty(row, "B");
+      const gradeC = gradeLetterQty(row, "C");
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          key,
+          productLabel: productNameOf(row),
+          variety: row.variety || "",
+          productBizId: formatProductBusinessId(row),
+          productId: row.productId || "",
+          unit,
+          gradeA,
+          gradeB,
+          gradeC,
+          orderId: row.orderId || row.orderDisplayId || "",
+        });
+        return;
+      }
+      existing.gradeA += gradeA;
+      existing.gradeB += gradeB;
+      existing.gradeC += gradeC;
+      if (!existing.productBizId || existing.productBizId === "—") {
+        existing.productBizId = formatProductBusinessId(row);
+      }
+      if (!existing.orderId) existing.orderId = row.orderId || row.orderDisplayId || "";
+    });
+
+    const q = query.trim().toLowerCase();
+    return Array.from(map.values())
+      .map((row) => ({
+        ...row,
+        status: stockStatusOf(row.gradeA, row.gradeB, row.gradeC),
+      }))
+      .filter((row) => {
+        if (!q) return true;
+        return (
+          row.productLabel.toLowerCase().includes(q) ||
+          String(row.variety || "").toLowerCase().includes(q) ||
+          String(row.productBizId || "").toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => a.productLabel.localeCompare(b.productLabel));
+  }, [items, query]);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className={EXCEL_PAGE_TITLE}>All Inventory</h1>
-        <p className={EXCEL_PAGE_SUB}>Inventory across all your assigned farmers</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className={EXCEL_PAGE_TITLE}>All Inventory</h1>
+          <p className={EXCEL_PAGE_SUB}>Product-wise stock from Quality &amp; Grading · Completed</p>
+        </div>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className={`${EXCEL_INPUT} w-full sm:max-w-xs`}
+          placeholder="Search product…"
+        />
       </div>
 
       {loading ? (
-        <p className="text-xs text-[#6B7280]">Loading…</p>
-      ) : (
-        farmers.map((f) => {
-          const inv = inventoryByFarmer[f.id] || [];
-          return (
-            <div key={f.id} className={EXCEL_PANEL}>
-              <div className="flex items-center justify-between border-b border-[#D4D4D4] px-4 py-2.5">
-                <div>
-                  <p className="text-xs font-bold text-[#1F2937]">{f.name}</p>
-                  <p className="text-[10px] text-[#6B7280]">{f.farmName || "—"} · {f.farmLocation || "—"}</p>
-                </div>
-                <Link to={`/manager/farmers/${f.id}`} className={`${EXCEL_BTN} text-[10px]`}>
-                  View Farmer
-                </Link>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-[#F2F2F2] text-left">
-                      {["Product", "Grade", "Current Stock", "Total Stock", "Status", "Action"].map((h) => (
-                        <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inv.length === 0 ? (
-                      <tr><td colSpan={6} className="px-3 py-4 text-center text-[#6B7280]">No inventory</td></tr>
-                    ) : (
-                      inv.flatMap((p) =>
-                        (p.grades || [{ id: "all", label: "All", quantity: p.stock || 0 }]).map((g, gi) => (
-                          <tr key={`${p.id}-${gi}`} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
-                            <td className="px-3 py-2 font-semibold">{gi === 0 ? p.name : ""}</td>
-                            <td className="px-3 py-2">
-                              <span className="rounded bg-[#E8F5E9] px-1.5 py-0.5 text-[10px] font-semibold text-[#217346]">{g.label}</span>
-                            </td>
-                            <td className="px-3 py-2">{g.quantity} Kg</td>
-                            <td className="px-3 py-2">
-                              {p.grades?.reduce((s, g) => s + Number(g.quantity || 0), 0) || p.stock || 0} Kg
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                                g.quantity <= (p.lowStockLimit || 10) ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                              }`}>
-                                {g.quantity <= (p.lowStockLimit || 10) ? "Low" : "OK"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              <button
-                                type="button"
-                                onClick={() => setAdjustTarget({ farmer: f, product: p, grade: g })}
-                                className={EXCEL_BTN}
-                              >
-                                Adjust
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })
-      )}
-
-      {adjustTarget && (
-        <AdjustModal
-          farmer={adjustTarget.farmer}
-          product={adjustTarget.product}
-          grade={adjustTarget.grade}
-          onClose={() => setAdjustTarget(null)}
-          onDone={loadAll}
+        <p className="py-8 text-center text-sm text-[#6B7280]">Loading…</p>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          title="No graded inventory yet"
+          description="Completed Quality & Grading stock will appear here product-wise."
         />
+      ) : (
+        <div className="w-full overflow-hidden border border-slate-200/80 bg-white shadow-sm">
+          <table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col className="w-[5%]" />
+              <col className="w-[20%]" />
+              <col className="w-[14%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[10%]" />
+              <col className="w-[12%]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className={`${TH} text-center`}>#</th>
+                <th className={TH}>Product</th>
+                <th className={`${TH} text-center sm:text-left`}>Variety</th>
+                <th className={`${GRADE_TH} border-[#A7F3D0] bg-[#D1FAE5] text-[#065F46]`}>
+                  <span className="sm:hidden">A</span>
+                  <span className="hidden sm:inline">Grade A</span>
+                </th>
+                <th className={`${GRADE_TH} border-[#BFDBFE] bg-[#DBEAFE] text-[#1E40AF]`}>
+                  <span className="sm:hidden">B</span>
+                  <span className="hidden sm:inline">Grade B</span>
+                </th>
+                <th className={`${GRADE_TH} border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]`}>
+                  <span className="sm:hidden">C</span>
+                  <span className="hidden sm:inline">Grade C</span>
+                </th>
+                <th className={`${TH} text-center`}>Unit</th>
+                <th className={`${TH} text-center`}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr
+                  key={row.key}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer hover:bg-[#F9FBF9]"
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (row.productId) params.set("productId", row.productId);
+                    if (row.productBizId) params.set("productBizId", row.productBizId);
+                    if (row.productLabel) params.set("name", row.productLabel);
+                    if (row.variety) params.set("variety", row.variety);
+                    navigate(`/manager/inventory/history?${params.toString()}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      const params = new URLSearchParams();
+                      if (row.productId) params.set("productId", row.productId);
+                      if (row.productBizId) params.set("productBizId", row.productBizId);
+                      if (row.productLabel) params.set("name", row.productLabel);
+                      if (row.variety) params.set("variety", row.variety);
+                      navigate(`/manager/inventory/history?${params.toString()}`);
+                    }
+                  }}
+                >
+                  <td className={`${TD} text-center align-middle text-[#9CA3AF]`}>{idx + 1}</td>
+                  <td className={`${TD} min-w-0 align-middle`}>
+                    <span className="block break-words font-bold leading-snug text-[#111827] text-[10px] sm:text-[13px]">
+                      {row.productLabel}
+                    </span>
+                    <div className="mt-0.5 min-w-0 max-w-full" onClick={(e) => e.stopPropagation()}>
+                      <ProductIdTwoLines value={row.productBizId} />
+                    </div>
+                  </td>
+                  <td className={`${TD} align-middle break-words text-center font-medium text-[#374151] sm:text-left`}>
+                    {row.variety || "—"}
+                  </td>
+                  <td className={`${GRADE_TD} align-middle border-[#A7F3D0] bg-[#ECFDF5]`}>{formatQty(row.gradeA)}</td>
+                  <td className={`${GRADE_TD} align-middle border-[#BFDBFE] bg-[#EFF6FF]`}>{formatQty(row.gradeB)}</td>
+                  <td className={`${GRADE_TD} align-middle border-[#FDE68A] bg-[#FFFBEB]`}>{formatQty(row.gradeC)}</td>
+                  <td className={`${TD} align-middle text-center font-semibold text-[#374151]`}>{row.unit || "Kg"}</td>
+                  <td className={`${TD} align-middle text-center`}>
+                    {row.status === "In Stock" ? (
+                      <span className="inline-flex flex-col items-center font-semibold leading-tight text-[#217346]">
+                        <span>In</span>
+                        <span>Stock</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex flex-col items-center font-semibold leading-tight text-[#DC2626]">
+                        <span>Out of</span>
+                        <span>Stock</span>
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
