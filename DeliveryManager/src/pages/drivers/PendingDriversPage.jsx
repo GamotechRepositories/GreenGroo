@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useStoreRealtimeRefresh, KYC_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
 
 export default function PendingDriversPage() {
   const { manager } = useAuth();
@@ -11,23 +12,31 @@ export default function PendingDriversPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await managerApi.pendingRiders();
       const list = res.data.riders || [];
       setRiders(list);
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load pending drivers");
+      if (!silent) {
+        setError(err.response?.data?.message || "Failed to load pending drivers");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // New KYC uploads / approvals push here — no continuous poll
+  useStoreRealtimeRefresh(() => load({ silent: true }), {
+    events: KYC_LIVE_EVENTS,
+    backupMs: null,
+  });
 
   const handleRowClick = (riderId) => {
     navigate(`/drivers/pending/${riderId}`);

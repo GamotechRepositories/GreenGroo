@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
-import { subscribeToSocketEvent } from "../../services/socket";
+import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
+import { mapsLink, useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
+import { ensureStoreRoom, subscribeToSocketEvent } from "../../services/socket";
 import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, actionBtnDanger, isCodPayment, formatRupee } from "./orderUtils";
 
 export default function OrdersPage() {
@@ -24,7 +26,7 @@ export default function OrdersPage() {
   const [pickupQrError, setPickupQrError] = useState("");
   const [pickupQrData, setPickupQrData] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     try {
       const [ord, rid] = await Promise.all([
         managerApi.orders({
@@ -37,7 +39,9 @@ export default function OrdersPage() {
       setOnlineRiders((rid.data.riders || []).filter((r) => r.status === "online"));
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load orders");
+      if (!silent) {
+        setError(err.response?.data?.message || "Failed to load orders");
+      }
     } finally {
       setLoading(false);
     }
@@ -45,23 +49,100 @@ export default function OrdersPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 5000);
-    const unsubs = [
-      subscribeToSocketEvent("new_order_received", () => load()),
-      subscribeToSocketEvent("order_status_updated", () => load()),
-      subscribeToSocketEvent("driver_assigned", () => load()),
-      subscribeToSocketEvent("search_driver", () => load()),
-      subscribeToSocketEvent("dispatch_no_riders_available", () => load()),
-      subscribeToSocketEvent("pickup_verified", () => load()),
-      subscribeToSocketEvent("pickup_qr_scanned", () => load()),
-      subscribeToSocketEvent("pickup_proof_submitted", () => load()),
-      subscribeToSocketEvent("order_out_for_delivery", () => load()),
-    ];
-    return () => {
-      clearInterval(id);
-      unsubs.forEach((unsub) => unsub());
-    };
   }, [load]);
+
+  // Keep store room joined while on orders (fixes missed live events)
+  useEffect(() => {
+    if (manager?.id) ensureStoreRoom(manager.id);
+  }, [manager?.id]);
+
+  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: null });
+
+  // Instant UI patches from sockets (before full silent reload finishes)
+  useEffect(() => {
+    const patchOrder = (orderId, patch) => {
+      if (!orderId) return;
+      setOrders((prev) =>
+        prev.map((o) =>
+          String(o.id || o._id) === String(orderId) ? { ...o, ...patch } : o
+        )
+      );
+    };
+
+    const unsubs = [
+      subscribeToSocketEvent("new_order_received", () => {
+        showToast("New order received");
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("pickup_qr_scanned", (p = {}) => {
+        patchOrder(p.orderId, {
+          pickupQrScanned: true,
+          pickupQrScannedAt: p.scannedAt || new Date().toISOString(),
+        });
+        showToast("Pickup QR scanned");
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("pickup_proof_submitted", (p = {}) => {
+        patchOrder(p.orderId, {
+          pickupProofStatus: "pending",
+          pickupProofImageUrl: p.pickupProofImageUrl || "",
+          pickupProofSubmittedAt:
+            p.pickupProofSubmittedAt || new Date().toISOString(),
+        });
+        showToast("Item proof uploaded — review needed");
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("pickup_verified", (p = {}) => {
+        patchOrder(p.orderId, {
+          pickupProofStatus: "approved",
+          pickupVerified: true,
+          status: p.status || "out_for_delivery",
+        });
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_status_updated", (p = {}) => {
+        if (p.orderId && p.status) {
+          patchOrder(p.orderId, {
+            status: p.status,
+            assignmentStatus: p.assignmentStatus,
+          });
+        }
+        load({ silent: true });
+      }),
+    ];
+    return () => unsubs.forEach((u) => u());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 4000);
+  };
+
+  // Live GPS only for riders on active trips / assignable online
+  const trackRiderIds = useMemo(() => {
+    const ids = new Set();
+    for (const o of orders) {
+      if (
+        ["assigned", "pickup_verified", "out_for_delivery", "offered", "packed"].includes(
+          o.status
+        )
+      ) {
+        const id = o.assignedRiderId || o.assignedRider?.id || o.assignedRider?._id;
+        if (id) ids.add(String(id));
+      }
+    }
+    for (const r of onlineRiders) {
+      const id = r.id || r._id;
+      if (id) ids.add(String(id));
+    }
+    return [...ids];
+  }, [orders, onlineRiders]);
+
+  const liveLocations = useRiderLiveLocations(
+    trackRiderIds,
+    trackRiderIds.length > 0
+  );
 
   const openPickupQr = async (orderId) => {
     setPickupQrOrderId(orderId);
@@ -82,11 +163,6 @@ export default function OrdersPage() {
     setPickupQrOrderId(null);
     setPickupQrData(null);
     setPickupQrError("");
-  };
-
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 4000);
   };
 
   const formatShortages = (shortages) =>
@@ -266,21 +342,42 @@ export default function OrdersPage() {
         })}
       </div>
 
-      {/* Online Riders Bar */}
+      {/* Online Riders Bar — updates on online/shift events; live map link from GPS socket */}
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-3">
         <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Online Drivers:</span>
         {onlineRiders.length === 0 ? (
-          <span className="text-xs text-slate-400 italic">No drivers online right now</span>
+          <span className="text-xs text-slate-400 italic">
+            No drivers online — updates when a partner goes online or books a shift
+          </span>
         ) : (
-          onlineRiders.map((r) => (
-            <span
-              key={r.id || r._id}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-semibold text-emerald-800"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {r.name || r.phone}
-            </span>
-          ))
+          onlineRiders.map((r) => {
+            const rid = String(r.id || r._id);
+            const live = liveLocations[rid] || r.currentLocation;
+            const pin =
+              live?.lat != null && live?.lng != null
+                ? mapsLink(live.lat, live.lng)
+                : null;
+            return (
+              <span
+                key={rid}
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {r.name || r.phone}
+                {pin ? (
+                  <a
+                    href={pin}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-1 text-[10px] font-bold text-sky-700 underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    live map
+                  </a>
+                ) : null}
+              </span>
+            );
+          })
         )}
         <span className="ml-auto text-xs text-slate-400">{onlineRiders.length} online</span>
       </div>

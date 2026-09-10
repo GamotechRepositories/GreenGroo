@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useStoreRealtimeRefresh, RIDER_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
 
 const EMPTY = { name: "", phone: "", password: "" };
 
@@ -17,13 +18,15 @@ export default function DriversPage() {
   const [submitting, setSubmitting] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     try {
       const res = await managerApi.riders();
       setRiders(res.data.riders || []);
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load drivers");
+      if (!silent) {
+        setError(err.response?.data?.message || "Failed to load drivers");
+      }
     } finally {
       setLoading(false);
     }
@@ -31,9 +34,12 @@ export default function DriversPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 15000);
-    return () => clearInterval(id);
   }, [load]);
+
+  useStoreRealtimeRefresh(() => load({ silent: true }), {
+    events: RIDER_LIVE_EVENTS,
+    backupMs: null,
+  });
 
   const onSubmit = async (e) => {
     e.preventDefault();

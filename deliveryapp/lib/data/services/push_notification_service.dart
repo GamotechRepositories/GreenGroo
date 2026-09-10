@@ -44,9 +44,14 @@ class PushNotificationService {
         _syncTokenToBackend(newToken);
       });
 
-      // App open: NO system tray — inbox already updated via socket; refresh as backup.
+      // App open: NO system tray — inbox + apply verification instantly if needed
       FirebaseMessaging.onMessage.listen((message) async {
         debugPrint('FCM foreground (no tray): ${message.messageId}');
+        final type = message.data['type']?.toString() ?? '';
+        if (type == 'VERIFICATION_COMPLETED') {
+          await AuthService.instance.applyVerificationStatus('approved');
+          await AuthService.instance.fetchMe();
+        }
         final id = message.data['notificationId']?.toString();
         if (id != null && id.isNotEmpty) {
           await NotificationInboxService.instance.refreshUnreadOnly();

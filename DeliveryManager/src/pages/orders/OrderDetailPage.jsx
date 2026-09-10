@@ -2,9 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import LiveRiderTrack from "../../components/LiveRiderTrack";
+import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
+import { useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
+import { useAuth } from "../../context/AuthContext";
+import { ensureStoreRoom, subscribeToSocketEvent } from "../../services/socket";
 import {
   OrderStatusText,
   DriverAssignmentText,
+  STATUS_LABELS,
   formatOrderTime,
   formatRupee,
   formatTripDuration,
@@ -22,6 +28,7 @@ export default function OrderDetailPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { manager } = useAuth();
   const initialOrder = location.state?.order || null;
 
   const [order, setOrder] = useState(initialOrder);
@@ -43,7 +50,7 @@ export default function OrderDetailPage() {
     setTimeout(() => setToast(""), 4000);
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     try {
       const [ord, req] = await Promise.all([
         managerApi.orders({
@@ -58,8 +65,10 @@ export default function OrderDetailPage() {
       );
 
       if (!found) {
-        setError("Order not found or no longer available.");
-        setOrder(null);
+        if (!silent) {
+          setError("Order not found or no longer available.");
+          setOrder(null);
+        }
       } else {
         setOrder(found);
         setError("");
@@ -71,7 +80,9 @@ export default function OrderDetailPage() {
           .map((r) => r.sku)
       );
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load order details");
+      if (!silent) {
+        setError(err.response?.data?.message || "Failed to load order details");
+      }
     } finally {
       setLoading(false);
     }
@@ -79,16 +90,80 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 8000);
-    return () => clearInterval(id);
   }, [load]);
 
+  useEffect(() => {
+    if (manager?.id) ensureStoreRoom(manager.id);
+  }, [manager?.id]);
+
+  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: null });
+
+  useEffect(() => {
+    const unsubs = [
+      subscribeToSocketEvent("pickup_proof_submitted", (p = {}) => {
+        if (String(p.orderId) !== String(orderId)) return;
+        setOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                pickupProofStatus: "pending",
+                pickupProofImageUrl: p.pickupProofImageUrl || prev.pickupProofImageUrl,
+                pickupProofSubmittedAt:
+                  p.pickupProofSubmittedAt || new Date().toISOString(),
+              }
+            : prev
+        );
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("pickup_qr_scanned", (p = {}) => {
+        if (String(p.orderId) !== String(orderId)) return;
+        setOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                pickupQrScanned: true,
+                pickupQrScannedAt: new Date().toISOString(),
+              }
+            : prev
+        );
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_status_updated", () => load({ silent: true })),
+      subscribeToSocketEvent("pickup_verified", () => load({ silent: true })),
+    ];
+    return () => unsubs.forEach((u) => u());
+  }, [load, orderId]);
+
+  const trackingStatuses = [
+    "assigned",
+    "pickup_verified",
+    "out_for_delivery",
+    "offered",
+  ];
+  const isLiveTracking =
+    order &&
+    trackingStatuses.includes(order.status) &&
+    Boolean(order.assignedRiderId || order.assignedRider?.id || order.assignedRider?._id);
+
+  const trackedRiderId = String(
+    order?.assignedRiderId ||
+      order?.assignedRider?.id ||
+      order?.assignedRider?._id ||
+      ""
+  );
+
+  const liveLocations = useRiderLiveLocations(
+    trackedRiderId ? [trackedRiderId] : [],
+    Boolean(isLiveTracking)
+  );
+  const liveLoc = trackedRiderId ? liveLocations[trackedRiderId] : null;
+
   const onInform = async (itemId) => {
-    const oid = order?.id || order?._id;
-    const key = `inform-${oid}-${itemId}`;
+    const currentOid = order?.id || order?._id;
+    const key = `inform-${currentOid}-${itemId}`;
     setBusyKey(key);
     try {
-      const res = await managerApi.informCustomer(oid, itemId);
+      const res = await managerApi.informCustomer(currentOid, itemId);
       showToast(res.data.message || "Customer informed");
       await load();
     } catch (err) {
@@ -107,11 +182,11 @@ export default function OrderDetailPage() {
   };
 
   const onApprovePickupProof = async () => {
-    const oid = order?.id || order?._id;
-    if (!oid) return;
-    setBusyKey(`approve-proof-${oid}`);
+    const currentOid = order?.id || order?._id;
+    if (!currentOid) return;
+    setBusyKey(`approve-proof-${currentOid}`);
     try {
-      const res = await managerApi.approvePickupProof(oid);
+      const res = await managerApi.approvePickupProof(currentOid);
       showToast(res.data.message || "Item proof approved. Driver can navigate to customer.");
       await load();
     } catch (err) {
@@ -122,11 +197,11 @@ export default function OrderDetailPage() {
   };
 
   const onPackOrder = async () => {
-    const oid = order?.id || order?._id;
-    if (!oid) return;
-    setBusyKey(`pack-${oid}`);
+    const currentOid = order?.id || order?._id;
+    if (!currentOid) return;
+    setBusyKey(`pack-${currentOid}`);
     try {
-      const res = await managerApi.packOrder(oid);
+      const res = await managerApi.packOrder(currentOid);
       showToast(res.data.message || "Order confirmed — stock deducted from this dark store.");
       await load();
     } catch (err) {
@@ -144,11 +219,11 @@ export default function OrderDetailPage() {
   };
 
   const onConfirmCashReceived = async () => {
-    const oid = order?.id || order?._id;
-    if (!oid || confirmingCash) return;
+    const currentOid = order?.id || order?._id;
+    if (!currentOid || confirmingCash) return;
     setConfirmingCash(true);
     try {
-      const res = await managerApi.confirmOrderCash(oid);
+      const res = await managerApi.confirmOrderCash(currentOid);
       showToast(res.data.message || "Cash received from delivery boy.");
       await load();
     } catch (err) {
@@ -159,12 +234,12 @@ export default function OrderDetailPage() {
   };
 
   const onCancelOrder = async () => {
-    const oid = order?.id || order?._id;
-    if (!oid) return;
+    const currentOid = order?.id || order?._id;
+    if (!currentOid) return;
     if (!window.confirm(`Cancel order #${order.orderNumber || ""}? The customer order will also be cancelled.`)) return;
-    setBusyKey(`cancel-${oid}`);
+    setBusyKey(`cancel-${currentOid}`);
     try {
-      const res = await managerApi.cancelOrder(oid);
+      const res = await managerApi.cancelOrder(currentOid);
       showToast(res.data.message || "Order cancelled");
       await load();
     } catch (err) {
@@ -431,6 +506,20 @@ export default function OrderDetailPage() {
           <DriverAssignmentText order={order} />
         </InfoCard>
       </div>
+
+      {isLiveTracking ? (
+        <LiveRiderTrack
+          riderName={order.assignedRider?.name || liveLoc?.name}
+          riderPhone={order.assignedRider?.phone}
+          location={liveLoc}
+          customerLat={order.customerLat}
+          customerLng={order.customerLng}
+          statusLabel={
+            STATUS_LABELS[order.status]?.text ||
+            String(order.status || "").replace(/_/g, " ")
+          }
+        />
+      ) : null}
 
       {order.pickupProofStatus === "pending" && order.pickupProofImageUrl && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-xs">

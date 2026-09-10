@@ -237,6 +237,16 @@ export async function notifyStoreRiders({
 
 /** Typed helpers — short professional copy */
 export async function notifyVerificationCompleted(riderId) {
+  try {
+    getIO()
+      .to(`rider_${riderId}`)
+      .emit("document_review_update", {
+        documentType: "verification",
+        verificationStatus: "approved",
+        remarks: "Verified by delivery manager",
+      });
+  } catch (_) {}
+
   return notifyRiders({
     riderIds: [riderId],
     type: "VERIFICATION_COMPLETED",
@@ -244,7 +254,7 @@ export async function notifyVerificationCompleted(riderId) {
     message: "You can now receive orders.",
     priority: "high",
     dedupeKey: "verified",
-    data: { screen: "home", badge: "new" },
+    data: { screen: "home", badge: "new", verificationStatus: "approved" },
   });
 }
 

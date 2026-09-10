@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
 
 export default function DashboardPage() {
   const { manager } = useAuth();
@@ -10,13 +11,15 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async ({ silent = false } = {}) => {
     try {
       const res = await managerApi.dashboard();
       if (res.data?.summary) setSummary(res.data.summary);
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load dashboard data");
+      if (!silent) {
+        setError(err.response?.data?.message || "Failed to load dashboard data");
+      }
     } finally {
       setLoading(false);
     }
@@ -24,9 +27,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 15000);
-    return () => clearInterval(interval);
   }, []);
+
+  useStoreRealtimeRefresh(() => fetchDashboardData({ silent: true }), {
+    backupMs: null,
+  });
 
   const kpis = [
     {

@@ -122,9 +122,14 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
   }
 
   eligible.sort((a, b) => {
+    // 1) Nearest to dark store first
+    const distDiff = a.distanceM - b.distanceM;
+    if (Math.abs(distDiff) > 25) return distDiff;
+    // 2) Longest waiting (online / idle longest) next
     const waitA = new Date(waitingSince(a.driver)).getTime();
     const waitB = new Date(waitingSince(b.driver)).getTime();
     if (waitA !== waitB) return waitA - waitB;
+    // 3) Round-robin tie-break
     const rrA = a.driver.roundRobinPosition ?? 0;
     const rrB = b.driver.roundRobinPosition ?? 0;
     return rrA - rrB;
@@ -170,21 +175,23 @@ export async function assignNextDriver(orderId) {
 
     clearOfferTimer(order._id);
 
-    const excludedIds = [
+    const declinedIds = (order.declinedDriverIds || []).map(String);
+    const softExcluded = [
       ...(order.excludedDriverIds || order.roundRobinRidersAttempted || []),
     ].map(String);
+    // Hard exclude: anyone who declined this order (never re-offer to them)
+    const excludedIds = [...new Set([...declinedIds, ...softExcluded])];
 
     let eligible = await findEligibleDrivers(darkStore, excludedIds);
 
-    // After a full offer cycle (timeouts/declines), exclusions can leave zero candidates.
-    // Reset so the only/remaining online driver is not permanently stuck.
-    if (!eligible.length && excludedIds.length) {
+    // Soft cycle only (timeouts) — NEVER clear declinedDriverIds
+    if (!eligible.length && softExcluded.length) {
       console.warn(
-        `[assignment] order ${order.orderNumber || order._id}: no eligible with ${excludedIds.length} excluded — resetting exclusions`
+        `[assignment] order ${order.orderNumber || order._id}: resetting soft exclusions (kept ${declinedIds.length} decliners)`
       );
       order.excludedDriverIds = [];
       order.roundRobinRidersAttempted = [];
-      eligible = await findEligibleDrivers(darkStore, []);
+      eligible = await findEligibleDrivers(darkStore, declinedIds);
     }
 
     if (!eligible.length) {
@@ -520,12 +527,33 @@ export async function declineDriverOffer(orderId, driverId) {
   clearOfferTimer(orderId);
   await recordOfferResponse(order._id, driverId, "DECLINED");
 
+  if (!order.declinedDriverIds) order.declinedDriverIds = [];
+  if (!order.declinedDriverIds.some((id) => String(id) === String(driverId))) {
+    order.declinedDriverIds.push(driverId);
+  }
+  if (!order.excludedDriverIds) order.excludedDriverIds = [];
+  if (!order.excludedDriverIds.some((id) => String(id) === String(driverId))) {
+    order.excludedDriverIds.push(driverId);
+  }
+
   order.currentOfferDriverId = null;
   order.offeredRiderId = null;
   order.offerStartedAt = null;
   order.offerExpiresAt = null;
   order.assignmentStatus = "SEARCHING_FOR_DRIVER";
   await order.save();
+
+  try {
+    getIO()
+      .to(`store_${order.managerId}`)
+      .emit("order_status_updated", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: order.status,
+        assignmentStatus: "SEARCHING_FOR_DRIVER",
+        message: "Driver declined — offering next partner",
+      });
+  } catch (_) {}
 
   setImmediate(() => assignNextDriver(order._id));
   return { success: true, rotated: true };

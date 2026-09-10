@@ -31,9 +31,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _isOnline = false;
   bool _updatingStatus = false;
   Timer? _heartbeat;
-  Timer? _verifyPoll;
   Timer? _offerPoll;
   StreamSubscription<Map<String, dynamic>>? _offerSocketSub;
+  StreamSubscription<Map<String, dynamic>>? _verifySocketSub;
+  StreamSubscription<Map<String, dynamic>>? _verifyNotifSub;
   bool _isShowingOffer = false;
   AreaManagerInfo? _areaManager;
   bool _loadingManager = false;
@@ -111,17 +112,58 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
     if (_isOnline) {
       _startHeartbeat();
-      _startOfferPoll();
+      // Offers come via socket — no timed poll that blinks the home screen.
     }
     _listenForOffers();
+    _listenForVerification();
     _bootstrapHome();
-    _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (_verificationPending ||
-          _lastVerificationStatus == 'pending' ||
-          _lastVerificationStatus == null) {
-        _refreshVerificationInfo();
-      }
+  }
+
+  /// Manager approve/reject → socket + push. Instant verified UI (no page leave).
+  void _listenForVerification() {
+    final boyId = AuthService.instance.deliveryBoy?.id;
+    if (boyId != null && boyId.isNotEmpty) {
+      SocketService.instance.connect(boyId);
+    }
+
+    _verifySocketSub?.cancel();
+    _verifySocketSub =
+        SocketService.instance.onDocumentReviewUpdate.listen((data) async {
+      await _handleVerificationEvent(data);
     });
+
+    // Also handle VERIFICATION_COMPLETED inbox/push socket
+    _verifyNotifSub?.cancel();
+    _verifyNotifSub =
+        SocketService.instance.onRiderNotification.listen((data) async {
+      final type = data['type']?.toString() ?? '';
+      if (type != 'VERIFICATION_COMPLETED') return;
+      await AuthService.instance.applyVerificationStatus('approved');
+      await AuthService.instance.fetchMe();
+      if (!mounted) return;
+      _applyVerificationFromBoy(AuthService.instance.deliveryBoy);
+      setState(() {});
+    });
+  }
+
+  Future<void> _handleVerificationEvent(Map<String, dynamic> data) async {
+    var status = data['verificationStatus']?.toString() ?? '';
+    if (status == 'verified') status = 'approved';
+    // Whole-profile verification decision
+    if (status != 'approved' && status != 'rejected') {
+      // Still sync once from server in case payload shape differs
+      final boy = await AuthService.instance.fetchMe();
+      if (!mounted) return;
+      _applyVerificationFromBoy(boy);
+      setState(() {});
+      return;
+    }
+
+    await AuthService.instance.applyVerificationStatus(status);
+    await AuthService.instance.fetchMe();
+    if (!mounted) return;
+    _applyVerificationFromBoy(AuthService.instance.deliveryBoy);
+    setState(() {});
   }
 
   /// One coordinated load: single /me + parallel page data (no stacked waits).
@@ -170,11 +212,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   void _startOfferPoll() {
+    // Kept for API compatibility — offers are socket-driven now.
     _offerPoll?.cancel();
-    _offerPoll = Timer.periodic(const Duration(seconds: 5), (_) {
-      _checkOrderOffers();
-    });
-    // Catch an offer that arrived while going online.
+    _offerPoll = null;
     _checkOrderOffers();
   }
 
@@ -270,9 +310,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void dispose() {
     _heartbeat?.cancel();
-    _verifyPoll?.cancel();
     _offerPoll?.cancel();
     _offerSocketSub?.cancel();
+    _verifySocketSub?.cancel();
+    _verifyNotifSub?.cancel();
     super.dispose();
   }
 

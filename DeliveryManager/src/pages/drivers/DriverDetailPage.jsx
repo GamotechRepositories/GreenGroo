@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useStoreRealtimeRefresh, DRIVER_DETAIL_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
 
 export default function DriverDetailPage() {
   const { driverId } = useParams();
@@ -74,14 +75,17 @@ export default function DriverDetailPage() {
     if (perfOpen) loadHistory();
   }, [perfOpen, loadHistory]);
 
-  // Live refresh online minutes / status while viewing
-  useEffect(() => {
-    const t = setInterval(() => {
+  // Live only when rider status / docs change — no 15s poll flash
+  useStoreRealtimeRefresh(
+    () => {
       loadDriverDetails({ silent: true });
       if (perfOpen && selectedDate === todayStr) loadHistory();
-    }, 15000);
-    return () => clearInterval(t);
-  }, [loadDriverDetails, loadHistory, perfOpen, selectedDate, todayStr]);
+    },
+    {
+      events: DRIVER_DETAIL_LIVE_EVENTS,
+      backupMs: null,
+    }
+  );
 
   const handleToggleActive = async () => {
     try {

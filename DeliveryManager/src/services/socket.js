@@ -5,12 +5,25 @@ let socket = null;
 let currentManagerId = null;
 const listeners = new Map();
 
+function attachStoredListeners() {
+  if (!socket) return;
+  listeners.forEach((callbacks, event) => {
+    callbacks.forEach((cb) => {
+      socket.off(event, cb);
+      socket.on(event, cb);
+    });
+  });
+}
+
 export function connectSocket(managerId) {
   if (!managerId) return null;
   currentManagerId = String(managerId);
 
-  if (socket && socket.connected) {
-    socket.emit("join_store_room", { storeId: currentManagerId });
+  // Reuse existing socket (connected or reconnecting) — never spawn duplicates
+  if (socket) {
+    if (socket.connected) {
+      socket.emit("join_store_room", { storeId: currentManagerId });
+    }
     return socket;
   }
 
@@ -19,6 +32,7 @@ export function connectSocket(managerId) {
 
   socket = io(serverUrl, {
     transports: ["websocket", "polling"],
+    upgrade: true,
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -29,8 +43,9 @@ export function connectSocket(managerId) {
     console.log(`[Socket] Connected with ID: ${socket.id}`);
     if (currentManagerId) {
       socket.emit("join_store_room", { storeId: currentManagerId });
-      console.log(`[Socket] Emitted join_store_room for store_${currentManagerId}`);
+      console.log(`[Socket] Joined store_${currentManagerId}`);
     }
+    attachStoredListeners();
   });
 
   socket.on("disconnect", (reason) => {
@@ -41,15 +56,16 @@ export function connectSocket(managerId) {
     console.warn(`[Socket] Connection error: ${err.message}`);
   });
 
-  // Re-attach registered listeners to active socket
-  listeners.forEach((callbacks, event) => {
-    callbacks.forEach((cb) => {
-      socket.off(event, cb);
-      socket.on(event, cb);
-    });
-  });
-
+  attachStoredListeners();
   return socket;
+}
+
+export function ensureStoreRoom(managerId) {
+  if (!managerId) return;
+  connectSocket(managerId);
+  if (socket?.connected) {
+    socket.emit("join_store_room", { storeId: String(managerId) });
+  }
 }
 
 export function subscribeToSocketEvent(event, callback) {
@@ -59,6 +75,7 @@ export function subscribeToSocketEvent(event, callback) {
   listeners.get(event).add(callback);
 
   if (socket) {
+    socket.off(event, callback);
     socket.on(event, callback);
   }
 

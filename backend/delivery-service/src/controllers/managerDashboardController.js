@@ -161,6 +161,15 @@ const serializeRider = (r) => ({
   verificationNote: r.verificationNote || "",
   isActive: r.isActive,
   createdAt: r.createdAt,
+  currentLocation:
+    r.currentLocation?.lat != null && r.currentLocation?.lng != null
+      ? {
+          lat: r.currentLocation.lat,
+          lng: r.currentLocation.lng,
+          updatedAt: r.currentLocation.updatedAt,
+        }
+      : null,
+  activeOrderId: r.activeOrderId ? String(r.activeOrderId) : null,
 });
 
 export const getDashboardSummary = async (req, res, next) => {

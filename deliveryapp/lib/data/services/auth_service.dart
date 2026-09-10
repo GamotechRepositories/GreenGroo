@@ -222,6 +222,18 @@ class AuthService {
     PushNotificationService.instance.syncTokenNow();
   }
 
+  /// Apply verification from socket event — no timed /me polling.
+  Future<void> applyVerificationStatus(String status) async {
+    final boy = _deliveryBoy;
+    final token = _token;
+    if (boy == null || token == null || token.isEmpty) return;
+    final next = DeliveryBoy.fromJson({
+      ...boy.toJson(),
+      'verificationStatus': status,
+    });
+    await _persist(token, next);
+  }
+
   Future<void> clearSession() async {
     SocketService.instance.disconnect();
     NotificationInboxService.instance.clear();

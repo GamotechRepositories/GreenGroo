@@ -814,10 +814,23 @@ export const updateLocation = async (req, res, next) => {
 
     try {
       if (deliveryBoy.managerId) {
-        getIO().to(`store_${deliveryBoy.managerId}`).emit("rider_location_updated", {
-          riderId: deliveryBoy._id.toString(),
-          location: { lat, lng, updatedAt: now.toISOString() },
-        });
+        // Push live GPS to store only when rider is working (online / on trip).
+        // Idle offline GPS does not spam the Delivery Manager UI.
+        const tracking =
+          deliveryBoy.status === "online" ||
+          deliveryBoy.status === "on_delivery" ||
+          Boolean(deliveryBoy.activeOrderId);
+        if (tracking) {
+          getIO().to(`store_${deliveryBoy.managerId}`).emit("rider_location_updated", {
+            riderId: deliveryBoy._id.toString(),
+            name: deliveryBoy.name || deliveryBoy.phone,
+            status: deliveryBoy.status,
+            activeOrderId: deliveryBoy.activeOrderId
+              ? String(deliveryBoy.activeOrderId)
+              : null,
+            location: { lat, lng, updatedAt: now.toISOString() },
+          });
+        }
       }
       if (
         deliveryBoy.status === "online" &&

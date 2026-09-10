@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useStoreRealtimeRefresh, KYC_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
+import { subscribeToSocketEvent } from "../../services/socket";
 
 const CHECK_ITEMS = [
   { key: "aadhaar", label: "Aadhaar card", type: "doc" },
@@ -53,9 +55,9 @@ export default function PendingDriverDetailPage() {
   const [busyAction, setBusyAction] = useState("");
   const [preview, setPreview] = useState(null);
 
-  const loadRider = useCallback(async () => {
+  const loadRider = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await managerApi.pendingRiders();
       const list = res.data.riders || [];
       const found = list.find((r) => String(r.id || r._id) === String(id));
@@ -63,19 +65,48 @@ export default function PendingDriverDetailPage() {
         setRider(found);
         setChecks((prev) => (prev[found.id] ? prev : { [found.id]: {} }));
         setError("");
-      } else {
+      } else if (!silent) {
         setError("Driver application not found or already verified.");
+      } else {
+        // Rider left pending queue (approved/rejected) — event-driven
+        setRider((prev) =>
+          prev
+            ? { ...prev, verificationStatus: "approved" }
+            : prev
+        );
+        setToast("Verification updated — this application is no longer pending.");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load driver details");
+      if (!silent) {
+        setError(err.response?.data?.message || "Failed to load driver details");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
     loadRider();
   }, [loadRider]);
+
+  useStoreRealtimeRefresh(() => loadRider({ silent: true }), {
+    events: KYC_LIVE_EVENTS,
+    backupMs: null,
+  });
+
+  useEffect(() => {
+    return subscribeToSocketEvent("rider_document_updated", (payload = {}) => {
+      if (String(payload.riderId) !== String(id)) return;
+      if (payload.verificationStatus === "approved") {
+        setToast("Driver verified — docs approved.");
+        setRider((prev) =>
+          prev ? { ...prev, verificationStatus: "approved" } : prev
+        );
+      } else {
+        loadRider({ silent: true });
+      }
+    });
+  }, [id, loadRider]);
 
   const showToast = (msg) => {
     setToast(msg);

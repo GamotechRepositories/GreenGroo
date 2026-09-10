@@ -174,5 +174,8 @@ export function allItemsAvailable(order) {
 export const actionBtnOutline =
   "rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition whitespace-nowrap";
 
+export const actionBtnPrimary =
+  "rounded-xl border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition whitespace-nowrap";
+
 export const actionBtnDanger =
   "rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50 transition whitespace-nowrap";

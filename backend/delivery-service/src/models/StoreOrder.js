@@ -91,6 +91,13 @@ const storeOrderSchema = new mongoose.Schema(
         ref: "DeliveryBoy",
       },
     ],
+    /** Drivers who declined this order — never re-offer to them (not cleared on retry). */
+    declinedDriverIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "DeliveryBoy",
+      },
+    ],
     pickupVerified: { type: Boolean, default: false },
     pickupVerifiedAt: { type: Date },
     pickupVerifiedBy: {
@@ -262,6 +269,7 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
       : null,
     offerStartedAt: this.offerStartedAt,
     excludedDriverIds: (this.excludedDriverIds || []).map((id) => id.toString()),
+    declinedDriverIds: (this.declinedDriverIds || []).map((id) => id.toString()),
     pickupVerified: Boolean(this.pickupVerified),
     pickupVerifiedAt: this.pickupVerifiedAt,
     customerAddressUnlocked: Boolean(this.customerAddressUnlocked),
