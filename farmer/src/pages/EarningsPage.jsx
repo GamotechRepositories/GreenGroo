@@ -8,7 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import SpreadsheetViewport from "../components/ui/SpreadsheetViewport";
 import StatusBadge from "../components/ui/StatusBadge";
 import CopyId from "../components/ui/CopyId";
-import { canonicalOrderStatus, formatMoney } from "../utils/orderDisplay";
+import { canonicalOrderStatus } from "../utils/orderDisplay";
 import {
   STATEMENT_GRADES,
   gradeStatementMap,
@@ -157,15 +157,12 @@ function orderAmount(order) {
   return Number(order.orderValue || order.totalAmount || 0);
 }
 
-function formatQty(qty, unit, { danger = false } = {}) {
+function formatQty(qty, _unit, { danger = false } = {}) {
   const n = Number(qty || 0);
   if (!(n > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
   return (
-    <span className={`text-[12px] font-bold leading-tight ${danger ? "text-[#DC2626]" : "text-[#1F2937]"}`}>
+    <span className={`text-[12px] font-bold leading-tight tabular-nums ${danger ? "text-[#DC2626]" : "text-[#1F2937]"}`}>
       {n.toLocaleString("en-IN")}
-      <span className={`ml-0.5 text-[10px] font-semibold ${danger ? "text-[#F87171]" : "text-[#6B7280]"}`}>
-        {unit || "Kg"}
-      </span>
     </span>
   );
 }
@@ -174,15 +171,7 @@ function formatRate(rate, qty = 0) {
   if (!(Number(qty || 0) > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
   const n = Number(rate || 0);
   if (!(n > 0)) return <span className="font-semibold text-[#9CA3AF]">×</span>;
-  return <span className="font-semibold text-[#1F2937]">{formatMoney(n)}</span>;
-}
-
-function formatCurrency(n) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n || 0);
+  return <span className="font-semibold tabular-nums text-[#1F2937]">{n.toLocaleString("en-IN")}</span>;
 }
 
 function catalogKey(product) {
@@ -362,30 +351,55 @@ function ProductEarningsCard({ item, onOpen }) {
 }
 
 function EarningsSummary({ total, deposited, balance, compact = false }) {
-  const items = [
-    { label: compact ? "Total" : "Total Statement Earnings", short: "Total", value: formatCurrency(total), valueClass: "text-[#217346]" },
-    { label: compact ? "Deposited 70%" : "Deposited (70%)", short: "70%", value: formatCurrency(deposited), valueClass: "text-[#065F46]" },
-    { label: compact ? "Pending 30%" : "Pending Balance (30%)", short: "30%", value: formatCurrency(balance), valueClass: "text-amber-600" },
+  const rows = [
+    { label: "Total", value: Number(total || 0).toLocaleString("en-IN"), tone: "bg-[#ECFDF5] text-[#217346]" },
+    { label: "Deposited", value: Number(deposited || 0).toLocaleString("en-IN"), tone: "bg-[#F0FDF4] text-[#065F46]" },
+    { label: "Pending", value: Number(balance || 0).toLocaleString("en-IN"), tone: "bg-[#FFFBEB] text-[#B45309]" },
   ];
+
+  if (compact) {
+    return (
+      <div className="grid grid-cols-3 gap-1">
+        {rows.map((item) => (
+          <div key={item.label} className="rounded-md border border-slate-200/80 bg-[#F8FAF8] px-1 py-1.5 text-center">
+            <p className="text-[9px] font-medium leading-tight text-slate-500">{item.label}</p>
+            <p className={`mt-0.5 text-[11px] break-words font-bold leading-none tabular-nums sm:text-[12px] ${item.tone.split(" ").pop()}`}>
+              ₹{item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className={`grid grid-cols-3 ${compact ? "gap-1" : "gap-2"}`}>
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className={
-            compact
-              ? "rounded-md border border-slate-200/80 bg-[#F8FAF8] px-1 py-1.5 text-center"
-              : "rounded-xl border border-slate-200/80 bg-white px-1.5 py-2 text-center shadow-sm sm:px-4 sm:py-4 sm:text-left"
-          }
-        >
-          <p className={compact ? "text-[9px] font-medium leading-tight text-slate-500" : "text-[10px] font-medium leading-snug text-slate-500 sm:text-xs"}>
-            {item.label}
-          </p>
-          <p className={`${compact ? "mt-0.5 text-[11px] sm:text-[12px]" : "mt-1 text-[15px] sm:mt-2 sm:text-2xl"} break-words font-bold leading-none tabular-nums ${item.valueClass}`}>
-            {item.value}
-          </p>
-        </div>
-      ))}
+    <div className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
+      <table className="w-full border-collapse text-[11px] sm:text-[12px]">
+        <thead>
+          <tr>
+            {rows.map((row) => (
+              <th
+                key={`h-${row.label}`}
+                className="border border-[#9CA3AF] bg-[#E8F0EA] px-2 py-1.5 text-center font-bold text-[#374151] sm:px-3 sm:py-2"
+              >
+                {row.label} <span className="font-semibold text-[#6B7280]">₹</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {rows.map((row) => (
+              <td
+                key={row.label}
+                className={`border border-[#9CA3AF] px-2 py-2 text-center font-bold tabular-nums sm:px-3 sm:py-2.5 sm:text-[14px] ${row.tone}`}
+              >
+                ₹{row.value}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -505,27 +519,31 @@ function EarningsPage() {
   }, [orders]);
 
   const listSplit = splitEarnings(selectedProduct ? tableTotals.amount : overallTotals);
+  const sheetUnit = selectedProduct?.unit || visibleOrders[0]?.unit || "Kg";
 
   if (loading) return <LoadingState rows={6} />;
 
   return (
     <div className="space-y-3">
-      <div className="shrink-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         {selectedProduct ? (
           <button
             type="button"
             onClick={() => navigate("/farmer/earnings")}
-            className="mb-1 text-[12px] font-semibold text-[#217346]"
+            className="shrink-0 text-[12px] font-semibold text-[#217346]"
           >
             ← All Products
           </button>
         ) : null}
-        <h1 className={EXCEL_PAGE_TITLE}>Earning Statement</h1>
-        <p className={`mt-0.5 ${EXCEL_PAGE_SUB}`}>
-          {selectedProduct
-            ? `${selectedProduct.name}${selectedProduct.variety ? ` · ${selectedProduct.variety}` : ""}`
-            : "Select a product to view its earning statement"}
-        </p>
+        <h1 className={`${EXCEL_PAGE_TITLE} !text-lg sm:!text-xl`}>Earning Statement</h1>
+        {selectedProduct ? (
+          <p className="min-w-0 truncate text-[13px] font-medium text-slate-500 sm:text-sm">
+            · {selectedProduct.name}
+            {selectedProduct.variety ? ` · ${selectedProduct.variety}` : ""}
+          </p>
+        ) : (
+          <p className={`${EXCEL_PAGE_SUB} w-full sm:w-auto`}>Select a product to view its earning statement</p>
+        )}
       </div>
 
       <EarningsSummary total={listSplit.total} deposited={listSplit.deposited} balance={listSplit.balance} />
@@ -553,156 +571,158 @@ function EarningsPage() {
           description="After Quality and Grading Final Summary is confirmed, that order will appear here."
         />
       ) : (
-        <SpreadsheetViewport>
-              <table className="w-max border-collapse text-[10px] md:w-full md:table-fixed md:text-[11px]">
-                <colgroup>
-                  <col className="w-[4%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[8%]" />
-                  {gradeColumns.map((g) => (
-                    <Fragment key={`col-${g}`}>
-                      <col className="w-[6%]" />
-                      <col className="w-[6%]" />
-                    </Fragment>
-                  ))}
-                  <col className="w-[6%]" />
+        <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
+          <table className="w-max min-w-[720px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+            <colgroup>
+              <col className="w-[4%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
+              <col className="w-[7%]" />
+              {gradeColumns.map((g) => (
+                <Fragment key={`col-${g}`}>
+                  <col className="w-[10%]" />
                   <col className="w-[9%]" />
-                </colgroup>
-                <thead className="sticky top-0 z-30">
-                  <tr>
-                    <th className={TH} rowSpan={2}>
-                      #
-                    </th>
-                    <th className={TH} rowSpan={2}>
-                      Product
-                    </th>
-                    <th className={TH} rowSpan={2}>
-                      <HeadLabel line1="Order" line2="Date" />
-                    </th>
-                    <th className={TH} rowSpan={2}>
-                      <HeadLabel line1="Pickup" line2="Date" />
-                    </th>
-                    <th className={TH} rowSpan={2}>
-                      <HeadLabel line1="Pickup" line2="Time" />
-                    </th>
-                    {gradeColumns.map((g) => {
-                      const tone = gradeTone(g);
-                      return (
-                        <th
-                          key={g}
-                          className={`border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] font-bold leading-tight md:py-1 md:text-[11px] ${tone.head}`}
-                          colSpan={2}
-                        >
-                          {g}
-                        </th>
-                      );
-                    })}
-                    <th className={`border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] font-bold leading-tight md:py-1 md:text-[11px] ${REJECTED_TONE.head}`}>
-                      Rejected
-                    </th>
-                    <th className={TH} rowSpan={2}>
-                      Amount
-                    </th>
-                  </tr>
-                  <tr>
-                    {gradeColumns.map((g) => {
-                      const tone = gradeTone(g);
-                      const sub = `border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[9px] font-semibold md:py-1 md:text-[10px] ${tone.head}`;
-                      return (
-                        <Fragment key={`h-${g}`}>
-                          <th className={sub}>Qty</th>
-                          <th className={sub}>Rate</th>
-                        </Fragment>
-                      );
-                    })}
-                    <th className={`border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[9px] font-semibold md:py-1 md:text-[10px] ${REJECTED_TONE.head}`}>
-                      Qty
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOrders.map((order, idx) => {
-                    const id = order.orderId || order.id;
-                    const map = gradeDetailMap(order);
-                    const unit = order.unit || "Kg";
-                    const rejectedQty = rejectedTotal(order, map);
-                    const amount = orderAmount(order);
-                    const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate;
-                    const pickupDate = order.pickupDate || order.pickup?.pickupDate;
-                    const zebra = idx % 2 === 0 ? "bg-white group-hover:bg-[#E5E7EB]" : "bg-[#F3F4F6] group-hover:bg-[#E5E7EB]";
-                    return (
-                      <tr
-                        key={id}
-                        className="group cursor-pointer"
-                        onClick={() => navigate(`/farmer/earnings/${id}`)}
-                      >
-                        <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
-                        <td className={`${TD} ${zebra}`}>
-                          <span className="block break-words font-bold text-[#1F2937]">{order.productName || order.product || "Product"}</span>
-                          {order.variety ? (
-                            <span className="block break-words text-[9px] text-[#6B7280] md:text-[10px]">{order.variety}</span>
-                          ) : null}
-                        </td>
-                        <td className={`${TD} ${zebra} whitespace-nowrap`}>
-                          <DateWithDay value={orderDate} />
-                        </td>
-                        <td className={`${TD} ${zebra} whitespace-nowrap`}>
-                          <DateWithDay value={pickupDate} />
-                        </td>
-                        <td className={`${TD} ${zebra} whitespace-nowrap`}>
-                          {formatTime12h(order.pickupTime || order.pickup?.pickupTime)}
-                        </td>
-                        {gradeColumns.map((g) => {
-                          const row = map[g] || { qty: 0, rate: 0, unit };
-                          const cell = `overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] tabular-nums md:py-1 md:text-[11px] ${zebra}`;
-                          return (
-                            <Fragment key={`${id}-${g}`}>
-                              <td className={cell}>{formatQty(row.qty, row.unit || unit)}</td>
-                              <td className={cell}>{formatRate(row.rate, row.qty)}</td>
-                            </Fragment>
-                          );
-                        })}
-                        <td className={`overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] tabular-nums md:py-1 md:text-[11px] ${zebra}`}>
-                          {formatQty(rejectedQty, unit, { danger: true })}
-                        </td>
-                        <td className={`${TD} ${zebra} whitespace-nowrap font-bold tabular-nums text-[#DC2626] md:text-[#217346]`}>
-                          {amount > 0 ? formatMoney(amount) : <span className="font-semibold text-[#9CA3AF]">×</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td
-                      className={`${TH} bg-[#FCE7F3] text-left text-[12px] font-bold text-[#1F2937]`}
-                      colSpan={5}
+                </Fragment>
+              ))}
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+            </colgroup>
+            <thead className="sticky top-0 z-30">
+              <tr>
+                <th className={TH} rowSpan={2}>
+                  #
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Order" line2="Date" />
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Pickup" line2="Date" />
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Pickup" line2="Time" />
+                </th>
+                {gradeColumns.map((g) => {
+                  const tone = gradeTone(g);
+                  return (
+                    <th
+                      key={g}
+                      className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold leading-tight md:px-2 md:py-1.5 md:text-[12px] ${tone.head}`}
+                      colSpan={2}
                     >
-                      Total
+                      {g}
+                    </th>
+                  );
+                })}
+                <th className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold leading-tight md:px-2 md:py-1.5 md:text-[12px] ${REJECTED_TONE.head}`}>
+                  Rejected
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Amount" line2="₹" />
+                </th>
+              </tr>
+              <tr>
+                {gradeColumns.map((g) => {
+                  const tone = gradeTone(g);
+                  const sub = `border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[10px] font-semibold md:px-2 md:py-1.5 md:text-[11px] ${tone.head}`;
+                  return (
+                    <Fragment key={`h-${g}`}>
+                      <th className={sub}>
+                        <HeadLabel line1="Qty" line2={sheetUnit} />
+                      </th>
+                      <th className={sub}>
+                        <HeadLabel line1="Rate" line2="₹" />
+                      </th>
+                    </Fragment>
+                  );
+                })}
+                <th className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[10px] font-semibold md:px-2 md:py-1.5 md:text-[11px] ${REJECTED_TONE.head}`}>
+                  <HeadLabel line1="Qty" line2={sheetUnit} />
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleOrders.map((order, idx) => {
+                const id = order.orderId || order.id;
+                const map = gradeDetailMap(order);
+                const unit = order.unit || "Kg";
+                const rejectedQty = rejectedTotal(order, map);
+                const amount = orderAmount(order);
+                const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate;
+                const pickupDate = order.pickupDate || order.pickup?.pickupDate;
+                const zebra = idx % 2 === 0 ? "bg-white group-hover:bg-[#E5E7EB]" : "bg-[#F3F4F6] group-hover:bg-[#E5E7EB]";
+                return (
+                  <tr
+                    key={id}
+                    className="group cursor-pointer"
+                    onClick={() => navigate(`/farmer/earnings/${id}`)}
+                  >
+                    <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
+                    <td className={`${TD} ${zebra} whitespace-nowrap`}>
+                      <DateWithDay value={orderDate} />
+                    </td>
+                    <td className={`${TD} ${zebra} whitespace-nowrap`}>
+                      <DateWithDay value={pickupDate} />
+                    </td>
+                    <td className={`${TD} ${zebra} whitespace-nowrap`}>
+                      {formatTime12h(order.pickupTime || order.pickup?.pickupTime)}
                     </td>
                     {gradeColumns.map((g) => {
-                      const tone = gradeTone(g);
-                      const cell = `whitespace-nowrap border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] font-bold tabular-nums md:py-1 md:text-[12px] ${tone.head}`;
+                      const row = map[g] || { qty: 0, rate: 0, unit };
+                      const cell = `overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[12px] ${zebra}`;
                       return (
-                        <Fragment key={`total-${g}`}>
-                          <td className={cell}>{formatQty(tableTotals.grades[g]?.qty, "Kg")}</td>
-                          <td className={cell}>
-                            <span className="font-semibold text-[#9CA3AF]">×</span>
-                          </td>
+                        <Fragment key={`${id}-${g}`}>
+                          <td className={cell}>{formatQty(row.qty, row.unit || unit)}</td>
+                          <td className={cell}>{formatRate(row.rate, row.qty)}</td>
                         </Fragment>
                       );
                     })}
-                    <td className={`whitespace-nowrap border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] tabular-nums md:py-1 md:text-[12px] ${REJECTED_TONE.head}`}>
-                      {formatQty(tableTotals.rejected, "Kg", { danger: true })}
+                    <td className={`overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[12px] ${zebra}`}>
+                      {formatQty(rejectedQty, unit, { danger: true })}
                     </td>
-                    <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#DC2626] md:text-[12px] md:text-[#217346]`}>
-                      {tableTotals.amount > 0 ? formatMoney(tableTotals.amount) : <span className="font-semibold text-[#9CA3AF]">×</span>}
+                    <td className={`${TD} ${zebra} whitespace-nowrap font-bold tabular-nums text-[#DC2626] md:text-[#217346]`}>
+                      {amount > 0 ? (
+                        <span>{Number(amount).toLocaleString("en-IN")}</span>
+                      ) : (
+                        <span className="font-semibold text-[#9CA3AF]">×</span>
+                      )}
                     </td>
                   </tr>
-                </tfoot>
-              </table>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td
+                  className={`${TH} bg-[#FCE7F3] text-left text-[12px] font-bold text-[#1F2937]`}
+                  colSpan={4}
+                >
+                  Total
+                </td>
+                {gradeColumns.map((g) => {
+                  const tone = gradeTone(g);
+                  const cell = `whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold tabular-nums md:px-2 md:py-1.5 md:text-[13px] ${tone.head}`;
+                  return (
+                    <Fragment key={`total-${g}`}>
+                      <td className={cell}>{formatQty(tableTotals.grades[g]?.qty, "Kg")}</td>
+                      <td className={cell}>
+                        <span className="font-semibold text-[#9CA3AF]">×</span>
+                      </td>
+                    </Fragment>
+                  );
+                })}
+                <td className={`whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[13px] ${REJECTED_TONE.head}`}>
+                  {formatQty(tableTotals.rejected, "Kg", { danger: true })}
+                </td>
+                <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#DC2626] md:text-[13px] md:text-[#217346]`}>
+                  {tableTotals.amount > 0 ? (
+                    <span>{Number(tableTotals.amount).toLocaleString("en-IN")}</span>
+                  ) : (
+                    <span className="font-semibold text-[#9CA3AF]">×</span>
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </SpreadsheetViewport>
       )}
     </div>

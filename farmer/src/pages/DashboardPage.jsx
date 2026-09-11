@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { getDashboardCharts, getHarvestOrders } from "../api/farmerApi";
+import { getDashboardCharts, getEarnings, getHarvestOrders } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
 import LoadingState from "../components/ui/LoadingState";
 import ProductGradeChart from "../components/products/ProductGradeChart";
 import DashboardMarketPricesWidget from "../components/market/DashboardMarketPricesWidget";
+import FarmerDashboardCharts from "../components/dashboard/FarmerDashboardCharts";
 import {
   EXCEL_BTN,
   EXCEL_PAGE_TITLE,
@@ -25,18 +26,25 @@ function formatCurrency(n) {
 function DashboardPage() {
   const [data, setData] = useState(null);
   const [harvestOrders, setHarvestOrders] = useState([]);
+  const [earnings, setEarnings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProductId, setSelectedProductId] = useState("");
 
   useEffect(() => {
     (async () => {
       try {
-        const [result, hoList] = await Promise.all([
+        const [result, hoList, earningsList] = await Promise.all([
           getDashboardCharts().catch(() => ({ stats: {}, all: { rows: [] }, products: [] })),
           getHarvestOrders().catch(() => []),
+          getEarnings().catch(() => []),
         ]);
         setData(result);
-        setHarvestOrders(hoList);
+        setHarvestOrders(Array.isArray(hoList) ? hoList : []);
+        setEarnings(
+          Array.isArray(earningsList)
+            ? earningsList
+            : earningsList?.transactions || earningsList?.earnings || []
+        );
         if (result.products && result.products.length > 0) {
           setSelectedProductId(result.products[0].productId);
         }
@@ -77,6 +85,13 @@ function DashboardPage() {
         <StatCard title="Total Earnings" value={formatCurrency(stats.totalEarnings || 0)} />
         <StatCard title="Pending Earnings" value={formatCurrency(stats.pendingEarnings || stats.pendingPayments || 0)} />
       </div>
+
+      <FarmerDashboardCharts
+        harvestOrders={harvestOrders}
+        earnings={earnings}
+        products={products}
+        stats={stats}
+      />
 
       {/* Live Mandi Market Prices Widget */}
       <DashboardMarketPricesWidget />

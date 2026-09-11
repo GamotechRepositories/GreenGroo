@@ -20,38 +20,38 @@ function pathMatches(item, pathname) {
 function NavItem({ item, compact, onNavigate, nested }) {
   const location = useLocation();
   const Icon = item.icon;
-  return (
-    <NavLink
+          return (
+            <NavLink
       to={withHrRole(item.href, location.search)}
       end={item.end}
       title={compact ? item.name : undefined}
       onClick={onNavigate}
-      className={({ isActive }) =>
+              className={({ isActive }) =>
         `group relative mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
           compact ? 'justify-center px-2.5 py-2.5' : nested ? 'py-1.5 pl-9 text-[13px]' : ''
         } ${
-          isActive
+                  isActive
             ? 'bg-emerald-50 text-emerald-800 shadow-sm ring-1 ring-emerald-100'
             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
           {isActive && !compact ? (
             <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-emerald-700" />
           ) : null}
           {Icon ? (
-            <Icon
+                  <Icon
               className={`${nested ? 'h-3.5 w-3.5' : 'h-[18px] w-[18px]'} shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'}`}
               strokeWidth={isActive ? 2.25 : 1.75}
             />
           ) : null}
           {!compact ? <span className="truncate">{item.name}</span> : null}
-        </>
-      )}
-    </NavLink>
-  );
+                </>
+              )}
+            </NavLink>
+          );
 }
 
 function NavBranch({ item, compact, onNavigate }) {
@@ -218,15 +218,15 @@ export default function Sidebar({ isCollapsed, setIsCollapsed, mobileOpen, onClo
             ) : null}
             <button
               type="button"
-              onClick={logout}
-              title="Logout"
+            onClick={logout}
+            title="Logout"
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-rose-600"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
-      </aside>
+      </div>
+    </aside>
     </>
   );
 }
