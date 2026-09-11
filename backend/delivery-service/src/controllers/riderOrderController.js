@@ -18,7 +18,7 @@ import { refreshStoreOrderCustomerCoords } from "../services/customerLocationSer
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import { getIO } from "../../../socket.js";
 import { checkAndTrackIncentive } from "./incentiveController.js";
-import { calculateRiderEarning, estimateOfferEarning } from "../services/ShiftEarningService.js";
+import { calculateRiderEarning, applyEarningSnapshot, estimateOfferEarning } from "../services/ShiftEarningService.js";
 import { createCashLiability } from "../services/CashSettlementService.js";
 import { getPaymentSummary } from "../services/PaymentCollectionService.js";
 import { isS3Configured, uploadDataUrlToS3, uploadBufferToS3 } from "../services/s3Service.js";
@@ -892,14 +892,11 @@ export const completeDelivery = async (req, res, next) => {
     const riderDeliveryEarning = earningResult.riderEarning;
     const earningSlab = earningResult.earningSlab;
 
-    order.deliveryDistanceKm = distanceKm || 0;
-    order.riderDeliveryEarning = riderDeliveryEarning || 0;
-    if (earningSlab) order.earningSlab = earningSlab;
+    applyEarningSnapshot(order, darkStore, earningResult, now);
     if (earningResult.shift?._id && !order.shiftId) {
       order.shiftId = earningResult.shift._id;
     }
     if (shiftIdForCalc && !order.shiftId) order.shiftId = shiftIdForCalc;
-    order.earningCalculatedAt = now;
 
     await order.save();
     await syncCustomerOrderFromStore(order, "delivered");
@@ -912,6 +909,7 @@ export const completeDelivery = async (req, res, next) => {
       // Add only the configured delivery earning — NOT the customer's cash
       rider.todayEarnings = (rider.todayEarnings || 0) + riderDeliveryEarning;
       rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + riderDeliveryEarning;
+      rider.walletBalance = (rider.walletBalance || 0) + riderDeliveryEarning;
       rider.lastOrderCompletedAt = now;
       rider.lastStatusAt = now;
       rider.onlineSince = rider.onlineSince || now;

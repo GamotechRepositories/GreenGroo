@@ -23,6 +23,83 @@ import {
   liveOnlineMinutes,
   snapshotDailyActivity,
 } from "../utils/onlineHoursHelper.js";
+import {
+  getCurrentMinutesIST,
+  isSlotEnded,
+} from "../utils/shiftTimeHelper.js";
+
+/** Match a shift booking to this rider (id / phone / current pointers). */
+function bookingBelongsToRider(booking, rider, riderIdStr, riderPhone) {
+  const bRiderId = booking.deliveryPartnerId
+    ? booking.deliveryPartnerId.toString()
+    : "";
+  const bRiderPhone = normalizePhone(booking.deliveryPartnerPhone || "");
+  const riderPhone10 = normalizePhone(riderPhone || rider.phone || "");
+  return (
+    bRiderId === riderIdStr ||
+    (riderPhone10 && bRiderPhone && bRiderPhone === riderPhone10) ||
+    (rider.currentBooking?.bookingId &&
+      booking._id?.toString() === rider.currentBooking.bookingId.toString()) ||
+    (rider.shiftBooking?.bookingId &&
+      booking.bookingId === rider.shiftBooking.bookingId)
+  );
+}
+
+/**
+ * Count today's (or listed) shift bookings. Treats ended slots as COMPLETED
+ * so "Completed" updates even if the offline cron missed a booking.
+ */
+function tallyRiderShiftBookings({
+  shifts,
+  rider,
+  todayStr = istDateString(),
+  currentMin = getCurrentMinutesIST(),
+  mutateEnded = false,
+}) {
+  const riderIdStr = rider._id.toString();
+  const riderPhone = (rider.phone || "").trim();
+  let booked = 0;
+  let completed = 0;
+  const dirtyShiftIds = new Set();
+
+  for (const shift of shifts || []) {
+    for (const slot of shift.slots || []) {
+      for (const booking of slot.bookings || []) {
+        if (!bookingBelongsToRider(booking, rider, riderIdStr, riderPhone)) {
+          continue;
+        }
+        if (booking.status === "CANCELLED") continue;
+
+        booked += 1;
+        const pastDay = Boolean(shift.dateString && shift.dateString < todayStr);
+        const slotEndedToday = isSlotEnded(
+          slot.startTime,
+          slot.endTime,
+          currentMin,
+          shift.dateString,
+          todayStr
+        );
+        const isDone =
+          booking.status === "COMPLETED" || pastDay || slotEndedToday;
+
+        if (isDone) {
+          completed += 1;
+          if (
+            mutateEnded &&
+            booking.status !== "COMPLETED" &&
+            booking.status !== "CANCELLED"
+          ) {
+            booking.status = "COMPLETED";
+            booking.completedAt = new Date();
+            dirtyShiftIds.add(shift._id?.toString?.() || String(shift._id));
+          }
+        }
+      }
+    }
+  }
+
+  return { booked, completed, dirtyShiftIds };
+}
 
 const normalizePhone = (phone) =>
   String(phone || "").replace(/\D/g, "").slice(-10);
@@ -89,6 +166,7 @@ const applyDocumentMeta = async (target, incoming, folder = "delivery-boys/docum
         if (s3Res && s3Res.url) {
           target.url = s3Res.url;
           uploaded = true;
+          console.log(`[AWS S3] Uploaded to ${folder}: ${s3Res.url}`);
         }
       } catch (err) {
         console.error("[AWS S3 Upload Error]", err.message || err);
@@ -289,6 +367,36 @@ export const updateOnboarding = async (req, res, next) => {
         success: false,
         message: "Delivery boy not found",
       });
+    }
+
+    const isVerified = deliveryBoy.verificationStatus === "approved";
+
+    // Verified riders cannot change manager-controlled identity/KYC fields
+    if (isVerified) {
+      if (body.phone !== undefined) {
+        return res.status(403).json({
+          success: false,
+          message: "Phone number can only be updated by your Delivery Manager.",
+        });
+      }
+      if (body.bankDetails !== undefined) {
+        return res.status(403).json({
+          success: false,
+          message: "Bank details can only be updated by your Delivery Manager.",
+        });
+      }
+      if (body.documents !== undefined) {
+        return res.status(403).json({
+          success: false,
+          message: "Documents can only be updated by your Delivery Manager.",
+        });
+      }
+      if (body.vehicleType !== undefined) {
+        return res.status(403).json({
+          success: false,
+          message: "Vehicle details can only be updated by your Delivery Manager.",
+        });
+      }
     }
 
     if (step) deliveryBoy.onboardingStep = step;
@@ -930,54 +1038,48 @@ export const getTodayProgress = async (req, res, next) => {
         (rider.shiftBooking && rider.shiftBooking.bookingId)
     );
 
-    const riderIdStr = rider._id.toString();
     const riderPhone = (rider.phone || "").trim();
+    const riderPhone10 = normalizePhone(rider.phone);
 
-    // Only today's shifts (IST dateString)
+    // Today's shifts — match by ObjectId or last-10 phone digits
     const shiftsFound = await Shift.find({
       dateString: todayISTDateString,
       $or: [
         { "slots.bookings.deliveryPartnerId": rider._id },
-        { "slots.bookings.deliveryPartnerPhone": riderPhone },
-        ...(rider.currentBooking?.shiftId ? [{ _id: rider.currentBooking.shiftId }] : []),
+        ...(riderPhone ? [{ "slots.bookings.deliveryPartnerPhone": riderPhone }] : []),
+        ...(riderPhone10
+          ? [{ "slots.bookings.deliveryPartnerPhone": riderPhone10 }]
+          : []),
+        ...(rider.currentBooking?.shiftId
+          ? [{ _id: rider.currentBooking.shiftId }]
+          : []),
       ],
     });
 
-    let bookedShiftsCount = 0;
-    let completedShiftsCount = 0;
+    const todayShifts = shiftsFound.filter(
+      (s) => s.dateString === todayISTDateString
+    );
+    const tallied = tallyRiderShiftBookings({
+      shifts: todayShifts,
+      rider,
+      todayStr: todayISTDateString,
+      mutateEnded: true,
+    });
+    let bookedShiftsCount = tallied.booked;
+    let completedShiftsCount = tallied.completed;
 
-    for (const shift of shiftsFound) {
-      // Strict: only this IST calendar day (00:00–23:59)
-      if (shift.dateString !== todayISTDateString) continue;
-
-      for (const slot of shift.slots || []) {
-        for (const booking of slot.bookings || []) {
-          const bRiderId = booking.deliveryPartnerId
-            ? booking.deliveryPartnerId.toString()
-            : "";
-          const bRiderPhone = (booking.deliveryPartnerPhone || "").trim();
-
-          const isRiderMatch =
-            bRiderId === riderIdStr ||
-            (riderPhone && bRiderPhone === riderPhone) ||
-            (rider.currentBooking?.bookingId &&
-              booking._id?.toString() === rider.currentBooking.bookingId.toString()) ||
-            (rider.shiftBooking?.bookingId &&
-              booking.bookingId === rider.shiftBooking.bookingId);
-
-          if (!isRiderMatch) continue;
-          if (booking.status !== "CANCELLED") bookedShiftsCount += 1;
-          if (booking.status === "COMPLETED") completedShiftsCount += 1;
-        }
-      }
+    if (tallied.dirtyShiftIds.size) {
+      await Promise.all(
+        todayShifts
+          .filter((s) => tallied.dirtyShiftIds.has(s._id.toString()))
+          .map((s) => s.save().catch(() => {}))
+      );
     }
 
     // Only count booking pointer if it belongs to today's shift
     if (bookedShiftsCount === 0 && hasRiderBookingPointer && rider.currentBooking?.shiftId) {
-      const ptrShift = shiftsFound.find(
-        (s) =>
-          s._id.toString() === rider.currentBooking.shiftId.toString() &&
-          s.dateString === todayISTDateString
+      const ptrShift = todayShifts.find(
+        (s) => s._id.toString() === rider.currentBooking.shiftId.toString()
       );
       if (ptrShift) bookedShiftsCount = 1;
     }
@@ -1104,6 +1206,7 @@ export const getActivityHistory = async (req, res, next) => {
         shiftStatsByDate[date] = { booked: 0, completed: 0 };
       }
 
+      const currentMin = getCurrentMinutesIST();
       for (const shift of shifts) {
         const date = shift.dateString;
         if (!shiftStatsByDate[date]) continue;
@@ -1116,8 +1219,23 @@ export const getActivityHistory = async (req, res, next) => {
             const match =
               bRiderId === riderIdStr || (riderPhone && bPhone === riderPhone);
             if (!match) continue;
-            if (booking.status !== "CANCELLED") shiftStatsByDate[date].booked += 1;
-            if (booking.status === "COMPLETED") shiftStatsByDate[date].completed += 1;
+            if (booking.status === "CANCELLED") continue;
+            shiftStatsByDate[date].booked += 1;
+            const pastDay = Boolean(date && date < todayStr);
+            const slotEndedToday = isSlotEnded(
+              slot.startTime,
+              slot.endTime,
+              currentMin,
+              date,
+              todayStr
+            );
+            if (
+              booking.status === "COMPLETED" ||
+              pastDay ||
+              slotEndedToday
+            ) {
+              shiftStatsByDate[date].completed += 1;
+            }
           }
         }
       }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +21,17 @@ import '../shifts/select_shift_screen.dart';
 import '../../widgets/dialogs/order_dispatch_dialog.dart';
 
 const _kRupee = '\u20B9';
+
+ImageProvider _avatarImage(DeliveryBoy? boy) {
+  final raw = boy?.profileImageBytesOrUrl;
+  if (raw is String && raw.isNotEmpty) {
+    return NetworkImage(raw);
+  }
+  if (raw is Uint8List && raw.isNotEmpty) {
+    return MemoryImage(raw);
+  }
+  return const AssetImage(AppAssets.deliveryScooter);
+}
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -589,7 +601,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             name: _partnerName,
             isOnline: _isOnline,
             isVerified: AuthService.instance.deliveryBoy?.isVerified ?? false,
-            onProfileTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+            deliveryBoy: AuthService.instance.deliveryBoy,
+            onProfileTap: () async {
+              await Navigator.pushNamed(context, AppRoutes.profile);
+              if (mounted) setState(() {});
+            },
             onDrawerTap: () => Scaffold.of(context).openDrawer(),
           ),
         ),
@@ -708,6 +724,7 @@ class _TopHeaderSection extends StatelessWidget {
     required this.isVerified,
     required this.onProfileTap,
     required this.onDrawerTap,
+    this.deliveryBoy,
   });
 
   final String name;
@@ -715,6 +732,7 @@ class _TopHeaderSection extends StatelessWidget {
   final bool isVerified;
   final VoidCallback onProfileTap;
   final VoidCallback onDrawerTap;
+  final DeliveryBoy? deliveryBoy;
 
   @override
   Widget build(BuildContext context) {
@@ -808,7 +826,7 @@ class _TopHeaderSection extends StatelessWidget {
           ),
         ),
 
-        // Profile Avatar with Green Border Ring
+        // Profile avatar (selfie from AWS/DB) — scooter fallback
         GestureDetector(
           onTap: onProfileTap,
           child: Container(
@@ -818,7 +836,7 @@ class _TopHeaderSection extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.primary, width: 2),
               image: DecorationImage(
-                image: AssetImage(AppAssets.deliveryScooter),
+                image: _avatarImage(deliveryBoy),
                 fit: BoxFit.cover,
               ),
             ),

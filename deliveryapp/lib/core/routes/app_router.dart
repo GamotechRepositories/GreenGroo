@@ -31,6 +31,7 @@ import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/splash/splash_screen.dart';
 import '../../presentation/screens/support/support_screen.dart';
 import '../../presentation/screens/vehicle/vehicle_details_screen.dart';
+import '../../presentation/screens/profile/bank_details_screen.dart';
 import '../../presentation/screens/wallet/wallet_screen.dart';
 import '../../presentation/shell/main_shell.dart';
 import '../../core/theme/theme_rebuild.dart';
@@ -84,6 +85,7 @@ class AppRouter {
           AppRoutes.profile => const ProfileScreen(),
           AppRoutes.documents => const DocumentsScreen(),
           AppRoutes.vehicle => const VehicleDetailsScreen(),
+          AppRoutes.bankDetails => const BankDetailsScreen(),
           AppRoutes.support => const SupportScreen(),
           AppRoutes.settings => const SettingsScreen(),
           _ => const SplashScreen(),

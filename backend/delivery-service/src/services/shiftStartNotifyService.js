@@ -35,7 +35,13 @@ export async function notifyUpcomingAndStartedShifts() {
       for (const slot of shift.slots || []) {
         if (slot.status === "CANCELLED") continue;
         const startMin = timeToMinutes(slot.startTime);
-        const ended = isSlotEnded(slot.startTime, slot.endTime, currentMin);
+        const ended = isSlotEnded(
+          slot.startTime,
+          slot.endTime,
+          currentMin,
+          todayStr,
+          todayStr
+        );
         const live = isWithinSlot(slot.startTime, slot.endTime, currentMin, 0);
 
         for (const booking of slot.bookings || []) {

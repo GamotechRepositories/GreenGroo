@@ -4,8 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/app_localizations.dart';
 
-/// Full-width sticky bottom bar with raised green Map button in the center.
-/// Home · My Shifts · [Map] · Wallet · Notifications
+/// Home · My Shifts · [Notifications] · Wallet · History
 class AppBottomNavigation extends StatelessWidget {
   const AppBottomNavigation({
     super.key,
@@ -22,7 +21,7 @@ class AppBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final bottomPad = MediaQuery.paddingOf(context).bottom;
-    Theme.of(context); // rebuild on light/dark toggle
+    Theme.of(context);
 
     return Material(
       color: Colors.transparent,
@@ -32,7 +31,6 @@ class AppBottomNavigation extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
-            // Full-width square bar stuck to bottom
             Positioned(
               left: 0,
               right: 0,
@@ -68,10 +66,9 @@ class AppBottomNavigation extends StatelessWidget {
                       ),
                       _sideTab(
                         4,
-                        Icons.notifications_outlined,
-                        Icons.notifications,
-                        l10n.notifications,
-                        badgeCount: notificationBadgeCount,
+                        Icons.history_outlined,
+                        Icons.history_rounded,
+                        'History',
                       ),
                     ],
                   ),
@@ -79,7 +76,7 @@ class AppBottomNavigation extends StatelessWidget {
               ),
             ),
 
-            // Raised green round Map button
+            // Raised center = Notifications (replaces Map)
             Positioned(
               bottom: bottomPad + 18,
               child: GestureDetector(
@@ -87,33 +84,65 @@ class AppBottomNavigation extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.35),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: AppColors.cardBackground,
+                              width: 3,
+                            ),
                           ),
-                        ],
-                        border: Border.all(
-                          color: AppColors.cardBackground,
-                          width: 3,
+                          child: const Icon(
+                            Icons.notifications_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
+                        if (notificationBadgeCount > 0)
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFDC2626),
+                                shape: BoxShape.circle,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Text(
+                                notificationBadgeCount > 9
+                                    ? '9+'
+                                    : '$notificationBadgeCount',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      l10n.map,
+                      l10n.notifications,
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: currentIndex == 2

@@ -117,6 +117,11 @@ export const getRiderEarningsDetail = async (req, res, next) => {
     }
 
     const range = String(req.query.range || "").trim().toLowerCase();
+    const verifiedSince = rider.verifiedAt
+      ? new Date(rider.verifiedAt)
+      : rider.createdAt
+        ? new Date(rider.createdAt)
+        : new Date(0);
 
     if (range === "week") {
       const days = [];
@@ -129,19 +134,23 @@ export const getRiderEarningsDetail = async (req, res, next) => {
         d.setTime(d.getTime() - i * 24 * 60 * 60 * 1000);
         const dateString = istDateString(d);
         const { start, end } = istDayRange(dateString);
-        const orders = await StoreOrder.find({
-          assignedRiderId: rider._id,
-          status: "delivered",
-          deliveredAt: { $gte: start, $lte: end },
-        }).sort({ deliveredAt: -1 });
+        const dayStart = start < verifiedSince ? verifiedSince : start;
+        let deliveries = [];
+        if (end >= verifiedSince) {
+          const orders = await StoreOrder.find({
+            assignedRiderId: rider._id,
+            status: "delivered",
+            deliveredAt: { $gte: dayStart, $lte: end },
+          }).sort({ deliveredAt: -1 });
 
-        const deliveries = orders.map((order) => ({
-          orderId: order._id.toString(),
-          orderNumber: order.orderNumber,
-          deliveredAt: order.deliveredAt,
-          deliveryDistanceKm: order.deliveryDistanceKm || 0,
-          riderDeliveryEarning: order.riderDeliveryEarning || 0,
-        }));
+          deliveries = orders.map((order) => ({
+            orderId: order._id.toString(),
+            orderNumber: order.orderNumber,
+            deliveredAt: order.deliveredAt,
+            deliveryDistanceKm: order.deliveryDistanceKm || 0,
+            riderDeliveryEarning: order.riderDeliveryEarning || 0,
+          }));
+        }
         const dayTotal = deliveries.reduce(
           (sum, row) => sum + (row.riderDeliveryEarning || 0),
           0
@@ -161,16 +170,28 @@ export const getRiderEarningsDetail = async (req, res, next) => {
         });
       }
 
+      const lifetime = await StoreOrder.aggregate([
+        {
+          $match: {
+            assignedRiderId: rider._id,
+            status: "delivered",
+            deliveredAt: { $gte: verifiedSince },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$riderDeliveryEarning" } } },
+      ]);
+
       return res.json({
         success: true,
         range: "week",
+        verificationDate: verifiedSince.toISOString(),
         weekTotalEarnings: weekTotal,
         weekOrderCount,
         todayEarnings:
           days.find((day) => day.isToday)?.totalEarnings ??
           rider.todayEarnings ??
           0,
-        totalLifetimeEarnings: rider.totalLifetimeEarnings || 0,
+        totalLifetimeEarnings: lifetime[0]?.total ?? rider.totalLifetimeEarnings ?? 0,
         walletBalance: rider.walletBalance || 0,
         days,
       });
@@ -181,12 +202,16 @@ export const getRiderEarningsDetail = async (req, res, next) => {
       ? requestedDate
       : istDateString();
     const { start, end } = istDayRange(dateString);
+    const dayStart = start < verifiedSince ? verifiedSince : start;
 
-    const orders = await StoreOrder.find({
-      assignedRiderId: rider._id,
-      status: "delivered",
-      deliveredAt: { $gte: start, $lte: end },
-    }).sort({ deliveredAt: -1 });
+    const orders =
+      end < verifiedSince
+        ? []
+        : await StoreOrder.find({
+            assignedRiderId: rider._id,
+            status: "delivered",
+            deliveredAt: { $gte: dayStart, $lte: end },
+          }).sort({ deliveredAt: -1 });
 
     const deliveries = orders.map((order) => ({
       orderId: order._id.toString(),

@@ -3,7 +3,27 @@ import { Link } from "react-router-dom";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { managerApi } from "../../api/managerApi";
 
-const getTodayString = () => new Date().toISOString().slice(0, 10);
+const getTodayString = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+const lifecycleBadge = (lifecycle) => {
+  if (lifecycle === "current" || lifecycle === "Live") {
+    return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  }
+  if (lifecycle === "past" || lifecycle === "Expired") {
+    return "bg-amber-50 text-amber-800 border-amber-200";
+  }
+  return "bg-sky-50 text-sky-800 border-sky-200";
+};
+
+const statusDisplay = (slot) =>
+  slot.statusLabel ||
+  (slot.isExpired ? "Expired" : slot.isLive ? "Live" : slot.lifecycle === "past" ? "Expired" : slot.lifecycle === "current" ? "Live" : "Upcoming");
 
 /** Default rider rate: ₹15 per KM (0–1 → ₹15, 1–2 → ₹30, …). */
 const RATE_PER_KM = 15;
@@ -159,7 +179,8 @@ export default function ShiftManagementPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await managerApi.getManagerSlots(selectedDate);
+      // Date-wise: all shifts created for the selected day
+      const res = await managerApi.getManagerSlots(selectedDate, { filter: "all" });
       setShifts(res.data.shifts || []);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load shifts");
@@ -323,9 +344,9 @@ export default function ShiftManagementPage() {
     try {
       const res = await managerApi.getSlotDetailsWithRiders(slotId);
       setRiderDetailsModalData(res.data);
-      setSelectedSlotForRiders(res.data.slot || res.data.shift);
+      setSelectedSlotForRiders(true);
     } catch (err) {
-      showToast(err.response?.data?.message || "Failed to fetch registered riders");
+      showToast(err.response?.data?.message || "Failed to load shift details");
     }
   };
 
@@ -415,10 +436,12 @@ export default function ShiftManagementPage() {
 
         {/* CARD 3: ACTIVE SHIFTS */}
         <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-2xs flex flex-col justify-center">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Shifts</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shifts that day</p>
           <div className="mt-0.5 flex items-baseline gap-1.5 whitespace-nowrap">
-            <span className="text-base font-black text-slate-900">{shifts.length}</span>
-            <span className="text-[11px] font-medium text-slate-400">Today</span>
+            <span className="text-base font-black text-slate-900">
+              {shifts.reduce((n, s) => n + (s.slots?.length || 0), 0)}
+            </span>
+            <span className="text-[11px] font-medium text-slate-400">slots</span>
           </div>
         </div>
 
@@ -451,6 +474,14 @@ export default function ShiftManagementPage() {
         </div>
       )}
 
+      <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-xs text-[12px] text-slate-500">
+        Showing <span className="font-bold text-slate-800">all shifts</span> for{" "}
+        <span className="font-bold text-slate-800">{selectedDateObj.formatted}</span>
+        {" "}({selectedDateObj.dayName}). When a slot end time passes it is marked{" "}
+        <span className="font-bold text-amber-700">Expired</span>. Click a row for riders joined,
+        orders received, and completed deliveries with names.
+      </div>
+
       {/* SHIFTS TABLE CONTAINER */}
       <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">
         {loading ? (
@@ -458,31 +489,48 @@ export default function ShiftManagementPage() {
         ) : shifts.length === 0 ? (
           <div className="py-16 text-center text-slate-500 space-y-2">
             <p className="text-2xl">📅</p>
-            <p className="text-sm font-bold text-slate-700">No shifts generated for this date.</p>
-            <p className="text-xs text-slate-400">Click "+ Shift Slots" above to generate shift slots.</p>
+            <p className="text-sm font-bold text-slate-700">No shifts created for this date.</p>
+            <p className="text-xs text-slate-400">
+              Pick another date or click &quot;+ Create Shift&quot;.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-black text-white text-xs font-bold uppercase tracking-wider">
                 <tr>
-                  <th className="px-5 py-2">SHIFT TYPES</th>
+                  <th className="px-5 py-2">SHIFT</th>
                   <th className="px-5 py-2">DATE</th>
-                  <th className="px-5 py-2">TIME SLOTS</th>
-                  <th className="px-5 py-2">AVAILABLE SLOTS</th>
-                  <th className="px-5 py-2">BOOKED SLOTS</th>
+                  <th className="px-5 py-2">TIME</th>
+                  <th className="px-5 py-2">STATUS</th>
+                  <th className="px-5 py-2">AVAILABLE</th>
+                  <th className="px-5 py-2">RIDERS JOINED</th>
+                  <th className="px-5 py-2">KM EARNING</th>
                   <th className="px-5 py-2 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {shifts.map((shift) => {
                   const shiftDateObj = formatDateWithDay(shift.dateString);
+                  const slabs = shift.deliveryEarningSlabs || [];
+                  const slabSummary =
+                    slabs.length > 0
+                      ? slabs
+                          .slice(0, 2)
+                          .map((s) => `${s.minKm}-${s.maxKm}km ₹${s.riderAmount}`)
+                          .join(" · ")
+                      : "—";
                   return (shift.slots || []).map((slot, index) => {
                     const availableCount = Math.max(0, slot.capacity - slot.bookedCount);
+                    const label = statusDisplay(slot);
                     return (
-                      <tr key={`${shift.id}-${slot.id || index}`} className="hover:bg-slate-50/50 transition">
+                      <tr
+                        key={`${shift.id}-${slot.id || index}`}
+                        className="hover:bg-emerald-50/40 transition cursor-pointer"
+                        onClick={() => handleOpenSlotDetails(slot.id || slot.slotId)}
+                      >
                         <td className="px-5 py-4 font-bold text-slate-900">
-                          {shift.shiftName}
+                          {shift.name || shift.shiftName}
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-bold text-slate-900">{shiftDateObj.formatted}</div>
@@ -491,37 +539,48 @@ export default function ShiftManagementPage() {
                         <td className="px-5 py-4 font-bold text-slate-900">
                           {slot.startTime} – {slot.endTime}
                         </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${lifecycleBadge(
+                              label
+                            )}`}
+                          >
+                            {label}
+                          </span>
+                        </td>
                         <td className="px-5 py-4 font-black text-emerald-600">
                           {availableCount} / {slot.capacity}
                         </td>
                         <td className="px-5 py-4">
-                          {slot.bookedCount > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenSlotDetails(slot.id || slot.slotId)}
-                              className="font-bold text-emerald-700 underline hover:text-emerald-900 cursor-pointer"
-                            >
-                              {slot.bookedCount} (View Riders)
-                            </button>
-                          ) : (
-                            <span className="font-bold text-slate-900">0</span>
-                          )}
+                          <span className="font-bold text-emerald-700 underline">
+                            {slot.bookedCount || 0} joined · View
+                          </span>
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-4 text-xs font-semibold text-slate-600 max-w-[180px]">
+                          {slot.deliveryEarningSlabs?.length
+                            ? slot.deliveryEarningSlabs
+                                .slice(0, 2)
+                                .map((s) => `${s.minKm}-${s.maxKm}km ₹${s.riderAmount}`)
+                                .join(" · ")
+                            : slabSummary}
+                        </td>
+                        <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingSlot(slot);
-                                setEditCapacity(slot.capacity);
-                                setEditStatus(slot.status);
-                                setEditStartTime(slot.startTime);
-                                setEditEndTime(slot.endTime);
-                              }}
-                              className="rounded-lg border border-emerald-500 bg-white px-3 py-1 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition"
-                            >
-                              Edit
-                            </button>
+                            {label !== "Expired" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSlot(slot);
+                                  setEditCapacity(slot.capacity);
+                                  setEditStatus(slot.status);
+                                  setEditStartTime(slot.startTime);
+                                  setEditEndTime(slot.endTime);
+                                }}
+                                className="rounded-lg border border-emerald-500 bg-white px-3 py-1 text-xs font-bold text-emerald-600 hover:bg-emerald-50 transition"
+                              >
+                                Edit
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleDeleteSlot(slot, shift)}
@@ -907,15 +966,21 @@ export default function ShiftManagementPage() {
         </div>
       )}
 
-      {/* SLOT RIDERS LIST MODAL */}
+      {/* SLOT DETAIL MODAL — riders + orders */}
       {selectedSlotForRiders && riderDetailsModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3 gap-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  Registered Delivery Partners ({riderDetailsModalData.bookedCount} / {riderDetailsModalData.capacity})
+                  {riderDetailsModalData.shiftName || "Shift"} · {riderDetailsModalData.startTime} – {riderDetailsModalData.endTime}
                 </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {riderDetailsModalData.dateString}{" "}
+                  <span className={`ml-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${lifecycleBadge(riderDetailsModalData.statusLabel || "")}`}>
+                    {riderDetailsModalData.statusLabel || "—"}
+                  </span>
+                </p>
               </div>
               <button
                 type="button"
@@ -929,39 +994,111 @@ export default function ShiftManagementPage() {
               </button>
             </div>
 
-            <div className="space-y-3">
-              {riderDetailsModalData.deliveryPartners.length === 0 ? (
-                <p className="py-8 text-center text-xs text-slate-400 font-semibold">No delivery partners have booked this slot yet.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                ["Riders joined", riderDetailsModalData.summary?.ridersJoined ?? riderDetailsModalData.bookedCount ?? 0],
+                ["Orders received", riderDetailsModalData.summary?.ordersReceived ?? 0],
+                ["Orders taken", riderDetailsModalData.summary?.ordersTaken ?? 0],
+                ["Completed", riderDetailsModalData.summary?.ordersCompleted ?? 0],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
+                  <p className="text-lg font-black text-slate-900">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Delivery boys on this shift
+              </h4>
+              {(riderDetailsModalData.deliveryPartners || []).length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-400 font-semibold">
+                  No delivery partners joined this slot.
+                </p>
               ) : (
-                riderDetailsModalData.deliveryPartners.map((rider, idx) => (
-                  <div
-                    key={rider.bookingId}
-                    className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-800 text-xs">
-                        {rider.deliveryPartnerName.charAt(0).toUpperCase()}
+                <div className="space-y-3">
+                  {riderDetailsModalData.deliveryPartners.map((rider, idx) => (
+                    <div
+                      key={rider.bookingId}
+                      className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-bold text-emerald-800 text-xs">
+                            {(rider.deliveryPartnerName || "?").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">
+                              {idx + 1}. {rider.deliveryPartnerName}
+                            </p>
+                            <p className="text-[11px] text-slate-500">📞 {rider.deliveryPartnerPhone || "—"}</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800">
+                            {rider.status}
+                          </span>
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            Taken {rider.ordersTaken ?? 0} · Done {rider.ordersCompleted ?? 0}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{idx + 1}. {rider.deliveryPartnerName}</p>
-                        <p className="text-[11px] text-slate-500">📞 {rider.deliveryPartnerPhone}</p>
-                      </div>
+
+                      {(rider.completedOrders || []).length > 0 && (
+                        <div className="rounded-lg bg-white border border-slate-100 p-2 space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Completed deliveries</p>
+                          {rider.completedOrders.map((o) => (
+                            <div key={o.id} className="flex justify-between text-[11px] text-slate-700 gap-2">
+                              <span className="font-semibold truncate">
+                                {o.orderNumber} · {o.customerName}
+                              </span>
+                              <span className="text-emerald-700 font-bold shrink-0">₹{o.earning || 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {(rider.orders || []).length > 0 && (rider.completedOrders || []).length === 0 && (
+                        <div className="rounded-lg bg-white border border-slate-100 p-2 space-y-1">
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Orders taken</p>
+                          {rider.orders.map((o) => (
+                            <div key={o.id} className="flex justify-between text-[11px] text-slate-700 gap-2">
+                              <span className="font-semibold truncate">
+                                {o.orderNumber} · {o.customerName}
+                              </span>
+                              <span className="text-slate-500 shrink-0">{o.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800">
-                        {rider.status}
-                      </span>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Booked: {new Date(rider.bookedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
+
+            {(riderDetailsModalData.ordersReceivedList || []).length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Orders in this shift window
+                </h4>
+                <div className="rounded-xl border border-slate-100 divide-y divide-slate-50 max-h-40 overflow-y-auto">
+                  {riderDetailsModalData.ordersReceivedList.map((o) => (
+                    <div key={o.id} className="flex justify-between px-3 py-2 text-[11px] gap-2">
+                      <span className="font-semibold text-slate-800 truncate">
+                        {o.orderNumber} · {o.customerName}
+                      </span>
+                      <span className="text-slate-500 shrink-0">{o.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
+
       {/* CREATE GIG MODAL */}
       {isGigModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">

@@ -178,12 +178,13 @@ export const bookSlot = async (req, res, next) => {
       });
     }
 
-    // Check if rider already has an active booking on THIS DATE only
-    // (booking for Mon must not block Tue–Sun)
+    // Check if rider already has an active (not ended) booking on THIS DATE
     const sameDayShifts = await Shift.find({
       managerId: targetShift.managerId,
       dateString: targetShift.dateString,
     });
+    const todayStr = formatDateStringIST();
+    const currentMin = getCurrentMinutesIST();
     for (const sh of sameDayShifts) {
       for (const sl of sh.slots || []) {
         const found = (sl.bookings || []).find(
@@ -194,9 +195,37 @@ export const bookSlot = async (req, res, next) => {
         );
         if (!found) continue;
         if (sl._id.toString() === targetSlot._id.toString()) continue;
+        // Allow another booking same day only if existing active slot does not overlap
+        if (
+          isSlotEnded(
+            sl.startTime,
+            sl.endTime,
+            currentMin,
+            sh.dateString,
+            todayStr
+          )
+        ) {
+          found.status = "COMPLETED";
+          found.completedAt = found.completedAt || new Date();
+          sl.bookedCount = (sl.bookings || []).filter(
+            (b) => b.status !== "CANCELLED"
+          ).length;
+          await sh.save().catch(() => {});
+          continue;
+        }
+        const existingStart = timeToMinutes(sl.startTime);
+        const existingEnd = timeToMinutes(sl.endTime);
+        const nextStart = timeToMinutes(targetSlot.startTime);
+        const nextEnd = timeToMinutes(targetSlot.endTime);
+        const existingEnds =
+          existingEnd > existingStart ? existingEnd : existingEnd + 24 * 60;
+        const nextEnds = nextEnd > nextStart ? nextEnd : nextEnd + 24 * 60;
+        const overlaps =
+          nextStart < existingEnds && nextEnds > existingStart;
+        if (!overlaps) continue;
         return res.status(400).json({
           success: false,
-          message: `You already have a shift booked for ${targetShift.dateString}. You can still book other days.`,
+          message: `You already have an overlapping shift booked (${sl.startTime}–${sl.endTime}). Pick a non-overlapping slot.`,
         });
       }
     }
@@ -755,7 +784,16 @@ export const getAvailableSlots = async (req, res, next) => {
         }
 
         let slotStatus = slot.status;
-        if (isToday && isSlotEnded(slot.startTime, slot.endTime, currentMinutesIST)) {
+        if (
+          isToday &&
+          isSlotEnded(
+            slot.startTime,
+            slot.endTime,
+            currentMinutesIST,
+            queryDateStr,
+            queryDateStr
+          )
+        ) {
           slotStatus = "ENDED";
         }
 

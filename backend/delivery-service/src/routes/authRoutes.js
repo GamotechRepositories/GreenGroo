@@ -52,6 +52,11 @@ import {
   goOffline,
 } from "../controllers/partnerShiftController.js";
 
+import {
+  getAttendanceToday,
+  getPerformanceStats,
+  getWalletSummary,
+} from "../controllers/riderInsightsController.js";
 import { getPartnerGigs } from "../controllers/gigManagementController.js";
 import { getAvailableIncentives } from "../controllers/incentiveController.js";
 import {
@@ -123,5 +128,8 @@ router.post("/orders/:orderId/fail", protect, failDelivery);
 router.get("/cash/pending", protect, getRiderCashPending);
 router.post("/cash/submit", protect, riderSubmitCash);
 router.get("/earnings/detail", protect, getRiderEarningsDetail);
+router.get("/wallet/summary", protect, getWalletSummary);
+router.get("/attendance/today", protect, getAttendanceToday);
+router.get("/performance", protect, getPerformanceStats);
 
 export default router;

@@ -123,7 +123,14 @@ async function processRiderWithBooking(rider) {
     );
 
   const ended =
-    pastDay || isSlotEnded(slot.startTime, slot.endTime, currentMin);
+    pastDay ||
+    isSlotEnded(
+      slot.startTime,
+      slot.endTime,
+      currentMin,
+      shift.dateString,
+      todayStr
+    );
 
   if (!ended) return false;
 
@@ -166,7 +173,15 @@ async function processOnlineRidersWithoutPointer() {
             b.status !== "COMPLETED"
         );
         if (!booking) continue;
-        if (isSlotEnded(slot.startTime, slot.endTime, currentMin)) {
+        if (
+          isSlotEnded(
+            slot.startTime,
+            slot.endTime,
+            currentMin,
+            shift.dateString,
+            todayStr
+          )
+        ) {
           matched = { shift, slot, booking };
           break;
         }

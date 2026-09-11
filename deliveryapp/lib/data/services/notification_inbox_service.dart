@@ -226,6 +226,22 @@ class NotificationInboxService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> clearAll() async {
+    final ids = _items.map((e) => e.id).where((id) => id.isNotEmpty).toList();
+    _items.clear();
+    _seenIds.clear();
+    _unreadCount = 0;
+    notifyListeners();
+    for (final id in ids) {
+      try {
+        await http.delete(
+          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.notificationDelete(id)}'),
+          headers: _headers,
+        );
+      } catch (_) {}
+    }
+  }
+
   Future<void> deleteOne(String id) async {
     if (id.isEmpty || _headers == null) return;
     final idx = _items.indexWhere((e) => e.id == id);

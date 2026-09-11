@@ -96,6 +96,10 @@ abstract final class ApiConfig {
     return '/api/delivery-boys/earnings/detail$qs';
   }
 
+  static const walletSummary = '/api/delivery-boys/wallet/summary';
+  static const attendanceToday = '/api/delivery-boys/attendance/today';
+  static const performance = '/api/delivery-boys/performance';
+
   // Shift earning slabs (rider reads from shift screen)
   static String shiftEarningSlabs(String shiftId) =>
       '/api/delivery-managers/shifts/$shiftId/earning-slabs';

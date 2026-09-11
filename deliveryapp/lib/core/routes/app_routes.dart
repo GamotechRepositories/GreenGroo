@@ -31,6 +31,7 @@ abstract final class AppRoutes {
   static const profile = '/profile';
   static const documents = '/documents';
   static const vehicle = '/vehicle';
+  static const bankDetails = '/bank-details';
   static const support = '/support';
   static const settings = '/settings';
 }

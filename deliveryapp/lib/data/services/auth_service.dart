@@ -33,6 +33,11 @@ class DeliveryBoy {
     this.todayEarnings = 0.0,
     this.fcmToken = '',
     this.activeOrderId,
+    this.verifiedAt,
+    this.selfieUrl = '',
+    this.selfieBase64 = '',
+    this.documents = const {},
+    this.bankDetails = const {},
   });
 
   final String id;
@@ -54,6 +59,29 @@ class DeliveryBoy {
   final double todayEarnings;
   final String fcmToken;
   final String? activeOrderId;
+  final DateTime? verifiedAt;
+  final String selfieUrl;
+  /// Fallback when S3 URL is empty (local / upload-pending).
+  final String selfieBase64;
+  final Map<String, dynamic> documents;
+  final Map<String, dynamic> bankDetails;
+
+  bool get hasProfilePhoto =>
+      selfieUrl.isNotEmpty || selfieBase64.isNotEmpty;
+
+  /// Prefer S3 URL; fall back to stored base64 for local display.
+  Object? get profileImageBytesOrUrl {
+    if (selfieUrl.isNotEmpty) return selfieUrl;
+    if (selfieBase64.isEmpty) return null;
+    try {
+      final raw = selfieBase64.contains(',')
+          ? selfieBase64.split(',').last
+          : selfieBase64;
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
 
   bool get isOnline => status == 'online' || status == 'on_delivery';
   bool get isVerificationPending =>
@@ -61,6 +89,21 @@ class DeliveryBoy {
   bool get isVerified => verificationStatus == 'approved';
 
   factory DeliveryBoy.fromJson(Map<String, dynamic> json) {
+    final selfie = json['selfie'];
+    String selfieUrl = '';
+    String selfieBase64 = '';
+    if (selfie is Map) {
+      selfieUrl = selfie['url']?.toString() ?? '';
+      selfieBase64 = selfie['imageBase64']?.toString() ?? '';
+    }
+    Map<String, dynamic> docs = const {};
+    if (json['documents'] is Map) {
+      docs = Map<String, dynamic>.from(json['documents'] as Map);
+    }
+    Map<String, dynamic> bank = const {};
+    if (json['bankDetails'] is Map) {
+      bank = Map<String, dynamic>.from(json['bankDetails'] as Map);
+    }
     return DeliveryBoy(
       id: json['id']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
@@ -81,6 +124,13 @@ class DeliveryBoy {
       todayEarnings: (json['todayEarnings'] as num?)?.toDouble() ?? 0.0,
       fcmToken: json['fcmToken']?.toString() ?? '',
       activeOrderId: json['activeOrderId']?.toString(),
+      verifiedAt: json['verifiedAt'] != null
+          ? DateTime.tryParse(json['verifiedAt'].toString())
+          : null,
+      selfieUrl: selfieUrl,
+      selfieBase64: selfieBase64,
+      documents: docs,
+      bankDetails: bank,
     );
   }
 
@@ -104,6 +154,13 @@ class DeliveryBoy {
         'todayEarnings': todayEarnings,
         'fcmToken': fcmToken,
         'activeOrderId': activeOrderId,
+        'verifiedAt': verifiedAt?.toIso8601String(),
+        'selfie': {
+          'url': selfieUrl,
+          if (selfieBase64.isNotEmpty) 'imageBase64': selfieBase64,
+        },
+        'documents': documents,
+        'bankDetails': bankDetails,
       };
 }
 

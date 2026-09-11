@@ -9,7 +9,7 @@ import '../widgets/layout/app_bottom_navigation.dart';
 import '../widgets/layout/app_drawer.dart';
 import '../widgets/layout/custom_app_bar.dart';
 import '../screens/home/home_dashboard_screen.dart';
-import '../screens/navigation/live_navigation_screen.dart';
+import '../screens/history/delivery_history_screen.dart';
 import '../screens/notifications/notifications_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
 import '../screens/wallet/wallet_screen.dart';
@@ -35,7 +35,6 @@ class _MainShellState extends State<MainShell> {
     NotificationInboxService.instance.ensureSocketListeners();
     NotificationInboxService.instance.refreshUnreadOnly();
     PushNotificationService.instance.syncTokenNow();
-    // Apply FCM tap deep-link after cold start / background resume.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PushNotificationService.instance.consumePendingTap();
     });
@@ -53,7 +52,7 @@ class _MainShellState extends State<MainShell> {
 
   void _onTabChanged() {
     if (mounted) setState(() {});
-    if (_tabIndex.value == 4) {
+    if (_tabIndex.value == 2) {
       NotificationInboxService.instance.refresh();
     }
   }
@@ -72,30 +71,30 @@ class _MainShellState extends State<MainShell> {
     return switch (index) {
       0 => l10n.dashboard,
       1 => l10n.myShifts,
-      2 => l10n.navigation,
+      2 => l10n.notifications,
       3 => l10n.wallet,
-      4 => l10n.notifications,
+      4 => l10n.deliveryHistory,
       _ => l10n.dashboard,
     };
   }
 
   Widget _buildPage(int index) {
-    // Non-const so theme rebuilds remount/update page colors.
     return switch (index) {
       0 => HomeDashboardScreen(key: ValueKey('home_${ThemeController.instance.isDark}')),
       1 => MyShiftsScreen(
           key: ValueKey('shifts_${ThemeController.instance.isDark}'),
           embedded: true,
         ),
-      2 => LiveNavigationScreen(
-          key: ValueKey('map_${ThemeController.instance.isDark}'),
+      2 => NotificationsScreen(
+          key: ValueKey('notif_${ThemeController.instance.isDark}'),
+          embedded: true,
         ),
       3 => WalletScreen(
           key: ValueKey('wallet_${ThemeController.instance.isDark}'),
           embedded: true,
         ),
-      4 => NotificationsScreen(
-          key: ValueKey('notif_${ThemeController.instance.isDark}'),
+      4 => DeliveryHistoryScreen(
+          key: ValueKey('history_${ThemeController.instance.isDark}'),
           embedded: true,
         ),
       _ => HomeDashboardScreen(
@@ -107,13 +106,15 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    Theme.of(context); // track Material themeMode changes too
+    Theme.of(context);
+
+    final hideShellAppBar = _currentIndex == 0 || _currentIndex == 2;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       extendBody: false,
       drawer: const AppDrawer(),
-      appBar: _currentIndex == 0
+      appBar: hideShellAppBar
           ? null
           : CustomAppBar(
               title: _titleForIndex(l10n, _currentIndex),

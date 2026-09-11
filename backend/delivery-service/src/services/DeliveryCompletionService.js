@@ -22,7 +22,7 @@ import mongoose from "mongoose";
 import StoreOrder from "../models/StoreOrder.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
 import DeliveryManager from "../models/DeliveryManager.js";
-import { calculateRiderEarning } from "./ShiftEarningService.js";
+import { calculateRiderEarning, applyEarningSnapshot } from "./ShiftEarningService.js";
 import { validatePaymentForCompletion } from "./PaymentCollectionService.js";
 import { getIO } from "../../../socket.js";
 import { syncCustomerOrderFromStore } from "./syncCustomerOrderFromStore.js";
@@ -189,15 +189,10 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
     order.status = "delivered";
     order.assignmentStatus = "DELIVERED";
     order.deliveredAt = now;
-    order.deliveryDistanceKm = distanceKm;
-    order.riderDeliveryEarning = riderEarning;
-    if (earningSlab) {
-      order.earningSlab = { minKm: earningSlab.minKm, maxKm: earningSlab.maxKm, riderAmount: earningSlab.riderAmount };
-    }
+    applyEarningSnapshot(order, darkStore, earningResult, now);
     if (earningResult.shift?._id && !order.shiftId) {
       order.shiftId = earningResult.shift._id;
     }
-    order.earningCalculatedAt = now;
     await order.save({ session });
 
     // Update rider statistics atomically
@@ -209,6 +204,7 @@ export async function completeDelivery({ orderId, riderId, skipConditionCheck = 
       // Only KM-based delivery earning goes here — Gig bonus is separate
       rider.todayEarnings = (rider.todayEarnings || 0) + riderEarning;
       rider.totalLifetimeEarnings = (rider.totalLifetimeEarnings || 0) + riderEarning;
+      rider.walletBalance = (rider.walletBalance || 0) + riderEarning;
       rider.lastOrderCompletedAt = now;
       rider.lastStatusAt = now;
       await rider.save({ session });

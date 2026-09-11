@@ -155,7 +155,7 @@ class PushNotificationService {
       shell.requestOfferRecovery(orderId: orderId, reason: type);
       return;
     }
-    goTab(4); // notifications tab
+    goTab(2); // notifications tab (center)
   }
 
   Future<void> syncTokenNow() async {

@@ -231,6 +231,24 @@ const storeOrderSchema = new mongoose.Schema(
       riderAmount: { type: Number, default: 0 },
     },
     earningCalculatedAt: { type: Date },
+    /** Immutable snapshot when earning is finalized (protects history if manager changes rates). */
+    earningSnapshot: {
+      darkStoreId: { type: String, default: "" },
+      sourceLat: { type: Number, default: null },
+      sourceLng: { type: Number, default: null },
+      sourceAddress: { type: String, default: "" },
+      customerLat: { type: Number, default: null },
+      customerLng: { type: Number, default: null },
+      customerAddress: { type: String, default: "" },
+      distanceKm: { type: Number, default: 0 },
+      /** Manager slab amount applied (existing KM-slab config). */
+      slabMinKm: { type: Number, default: 0 },
+      slabMaxKm: { type: Number, default: 0 },
+      slabRiderAmount: { type: Number, default: 0 },
+      shiftId: { type: String, default: "" },
+      riderEarning: { type: Number, default: 0 },
+      calculatedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
@@ -361,6 +379,24 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
       ? { minKm: this.earningSlab.minKm, maxKm: this.earningSlab.maxKm, riderAmount: this.earningSlab.riderAmount }
       : null,
     earningCalculatedAt: this.earningCalculatedAt,
+    earningSnapshot: this.earningSnapshot
+      ? {
+          darkStoreId: this.earningSnapshot.darkStoreId || "",
+          sourceLat: this.earningSnapshot.sourceLat,
+          sourceLng: this.earningSnapshot.sourceLng,
+          sourceAddress: this.earningSnapshot.sourceAddress || "",
+          customerLat: this.earningSnapshot.customerLat,
+          customerLng: this.earningSnapshot.customerLng,
+          customerAddress: this.earningSnapshot.customerAddress || "",
+          distanceKm: this.earningSnapshot.distanceKm || 0,
+          slabMinKm: this.earningSnapshot.slabMinKm || 0,
+          slabMaxKm: this.earningSnapshot.slabMaxKm || 0,
+          slabRiderAmount: this.earningSnapshot.slabRiderAmount || 0,
+          shiftId: this.earningSnapshot.shiftId || "",
+          riderEarning: this.earningSnapshot.riderEarning || 0,
+          calculatedAt: this.earningSnapshot.calculatedAt,
+        }
+      : null,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

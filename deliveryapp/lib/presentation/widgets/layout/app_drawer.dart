@@ -71,16 +71,6 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _nav(context, AppRoutes.myShifts),
                   ),
                   _DrawerItem(
-                    icon: Icons.add_shopping_cart_outlined,
-                    label: l10n.newOrders,
-                    onTap: () => _nav(context, AppRoutes.newOrders),
-                  ),
-                  _DrawerItem(
-                    icon: Icons.delivery_dining_outlined,
-                    label: l10n.activeOrders,
-                    onTap: () => _nav(context, AppRoutes.activeDelivery),
-                  ),
-                  _DrawerItem(
                     icon: Icons.history_outlined,
                     label: l10n.history,
                     onTap: () => _nav(context, AppRoutes.deliveryHistory),
@@ -124,6 +114,11 @@ class AppDrawer extends StatelessWidget {
                     icon: Icons.two_wheeler_outlined,
                     label: l10n.vehicle,
                     onTap: () => _nav(context, AppRoutes.vehicle),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.account_balance_outlined,
+                    label: 'Bank details',
+                    onTap: () => _nav(context, AppRoutes.bankDetails),
                   ),
                   _DrawerItem(
                     icon: Icons.support_agent_outlined,

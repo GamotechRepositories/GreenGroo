@@ -1,7 +1,14 @@
 import Shift from "../models/Shift.js";
 import DeliveryManager from "../models/DeliveryManager.js";
 import DeliveryBoy from "../models/DeliveryBoy.js";
+import StoreOrder from "../models/StoreOrder.js";
 import { validateEarningSlabs } from "../services/ShiftEarningService.js";
+import {
+  getCurrentMinutesIST,
+  getSlotLifecycle,
+  timeToMinutes,
+} from "../utils/shiftTimeHelper.js";
+import { istDateString, listRecentIstDates } from "../utils/onlineHoursHelper.js";
 
 const getManager = async (req) => {
   const manager = await DeliveryManager.findById(req.user.id);
@@ -16,13 +23,7 @@ const getManager = async (req) => {
 const formatDateString = (d) => {
   const date = d ? new Date(d) : new Date();
   if (isNaN(date.getTime())) {
-    const now = new Date();
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
+    return istDateString();
   }
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -82,6 +83,105 @@ const getDefaultSlotsForType = (type, customSlots = [], defaultCapacity = 10) =>
       ];
   }
 };
+
+/** Convert shift date + "09:00 AM" into a real Date in IST. */
+function istDateAtMinutes(dateString, minutesFromMidnight) {
+  const h = Math.floor(Math.max(0, minutesFromMidnight) / 60);
+  const m = Math.max(0, minutesFromMidnight) % 60;
+  const hh = String(h).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  return new Date(`${dateString}T${hh}:${mm}:00+05:30`);
+}
+
+function addOneIstDay(dateString) {
+  const d = new Date(`${dateString}T12:00:00+05:30`);
+  d.setTime(d.getTime() + 24 * 60 * 60 * 1000);
+  return istDateString(d);
+}
+
+/** Inclusive window for a slot on a given IST date. */
+function slotTimeWindow(dateString, startTime, endTime) {
+  const startMin = timeToMinutes(startTime);
+  const endMin = timeToMinutes(endTime);
+  const start = istDateAtMinutes(dateString, startMin);
+  let end;
+  if (endMin > startMin) {
+    end = istDateAtMinutes(dateString, endMin);
+  } else {
+    // Overnight — ends next calendar morning
+    end = istDateAtMinutes(addOneIstDay(dateString), endMin || 24 * 60);
+  }
+  // End exclusive → use end of last minute
+  if (end.getTime() <= start.getTime()) {
+    end = new Date(start.getTime() + 60 * 60 * 1000);
+  }
+  return { start, end };
+}
+
+function lifecycleToLabel(lifecycle) {
+  if (lifecycle === "past") return "Expired";
+  if (lifecycle === "current") return "Live";
+  return "Upcoming";
+}
+
+/**
+ * Merge new slot templates into an existing shift WITHOUT wiping rider bookings.
+ * History (drivers, times, earnings slabs) is kept until manager explicitly deletes.
+ */
+function mergeSlotsPreserveBookings(existingSlots = [], nextTemplates = []) {
+  const preserved = [];
+  const usedExisting = new Set();
+
+  for (const template of nextTemplates) {
+    const matchIdx = (existingSlots || []).findIndex(
+      (s, idx) =>
+        !usedExisting.has(idx) &&
+        s.startTime === template.startTime &&
+        s.endTime === template.endTime &&
+        s.status !== "CANCELLED"
+    );
+
+    if (matchIdx >= 0) {
+      usedExisting.add(matchIdx);
+      const existing = existingSlots[matchIdx];
+      const bookings = Array.isArray(existing.bookings)
+        ? existing.bookings
+        : [];
+      preserved.push({
+        _id: existing._id,
+        startTime: existing.startTime,
+        endTime: existing.endTime,
+        capacity: parseInt(template.capacity, 10) || existing.capacity || 10,
+        status: existing.status === "CANCELLED" ? "AVAILABLE" : existing.status,
+        bookings,
+        bookedCount: bookings.filter((b) => b.status !== "CANCELLED").length,
+      });
+    } else {
+      preserved.push({
+        startTime: template.startTime,
+        endTime: template.endTime,
+        capacity: parseInt(template.capacity, 10) || 10,
+        bookedCount: 0,
+        status: "AVAILABLE",
+        bookings: [],
+      });
+    }
+  }
+
+  // Keep any existing slots that still have bookings (even if times changed in template)
+  (existingSlots || []).forEach((s, idx) => {
+    if (usedExisting.has(idx)) return;
+    if (s.status === "CANCELLED") return;
+    const activeBookings = (s.bookings || []).filter(
+      (b) => b.status !== "CANCELLED"
+    );
+    if (activeBookings.length > 0 || (s.bookings || []).length > 0) {
+      preserved.push(s);
+    }
+  });
+
+  return preserved;
+}
 
 /** Generates date-wise Shift documents directly in single Shift collection */
 const generateDateWiseShifts = async ({
@@ -152,12 +252,13 @@ const generateDateWiseShifts = async ({
       });
       createdShifts.push(newShift);
     } else {
-      // Overwrite/update slots for this shift type on this date
+      // Update metadata / slabs / capacity — NEVER wipe rider booking history
       existing.name = name || existing.name;
-      existing.slots = defaultSlots;
+      existing.slots = mergeSlotsPreserveBookings(existing.slots, defaultSlots);
       if (deliveryEarningSlabs !== undefined) {
         existing.deliveryEarningSlabs = deliveryEarningSlabs;
       }
+      existing.markModified("slots");
       await existing.save();
       createdShifts.push(existing);
     }
@@ -182,7 +283,6 @@ export const createShift = async (req, res, next) => {
       deliveryEarningSlabs,
     } = req.body;
 
-    // Validate earning slabs if provided
     if (deliveryEarningSlabs !== undefined) {
       const slabValidation = validateEarningSlabs(deliveryEarningSlabs);
       if (!slabValidation.valid) {
@@ -218,44 +318,166 @@ export const createShift = async (req, res, next) => {
   }
 };
 
+/**
+ * List shifts for manager.
+ * query.filter: all | upcoming | current | past
+ * query.date: YYYY-MM-DD (for all / date-scoped views)
+ * query.days: lookback for past (default 60)
+ */
 export const listShifts = async (req, res, next) => {
   try {
     const manager = await getManager(req);
-    const dateInput = req.query.date ? formatDateString(req.query.date) : formatDateString(new Date());
+    const filter = String(req.query.filter || "all").toLowerCase();
+    const todayStr = istDateString();
+    const currentMin = getCurrentMinutesIST();
+    const dateInput = req.query.date
+      ? formatDateString(req.query.date)
+      : todayStr;
+    const lookbackDays = Math.min(
+      120,
+      Math.max(7, parseInt(req.query.days, 10) || 60)
+    );
 
+    let dateQuery;
+    if (filter === "past") {
+      const dates = listRecentIstDates(lookbackDays).filter((d) => d <= todayStr);
+      dateQuery = { dateString: { $in: dates } };
+    } else if (filter === "upcoming") {
+      const future = [];
+      for (let i = 0; i <= 30; i++) {
+        const d = new Date();
+        d.setTime(d.getTime() + i * 24 * 60 * 60 * 1000);
+        future.push(formatDateString(d));
+      }
+      dateQuery = { dateString: { $in: future } };
+    } else if (filter === "current") {
+      const yesterday = listRecentIstDates(2)[0];
+      dateQuery = { dateString: { $in: [yesterday, todayStr] } };
+    } else {
+      dateQuery = { dateString: dateInput };
+    }
+
+    // Default date-wise view: only that day's shifts (fast path)
     const shifts = await Shift.find({
       managerId: manager._id,
-      dateString: dateInput,
-    }).sort({ createdAt: 1 });
+      ...dateQuery,
+    }).sort({ dateString: -1, createdAt: 1 });
 
-    const safeShifts = shifts
-      .map((s) => {
-        const json = s.toSafeJSON();
-        json.slots = (json.slots || []).filter((sl) => sl.status !== "CANCELLED");
-        return json;
-      })
+    const annotate = (shiftJson) => {
+      const slots = (shiftJson.slots || [])
+        .filter((sl) => sl.status !== "CANCELLED")
+        .map((slot) => {
+          const lifecycle = getSlotLifecycle(
+            shiftJson.dateString,
+            slot.startTime,
+            slot.endTime,
+            todayStr,
+            currentMin
+          );
+          return {
+            ...slot,
+            lifecycle,
+            statusLabel: lifecycleToLabel(lifecycle),
+            isExpired: lifecycle === "past",
+            isLive: lifecycle === "current",
+            shiftName: shiftJson.name || shiftJson.shiftName,
+            shiftType: shiftJson.type,
+            dateString: shiftJson.dateString,
+            deliveryEarningSlabs: shiftJson.deliveryEarningSlabs || [],
+          };
+        })
+        .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+      return { ...shiftJson, slots };
+    };
+
+    // Badge counts only when filter tabs are used
+    let counts = { upcoming: 0, current: 0, past: 0, total: 0 };
+    if (filter !== "all") {
+      const badgeDates = new Set([
+        ...listRecentIstDates(lookbackDays),
+        ...Array.from({ length: 31 }, (_, i) => {
+          const d = new Date();
+          d.setTime(d.getTime() + i * 24 * 60 * 60 * 1000);
+          return formatDateString(d);
+        }),
+      ]);
+      const badgeShifts = await Shift.find({
+        managerId: manager._id,
+        dateString: { $in: [...badgeDates] },
+      });
+      const badgeSlots = [];
+      for (const s of badgeShifts) {
+        const json = annotate(s.toSafeJSON());
+        for (const slot of json.slots || []) badgeSlots.push(slot);
+      }
+      counts = {
+        upcoming: badgeSlots.filter((s) => s.lifecycle === "upcoming").length,
+        current: badgeSlots.filter((s) => s.lifecycle === "current").length,
+        past: badgeSlots.filter((s) => s.lifecycle === "past").length,
+        total: badgeSlots.length,
+      };
+    } else {
+      const daySlots = [];
+      for (const s of shifts) {
+        const json = annotate(s.toSafeJSON());
+        for (const slot of json.slots || []) daySlots.push(slot);
+      }
+      counts = {
+        upcoming: daySlots.filter((s) => s.lifecycle === "upcoming").length,
+        current: daySlots.filter((s) => s.lifecycle === "current").length,
+        past: daySlots.filter((s) => s.lifecycle === "past").length,
+        total: daySlots.length,
+      };
+    }
+
+    let safeShifts = shifts
+      .map((s) => annotate(s.toSafeJSON()))
       .filter((s) => (s.slots || []).length > 0);
 
-    // Flatten all slots across shifts for slot-level API responses
+    if (filter === "upcoming" || filter === "current" || filter === "past") {
+      safeShifts = safeShifts
+        .map((s) => ({
+          ...s,
+          slots: (s.slots || []).filter((sl) => sl.lifecycle === filter),
+        }))
+        .filter((s) => (s.slots || []).length > 0);
+    }
+
     const allSlots = [];
     for (const shiftJson of safeShifts) {
       for (const slot of shiftJson.slots) {
-        allSlots.push({
-          ...slot,
-          shiftName: shiftJson.name,
-          shiftType: shiftJson.type,
-          dateString: shiftJson.dateString,
-        });
+        allSlots.push(slot);
       }
+    }
+
+    if (filter === "past") {
+      allSlots.sort((a, b) =>
+        String(b.dateString).localeCompare(String(a.dateString))
+      );
+      safeShifts.sort((a, b) =>
+        String(b.dateString).localeCompare(String(a.dateString))
+      );
+    } else if (filter === "upcoming") {
+      allSlots.sort((a, b) =>
+        String(a.dateString).localeCompare(String(b.dateString))
+      );
+    } else {
+      // Date-wise: sort slots by start time
+      allSlots.sort(
+        (a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+      );
     }
 
     return res.json({
       success: true,
       date: dateInput,
+      today: todayStr,
+      filter,
       storeName: manager.storeName || `${manager.area} Dark Store`,
       storeAddress: manager.storeAddress || `${manager.area}, ${manager.city}`,
       shifts: safeShifts,
       slots: allSlots,
+      counts,
     });
   } catch (error) {
     next(error);
@@ -518,6 +740,8 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     const { slotId } = req.params;
+    const todayStr = istDateString();
+    const currentMin = getCurrentMinutesIST();
 
     const shift = await Shift.findOne({
       managerId: manager._id,
@@ -528,7 +752,27 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Shift slot not found" });
     }
 
-    const slot = shift.slots.find((s) => s._id.toString() === slotId || shift._id.toString() === slotId) || shift.slots[0];
+    const slot =
+      shift.slots.find((s) => s._id.toString() === slotId) ||
+      (shift._id.toString() === slotId ? shift.slots[0] : null) ||
+      shift.slots[0];
+
+    if (!slot) {
+      return res.status(404).json({ success: false, message: "Slot not found on shift" });
+    }
+
+    const lifecycle = getSlotLifecycle(
+      shift.dateString,
+      slot.startTime,
+      slot.endTime,
+      todayStr,
+      currentMin
+    );
+    const { start: windowStart, end: windowEnd } = slotTimeWindow(
+      shift.dateString,
+      slot.startTime,
+      slot.endTime
+    );
 
     const ridersList = (slot.bookings || [])
       .filter((b) => b.status !== "CANCELLED")
@@ -540,16 +784,151 @@ export const getSlotDetailsWithRiders = async (req, res, next) => {
         deliveryPartnerProfileImage: b.deliveryPartnerProfileImage || "",
         bookedAt: b.bookedAt,
         status: b.status,
+        onlineAt: b.onlineAt || null,
+        completedAt: b.completedAt || null,
       }));
+
+    const riderIds = ridersList
+      .map((r) => r.deliveryPartnerId)
+      .filter(Boolean);
+
+    // Orders for this store during the shift time window
+    const ordersInWindow = await StoreOrder.find({
+      managerId: manager._id,
+      createdAt: { $gte: windowStart, $lte: windowEnd },
+    })
+      .select(
+        "orderNumber customerName status assignedRiderId assignedAt deliveredAt packedAt riderDeliveryEarning createdAt"
+      )
+      .lean();
+
+    // Also include orders assigned/delivered in window even if created earlier
+    const assignedInWindow = await StoreOrder.find({
+      managerId: manager._id,
+      $or: [
+        { assignedAt: { $gte: windowStart, $lte: windowEnd } },
+        { deliveredAt: { $gte: windowStart, $lte: windowEnd } },
+      ],
+    })
+      .select(
+        "orderNumber customerName status assignedRiderId assignedAt deliveredAt packedAt riderDeliveryEarning createdAt"
+      )
+      .lean();
+
+    const orderMap = new Map();
+    for (const o of [...ordersInWindow, ...assignedInWindow]) {
+      orderMap.set(o._id.toString(), o);
+    }
+    const allOrders = [...orderMap.values()];
+
+    const ordersReceived = allOrders.length;
+    const ordersTaken = allOrders.filter((o) => o.assignedRiderId).length;
+    const ordersCompleted = allOrders.filter((o) => o.status === "delivered").length;
+
+    const formatOrder = (o) => ({
+      id: o._id.toString(),
+      orderNumber: o.orderNumber,
+      customerName: o.customerName || "Customer",
+      status: o.status,
+      assignedRiderId: o.assignedRiderId ? o.assignedRiderId.toString() : "",
+      assignedAt: o.assignedAt || null,
+      deliveredAt: o.deliveredAt || null,
+      earning: Number(o.riderDeliveryEarning || 0),
+    });
+
+    const deliveryPartners = ridersList.map((rider) => {
+      const riderOrders = allOrders.filter(
+        (o) =>
+          o.assignedRiderId &&
+          o.assignedRiderId.toString() === rider.deliveryPartnerId
+      );
+      const taken = riderOrders;
+      const completed = riderOrders.filter((o) => o.status === "delivered");
+      return {
+        ...rider,
+        ordersTaken: taken.length,
+        ordersCompleted: completed.length,
+        earnings: completed.reduce(
+          (s, o) => s + Number(o.riderDeliveryEarning || 0),
+          0
+        ),
+        orders: taken.map(formatOrder),
+        completedOrders: completed.map(formatOrder),
+      };
+    });
+
+    // Riders who took orders in this window but weren't in bookings (edge case)
+    const bookedIdSet = new Set(riderIds);
+    const extraRiderIds = [
+      ...new Set(
+        allOrders
+          .filter((o) => o.assignedRiderId)
+          .map((o) => o.assignedRiderId.toString())
+          .filter((id) => !bookedIdSet.has(id))
+      ),
+    ];
+    if (extraRiderIds.length) {
+      const extras = await DeliveryBoy.find({ _id: { $in: extraRiderIds } })
+        .select("name phone")
+        .lean();
+      for (const boy of extras) {
+        const id = boy._id.toString();
+        const riderOrders = allOrders.filter(
+          (o) => o.assignedRiderId && o.assignedRiderId.toString() === id
+        );
+        const completed = riderOrders.filter((o) => o.status === "delivered");
+        deliveryPartners.push({
+          bookingId: `extra_${id}`,
+          deliveryPartnerId: id,
+          deliveryPartnerName: boy.name || "Delivery Partner",
+          deliveryPartnerPhone: boy.phone || "",
+          deliveryPartnerProfileImage: "",
+          bookedAt: null,
+          status: "ACTIVE",
+          ordersTaken: riderOrders.length,
+          ordersCompleted: completed.length,
+          earnings: completed.reduce(
+            (s, o) => s + Number(o.riderDeliveryEarning || 0),
+            0
+          ),
+          orders: riderOrders.map(formatOrder),
+          completedOrders: completed.map(formatOrder),
+          notBookedOnSlot: true,
+        });
+      }
+    }
 
     return res.json({
       success: true,
       shift: shift.toSafeJSON(),
       slotId: slot._id.toString(),
+      shiftName: shift.name,
+      dateString: shift.dateString,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
       capacity: slot.capacity,
       bookedCount: slot.bookedCount,
       remainingCapacity: Math.max(0, slot.capacity - slot.bookedCount),
-      deliveryPartners: ridersList,
+      lifecycle,
+      statusLabel: lifecycleToLabel(lifecycle),
+      isExpired: lifecycle === "past",
+      window: {
+        start: windowStart.toISOString(),
+        end: windowEnd.toISOString(),
+      },
+      summary: {
+        ridersJoined: ridersList.length,
+        ordersReceived,
+        ordersTaken,
+        ordersCompleted,
+      },
+      ordersReceivedList: allOrders.map(formatOrder),
+      deliveryPartners,
+      deliveryEarningSlabs: (shift.deliveryEarningSlabs || []).map((s) => ({
+        minKm: s.minKm,
+        maxKm: s.maxKm,
+        riderAmount: s.riderAmount,
+      })),
     });
   } catch (error) {
     next(error);

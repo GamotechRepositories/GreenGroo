@@ -76,7 +76,8 @@ export const managerApi = {
   // Shift & Slot Management APIs
   createShift: (data) => api.post(`${BASE}/shifts`, data),
   getShifts: () => api.get(`${BASE}/shifts`),
-  getManagerSlots: (date) => api.get(`${BASE}/shifts/slots`, { params: { date } }),
+  getManagerSlots: (date, params = {}) =>
+    api.get(`${BASE}/shifts/slots`, { params: { date, ...params } }),
   updateSlotDateWise: (slotId, data) => api.put(`${BASE}/shifts/slots/${slotId}`, data),
   deleteSlotDateWise: (slotId, data = {}) =>
     api.delete(`${BASE}/shifts/slots/${slotId}`, { data }),

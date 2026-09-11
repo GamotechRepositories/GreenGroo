@@ -187,6 +187,12 @@ const deliveryBoySchema = new mongoose.Schema(
     totalLifetimeEarnings: { type: Number, default: 0 },
 
     /**
+     * Admin/Delivery Manager must turn this on before the rider can tap Withdraw.
+     * Rider app never enables withdraw on its own.
+     */
+    withdrawEnabled: { type: Boolean, default: false },
+
+    /**
      * Cash collected from customers but not yet physically submitted to the Dark Store.
      * Increased when rider confirms cash collection on an order.
      * Decreased when the Dark Store confirms physical receipt.
@@ -337,6 +343,7 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     todayEarnings: this.todayEarnings || 0,
     walletBalance: this.walletBalance || 0,
     totalLifetimeEarnings: this.totalLifetimeEarnings || 0,
+    withdrawEnabled: Boolean(this.withdrawEnabled),
     pendingCashAmount: this.pendingCashAmount || 0,
     lastOrderAssignedAt: this.lastOrderAssignedAt || this.lastAssignedAt,
     lastAssignedAt: this.lastAssignedAt || this.lastOrderAssignedAt,

@@ -209,7 +209,18 @@ export async function calculateRiderEarning({
   });
 
   if (!shift || !shift.deliveryEarningSlabs || shift.deliveryEarningSlabs.length === 0) {
-    return { riderEarning: 0, distanceKm, earningSlab: null, shift, hasSlabs: false };
+    return {
+      riderEarning: 0,
+      distanceKm,
+      earningSlab: null,
+      shift,
+      hasSlabs: false,
+      distanceBasis: "dark_store_to_customer",
+      sourceLat: storeLat,
+      sourceLng: storeLng,
+      customerLat,
+      customerLng,
+    };
   }
 
   const slab = findMatchingSlab(shift.deliveryEarningSlabs, distanceKm);
@@ -219,7 +230,57 @@ export async function calculateRiderEarning({
     earningSlab: slab,
     shift,
     hasSlabs: true,
+    /** Explicit: distance is ALWAYS dark-store → customer (never rider GPS). */
+    distanceBasis: "dark_store_to_customer",
+    sourceLat: storeLat,
+    sourceLng: storeLng,
+    customerLat,
+    customerLng,
   };
+}
+
+/**
+ * Persist immutable earning snapshot on the order (store→customer × manager slabs).
+ */
+export function applyEarningSnapshot(order, darkStore, earningResult, now = new Date()) {
+  const slab = earningResult?.earningSlab || null;
+  const distanceKm = Number(earningResult?.distanceKm || 0);
+  const riderEarning = Number(earningResult?.riderEarning || 0);
+
+  order.deliveryDistanceKm = distanceKm;
+  order.riderDeliveryEarning = riderEarning;
+  if (slab) {
+    order.earningSlab = {
+      minKm: slab.minKm,
+      maxKm: slab.maxKm,
+      riderAmount: slab.riderAmount,
+    };
+  }
+  order.earningCalculatedAt = now;
+  order.earningSnapshot = {
+    darkStoreId: String(darkStore?._id || order.managerId || ""),
+    sourceLat: darkStore?.latitude ?? earningResult?.sourceLat ?? null,
+    sourceLng: darkStore?.longitude ?? earningResult?.sourceLng ?? null,
+    sourceAddress:
+      darkStore?.storeAddress ||
+      [darkStore?.area, darkStore?.city].filter(Boolean).join(", ") ||
+      "",
+    customerLat: order.customerLat ?? earningResult?.customerLat ?? null,
+    customerLng: order.customerLng ?? earningResult?.customerLng ?? null,
+    customerAddress: order.customerAddress || "",
+    distanceKm,
+    slabMinKm: slab?.minKm ?? 0,
+    slabMaxKm: slab?.maxKm ?? 0,
+    slabRiderAmount: slab?.riderAmount ?? riderEarning,
+    shiftId: earningResult?.shift?._id
+      ? String(earningResult.shift._id)
+      : order.shiftId
+        ? String(order.shiftId)
+        : "",
+    riderEarning,
+    calculatedAt: now,
+  };
+  return order;
 }
 
 /**

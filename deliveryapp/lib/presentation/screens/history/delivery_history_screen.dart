@@ -11,7 +11,9 @@ import '../../../l10n/app_localizations.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
 class DeliveryHistoryScreen extends StatefulWidget {
-  const DeliveryHistoryScreen({super.key});
+  const DeliveryHistoryScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<DeliveryHistoryScreen> createState() => _DeliveryHistoryScreenState();
@@ -79,38 +81,44 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final body = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.sm,
+          ),
+          child: _RangeChips(
+            range: _range,
+            weekLabel: l10n.week,
+            monthLabel: l10n.month,
+            yearLabel: l10n.year,
+            onChanged: _setRange,
+          ),
+        ),
+        if (!_loading && _error == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: _TotalsBar(totals: _totals),
+          ),
+        const SizedBox(height: AppSpacing.sm),
+        Expanded(child: _buildBody(l10n)),
+      ],
+    );
+
+    if (widget.embedded) {
+      return ColoredBox(color: AppColors.background, child: body);
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: CustomAppBar(
         title: l10n.deliveryHistory,
         showBackButton: true,
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.md,
-              AppSpacing.lg,
-              AppSpacing.sm,
-            ),
-            child: _RangeChips(
-              range: _range,
-              weekLabel: l10n.week,
-              monthLabel: l10n.month,
-              yearLabel: l10n.year,
-              onChanged: _setRange,
-            ),
-          ),
-          if (!_loading && _error == null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: _TotalsBar(totals: _totals),
-            ),
-          const SizedBox(height: AppSpacing.sm),
-          Expanded(child: _buildBody(l10n)),
-        ],
-      ),
+      body: body,
     );
   }
 
