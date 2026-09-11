@@ -7,6 +7,7 @@ import CashSettlement from "../models/CashSettlement.js";
 import { getIO } from "../../../socket.js";
 import { dispatchNextRider } from "../services/dispatchService.js";
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
+import { offerToSpecificDriver } from "../services/OrderAssignmentService.js";
 import InventoryRequest from "../models/InventoryRequest.js";
 import { deductOrderStock } from "../services/storeStockService.js";
 import { seedManagerStore } from "../services/seedManagerStore.js";
@@ -22,6 +23,17 @@ import {
 } from "../utils/onlineHoursHelper.js";
 import { buildRiderActivityHistory } from "../services/activityHistoryService.js";
 import { areaMatches, placesEqual } from "../utils/matchPlace.js";
+import {
+  BATCHING_WAIT_MS,
+  buildSuggestionPayload,
+  evaluateRouteCompatibility,
+  findAssignableRouteAnchors,
+} from "../services/routeBatchingService.js";
+import {
+  attachOrdersToSameRider,
+  tryAutoAttachOnPack,
+  flushExpiredSameRouteWindows,
+} from "../services/sameRouteAttachService.js";
 
 const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
@@ -235,6 +247,7 @@ export const listIncomingOrders = async (req, res, next) => {
   try {
     const manager = await getManager(req);
     await seedManagerStore(manager);
+    await flushExpiredBatchWindows(manager._id);
     const statusFilter = req.query.status
       ? String(req.query.status).split(",")
       : ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery"];
@@ -377,35 +390,243 @@ export const packOrder = async (req, res, next) => {
       });
     }
 
+    const now = new Date();
     order.status = "packed";
-    order.assignmentStatus = "SEARCHING_FOR_DRIVER";
-    order.packedAt = new Date();
+    order.packedAt = now;
     order.darkStoreId = manager._id;
+    order.assignmentStatus = "SEARCHING_FOR_DRIVER";
+    // 5-min same-route + QR hold starts only AFTER rider accepts (not at pack).
+    order.routeBatchWindowEndsAt = undefined;
+    order.pickupQrUnlocked = false;
     if (!order.darkStoreQrCode) {
       order.darkStoreQrCode = `DARKSTORE_${manager._id}`;
     }
+
+    await flushExpiredBatchWindows(manager._id);
     await order.save();
+
+    // Same-route accepted trip still waiting? Auto-attach this order to that rider.
+    // Different route → autoAttached false → normal offer to another driver.
+    const attachAttempt = await tryAutoAttachOnPack(order, manager);
+    const sameRouteSuggestion = attachAttempt.suggestion || null;
 
     try {
       getIO().to(`store_${manager._id}`).emit("order_packed", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
-        status: "packed",
+        status: attachAttempt.autoAttached ? "assigned" : "packed",
+        assignmentStatus: attachAttempt.autoAttached
+          ? "DRIVER_ASSIGNED"
+          : order.assignmentStatus,
+        routeBatchWindowEndsAt: null,
+        pickupQrUnlocked: Boolean(attachAttempt.autoAttached),
+        autoSameRouteAttached: Boolean(attachAttempt.autoAttached),
       });
+      if (sameRouteSuggestion && !attachAttempt.autoAttached) {
+        getIO().to(`store_${manager._id}`).emit("same_route_suggestion", sameRouteSuggestion);
+      }
     } catch (err) {
       console.warn("[pack] socket emit failed:", err.message);
     }
 
-    const dispatchResult = await dispatchNextRider(order._id);
+    let dispatchResult = { success: false, skipped: true };
+    if (!attachAttempt.autoAttached) {
+      dispatchResult = await dispatchNextRider(order._id);
+    }
 
+    setTimeout(() => {
+      flushExpiredBatchWindows(manager._id).catch(() => {});
+    }, BATCHING_WAIT_MS + 500);
+
+    const stockMap = await stockMapForManager(manager._id);
+    const fresh = await StoreOrder.findById(order._id);
+    return res.json({
+      success: true,
+      message: attachAttempt.autoAttached
+        ? attachAttempt.message
+        : sameRouteSuggestion
+          ? `Order packed & searching rider. Nearby same-route order exists — will pair if that rider is in the 5-min wait.`
+          : dispatchResult.success
+            ? `Order packed — offer sent to ${dispatchResult.offeredRider?.name}.`
+            : `Order packed. ${dispatchResult.message || "Waiting for rider…"}`,
+      autoSameRouteAttached: Boolean(attachAttempt.autoAttached),
+      sameRouteSuggestion,
+      dispatchResult,
+      order: fresh.toSafeJSON(stockMap),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Clear expired same-route windows and unlock pickup QR for assigned orders.
+ */
+async function flushExpiredBatchWindows(managerId) {
+  return flushExpiredSameRouteWindows(managerId);
+}
+
+/** List same-route suggestions for manager UI */
+export const listRouteSuggestions = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    await flushExpiredBatchWindows(manager._id);
+
+    const waiting = await StoreOrder.find({
+      managerId: manager._id,
+      status: { $in: ["packed", "offered", "assigned"] },
+      routeBatchWindowEndsAt: { $gt: new Date() },
+      pickupQrScanned: { $ne: true },
+    }).sort({ assignedAt: -1, packedAt: 1 });
+
+    const suggestions = [];
+    const seen = new Set();
+    const openWindowOrders = waiting;
+
+    // Pair every open-window order with every other recent/open order
+    const candidates = await findAssignableRouteAnchors(StoreOrder, manager._id);
+    for (let i = 0; i < candidates.length; i++) {
+      for (let j = i + 1; j < candidates.length; j++) {
+        const a = candidates[i];
+        const b = candidates[j];
+        const key = [String(a._id), String(b._id)].sort().join(":");
+        if (seen.has(key)) continue;
+        const compat = evaluateRouteCompatibility(a, b, manager);
+        if (!compat.compatible) continue;
+        seen.add(key);
+        suggestions.push(buildSuggestionPayload(a, b, manager, compat));
+      }
+    }
+
+    return res.json({
+      success: true,
+      batchingWaitMs: BATCHING_WAIT_MS,
+      openWindowOrders: openWindowOrders.map((o) => ({
+        id: String(o._id),
+        orderNumber: o.orderNumber,
+        status: o.status,
+        assignmentStatus: o.assignmentStatus,
+        routeBatchWindowEndsAt: o.routeBatchWindowEndsAt,
+        customerName: o.customerName,
+        customerAddress: o.customerAddress,
+        assignedRiderId: o.assignedRiderId ? String(o.assignedRiderId) : null,
+      })),
+      suggestions,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Skip 5-min wait and find a new rider (Assign New Rider). */
+export const dispatchPackedOrderNow = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const { orderId } = req.params;
+    const order = await StoreOrder.findOne({ _id: orderId, managerId: manager._id });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.status !== "packed") {
+      return res.status(400).json({
+        success: false,
+        message: `Order must be packed to dispatch (status: ${order.status})`,
+      });
+    }
+
+    order.assignmentStatus = "SEARCHING_FOR_DRIVER";
+    order.routeBatchWindowEndsAt = undefined;
+    await order.save();
+
+    const dispatchResult = await dispatchNextRider(order._id);
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,
       message: dispatchResult.success
-        ? `Order packed — offer sent to ${dispatchResult.offeredRider?.name} (${OFFER_TIMEOUT_SECONDS}s window)`
-        : "Order packed. " + (dispatchResult.message || "Waiting for nearby Delivery Partner..."),
+        ? `Offer sent to ${dispatchResult.offeredRider?.name}`
+        : dispatchResult.message || "Searching for rider…",
       dispatchResult,
-      order: order.toSafeJSON(stockMap),
+      order: (await StoreOrder.findById(order._id)).toSafeJSON(stockMap),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Manager assigns two compatible orders to the same rider.
+ * Body: { primaryOrderId, companionOrderId, riderId? }
+ */
+export const assignSameRouteOrders = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const primaryOrderId = String(req.body.primaryOrderId || req.params.orderId || "").trim();
+    const companionOrderId = String(req.body.companionOrderId || "").trim();
+    let riderId = String(req.body.riderId || "").trim();
+
+    if (!primaryOrderId || !companionOrderId) {
+      return res.status(400).json({
+        success: false,
+        message: "primaryOrderId and companionOrderId are required",
+      });
+    }
+
+    const primary = await StoreOrder.findOne({ _id: primaryOrderId, managerId: manager._id });
+    const companion = await StoreOrder.findOne({
+      _id: companionOrderId,
+      managerId: manager._id,
+    });
+    if (!primary || !companion) {
+      return res.status(404).json({ success: false, message: "One or both orders not found" });
+    }
+
+    const compat = evaluateRouteCompatibility(primary, companion, manager);
+    if (!riderId) {
+      riderId =
+        (primary.assignedRiderId && String(primary.assignedRiderId)) ||
+        (companion.assignedRiderId && String(companion.assignedRiderId)) ||
+        "";
+    }
+    if (!riderId) {
+      return res.status(400).json({
+        success: false,
+        message: "riderId is required when neither order has an assigned rider yet",
+        suggestedCompatible: compat.compatible,
+      });
+    }
+
+    const rider = await DeliveryBoy.findOne(
+      riderQuery(manager, { _id: riderId, isActive: true })
+    );
+    if (!rider) {
+      return res.status(404).json({ success: false, message: "Rider not found for this store" });
+    }
+
+    const { batchId } = await attachOrdersToSameRider({
+      primary,
+      companion,
+      rider,
+      manager,
+      compat,
+    });
+
+    const stockMap = await stockMapForManager(manager._id);
+    const freshPrimary = await StoreOrder.findById(primary._id);
+    const freshCompanion = await StoreOrder.findById(companion._id);
+    return res.json({
+      success: true,
+      message: `Both orders assigned to ${rider.name || rider.phone}`,
+      compatible: compat.compatible,
+      batchId,
+      suggestedSequence: compat.suggestedSequence,
+      primary: freshPrimary.toSafeJSON(stockMap),
+      companion: freshCompanion.toSafeJSON(stockMap),
+      rider: {
+        id: rider._id.toString(),
+        name: rider.name,
+        phone: rider.phone,
+        status: rider.status,
+      },
     });
   } catch (error) {
     next(error);
@@ -752,10 +973,10 @@ export const assignOrder = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    if (!["incoming", "order_received", "stock_issue", "packed"].includes(order.status)) {
+    if (!["incoming", "order_received", "stock_issue", "packed", "offered"].includes(order.status)) {
       return res.status(400).json({
         success: false,
-        message: `Order cannot be assigned (status: ${order.status})`,
+        message: `Order cannot be offered (status: ${order.status})`,
       });
     }
 
@@ -769,73 +990,63 @@ export const assignOrder = async (req, res, next) => {
       });
     }
 
-    const stockResult = await deductOrderStock(manager._id, order);
-    if (stockResult.empty) {
-      order.status = "cancelled";
+    // Stock only if not already packed/deducted
+    if (["incoming", "order_received", "stock_issue"].includes(order.status)) {
+      const stockResult = await deductOrderStock(manager._id, order);
+      if (stockResult.empty) {
+        order.status = "cancelled";
+        await order.save();
+        return res.status(400).json({
+          success: false,
+          message: "No fulfilable items left on this order",
+        });
+      }
+      if (stockResult.shortages?.length) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cannot assign — some items are out of stock. Inform customer or request restock.",
+          shortages: stockResult.shortages,
+        });
+      }
+
+      const informedIds = order.items
+        .filter((i) => i.customerInformed)
+        .map((i) => i._id);
+      for (const id of informedIds) {
+        order.items.pull(id);
+      }
+      if (order.items.length === 0) {
+        order.status = "cancelled";
+        await order.save();
+        return res.status(400).json({
+          success: false,
+          message: "No fulfilable items left on this order",
+        });
+      }
+      order.status = "packed";
+      order.packedAt = order.packedAt || new Date();
       await order.save();
-      return res.status(400).json({
-        success: false,
-        message: "No fulfilable items left on this order",
-      });
-    }
-    if (stockResult.shortages?.length) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Cannot assign — some items are out of stock. Inform customer or request restock.",
-        shortages: stockResult.shortages,
-      });
     }
 
-    // Remove informed OOS items from fulfilment
-    const informedIds = order.items
-      .filter((i) => i.customerInformed)
-      .map((i) => i._id);
-    for (const id of informedIds) {
-      order.items.pull(id);
-    }
-    if (order.items.length === 0) {
-      order.status = "cancelled";
-      await order.save();
+    // Always send Accept/Decline offer — never force-assign
+    const offerResult = await offerToSpecificDriver(order._id, rider._id);
+    if (!offerResult.success) {
       return res.status(400).json({
         success: false,
-        message: "No fulfilable items left on this order",
+        message: offerResult.message || "Could not send offer to rider",
       });
     }
-
-    order.assignedRiderId = rider._id;
-    order.assignedAt = new Date();
-    order.status = "assigned";
-    await order.save();
-
-    rider.status = "on_delivery";
-    rider.lastStatusAt = new Date();
-    await rider.save();
 
     const freshStock = await stockMapForManager(manager._id);
-
-    const orderPayload = {
-      orderId: order._id.toString(),
-      orderNumber: order.orderNumber,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      deliveryAddress: order.deliveryAddress,
-      items: order.items,
-      totalAmount: order.totalAmount,
-      assignedAt: order.assignedAt,
-      status: order.status,
-    };
-
-    try {
-      getIO().to(`rider_${rider._id}`).emit("new_order_assigned", orderPayload);
-    } catch (err) {
-      console.warn("[socket] assignOrder emit failed:", err.message);
-    }
+    const fresh = await StoreOrder.findById(order._id);
 
     return res.json({
       success: true,
-      message: `Order assigned to ${rider.name || rider.phone}`,
-      order: order.toSafeJSON(freshStock),
+      message: `Offer sent to ${rider.name || rider.phone} — they must Accept or Decline (${OFFER_TIMEOUT_SECONDS}s)`,
+      offered: true,
+      timeoutSeconds: OFFER_TIMEOUT_SECONDS,
+      order: fresh.toSafeJSON(freshStock),
       rider: {
         id: rider._id.toString(),
         name: rider.name,

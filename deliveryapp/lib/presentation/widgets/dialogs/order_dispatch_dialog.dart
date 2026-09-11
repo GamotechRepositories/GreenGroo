@@ -75,8 +75,9 @@ class _OrderDispatchDialogState extends State<OrderDispatchDialog> {
       if (!mounted) return;
       if (_remainingSeconds <= 1) {
         t.cancel();
+        // Client timer only closes UI — do NOT call decline.
+        // Backend timeout rotates to the next driver (or re-offers this one if alone).
         Navigator.of(context, rootNavigator: true).pop();
-        widget.onDecline();
       } else {
         setState(() => _remainingSeconds--);
       }

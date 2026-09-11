@@ -51,10 +51,16 @@ export const managerApi = {
     api.post(`${BASE}/riders/${riderId}/verify`, body),
   informCustomer: (orderId, itemId) =>
     api.post(`${BASE}/orders/${orderId}/inform-customer`, { itemId }),
-  packOrder: (orderId) => api.post(`${BASE}/orders/${orderId}/pack`),
+  packOrder: (orderId, body = {}) =>
+    api.post(`${BASE}/orders/${orderId}/pack`, body),
   createDemoOrder: (body) => api.post(`${BASE}/orders/demo`, body || {}),
   assignOrder: (orderId, riderId) =>
     api.post(`${BASE}/orders/${orderId}/assign`, { riderId }),
+  routeSuggestions: () => api.get(`${BASE}/orders/route-suggestions`),
+  dispatchOrderNow: (orderId) =>
+    api.post(`${BASE}/orders/${orderId}/dispatch-now`),
+  assignSameRoute: (body) =>
+    api.post(`${BASE}/orders/assign-same-route`, body),
   markDelivered: (orderId) =>
     api.patch(`${BASE}/orders/${orderId}/delivered`),
   cancelOrder: (orderId) =>

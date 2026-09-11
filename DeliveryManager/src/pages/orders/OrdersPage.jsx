@@ -25,18 +25,24 @@ export default function OrdersPage() {
   const [pickupQrLoading, setPickupQrLoading] = useState(false);
   const [pickupQrError, setPickupQrError] = useState("");
   const [pickupQrData, setPickupQrData] = useState(null);
+  const [routeSuggestions, setRouteSuggestions] = useState([]);
+  const [openWindowOrders, setOpenWindowOrders] = useState([]);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   const load = useCallback(async ({ silent = false } = {}) => {
     try {
-      const [ord, rid] = await Promise.all([
+      const [ord, rid, sug] = await Promise.all([
         managerApi.orders({
           status:
-            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,cancelled",
+            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,delivery_failed,cancelled",
         }),
         managerApi.riders(),
+        managerApi.routeSuggestions().catch(() => ({ data: { suggestions: [], openWindowOrders: [] } })),
       ]);
       setOrders(ord.data.orders || []);
-      setOnlineRiders((rid.data.riders || []).filter((r) => r.status === "online"));
+      setOnlineRiders((rid.data.riders || []).filter((r) => r.status === "online" || r.status === "on_delivery"));
+      setRouteSuggestions(sug.data?.suggestions || []);
+      setOpenWindowOrders(sug.data?.openWindowOrders || []);
       setError("");
     } catch (err) {
       if (!silent) {
@@ -51,12 +57,22 @@ export default function OrdersPage() {
     load();
   }, [load]);
 
+  // Countdown tick for same-route window banners (1s so timer feels live)
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // Keep store room joined while on orders (fixes missed live events)
   useEffect(() => {
-    if (manager?.id) ensureStoreRoom(manager.id);
+    if (!manager?.id) return undefined;
+    ensureStoreRoom(manager.id);
+    const keepAlive = setInterval(() => ensureStoreRoom(manager.id), 15000);
+    return () => clearInterval(keepAlive);
   }, [manager?.id]);
 
-  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: null });
+  // Socket + short backup poll so QR / proof appear without manual refresh
+  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: 5000 });
 
   // Instant UI patches from sockets (before full silent reload finishes)
   useEffect(() => {
@@ -69,15 +85,146 @@ export default function OrdersPage() {
       );
     };
 
+    const riderPatch = (p = {}) => {
+      const rider = p.assignedRider || p.offeredRider || null;
+      const patch = {
+        status: p.status,
+        assignmentStatus: p.assignmentStatus,
+        failureReason: p.failureReason,
+        routeBatchWindowEndsAt: p.routeBatchWindowEndsAt,
+      };
+      if (p.assignedRiderId) patch.assignedRiderId = p.assignedRiderId;
+      if (rider) {
+        patch.assignedRider = rider;
+        patch.assignedRiderId = rider.id || rider._id || p.assignedRiderId;
+      }
+      if (p.offeredRider) {
+        patch.offeredRider = p.offeredRider;
+        patch.offeredRiderId = p.offeredRider.id || p.offeredRider._id;
+      }
+      return patch;
+    };
+
     const unsubs = [
       subscribeToSocketEvent("new_order_received", () => {
         showToast("New order received");
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_packed", (p = {}) => {
+        patchOrder(p.orderId, {
+          status: p.status || "packed",
+          assignmentStatus: p.assignmentStatus,
+          routeBatchWindowEndsAt: p.routeBatchWindowEndsAt,
+        });
+        if (p.routeBatchWindowEndsAt) {
+          setOpenWindowOrders((prev) => {
+            const id = String(p.orderId);
+            const next = prev.filter((o) => String(o.id || o._id) !== id);
+            return [
+              {
+                id: p.orderId,
+                orderNumber: p.orderNumber,
+                routeBatchWindowEndsAt: p.routeBatchWindowEndsAt,
+                status: p.status || "packed",
+              },
+              ...next,
+            ];
+          });
+          showToast("Same-route 5 min wait started");
+        } else if (p.autoSameRouteAttached) {
+          showToast("Packed & auto-assigned to same-route rider");
+        }
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("same_route_window_started", (p = {}) => {
+        patchOrder(p.orderId, {
+          routeBatchWindowEndsAt: p.routeBatchWindowEndsAt,
+          assignedRiderId: p.assignedRiderId,
+          ...(p.assignedRiderId ? { status: "assigned" } : {}),
+        });
+        if (p.routeBatchWindowEndsAt) {
+          setOpenWindowOrders((prev) => {
+            const id = String(p.orderId);
+            const next = prev.filter((o) => String(o.id || o._id) !== id);
+            return [
+              {
+                id: p.orderId,
+                orderNumber: p.orderNumber,
+                routeBatchWindowEndsAt: p.routeBatchWindowEndsAt,
+                assignedRiderId: p.assignedRiderId,
+              },
+              ...next,
+            ];
+          });
+        }
+        showToast(`Same-route wait · #${p.orderNumber || ""} · 5:00`);
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("same_route_suggestion", (p = {}) => {
+        if (p?.orderA && p?.orderB) {
+          setRouteSuggestions((prev) => {
+            const key = [p.orderA.id, p.orderB.id].sort().join(":");
+            if (prev.some((s) => [s.orderA?.id, s.orderB?.id].sort().join(":") === key)) {
+              return prev;
+            }
+            return [p, ...prev];
+          });
+          showToast("Possible same-route order found");
+        }
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("same_route_assigned", (p = {}) => {
+        showToast(
+          p?.riderName
+            ? `Same-route: both orders → ${p.riderName}`
+            : "Same-route orders assigned to one rider"
+        );
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_batch_window_ended", (p = {}) => {
+        patchOrder(p.orderId, {
+          routeBatchWindowEndsAt: null,
+          pickupQrUnlocked: p.pickupQrUnlocked !== false,
+        });
+        setOpenWindowOrders((prev) =>
+          prev.filter((o) => String(o.id || o._id) !== String(p.orderId))
+        );
+        if (p.pickupQrUnlocked !== false) {
+          showToast(`Pickup QR unlocked · #${p.orderNumber || ""}`);
+        }
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("pickup_qr_unlocked", (p = {}) => {
+        patchOrder(p.orderId, {
+          pickupQrUnlocked: true,
+          routeBatchWindowEndsAt: null,
+        });
+        if (p.companionOrderId) {
+          patchOrder(p.companionOrderId, {
+            pickupQrUnlocked: true,
+            routeBatchWindowEndsAt: null,
+          });
+        }
+        setOpenWindowOrders((prev) =>
+          prev.filter(
+            (o) =>
+              String(o.id || o._id) !== String(p.orderId) &&
+              String(o.id || o._id) !== String(p.companionOrderId || "")
+          )
+        );
+        showToast(
+          p.reason === "same_route_batched"
+            ? "Same-route batch ready — Show Pickup QR for both"
+            : `Pickup QR unlocked · #${p.orderNumber || ""}`
+        );
         load({ silent: true });
       }),
       subscribeToSocketEvent("pickup_qr_scanned", (p = {}) => {
         patchOrder(p.orderId, {
           pickupQrScanned: true,
           pickupQrScannedAt: p.scannedAt || new Date().toISOString(),
+          routeBatchWindowEndsAt: null,
+          pickupQrUnlocked: true,
         });
         showToast("Pickup QR scanned");
         load({ silent: true });
@@ -96,17 +243,33 @@ export default function OrdersPage() {
         patchOrder(p.orderId, {
           pickupProofStatus: "approved",
           pickupVerified: true,
+          customerAddressUnlocked: true,
           status: p.status || "out_for_delivery",
         });
+        showToast("Item proof approved — address unlocked");
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("driver_assigned", (p = {}) => {
+        patchOrder(p.orderId, riderPatch(p));
         load({ silent: true });
       }),
       subscribeToSocketEvent("order_status_updated", (p = {}) => {
-        if (p.orderId && p.status) {
-          patchOrder(p.orderId, {
-            status: p.status,
-            assignmentStatus: p.assignmentStatus,
-          });
+        if (p.orderId) {
+          patchOrder(p.orderId, riderPatch(p));
         }
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_delivery_failed", (p = {}) => {
+        patchOrder(p.orderId, {
+          status: "delivery_failed",
+          failureReason: p.failureReason,
+          failedAt: p.failedAt,
+        });
+        showToast(`Delivery failed: #${p.orderNumber || ""}`);
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_delivered", (p = {}) => {
+        patchOrder(p.orderId, { status: "delivered", deliveredAt: p.deliveredAt });
         load({ silent: true });
       }),
     ];
@@ -210,7 +373,7 @@ export default function OrdersPage() {
     setBusyKey(key);
     try {
       const res = await managerApi.assignOrder(orderId, riderId);
-      showToast(res.data.message || "Rider assigned");
+      showToast(res.data.message || "Offer sent — rider must Accept / Decline");
       setSelectedRider((prev) => { const n = { ...prev }; delete n[orderId]; return n; });
       await load();
     } catch (err) {
@@ -220,6 +383,51 @@ export default function OrdersPage() {
           ? `Cannot assign: ${shortages}`
           : err.response?.data?.message || "Assignment failed"
       );
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onDispatchNow = async (orderId) => {
+    const key = `dispatch-${orderId}`;
+    setBusyKey(key);
+    try {
+      const res = await managerApi.dispatchOrderNow(orderId);
+      showToast(res.data.message || "Searching for a new rider…");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Dispatch failed");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onAssignSameRoute = async (suggestion) => {
+    const primaryId = suggestion.orderA?.id;
+    const companionId = suggestion.orderB?.id;
+    const riderId =
+      suggestion.recommendedRiderId ||
+      selectedRider[primaryId] ||
+      selectedRider[companionId] ||
+      onlineRiders[0]?.id ||
+      onlineRiders[0]?._id;
+    if (!primaryId || !companionId) return;
+    if (!riderId) {
+      showToast("Select or ensure an online rider is available first");
+      return;
+    }
+    const key = `same-${primaryId}-${companionId}`;
+    setBusyKey(key);
+    try {
+      const res = await managerApi.assignSameRoute({
+        primaryOrderId: primaryId,
+        companionOrderId: companionId,
+        riderId,
+      });
+      showToast(res.data.message || "Both orders assigned to same rider");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Same-route assign failed");
     } finally {
       setBusyKey("");
     }
@@ -341,6 +549,130 @@ export default function OrdersPage() {
           );
         })}
       </div>
+
+      {(() => {
+        const fromOrders = orders.filter(
+          (o) =>
+            o.routeBatchWindowEndsAt &&
+            new Date(o.routeBatchWindowEndsAt).getTime() > nowTick &&
+            !o.pickupQrScanned
+        );
+        const byId = new Map();
+        for (const o of [...openWindowOrders, ...fromOrders]) {
+          byId.set(String(o.id || o._id), o);
+        }
+        const windowOrders = [...byId.values()];
+        if (!windowOrders.length) return null;
+        return (
+          <div className="rounded-2xl border-2 border-violet-400 bg-violet-50 p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-violet-900">
+                  Same-route search — pickup QR locked
+                </h3>
+                <p className="mt-0.5 text-[11px] text-violet-800/80">
+                  After rider accept, we wait up to 5 minutes for a nearby same-route order.
+                  Match → both orders to this rider, then Show Pickup QR unlocks.
+                  No match / different route → QR unlocks for this order alone; other orders go to other drivers.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {windowOrders.map((o) => {
+                const ends = o.routeBatchWindowEndsAt
+                  ? new Date(o.routeBatchWindowEndsAt).getTime()
+                  : 0;
+                const msLeft = ends ? Math.max(0, ends - nowTick) : 0;
+                const mins = Math.floor(msLeft / 60000);
+                const secs = Math.floor((msLeft % 60000) / 1000);
+                return (
+                  <span
+                    key={o.id || o._id}
+                    className="inline-flex items-center gap-2 rounded-full border border-violet-300 bg-white px-3 py-1.5 text-xs font-bold text-violet-900"
+                  >
+                    #{o.orderNumber}
+                    <span className="font-extrabold text-violet-700 tabular-nums text-sm">
+                      {mins}:{String(secs).padStart(2, "0")}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {routeSuggestions.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-extrabold text-slate-900">Possible Same Route Orders</h3>
+          {routeSuggestions.map((s) => {
+            const key = `${s.orderA?.id}-${s.orderB?.id}`;
+            const riderHint =
+              onlineRiders.find(
+                (r) => String(r.id || r._id) === String(s.recommendedRiderId || "")
+              ) || onlineRiders[0];
+            return (
+              <div
+                key={key}
+                className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 shadow-xs"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="grid gap-2 sm:grid-cols-2 flex-1">
+                    <div className="rounded-xl bg-white border border-violet-100 p-3">
+                      <p className="text-[10px] font-bold uppercase text-violet-700">Order A</p>
+                      <p className="font-extrabold text-slate-900">#{s.orderA?.orderNumber}</p>
+                      <p className="text-xs text-slate-600">{s.orderA?.customerName}</p>
+                      <p className="text-[11px] text-slate-500 line-clamp-2">{s.orderA?.customerAddress}</p>
+                      <p className="mt-1 text-xs font-bold text-emerald-700">
+                        {s.orderA?.distanceKm != null
+                          ? `${Number(s.orderA.distanceKm).toFixed(1)} km`
+                          : s.storeToAKm != null
+                            ? `${s.storeToAKm} km`
+                            : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white border border-violet-100 p-3">
+                      <p className="text-[10px] font-bold uppercase text-violet-700">Order B</p>
+                      <p className="font-extrabold text-slate-900">#{s.orderB?.orderNumber}</p>
+                      <p className="text-xs text-slate-600">{s.orderB?.customerName}</p>
+                      <p className="text-[11px] text-slate-500 line-clamp-2">{s.orderB?.customerAddress}</p>
+                      <p className="mt-1 text-xs font-bold text-emerald-700">
+                        {s.orderB?.distanceKm != null
+                          ? `${Number(s.orderB.distanceKm).toFixed(1)} km`
+                          : s.storeToBKm != null
+                            ? `${s.storeToBKm} km`
+                            : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right space-y-2 min-w-[160px]">
+                    <p className="text-xs font-bold text-violet-800">Route: Compatible</p>
+                    <p className="text-[11px] text-slate-600">
+                      Recommended: {riderHint?.name || riderHint?.phone || "Select rider"}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busyKey === `same-${s.orderA?.id}-${s.orderB?.id}`}
+                      onClick={() => onAssignSameRoute(s)}
+                      className={actionBtnPrimary}
+                    >
+                      Assign to Same Rider
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyKey === `dispatch-${s.orderB?.id}`}
+                      onClick={() => onDispatchNow(s.orderB?.id)}
+                      className={actionBtnOutline}
+                    >
+                      Assign New Rider
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Online Riders Bar — updates on online/shift events; live map link from GPS socket */}
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-3">
@@ -572,7 +904,30 @@ export default function OrdersPage() {
                             Out of stock — request inventory first
                           </p>
                         )}
-                        {order.status === "assigned" && !order.pickupQrScanned && !order.pickupVerified && (
+                        {order.routeBatchWindowEndsAt &&
+                          new Date(order.routeBatchWindowEndsAt).getTime() > Date.now() && (
+                          <span className="rounded-xl border border-violet-300 bg-violet-50 px-3 py-1.5 text-[11px] font-bold text-violet-800">
+                            Same-route window open
+                          </span>
+                        )}
+                        {order.status === "packed" &&
+                          !order.assignedRiderId &&
+                          !order.currentOfferDriverId && (
+                          <button
+                            type="button"
+                            disabled={busyKey === `dispatch-${oid}`}
+                            onClick={() => onDispatchNow(oid)}
+                            className="rounded-xl border border-violet-300 bg-violet-50 px-3 py-1.5 text-[11px] font-bold text-violet-800 hover:bg-violet-100 disabled:opacity-50"
+                          >
+                            {busyKey === `dispatch-${oid}` ? "Dispatching…" : "Assign New Rider now"}
+                          </button>
+                        )}
+                        {order.status === "assigned" &&
+                          !order.pickupQrScanned &&
+                          !order.pickupVerified &&
+                          (order.pickupQrUnlocked ||
+                            !order.routeBatchWindowEndsAt ||
+                            new Date(order.routeBatchWindowEndsAt).getTime() <= Date.now()) && (
                           <button
                             type="button"
                             onClick={() => openPickupQr(oid)}
@@ -580,6 +935,15 @@ export default function OrdersPage() {
                           >
                             Show Pickup QR
                           </button>
+                        )}
+                        {order.status === "assigned" &&
+                          !order.pickupQrScanned &&
+                          order.pickupQrUnlocked === false &&
+                          order.routeBatchWindowEndsAt &&
+                          new Date(order.routeBatchWindowEndsAt).getTime() > Date.now() && (
+                          <span className="rounded-xl border border-violet-300 bg-violet-50 px-3 py-1.5 text-[11px] font-bold text-violet-800">
+                            QR locked · same-route search
+                          </span>
                         )}
                         {order.pickupProofStatus === "pending" && order.pickupProofImageUrl && (
                           <div className="flex flex-col items-end gap-2 max-w-[180px]">

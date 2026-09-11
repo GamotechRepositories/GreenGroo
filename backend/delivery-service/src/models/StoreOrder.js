@@ -56,6 +56,7 @@ const storeOrderSchema = new mongoose.Schema(
         "pickup_verified",
         "out_for_delivery",
         "delivered",
+        "delivery_failed",
         "cancelled",
       ],
       default: "order_received",
@@ -75,6 +76,8 @@ const storeOrderSchema = new mongoose.Schema(
         "PICKUP_VERIFIED",
         "OUT_FOR_DELIVERY",
         "DELIVERED",
+        "FAILED",
+        "BATCH_WAITING",
       ],
       default: "NONE",
       index: true,
@@ -149,6 +152,38 @@ const storeOrderSchema = new mongoose.Schema(
     assignedAt: { type: Date },
     deliveredAt: { type: Date },
     notes: { type: String, default: "" },
+    /** Optional rider note on successful delivery */
+    deliveryComment: { type: String, default: "", trim: true },
+    /** Required when status is delivery_failed */
+    failureReason: { type: String, default: "", trim: true },
+    failedAt: { type: Date },
+    failedByRiderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryBoy",
+      default: null,
+    },
+
+    // ── Same-route batching ─────────────────────────────────────────────────
+    routeBatchWindowEndsAt: { type: Date },
+    /** False until 5-min same-route wait ends OR a companion is batched */
+    pickupQrUnlocked: { type: Boolean, default: false },
+    batchId: { type: String, default: "", index: true },
+    batchSequence: { type: Number, default: 0 },
+    /** Linked primary order when this was attached as same-route companion */
+    batchPrimaryOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StoreOrder",
+      default: null,
+      index: true,
+    },
+    routeCompatibility: {
+      compatible: { type: Boolean, default: false },
+      score: { type: Number, default: 0 },
+      reason: { type: String, default: "" },
+      distanceBetweenKm: { type: Number, default: null },
+      suggestedSequence: { type: [String], default: [] },
+    },
+
     sourceOrderId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -293,6 +328,20 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
     deliveredAt: this.deliveredAt,
     tripDurationMinutes,
     notes: this.notes,
+    deliveryComment: this.deliveryComment || "",
+    failureReason: this.failureReason || "",
+    failedAt: this.failedAt,
+    failedByRiderId: this.failedByRiderId
+      ? this.failedByRiderId.toString()
+      : null,
+    routeBatchWindowEndsAt: this.routeBatchWindowEndsAt,
+    pickupQrUnlocked: Boolean(this.pickupQrUnlocked),
+    batchId: this.batchId || "",
+    batchSequence: this.batchSequence || 0,
+    batchPrimaryOrderId: this.batchPrimaryOrderId
+      ? this.batchPrimaryOrderId.toString()
+      : null,
+    routeCompatibility: this.routeCompatibility || null,
     sourceOrderId: this.sourceOrderId ? this.sourceOrderId.toString() : null,
     // Payment
     paymentMethod: this.paymentMethod || "",

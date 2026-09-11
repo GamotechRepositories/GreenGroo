@@ -7,6 +7,7 @@ export const STATUS_LABELS = {
   assigned: { text: "ASSIGNED", className: "text-teal-700" },
   out_for_delivery: { text: "OUT FOR DELIVERY", className: "text-emerald-700" },
   delivered: { text: "DELIVERED", className: "text-emerald-800" },
+  delivery_failed: { text: "DELIVERY FAILED", className: "text-rose-700" },
   cancelled: { text: "CANCELLED", className: "text-rose-700" },
   pickup_verified: { text: "PICKUP VERIFIED", className: "text-sky-700" },
   stock_issue: { text: "STOCK ISSUE", className: "text-rose-700" },
@@ -26,6 +27,22 @@ export function OrderStatusText({ status }) {
 }
 
 export function DriverAssignmentText({ order }) {
+  const windowEnds = order.routeBatchWindowEndsAt
+    ? new Date(order.routeBatchWindowEndsAt)
+    : null;
+  const windowActive =
+    windowEnds && !Number.isNaN(windowEnds.getTime()) && windowEnds.getTime() > Date.now();
+  const minsLeft = windowActive
+    ? Math.max(0, Math.ceil((windowEnds.getTime() - Date.now()) / 60000))
+    : null;
+  const secsLeft = windowActive
+    ? Math.max(0, Math.floor((windowEnds.getTime() - Date.now()) / 1000))
+    : null;
+  const clockLeft =
+    secsLeft != null
+      ? `${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, "0")}`
+      : null;
+
   if (order.assignedRider) {
     return (
       <div>
@@ -39,14 +56,34 @@ export function DriverAssignmentText({ order }) {
         ) : order.pickupQrScanned ? (
           <p className="mt-1 text-[10px] font-semibold text-violet-700">QR scanned — awaiting item photo</p>
         ) : null}
+        {windowActive ? (
+          <p className="mt-1 text-[10px] font-semibold text-violet-700">
+            Same-route wait · {clockLeft} left
+          </p>
+        ) : null}
       </div>
     );
   }
 
   if (order.offeredRider) {
     return (
-      <p className="text-[11px] font-bold text-amber-800">
-        Offering {order.offeredRider.name || order.offeredRider.phone}
+      <div>
+        <p className="text-[11px] font-bold text-amber-800">
+          Offering {order.offeredRider.name || order.offeredRider.phone}
+        </p>
+        {windowActive ? (
+          <p className="mt-1 text-[10px] font-semibold text-violet-700">
+            Same-route wait · {clockLeft} left
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (windowActive || order.assignmentStatus === "BATCH_WAITING") {
+    return (
+      <p className="text-[11px] font-semibold text-violet-700 italic">
+        Same-route wait{clockLeft ? ` · ${clockLeft} left` : minsLeft != null ? ` · ~${minsLeft}m left` : ""}
       </p>
     );
   }
@@ -89,7 +126,7 @@ export function matchesTab(order, tab) {
   if (tab === "ongoing") {
     return ["assigned", "pickup_verified", "out_for_delivery"].includes(s);
   }
-  if (tab === "delivered") return s === "delivered";
+  if (tab === "delivered") return s === "delivered" || s === "delivery_failed";
   if (tab === "cancelled") return s === "cancelled";
   // legacy aliases
   if (tab === "active") {

@@ -83,6 +83,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       } else {
         Navigator.pushNamed(context, AppRoutes.home);
       }
+      final orderId = item.orderId ?? '';
+      ShellNavigation.instance.requestOfferRecovery(
+        orderId: orderId,
+        reason: 'ORDER_RECEIVED',
+      );
       return;
     }
     if (type == 'VERIFICATION_COMPLETED') {

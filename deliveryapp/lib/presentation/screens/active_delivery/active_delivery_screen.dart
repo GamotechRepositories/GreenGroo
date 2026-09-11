@@ -22,32 +22,58 @@ class ActiveDeliveryScreen extends StatefulWidget {
 
 class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   ActiveDeliveryData? _delivery;
+  List<ActiveDeliveryData> _deliveries = const [];
   bool _isLoading = true;
+  bool _customerNavStarted = false;
   Timer? _refreshTimer;
+  Timer? _tickTimer;
   StreamSubscription<Map<String, dynamic>>? _pickupSub;
   final TextEditingController _otpController = TextEditingController();
+  final TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadDelivery();
     _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) => _loadDelivery());
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final d = _delivery;
+      if (d != null && !d.pickupQrUnlocked && !d.pickupQrScanned) {
+        setState(() {});
+        if (d.routeBatchWindowEndsAt != null &&
+            !d.routeBatchWindowEndsAt!.isAfter(DateTime.now())) {
+          _loadDelivery();
+        }
+      }
+    });
     _pickupSub = SocketService.instance.onPickupVerified.listen((_) => _loadDelivery());
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _tickTimer?.cancel();
     _pickupSub?.cancel();
     _otpController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
 
   Future<void> _loadDelivery() async {
     final data = await OrderService.instance.fetchActiveDelivery();
     if (mounted) {
+      final list = OrderService.instance.activeDeliveries;
+      ActiveDeliveryData? selected = data;
+      if (_delivery != null && list.isNotEmpty) {
+        selected = list.cast<ActiveDeliveryData?>().firstWhere(
+              (d) => d?.id == _delivery!.id,
+              orElse: () => list.first,
+            );
+      }
       setState(() {
-        _delivery = data;
+        _deliveries = list;
+        _delivery = selected ?? data;
         _isLoading = false;
       });
     }
@@ -120,21 +146,181 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       if (!mounted) return;
     }
 
-    final otpOk = await _askCustomerOtp();
-    if (!otpOk || !mounted) return;
+    if (!_delivery!.customerOtpVerified) {
+      final otpOk = await _askCustomerOtp();
+      if (!otpOk || !mounted) return;
+      await _loadDelivery();
+      if (!mounted || _delivery == null) return;
+    }
 
-    await _loadDelivery();
-    if (!mounted || _delivery == null) return;
-
-    // Already paid online / nothing to collect → finish
     if (_delivery!.isPaidOnline ||
         _delivery!.isCashCollected ||
         _delivery!.amountToCollect <= 0) {
-      await _finishDelivery(otpAlreadyVerified: true);
+      await _askOptionalCommentThenFinish();
       return;
     }
 
     await _askPaymentMethodAndFinish();
+  }
+
+  Future<void> _onNavigateCustomerTap() async {
+    if (_delivery == null) return;
+    setState(() => _customerNavStarted = true);
+    await _navigateToCustomer(_delivery!);
+  }
+
+  Future<void> _captureDeliveryProofThenOtp() async {
+    if (_delivery == null) return;
+    final uploaded = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DeliveryProofCaptureScreen(
+          orderId: _delivery!.id,
+          orderNumber: _delivery!.orderNumber,
+        ),
+      ),
+    );
+    if (uploaded != true || !mounted) return;
+    await _loadDelivery();
+    if (!mounted) return;
+    // Auto OTP after photo sent
+    await _startCompleteFlow();
+  }
+
+  Future<void> _askOptionalCommentThenFinish() async {
+    _commentController.clear();
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Complete Delivery', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add an optional delivery note (customer received, left at door, etc.).',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _commentController,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: InputDecoration(
+                hintText: 'Optional comment',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Skip & Complete'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) {
+      await _finishDelivery(
+        otpAlreadyVerified: true,
+        deliveryComment: _commentController.text.trim(),
+      );
+    }
+  }
+
+  Future<void> _markDeliveryFailed() async {
+    if (_delivery == null) return;
+    final reasonCtrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delivery Failed', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Reason / comment is required (customer not available, wrong address, refused, etc.).',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 4,
+              maxLength: 800,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Why did delivery fail?',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
+            child: const Text('Submit Failed'),
+          ),
+        ],
+      ),
+    );
+    reasonCtrl.dispose();
+    if (reason == null) return;
+    if (reason.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failure reason is required.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final result = await OrderService.instance.failDelivery(
+      _delivery!.id,
+      failureReason: reason,
+    );
+    if (!mounted) return;
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Delivery marked as failed. Manager has been notified.'),
+          backgroundColor: Color(0xFFB45309),
+        ),
+      );
+      final remaining = OrderService.instance.activeDeliveries;
+      if (remaining.isEmpty) {
+        Navigator.pop(context);
+      } else {
+        await _loadDelivery();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Could not mark failed.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<bool> _askCustomerOtp() async {
@@ -266,7 +452,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         }
         return;
       }
-      await _finishDelivery(otpAlreadyVerified: true);
+      await _askOptionalCommentThenFinish();
       return;
     }
 
@@ -342,11 +528,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     );
 
     if (proceed == true) {
-      await _finishDelivery(otpAlreadyVerified: true);
+      await _askOptionalCommentThenFinish();
     }
   }
 
-  Future<void> _finishDelivery({required bool otpAlreadyVerified}) async {
+  Future<void> _finishDelivery({
+    required bool otpAlreadyVerified,
+    String? deliveryComment,
+  }) async {
     if (_delivery == null) return;
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
@@ -355,16 +544,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     final result = await OrderService.instance.completeDelivery(
       _delivery!.id,
       otpAlreadyVerified ? 'VERIFIED' : _otpController.text.trim(),
+      deliveryComment: deliveryComment,
     );
 
     if (result.success) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Order delivered successfully! You are now back online for orders.'),
+          content: Text('Order delivered successfully!'),
           backgroundColor: Color(0xFF059669),
         ),
       );
-      nav.pop();
+      final remaining = OrderService.instance.activeDeliveries;
+      if (remaining.isEmpty) {
+        nav.pop();
+      } else {
+        await _loadDelivery();
+      }
     } else {
       messenger.showSnackBar(
         SnackBar(
@@ -471,6 +666,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     final proofPending = d.pickupProofStatus == 'pending';
     final needsProof = qrScanned && d.pickupProofStatus == 'none';
     final totalItems = _totalItemCount(d);
+    final pickupQrReady = d.pickupQrUnlocked || qrScanned;
+    final windowEnds = d.routeBatchWindowEndsAt;
 
     String phaseSubtitle;
     if (isUnlocked) {
@@ -479,6 +676,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       phaseSubtitle = 'Phase 2: Awaiting Manager Approval';
     } else if (qrScanned) {
       phaseSubtitle = 'Phase 2: Item Proof Required';
+    } else if (!pickupQrReady) {
+      phaseSubtitle = 'Waiting for same-route match (up to 5 min)';
     } else {
       phaseSubtitle = 'Phase 1: Dark Store Pickup';
     }
@@ -496,6 +695,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       statusBg = const Color(0xFFFFF7ED);
     } else if (qrScanned) {
       statusLabel = 'ITEM PROOF REQUIRED';
+      statusColor = const Color(0xFF7C3AED);
+      statusBg = const Color(0xFFF5F3FF);
+    } else if (!pickupQrReady) {
+      statusLabel = 'SAME-ROUTE SEARCH';
       statusColor = const Color(0xFF7C3AED);
       statusBg = const Color(0xFFF5F3FF);
     } else {
@@ -519,6 +722,17 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: Column(
                   children: [
+                    if (_deliveries.length > 1) ...[
+                      _MultiStopBanner(
+                        stops: _deliveries,
+                        selectedId: d.id,
+                        onSelect: (id) {
+                          final next = _deliveries.firstWhere((e) => e.id == id);
+                          setState(() => _delivery = next);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _StatusPill(
                       label: statusLabel,
                       color: statusColor,
@@ -535,10 +749,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       onCall: () => _callStore(d.darkStorePhone),
                     ),
                     const SizedBox(height: 12),
-                    if (isUnlocked)
+                    if (!pickupQrReady && !qrScanned)
+                      _SameRouteWaitCard(windowEndsAt: windowEnds)
+                    else if (isUnlocked)
                       _UnlockedCustomerCard(
                         customerName: d.customerName,
                         customerAddress: d.customerAddress,
+                        distanceKm: d.distanceKm,
+                        stopLabel: _deliveries.length > 1
+                            ? 'STOP ${_deliveries.indexOf(d) + 1}'
+                            : null,
                       )
                     else if (proofPending)
                       const _AwaitingApprovalCard()
@@ -555,15 +775,131 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               qrScanned: qrScanned,
               needsProof: needsProof,
               proofPending: proofPending,
+              pickupQrReady: pickupQrReady,
+              windowEndsAt: windowEnds,
+              customerNavStarted: _customerNavStarted,
+              otpVerified: d.customerOtpVerified,
               onScanQr: _openPickupQrScanner,
               onItemProof: _openItemProofCapture,
-              onNavigateStore: () => _navigateToDarkStore(d),
-              onNavigateCustomer: () => _navigateToCustomer(d),
+              onNavigateCustomer: _onNavigateCustomerTap,
+              onCaptureProof: _captureDeliveryProofThenOtp,
               onComplete: _startCompleteFlow,
+              onFailed: isUnlocked ? _markDeliveryFailed : null,
               hasDeliveryProof: d.deliveryProofImageUrl.trim().isNotEmpty,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MultiStopBanner extends StatelessWidget {
+  const _MultiStopBanner({
+    required this.stops,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  final List<ActiveDeliveryData> stops;
+  final String selectedId;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Suggested route · ${stops.length} deliveries',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...List.generate(stops.length, (i) {
+            final s = stops[i];
+            final selected = s.id == selectedId;
+            final dist = s.distanceKm != null
+                ? '${s.distanceKm!.toStringAsFixed(1)} km'
+                : '—';
+            return Padding(
+              padding: EdgeInsets.only(bottom: i == stops.length - 1 ? 0 : 8),
+              child: InkWell(
+                onTap: () => onSelect(s.id),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.primaryLight.withValues(alpha: 0.45)
+                        : const Color(0xFFF8FAF9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: selected
+                            ? AppColors.primary
+                            : const Color(0xFF94A3B8),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '#${s.orderNumber} · ${s.customerName}',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              s.customerAddressUnlocked
+                                  ? s.customerAddress
+                                  : (s.pickupQrScanned
+                                      ? 'Address unlocks after manager approval'
+                                      : 'Scan this order\'s QR at store'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        dist,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -832,6 +1168,51 @@ class _PickupStoreCard extends StatelessWidget {
   }
 }
 
+class _SameRouteWaitCard extends StatelessWidget {
+  const _SameRouteWaitCard({this.windowEndsAt});
+
+  final DateTime? windowEndsAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = windowEndsAt?.difference(DateTime.now());
+    final mm = left == null || left.isNegative
+        ? '0:00'
+        : '${left.inMinutes}:${(left.inSeconds % 60).toString().padLeft(2, '0')}';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F3FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDD6FE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Same-route search · $mm',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF6D28D9),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Waiting for another nearby order. If one matches, both go to you and pickup QR unlocks. If not, QR unlocks when the timer ends. Customer address stays locked until QR + manager approval.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              height: 1.35,
+              color: const Color(0xFF5B21B6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LockedAddressCard extends StatelessWidget {
   const _LockedAddressCard();
 
@@ -942,10 +1323,14 @@ class _UnlockedCustomerCard extends StatelessWidget {
   const _UnlockedCustomerCard({
     required this.customerName,
     required this.customerAddress,
+    this.distanceKm,
+    this.stopLabel,
   });
 
   final String customerName;
   final String customerAddress;
+  final double? distanceKm;
+  final String? stopLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -966,7 +1351,7 @@ class _UnlockedCustomerCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'DELIVER TO',
+                      stopLabel != null ? '$stopLabel · DELIVER TO' : 'DELIVER TO',
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -986,6 +1371,15 @@ class _UnlockedCustomerCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (distanceKm != null)
+                Text(
+                  '${distanceKm!.toStringAsFixed(1)} km',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1105,11 +1499,16 @@ class _BottomActions extends StatelessWidget {
     required this.qrScanned,
     required this.needsProof,
     required this.proofPending,
+    required this.pickupQrReady,
+    this.windowEndsAt,
+    required this.customerNavStarted,
+    required this.otpVerified,
     required this.onScanQr,
     required this.onItemProof,
-    required this.onNavigateStore,
     required this.onNavigateCustomer,
+    required this.onCaptureProof,
     required this.onComplete,
+    this.onFailed,
     this.hasDeliveryProof = false,
   });
 
@@ -1117,15 +1516,95 @@ class _BottomActions extends StatelessWidget {
   final bool qrScanned;
   final bool needsProof;
   final bool proofPending;
+  final bool pickupQrReady;
+  final DateTime? windowEndsAt;
+  final bool customerNavStarted;
+  final bool otpVerified;
   final VoidCallback onScanQr;
   final VoidCallback onItemProof;
-  final VoidCallback onNavigateStore;
   final VoidCallback onNavigateCustomer;
+  final VoidCallback onCaptureProof;
   final VoidCallback onComplete;
+  final VoidCallback? onFailed;
   final bool hasDeliveryProof;
 
   @override
   Widget build(BuildContext context) {
+    Widget primary;
+    if (!isUnlocked) {
+      if (proofPending) {
+        primary = DeliveryActionButton(
+          label: 'Waiting for Manager',
+          subtitle: 'Item photo under review — address unlocks after approval',
+          icon: Icons.hourglass_top_rounded,
+          style: DeliveryActionStyle.outline,
+          onPressed: null,
+          showChevron: false,
+        );
+      } else if (needsProof || qrScanned) {
+        primary = DeliveryActionButton(
+          label: 'Take Item Proof & Send',
+          subtitle: 'Camera opens — photo goes to manager for approval',
+          icon: Icons.camera_alt_rounded,
+          style: DeliveryActionStyle.accent,
+          onPressed: onItemProof,
+        );
+      } else if (!pickupQrReady) {
+        final left = windowEndsAt?.difference(DateTime.now());
+        final mm = left == null || left.isNegative
+            ? '0:00'
+            : '${left.inMinutes}:${(left.inSeconds % 60).toString().padLeft(2, '0')}';
+        primary = DeliveryActionButton(
+          label: 'Searching same-route orders',
+          subtitle: 'Pickup QR unlocks in $mm — go to dark store meanwhile',
+          icon: Icons.hourglass_top_rounded,
+          style: DeliveryActionStyle.outline,
+          onPressed: null,
+          showChevron: false,
+        );
+      } else {
+        primary = DeliveryActionButton(
+          label: 'Scan Pickup QR',
+          subtitle: 'Scan this order QR at the dark store',
+          icon: Icons.qr_code_scanner_rounded,
+          style: DeliveryActionStyle.accent,
+          onPressed: onScanQr,
+        );
+      }
+    } else if (!hasDeliveryProof && !customerNavStarted) {
+      primary = DeliveryActionButton(
+        label: 'Navigate to Customer',
+        subtitle: 'Opens map with customer address',
+        icon: Icons.navigation_rounded,
+        style: DeliveryActionStyle.accent,
+        onPressed: onNavigateCustomer,
+      );
+    } else if (!hasDeliveryProof) {
+      primary = DeliveryActionButton(
+        label: 'Capture Delivery Proof',
+        subtitle: 'Take photo at customer location, then enter OTP',
+        icon: Icons.photo_camera_outlined,
+        style: DeliveryActionStyle.accent,
+        onPressed: onCaptureProof,
+      );
+    } else if (!otpVerified) {
+      primary = DeliveryActionButton(
+        label: 'Enter OTP & Complete',
+        subtitle: 'Ask customer for delivery OTP, then finish',
+        icon: Icons.pin_outlined,
+        style: DeliveryActionStyle.accent,
+        onPressed: onComplete,
+      );
+    } else {
+      primary = DeliveryActionButton(
+        label: 'Complete Delivery',
+        subtitle: 'Optional comment, then mark delivered',
+        icon: Icons.check_circle_outline_rounded,
+        style: DeliveryActionStyle.accent,
+        onPressed: onComplete,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
@@ -1143,64 +1622,23 @@ class _BottomActions extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isUnlocked) ...[
-              DeliveryActionButton(
-                label: 'Navigate to Customer',
-                subtitle: 'Open Google Maps for delivery route',
-                icon: Icons.navigation_rounded,
-                style: DeliveryActionStyle.accent,
-                onPressed: onNavigateCustomer,
-              ),
+            primary,
+            if (isUnlocked && onFailed != null) ...[
               const SizedBox(height: 8),
-              DeliveryActionButton(
-                label: hasDeliveryProof ? 'Complete Delivery' : 'Capture Proof & Complete',
-                subtitle: hasDeliveryProof
-                    ? 'Enter customer OTP to finish'
-                    : 'Take delivery photo, then enter customer OTP',
-                icon: hasDeliveryProof
-                    ? Icons.check_circle_outline_rounded
-                    : Icons.photo_camera_outlined,
-                style: DeliveryActionStyle.outline,
-                onPressed: onComplete,
-              ),
-            ] else if (proofPending) ...[
-              DeliveryActionButton(
-                label: 'Waiting for Manager',
-                subtitle: 'Item photo under review — address unlocks after tick',
-                icon: Icons.hourglass_top_rounded,
-                style: DeliveryActionStyle.outline,
-                onPressed: null,
-                showChevron: false,
-              ),
-            ] else if (needsProof) ...[
-              DeliveryActionButton(
-                label: 'Item Proof Photo',
-                subtitle: 'Capture packed items for manager approval',
-                icon: Icons.camera_alt_rounded,
-                style: DeliveryActionStyle.accent,
-                onPressed: onItemProof,
-              ),
-              const SizedBox(height: 8),
-              DeliveryActionButton(
-                label: 'Navigate to Dark Store',
-                icon: Icons.storefront_outlined,
-                style: DeliveryActionStyle.outline,
-                onPressed: onNavigateStore,
-              ),
-            ] else ...[
-              DeliveryActionButton(
-                label: 'Scan Pickup QR',
-                subtitle: 'Scan at the store to continue pickup',
-                icon: Icons.qr_code_scanner_rounded,
-                style: DeliveryActionStyle.accent,
-                onPressed: onScanQr,
-              ),
-              const SizedBox(height: 8),
-              DeliveryActionButton(
-                label: 'Navigate to Dark Store',
-                icon: Icons.storefront_outlined,
-                style: DeliveryActionStyle.outline,
-                onPressed: onNavigateStore,
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onFailed,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFDC2626),
+                    side: const BorderSide(color: Color(0xFFFECACA)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'Delivery Failed',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
               ),
             ],
           ],

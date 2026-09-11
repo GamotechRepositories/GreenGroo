@@ -13,6 +13,7 @@ import {
   submitPickupProof,
   approvePickupProof,
 } from "../services/PickupVerificationService.js";
+import { isPickupQrReady } from "../services/sameRouteAttachService.js";
 import { refreshStoreOrderCustomerCoords } from "../services/customerLocationService.js";
 import { OFFER_TIMEOUT_SECONDS } from "../config/orderAssignmentConfig.js";
 import { getIO } from "../../../socket.js";
@@ -35,15 +36,57 @@ export const getPendingOffer = async (req, res, next) => {
   try {
     const riderId = req.user.id;
     const now = new Date();
+    const requestedOrderId = String(req.query.orderId || "").trim();
 
-    const order = await StoreOrder.findOne({
+    let order = await StoreOrder.findOne({
       currentOfferDriverId: riderId,
       status: "offered",
       offerExpiresAt: { $gt: now },
     });
 
+    // Notification tap with orderId: verify this offer still belongs to rider & is pending
+    if (!order && requestedOrderId) {
+      const probed = await StoreOrder.findById(requestedOrderId);
+      if (!probed) {
+        return res.json({
+          success: true,
+          offer: null,
+          reason: "not_found",
+          message: "Assignment not found",
+        });
+      }
+      const offeredToMe =
+        probed.currentOfferDriverId &&
+        String(probed.currentOfferDriverId) === String(riderId);
+      const stillOpen =
+        probed.status === "offered" &&
+        probed.offerExpiresAt &&
+        new Date(probed.offerExpiresAt) > now;
+      if (!offeredToMe || !stillOpen) {
+        return res.json({
+          success: true,
+          offer: null,
+          reason:
+            probed.status === "assigned" &&
+            String(probed.assignedRiderId) === String(riderId)
+              ? "already_accepted"
+              : probed.status === "cancelled"
+                ? "cancelled"
+                : "expired_or_reassigned",
+          message:
+            probed.status === "assigned" &&
+            String(probed.assignedRiderId) === String(riderId)
+              ? "You already accepted this order"
+              : "This assignment is no longer available",
+          orderStatus: probed.status,
+          assignmentStatus: probed.assignmentStatus,
+        });
+      }
+      order = probed;
+    }
+
     if (!order) {
-      return res.json({ success: true, offer: null });
+      return res.json({ success: true, offer: null, reason: "none" });
     }
 
     const manager = await DeliveryManager.findById(order.managerId);
@@ -87,7 +130,7 @@ export const getPendingOffer = async (req, res, next) => {
         itemsSummary: order.items.map((i) => `${i.quantity}x ${i.name}`).join(", "),
         estimatedEarnings,
         earnUpTo: estimatedEarnings,
-        distanceKm: "nearby",
+        distanceKm: order.distanceKm != null ? `${order.distanceKm} km` : "nearby",
         remainingSeconds,
         timeoutSeconds: OFFER_TIMEOUT_SECONDS,
         offerExpiresAt: order.offerExpiresAt,
@@ -125,22 +168,33 @@ export const acceptOrderOffer = async (req, res, next) => {
       console.warn("[acceptOrderOffer] shiftId linkage warning:", shiftErr.message);
     }
 
-    const pickupQr = await generateDriverPickupToken(order);
+    // Fresh order after same-route window open (QR locked for 5 min)
+    const fresh = await StoreOrder.findById(order._id);
+    const qrReady = isPickupQrReady(fresh);
+    let pickupQrPayload = null;
+    if (qrReady) {
+      const pickupQr = await generateDriverPickupToken(fresh);
+      pickupQrPayload = pickupQr.qrPayload;
+    }
 
     return res.json({
       success: true,
-      message: "Order accepted! Proceed to the Dark Store for pickup verification.",
+      message: qrReady
+        ? "Order accepted! Proceed to the Dark Store for pickup verification."
+        : "Order accepted! Waiting up to 5 minutes for a same-route companion — pickup QR unlocks after that.",
       order: {
-        id: order._id.toString(),
-        orderNumber: order.orderNumber,
-        status: order.status,
-        assignmentStatus: order.assignmentStatus,
-        darkStoreId: (order.darkStoreId || order.managerId).toString(),
-        darkStoreName: darkStore?.storeName || `${order.area} Dark Store`,
-        darkStoreAddress: darkStore?.storeAddress || `${order.area}, ${order.city}`,
+        id: fresh._id.toString(),
+        orderNumber: fresh.orderNumber,
+        status: fresh.status,
+        assignmentStatus: fresh.assignmentStatus,
+        darkStoreId: (fresh.darkStoreId || fresh.managerId).toString(),
+        darkStoreName: darkStore?.storeName || `${fresh.area} Dark Store`,
+        darkStoreAddress: darkStore?.storeAddress || `${fresh.area}, ${fresh.city}`,
         darkStoreLat: darkStore?.latitude,
         darkStoreLng: darkStore?.longitude,
-        pickupQrPayload: pickupQr.qrPayload,
+        pickupQrPayload,
+        pickupQrUnlocked: qrReady,
+        routeBatchWindowEndsAt: fresh.routeBatchWindowEndsAt,
         isCustomerLocationLocked: true,
         customerAddressUnlocked: false,
       },
@@ -176,6 +230,16 @@ export const getDriverPickupQr = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Active assigned order not found" });
     }
 
+    if (!isPickupQrReady(order)) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Pickup QR unlocks after the 5-minute same-route wait (or when a same-route order is batched).",
+        pickupQrUnlocked: false,
+        routeBatchWindowEndsAt: order.routeBatchWindowEndsAt,
+      });
+    }
+
     const pickupQr = await generateDriverPickupToken(order);
     return res.json({
       success: true,
@@ -193,100 +257,136 @@ export const getActiveDelivery = async (req, res, next) => {
     const riderId = req.user.id;
     const rider = await DeliveryBoy.findById(riderId);
 
-    let order = await StoreOrder.findOne({
+    let orders = await StoreOrder.find({
       assignedRiderId: riderId,
       status: { $in: ["assigned", "pickup_verified", "out_for_delivery"] },
-    }).sort({ updatedAt: -1 });
+    }).sort({ batchSequence: 1, assignedAt: 1, updatedAt: -1 });
 
-    if (!order && rider?.activeOrderId) {
-      order = await StoreOrder.findOne({
+    if (!orders.length && rider?.activeOrderId) {
+      const one = await StoreOrder.findOne({
         _id: rider.activeOrderId,
         assignedRiderId: riderId,
       });
+      if (one && !["delivered", "delivery_failed", "cancelled"].includes(one.status)) {
+        orders = [one];
+      }
     }
 
-    if (!order) {
+    if (!orders.length) {
       if (rider?.activeOrderId) {
         await DeliveryBoy.findByIdAndUpdate(riderId, {
           $set: { activeOrderId: null, status: "online" },
         });
       }
-      return res.json({ success: true, activeDelivery: null });
+      return res.json({
+        success: true,
+        activeDelivery: null,
+        activeDeliveries: [],
+      });
     }
 
     if (rider && (!rider.activeOrderId || rider.status !== "on_delivery")) {
       await DeliveryBoy.findByIdAndUpdate(riderId, {
-        $set: { activeOrderId: order._id, status: "on_delivery" },
+        $set: { activeOrderId: orders[0]._id, status: "on_delivery" },
       });
     }
 
-    const manager = await DeliveryManager.findById(order.managerId);
-    const unlocked = Boolean(order.customerAddressUnlocked);
-
-    if (unlocked && (order.customerLat == null || order.customerLng == null)) {
-      await refreshStoreOrderCustomerCoords(order);
-    }
-
-    let pickupQrPayload = null;
-    const qrScanned = Boolean(order.pickupQrScanned || order.qrScannedAt);
-    if (!qrScanned && order.status === "assigned") {
-      const pickupQr = await generateDriverPickupToken(order);
-      pickupQrPayload = pickupQr.qrPayload;
-    }
-
-    const proofStatus = order.pickupProofStatus || "none";
-    const itemsTotal = (order.items || []).reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
-      0
-    );
-    const amountToCollect = Number(order.amountToCollect || 0);
-    const deliveryFee = Math.max(0, Math.round(amountToCollect - itemsTotal));
-
-    const safeData = {
-      id: order._id.toString(),
-      orderNumber: order.orderNumber,
-      status: order.status,
-      assignmentStatus: order.assignmentStatus,
-      darkStoreId: (order.darkStoreId || order.managerId).toString(),
-      darkStoreName: manager?.storeName || `${order.area} Dark Store`,
-      darkStoreAddress: manager?.storeAddress || `${order.area}, ${order.city}`,
-      darkStorePhone: manager?.phone || null,
-      darkStoreLat: manager?.latitude,
-      darkStoreLng: manager?.longitude,
-      pickupQrPayload,
-      items: order.items,
-      pickupQrScanned: qrScanned,
-      pickupQrScannedAt: order.pickupQrScannedAt || order.qrScannedAt,
-      pickupProofStatus: proofStatus,
-      pickupProofSubmittedAt: order.pickupProofSubmittedAt,
-      pickupVerified: Boolean(order.pickupVerified),
-      pickupVerifiedAt: order.pickupVerifiedAt,
-      isCustomerLocationLocked: !unlocked,
-      customerAddressUnlocked: unlocked,
-      customerName: unlocked ? order.customerName : "Customer",
-      customerPhone: unlocked ? order.customerPhone : "Locked until manager approves item proof",
-      customerAddress: unlocked
-        ? order.customerAddress
-        : qrScanned && proofStatus === "pending"
-          ? "Waiting for manager to approve your item photo"
-          : qrScanned
-            ? "Take item photo and send to manager to unlock address"
-            : "Customer address unlocks after QR scan + manager item approval",
-      customerLat: unlocked ? order.customerLat : null,
-      customerLng: unlocked ? order.customerLng : null,
-      deliveryProofImageUrl: order.deliveryProofImageUrl || "",
-      customerOtpVerified: Boolean(order.customerOtpVerified),
-      paymentMethod: order.paymentMethod || "",
-      paymentStatus: order.paymentStatus || "pending",
-      amountToCollect,
-      amountCollected: order.amountCollected || 0,
-      itemsTotal: Math.round(itemsTotal),
-      deliveryFee,
-      // Never send OTP to rider — customer must share it from their order screen
-      otpCode: null,
+    const managerCache = new Map();
+    const buildSafe = async (order) => {
+      let manager = managerCache.get(String(order.managerId));
+      if (!manager) {
+        manager = await DeliveryManager.findById(order.managerId);
+        managerCache.set(String(order.managerId), manager);
+      }
+      const unlocked = Boolean(order.customerAddressUnlocked);
+      if (unlocked && (order.customerLat == null || order.customerLng == null)) {
+        await refreshStoreOrderCustomerCoords(order);
+      }
+      let pickupQrPayload = null;
+      const qrScanned = Boolean(order.pickupQrScanned || order.qrScannedAt);
+      const pickupQrUnlocked = isPickupQrReady(order);
+      if (!qrScanned && order.status === "assigned" && pickupQrUnlocked) {
+        const pickupQr = await generateDriverPickupToken(order);
+        pickupQrPayload = pickupQr.qrPayload;
+      }
+      const proofStatus = order.pickupProofStatus || "none";
+      const itemsTotal = (order.items || []).reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+        0
+      );
+      const amountToCollect = Number(order.amountToCollect || 0);
+      const deliveryFee = Math.max(0, Math.round(amountToCollect - itemsTotal));
+      return {
+        id: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: order.status,
+        assignmentStatus: order.assignmentStatus,
+        batchId: order.batchId || "",
+        batchSequence: order.batchSequence || 0,
+        distanceKm: order.distanceKm,
+        darkStoreId: (order.darkStoreId || order.managerId).toString(),
+        darkStoreName: manager?.storeName || `${order.area} Dark Store`,
+        darkStoreAddress: manager?.storeAddress || `${order.area}, ${order.city}`,
+        darkStorePhone: manager?.phone || null,
+        darkStoreLat: manager?.latitude,
+        darkStoreLng: manager?.longitude,
+        pickupQrPayload,
+        pickupQrUnlocked,
+        routeBatchWindowEndsAt: order.routeBatchWindowEndsAt || null,
+        items: order.items,
+        pickupQrScanned: qrScanned,
+        pickupQrScannedAt: order.pickupQrScannedAt || order.qrScannedAt,
+        pickupProofStatus: proofStatus,
+        pickupProofSubmittedAt: order.pickupProofSubmittedAt,
+        pickupVerified: Boolean(order.pickupVerified),
+        pickupVerifiedAt: order.pickupVerifiedAt,
+        isCustomerLocationLocked: !unlocked,
+        customerAddressUnlocked: unlocked,
+        customerName: unlocked ? order.customerName : "Customer",
+        customerPhone: unlocked
+          ? order.customerPhone
+          : "Locked until manager approves item proof",
+        customerAddress: unlocked
+          ? order.customerAddress
+          : qrScanned && proofStatus === "pending"
+            ? "Waiting for manager to approve your item photo"
+            : qrScanned
+              ? "Take item photo and send to manager to unlock address"
+              : pickupQrUnlocked
+                ? "Customer address unlocks after QR scan + manager item approval"
+                : "Waiting for same-route search (up to 5 min) — then scan pickup QR",
+        customerLat: unlocked ? order.customerLat : null,
+        customerLng: unlocked ? order.customerLng : null,
+        deliveryProofImageUrl: order.deliveryProofImageUrl || "",
+        customerOtpVerified: Boolean(order.customerOtpVerified),
+        deliveryComment: order.deliveryComment || "",
+        failureReason: order.failureReason || "",
+        paymentMethod: order.paymentMethod || "",
+        paymentStatus: order.paymentStatus || "pending",
+        amountToCollect,
+        amountCollected: order.amountCollected || 0,
+        itemsTotal: Math.round(itemsTotal),
+        deliveryFee,
+        otpCode: null,
+      };
     };
 
-    return res.json({ success: true, activeDelivery: safeData });
+    const activeDeliveries = [];
+    for (const o of orders) {
+      activeDeliveries.push(await buildSafe(o));
+    }
+    activeDeliveries.sort((a, b) => {
+      if ((a.batchSequence || 0) !== (b.batchSequence || 0)) {
+        return (a.batchSequence || 0) - (b.batchSequence || 0);
+      }
+      return (Number(a.distanceKm) || 0) - (Number(b.distanceKm) || 0);
+    });
+
+    return res.json({
+      success: true,
+      activeDelivery: activeDeliveries[0] || null,
+      activeDeliveries,
+    });
   } catch (error) {
     next(error);
   }
@@ -362,6 +462,16 @@ export const getManagerOrderPickupQr = async (req, res, next) => {
       });
     }
 
+    if (!isPickupQrReady(order)) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Pickup QR is locked during the 5-minute same-route search. It unlocks when the wait ends or a same-route order is batched.",
+        pickupQrUnlocked: false,
+        routeBatchWindowEndsAt: order.routeBatchWindowEndsAt,
+      });
+    }
+
     const pickupQr = await generateDriverPickupToken(order);
     const rider = await DeliveryBoy.findById(order.assignedRiderId).select("name phone");
 
@@ -405,12 +515,20 @@ export const scanStoreQr = async (req, res, next) => {
     order.pickupQrScannedAt = new Date();
     order.qrScannedAt = new Date();
     order.assignmentStatus = "PICKUP_PENDING";
+    order.routeBatchWindowEndsAt = undefined;
     await order.save();
 
     try {
       getIO().to(`store_${order.managerId}`).emit("pickup_qr_scanned", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
+        scannedAt: order.pickupQrScannedAt.toISOString(),
+        routeBatchWindowEndsAt: null,
+      });
+      getIO().to(`store_${order.managerId}`).emit("order_batch_window_ended", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        reason: "pickup_qr_scanned",
       });
     } catch (err) {}
 
@@ -749,6 +867,10 @@ export const completeDelivery = async (req, res, next) => {
     order.status = "delivered";
     order.assignmentStatus = "DELIVERED";
     order.deliveredAt = now;
+    const comment = String(req.body.deliveryComment || req.body.comment || "")
+      .trim()
+      .slice(0, 500);
+    if (comment) order.deliveryComment = comment;
 
     // ── Calculate rider delivery earning from Shift KM slabs ───────────────
     const rider = await DeliveryBoy.findById(riderId);
@@ -819,10 +941,31 @@ export const completeDelivery = async (req, res, next) => {
         orderNumber: order.orderNumber,
         status: "delivered",
         deliveredAt: order.deliveredAt,
+        deliveryComment: order.deliveryComment || "",
         deliveryDistanceKm: order.deliveryDistanceKm,
         riderDeliveryEarning: order.riderDeliveryEarning,
       });
+      getIO().to(`store_${order.managerId}`).emit("order_status_updated", {
+        orderId: order._id.toString(),
+        status: "delivered",
+      });
     } catch (err) {}
+
+    // If rider still has other active stops in a batch, keep them on_delivery
+    if (rider) {
+      const otherActive = await StoreOrder.findOne({
+        assignedRiderId: riderId,
+        _id: { $ne: order._id },
+        status: {
+          $in: ["assigned", "pickup_verified", "out_for_delivery", "offered"],
+        },
+      }).select("_id");
+      if (otherActive) {
+        rider.status = "on_delivery";
+        rider.activeOrderId = otherActive._id;
+        await rider.save();
+      }
+    }
 
     return res.json({
       success: true,
@@ -834,7 +977,95 @@ export const completeDelivery = async (req, res, next) => {
         earningSlab: order.earningSlab,
         paymentStatus: order.paymentStatus,
         amountCollected: order.amountCollected,
+        deliveryComment: order.deliveryComment || "",
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mark delivery as failed with a required reason (customer unavailable, etc.).
+ */
+export const failDelivery = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const riderId = req.user.id;
+    const reason = String(req.body.failureReason || req.body.reason || req.body.comment || "")
+      .trim()
+      .slice(0, 800);
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: "Failure reason / comment is required",
+      });
+    }
+
+    const order = await StoreOrder.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.assignedRiderId?.toString() !== riderId) {
+      return res.status(403).json({ success: false, message: "You are not assigned to this order" });
+    }
+    if (["delivered", "delivery_failed", "cancelled"].includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Order already ${order.status}`,
+      });
+    }
+
+    const now = new Date();
+    order.status = "delivery_failed";
+    order.assignmentStatus = "FAILED";
+    order.failureReason = reason;
+    order.failedAt = now;
+    order.failedByRiderId = riderId;
+    await order.save();
+    await syncCustomerOrderFromStore(order, "cancelled").catch(() => {});
+
+    const rider = await DeliveryBoy.findById(riderId);
+    if (rider) {
+      const otherActive = await StoreOrder.findOne({
+        assignedRiderId: riderId,
+        _id: { $ne: order._id },
+        status: {
+          $in: ["assigned", "pickup_verified", "out_for_delivery"],
+        },
+      }).select("_id");
+      if (otherActive) {
+        rider.activeOrderId = otherActive._id;
+        rider.status = "on_delivery";
+      } else {
+        rider.activeOrderId = null;
+        rider.status = "online";
+      }
+      rider.lastStatusAt = now;
+      await rider.save();
+    }
+
+    try {
+      getIO().to(`store_${order.managerId}`).emit("order_delivery_failed", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: "delivery_failed",
+        failureReason: reason,
+        failedAt: now,
+        riderId: String(riderId),
+      });
+      getIO().to(`store_${order.managerId}`).emit("order_status_updated", {
+        orderId: order._id.toString(),
+        status: "delivery_failed",
+        failureReason: reason,
+      });
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      message: "Delivery marked as failed",
+      order: order.toSafeJSON(),
     });
   } catch (error) {
     next(error);

@@ -71,6 +71,7 @@ abstract final class ApiConfig {
   static String scanPickupQr(String id) => '/api/delivery-boys/orders/$id/scan-pickup-qr';
   static String submitPickupProof(String id) => '/api/delivery-boys/orders/$id/pickup-proof';
   static String completeDelivery(String id) => '/api/delivery-boys/orders/$id/complete';
+  static String failDelivery(String id) => '/api/delivery-boys/orders/$id/fail';
   static String pickupQr(String id) => '/api/delivery-boys/orders/$id/pickup-qr';
 
   // Extended delivery completion flow

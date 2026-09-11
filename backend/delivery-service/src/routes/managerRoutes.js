@@ -18,6 +18,9 @@ import {
   toggleRiderActive,
   packOrder,
   createDemoStoreOrder,
+  listRouteSuggestions,
+  dispatchPackedOrderNow,
+  assignSameRouteOrders,
 } from "../controllers/managerDashboardController.js";
 import {
   getManagerOrderPickupQr,
@@ -89,6 +92,9 @@ router.post("/riders", createDeliveryBoyByManager);
 router.post("/riders/:riderId/verify", verifyDriver);
 router.post("/orders/:orderId/inform-customer", informCustomer);
 router.post("/orders/:orderId/pack", packOrder);
+router.get("/orders/route-suggestions", listRouteSuggestions);
+router.post("/orders/:orderId/dispatch-now", dispatchPackedOrderNow);
+router.post("/orders/assign-same-route", assignSameRouteOrders);
 router.get("/orders/:orderId/pickup-qr", getManagerOrderPickupQr);
 router.post("/orders/:orderId/verify-pickup", verifyPickupByManager);
 router.post("/orders/:orderId/approve-pickup-proof", approvePickupProofByManager);

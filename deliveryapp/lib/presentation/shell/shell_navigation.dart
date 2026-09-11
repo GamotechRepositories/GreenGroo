@@ -7,6 +7,11 @@ class ShellNavigation {
 
   ValueNotifier<int>? tabNotifier;
 
+  /// Fired when FCM tap / cold-start needs Accept–Decline recovery.
+  /// Payload may include orderId from the notification.
+  final ValueNotifier<Map<String, dynamic>?> pendingOfferRecovery =
+      ValueNotifier<Map<String, dynamic>?>(null);
+
   void bind(ValueNotifier<int> notifier) {
     tabNotifier = notifier;
   }
@@ -17,5 +22,13 @@ class ShellNavigation {
 
   void goToTab(int index) {
     tabNotifier?.value = index;
+  }
+
+  void requestOfferRecovery({String? orderId, String? reason}) {
+    pendingOfferRecovery.value = {
+      'orderId': orderId ?? '',
+      'reason': reason ?? 'notification_tap',
+      'at': DateTime.now().millisecondsSinceEpoch,
+    };
   }
 }

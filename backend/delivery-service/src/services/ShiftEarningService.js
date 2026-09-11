@@ -78,8 +78,9 @@ export function calculateDeliveryDistanceKm(lat1, lng1, lat2, lng2) {
 
 /**
  * Given a list of earning slabs and a distance in KM,
- * find the slab whose [minKm, maxKm) range contains the distance.
- * Returns the matched slab object or null.
+ * find the slab for that distance.
+ * Contiguous bands (0–1, 1–2, 2–3): first band is [min, max], later bands are (min, max].
+ * Distance above the highest maxKm uses the last (highest) slab.
  *
  * @param {Array<{minKm: number, maxKm: number, riderAmount: number}>} slabs
  * @param {number} distanceKm
@@ -87,16 +88,40 @@ export function calculateDeliveryDistanceKm(lat1, lng1, lat2, lng2) {
  */
 export function findMatchingSlab(slabs, distanceKm) {
   if (!slabs || slabs.length === 0) return null;
-  for (const slab of slabs) {
-    if (distanceKm >= slab.minKm && distanceKm < slab.maxKm) {
-      return { minKm: slab.minKm, maxKm: slab.maxKm, riderAmount: slab.riderAmount };
+  const d = Number(distanceKm);
+  if (!Number.isFinite(d) || d < 0) return null;
+
+  const sorted = [...slabs]
+    .map((s) => ({
+      minKm: Number(s.minKm),
+      maxKm: Number(s.maxKm),
+      riderAmount: Number(s.riderAmount) || 0,
+    }))
+    .sort((a, b) => a.minKm - b.minKm || a.maxKm - b.maxKm);
+
+  for (let i = 0; i < sorted.length; i++) {
+    const slab = sorted[i];
+    const isFirst = i === 0;
+    // Till 1 KM → first slab (incl. exactly 1). Next band starts after that point.
+    const inRange = isFirst
+      ? d >= slab.minKm && d <= slab.maxKm
+      : d > slab.minKm && d <= slab.maxKm;
+    if (inRange) {
+      return {
+        minKm: slab.minKm,
+        maxKm: slab.maxKm,
+        riderAmount: slab.riderAmount,
+      };
     }
   }
-  // If distance exceeds all slab maxKm values, use the last slab (highest range)
-  const sorted = [...slabs].sort((a, b) => b.maxKm - a.maxKm);
-  const last = sorted[0];
-  if (distanceKm >= last.minKm) {
-    return { minKm: last.minKm, maxKm: last.maxKm, riderAmount: last.riderAmount };
+
+  const last = sorted[sorted.length - 1];
+  if (d > last.maxKm) {
+    return {
+      minKm: last.minKm,
+      maxKm: last.maxKm,
+      riderAmount: last.riderAmount,
+    };
   }
   return null;
 }

@@ -5,6 +5,16 @@ import { managerApi } from "../../api/managerApi";
 
 const getTodayString = () => new Date().toISOString().slice(0, 10);
 
+/** Default rider rate: ₹15 per KM (0–1 → ₹15, 1–2 → ₹30, …). */
+const RATE_PER_KM = 15;
+
+const defaultKmSlabs = () => [
+  { minKm: 0, maxKm: 1, riderAmount: RATE_PER_KM * 1 },
+  { minKm: 1, maxKm: 2, riderAmount: RATE_PER_KM * 2 },
+  { minKm: 2, maxKm: 3, riderAmount: RATE_PER_KM * 3 },
+  { minKm: 3, maxKm: 4, riderAmount: RATE_PER_KM * 4 },
+];
+
 const formatDateWithDay = (dateStr) => {
   if (!dateStr) return { formatted: "", dayName: "" };
   try {
@@ -98,12 +108,8 @@ export default function ShiftManagementPage() {
     { startTime: "09:00 AM", endTime: "01:00 PM", capacity: 10 },
   ]);
 
-  // KM-based delivery earning slabs (what drivers earn per delivery distance)
-  const [earningSlabs, setEarningSlabs] = useState([
-    { minKm: 0, maxKm: 2, riderAmount: 30 },
-    { minKm: 2, maxKm: 5, riderAmount: 50 },
-    { minKm: 5, maxKm: 10, riderAmount: 80 },
-  ]);
+  // KM-based delivery earning slabs — default ₹15 / KM
+  const [earningSlabs, setEarningSlabs] = useState(defaultKmSlabs);
 
   const addEarningSlabRow = () => {
     if (earningSlabs.length >= 8) {
@@ -112,9 +118,14 @@ export default function ShiftManagementPage() {
     }
     const last = earningSlabs[earningSlabs.length - 1];
     const nextMin = last ? Number(last.maxKm) || 0 : 0;
+    const nextMax = nextMin + 1;
     setEarningSlabs([
       ...earningSlabs,
-      { minKm: nextMin, maxKm: nextMin + 3, riderAmount: last ? Number(last.riderAmount) + 20 : 30 },
+      {
+        minKm: nextMin,
+        maxKm: nextMax,
+        riderAmount: RATE_PER_KM * nextMax,
+      },
     ]);
   };
 
@@ -228,6 +239,15 @@ export default function ShiftManagementPage() {
       if (isNaN(s.riderAmount) || s.riderAmount < 0) {
         showToast(`Slab ${i + 1}: Rider earning (₹) must be 0 or more`);
         return;
+      }
+      for (let j = 0; j < i; j++) {
+        const a = deliveryEarningSlabs[j];
+        if (s.minKm < a.maxKm && s.maxKm > a.minKm) {
+          showToast(
+            `Slabs overlap: #${j + 1} (${a.minKm}–${a.maxKm}) and #${i + 1} (${s.minKm}–${s.maxKm}). Use 0–1, then 1–2, then 2–3.`
+          );
+          return;
+        }
       }
     }
 
@@ -651,7 +671,7 @@ export default function ShiftManagementPage() {
                       Delivery Charges / KM Earning Slabs
                     </label>
                     <p className="text-[11px] text-emerald-800/80">
-                      Rider pay by delivery distance (e.g. 0–2 KM → ₹30)
+                      ₹{RATE_PER_KM}/KM — till 1 KM → ₹{RATE_PER_KM}, 1–2 KM → ₹{RATE_PER_KM * 2}. Use bands 0–1, 1–2, 2–3 (not all Min=0).
                     </p>
                   </div>
                   <button

@@ -158,8 +158,12 @@ export async function startAssignmentForOrder(orderId) {
   return assignNextDriver(orderId);
 }
 
-export async function assignNextDriver(orderId) {
+export async function assignNextDriver(orderId, opts = {}) {
   try {
+    const timedOutDriverId = opts.timedOutDriverId
+      ? String(opts.timedOutDriverId)
+      : null;
+
     const order = await StoreOrder.findById(orderId);
     if (!order) return { success: false, message: "Order not found" };
 
@@ -184,14 +188,51 @@ export async function assignNextDriver(orderId) {
 
     let eligible = await findEligibleDrivers(darkStore, excludedIds);
 
-    // Soft cycle only (timeouts) — NEVER clear declinedDriverIds
+    // Soft cycle (timeouts only) — clear soft exclusions so next round-robin pass can run
     if (!eligible.length && softExcluded.length) {
       console.warn(
-        `[assignment] order ${order.orderNumber || order._id}: resetting soft exclusions (kept ${declinedIds.length} decliners)`
+        `[assignment] order ${order.orderNumber || order._id}: cycling soft exclusions (kept ${declinedIds.length} decliners)`
       );
       order.excludedDriverIds = [];
       order.roundRobinRidersAttempted = [];
+      await order.save();
       eligible = await findEligibleDrivers(darkStore, declinedIds);
+    }
+
+    // Timeout + no other online driver → re-show Accept/Decline on the previous driver
+    if (
+      !eligible.length &&
+      timedOutDriverId &&
+      !declinedIds.includes(timedOutDriverId)
+    ) {
+      const prev = await DeliveryBoy.findById(timedOutDriverId);
+      if (
+        prev &&
+        prev.isActive &&
+        prev.status === "online" &&
+        !prev.activeOrderId
+      ) {
+        console.warn(
+          `[assignment] order ${order.orderNumber || order._id}: no other drivers — re-offering to previous ${timedOutDriverId}`
+        );
+        order.excludedDriverIds = (order.excludedDriverIds || []).filter(
+          (id) => String(id) !== timedOutDriverId
+        );
+        order.roundRobinRidersAttempted = (
+          order.roundRobinRidersAttempted || []
+        ).filter((id) => String(id) !== timedOutDriverId);
+        await order.save();
+
+        const distanceM =
+          metersBetween(
+            darkStore.latitude,
+            darkStore.longitude,
+            prev.currentLocation?.lat,
+            prev.currentLocation?.lng
+          ) ?? 0;
+
+        return sendOfferToDriver(order, prev, darkStore, distanceM);
+      }
     }
 
     if (!eligible.length) {
@@ -240,6 +281,70 @@ export async function assignNextDriver(orderId) {
       await selectedDriver.save().catch(() => {});
     }
 
+    return sendOfferToDriver(order, selectedDriver, darkStore, distanceM);
+  } catch (error) {
+    console.error("[assignment] assignNextDriver error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Send Accept/Decline offer to a specific online driver (never force-assign).
+ */
+export async function offerToSpecificDriver(orderId, driverId) {
+  try {
+    const order = await StoreOrder.findById(orderId);
+    if (!order) return { success: false, message: "Order not found" };
+
+    if (
+      ["assigned", "pickup_verified", "out_for_delivery", "delivered", "delivery_failed", "cancelled"].includes(
+        order.status
+      )
+    ) {
+      return {
+        success: false,
+        message: `Order already ${order.status} — cannot send offer`,
+      };
+    }
+
+    const driver = await DeliveryBoy.findById(driverId);
+    if (!driver || !driver.isActive) {
+      return { success: false, message: "Driver not found" };
+    }
+    if (driver.status !== "online") {
+      return { success: false, message: "Driver must be online to receive an offer" };
+    }
+    if (driver.activeOrderId) {
+      return { success: false, message: "Driver already has an active delivery" };
+    }
+
+    const darkStore = await DeliveryManager.findById(order.managerId || order.darkStoreId);
+    if (!darkStore) return { success: false, message: "Dark store not found" };
+
+    if (!driver.managerId || String(driver.managerId) !== String(darkStore._id)) {
+      driver.managerId = darkStore._id;
+      await driver.save().catch(() => {});
+    }
+
+    clearOfferTimer(order._id);
+
+    const distanceM =
+      metersBetween(
+        darkStore.latitude,
+        darkStore.longitude,
+        driver.currentLocation?.lat ?? driver.latitude,
+        driver.currentLocation?.lng ?? driver.longitude
+      ) ?? 0;
+
+    return sendOfferToDriver(order, driver, darkStore, distanceM);
+  } catch (error) {
+    console.error("[assignment] offerToSpecificDriver error:", error);
+    return { success: false, message: error.message };
+  }
+}
+
+async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
+  try {
     const offerDurationMs = OFFER_TIMEOUT_SECONDS * 1000;
     const startedAt = new Date();
     const expiresAt = new Date(Date.now() + offerDurationMs);
@@ -250,6 +355,7 @@ export async function assignNextDriver(orderId) {
     order.offeredRiderId = selectedDriver._id;
     order.offerStartedAt = startedAt;
     order.offerExpiresAt = expiresAt;
+    order.assignedRiderId = null;
     if (!order.excludedDriverIds) order.excludedDriverIds = [];
     if (!order.roundRobinRidersAttempted) order.roundRobinRidersAttempted = [];
     if (!order.excludedDriverIds.some((id) => String(id) === String(selectedDriver._id))) {
@@ -289,7 +395,6 @@ export async function assignNextDriver(orderId) {
     } catch (_) {
       estimatedEarnings = 0;
     }
-    // Last-resort fallback only if shift slabs are missing
     if (estimatedEarnings <= 0) {
       estimatedEarnings = Math.round(orderTotal * 0.12 + 45);
     }
@@ -341,7 +446,6 @@ export async function assignNextDriver(orderId) {
       console.warn("[assignment] socket emit failed:", err.message);
     }
 
-    // Persist + FCM (background tray) / socket (foreground badge only)
     try {
       const { notifyOrderReceived } = await import("./RiderNotificationService.js");
       await notifyOrderReceived(selectedDriver._id, {
@@ -353,6 +457,7 @@ export async function assignNextDriver(orderId) {
       console.warn("[assignment] rider notification failed:", err.message);
     }
 
+    clearOfferTimer(order._id);
     const timerId = setTimeout(async () => {
       activeOfferTimers.delete(String(order._id));
       try {
@@ -369,42 +474,40 @@ export async function assignNextDriver(orderId) {
           fresh.offerExpiresAt = null;
           fresh.assignmentStatus = "SEARCHING_FOR_DRIVER";
           await fresh.save();
-
           try {
             getIO()
               .to(`rider_${selectedDriver._id}`)
               .emit("driver_offer_timeout", {
                 orderId: fresh._id.toString(),
-                message: "Offer expired.",
               });
             getIO()
               .to(`rider_${selectedDriver._id}`)
               .emit("order_offer_expired", {
                 orderId: fresh._id.toString(),
-                message: "Offer expired.",
               });
-          } catch (e) {}
-
-          await assignNextDriver(fresh._id);
+          } catch (_) {}
+          setImmediate(() =>
+            assignNextDriver(fresh._id, { timedOutDriverId: selectedDriver._id })
+          );
         }
       } catch (err) {
-        console.error("[assignment] timeout handler error:", err);
+        console.warn("[assignment] offer timeout handler failed:", err.message);
       }
-    }, offerDurationMs + 300);
-
+    }, offerDurationMs);
     activeOfferTimers.set(String(order._id), timerId);
 
     return {
       success: true,
-      order: order.toSafeJSON(),
+      offered: true,
       offeredRider: {
         id: selectedDriver._id.toString(),
         name: selectedDriver.name,
         distanceMeters: Math.round(distanceM),
       },
+      timeoutSeconds: OFFER_TIMEOUT_SECONDS,
     };
   } catch (error) {
-    console.error("[assignment] assignNextDriver error:", error);
+    console.error("[assignment] sendOfferToDriver error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -480,6 +583,27 @@ export async function acceptDriverOffer(orderId, driverId) {
 
   const darkStore = await DeliveryManager.findById(order.managerId);
 
+  // 5-min same-route window starts AFTER accept, before pickup QR scan
+  let sameRoute = null;
+  try {
+    const { openSameRouteWindowAfterAccept } = await import(
+      "./sameRouteAttachService.js"
+    );
+    sameRoute = await openSameRouteWindowAfterAccept(order, darkStore);
+    if (sameRoute?.routeBatchWindowEndsAt) {
+      order.routeBatchWindowEndsAt = sameRoute.routeBatchWindowEndsAt;
+    }
+    if (typeof sameRoute?.pickupQrUnlocked === "boolean") {
+      order.pickupQrUnlocked = sameRoute.pickupQrUnlocked;
+    }
+    if (sameRoute?.attached?.length) {
+      order.pickupQrUnlocked = true;
+      order.routeBatchWindowEndsAt = null;
+    }
+  } catch (err) {
+    console.warn("[assignment] same-route window failed:", err.message);
+  }
+
   try {
     getIO()
       .to(`store_${order.managerId}`)
@@ -493,6 +617,9 @@ export async function acceptDriverOffer(orderId, driverId) {
           name: driver.name || driver.phone,
           phone: driver.phone,
         },
+        assignedRiderId: driver._id.toString(),
+        routeBatchWindowEndsAt: order.routeBatchWindowEndsAt,
+        pickupQrUnlocked: Boolean(order.pickupQrUnlocked),
       });
     getIO()
       .to(`store_${order.managerId}`)
@@ -506,13 +633,16 @@ export async function acceptDriverOffer(orderId, driverId) {
           name: driver.name || driver.phone,
           phone: driver.phone,
         },
+        assignedRiderId: driver._id.toString(),
         assignedAt: order.assignedAt,
+        routeBatchWindowEndsAt: order.routeBatchWindowEndsAt,
+        pickupQrUnlocked: Boolean(order.pickupQrUnlocked),
       });
   } catch (err) {
     console.warn("[assignment] socket emit failed:", err.message);
   }
 
-  return { success: true, order, driver, darkStore };
+  return { success: true, order, driver, darkStore, sameRoute };
 }
 
 export async function declineDriverOffer(orderId, driverId) {

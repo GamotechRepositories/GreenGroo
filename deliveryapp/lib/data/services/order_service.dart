@@ -81,6 +81,12 @@ class ActiveDeliveryData {
     // Earning (read-only — set by backend on delivery completion)
     this.deliveryDistanceKm = 0.0,
     this.riderDeliveryEarning = 0,
+    this.batchId = '',
+    this.batchSequence = 0,
+    this.distanceKm,
+    this.deliveryComment = '',
+    this.pickupQrUnlocked = true,
+    this.routeBatchWindowEndsAt,
   });
 
   final String id;
@@ -117,6 +123,12 @@ class ActiveDeliveryData {
   // Earning (backend-calculated, read-only)
   final double deliveryDistanceKm;
   final int riderDeliveryEarning;
+  final String batchId;
+  final int batchSequence;
+  final double? distanceKm;
+  final String deliveryComment;
+  final bool pickupQrUnlocked;
+  final DateTime? routeBatchWindowEndsAt;
 
   /// True if payment is already settled online — rider must NOT collect cash
   bool get isPaidOnline => paymentStatus == 'paid_online';
@@ -162,7 +174,27 @@ class ActiveDeliveryData {
         deliveryDistanceKm: (json['deliveryDistanceKm'] as num?)?.toDouble() ?? 0.0,
         riderDeliveryEarning: (json['riderDeliveryEarning'] as num?)?.toInt() ?? 0,
         otpCode: json['otpCode'] as String?,
+        batchId: json['batchId'] as String? ?? '',
+        batchSequence: (json['batchSequence'] as num?)?.toInt() ?? 0,
+        distanceKm: json['distanceKm'] != null ? (json['distanceKm'] as num).toDouble() : null,
+        deliveryComment: json['deliveryComment'] as String? ?? '',
+        pickupQrUnlocked: json['pickupQrUnlocked'] as bool? ?? true,
+        routeBatchWindowEndsAt: json['routeBatchWindowEndsAt'] != null
+            ? DateTime.tryParse(json['routeBatchWindowEndsAt'].toString())
+            : null,
       );
+}
+
+class OfferCheckResult {
+  const OfferCheckResult({
+    this.offer,
+    this.reason,
+    this.message,
+  });
+
+  final OrderOffer? offer;
+  final String? reason;
+  final String? message;
 }
 
 class OrderService extends ChangeNotifier {
@@ -171,29 +203,46 @@ class OrderService extends ChangeNotifier {
 
   OrderOffer? _currentOffer;
   ActiveDeliveryData? _activeDelivery;
+  List<ActiveDeliveryData> _activeDeliveries = const [];
 
   OrderOffer? get currentOffer => _currentOffer;
   ActiveDeliveryData? get activeDelivery => _activeDelivery;
+  List<ActiveDeliveryData> get activeDeliveries => _activeDeliveries;
 
-  Future<OrderOffer?> checkForOffer() async {
-    if (!AuthService.instance.isLoggedIn) return null;
+  Future<OrderOffer?> checkForOffer({String? orderId}) async {
+    final detailed = await checkForOfferDetailed(orderId: orderId);
+    return detailed.offer;
+  }
+
+  Future<OfferCheckResult> checkForOfferDetailed({String? orderId}) async {
+    if (!AuthService.instance.isLoggedIn) {
+      return const OfferCheckResult(reason: 'not_logged_in');
+    }
     try {
+      final path = (orderId != null && orderId.isNotEmpty)
+          ? '${ApiConfig.offer}?orderId=${Uri.encodeComponent(orderId)}'
+          : ApiConfig.offer;
       final res = await apiGet(
-        ApiConfig.offer,
+        path,
         headers: AuthService.instance.authHeaders,
       );
-      if (res.statusCode != 200) return null;
+      if (res.statusCode != 200) {
+        return const OfferCheckResult(reason: 'http_error');
+      }
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (body['offer'] != null) {
         _currentOffer = OrderOffer.fromJson(body['offer'] as Map<String, dynamic>);
         notifyListeners();
-        return _currentOffer;
+        return OfferCheckResult(offer: _currentOffer);
       }
       _currentOffer = null;
       notifyListeners();
-      return null;
+      return OfferCheckResult(
+        reason: body['reason'] as String? ?? 'none',
+        message: body['message'] as String?,
+      );
     } catch (_) {
-      return null;
+      return const OfferCheckResult(reason: 'network_error');
     }
   }
 
@@ -240,14 +289,26 @@ class OrderService extends ChangeNotifier {
       );
       if (res.statusCode != 200) return null;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final listRaw = body['activeDeliveries'];
+      if (listRaw is List && listRaw.isNotEmpty) {
+        _activeDeliveries = listRaw
+            .whereType<Map>()
+            .map((e) => ActiveDeliveryData.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        _activeDelivery = _activeDeliveries.first;
+        notifyListeners();
+        return _activeDelivery;
+      }
       if (body['activeDelivery'] != null) {
         _activeDelivery = ActiveDeliveryData.fromJson(
           body['activeDelivery'] as Map<String, dynamic>,
         );
+        _activeDeliveries = [_activeDelivery!];
         notifyListeners();
         return _activeDelivery;
       }
       _activeDelivery = null;
+      _activeDeliveries = const [];
       notifyListeners();
       return null;
     } catch (_) {
@@ -292,6 +353,8 @@ class OrderService extends ChangeNotifier {
                 ? (unlocked['customerLng'] as num).toDouble()
                 : _activeDelivery!.customerLng,
             otpCode: unlocked['otpCode'] as String? ?? _activeDelivery!.otpCode,
+            pickupQrUnlocked: true,
+            routeBatchWindowEndsAt: null,
           );
         }
         await fetchActiveDelivery();
@@ -339,22 +402,55 @@ class OrderService extends ChangeNotifier {
     }
   }
 
-  Future<({bool success, String? error})> completeDelivery(String orderId, String otp) async {
+  Future<({bool success, String? error})> completeDelivery(
+    String orderId,
+    String otp, {
+    String? deliveryComment,
+  }) async {
     try {
       final res = await apiPost(
         ApiConfig.completeDelivery(orderId),
         headers: AuthService.instance.authHeaders,
-        body: jsonEncode({'otp': otp}),
+        body: jsonEncode({
+          'otp': otp,
+          if (deliveryComment != null && deliveryComment.trim().isNotEmpty)
+            'deliveryComment': deliveryComment.trim(),
+        }),
       );
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode == 200) {
-        _activeDelivery = null;
+        await fetchActiveDelivery();
         notifyListeners();
         return (success: true, error: null);
       }
       return (
         success: false,
         error: body['message'] as String? ?? 'Incorrect OTP. Ask the customer for their order OTP.',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  Future<({bool success, String? error})> failDelivery(
+    String orderId, {
+    required String failureReason,
+  }) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.failDelivery(orderId),
+        headers: AuthService.instance.authHeaders,
+        body: jsonEncode({'failureReason': failureReason.trim()}),
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        await fetchActiveDelivery();
+        notifyListeners();
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Could not mark delivery as failed.',
       );
     } catch (_) {
       return (success: false, error: 'Network error. Please try again.');

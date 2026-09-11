@@ -30,6 +30,7 @@ import {
   confirmCashCollection,
   confirmOnlinePaymentForOrder,
   declineOrderOffer,
+  failDelivery,
   getActiveDelivery,
   getDriverPickupQr,
   getOrderPaymentStatus,
@@ -117,6 +118,7 @@ router.post("/orders/:orderId/collect-cash", protect, confirmCashCollection);
 router.post("/orders/:orderId/confirm-online-payment", protect, confirmOnlinePaymentForOrder);
 router.get("/orders/:orderId/payment-status", protect, getOrderPaymentStatus);
 router.post("/orders/:orderId/complete", protect, completeDelivery);
+router.post("/orders/:orderId/fail", protect, failDelivery);
 // Cash & earnings
 router.get("/cash/pending", protect, getRiderCashPending);
 router.post("/cash/submit", protect, riderSubmitCash);

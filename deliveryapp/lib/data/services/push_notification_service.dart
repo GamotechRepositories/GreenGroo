@@ -52,6 +52,13 @@ class PushNotificationService {
           await AuthService.instance.applyVerificationStatus('approved');
           await AuthService.instance.fetchMe();
         }
+        if (type == 'ORDER_RECEIVED') {
+          final orderId = message.data['orderId']?.toString() ?? '';
+          ShellNavigation.instance.requestOfferRecovery(
+            orderId: orderId,
+            reason: 'ORDER_RECEIVED_FOREGROUND',
+          );
+        }
         final id = message.data['notificationId']?.toString();
         if (id != null && id.isNotEmpty) {
           await NotificationInboxService.instance.refreshUnreadOnly();
@@ -118,6 +125,7 @@ class PushNotificationService {
     final type = (data['type'] ?? '').toString().toUpperCase();
     final nav = notificationNavigatorKey.currentState;
     final shell = ShellNavigation.instance;
+    final orderId = (data['orderId'] ?? '').toString();
 
     void goTab(int i) => shell.goToTab(i);
 
@@ -138,8 +146,13 @@ class PushNotificationService {
       nav?.pushNamed(AppRoutes.gigs);
       return;
     }
-    if (type == 'ORDER_RECEIVED' || screen == 'home' || screen == 'orders') {
+    if (type == 'ORDER_RECEIVED' ||
+        type == 'SAME_ROUTE_ORDER' ||
+        screen == 'home' ||
+        screen == 'orders') {
       goTab(0);
+      // Cold-start / background: fetch pending offer from API and show Accept/Decline.
+      shell.requestOfferRecovery(orderId: orderId, reason: type);
       return;
     }
     goTab(4); // notifications tab

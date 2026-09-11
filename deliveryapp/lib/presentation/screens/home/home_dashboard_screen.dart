@@ -15,6 +15,7 @@ import '../../../data/services/rider_live_service.dart';
 import '../../../data/services/shift_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../shell/shell_navigation.dart';
 import '../shifts/select_shift_screen.dart';
 import '../../widgets/dialogs/order_dispatch_dialog.dart';
 
@@ -35,6 +36,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   StreamSubscription<Map<String, dynamic>>? _offerSocketSub;
   StreamSubscription<Map<String, dynamic>>? _verifySocketSub;
   StreamSubscription<Map<String, dynamic>>? _verifyNotifSub;
+  VoidCallback? _offerRecoveryListener;
   bool _isShowingOffer = false;
   AreaManagerInfo? _areaManager;
   bool _loadingManager = false;
@@ -84,12 +86,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     } catch (_) {}
   }
 
-  bool get _hasActiveOrder {
-    final boy = AuthService.instance.deliveryBoy;
-    return boy?.status == 'on_delivery' ||
-        ((boy?.activeOrderId?.isNotEmpty ?? false)) ||
-        OrderService.instance.activeDelivery != null;
+  bool get _hasActiveTrip {
+    final d = OrderService.instance.activeDelivery;
+    if (d == null) return false;
+    return ['assigned', 'pickup_verified', 'out_for_delivery'].contains(d.status);
   }
+
+  /// Prefer trip lock over stale on_delivery / activeOrderId flags.
+  bool get _hasActiveOrder => _hasActiveTrip;
 
   bool get _verificationPending {
     final boy = AuthService.instance.deliveryBoy;
@@ -112,11 +116,77 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
     if (_isOnline) {
       _startHeartbeat();
-      // Offers come via socket — no timed poll that blinks the home screen.
+      _startOfferPoll();
     }
     _listenForOffers();
     _listenForVerification();
+    _listenForOfferRecovery();
     _bootstrapHome();
+  }
+
+  void _listenForOfferRecovery() {
+    _offerRecoveryListener?.call();
+    void handler() {
+      final payload = ShellNavigation.instance.pendingOfferRecovery.value;
+      if (payload == null) return;
+      ShellNavigation.instance.pendingOfferRecovery.value = null;
+      // Delay so shell/home finish mounting after cold start.
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        final orderId = (payload['orderId'] ?? '').toString();
+        _recoverOfferFromNotification(orderId: orderId);
+      });
+    }
+
+    ShellNavigation.instance.pendingOfferRecovery.addListener(handler);
+    _offerRecoveryListener = () {
+      ShellNavigation.instance.pendingOfferRecovery.removeListener(handler);
+    };
+    // Consume any tap that arrived before home mounted.
+    if (ShellNavigation.instance.pendingOfferRecovery.value != null) {
+      handler();
+    }
+  }
+
+  /// Notification opened app (closed/background) → fetch pending offer → Accept/Decline.
+  Future<void> _recoverOfferFromNotification({String? orderId}) async {
+    if (!mounted || _isShowingOffer) return;
+    try {
+      final result = await OrderService.instance.checkForOfferDetailed(
+        orderId: orderId,
+      );
+      if (!mounted) return;
+      if (result.offer != null) {
+        await _showOfferDialog(result.offer!);
+        return;
+      }
+      if (result.reason == 'already_accepted') {
+        await OrderService.instance.fetchActiveDelivery();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Order already accepted — opening active delivery.'),
+              backgroundColor: Color(0xFF059669),
+            ),
+          );
+          Navigator.pushNamed(context, AppRoutes.activeDelivery);
+        }
+        return;
+      }
+      if (result.reason == 'expired_or_reassigned' ||
+          result.reason == 'cancelled' ||
+          result.reason == 'not_found') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.message ??
+                  'This assignment is no longer available.',
+            ),
+            backgroundColor: const Color(0xFFB45309),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   /// Manager approve/reject → socket + push. Instant verified UI (no page leave).
@@ -196,6 +266,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     if (!mounted) return;
     // After first /me settles, check slot alerts (shares fetchMe in-flight when possible).
     _showSlotCancellationAlerts();
+    // Recover pending Accept/Decline if offer arrived while app was closed.
+    if (_isOnline) {
+      _startOfferPoll();
+      _checkOrderOffers();
+    }
   }
 
   void _applyVerificationFromBoy(DeliveryBoy? boy) {
@@ -213,9 +288,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   void _startOfferPoll() {
-    // Kept for API compatibility — offers are socket-driven now.
     _offerPoll?.cancel();
-    _offerPoll = null;
+    // Backup poll while online — socket can miss offers; silent API check.
+    _offerPoll = Timer.periodic(const Duration(seconds: 4), (_) {
+      _checkOrderOffers();
+    });
     _checkOrderOffers();
   }
 
@@ -227,7 +304,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   void _listenForOffers() {
     _offerSocketSub?.cancel();
     _offerSocketSub = SocketService.instance.onOrderOfferReceived.listen((data) {
-      if (!_isOnline || _hasActiveOrder || _isShowingOffer || !mounted) return;
+      if (!_isOnline || _isShowingOffer || !mounted) return;
+      // Only skip if rider already has a real active trip
+      if (_hasActiveTrip) return;
       try {
         final offer = OrderOffer.fromJson(data);
         if (offer.orderId.isEmpty) return;
@@ -237,10 +316,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Future<void> _checkOrderOffers() async {
-    if (!_isOnline || _hasActiveOrder || _isShowingOffer) return;
+    if (!_isOnline || _hasActiveTrip || _isShowingOffer) return;
     try {
       final offer = await OrderService.instance.checkForOffer();
-      if (offer != null && mounted && !_isShowingOffer) {
+      if (offer != null && mounted && !_isShowingOffer && !_hasActiveTrip) {
         await _showOfferDialog(offer);
       }
     } catch (_) {
@@ -315,6 +394,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _offerSocketSub?.cancel();
     _verifySocketSub?.cancel();
     _verifyNotifSub?.cancel();
+    _offerRecoveryListener?.call();
+    _offerRecoveryListener = null;
     super.dispose();
   }
 
@@ -365,6 +446,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           setState(() {
             _isOnline = true;
           });
+          final boyId = AuthService.instance.deliveryBoy?.id;
+          if (boyId != null && boyId.isNotEmpty) {
+            SocketService.instance.connect(boyId);
+          }
           _startHeartbeat();
           _startOfferPoll();
           ScaffoldMessenger.of(context).showSnackBar(

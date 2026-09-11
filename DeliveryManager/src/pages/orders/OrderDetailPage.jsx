@@ -55,7 +55,7 @@ export default function OrderDetailPage() {
       const [ord, req] = await Promise.all([
         managerApi.orders({
           status:
-            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,cancelled",
+            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,delivery_failed,cancelled",
         }),
         managerApi.listInventoryRequests({ status: "pending" }).catch(() => ({ data: { requests: [] } })),
       ]);
@@ -93,10 +93,13 @@ export default function OrderDetailPage() {
   }, [load]);
 
   useEffect(() => {
-    if (manager?.id) ensureStoreRoom(manager.id);
+    if (!manager?.id) return undefined;
+    ensureStoreRoom(manager.id);
+    const keepAlive = setInterval(() => ensureStoreRoom(manager.id), 15000);
+    return () => clearInterval(keepAlive);
   }, [manager?.id]);
 
-  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: null });
+  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: 5000 });
 
   useEffect(() => {
     const unsubs = [
@@ -283,6 +286,7 @@ export default function OrderDetailPage() {
   const allAvailable = allItemsAvailable(order);
   const oid = order?.id || order?._id;
   const isDelivered = order?.status === "delivered";
+  const isFailed = order?.status === "delivery_failed";
   const driverName =
     order?.assignedRider?.name ||
     order?.assignedRider?.phone ||
@@ -448,6 +452,25 @@ export default function OrderDetailPage() {
             </div>
           )}
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-white border border-emerald-100 p-3">
+              <p className="text-[10px] font-bold uppercase text-slate-500">OTP verification</p>
+              <p className="mt-1 text-sm font-bold text-slate-900">
+                {order.customerOtpVerified ? "Verified" : "Not verified"}
+              </p>
+            </div>
+            {order.deliveryProofImageUrl ? (
+              <div className="rounded-xl bg-white border border-emerald-100 p-3">
+                <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Delivery proof</p>
+                <img
+                  src={order.deliveryProofImageUrl}
+                  alt="Delivery proof"
+                  className="h-28 w-28 rounded-lg border border-slate-200 object-cover"
+                />
+              </div>
+            ) : null}
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FeeStat
               label="Total time"
@@ -480,6 +503,45 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      {isFailed && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-xs space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-rose-700">
+            Delivery failed
+          </p>
+          <h3 className="text-lg font-extrabold text-slate-900">
+            Failed{order.failedAt ? ` · ${formatOrderTime(order.failedAt)}` : ""}
+          </h3>
+          <p className="text-sm text-slate-600">
+            Driver: <span className="font-bold text-slate-900">{driverName}</span>
+          </p>
+          <div className="rounded-xl bg-white border border-rose-100 p-3">
+            <p className="text-[10px] font-bold uppercase text-rose-600">Failure reason</p>
+            <p className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">
+              {order.failureReason || "—"}
+            </p>
+          </div>
+          {order.deliveryProofImageUrl ? (
+            <div>
+              <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Proof on file</p>
+              <img
+                src={order.deliveryProofImageUrl}
+                alt="Delivery proof"
+                className="h-40 w-40 rounded-xl border border-slate-200 object-cover"
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {isDelivered && order.deliveryComment ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Delivery comment
+          </p>
+          <p className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">{order.deliveryComment}</p>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <InfoCard title="Customer">

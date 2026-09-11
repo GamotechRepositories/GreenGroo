@@ -75,6 +75,16 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
     return { success: true, order, alreadyScanned: true };
   }
 
+  const { isPickupQrReady } = await import("./sameRouteAttachService.js");
+  if (!isPickupQrReady(order)) {
+    return {
+      success: false,
+      status: 409,
+      message:
+        "Pickup QR not unlocked yet — wait for the 5-minute same-route window to finish.",
+    };
+  }
+
   if (order.status !== "assigned") {
     return {
       success: false,
@@ -126,6 +136,8 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
   order.pickupQrScannedAt = now;
   order.qrScannedAt = now;
   order.assignmentStatus = "PICKUP_PENDING";
+  // Close same-route wait once rider starts pickup
+  order.routeBatchWindowEndsAt = undefined;
   await order.save();
 
   try {
@@ -134,6 +146,7 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
       .emit("pickup_qr_scanned", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
+        scannedAt: now.toISOString(),
         message: "QR scanned. Take item photo and send to manager.",
       });
     getIO()
@@ -141,6 +154,15 @@ export async function verifyPickupScan({ darkStoreId, orderId, scannedPayload, v
       .emit("pickup_qr_scanned", {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
+        scannedAt: now.toISOString(),
+        routeBatchWindowEndsAt: null,
+      });
+    getIO()
+      .to(`store_${darkStoreId}`)
+      .emit("order_batch_window_ended", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        reason: "pickup_qr_scanned",
       });
   } catch (err) {
     console.warn("[pickup] socket emit failed:", err.message);
