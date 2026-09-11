@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import opsApi from '../../api/opsApi';
+import { BTN, BTN_PRIMARY, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 
 export default function CsvImportExport() {
   const [csv, setCsv] = useState('');
@@ -48,41 +49,60 @@ export default function CsvImportExport() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-          <FileSpreadsheet className="h-6 w-6" />
-        </div>
+    <div className="space-y-5 pb-10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">CSV Import & Export</h1>
-          <p className="text-sm text-slate-500">
-            Columns: sku, name, brandName, categories, subcategory, price, discountedPrice, stock, isActive
+          <p className={PAGE_KICKER}>Catalog</p>
+          <h1 className={PAGE_TITLE}>CSV Import & Export</h1>
+          <p className={PAGE_SUB}>
+            Columns: sku, name, brandName, categories, subcategory, price, discountedPrice, stock,
+            isActive
           </p>
         </div>
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+          <FileSpreadsheet className="h-5 w-5" />
+        </span>
       </div>
-      {error ? <div className="rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div> : null}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={exportCsv} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export CSV
-        </button>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold">
-          <Upload className="h-4 w-4" /> Upload file
-          <input type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
-        </label>
-        <button type="button" onClick={importCsv} disabled={!csv.trim() || busy} className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
-          Import CSV
-        </button>
+
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
+      <div className={`${PANEL} space-y-4 p-4`}>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={exportCsv} disabled={busy} className={BTN_PRIMARY}>
+            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            Export CSV
+          </button>
+          <label className={`${BTN} cursor-pointer`}>
+            <Upload className="mr-1.5 h-4 w-4" />
+            Upload file
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+          </label>
+          <button
+            type="button"
+            onClick={importCsv}
+            disabled={!csv.trim() || busy}
+            className={BTN_PRIMARY}
+          >
+            Import CSV
+          </button>
+        </div>
+        <textarea
+          value={csv}
+          onChange={(e) => setCsv(e.target.value)}
+          rows={14}
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-50"
+          placeholder="sku,name,brandName,categories,subcategory,price,discountedPrice,stock,isActive"
+        />
       </div>
-      <textarea
-        value={csv}
-        onChange={(e) => setCsv(e.target.value)}
-        rows={14}
-        className="w-full rounded-2xl border border-slate-200 bg-white p-4 font-mono text-xs dark:border-slate-800 dark:bg-slate-900"
-        placeholder="sku,name,brandName,categories,subcategory,price,discountedPrice,stock,isActive"
-      />
+
       {result?.stats ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Imported {result.stats.total} rows · created {result.stats.created} · updated {result.stats.updated} · failed {result.stats.failed}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Imported {result.stats.total} rows · created {result.stats.created} · updated{' '}
+          {result.stats.updated} · failed {result.stats.failed}
         </div>
       ) : null}
     </div>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Loader2, Search, GitBranch } from 'lucide-react';
+import { GitBranch, Loader2, Search } from 'lucide-react';
 import erpApi from '../../api/erpApi';
+import { BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
 
 const CHAIN = [
   ['farmer', 'Farmer'],
@@ -35,6 +36,15 @@ function pickId(node, fallbackKeys = []) {
 function first(value) {
   if (!value) return null;
   return Array.isArray(value) ? value[0] : value;
+}
+
+function when(value) {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('en-IN');
+  } catch {
+    return String(value);
+  }
 }
 
 export default function TraceabilityPage() {
@@ -73,15 +83,21 @@ export default function TraceabilityPage() {
   const nodes = useMemo(() => {
     return CHAIN.map(([key, label]) => {
       const data = first(graph[key] || graph[`${key}s`]);
-      return { key, label, data, id: pickId(data, [`${key}Id`, 'farmerId', 'orderId', 'qrId']) };
+      return {
+        key,
+        label,
+        data,
+        id: pickId(data, [`${key}Id`, 'farmerId', 'orderId', 'qrId']),
+      };
     }).filter((n) => n.data);
   }, [graph]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-10">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Traceability engine</p>
-        <h1 className="mt-1 font-display text-3xl font-extrabold text-slate-900 dark:text-white">One ID → complete history</h1>
+        <p className={PAGE_KICKER}>ERP</p>
+        <h1 className={PAGE_TITLE}>Traceability</h1>
+        <p className={PAGE_SUB}>Search one ID to see the full farm-to-customer chain</p>
       </div>
 
       <form
@@ -89,123 +105,163 @@ export default function TraceabilityPage() {
           e.preventDefault();
           run(query);
         }}
-        className="flex gap-2"
+        className={`${PANEL} flex flex-col gap-3 p-4 sm:flex-row sm:items-center`}
       >
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="GGC-FR-MH-NK-SIN-00001  ·  GGC-BAT-20260830-00001  ·  GGC-QR-00001"
-            className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:ring-4 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-900"
+            placeholder="GGC-FR-… · GGC-BAT-… · GGC-QR-…"
+            className={`${INPUT} pl-9`}
           />
         </div>
-        <button type="submit" className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white">
+        <button type="submit" disabled={loading || !query.trim()} className={BTN_PRIMARY}>
+          {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Search className="mr-1.5 h-4 w-4" />}
           Search
         </button>
       </form>
 
-      {loading && (
-        <div className="flex items-center gap-2 text-slate-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> Resolving chain
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+          {error}
         </div>
-      )}
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      ) : null}
 
-      {result && !result.found && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-          No ERP record found for <span className="font-mono text-slate-800 dark:text-slate-200">{result.id}</span>
+      {result && !result.found ? (
+        <div className={`${PANEL} px-6 py-12 text-center`}>
+          <p className="text-sm text-slate-500">
+            No ERP record found for{' '}
+            <span className="font-mono font-semibold text-slate-800">{result.id}</span>
+          </p>
         </div>
-      )}
+      ) : null}
 
-      {result?.found && (
+      {result?.found ? (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
               ['Entity', result.entity],
               ['Status', current.status || '—'],
-              ['Location', [current.locationType, current.locationId].filter(Boolean).join(' ') || '—'],
+              [
+                'Location',
+                [current.locationType, current.locationId].filter(Boolean).join(' ') || '—',
+              ],
               ['Grade / Qty', `${current.grade || '—'} · ${current.quantity || 0}`],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-xs text-slate-500">{label}</p>
-                <p className="mt-1 truncate font-semibold text-slate-900 dark:text-white">{value}</p>
+              <div key={label} className={`${PANEL} p-4`}>
+                <p className="text-xs font-medium text-slate-500">{label}</p>
+                <p className="mt-1 truncate text-sm font-semibold text-slate-900">{value}</p>
               </div>
             ))}
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <div className={`${PANEL} overflow-x-auto p-4`}>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Chain
+            </p>
             <div className="flex min-w-max items-center gap-2">
               {nodes.map((node, idx) => (
                 <div key={node.key} className="flex items-center gap-2">
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/40">
-                    <p className="text-[10px] font-semibold uppercase text-emerald-700">{node.label}</p>
-                    <p className="font-mono text-xs text-slate-800 dark:text-slate-100">{node.id || '—'}</p>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                      {node.label}
+                    </p>
+                    <p className="mt-0.5 font-mono text-xs text-slate-800">{node.id || '—'}</p>
                   </div>
-                  {idx < nodes.length - 1 && <span className="text-slate-300">→</span>}
+                  {idx < nodes.length - 1 ? (
+                    <span className="text-slate-300" aria-hidden>
+                      →
+                    </span>
+                  ) : null}
                 </div>
               ))}
+              {!nodes.length ? (
+                <p className="text-sm text-slate-400">No chain nodes for this record</p>
+              ) : null}
             </div>
           </div>
 
           <section>
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
-              <GitBranch className="h-4 w-4" /> Timeline
+            <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <GitBranch className="h-4 w-4 text-emerald-700" />
+              Timeline
             </h2>
-            <ol className="space-y-3">
-              {(result.timeline || []).map((event, idx) => (
-                <li key={`${event.title}-${idx}`} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-slate-900 dark:text-white">{event.title}</p>
-                    <p className="text-xs text-slate-400">{event.at ? new Date(event.at).toLocaleString() : ''}</p>
-                  </div>
-                  <p className="mt-1 font-mono text-xs text-emerald-700">{event.id}</p>
-                  {event.status && <p className="mt-1 text-xs text-slate-500">Status: {event.status}</p>}
-                </li>
-              ))}
-            </ol>
+            {!result.timeline?.length ? (
+              <div className={`${PANEL} px-4 py-8 text-center text-sm text-slate-400`}>
+                No timeline events
+              </div>
+            ) : (
+              <ol className="space-y-3">
+                {(result.timeline || []).map((event, idx) => (
+                  <li key={`${event.title}-${idx}`} className={`${PANEL} p-4`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-slate-900">{event.title}</p>
+                      <p className="text-xs text-slate-400">{when(event.at)}</p>
+                    </div>
+                    {event.id ? (
+                      <p className="mt-1 font-mono text-xs text-emerald-700">{event.id}</p>
+                    ) : null}
+                    {event.status ? (
+                      <p className="mt-1 text-xs text-slate-500">Status: {event.status}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
 
-          {(result.audits || []).length > 0 && (
+          {(result.audits || []).length > 0 ? (
             <section>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">Audit history</h2>
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-900">
-                    <tr>
-                      <th className="px-3 py-2">Audit ID</th>
-                      <th className="px-3 py-2">Action</th>
-                      <th className="px-3 py-2">Field</th>
-                      <th className="px-3 py-2">User</th>
-                      <th className="px-3 py-2">When</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.audits.map((row) => (
-                      <tr key={row.auditId} className="border-t border-slate-100 dark:border-slate-800">
-                        <td className="px-3 py-2 font-mono text-xs">{row.auditId}</td>
-                        <td className="px-3 py-2">{row.action}</td>
-                        <td className="px-3 py-2">{row.fieldChanged || '—'}</td>
-                        <td className="px-3 py-2">{row.changedBy || row.userId || '—'}</td>
-                        <td className="px-3 py-2 text-xs">{row.dateTime ? new Date(row.dateTime).toLocaleString() : ''}</td>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Audit history
+              </h2>
+              <div className={`${PANEL} overflow-hidden`}>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-100 bg-slate-50/80">
+                      <tr>
+                        {['Audit ID', 'Action', 'Field', 'User', 'When'].map((h) => (
+                          <th key={h} className={TH}>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {result.audits.map((row) => (
+                        <tr
+                          key={row.auditId}
+                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70"
+                        >
+                          <td className="px-3 py-2.5 font-mono text-xs text-slate-700">
+                            {row.auditId}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-700">{row.action}</td>
+                          <td className="px-3 py-2.5 text-slate-600">{row.fieldChanged || '—'}</td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {row.changedBy || row.userId || '—'}
+                          </td>
+                          <td className="px-3 py-2.5 text-xs text-slate-500">{when(row.dateTime)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </section>
-          )}
+          ) : null}
 
-          {graph.farmer && (
+          {graph.farmer ? (
             <Link
               to={`/erp/farmers/${encodeURIComponent(graph.farmer.farmerId || graph.farmer.id)}`}
               className="inline-flex text-sm font-semibold text-emerald-700 hover:underline"
             >
               Open farmer 360 →
             </Link>
-          )}
+          ) : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

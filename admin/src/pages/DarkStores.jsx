@@ -15,6 +15,7 @@ import {
   Mail,
 } from 'lucide-react';
 import darkStoreApi from '../api/darkStoreApi';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 
 const DEFAULT_LAT = 18.559;
 const DEFAULT_LNG = 73.7868;
@@ -67,73 +68,68 @@ async function reverseGeocode(lat, lng) {
   };
 }
 
-function StoreFormFields({ form, onChange, inputClass }) {
+function Field({ label, children }) {
+  return (
+    <label className="block text-xs font-semibold text-slate-600">
+      {label}
+      {children}
+    </label>
+  );
+}
+
+function StoreFormFields({ form, onChange }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          Store name
-          <input
-            name="storeName"
-            value={form.storeName}
-            onChange={onChange}
-            className={inputClass}
-          />
-        </label>
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          Manager name
-          <input name="name" value={form.name} onChange={onChange} className={inputClass} />
-        </label>
+        <Field label="Store name">
+          <input name="storeName" value={form.storeName} onChange={onChange} className={`${INPUT} mt-1`} />
+        </Field>
+        <Field label="Manager name">
+          <input name="name" value={form.name} onChange={onChange} className={`${INPUT} mt-1`} />
+        </Field>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          State
-          <input name="state" value={form.state} onChange={onChange} className={inputClass} />
-        </label>
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          City
-          <input name="city" value={form.city} onChange={onChange} className={inputClass} />
-        </label>
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          Area / locality
-          <input name="area" value={form.area} onChange={onChange} className={inputClass} />
-        </label>
+        <Field label="State">
+          <input name="state" value={form.state} onChange={onChange} className={`${INPUT} mt-1`} />
+        </Field>
+        <Field label="City">
+          <input name="city" value={form.city} onChange={onChange} className={`${INPUT} mt-1`} />
+        </Field>
+        <Field label="Area / locality">
+          <input name="area" value={form.area} onChange={onChange} className={`${INPUT} mt-1`} />
+        </Field>
       </div>
-      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-        Store address
+      <Field label="Store address">
         <textarea
           name="storeAddress"
           rows={2}
           value={form.storeAddress}
           onChange={onChange}
-          className={inputClass}
+          className={`${INPUT} mt-1`}
         />
-      </label>
+      </Field>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          Latitude
+        <Field label="Latitude">
           <input
             name="latitude"
             type="number"
             step="any"
             value={form.latitude}
             onChange={onChange}
-            className={inputClass}
+            className={`${INPUT} mt-1`}
           />
-        </label>
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          Longitude
+        </Field>
+        <Field label="Longitude">
           <input
             name="longitude"
             type="number"
             step="any"
             value={form.longitude}
             onChange={onChange}
-            className={inputClass}
+            className={`${INPUT} mt-1`}
           />
-        </label>
-        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
-          Service radius (m)
+        </Field>
+        <Field label="Service radius (m)">
           <input
             name="geofenceRadius"
             type="number"
@@ -141,17 +137,17 @@ function StoreFormFields({ form, onChange, inputClass }) {
             max={50000}
             value={form.geofenceRadius}
             onChange={onChange}
-            className={inputClass}
+            className={`${INPUT} mt-1`}
           />
-        </label>
+        </Field>
       </div>
-      <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
         <input
           type="checkbox"
           name="isActive"
           checked={form.isActive}
           onChange={onChange}
-          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+          className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
         />
         Store is active and can receive orders
       </label>
@@ -214,6 +210,13 @@ export default function DarkStores() {
         .includes(q);
     });
   }, [stores, search, statusFilter]);
+
+  const stats = useMemo(() => {
+    const active = stores.filter((s) => s.isActive).length;
+    const needPin = stores.filter((s) => isDefaultPin(s)).length;
+    const skus = stores.reduce((sum, s) => sum + (s.skuCount || 0), 0);
+    return { total: stores.length, active, needPin, skus };
+  }, [stores]);
 
   const openEdit = (store) => {
     setEditing(store);
@@ -279,12 +282,12 @@ export default function DarkStores() {
     if (!editing?.id) return;
     const lat = Number(form.latitude);
     const lng = Number(form.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || form.latitude === "" || form.longitude === "") {
-      showToast("Enter a valid latitude and longitude");
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || form.latitude === '' || form.longitude === '') {
+      showToast('Enter a valid latitude and longitude');
       return;
     }
     if (!form.city.trim() || !form.area.trim() || !form.state.trim()) {
-      showToast("State, city and area are required");
+      showToast('State, city and area are required');
       return;
     }
     setSaving(true);
@@ -311,64 +314,69 @@ export default function DarkStores() {
     }
   };
 
-  const inputClass =
-    'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100';
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-            <Store className="h-3.5 w-3.5" /> Fulfilment
-          </div>
-          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Dark Stores
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Every delivery manager hub. Change city, area, and map pin so customer orders route to the right store.
+          <p className={PAGE_KICKER}>Catalog · Fulfilment</p>
+          <h1 className={PAGE_TITLE}>Dark Stores</h1>
+          <p className={PAGE_SUB}>
+            Delivery manager hubs — set city, area, and map pin so orders route correctly
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        <button type="button" onClick={load} className={BTN}>
+          <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
         </button>
       </div>
 
-      {toast && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-          <CheckCircle2 className="h-4 w-4" /> {toast}
+      {toast ? (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> {toast}
         </div>
-      )}
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-          <AlertTriangle className="h-4 w-4" /> {error}
+      ) : null}
+      {error ? (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
         </div>
-      )}
+      ) : null}
 
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Dark stores', value: stats.total, hint: 'Registered hubs' },
+          { label: 'Active', value: stats.active, hint: 'Can receive orders' },
+          { label: 'Need pin', value: stats.needPin, hint: 'Still on default map pin' },
+          { label: 'Catalog SKUs', value: stats.skus, hint: 'Across all stores' },
+        ].map((item) => (
+          <div key={item.label} className={`${PANEL} p-4`}>
+            <p className="text-xs font-medium text-slate-500">{item.label}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{item.value}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{item.hint}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className={`${PANEL} p-4`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <div className="relative max-w-md flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search store, city, area, manager…"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-emerald-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800"
+              className={`${INPUT} pl-9`}
             />
           </div>
-          <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
             {['all', 'active', 'inactive'].map((key) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setStatusFilter(key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition ${
                   statusFilter === key
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                    : 'text-slate-600 dark:text-slate-300'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-800'
                 }`}
               >
                 {key}
@@ -376,104 +384,112 @@ export default function DarkStores() {
             ))}
           </div>
         </div>
-        <p className="mt-3 text-xs font-semibold text-slate-400">
-          {filtered.length} of {stores.length} stores
+        <p className="mt-3 text-xs text-slate-400">
+          Showing {filtered.length} of {stores.length} stores
         </p>
       </div>
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-44 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-slate-800" />
-          ))}
+        <div className={`${PANEL} flex justify-center py-20 text-slate-400`}>
+          <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-900">
-          <Store className="mx-auto h-10 w-10 text-slate-300" />
-          <h2 className="mt-3 text-base font-bold text-slate-800 dark:text-white">No dark stores found</h2>
-          <p className="mt-1 text-sm text-slate-500">Register a delivery manager or clear the search.</p>
+        <div className={`${PANEL} px-6 py-16 text-center`}>
+          <Store className="mx-auto h-10 w-10 text-emerald-600/30" />
+          <h2 className="mt-3 text-base font-semibold text-slate-800">No dark stores found</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Register a delivery manager or clear the search.
+          </p>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {filtered.map((store) => {
             const unpinned = isDefaultPin(store);
             return (
-              <article
-                key={store.id}
-                className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-              >
+              <article key={store.id} className={`${PANEL} p-5 transition hover:border-emerald-300`}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate text-base font-extrabold text-slate-900 dark:text-white">
-                        {store.storeName}
-                      </h2>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          store.isActive
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {store.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                      {unpinned && (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">
-                          Default pin
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                      <Store className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-base font-semibold text-slate-900">
+                          {store.storeName}
+                        </h2>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+                            store.isActive
+                              ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                              : 'bg-slate-100 text-slate-500 ring-slate-200'
+                          }`}
+                        >
+                          {store.isActive ? 'Active' : 'Inactive'}
                         </span>
-                      )}
+                        {unpinned ? (
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
+                            Default pin
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 flex items-center gap-1 text-sm text-emerald-700">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        {[store.area, store.city, store.state].filter(Boolean).join(', ') || 'Location not set'}
+                      </p>
                     </div>
-                    <p className="mt-1 flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {[store.area, store.city, store.state].filter(Boolean).join(', ')}
-                    </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => openEdit(store)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                    className={`${BTN_PRIMARY} h-9 min-h-0 shrink-0 px-3 text-xs`}
                   >
-                    <Pencil className="h-3.5 w-3.5" /> Edit location
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                    Edit
                   </button>
                 </div>
 
-                <p className="mt-3 line-clamp-2 text-xs text-slate-500">{store.storeAddress}</p>
+                <p className="mt-3 line-clamp-2 text-xs text-slate-500">
+                  {store.storeAddress || 'No address on file'}
+                </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/70">
-                    <p className="font-semibold uppercase tracking-wide text-slate-400">Coords</p>
-                    <p className="mt-0.5 font-mono font-bold text-slate-800 dark:text-slate-100">
-                      {Number(store.latitude).toFixed(4)}, {Number(store.longitude).toFixed(4)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/70">
-                    <p className="font-semibold uppercase tracking-wide text-slate-400">Radius</p>
-                    <p className="mt-0.5 font-bold text-slate-800 dark:text-slate-100">
-                      {store.geofenceRadius || 500} m
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/70">
-                    <p className="font-semibold uppercase tracking-wide text-slate-400">Catalog</p>
-                    <p className="mt-0.5 font-bold text-slate-800 dark:text-slate-100">
-                      {store.inStockSkus || 0}/{store.skuCount || 0} SKUs
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/70">
-                    <p className="font-semibold uppercase tracking-wide text-slate-400">Manager</p>
-                    <p className="mt-0.5 truncate font-bold text-slate-800 dark:text-slate-100">
-                      {store.name || '—'}
-                    </p>
-                  </div>
+                  {[
+                    {
+                      label: 'Coords',
+                      value: `${Number(store.latitude).toFixed(4)}, ${Number(store.longitude).toFixed(4)}`,
+                      mono: true,
+                    },
+                    { label: 'Radius', value: `${store.geofenceRadius || 500} m` },
+                    { label: 'Catalog', value: `${store.inStockSkus || 0}/${store.skuCount || 0} SKUs` },
+                    { label: 'Manager', value: store.name || '—' },
+                  ].map((cell) => (
+                    <div key={cell.label} className="rounded-xl bg-slate-50 px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        {cell.label}
+                      </p>
+                      <p
+                        className={`mt-0.5 truncate font-semibold text-slate-800 ${
+                          cell.mono ? 'font-mono text-[11px]' : ''
+                        }`}
+                      >
+                        {cell.value}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1">
-                    <Mail className="h-3 w-3" /> {store.email}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {store.phone}
-                  </span>
-                  {mapsUrl(store) && (
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                  {store.email ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Mail className="h-3 w-3 text-slate-400" /> {store.email}
+                    </span>
+                  ) : null}
+                  {store.phone ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Phone className="h-3 w-3 text-slate-400" /> {store.phone}
+                    </span>
+                  ) : null}
+                  {mapsUrl(store) ? (
                     <a
                       href={mapsUrl(store)}
                       target="_blank"
@@ -482,7 +498,7 @@ export default function DarkStores() {
                     >
                       Open map <ExternalLink className="h-3 w-3" />
                     </a>
-                  )}
+                  ) : null}
                 </div>
               </article>
             );
@@ -490,23 +506,24 @@ export default function DarkStores() {
         </div>
       )}
 
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
+      {editing ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
           <form
             onSubmit={saveLocation}
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6 dark:bg-slate-900"
+            className={`max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl ${PANEL} p-5 shadow-xl sm:rounded-3xl sm:p-6`}
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">Change store location</h3>
+                <p className={PAGE_KICKER}>Dark store</p>
+                <h3 className="mt-1 text-lg font-bold text-slate-900">Change store location</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Orders near this pin and area are assigned to this dark store.
+                  Orders near this pin and area are assigned to this store.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -516,33 +533,32 @@ export default function DarkStores() {
               type="button"
               onClick={useCurrentLocation}
               disabled={detecting}
-              className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-60 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+              className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
             >
               {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}
               {detecting ? 'Detecting…' : 'Use current location'}
             </button>
 
-            <StoreFormFields form={form} onChange={handleChange} inputClass={inputClass} />
+            <StoreFormFields form={form} onChange={handleChange} />
 
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300"
-              >
+            <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button type="button" onClick={() => setEditing(null)} className={BTN}>
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {saving ? 'Saving…' : 'Save location'}
+              <button type="submit" disabled={saving} className={BTN_PRIMARY}>
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  'Save location'
+                )}
               </button>
             </div>
           </form>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

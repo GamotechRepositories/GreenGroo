@@ -29,6 +29,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import couponApi from '../api/couponApi';
+import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../utils/ui';
 
 const PRESET_TEMPLATES = [
   {
@@ -105,7 +106,7 @@ const getStatusInfo = (coupon) => {
     return {
       status: 'inactive',
       label: 'Inactive',
-      color: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400',
+      color: 'bg-slate-100 text-slate-600 border-slate-200',
     };
   }
   const now = new Date();
@@ -116,20 +117,20 @@ const getStatusInfo = (coupon) => {
     return {
       status: 'scheduled',
       label: 'Scheduled',
-      color: 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/50 dark:text-blue-400',
+      color: 'bg-slate-50 text-slate-700 border-slate-200',
     };
   }
   if (now > end) {
     return {
       status: 'expired',
       label: 'Expired',
-      color: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/50 dark:text-rose-400',
+      color: 'bg-rose-50 text-rose-700 border-rose-200',
     };
   }
   return {
     status: 'active',
     label: 'Active',
-    color: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-400',
+    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 };
 
@@ -410,403 +411,333 @@ export default function Coupons() {
   };
 
   return (
-    <div className="space-y-5 pb-16">
-      {/* Toast Notification */}
+    <div className="space-y-5 pb-10">
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold text-white transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium shadow-lg ${
             toast.type === 'error'
-              ? 'bg-rose-600 shadow-rose-500/25'
-              : 'bg-slate-950 dark:bg-emerald-600 shadow-black/30'
+              ? 'border-rose-200 bg-rose-50 text-rose-700'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
           }`}
         >
           {toast.type === 'error' ? (
             <AlertTriangle className="h-4 w-4 shrink-0" />
           ) : (
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
           )}
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* Top Header Card */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Coupon & Discount Management
-              </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-500/20">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Discounts
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Create, schedule, monitor discount codes, and manage customer promotional campaigns
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSeedDefaults}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
-              title="Seed starter promo coupons"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              <span>Seed Defaults</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleOpenCreateModal()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>New Coupon</span>
-            </button>
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={PAGE_KICKER}>Promotions</p>
+          <h1 className={PAGE_TITLE}>Coupons & Offers</h1>
+          <p className={PAGE_SUB}>
+            Create, schedule, and monitor discount codes for customer campaigns
+          </p>
         </div>
-
-        {/* Metrics Stats Strip */}
-        <div className="flex flex-wrap items-center gap-y-2.5 gap-x-6 sm:gap-x-8 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Total Coupons:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs">
-              {metrics.total}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-              Active in Store:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs">
-              {metrics.active}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-              Scheduled:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs">
-              {metrics.scheduled}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-              Total Orders Redeemed:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs">
-              {metrics.totalRedemptions} orders
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSeedDefaults}
+            disabled={isSubmitting}
+            className={BTN}
+            title="Seed starter promo coupons"
+          >
+            <Sparkles className="mr-1.5 h-4 w-4 text-emerald-600" />
+            Seed Defaults
+          </button>
+          <button type="button" onClick={() => handleOpenCreateModal()} className={BTN_PRIMARY}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            New Coupon
+          </button>
         </div>
       </div>
 
-      {/* Preset Campaign Templates Bar */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-2xs">
-        <div className="flex items-center justify-between gap-2 mb-2.5">
-          <div className="flex items-center gap-2">
-            <Gift className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-              Quick Promo Presets
-            </h3>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total coupons', value: metrics.total, hint: 'All campaigns' },
+          { label: 'Active', value: metrics.active, hint: 'Live in storefront' },
+          { label: 'Scheduled', value: metrics.scheduled, hint: 'Starts later' },
+          { label: 'Redemptions', value: metrics.totalRedemptions, hint: 'Orders redeemed' },
+        ].map((item) => (
+          <div key={item.label} className={`${PANEL} p-4`}>
+            <p className="text-xs font-medium text-slate-500">{item.label}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{item.value}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{item.hint}</p>
           </div>
-          <span className="text-[11px] text-slate-400">Click to load pre-configured template</span>
-        </div>
+        ))}
+      </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className={`${PANEL} p-4`}>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Gift className="h-4 w-4 text-emerald-700" />
+            <h3 className="text-sm font-semibold text-slate-800">Quick promo presets</h3>
+          </div>
+          <span className="text-[11px] text-slate-400">Click to load a template</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {PRESET_TEMPLATES.map((tmpl) => (
-            <div
+            <button
               key={tmpl.code}
+              type="button"
               onClick={() => handleOpenCreateModal(tmpl)}
-              className="group p-2.5 sm:p-3 rounded-xl border border-slate-200/70 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-emerald-500/60 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30 transition-all cursor-pointer flex flex-col justify-between"
+              className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
             >
               <div>
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 border border-black/5 shadow-2xs">
+                <div className="mb-1 flex items-center justify-between gap-1">
+                  <span className="rounded-md border border-emerald-100 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-700">
                     {tmpl.badge}
                   </span>
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                    {tmpl.discountType === 'percentage' ? `${tmpl.discountValue}% OFF` : `₹${tmpl.discountValue} OFF`}
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    {tmpl.discountType === 'percentage'
+                      ? `${tmpl.discountValue}% OFF`
+                      : `₹${tmpl.discountValue} OFF`}
                   </span>
                 </div>
-                <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                  {tmpl.code}
-                </p>
-                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                <p className="truncate text-xs font-bold text-slate-900">{tmpl.code}</p>
+                <p className="mt-0.5 truncate text-[10.5px] text-slate-500">
                   Min ₹{tmpl.minOrderAmount} · {tmpl.daysValid} Days
                 </p>
               </div>
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                Use Template →
+              <span className="mt-2 flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 transition group-hover:translate-x-0.5">
+                Use template →
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Toolbar & Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-            <span>Catalog Coupons</span>
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+      <div className={`${PANEL} p-4`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-800">Catalog coupons</h2>
+            <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
               {filteredCoupons.length} items
             </span>
-          </h2>
-        </div>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search Input */}
-          <div className="relative w-full sm:w-52">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search code or title..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-7 py-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-52">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search code or title..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`${INPUT} py-2 pl-9 pr-8 text-xs`}
+              />
+              {searchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-medium text-slate-600">
+              <ArrowUpDown className="h-3 w-3 shrink-0 text-slate-400" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="cursor-pointer bg-transparent text-xs focus:outline-none"
               >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
+                <option value="newest">Newest First</option>
+                <option value="expiring">Expiring Soon</option>
+                <option value="discount">Highest Discount</option>
+                <option value="redemptions">Most Redeemed</option>
+              </select>
+            </div>
 
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300">
-            <ArrowUpDown className="h-3 w-3 text-slate-400 shrink-0" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent focus:outline-none cursor-pointer text-xs"
-            >
-              <option value="newest">Newest First</option>
-              <option value="expiring">Expiring Soon</option>
-              <option value="discount">Highest Discount</option>
-              <option value="redemptions">Most Redeemed</option>
-            </select>
-          </div>
+            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+              {['all', 'percentage', 'fixed'].map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTypeFilter(key)}
+                  className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold capitalize transition ${
+                    typeFilter === key
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  {key === 'all' ? 'All types' : key}
+                </button>
+              ))}
+            </div>
 
-          {/* Status Tabs */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-semibold">
-            {['all', 'active', 'scheduled', 'expired', 'inactive'].map((status) => (
+            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+              {['all', 'active', 'scheduled', 'expired', 'inactive'].map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                  className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold capitalize transition ${
+                    statusFilter === status
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
               <button
-                key={status}
                 type="button"
-                onClick={() => setStatusFilter(status)}
-                className={`px-2 py-0.5 rounded-lg capitalize transition-all cursor-pointer text-[11px] ${
-                  statusFilter === status
-                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs font-bold'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                onClick={() => setViewMode('grid')}
+                className={`rounded-lg p-1.5 transition ${
+                  viewMode === 'grid'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
                 }`}
+                title="Grid View"
               >
-                {status}
+                <LayoutGrid className="h-3.5 w-3.5" />
               </button>
-            ))}
-          </div>
-
-          {/* Grid / Table Switcher */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              className={`p-1 rounded-lg transition-all cursor-pointer ${
-                viewMode === 'grid'
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-              }`}
-              title="Grid View"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`p-1 rounded-lg transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-              }`}
-              title="Table View"
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`rounded-lg p-1.5 transition ${
+                  viewMode === 'table'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="Table View"
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Content View */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 py-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse border border-slate-200/50 dark:border-slate-800"
-            />
-          ))}
+        <div className={`${PANEL} flex justify-center py-20 text-slate-400`}>
+          <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : filteredCoupons.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
-          <Ticket className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-2" />
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">No coupons found</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm">
+        <div className={`${PANEL} px-6 py-16 text-center`}>
+          <Ticket className="mx-auto h-10 w-10 text-emerald-600/30" />
+          <h3 className="mt-3 text-base font-semibold text-slate-800">No coupons found</h3>
+          <p className="mt-1 text-sm text-slate-400">
             {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-              ? 'No coupons match your search query or active filter settings.'
+              ? 'No coupons match your search or filters.'
               : 'Get started by creating your first promotional coupon.'}
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleOpenCreateModal()}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
-            >
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <button type="button" onClick={() => handleOpenCreateModal()} className={BTN_PRIMARY}>
               Create Coupon
             </button>
-            <button
-              type="button"
-              onClick={handleSeedDefaults}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 cursor-pointer flex items-center gap-1.5"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Seed Default Coupons</span>
+            <button type="button" onClick={handleSeedDefaults} className={BTN}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+              Seed Defaults
             </button>
           </div>
         </div>
       ) : viewMode === 'grid' ? (
-        /* Voucher Card Grid View */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCoupons.map((coupon) => {
             const statusInfo = getStatusInfo(coupon);
             const isPercentage = coupon.discountType === 'percentage';
 
             return (
-              <div
+              <article
                 key={coupon._id || coupon.code}
-                className={`relative rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-2xs hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-200 flex flex-col justify-between ${
-                  coupon.isActive
-                    ? 'border-slate-200 dark:border-slate-800 hover:border-emerald-500/60'
-                    : 'border-slate-200 dark:border-slate-800 opacity-65'
+                className={`${PANEL} flex flex-col justify-between overflow-hidden transition hover:border-emerald-300 ${
+                  coupon.isActive ? '' : 'opacity-65'
                 }`}
               >
-                {/* Card Header Strip with Voucher Cutout Appearance */}
                 <div
-                  className={`p-4 border-b border-dashed border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 ${
-                    isPercentage
-                      ? 'bg-gradient-to-r from-emerald-50/60 to-green-50/30 dark:from-emerald-950/30 dark:to-green-950/20'
-                      : 'bg-gradient-to-r from-amber-50/60 to-orange-50/30 dark:from-amber-950/30 dark:to-orange-950/20'
+                  className={`flex items-start justify-between gap-3 border-b border-dashed border-slate-200 p-4 ${
+                    isPercentage ? 'bg-emerald-50/50' : 'bg-slate-50'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm sm:text-base font-black tracking-wider text-slate-900 dark:text-white">
+                      <span className="font-mono text-sm font-bold tracking-wider text-slate-900 sm:text-base">
                         {coupon.code}
                       </span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(coupon.code)}
-                        className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 cursor-pointer"
+                        className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                         title="Copy code"
                       >
                         <Copy className="h-3 w-3" />
                       </button>
                     </div>
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-1 truncate">
-                      {coupon.title || (isPercentage ? `${coupon.discountValue}% Discount` : `₹${coupon.discountValue} OFF`)}
+                    <p className="mt-1 truncate text-xs font-medium text-slate-600">
+                      {coupon.title ||
+                        (isPercentage
+                          ? `${coupon.discountValue}% Discount`
+                          : `₹${coupon.discountValue} OFF`)}
                     </p>
                   </div>
-
-                  {/* Status Badge */}
                   <span
-                    className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold border shadow-2xs ${statusInfo.color}`}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10.5px] font-semibold ${statusInfo.color}`}
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-current" />
                     <span>{statusInfo.label}</span>
                   </span>
                 </div>
 
-                {/* Card Body Info */}
-                <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                <div className="flex flex-1 flex-col justify-between space-y-3 p-4">
                   <div className="space-y-2 text-xs">
-                    {/* Discount Value Display */}
                     <div className="flex items-baseline justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                        Discount Value:
-                      </span>
-                      <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">
-                        {isPercentage ? `${coupon.discountValue}% OFF` : `₹${coupon.discountValue} FLAT OFF`}
+                      <span className="text-[11px] font-medium text-slate-500">Discount value</span>
+                      <span className="text-sm font-bold text-emerald-700">
+                        {isPercentage
+                          ? `${coupon.discountValue}% OFF`
+                          : `₹${coupon.discountValue} FLAT OFF`}
                       </span>
                     </div>
-
-                    {/* Minimum Order */}
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                        Min. Order Amount:
-                      </span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                      <span className="text-[11px] font-medium text-slate-500">Min. order</span>
+                      <span className="font-semibold text-slate-800">
                         {coupon.minOrderAmount > 0 ? `₹${coupon.minOrderAmount}` : 'No Minimum'}
                       </span>
                     </div>
-
-                    {/* Validity Period */}
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium">
-                        Validity Range:
-                      </span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
+                      <span className="text-[11px] font-medium text-slate-500">Validity</span>
+                      <span className="text-[11px] font-medium text-slate-700">
                         {formatDisplayDate(coupon.startDate)} – {formatDisplayDate(coupon.endDate)}
                       </span>
                     </div>
-
-                    {/* Redemptions & Limit */}
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-[11px]">
-                      <span className="text-slate-500 dark:text-slate-400">Redemptions:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-1 text-[11px]">
+                      <span className="text-slate-500">Redemptions</span>
+                      <span className="font-semibold text-slate-900">
                         {coupon.totalRedemptions || 0}
-                        {coupon.maxTotalRedemptions ? ` / ${coupon.maxTotalRedemptions}` : ' (Unlimited)'}
+                        {coupon.maxTotalRedemptions
+                          ? ` / ${coupon.maxTotalRedemptions}`
+                          : ' (Unlimited)'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Card Footer Actions */}
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2">
                     <button
                       type="button"
                       onClick={() => handleToggleStatus(coupon)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
                         coupon.isActive
-                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
                       {coupon.isActive ? 'Active ✓' : 'Disabled'}
                     </button>
-
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleOpenEditModal(coupon)}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-slate-700 text-slate-600 transition-all cursor-pointer"
+                        className={`${BTN} h-8 min-h-0 px-2`}
                         title="Edit Coupon"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
@@ -814,7 +745,7 @@ export default function Coupons() {
                       <button
                         type="button"
                         onClick={() => setDeletingCoupon(coupon)}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-400 transition-all cursor-pointer"
+                        className={`${BTN} h-8 min-h-0 px-2 text-slate-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600`}
                         title="Delete Coupon"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -822,27 +753,26 @@ export default function Coupons() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       ) : (
-        /* Table View */
-        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
+        <div className={`${PANEL} overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  <th className="py-2.5 px-3.5">Code & Campaign</th>
-                  <th className="py-2.5 px-3">Discount</th>
-                  <th className="py-2.5 px-3">Min Order</th>
-                  <th className="py-2.5 px-3">Validity</th>
-                  <th className="py-2.5 px-3 text-center">Uses</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3.5 text-right">Actions</th>
+                <tr className="border-b border-slate-100 bg-slate-50/80">
+                  <th className={TH}>Code & Campaign</th>
+                  <th className={TH}>Discount</th>
+                  <th className={TH}>Min Order</th>
+                  <th className={TH}>Validity</th>
+                  <th className={`${TH} text-center`}>Uses</th>
+                  <th className={`${TH} text-center`}>Status</th>
+                  <th className={`${TH} text-right`}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {filteredCoupons.map((coupon) => {
                   const statusInfo = getStatusInfo(coupon);
                   const isPercentage = coupon.discountType === 'percentage';
@@ -850,72 +780,68 @@ export default function Coupons() {
                   return (
                     <tr
                       key={coupon._id || coupon.code}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
+                      className="transition-colors hover:bg-slate-50/70"
                     >
-                      <td className="py-3 px-3.5">
+                      <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-slate-900 dark:text-white">
-                            {coupon.code}
-                          </span>
+                          <span className="font-mono font-bold text-slate-900">{coupon.code}</span>
                           <button
                             type="button"
                             onClick={() => copyToClipboard(coupon.code)}
-                            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            className="text-slate-400 hover:text-slate-700"
                             title="Copy code"
                           >
                             <Copy className="h-3 w-3" />
                           </button>
                         </div>
-                        {coupon.title && (
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xs">
-                            {coupon.title}
-                          </p>
-                        )}
+                        {coupon.title ? (
+                          <p className="max-w-xs truncate text-[11px] text-slate-500">{coupon.title}</p>
+                        ) : null}
                       </td>
-
-                      <td className="py-3 px-3 font-bold text-emerald-600 dark:text-emerald-400">
-                        {isPercentage ? `${coupon.discountValue}% OFF` : `₹${coupon.discountValue} FLAT`}
+                      <td className="px-3 py-3 font-semibold text-emerald-700">
+                        {isPercentage
+                          ? `${coupon.discountValue}% OFF`
+                          : `₹${coupon.discountValue} FLAT`}
                       </td>
-
-                      <td className="py-3 px-3 text-slate-700 dark:text-slate-300 font-semibold">
+                      <td className="px-3 py-3 font-medium text-slate-700">
                         {coupon.minOrderAmount > 0 ? `₹${coupon.minOrderAmount}` : 'None'}
                       </td>
-
-                      <td className="py-3 px-3 text-[11px] text-slate-500 dark:text-slate-400">
+                      <td className="px-3 py-3 text-[11px] text-slate-500">
                         {formatDisplayDate(coupon.startDate)} – {formatDisplayDate(coupon.endDate)}
                       </td>
-
-                      <td className="py-3 px-3 text-center font-bold tabular-nums">
+                      <td className="px-3 py-3 text-center font-semibold tabular-nums">
                         {coupon.totalRedemptions || 0}
                         {coupon.maxTotalRedemptions ? ` / ${coupon.maxTotalRedemptions}` : ''}
                       </td>
-
-                      <td className="py-3 px-3 text-center">
+                      <td className="px-3 py-3 text-center">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusInfo.color}`}
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusInfo.color}`}
                         >
                           {statusInfo.label}
                         </span>
                       </td>
-
-                      <td className="py-3 px-3.5 text-right">
+                      <td className="px-3 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleToggleStatus(coupon)}
-                            className={`p-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                            className={`rounded-lg border p-1.5 text-xs font-semibold transition ${
                               coupon.isActive
                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                                 : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'
                             }`}
                             title="Toggle Status"
                           >
-                            {coupon.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                            {coupon.isActive ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <X className="h-3.5 w-3.5" />
+                            )}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(coupon)}
-                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-600 text-slate-600"
+                            className={`${BTN} h-8 min-h-0 px-2`}
                             title="Edit"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
@@ -923,7 +849,7 @@ export default function Coupons() {
                           <button
                             type="button"
                             onClick={() => setDeletingCoupon(coupon)}
-                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-400"
+                            className={`${BTN} h-8 min-h-0 px-2 text-slate-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600`}
                             title="Delete"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -939,34 +865,37 @@ export default function Coupons() {
         </div>
       )}
 
-      {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div
+            className={`relative max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto ${PANEL} p-5 shadow-xl sm:p-6`}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                  {editingCoupon ? `Edit Coupon: ${editingCoupon.code}` : 'Create New Promotional Coupon'}
+                <p className={PAGE_KICKER}>Coupon</p>
+                <h3 className="text-base font-bold text-slate-900 sm:text-lg">
+                  {editingCoupon
+                    ? `Edit Coupon: ${editingCoupon.code}`
+                    : 'Create New Promotional Coupon'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Configure discount code, calculation logic, customer limits, and validity dates
+                  Configure discount code, limits, and validity dates
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* SECTION 1: Code & Title */}
-              <div className="bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-slate-50/70 p-3.5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
                       Coupon Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -980,12 +909,11 @@ export default function Coupons() {
                           code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
                         }))
                       }
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono font-black uppercase text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      className={`${INPUT} font-mono font-bold uppercase`}
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
                       Campaign Title / Tagline
                     </label>
                     <input
@@ -993,58 +921,56 @@ export default function Coupons() {
                       placeholder="e.g. Flat 20% OFF on Organic Produce"
                       value={formData.title}
                       onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      className={INPUT}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 2: Discount Structure */}
-              <div className="bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 space-y-3">
-                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+              <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-slate-50/70 p-3.5">
+                <label className="block text-xs font-semibold text-slate-800">
                   Discount Calculation Structure
                 </label>
-
                 <div className="grid grid-cols-2 gap-2.5">
                   <div
                     onClick={() => setFormData((p) => ({ ...p, discountType: 'percentage' }))}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    className={`cursor-pointer rounded-xl border p-3 transition ${
                       formData.discountType === 'percentage'
-                        ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-1 ring-emerald-500'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        ? 'border-emerald-700 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-700'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Percent className="h-4 w-4 text-emerald-600" />
-                      <span className="text-xs font-black">Percentage (%)</span>
+                      <Percent className="h-4 w-4 text-emerald-700" />
+                      <span className="text-xs font-bold">Percentage (%)</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    <p className="mt-1 text-[10px] text-slate-500">
                       Deducts % discount from cart subtotal
                     </p>
                   </div>
-
                   <div
                     onClick={() => setFormData((p) => ({ ...p, discountType: 'fixed' }))}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    className={`cursor-pointer rounded-xl border p-3 transition ${
                       formData.discountType === 'fixed'
-                        ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 ring-1 ring-amber-500'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        ? 'border-emerald-700 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-700'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Coins className="h-4 w-4 text-amber-600" />
-                      <span className="text-xs font-black">Fixed Flat (₹)</span>
+                      <Coins className="h-4 w-4 text-emerald-700" />
+                      <span className="text-xs font-bold">Fixed Flat (₹)</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    <p className="mt-1 text-[10px] text-slate-500">
                       Deducts fixed rupee value from subtotal
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Discount Value ({formData.discountType === 'percentage' ? '%' : '₹'}) <span className="text-rose-500">*</span>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
+                      Discount Value ({formData.discountType === 'percentage' ? '%' : '₹'}){' '}
+                      <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -1052,13 +978,14 @@ export default function Coupons() {
                       min="1"
                       max={formData.discountType === 'percentage' ? 100 : 10000}
                       value={formData.discountValue}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, discountValue: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, discountValue: e.target.value }))
+                      }
+                      className={`${INPUT} font-semibold`}
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
                       Minimum Order Value (₹)
                     </label>
                     <input
@@ -1066,31 +993,33 @@ export default function Coupons() {
                       min="0"
                       placeholder="0 for no minimum"
                       value={formData.minOrderAmount}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, minOrderAmount: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, minOrderAmount: e.target.value }))
+                      }
+                      className={`${INPUT} font-semibold`}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 3: Validity Schedule & Limits */}
-              <div className="bg-slate-50/70 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-3 rounded-2xl border border-slate-200/60 bg-slate-50/70 p-3.5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
                       Start Date & Time <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="datetime-local"
                       required
                       value={formData.startDate}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, startDate: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, startDate: e.target.value }))
+                      }
+                      className={INPUT}
                     />
                   </div>
-
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">
                       End Date / Expiry <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1098,17 +1027,15 @@ export default function Coupons() {
                       required
                       value={formData.endDate}
                       onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      className={INPUT}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Total Uses Limit
-                      </label>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700">Total Uses Limit</label>
                       <button
                         type="button"
                         onClick={() =>
@@ -1118,13 +1045,13 @@ export default function Coupons() {
                             maxTotalRedemptions: !p.isTotalUnlimited ? '' : 500,
                           }))
                         }
-                        className="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                        className="cursor-pointer text-[10px] font-semibold text-emerald-700 hover:underline"
                       >
                         {formData.isTotalUnlimited ? 'Set Limit' : 'Make Unlimited'}
                       </button>
                     </div>
                     {formData.isTotalUnlimited ? (
-                      <div className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-400">
+                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-400">
                         Unlimited Total Uses
                       </div>
                     ) : (
@@ -1133,15 +1060,20 @@ export default function Coupons() {
                         min="1"
                         placeholder="e.g. 500"
                         value={formData.maxTotalRedemptions}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, maxTotalRedemptions: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            maxTotalRedemptions: e.target.value,
+                          }))
+                        }
+                        className={`${INPUT} font-semibold`}
                       />
                     )}
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700">
                         Uses Per Customer
                       </label>
                       <button
@@ -1153,13 +1085,13 @@ export default function Coupons() {
                             maxRedemptionsPerUser: !p.isUserUnlimited ? '' : 1,
                           }))
                         }
-                        className="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                        className="cursor-pointer text-[10px] font-semibold text-emerald-700 hover:underline"
                       >
                         {formData.isUserUnlimited ? 'Set Limit' : 'Make Unlimited'}
                       </button>
                     </div>
                     {formData.isUserUnlimited ? (
-                      <div className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-400">
+                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-400">
                         Unlimited Per Customer
                       </div>
                     ) : (
@@ -1168,54 +1100,51 @@ export default function Coupons() {
                         min="1"
                         placeholder="e.g. 1 (First order only)"
                         value={formData.maxRedemptionsPerUser}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, maxRedemptionsPerUser: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            maxRedemptionsPerUser: e.target.value,
+                          }))
+                        }
+                        className={`${INPUT} font-semibold`}
                       />
                     )}
                   </div>
                 </div>
 
-                {/* Active Toggle Switch */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                <div className="flex items-center justify-between border-t border-slate-200/60 pt-2">
                   <div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Active in Storefront</p>
-                    <p className="text-[10px] text-slate-400">Allow customers to claim and apply this coupon immediately</p>
+                    <p className="text-xs font-semibold text-slate-900">Active in Storefront</p>
+                    <p className="text-[10px] text-slate-400">
+                      Allow customers to claim and apply this coupon immediately
+                    </p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex cursor-pointer items-center">
                     <input
                       type="checkbox"
                       checked={formData.isActive}
                       onChange={(e) => setFormData((p) => ({ ...p, isActive: e.target.checked }))}
-                      className="sr-only peer"
+                      className="peer sr-only"
                     />
-                    <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                    <div className="peer h-5 w-10 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-emerald-700 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none" />
                   </label>
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                >
+                <button type="button" onClick={() => setIsModalOpen(false)} className={BTN}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer disabled:opacity-50"
-                >
+                <button type="submit" disabled={isSubmitting} className={BTN_PRIMARY}>
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>Saving...</span>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Saving...
                     </>
                   ) : (
                     <>
-                      <Check className="h-3.5 w-3.5" />
-                      <span>{editingCoupon ? 'Update Coupon' : 'Publish Coupon'}</span>
+                      <Check className="mr-1.5 h-3.5 w-3.5" />
+                      {editingCoupon ? 'Update Coupon' : 'Publish Coupon'}
                     </>
                   )}
                 </button>
@@ -1225,32 +1154,28 @@ export default function Coupons() {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
       {deletingCoupon && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-5 shadow-2xl border border-slate-200 dark:border-slate-800 text-center space-y-3">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-sm space-y-3 p-5 text-center shadow-xl ${PANEL}`}>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
               <Trash2 className="h-6 w-6" />
             </div>
-            <h3 className="text-base font-black text-slate-900 dark:text-white">
-              Delete Coupon "{deletingCoupon.code}"?
+            <h3 className="text-base font-bold text-slate-900">
+              Delete Coupon &quot;{deletingCoupon.code}&quot;?
             </h3>
             <p className="text-xs text-slate-500">
-              Are you sure you want to permanently delete this coupon? Customers will no longer be able to apply it at checkout.
+              Are you sure you want to permanently delete this coupon? Customers will no longer be
+              able to apply it at checkout.
             </p>
             <div className="flex items-center justify-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeletingCoupon(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
-              >
+              <button type="button" onClick={() => setDeletingCoupon(null)} className={BTN}>
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-500/20 cursor-pointer disabled:opacity-50"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
               >
                 {isSubmitting ? 'Deleting...' : 'Delete Coupon'}
               </button>

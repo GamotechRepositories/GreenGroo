@@ -30,14 +30,14 @@ import {
 import sectionApi from '../api/sectionApi';
 
 const PRESET_COLORS = [
-  { name: 'Emerald Green', hex: '#10B981' },
-  { name: 'Warm Orange', hex: '#EA580C' },
-  { name: 'Royal Blue', hex: '#2563EB' },
-  { name: 'Vibrant Purple', hex: '#8B5CF6' },
-  { name: 'Amber Gold', hex: '#F59E0B' },
-  { name: 'Rose Pink', hex: '#F43F5E' },
-  { name: 'Cyan Teal', hex: '#06B6D4' },
-  { name: 'Slate Gray', hex: '#64748B' },
+  { name: 'Brand green', hex: '#217346' },
+  { name: 'Emerald', hex: '#10B981' },
+  { name: 'Forest', hex: '#059669' },
+  { name: 'Teal', hex: '#0D9488' },
+  { name: 'Sky', hex: '#0284C7' },
+  { name: 'Amber', hex: '#D97706' },
+  { name: 'Warm orange', hex: '#EA580C' },
+  { name: 'Slate', hex: '#475569' },
 ];
 
 const renderSectionIcon = (slug = '', className = 'h-6 w-6') => {

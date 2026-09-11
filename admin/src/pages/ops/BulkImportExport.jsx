@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowUpDown, Download, Loader2 } from 'lucide-react';
+import { ArrowUpDown, Download, Loader2, Upload } from 'lucide-react';
 import opsApi from '../../api/opsApi';
+import { BTN, BTN_PRIMARY, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 
 export default function BulkImportExport() {
   const [jsonText, setJsonText] = useState('[]');
@@ -44,34 +45,49 @@ export default function BulkImportExport() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-          <ArrowUpDown className="h-6 w-6" />
-        </div>
+    <div className="space-y-5 pb-10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold">Bulk Import / Export</h1>
-          <p className="text-sm text-slate-500">Import or export the product catalog as JSON. Matching is done by SKU.</p>
+          <p className={PAGE_KICKER}>Catalog</p>
+          <h1 className={PAGE_TITLE}>Bulk Import / Export</h1>
+          <p className={PAGE_SUB}>
+            Import or export the product catalog as JSON. Matching is done by SKU.
+          </p>
         </div>
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+          <ArrowUpDown className="h-5 w-5" />
+        </span>
       </div>
-      {error ? <div className="rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</div> : null}
-      <div className="flex gap-2">
-        <button type="button" onClick={exportJson} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export JSON
-        </button>
-        <button type="button" onClick={importJson} className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white">
-          Import JSON
-        </button>
+
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
+      <div className={`${PANEL} space-y-4 p-4`}>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={exportJson} disabled={busy} className={BTN_PRIMARY}>
+            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            Export JSON
+          </button>
+          <button type="button" onClick={importJson} disabled={busy} className={BTN}>
+            <Upload className="mr-1.5 h-4 w-4" />
+            Import JSON
+          </button>
+        </div>
+        <textarea
+          value={jsonText}
+          onChange={(e) => setJsonText(e.target.value)}
+          rows={16}
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-800 outline-none focus:border-emerald-600 focus:ring-4 focus:ring-emerald-50"
+        />
       </div>
-      <textarea
-        value={jsonText}
-        onChange={(e) => setJsonText(e.target.value)}
-        rows={16}
-        className="w-full rounded-2xl border border-slate-200 bg-white p-4 font-mono text-xs dark:border-slate-800 dark:bg-slate-900"
-      />
+
       {result?.stats ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Processed {result.stats.total} · created {result.stats.created} · updated {result.stats.updated} · failed {result.stats.failed}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Processed {result.stats.total} · created {result.stats.created} · updated{' '}
+          {result.stats.updated} · failed {result.stats.failed}
         </div>
       ) : null}
     </div>

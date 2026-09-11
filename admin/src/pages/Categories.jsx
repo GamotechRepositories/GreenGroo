@@ -1100,7 +1100,7 @@ export default function Categories() {
             {/* STEP 1: Basic Information */}
             <div className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-1">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-[10px]">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]">
                   1
                 </span>
                 <div>
@@ -1200,7 +1200,7 @@ export default function Categories() {
             {/* STEP 2: Media & Card Appearance */}
             <div className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-1">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-[10px]">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]">
                   2
                 </span>
                 <div>
@@ -1397,7 +1397,7 @@ export default function Categories() {
             {/* STEP 3: Subcategories & Storefront Visibility */}
             <div className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-1">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-[10px]">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-[10px]">
                   3
                 </span>
                 <div>
@@ -1438,7 +1438,7 @@ export default function Categories() {
                   <button
                     type="button"
                     onClick={handleAddSubcategory}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1 shrink-0"
+                    className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1 shrink-0"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Add</span>
@@ -1607,186 +1607,104 @@ export default function Categories() {
   }
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-12">
-      {/* Toast Notification */}
+    <div className="space-y-5 pb-10">
       {toast && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-xl text-xs font-semibold text-white transition-all duration-300 animate-in fade-in slide-in-from-top-3 ${
-            toast.type === 'error' ? 'bg-rose-600 shadow-rose-500/25' : 'bg-slate-950 dark:bg-emerald-600 shadow-black/30'
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-white shadow-xl transition-all duration-300 ${
+            toast.type === 'error' ? 'bg-rose-600 shadow-rose-500/25' : 'bg-emerald-700 shadow-emerald-700/25'
           }`}
         >
-          {toast.type === 'error' ? <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+          {toast.type === 'error' ? (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          )}
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* ================= MAIN PAGE HEADER & STATS (UNIFIED CARD) ================= */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-2xs space-y-4">
-        {/* Top Row: Title, Subtitle, Live Sync, and Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                Catalog Management
-              </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live Sync
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Configure store departments & product categories efficiently
-            </p>
-          </div>
-
-          {/* Global Header Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenAddSecModal}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-2xs cursor-pointer"
-            >
-              <FolderTree className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>New Section</span>
-            </button>
-
-            <button
-              onClick={handleOpenAddCatModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>New Category</span>
-            </button>
-          </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className={PAGE_KICKER}>Catalog</p>
+          <h1 className={PAGE_TITLE}>Sections & Categories</h1>
+          <p className={PAGE_SUB}>Configure store sections and product categories for the catalog</p>
         </div>
-
-        {/* Simple & Professional Metric Stats Strip (No Separate Cards) */}
-        <div className="flex flex-wrap items-center gap-y-2.5 gap-x-6 sm:gap-x-8 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Total Categories:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs">
-              {metrics.total}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-              Active in App:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs">
-              {metrics.active}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-              Store Sections:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs">
-              {metrics.totalSections}
-            </span>
-          </div>
-
-          <div className="hidden sm:block h-3.5 w-px bg-slate-200 dark:bg-slate-700" />
-
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-              Sub-filters:
-            </span>
-            <span className="font-bold tabular-nums px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs">
-              {metrics.subCount}
-            </span>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={handleOpenAddSecModal} className={BTN}>
+            <FolderTree className="mr-1.5 h-4 w-4 text-emerald-700" />
+            New section
+          </button>
+          <button type="button" onClick={handleOpenAddCatModal} className={BTN_PRIMARY}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            New category
+          </button>
         </div>
       </div>
 
-      {/* ================= STORE DEPARTMENTS (SINGLE UNIFIED CARD) ================= */}
-      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-2xs">
-        {/* Unified Card Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
-              <FolderTree className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight flex items-center gap-2">
-                <span>Store Departments</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                  {sections.length} Active
-                </span>
-              </h3>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                Filter catalog categories by store department
-              </p>
-            </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total categories', value: metrics.total, hint: 'In catalog' },
+          { label: 'Active in app', value: metrics.active, hint: 'Visible to customers' },
+          { label: 'Store sections', value: metrics.totalSections, hint: 'Departments' },
+          { label: 'Sub-filters', value: metrics.subCount, hint: 'Across categories' },
+        ].map((item) => (
+          <div key={item.label} className={`${PANEL} p-4`}>
+            <p className="text-xs font-medium text-slate-500">{item.label}</p>
+            <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{item.value}</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{item.hint}</p>
           </div>
+        ))}
+      </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              onClick={handleOpenAddSecModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 transition-all cursor-pointer shadow-2xs hover:shadow-xs"
-              title="Create new store department"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>New Department</span>
-            </button>
+      <div className={`${PANEL} space-y-3 p-4`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Store sections</h2>
+            <p className="text-xs text-slate-500">Filter categories by section · {sections.length} active</p>
           </div>
+          <button type="button" onClick={handleOpenAddSecModal} className={BTN}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New section
+          </button>
         </div>
 
-        {/* Options inside the Single Card */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {/* All Departments Option */}
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           {(() => {
             const isSelected = selectedSectionFilter === 'all';
             return (
-              <div
+              <button
+                type="button"
                 onClick={() => handleSectionFilterChange('all')}
-                className={`group relative rounded-xl p-2.5 sm:p-3 cursor-pointer transition-all duration-200 border flex items-center justify-between gap-3 ${
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
                   isSelected
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500/80 dark:border-emerald-500 text-slate-900 dark:text-white shadow-2xs ring-1 ring-emerald-500/30'
-                    : 'bg-slate-50/70 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    ? 'border-emerald-600 bg-emerald-50 text-slate-900 ring-1 ring-emerald-600/20'
+                    : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <div
-                    className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white shadow-2xs'
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      isSelected ? 'bg-emerald-700 text-white' : 'bg-white text-slate-500 shadow-sm'
                     }`}
                   >
                     <Layers className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-xs sm:text-sm truncate">
-                      All Departments
-                    </p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">
-                      /all-catalog
-                    </p>
+                    <p className="truncate text-sm font-semibold">All sections</p>
+                    <p className="truncate font-mono text-[10px] text-slate-400">/all-catalog</p>
                   </div>
                 </div>
-
                 <span
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums shrink-0 ${
-                    isSelected
-                      ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
-                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs'
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                    isSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-600 shadow-sm'
                   }`}
                 >
                   {categories.length}
                 </span>
-              </div>
+              </button>
             );
           })()}
 
-          {/* Dynamic Department Options */}
           {sections.map((sec) => {
             const isSelected = selectedSectionFilter.toLowerCase() === sec.slug.toLowerCase();
             const count = sectionCounts[sec.slug.toLowerCase()] || 0;
@@ -1794,60 +1712,60 @@ export default function Categories() {
             return (
               <div
                 key={sec._id || sec.slug}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleSectionFilterChange(sec.slug)}
-                className={`group relative rounded-xl p-2.5 sm:p-3 cursor-pointer transition-all duration-200 border flex items-center justify-between gap-3 ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSectionFilterChange(sec.slug);
+                  }
+                }}
+                className={`group flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
                   isSelected
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500/80 dark:border-emerald-500 text-slate-900 dark:text-white shadow-2xs ring-1 ring-emerald-500/30'
-                    : 'bg-slate-50/70 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    ? 'border-emerald-600 bg-emerald-50 text-slate-900 ring-1 ring-emerald-600/20'
+                    : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:border-slate-300 hover:bg-white'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <div
-                    className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white shadow-2xs'
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      isSelected ? 'bg-emerald-700 text-white' : 'bg-white text-slate-500 shadow-sm'
                     }`}
                   >
                     {renderDeptIcon(sec.slug, 'h-4 w-4')}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-xs sm:text-sm truncate">
-                      {sec.sectionName}
-                    </p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">
-                      /{sec.slug}
-                    </p>
+                    <p className="truncate text-sm font-semibold">{sec.sectionName}</p>
+                    <p className="truncate font-mono text-[10px] text-slate-400">/{sec.slug}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <span
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums shrink-0 ${
-                      isSelected
-                        ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
-                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs'
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                      isSelected ? 'bg-emerald-100 text-emerald-800' : 'bg-white text-slate-600 shadow-sm'
                     }`}
                   >
                     {count}
                   </span>
-
-                  {/* Quick Action buttons on hover */}
                   <div
-                    className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
+                      type="button"
                       onClick={() => handleOpenEditSecModal(sec)}
-                      className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                      title="Edit department"
+                      className="rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                      title="Edit section"
                     >
                       <Edit2 className="h-3 w-3" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setDeletingSection(sec)}
-                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors"
-                      title="Delete department"
+                      className="rounded p-1 text-slate-400 transition hover:bg-rose-100 hover:text-rose-600"
+                      title="Delete section"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -1859,64 +1777,61 @@ export default function Categories() {
         </div>
       </div>
 
-      {/* ================= CATEGORIES CATALOG SECTION ================= */}
-      <div className="space-y-3 pt-2">
-        {/* Controls Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+      <div className={`${PANEL} space-y-3 p-4`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>{activeSectionObj ? activeSectionObj.sectionName : 'All Categories'}</span>
-              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                {filteredCategories.length} items
-              </span>
+            <h2 className="text-sm font-semibold text-slate-900">
+              {activeSectionObj ? activeSectionObj.sectionName : 'All categories'}
             </h2>
+            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+              {filteredCategories.length} items
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Search Input */}
             <div className="relative w-full sm:w-52">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search category..."
+                placeholder="Search category…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-7 py-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                className={`${INPUT} py-2 pl-9 pr-8 text-xs`}
               />
-              {searchTerm && (
+              {searchTerm ? (
                 <button
+                  type="button"
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <X className="h-3 w-3" />
                 </button>
-              )}
+              ) : null}
             </div>
 
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300">
-              <ArrowUpDown className="h-3 w-3 text-slate-400 shrink-0" />
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-600">
+              <ArrowUpDown className="h-3 w-3 shrink-0 text-slate-400" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-transparent focus:outline-none cursor-pointer text-xs"
+                className="cursor-pointer bg-transparent focus:outline-none"
               >
                 <option value="order">Order</option>
                 <option value="name">Name (A-Z)</option>
-                <option value="count">Item Count</option>
+                <option value="count">Item count</option>
               </select>
             </div>
 
-            {/* Status Tabs */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-semibold">
+            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
               {['all', 'active', 'inactive'].map((status) => (
                 <button
                   key={status}
+                  type="button"
                   onClick={() => setStatusFilter(status)}
-                  className={`px-2 py-0.5 rounded-lg capitalize transition-all cursor-pointer text-[11px] ${
+                  className={`rounded-lg px-2.5 py-1 capitalize transition ${
                     statusFilter === status
-                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs font-bold'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+                      ? 'bg-white text-emerald-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   {status}
@@ -1924,27 +1839,24 @@ export default function Categories() {
               ))}
             </div>
 
-            {/* Grid / Table Switcher */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
+            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-0.5">
               <button
+                type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-1 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'grid'
-                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                className={`rounded-lg p-1.5 transition ${
+                  viewMode === 'grid' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
-                title="Grid View"
+                title="Grid view"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('table')}
-                className={`p-1 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'table'
-                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs'
-                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                className={`rounded-lg p-1.5 transition ${
+                  viewMode === 'table' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
-                title="Table View"
+                title="Table view"
               >
                 <List className="h-3.5 w-3.5" />
               </button>
@@ -1952,94 +1864,90 @@ export default function Categories() {
           </div>
         </div>
 
-        {/* Content View */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5 py-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-56 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse border border-slate-200/50 dark:border-slate-800" />
-            ))}
+          <div className="flex justify-center py-16 text-slate-400">
+            <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         ) : filteredCategories.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
-            <Layers className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-2" />
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">No categories found</h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-14 text-center">
+            <Layers className="mx-auto h-10 w-10 text-emerald-600/30" />
+            <p className="mt-3 text-base font-semibold text-slate-800">No categories found</p>
+            <p className="mt-1 text-sm text-slate-400">
               {searchTerm || selectedSectionFilter !== 'all'
-                ? 'No catalog items match your search query or filters.'
-                : 'Get started by creating your first product category or initialize with default catalog.'}
+                ? 'No catalog items match your search or filters.'
+                : 'Create your first category or seed the default catalog.'}
             </p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-              <button
-                onClick={handleOpenAddCatModal}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer"
-              >
-                Add Category
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <button type="button" onClick={handleOpenAddCatModal} className={BTN_PRIMARY}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add category
               </button>
-              {categories.length === 0 && (
+              {categories.length === 0 ? (
                 <button
+                  type="button"
                   onClick={handleSeedDefaults}
                   disabled={isSubmitting}
-                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 cursor-pointer flex items-center gap-1.5"
+                  className={BTN}
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Seed Default Catalog</span>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                  Seed defaults
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         ) : viewMode === 'grid' ? (
-          /* Sleek Compact Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filteredCategories.map((cat) => {
               const secInfo = getSectionInfo(cat.section);
               return (
                 <div
                   key={cat._id || cat.slug}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleOpenEditCatModal(cat)}
-                  className={`group relative rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden shadow-2xs hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-200 flex flex-col justify-between cursor-pointer ${
-                    cat.isActive
-                      ? 'border-slate-200 dark:border-slate-800 hover:border-emerald-500/60 hover:-translate-y-0.5'
-                      : 'border-slate-200 dark:border-slate-800 opacity-60'
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenEditCatModal(cat);
+                    }
+                  }}
+                  className={`${PANEL} group flex cursor-pointer flex-col overflow-hidden transition hover:border-emerald-300 hover:shadow-md ${
+                    cat.isActive ? '' : 'opacity-60'
                   }`}
                 >
-                  {/* Top Image Showcase Banner */}
                   <div
-                    className="relative w-full h-28 sm:h-32 flex items-center justify-center overflow-hidden border-b border-slate-100 dark:border-slate-800/80 transition-colors"
-                    style={{
-                      background: cat.bg || '#F1F5F9',
-                    }}
+                    className="relative flex h-28 items-center justify-center overflow-hidden border-b border-slate-100 sm:h-32"
+                    style={{ background: cat.bg || '#F1F5F9' }}
                   >
-                    {/* Header Badges Responsive Overlay Bar */}
-                    <div className="absolute top-2 inset-x-2 z-10 flex items-center justify-between gap-1.5 pointer-events-none">
-                      {/* Department Chip */}
-                      <span className="pointer-events-auto inline-flex items-center px-2 py-0.5 rounded-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm text-[10px] font-bold text-slate-700 dark:text-slate-200 shadow-xs border border-black/5 min-w-0 max-w-[55%] truncate">
-                        <span className="truncate">{secInfo.name}</span>
+                    <div className="pointer-events-none absolute inset-x-2 top-2 z-10 flex items-center justify-between gap-1.5">
+                      <span className="pointer-events-auto max-w-[55%] truncate rounded-md border border-black/5 bg-white/95 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm">
+                        {secInfo.name}
                       </span>
-
-                      {/* Active Toggle Button */}
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleToggleCatStatus(cat);
                         }}
-                        className={`pointer-events-auto shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs backdrop-blur-sm transition-all active:scale-95 cursor-pointer ${
-                          cat.isActive
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                            : 'bg-slate-600 text-white hover:bg-slate-700'
+                        className={`pointer-events-auto inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold text-white shadow-sm transition ${
+                          cat.isActive ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-600 hover:bg-slate-700'
                         }`}
-                        title="Toggle Active Status"
+                        title="Toggle active status"
                       >
-                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cat.isActive ? 'bg-emerald-200 animate-pulse' : 'bg-slate-300'}`} />
-                        <span>{cat.isActive ? 'Active' : 'Off'}</span>
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            cat.isActive ? 'animate-pulse bg-emerald-200' : 'bg-slate-300'
+                          }`}
+                        />
+                        {cat.isActive ? 'Active' : 'Off'}
                       </button>
                     </div>
 
-                    {/* Category Image or Clean SVG Package Icon Fallback */}
                     {cat.categoryImage ? (
                       <img
                         src={cat.categoryImage}
                         alt={cat.categoryName}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                         onError={(e) => {
                           e.target.style.display = 'none';
                           if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
@@ -2047,54 +1955,53 @@ export default function Categories() {
                       />
                     ) : null}
                     <div
-                      className="items-center justify-center transition-transform duration-300 group-hover:scale-110 select-none"
+                      className="items-center justify-center transition duration-300 group-hover:scale-110"
                       style={{ display: cat.categoryImage ? 'none' : 'flex' }}
                     >
-                      <Package className="h-8 w-8 text-slate-400 dark:text-slate-500 stroke-[1.5]" />
+                      <Package className="h-8 w-8 text-slate-400 stroke-[1.5]" />
                     </div>
                   </div>
 
-                  {/* Body Content - Compact & Clean */}
-                  <div className="p-3 flex-1 flex flex-col justify-between gap-2.5">
+                  <div className="flex flex-1 flex-col justify-between gap-2.5 p-3">
                     <div>
-                      <h3 className="font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm leading-snug truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" title={cat.categoryName}>
+                      <h3
+                        className="truncate text-sm font-bold text-slate-900 transition group-hover:text-emerald-700"
+                        title={cat.categoryName}
+                      >
                         {cat.categoryName}
                       </h3>
-
-                      <div className="mt-1 flex items-center justify-between gap-1 text-[10px] sm:text-[11px] text-slate-400 font-mono">
-                        <span className="truncate min-w-0">/{cat.slug}</span>
-                        <span className="shrink-0 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">
+                      <div className="mt-1 flex items-center justify-between gap-1 font-mono text-[11px] text-slate-400">
+                        <span className="min-w-0 truncate">/{cat.slug}</span>
+                        <span className="shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
                           {cat.itemCount || '0 items'}
                         </span>
                       </div>
-
-                      {/* Subcategories count badge if present */}
-                      {Array.isArray(cat.subcategories) && cat.subcategories.length > 0 && (
-                        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 min-w-0">
-                          <Tag className="h-3 w-3 text-amber-500 shrink-0" />
-                          <span className="truncate">{cat.subcategories.length} sub-filters ({cat.subcategories.slice(0, 2).join(', ')})</span>
+                      {Array.isArray(cat.subcategories) && cat.subcategories.length > 0 ? (
+                        <div className="mt-1.5 flex min-w-0 items-center gap-1 text-[10px] text-slate-500">
+                          <Tag className="h-3 w-3 shrink-0 text-amber-500" />
+                          <span className="truncate">
+                            {cat.subcategories.length} sub-filters ({cat.subcategories.slice(0, 2).join(', ')})
+                          </span>
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
-                    {/* Compact Footer Actions */}
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                      <span className="text-[10px] sm:text-[11px] font-extrabold text-slate-400 font-mono">
-                        #{cat.order || 0}
-                      </span>
-
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                      <span className="font-mono text-[11px] font-bold text-slate-400">#{cat.order || 0}</span>
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
+                          type="button"
                           onClick={() => handleOpenEditCatModal(cat)}
-                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-slate-700 text-slate-600 transition-all cursor-pointer"
-                          title="Edit Category"
+                          className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          title="Edit category"
                         >
                           <Edit2 className="h-3 w-3" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => setDeletingCategory(cat)}
-                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-400 transition-all cursor-pointer"
-                          title="Delete Category"
+                          className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                          title="Delete category"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -2106,33 +2013,36 @@ export default function Categories() {
             })}
           </div>
         ) : (
-          /* Modern Compact Table View */
-          <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-2xs">
+          <div className="overflow-hidden rounded-xl border border-slate-200">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                    <th className="py-2.5 px-3">Category</th>
-                    <th className="py-2.5 px-3">Department</th>
-                    <th className="py-2.5 px-3">Subcategories</th>
-                    <th className="py-2.5 px-3 text-center">Order</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-right">Actions</th>
+              <table className="min-w-full text-left text-sm">
+                <thead className="border-b border-slate-100 bg-slate-50/80">
+                  <tr>
+                    {['Category', 'Section', 'Subcategories', 'Order', 'Status', ''].map((h) => (
+                      <th
+                        key={h || 'actions'}
+                        className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${
+                          h === 'Order' || h === 'Status' ? 'text-center' : h === '' ? 'text-right' : ''
+                        }`}
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+                <tbody>
                   {filteredCategories.map((cat) => {
                     const secInfo = getSectionInfo(cat.section);
                     return (
                       <tr
                         key={cat._id || cat.slug}
                         onClick={() => handleOpenEditCatModal(cat)}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+                        className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80"
                       >
-                        <td className="py-2.5 px-3">
+                        <td className="px-3 py-3">
                           <div className="flex items-center gap-2.5">
                             <div
-                              className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-base shadow-2xs border border-black/5 overflow-hidden"
+                              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200"
                               style={{ backgroundColor: cat.bg || '#E8F5E9' }}
                             >
                               {cat.categoryImage ? (
@@ -2146,66 +2056,65 @@ export default function Categories() {
                               )}
                             </div>
                             <div>
-                              <p className="font-extrabold text-slate-900 dark:text-white text-xs">
-                                {cat.categoryName}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-mono">
-                                {cat.itemCount || '0 items'} • /{cat.slug}
+                              <p className="text-sm font-semibold text-slate-900">{cat.categoryName}</p>
+                              <p className="font-mono text-[11px] text-slate-400">
+                                {cat.itemCount || '0 items'} · /{cat.slug}
                               </p>
                             </div>
                           </div>
                         </td>
-
-                        <td className="py-2.5 px-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            <span>{secInfo.name}</span>
+                        <td className="px-3 py-3">
+                          <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                            {secInfo.name}
                           </span>
                         </td>
-
-                        <td className="py-2.5 px-3">
-                          <div className="flex flex-wrap gap-1 max-w-xs">
+                        <td className="px-3 py-3">
+                          <div className="flex max-w-xs flex-wrap gap-1">
                             {cat.subcategories?.slice(0, 3).map((sub, i) => (
-                              <span key={i} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                              <span
+                                key={i}
+                                className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
+                              >
                                 {sub}
                               </span>
                             ))}
-                            {cat.subcategories?.length > 3 && (
-                              <span className="text-[10px] text-slate-400 font-bold">
+                            {cat.subcategories?.length > 3 ? (
+                              <span className="text-[10px] font-bold text-slate-400">
                                 +{cat.subcategories.length - 3}
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </td>
-
-                        <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-500 text-xs">
+                        <td className="px-3 py-3 text-center font-mono text-xs font-bold text-slate-500">
                           #{cat.order || 0}
                         </td>
-
-                        <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                           <button
+                            type="button"
                             onClick={() => handleToggleCatStatus(cat)}
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold cursor-pointer ${
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                               cat.isActive
-                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-500/20'
-                                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'bg-slate-100 text-slate-500'
                             }`}
                           >
                             {cat.isActive ? 'Active' : 'Disabled'}
                           </button>
                         </td>
-
-                        <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             <button
+                              type="button"
                               onClick={() => handleOpenEditCatModal(cat)}
-                              className="p-1 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-700"
                               title="Edit"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => setDeletingCategory(cat)}
-                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                               title="Delete"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -2222,76 +2131,70 @@ export default function Categories() {
         )}
       </div>
 
-      {/* ================= MODAL: DELETE CATEGORY ================= */}
-      {deletingCategory && (
+      {deletingCategory ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
             onClick={() => !isSubmitting && setDeletingCategory(null)}
           />
-          <div className="relative z-10 w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Delete Category</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Are you sure you want to delete <strong>"{deletingCategory.categoryName}"</strong> from <strong>"{deletingCategory.sectionName || deletingCategory.section || 'GreenGrocc'}"</strong>?
+          <div className={`${PANEL} relative z-10 w-full max-w-sm space-y-4 p-6`}>
+            <h3 className="text-base font-bold text-slate-900">Delete category</h3>
+            <p className="text-sm text-slate-600">
+              Remove <strong className="text-slate-900">&quot;{deletingCategory.categoryName}&quot;</strong> from{' '}
+              <strong className="text-slate-900">
+                &quot;{deletingCategory.sectionName || deletingCategory.section || 'GreenGrocc'}&quot;
+              </strong>
+              ?
             </p>
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeletingCategory(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
-              >
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setDeletingCategory(null)} className={BTN}>
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleDeleteCategory}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-500/20 cursor-pointer"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
-                Yes, Delete
+                Yes, delete
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* ================= MODAL: DELETE SECTION ================= */}
-      {deletingSection && (
+      {deletingSection ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm"
             onClick={() => !isSubmitting && setDeletingSection(null)}
           />
-          <div className="relative z-10 w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Delete Section</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Are you sure you want to delete section <strong>"{deletingSection.sectionName}"</strong>?
+          <div className={`${PANEL} relative z-10 w-full max-w-sm space-y-4 p-6`}>
+            <h3 className="text-base font-bold text-slate-900">Delete section</h3>
+            <p className="text-sm text-slate-600">
+              Remove section <strong className="text-slate-900">&quot;{deletingSection.sectionName}&quot;</strong>?
             </p>
-            {sectionCounts[deletingSection.slug.toLowerCase()] > 0 && (
-              <p className="mt-2.5 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-[11px] text-amber-800 dark:text-amber-300 border border-amber-500/20">
-                ⚠️ Warning: {sectionCounts[deletingSection.slug.toLowerCase()]} categories belong to this section.
+            {sectionCounts[deletingSection.slug.toLowerCase()] > 0 ? (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800">
+                Warning: {sectionCounts[deletingSection.slug.toLowerCase()]} categories belong to this section.
               </p>
-            )}
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeletingSection(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
-              >
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setDeletingSection(null)} className={BTN}>
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleDeleteSection}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-500/20 cursor-pointer"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
               >
-                Yes, Delete
+                Yes, delete
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
