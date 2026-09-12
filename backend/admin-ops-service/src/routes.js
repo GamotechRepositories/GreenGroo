@@ -92,6 +92,14 @@ import {
   updateRefund,
   getReports,
 } from "./financeControllers.js";
+import {
+  adjustInventoryFarmer,
+  adjustInventoryVendor,
+  getInventoryFarmer,
+  getInventoryVendor,
+  listInventoryFarmers,
+  listInventoryVendors,
+} from "./inventoryHubControllers.js";
 
 const router = express.Router();
 
@@ -131,6 +139,13 @@ router.get("/vendors", listVendorsAdmin);
 router.post("/vendors", createVendorAdmin);
 router.put("/vendors/:id", updateVendorAdmin);
 router.delete("/vendors/:id", deleteVendorAdmin);
+
+router.get("/inventory/farmers", listInventoryFarmers);
+router.get("/inventory/farmers/:farmerId", getInventoryFarmer);
+router.post("/inventory/farmers/:farmerId/adjust", adjustInventoryFarmer);
+router.get("/inventory/vendors", listInventoryVendors);
+router.get("/inventory/vendors/:vendorId", getInventoryVendor);
+router.post("/inventory/vendors/:vendorId/adjust", adjustInventoryVendor);
 
 router.get("/hr", listHrDirectory);
 router.post("/hr", createHrStaff);

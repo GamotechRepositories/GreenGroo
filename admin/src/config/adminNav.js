@@ -55,7 +55,7 @@ export const NAV_GROUPS = [
       { name: 'Collection Centres', href: '/erp/collection_centres', icon: Warehouse, implemented: true, description: 'Inbound collection points.' },
       { name: 'Warehouses', href: '/erp/warehouses', icon: Warehouse, implemented: true, description: 'Warehouse master and capacity.' },
       { name: 'Cold Storage', href: '/erp/cold_storages', icon: Thermometer, implemented: true, description: 'Cold storage locations and status.' },
-      { name: 'Inventory', href: '/erp/inventories', icon: ClipboardList, implemented: true, description: 'ERP inventory positions.' },
+      { name: 'Inventory positions', href: '/erp/inventories', icon: ClipboardList, implemented: true, description: 'ERP inventory positions by facility.' },
       { name: 'Orders', href: '/erp/customer_orders', icon: ShoppingCart, implemented: true, description: 'Customer orders in ERP.' },
       { name: 'Payments', href: '/erp/payments', icon: IndianRupee, implemented: true, description: 'ERP payment records.' },
       { name: 'Drivers', href: '/erp/drivers', icon: Truck, implemented: true, description: 'Pickup and transport drivers.' },
@@ -86,6 +86,19 @@ export const NAV_GROUPS = [
         icon: Package,
         implemented: true,
         description: 'Create, edit, and publish products, pricing, stock, and media.',
+      },
+      {
+        name: 'Inventory',
+        href: '/inventory',
+        icon: ClipboardList,
+        implemented: true,
+        description: 'Farmers, vendors, and dark-store stock in one place.',
+        capabilities: [
+          'Browse farmers, vendors, and dark stores',
+          'Open any profile to see full inventory',
+          'Edit stock quantities quickly',
+          'Track low-stock and out-of-stock items',
+        ],
       },
       {
         name: 'Sections & Categories',

@@ -56,6 +56,21 @@ export const listDarkStores = async (req, res, next) => {
           inStockSkus: {
             $sum: { $cond: [{ $gt: ["$stockCount", 0] }, 1, 0] },
           },
+          lowStockSkus: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gt: ["$stockCount", 0] },
+                    { $lte: ["$stockCount", "$lowStockThreshold"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalUnits: { $sum: "$stockCount" },
         },
       },
     ]);
@@ -72,6 +87,8 @@ export const listDarkStores = async (req, res, next) => {
         return serializeStore(store, {
           skuCount: stock.skuCount || 0,
           inStockSkus: stock.inStockSkus || 0,
+          lowStockSkus: stock.lowStockSkus || 0,
+          totalUnits: stock.totalUnits || 0,
         });
       }),
     });
@@ -89,7 +106,170 @@ export const getDarkStore = async (req, res, next) => {
         message: "Dark store not found",
       });
     }
-    return res.json({ success: true, store: serializeStore(store) });
+
+    const inventory = await StoreInventory.find({ managerId: store._id }).sort({ name: 1 });
+    const items = inventory.map((row) => row.toSafeJSON());
+    const skuCount = items.length;
+    const inStockSkus = items.filter((row) => row.stockCount > 0).length;
+    const lowStockSkus = items.filter((row) => row.isLowStock).length;
+    const totalUnits = items.reduce((sum, row) => sum + Number(row.stockCount || 0), 0);
+
+    return res.json({
+      success: true,
+      store: serializeStore(store, { skuCount, inStockSkus, lowStockSkus, totalUnits }),
+      inventory: items,
+      stats: { skuCount, inStockSkus, lowStockSkus, totalUnits },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listDarkStoreInventory = async (req, res, next) => {
+  try {
+    const store = await DeliveryManager.findById(req.params.id);
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Dark store not found" });
+    }
+    const inventory = await StoreInventory.find({ managerId: store._id }).sort({ name: 1 });
+    const items = inventory.map((row) => row.toSafeJSON());
+    return res.json({
+      success: true,
+      store: serializeStore(store),
+      data: items,
+      stats: {
+        skuCount: items.length,
+        inStockSkus: items.filter((row) => row.stockCount > 0).length,
+        lowStockSkus: items.filter((row) => row.isLowStock).length,
+        totalUnits: items.reduce((sum, row) => sum + Number(row.stockCount || 0), 0),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateDarkStoreInventoryItem = async (req, res, next) => {
+  try {
+    const store = await DeliveryManager.findById(req.params.id);
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Dark store not found" });
+    }
+
+    const item = await StoreInventory.findOne({
+      _id: req.params.itemId,
+      managerId: store._id,
+    });
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Inventory item not found" });
+    }
+
+    if (req.body.name != null) item.name = String(req.body.name).trim() || item.name;
+    if (req.body.category != null) item.category = String(req.body.category).trim() || item.category;
+    if (req.body.unit != null) item.unit = String(req.body.unit).trim() || item.unit;
+    if (req.body.price != null) {
+      const price = Number(req.body.price);
+      if (!Number.isFinite(price) || price < 0) {
+        return res.status(400).json({ success: false, message: "Price must be a non-negative number" });
+      }
+      item.price = price;
+    }
+    if (req.body.stockCount != null) {
+      const stockCount = Number(req.body.stockCount);
+      if (!Number.isFinite(stockCount) || stockCount < 0) {
+        return res.status(400).json({ success: false, message: "Stock must be a non-negative number" });
+      }
+      item.stockCount = Math.floor(stockCount);
+    }
+    if (req.body.lowStockThreshold != null) {
+      const low = Number(req.body.lowStockThreshold);
+      if (!Number.isFinite(low) || low < 0) {
+        return res.status(400).json({ success: false, message: "Low-stock threshold must be non-negative" });
+      }
+      item.lowStockThreshold = Math.floor(low);
+    }
+    if (typeof req.body.isActive === "boolean") item.isActive = req.body.isActive;
+
+    await item.save();
+    return res.json({
+      success: true,
+      message: "Inventory updated",
+      data: item.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const adjustDarkStoreInventoryItem = async (req, res, next) => {
+  try {
+    const store = await DeliveryManager.findById(req.params.id);
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Dark store not found" });
+    }
+
+    const item = await StoreInventory.findOne({
+      _id: req.params.itemId,
+      managerId: store._id,
+    });
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Inventory item not found" });
+    }
+
+    const delta = Number(req.body.change ?? req.body.delta ?? 0);
+    if (!Number.isFinite(delta) || delta === 0) {
+      return res.status(400).json({ success: false, message: "Enter a non-zero quantity to adjust" });
+    }
+
+    const nextStock = Math.max(0, Number(item.stockCount || 0) + Math.trunc(delta));
+    item.stockCount = nextStock;
+    await item.save();
+
+    return res.json({
+      success: true,
+      message: "Stock adjusted",
+      data: item.toSafeJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createDarkStoreInventoryItem = async (req, res, next) => {
+  try {
+    const store = await DeliveryManager.findById(req.params.id);
+    if (!store) {
+      return res.status(404).json({ success: false, message: "Dark store not found" });
+    }
+
+    const sku = String(req.body.sku || "").trim();
+    const name = String(req.body.name || "").trim();
+    if (!sku || !name) {
+      return res.status(400).json({ success: false, message: "SKU and name are required" });
+    }
+
+    const existing = await StoreInventory.findOne({ managerId: store._id, sku });
+    if (existing) {
+      return res.status(409).json({ success: false, message: "An item with this SKU already exists" });
+    }
+
+    const item = await StoreInventory.create({
+      managerId: store._id,
+      sku,
+      name,
+      category: String(req.body.category || "General").trim(),
+      unit: String(req.body.unit || "pcs").trim(),
+      price: Math.max(0, Number(req.body.price) || 0),
+      stockCount: Math.max(0, Math.floor(Number(req.body.stockCount) || 0)),
+      lowStockThreshold: Math.max(0, Math.floor(Number(req.body.lowStockThreshold) || 10)),
+      isActive: req.body.isActive !== false,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Inventory item created",
+      data: item.toSafeJSON(),
+    });
   } catch (error) {
     next(error);
   }

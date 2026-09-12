@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../api/client';
-import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
+import { BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 import '../styles/admin.css';
 
 export default function Login() {
@@ -85,18 +85,6 @@ export default function Login() {
             )}
           </button>
         </form>
-
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          <p className={`${PAGE_SUB} mb-2 text-center text-xs`}>Quick demo access</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => signIn('admin@greengrocc.com', 'admin123')} className={BTN}>
-              Super Admin
-            </button>
-            <button type="button" onClick={() => signIn('inventory@greengrocc.com', 'admin123')} className={BTN}>
-              Inventory Lead
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

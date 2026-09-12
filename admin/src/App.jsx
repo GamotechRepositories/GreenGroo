@@ -41,6 +41,8 @@ import StoreSupport from './pages/ops/StoreSupport';
 import FinanceManagement from './pages/ops/FinanceManagement';
 import RefundWarranty from './pages/ops/RefundWarranty';
 import Reports from './pages/ops/Reports';
+import InventoryHubPage from './pages/inventory/InventoryHubPage';
+import InventoryDetailPage from './pages/inventory/InventoryDetailPage';
 
 export default function App() {
   return (
@@ -59,6 +61,8 @@ export default function App() {
               <Route path="erp/farmers/:id" element={<Farmer360Page />} />
               <Route path="erp/:resource" element={<ErpListPage />} />
               <Route path="products" element={<Products />} />
+              <Route path="inventory" element={<InventoryHubPage />} />
+              <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />
               <Route path="categories" element={<Categories />} />
               <Route path="coupons" element={<Coupons />} />
