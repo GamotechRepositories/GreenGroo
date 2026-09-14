@@ -165,6 +165,11 @@ export default function QualityInspectionPage() {
   if (!data && !error) return <p className="p-6 text-xs text-gray-400">Loading quality inspection…</p>;
   if (!data) return <p className="p-6 text-xs text-red-500">{error}</p>;
 
+  const currentPaymentStatus = String(data?.paymentStatus || data?.order?.paymentStatus || "Pending");
+  const isPaid = ["PAID", "PAYMENT_COMPLETED", "COMPLETED", "PAYMENT RECEIVED"].includes(
+    currentPaymentStatus.toUpperCase().trim()
+  );
+
   return (
     <div className="space-y-5 p-6">
       <div className="mb-1 text-xs text-gray-400 print:hidden">
@@ -194,8 +199,12 @@ export default function QualityInspectionPage() {
         {locked ? (
           <>
             <a href="#final-report" className="border border-gray-200 px-3 py-1.5 text-xs font-semibold">View Final Report</a>
-            <button type="button" className="border border-gray-200 px-3 py-1.5 text-xs font-semibold" onClick={() => window.print()}>
-              Download Final Report
+            <button
+              type="button"
+              className="border border-emerald-700 bg-[#217346] px-3 py-1.5 text-xs font-bold text-white shadow-sm"
+              onClick={() => window.print()}
+            >
+              🧾 Download Invoice {isPaid ? "(Paid)" : "(Unpaid)"}
             </button>
           </>
         ) : null}

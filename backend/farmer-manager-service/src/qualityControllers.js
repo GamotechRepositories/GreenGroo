@@ -1053,6 +1053,7 @@ async function presentInspection(inspection, pickup, order, farmer, centre) {
     price,
     finalAmount,
     paymentStatus: order?.paymentStatus || "Pending",
+    paymentDetails: order?.paymentDetails || null,
     paramOptions: QUALITY_PARAM_OPTIONS,
     rejectionReasons: REJECTION_REASONS,
     timeline: buildTimeline(order, pickup, inspection),

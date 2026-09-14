@@ -185,13 +185,13 @@ export default function ProductManagerLayout() {
         <button
           type="button"
           aria-label="Close menu"
-          className="fixed inset-0 z-[45] bg-black/40 lg:hidden"
+          className="fixed inset-0 z-[45] bg-black/40 lg:hidden print:hidden"
           onClick={closeMobile}
         />
       ) : null}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col bg-green-dark text-white transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col bg-green-dark text-white transition-transform duration-200 print:hidden lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -263,8 +263,8 @@ export default function ProductManagerLayout() {
         </div>
       </aside>
 
-      <div className="min-h-dvh pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:ml-64 lg:pb-0">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 lg:hidden">
+      <div className="min-h-dvh pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:ml-64 lg:pb-0 print:ml-0 print:pb-0 print:min-h-0">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 print:hidden lg:hidden">
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700"
@@ -278,7 +278,7 @@ export default function ProductManagerLayout() {
             <p className="truncate text-[11px] text-gray-500">Vendor Panel</p>
           </div>
         </header>
-        <div className="px-4 pt-3 lg:px-6 lg:pt-4">
+        <div className="px-4 pt-3 lg:px-6 lg:pt-4 print:hidden">
           <RoleAnnouncements
             roleKey="vendor"
             load={() => vendorApi.liveAnnouncements()}
@@ -288,7 +288,9 @@ export default function ProductManagerLayout() {
         <Outlet />
       </div>
 
-      <VendorBottomNav />
+      <div className="print:hidden">
+        <VendorBottomNav />
+      </div>
     </div>
   )
 }

@@ -81,3 +81,62 @@
     max-width: 1440px;
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #invoice-print-area,
+  #invoice-print-area * {
+    visibility: visible;
+  }
+
+  #invoice-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  header,
+  nav,
+  aside,
+  footer,
+  .farmer-sidebar,
+  [role="navigation"],
+  .print\:hidden,
+  .farmer-auth-shell,
+  [data-toaster],
+  .toaster {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root,
+  .farmer-panel,
+  .farmer-panel > div,
+  main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

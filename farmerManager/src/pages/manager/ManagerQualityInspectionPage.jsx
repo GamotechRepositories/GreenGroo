@@ -551,6 +551,11 @@ export default function ManagerQualityInspectionPage() {
   if (!data && !error) return <p className="text-xs text-[#6B7280]">Loading quality inspection…</p>;
   if (!data) return <p className="text-xs text-red-600">{error}</p>;
 
+  const currentPaymentStatus = String(data?.paymentStatus || data?.order?.paymentStatus || "Pending");
+  const isPaid = ["PAID", "PAYMENT_COMPLETED", "COMPLETED", "PAYMENT RECEIVED"].includes(
+    currentPaymentStatus.toUpperCase().trim()
+  );
+
   return (
     <div className="space-y-5">
       <p className="mb-1 break-words text-xs text-[#6B7280] print:hidden">
@@ -815,7 +820,13 @@ export default function ManagerQualityInspectionPage() {
           {locked ? (
             <>
               <a href="#final-report" className={`${EXCEL_BTN} w-full sm:w-auto`}>View Final Report</a>
-              <button type="button" className={`${EXCEL_BTN} w-full sm:w-auto`} onClick={() => window.print()}>Download Final Report</button>
+              <button
+                type="button"
+                className={`${EXCEL_BTN_PRIMARY} flex w-full items-center justify-center gap-1.5 font-bold sm:w-auto shadow-sm`}
+                onClick={() => window.print()}
+              >
+                🧾 Download Invoice {isPaid ? "(Paid)" : "(Unpaid)"}
+              </button>
             </>
           ) : null}
         </div>
