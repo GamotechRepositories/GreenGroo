@@ -12,6 +12,15 @@ const INDIAN_STATES = [
 const FIELD = "w-full border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]";
 const LABEL = "mb-1 block text-xs font-semibold text-gray-700";
 
+function nameCodeFromFullName(name = "") {
+  const letters = String(name || "")
+    .trim()
+    .replace(/[^a-zA-Z]/g, "");
+  if (!letters) return "";
+  const code = letters.slice(0, 3);
+  return code.charAt(0).toUpperCase() + code.slice(1).toLowerCase();
+}
+
 export default function AddManagerPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -24,6 +33,7 @@ export default function AddManagerPage() {
   const [error, setError] = useState("");
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const nameCode = nameCodeFromFullName(form.name);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,6 +60,9 @@ export default function AddManagerPage() {
       <div>
         <h1 className="text-xl font-bold text-gray-900">Add Farmer Manager</h1>
         <p className="text-sm text-gray-500 mt-0.5">Create a new manager account under your vendor</p>
+        <p className="mt-1 text-[11px] text-emerald-700">
+          Manager ID uses first 3 letters from Full Name, e.g. Prajwal → Pra → …-Pra-04
+        </p>
       </div>
 
       {error && (
@@ -63,6 +76,13 @@ export default function AddManagerPage() {
           <div>
             <label className={LABEL}>Full Name *</label>
             <input className={FIELD} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Kapil Deshmukh" required />
+            {nameCode ? (
+              <p className="mt-1 text-[10px] text-emerald-700">
+                ID name code: <span className="font-mono font-bold">{nameCode}</span>
+              </p>
+            ) : (
+              <p className="mt-1 text-[10px] text-gray-400">First 3 letters of Full Name go into Manager ID</p>
+            )}
           </div>
           <div>
             <label className={LABEL}>Mobile Number *</label>

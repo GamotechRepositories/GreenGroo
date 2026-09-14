@@ -15,8 +15,8 @@ export default function ManagerDetailPage() {
 
   useEffect(() => {
     Promise.all([
-      vendorApi.getManagerById(managerId).then((r) => r.data),
-      vendorApi.getFarmers({ managerId }).then((r) => r.data),
+      vendorApi.getManagerById(decodeURIComponent(managerId)).then((r) => r.data),
+      vendorApi.getFarmers({ managerId: decodeURIComponent(managerId) }).then((r) => r.data),
     ])
       .then(([mgr, fs]) => { setManager(mgr); setFarmers(fs); })
       .catch(() => {})
@@ -46,6 +46,9 @@ export default function ManagerDetailPage() {
               <h1 className="text-xl font-bold text-gray-900">{manager.name}</h1>
               {STATUS_BADGE(manager.status)}
             </div>
+            <p className="mt-1 break-all font-mono text-[11px] font-semibold text-emerald-700">
+              {manager.managerCode || manager.id}
+            </p>
             <p className="mt-0.5 text-sm text-gray-500">{manager.mobile} · {manager.email || "—"}</p>
             <p className="mt-0.5 text-xs text-gray-400">{manager.location || "—"} · Joined: {manager.joiningDate || manager.createdAt ? new Date(manager.joiningDate || manager.createdAt).toLocaleDateString("en-IN") : "—"}</p>
           </div>

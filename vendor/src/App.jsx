@@ -44,7 +44,6 @@ import ManagerOrdersPage from './pages/manager/ManagerOrdersPage'
 import ManagerCreateOrderPage from './pages/manager/ManagerCreateOrderPage'
 import ManagerOrderDetailPage from './pages/manager/ManagerOrderDetailPage'
 import ManagerEarningsPage from './pages/manager/ManagerEarningsPage'
-import ManagerFarmerEarningsSpreadsheetPage from './pages/manager/ManagerFarmerEarningsSpreadsheetPage'
 import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
 
 function App() {
@@ -116,7 +115,8 @@ function App() {
                 <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
                 <Route path="/vendor/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
                 <Route path="/vendor/earnings" element={<ManagerEarningsPage />} />
-                <Route path="/vendor/earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
+                <Route path="/vendor/earnings/farmer/:farmerId" element={<ManagerEarningsPage />} />
+                <Route path="/vendor/earnings/farmer/:farmerId/product/:productId" element={<ManagerEarningsPage />} />
                 <Route path="/vendor/documents" element={<ManagerDocumentsPage />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />

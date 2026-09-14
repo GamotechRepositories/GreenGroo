@@ -51,11 +51,12 @@ export const vendorApi = {
 
   // Managers
   getManagers: (params) => api.get("/api/vendor/managers", { params }),
-  getManagerById: (id) => api.get(`/api/vendor/managers/${id}`),
+  getManagerById: (id) => api.get(`/api/vendor/managers/${encodeURIComponent(id)}`),
   createManager: (data) => api.post("/api/vendor/managers", data),
-  updateManager: (id, data) => api.put(`/api/vendor/managers/${id}`, data),
-  deleteManager: (id) => api.delete(`/api/vendor/managers/${id}`),
-  setManagerStatus: (id, status) => api.patch(`/api/vendor/managers/${id}/status`, { status }),
+  updateManager: (id, data) => api.put(`/api/vendor/managers/${encodeURIComponent(id)}`, data),
+  deleteManager: (id) => api.delete(`/api/vendor/managers/${encodeURIComponent(id)}`),
+  setManagerStatus: (id, status) =>
+    api.patch(`/api/vendor/managers/${encodeURIComponent(id)}/status`, { status }),
 
   // Farmers
   getFarmers: (params) => api.get("/api/vendor/farmers", { params }),

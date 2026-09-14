@@ -77,7 +77,7 @@ export default function FarmerManagersPage() {
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search name, mobile, email…"
+          placeholder="Search name, mobile, ID…"
           className="max-w-xs border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]"
         />
         <select
@@ -116,6 +116,9 @@ export default function FarmerManagersPage() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{m.name}</p>
+                        <p className="max-w-[220px] truncate font-mono text-[10px] text-emerald-700" title={m.managerCode || m.id}>
+                          {m.managerCode || m.id}
+                        </p>
                         <p className="text-[10px] text-gray-400">{m.email || "—"}</p>
                       </div>
                     </div>
@@ -135,7 +138,7 @@ export default function FarmerManagersPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Link
-                        to={`/vendor/farmer-managers/${m.id}`}
+                        to={`/vendor/farmer-managers/${encodeURIComponent(m.id)}`}
                         className="text-[10px] font-semibold text-[#217346] hover:underline"
                       >
                         View

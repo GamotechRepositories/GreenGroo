@@ -23,7 +23,6 @@ import ManagerProductFarmersPage from "../pages/manager/ManagerProductFarmersPag
 import ManagerProductOrdersSpreadsheetPage from "../pages/manager/ManagerProductOrdersSpreadsheetPage";
 import ManagerCreateOrderPage from "../pages/manager/ManagerCreateOrderPage";
 import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
-import ManagerFarmerEarningsSpreadsheetPage from "../pages/manager/ManagerFarmerEarningsSpreadsheetPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerLeavePage from "../pages/manager/ManagerLeavePage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
@@ -65,8 +64,8 @@ function ManagerRoutes() {
           <Route path="orders/product/:productKey" element={<ManagerProductOrdersSpreadsheetPage />} />
           <Route path="orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
           <Route path="earnings" element={<ManagerEarningsPage />} />
-          <Route path="earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
-          <Route path="earnings/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
+          <Route path="earnings/farmer/:farmerId" element={<ManagerEarningsPage />} />
+          <Route path="earnings/farmer/:farmerId/product/:productId" element={<ManagerEarningsPage />} />
           <Route path="drivers" element={<ManagerDriversPage />} />
           <Route path="pickups" element={<Navigate to="/manager/pickups/ready" replace />} />
           <Route path="pickups/requests" element={<Navigate to="/manager/pickups/ready" replace />} />
