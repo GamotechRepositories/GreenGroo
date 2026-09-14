@@ -250,6 +250,12 @@ export default function EarningReportPage() {
           <Info label="Received Date" value={data.receivedDate || "—"} />
           <Info label="Received Time" value={data.receivedTime || "—"} />
           <Info label="Weight Verified" value={data.weightVerified ? "Yes" : "No"} />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">Payment Status</p>
+            <div className="mt-1">
+              <StatusBadge status={data.paymentStatus || data.order?.paymentStatus || "Pending"} />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -317,9 +323,15 @@ export default function EarningReportPage() {
       <section id="final-report" className={EXCEL_PANEL}>
         <div className={EXCEL_PANEL_HEAD}>4. Final Summary</div>
         <div className="p-3">
-          <div className="mb-3 grid grid-cols-2 gap-3">
+          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Info label="Order ID" value={data.orderDisplayId || data.orderId} />
             <Info label="Product" value={data.productName || data.product} />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]">Payment Status</p>
+              <div className="mt-1">
+                <StatusBadge status={data.paymentStatus || data.order?.paymentStatus || "Pending"} />
+              </div>
+            </div>
           </div>
           <table className="w-full table-fixed border-collapse text-left text-[10px] md:text-xs">
               <thead>

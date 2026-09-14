@@ -196,10 +196,31 @@ function productPhoto(product) {
   return product?.media?.mainPhoto || product?.image || "";
 }
 
-function splitEarnings(total) {
-  const t = Math.round(Number(total) || 0);
-  const deposited = Math.round(t * 0.7);
-  return { total: t, deposited, balance: t - deposited };
+function isOrderPaid(order) {
+  const s = String(order?.paymentStatus || "").toUpperCase().trim();
+  return s === "PAID" || s === "PAYMENT_COMPLETED" || s === "COMPLETED" || s === "PAYMENT RECEIVED";
+}
+
+function computeEarningsFromOrders(ordersList = []) {
+  let total = 0;
+  let deposited = 0;
+  let pending = 0;
+
+  ordersList.forEach((order) => {
+    const amt = orderAmount(order);
+    total += amt;
+    if (isOrderPaid(order)) {
+      deposited += amt;
+    } else {
+      pending += amt;
+    }
+  });
+
+  return {
+    total: Math.round(total),
+    deposited: Math.round(deposited),
+    balance: Math.round(pending),
+  };
 }
 
 function ProductPhoto({ src, name, className }) {
@@ -241,7 +262,11 @@ function DetailItem({ label, value, compact = false }) {
 function ProductEarningsCard({ item, onOpen }) {
   const src = item.product || {};
   const unit = src.unit || item.unit || "Kg";
-  const money = splitEarnings(item.amount);
+  const money = {
+    total: Math.round(item.amount || 0),
+    deposited: Math.round(item.deposited || 0),
+    balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
+  };
   const details = [
     ["Product ID", <CopyId key="id" value={formatProductBusinessId(src)} textClassName="font-mono text-[10px] font-semibold tracking-wide text-emerald-700" />],
     ["Crop", src.cropName],
@@ -436,6 +461,8 @@ function EarningsPage() {
         unit: product.unit || "Kg",
         count: 0,
         amount: 0,
+        deposited: 0,
+        pending: 0,
         soldQty: 0,
         rejected: 0,
         gradeTotals: Object.fromEntries(STATEMENT_GRADES.map((g) => [g, { qty: 0, rate: 0, rejected: 0 }])),
@@ -456,6 +483,8 @@ function EarningsPage() {
           unit: order.unit || "Kg",
           count: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           soldQty: 0,
           rejected: 0,
           gradeTotals: Object.fromEntries(STATEMENT_GRADES.map((g) => [g, { qty: 0, rate: 0, rejected: 0 }])),
@@ -464,8 +493,14 @@ function EarningsPage() {
       const row = map.get(id);
       const statementRows = gradeStatementRows(order);
       const totals = gradeStatementTotals(statementRows);
+      const amt = orderAmount(order);
       row.count += 1;
-      row.amount += orderAmount(order);
+      row.amount += amt;
+      if (isOrderPaid(order)) {
+        row.deposited += amt;
+      } else {
+        row.pending += amt;
+      }
       row.soldQty += totals.finalQty;
       row.rejected += totals.rejected;
       statementRows.forEach((g) => {
@@ -518,7 +553,7 @@ function EarningsPage() {
     return Math.round(orders.reduce((sum, order) => sum + orderAmount(order), 0));
   }, [orders]);
 
-  const listSplit = splitEarnings(selectedProduct ? tableTotals.amount : overallTotals);
+  const listSplit = computeEarningsFromOrders(selectedProduct ? visibleOrders : orders);
   const sheetUnit = selectedProduct?.unit || visibleOrders[0]?.unit || "Kg";
 
   if (loading) return <LoadingState rows={6} />;
@@ -572,18 +607,19 @@ function EarningsPage() {
         />
       ) : (
         <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
-          <table className="w-max min-w-[720px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+          <table className="w-max min-w-[760px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
             <colgroup>
               <col className="w-[4%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
               <col className="w-[7%]" />
               {gradeColumns.map((g) => (
                 <Fragment key={`col-${g}`}>
-                  <col className="w-[10%]" />
                   <col className="w-[9%]" />
+                  <col className="w-[8%]" />
                 </Fragment>
               ))}
+              <col className="w-[8%]" />
               <col className="w-[8%]" />
               <col className="w-[8%]" />
             </colgroup>
@@ -618,6 +654,9 @@ function EarningsPage() {
                 </th>
                 <th className={TH} rowSpan={2}>
                   <HeadLabel line1="Amount" line2="₹" />
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Payment" line2="Status" />
                 </th>
               </tr>
               <tr>
@@ -686,6 +725,9 @@ function EarningsPage() {
                         <span className="font-semibold text-[#9CA3AF]">×</span>
                       )}
                     </td>
+                    <td className={`${TD} ${zebra} whitespace-nowrap px-1 py-0.5`}>
+                      <StatusBadge status={order.paymentStatus || "Pending"} className="scale-90" />
+                    </td>
                   </tr>
                 );
               })}
@@ -719,6 +761,9 @@ function EarningsPage() {
                   ) : (
                     <span className="font-semibold text-[#9CA3AF]">×</span>
                   )}
+                </td>
+                <td className={`${TH} bg-[#FCE7F3] text-center text-[10px] font-semibold text-[#6B7280]`}>
+                  —
                 </td>
               </tr>
             </tfoot>

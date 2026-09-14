@@ -10,8 +10,7 @@ import { usePolling } from "../../hooks/usePolling";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import SpreadsheetViewport from "../../components/ui/SpreadsheetViewport";
-import StatusBadge from "../../components/ui/StatusBadge";
-import CopyId from "../../components/ui/CopyId";
+import { CopyButton } from "../../components/ui/CopyId";
 import { canonicalOrderStatus } from "../../utils/orderDisplay";
 import {
   STATEMENT_GRADES,
@@ -20,8 +19,7 @@ import {
   gradeStatementTotals,
 } from "../../utils/gradeStatement";
 import { formatCropDate, formatProductBusinessId } from "../../utils/cropLinks";
-import { formatProductPrice } from "../../utils/productActions";
-import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL } from "../../utils/excelStyles";
+import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_INPUT } from "../../utils/excelStyles";
 
 const BASE = "/vendor/earnings";
 const ORDER_DETAIL = "/vendor/orders/detail";
@@ -227,46 +225,30 @@ function ProductPhoto({ src, name, className }) {
   );
 }
 
-function DetailItem({ label, value, compact = false }) {
-  return (
-    <div className="min-w-0">
-      <p className={`${compact ? "text-[9px]" : "text-[10px]"} font-semibold uppercase tracking-wide text-slate-500`}>
-        {label}
-      </p>
-      <div
-        className={`mt-0.5 break-words font-semibold leading-snug text-[#1F2937] ${
-          compact ? "text-[11px]" : "text-[12px]"
-        }`}
-      >
-        {value || "—"}
-      </div>
-    </div>
-  );
-}
-
 function ProductEarningsCard({ item, onOpen }) {
   const src = item.product || {};
   const unit = src.unit || item.unit || "Kg";
   const money = splitEarnings(item.amount);
+  const productId = formatProductBusinessId(src);
   const details = [
-    ["Product ID", <CopyId key="id" value={formatProductBusinessId(src)} textClassName="font-mono text-[10px] font-semibold tracking-wide text-emerald-700" />],
-    ["Crop", src.cropName],
-    ["Variety", src.variety || item.variety],
-    ["Farm", src.farmName],
-    ["Location", src.farmLocation],
-    ["Harvest Date", formatCropDate(src.harvestDate)],
-    ["Available From", formatCropDate(src.availableFrom)],
-    ["Available Until", formatCropDate(src.availableUntil)],
+    ["Crop", src.cropName || "—"],
+    ["Variety", src.variety || item.variety || "—"],
+    ["Farm", src.farmName || "—"],
+    ["Location", src.farmLocation || "—"],
+    ["Harvest", formatCropDate(src.harvestDate) || "—"],
+    ["From", formatCropDate(src.availableFrom) || "—"],
+    ["Until", formatCropDate(src.availableUntil) || "—"],
     ["Orders", String(item.count || 0)],
   ];
   const grades = STATEMENT_GRADES.map((label) => {
     const t = item.gradeTotals?.[label] || {};
     return {
-      label,
+      label: label.replace("Grade ", ""),
       quantity: Number(t.qty) || 0,
       price: Number(t.rate) || 0,
       rejected: Number(t.rejected) || 0,
       unit,
+      fullLabel: label,
     };
   });
 
@@ -281,66 +263,71 @@ function ProductEarningsCard({ item, onOpen }) {
           onOpen();
         }
       }}
-      className={`${EXCEL_PANEL} cursor-pointer p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8] sm:p-2`}
+      className={`${EXCEL_PANEL} cursor-pointer overflow-hidden p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8]`}
     >
       <div className="flex items-start gap-1.5">
-        <ProductPhoto src={item.photo} name={item.name} className="h-9 w-9 shrink-0 rounded-md sm:h-10 sm:w-10" />
+        <ProductPhoto src={item.photo} name={item.name} className="h-8 w-8 shrink-0 rounded-md" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-1">
-            <p className="min-w-0 text-[12px] font-bold leading-tight text-[#1F2937] sm:text-[13px]">
+          <div className="flex items-center gap-1">
+            <p className="min-w-0 flex-1 truncate text-[11px] font-bold leading-tight text-[#1F2937]">
               {item.name}
               {item.variety ? <span className="font-medium text-slate-500"> · {item.variety}</span> : null}
             </p>
             {src.stockStatus || src.status ? (
-              <StatusBadge status={src.stockStatus || src.status} className="max-w-[40%] shrink-0 scale-90 origin-top-right" />
+              <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-semibold uppercase text-[#217346] bg-emerald-50">
+                {String(src.stockStatus || src.status).slice(0, 3)}
+              </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-[9px] leading-snug text-slate-500 sm:text-[10px]">
-            {[src.cropName, src.farmName].filter(Boolean).join(" • ") || "Open earning statement"}
+          <p className="mt-0.5 truncate text-[9px] text-slate-500">
+            {[src.cropName, src.farmName].filter(Boolean).join(" · ") || "Open statement"}
           </p>
+          {productId ? (
+            <div className="mt-0.5 flex min-w-0 items-center gap-0.5">
+              <p className="min-w-0 truncate font-mono text-[8px] leading-tight text-emerald-700" title={productId}>
+                {shortId(productId, 20)}
+              </p>
+              <CopyButton value={productId} label="Copy Product ID" />
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-2 gap-x-1.5 gap-y-1 sm:grid-cols-3 md:grid-cols-5">
+      <div className="mt-1.5 grid grid-cols-3 gap-x-1 gap-y-1">
         {details.map(([label, value]) => (
-          <DetailItem key={label} label={label} value={value} compact />
+          <div key={label} className="min-w-0">
+            <p className="text-[7px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="truncate text-[9px] font-semibold leading-tight text-[#1F2937]" title={String(value || "")}>
+              {value || "—"}
+            </p>
+          </div>
         ))}
       </div>
 
-      <div className="mt-1.5 overflow-hidden rounded-md border border-[#9CA3AF]">
-        <table className="w-full border-collapse text-[10px] sm:text-[11px]">
+      <div className="mt-1.5 overflow-hidden rounded border border-[#9CA3AF]">
+        <table className="w-full border-collapse text-[9px]">
           <thead>
             <tr>
-              <th className="border-b border-[#9CA3AF] bg-[#E8F0EA] px-1.5 py-1 text-left font-bold text-[#374151]">
-                Grade
-              </th>
-              <th className="border-b border-l border-[#9CA3AF] bg-[#E8F0EA] px-1.5 py-1 text-center font-bold text-[#374151]">
-                Qty
-              </th>
-              <th className="border-b border-l border-[#9CA3AF] bg-[#E8F0EA] px-1.5 py-1 text-center font-bold text-[#374151]">
-                Rate
-              </th>
-              <th className={`border-b border-l border-[#9CA3AF] px-1.5 py-1 text-center font-bold ${REJECTED_TONE.head}`}>
-                Rejected
-              </th>
+              <th className="border-b border-[#9CA3AF] bg-[#E8F0EA] px-1 py-0.5 text-left font-bold text-[#374151]">G</th>
+              <th className="border-b border-l border-[#9CA3AF] bg-[#E8F0EA] px-1 py-0.5 text-center font-bold text-[#374151]">Qty</th>
+              <th className="border-b border-l border-[#9CA3AF] bg-[#E8F0EA] px-1 py-0.5 text-center font-bold text-[#374151]">Rate</th>
+              <th className={`border-b border-l border-[#9CA3AF] px-1 py-0.5 text-center font-bold ${REJECTED_TONE.head}`}>Rej</th>
             </tr>
           </thead>
           <tbody>
             {grades.map((grade) => {
-              const tone = gradeTone(grade.label);
+              const tone = gradeTone(grade.fullLabel);
               return (
-                <tr key={grade.label}>
-                  <td className={`border-t border-[#9CA3AF] px-1.5 py-1 font-bold ${tone.cell} ${tone.text}`}>
-                    {grade.label}
+                <tr key={grade.fullLabel}>
+                  <td className={`border-t border-[#9CA3AF] px-1 py-0.5 font-bold ${tone.cell} ${tone.text}`}>{grade.label}</td>
+                  <td className={`border-t border-l border-[#9CA3AF] px-1 py-0.5 text-center tabular-nums font-semibold ${tone.cell}`}>
+                    {Number(grade.quantity || 0).toLocaleString("en-IN")}
                   </td>
-                  <td className={`border-t border-l border-[#9CA3AF] px-1.5 py-1 text-center tabular-nums font-semibold text-[#1F2937] ${tone.cell}`}>
-                    {Number(grade.quantity || 0).toLocaleString("en-IN")} {grade.unit}
+                  <td className={`border-t border-l border-[#9CA3AF] px-1 py-0.5 text-center tabular-nums font-semibold ${tone.cell}`}>
+                    {Number(grade.price || 0) > 0 ? Number(grade.price).toLocaleString("en-IN") : "×"}
                   </td>
-                  <td className={`border-t border-l border-[#9CA3AF] px-1.5 py-1 text-center tabular-nums font-semibold text-[#1F2937] ${tone.cell}`}>
-                    {formatProductPrice(grade.price, grade.unit)}
-                  </td>
-                  <td className={`border-t border-l border-[#9CA3AF] px-1.5 py-1 text-center tabular-nums font-semibold ${REJECTED_TONE.cell}`}>
-                    {Number(grade.rejected || 0).toLocaleString("en-IN")} {grade.unit}
+                  <td className={`border-t border-l border-[#9CA3AF] px-1 py-0.5 text-center tabular-nums font-semibold ${REJECTED_TONE.cell}`}>
+                    {Number(grade.rejected || 0).toLocaleString("en-IN")}
                   </td>
                 </tr>
               );
@@ -349,8 +336,19 @@ function ProductEarningsCard({ item, onOpen }) {
         </table>
       </div>
 
-      <div className="mt-1.5">
-        <EarningsSummary compact total={money.total} deposited={money.deposited} balance={money.balance} />
+      <div className="mt-1 grid grid-cols-3 gap-0.5 text-center">
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Total</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#217346]">₹{money.total.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Dep</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#065F46]">₹{money.deposited.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Pend</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#B45309]">₹{money.balance.toLocaleString("en-IN")}</p>
+        </div>
       </div>
     </article>
   );
@@ -491,16 +489,22 @@ function FarmerEarningsCard({ item, onOpen }) {
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate font-mono text-[8px] leading-tight text-emerald-700" title={item.code || item.id}>
-            {shortId(item.code || item.id, 16)}
-          </p>
+          <div className="mt-0.5 flex min-w-0 items-center gap-0.5">
+            <p className="min-w-0 truncate font-mono text-[8px] leading-tight text-emerald-700" title={item.code || item.id}>
+              {shortId(item.code || item.id, 16)}
+            </p>
+            <CopyButton value={item.code || item.id} label="Copy Farmer ID" />
+          </div>
           <p className="mt-0.5 truncate text-[9px] font-semibold leading-tight text-[#217346]" title={managerLabel}>
             Mgr: {managerLabel}
           </p>
           {item.managerId ? (
-            <p className="truncate font-mono text-[8px] leading-tight text-emerald-700" title={item.managerId}>
-              {shortId(item.managerId, 18)}
-            </p>
+            <div className="flex min-w-0 items-center gap-0.5">
+              <p className="min-w-0 truncate font-mono text-[8px] leading-tight text-emerald-700" title={item.managerId}>
+                {shortId(item.managerId, 18)}
+              </p>
+              <CopyButton value={item.managerId} label="Copy Manager ID" />
+            </div>
           ) : null}
           <p className="mt-0.5 truncate text-[9px] leading-tight text-[#6B7280]">
             {[item.mobile, item.farmName].filter(Boolean).join(" · ") || "—"}
@@ -552,6 +556,7 @@ export default function ManagerEarningsPage() {
   const [catalog, setCatalog] = useState([]);
   const [farmers, setFarmers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   usePolling(() => {
     Promise.all([
@@ -735,6 +740,43 @@ export default function ManagerEarningsPage() {
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || null;
 
+  const needle = search.trim().toLowerCase();
+
+  const filteredFarmerRows = useMemo(() => {
+    if (!needle) return farmerRows;
+    return farmerRows.filter((f) =>
+      [
+        f.name,
+        f.mobile,
+        f.code,
+        f.id,
+        f.managerName,
+        f.managerId,
+        f.farmName,
+        f.farmLocation,
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle))
+    );
+  }, [farmerRows, needle]);
+
+  const filteredProducts = useMemo(() => {
+    if (!needle) return products;
+    return products.filter((p) =>
+      [
+        p.name,
+        p.variety,
+        p.id,
+        p.product?.productId,
+        p.product?.cropName,
+        p.product?.farmName,
+        formatProductBusinessId(p.product || {}),
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle))
+    );
+  }, [products, needle]);
+
   const visibleOrders = useMemo(() => {
     if (!selectedProduct) return [];
     return farmerOrders.filter((order) => {
@@ -743,6 +785,31 @@ export default function ManagerEarningsPage() {
       return fallback === selectedProduct.id;
     });
   }, [farmerOrders, selectedProduct]);
+
+  const filteredVisibleOrders = useMemo(() => {
+    if (!needle) return visibleOrders;
+    return visibleOrders.filter((order) => {
+      const id = order.orderId || order.id || "";
+      const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate || "";
+      const pickupDate = order.pickupDate || order.pickup?.pickupDate || "";
+      const pickupTime = order.pickupTime || order.pickup?.pickupTime || "";
+      const amount = String(orderAmount(order) || "");
+      return [
+        id,
+        orderDate,
+        pickupDate,
+        pickupTime,
+        amount,
+        order.productName,
+        order.variety,
+        shortDate(orderDate),
+        shortDate(pickupDate),
+        formatTime12h(pickupTime),
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle));
+    });
+  }, [visibleOrders, needle]);
 
   const gradeColumns = useMemo(() => {
     const set = new Set(DEFAULT_GRADES);
@@ -757,7 +824,7 @@ export default function ManagerEarningsPage() {
     const grades = Object.fromEntries(gradeColumns.map((g) => [g, { qty: 0, rejected: 0 }]));
     let rejected = 0;
     let amount = 0;
-    visibleOrders.forEach((order) => {
+    filteredVisibleOrders.forEach((order) => {
       const map = gradeDetailMap(order);
       gradeColumns.forEach((g) => {
         grades[g].qty += Number(map[g]?.qty || 0);
@@ -767,7 +834,7 @@ export default function ManagerEarningsPage() {
       amount += orderAmount(order);
     });
     return { grades, rejected, amount };
-  }, [visibleOrders, gradeColumns]);
+  }, [filteredVisibleOrders, gradeColumns]);
 
   const overallTotals = useMemo(() => {
     if (selectedFarmerId) {
@@ -826,15 +893,42 @@ export default function ManagerEarningsPage() {
 
       <EarningsSummary total={listSplit.total} deposited={listSplit.deposited} balance={listSplit.balance} />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={
+            selectedProduct
+              ? "Search order ID, date, time, amount…"
+              : selectedFarmerId
+                ? "Search product, variety, ID…"
+                : "Search farmer, mobile, manager, ID…"
+          }
+          className={`${EXCEL_INPUT} w-full max-w-md px-3 py-2 text-xs`}
+        />
+        {search.trim() ? (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="text-[11px] font-semibold text-[#217346]"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+
       {!selectedFarmerId ? (
         farmerRows.length === 0 ? (
           <EmptyState
             title="No farmers yet"
             description="Add farmers first. After Quality and Grading Final Summary is confirmed, earnings will appear here."
           />
+        ) : filteredFarmerRows.length === 0 ? (
+          <EmptyState title="No match found" description="Try another farmer, mobile, manager, or ID." />
         ) : (
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-3 xl:grid-cols-4">
-            {farmerRows.map((f) => (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredFarmerRows.map((f) => (
               <FarmerEarningsCard
                 key={f.id}
                 item={f}
@@ -849,9 +943,11 @@ export default function ManagerEarningsPage() {
             title="No products yet"
             description="Add a product for this farmer first. After Quality and Grading Final Summary is confirmed, earnings will appear here."
           />
+        ) : filteredProducts.length === 0 ? (
+          <EmptyState title="No match found" description="Try another product name, variety, or ID." />
         ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
-            {products.map((p) => (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3">
+            {filteredProducts.map((p) => (
               <ProductEarningsCard
                 key={p.id}
                 item={p}
@@ -867,6 +963,8 @@ export default function ManagerEarningsPage() {
           title="No earning records yet"
           description="After Quality and Grading Final Summary is confirmed, that order will appear here."
         />
+      ) : filteredVisibleOrders.length === 0 ? (
+        <EmptyState title="No match found" description="Try another order ID, date, time, or amount." />
       ) : (
         <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
           <table className="w-max min-w-[720px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
@@ -938,7 +1036,7 @@ export default function ManagerEarningsPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleOrders.map((order, idx) => {
+              {filteredVisibleOrders.map((order, idx) => {
                 const id = order.orderId || order.id;
                 const map = gradeDetailMap(order);
                 const unit = order.unit || "Kg";
