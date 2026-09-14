@@ -113,6 +113,8 @@ export const vendorApi = {
   saveQualityGrading: (orderId, data) => api.patch(`/api/quality/${orderId}/grading`, data),
   confirmQuality: (orderId) => api.post(`/api/quality/${orderId}/confirm`),
   getQualitySummary: (orderId) => api.get(`/api/quality/${orderId}/final-summary`),
+  getQualityReport: (orderId) => api.get(`/api/quality/${orderId}/report`),
+  updateOrderPayment: (orderId, data) => api.patch(`/api/quality/${orderId}/payment`, data),
   verifyQualityQr: (data) => api.post("/api/quality/verify-qr", data),
 };
 

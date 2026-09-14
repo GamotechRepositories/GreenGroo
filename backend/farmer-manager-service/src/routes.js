@@ -153,6 +153,8 @@ import {
   saveQualityGrading,
   confirmQualityGrading,
   getQualityFinalSummary,
+  getOrderQualityReport,
+  updateOrderPaymentStatus,
 } from "./qualityControllers.js";
 
 const farmerRouter = express.Router();
@@ -477,6 +479,10 @@ driverRouter.post("/pickups/:pickupId/arrive-centre", requireDriver, arriveAtCen
 qualityRouter.get("/pending", requireVendorOrManager, listQualityPending);
 qualityRouter.post("/verify-qr", requireVendorOrManager, verifyQualityQr);
 qualityRouter.get("/:orderId/final-summary", requireVendorOrManager, getQualityFinalSummary);
+qualityRouter.get("/:orderId/report", requireVendorOrManager, getOrderQualityReport);
+qualityRouter.get("/:orderId/quality-report", requireVendorOrManager, getOrderQualityReport);
+qualityRouter.patch("/:orderId/payment", requireVendorOrManager, updateOrderPaymentStatus);
+qualityRouter.patch("/:orderId/payment-status", requireVendorOrManager, updateOrderPaymentStatus);
 qualityRouter.get("/:orderId", requireVendorOrManager, getQualityInspection);
 qualityRouter.post("/:orderId/start", requireVendorOrManager, startQualityCheck);
 qualityRouter.post("/:orderId/photos", requireVendorOrManager, saveQualityPhotos);

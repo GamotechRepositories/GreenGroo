@@ -1118,6 +1118,21 @@ export async function getManagerQualitySummary(orderId) {
   });
 }
 
+export async function getManagerQualityReport(orderId) {
+  return apiFetch(`/api/quality/${orderId}/report`, {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function updateManagerOrderPayment(orderId, payload) {
+  return apiFetch(`/api/quality/${orderId}/payment`, {
+    method: "PATCH",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+
 
 
 

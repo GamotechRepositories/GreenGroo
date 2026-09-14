@@ -1540,3 +1540,91 @@ export async function getQualityFinalSummary(req, res) {
     res.status(err.status || 500).json({ message: err.message || "Failed to load final summary" });
   }
 }
+
+export async function getOrderQualityReport(req, res) {
+  try {
+    const orderId = req.params.orderId;
+    let inspection = await QualityInspection.findOne({
+      $or: [{ orderId }, { inspectionId: orderId }, { pickupId: orderId }, { batchId: orderId }],
+    }).lean();
+    let pickup = await findPickupForOrder(inspection?.orderId || inspection?.pickupId || orderId);
+    let order = await findOrder(pickup?.orderId || inspection?.orderId || orderId);
+    if (!order) {
+      order = await FarmerOrder.findOne({ $or: [{ id: orderId }, { orderId }] });
+    }
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    if (!pickup) {
+      pickup = await findPickupForOrder(order.id || order.orderId);
+    }
+    const farmer = await Farmer.findOne({ $or: [{ id: order.farmerId }, { farmerId: order.farmerId }] });
+    const centre = pickup?.collectionCentreId
+      ? await CollectionCentre.findOne({ id: pickup.collectionCentreId }).lean()
+      : null;
+    const presented = await presentInspection(inspection || {}, pickup, order, farmer, centre);
+    const overlay = overlayQualityOnOrder(toPlain(order), inspection || {});
+    res.json({
+      ...presented,
+      order: toPlain(order),
+      orderedGrades: overlay.orderedGrades?.length ? overlay.orderedGrades : presented.orderedGrades,
+      finalStatement: overlay.finalStatement?.length
+        ? overlay.finalStatement
+        : overlay.grades?.length
+          ? overlay.grades
+          : presented.finalStatement || [],
+      grades: overlay.grades?.length ? overlay.grades : presented.grades,
+      gradeAAssigned: overlay.gradeAAssigned ?? presented.gradeAAssigned ?? presented.gradeAQuantity,
+      gradeBAssigned: overlay.gradeBAssigned ?? presented.gradeBAssigned ?? presented.gradeBQuantity,
+      gradeCAssigned: overlay.gradeCAssigned ?? presented.gradeCAssigned ?? presented.gradeCQuantity,
+      gradeARejected: overlay.gradeARejected ?? 0,
+      gradeBRejected: overlay.gradeBRejected ?? 0,
+      gradeCRejected: overlay.gradeCRejected ?? 0,
+      totalAmount: overlay.totalAmount ?? presented.finalAmount,
+      orderValue: overlay.orderValue ?? presented.finalAmount,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load quality report" });
+  }
+}
+
+export async function updateOrderPaymentStatus(req, res) {
+  try {
+    const { orderId } = req.params;
+    const { paymentStatus, paymentMethod, transactionId, paymentDate, notes, amount } = req.body;
+    if (!paymentStatus) {
+      return res.status(400).json({ message: "paymentStatus is required" });
+    }
+    const query = { $or: [{ id: orderId }, { orderId: orderId }] };
+
+    let order = await FarmerOrder.findOne(query);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.paymentStatus = paymentStatus;
+    if (paymentMethod) order.paymentMethod = paymentMethod;
+    if (transactionId) order.transactionId = transactionId;
+    order.paymentDetails = {
+      ...(order.paymentDetails || {}),
+      paymentStatus,
+      paymentMethod: paymentMethod || order.paymentMethod || "Bank Transfer",
+      transactionId: transactionId || order.transactionId || "",
+      paymentDate: paymentDate || new Date().toISOString(),
+      notes: notes || "",
+      amount: amount || order.totalAmount || order.orderValue || 0,
+      updatedAt: new Date(),
+    };
+    order.markModified("paymentDetails");
+    await order.save();
+
+    await FarmerEarning.updateMany({ orderId: order.id || order.orderId }, {
+      $set: { status: paymentStatus === "Paid" || paymentStatus === "PAID" ? "Paid" : "Pending" },
+    }).catch(() => {});
+
+    return res.json({ success: true, order, paymentStatus });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to update payment status" });
+  }
+}
+

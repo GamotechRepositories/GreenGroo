@@ -23,6 +23,7 @@ import ManagerProductFarmersPage from "../pages/manager/ManagerProductFarmersPag
 import ManagerProductOrdersSpreadsheetPage from "../pages/manager/ManagerProductOrdersSpreadsheetPage";
 import ManagerCreateOrderPage from "../pages/manager/ManagerCreateOrderPage";
 import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
+import ManagerEarningReportPage from "../pages/manager/ManagerEarningReportPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerLeavePage from "../pages/manager/ManagerLeavePage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
@@ -64,6 +65,7 @@ function ManagerRoutes() {
           <Route path="orders/product/:productKey" element={<ManagerProductOrdersSpreadsheetPage />} />
           <Route path="orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
           <Route path="earnings" element={<ManagerEarningsPage />} />
+          <Route path="earnings/:orderId" element={<ManagerEarningReportPage />} />
           <Route path="earnings/farmer/:farmerId" element={<ManagerEarningsPage />} />
           <Route path="earnings/farmer/:farmerId/product/:productId" element={<ManagerEarningsPage />} />
           <Route path="drivers" element={<ManagerDriversPage />} />

@@ -202,10 +202,31 @@ function productPhoto(product) {
   return product?.media?.mainPhoto || product?.image || "";
 }
 
-function splitEarnings(total) {
-  const t = Math.round(Number(total) || 0);
-  const deposited = Math.round(t * 0.7);
-  return { total: t, deposited, balance: t - deposited };
+function isOrderPaid(order) {
+  const s = String(order?.paymentStatus || "").toUpperCase().trim();
+  return s === "PAID" || s === "PAYMENT_COMPLETED" || s === "COMPLETED" || s === "PAYMENT RECEIVED";
+}
+
+function computeEarningsFromOrders(ordersList = []) {
+  let total = 0;
+  let deposited = 0;
+  let pending = 0;
+
+  ordersList.forEach((order) => {
+    const amt = orderAmount(order);
+    total += amt;
+    if (isOrderPaid(order)) {
+      deposited += amt;
+    } else {
+      pending += amt;
+    }
+  });
+
+  return {
+    total: Math.round(total),
+    deposited: Math.round(deposited),
+    balance: Math.round(pending),
+  };
 }
 
 function ProductPhoto({ src, name, className }) {
@@ -247,7 +268,11 @@ function DetailItem({ label, value, compact = false }) {
 function ProductEarningsCard({ item, onOpen }) {
   const src = item.product || {};
   const unit = src.unit || item.unit || "Kg";
-  const money = splitEarnings(item.amount);
+  const money = {
+    total: Math.round(item.amount || 0),
+    deposited: Math.round(item.deposited || 0),
+    balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
+  };
   const details = [
     ["Product ID", <CopyId key="id" value={formatProductBusinessId(src)} textClassName="font-mono text-[10px] font-semibold tracking-wide text-emerald-700" />],
     ["Crop", src.cropName],
@@ -301,7 +326,7 @@ function ProductEarningsCard({ item, onOpen }) {
         </div>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-2 gap-x-1.5 gap-y-1 sm:grid-cols-3 md:grid-cols-5">
+      <div className="mt-1.5 grid grid-cols-5 gap-x-1.5 gap-y-1">
         {details.map(([label, value]) => (
           <DetailItem key={label} label={label} value={value} compact />
         ))}
@@ -452,7 +477,11 @@ function orderMatchesFarmer(order, farmerId, farmerName = "") {
 }
 
 function FarmerEarningsCard({ item, onOpen }) {
-  const money = splitEarnings(item.amount);
+  const money = {
+    total: Math.round(item.amount || 0),
+    deposited: Math.round(item.deposited || 0),
+    balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
+  };
   return (
     <article
       role="button"
@@ -464,50 +493,34 @@ function FarmerEarningsCard({ item, onOpen }) {
           onOpen();
         }
       }}
-      className={`${EXCEL_PANEL} cursor-pointer p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8] sm:p-3`}
+      className={`${EXCEL_PANEL} cursor-pointer p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8] sm:p-2`}
     >
-      <div className="flex items-start gap-1.5 sm:gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-[#E8F5E9] text-[11px] font-bold text-[#217346] sm:h-11 sm:w-11 sm:rounded-xl sm:text-sm">
+      <div className="flex items-start gap-1.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-[#E8F5E9] text-[12px] font-bold text-[#217346] sm:h-10 sm:w-10">
           {item.initials || String(item.name || "F").charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-1">
-            <p className="min-w-0 truncate text-[11px] font-bold text-[#1F2937] sm:text-[13px]">{item.name || "Farmer"}</p>
+            <p className="min-w-0 truncate text-[12px] font-bold text-[#1F2937] sm:text-[13px]">{item.name || "Farmer"}</p>
             {item.status ? (
-              <StatusBadge status={item.status} className="hidden max-w-[40%] shrink-0 scale-90 origin-top-right sm:inline-flex" />
+              <StatusBadge status={item.status} className="max-w-[40%] shrink-0 scale-90 origin-top-right" />
             ) : null}
           </div>
-          <CopyId
-            value={item.code || item.id}
-            className="mt-0.5"
-            textClassName="font-mono text-[9px] text-emerald-700 sm:text-[10px]"
-            breakAll
-          />
-          <p className="mt-0.5 truncate text-[10px] text-[#6B7280] sm:text-[11px]">{item.mobile || "—"}</p>
-          <p className="hidden truncate text-[11px] text-[#6B7280] sm:block">
-            {[item.farmName, item.farmLocation].filter(Boolean).join(" · ") || "Open farmer earnings"}
+          <p className="mt-0.5 truncate text-[9px] text-[#6B7280] sm:text-[10px]">
+            {[item.farmName, item.farmLocation].filter(Boolean).join(" • ") || "Open farmer earnings"}
           </p>
         </div>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-3 gap-1 text-center sm:mt-2.5 sm:gap-1.5">
-        <div className="rounded-md bg-slate-50 px-0.5 py-1 sm:rounded-lg sm:px-1 sm:py-1.5">
-          <p className="text-[8px] text-[#6B7280] sm:text-[10px]">Products</p>
-          <p className="text-[11px] font-bold text-slate-900 sm:text-[12px]">{item.productCount || 0}</p>
-        </div>
-        <div className="rounded-md bg-slate-50 px-0.5 py-1 sm:rounded-lg sm:px-1 sm:py-1.5">
-          <p className="text-[8px] text-[#6B7280] sm:text-[10px]">Orders</p>
-          <p className="text-[11px] font-bold text-slate-900 sm:text-[12px]">{item.orderCount || 0}</p>
-        </div>
-        <div className="rounded-md bg-slate-50 px-0.5 py-1 sm:rounded-lg sm:px-1 sm:py-1.5">
-          <p className="text-[8px] text-[#6B7280] sm:text-[10px]">Earnings</p>
-          <p className="truncate text-[10px] font-bold text-[#217346] sm:text-[12px]">
-            ₹{Number(item.amount || 0).toLocaleString("en-IN")}
-          </p>
-        </div>
+      <div className="mt-1.5 grid grid-cols-5 gap-x-1.5 gap-y-1">
+        <DetailItem label="Farmer ID" value={<CopyId key="id" value={item.code || item.id} textClassName="font-mono text-[10px] font-semibold tracking-wide text-emerald-700" />} compact />
+        <DetailItem label="Mobile" value={item.mobile || "—"} compact />
+        <DetailItem label="Location" value={item.farmLocation || "—"} compact />
+        <DetailItem label="Products" value={String(item.productCount || 0)} compact />
+        <DetailItem label="Orders" value={String(item.orderCount || 0)} compact />
       </div>
 
-      <div className="mt-1.5 sm:mt-2">
+      <div className="mt-1.5">
         <EarningsSummary compact total={money.total} deposited={money.deposited} balance={money.balance} />
       </div>
     </article>
@@ -556,6 +569,8 @@ export default function ManagerEarningsPage() {
         productCount: 0,
         orderCount: 0,
         amount: 0,
+        deposited: 0,
+        pending: 0,
         productIds: new Set(),
       });
     });
@@ -576,6 +591,8 @@ export default function ManagerEarningsPage() {
           productCount: 0,
           orderCount: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           productIds: new Set(),
         });
       }
@@ -603,12 +620,20 @@ export default function ManagerEarningsPage() {
           productCount: 0,
           orderCount: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           productIds: new Set(),
         });
       }
       const row = map.get(fid);
+      const amt = orderAmount(order);
       row.orderCount += 1;
-      row.amount += orderAmount(order);
+      row.amount += amt;
+      if (isOrderPaid(order)) {
+        row.deposited += amt;
+      } else {
+        row.pending += amt;
+      }
       const pid = String(order.productId || `${order.productName || order.product || "Product"}::${order.variety || ""}`);
       if (pid && !row.productIds.has(pid)) {
         row.productIds.add(pid);
@@ -648,6 +673,8 @@ export default function ManagerEarningsPage() {
         unit: product.unit || "Kg",
         count: 0,
         amount: 0,
+        deposited: 0,
+        pending: 0,
         soldQty: 0,
         rejected: 0,
         gradeTotals: Object.fromEntries(STATEMENT_GRADES.map((g) => [g, { qty: 0, rate: 0, rejected: 0 }])),
@@ -668,6 +695,8 @@ export default function ManagerEarningsPage() {
           unit: order.unit || "Kg",
           count: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           soldQty: 0,
           rejected: 0,
           gradeTotals: Object.fromEntries(STATEMENT_GRADES.map((g) => [g, { qty: 0, rate: 0, rejected: 0 }])),
@@ -676,8 +705,14 @@ export default function ManagerEarningsPage() {
       const row = map.get(id);
       const statementRows = gradeStatementRows(order);
       const totals = gradeStatementTotals(statementRows);
+      const amt = orderAmount(order);
       row.count += 1;
-      row.amount += orderAmount(order);
+      row.amount += amt;
+      if (isOrderPaid(order)) {
+        row.deposited += amt;
+      } else {
+        row.pending += amt;
+      }
       row.soldQty += totals.finalQty;
       row.rejected += totals.rejected;
       statementRows.forEach((g) => {
@@ -733,7 +768,9 @@ export default function ManagerEarningsPage() {
     return Math.round(farmerRows.reduce((sum, row) => sum + Number(row.amount || 0), 0));
   }, [farmerRows, farmerOrders, selectedFarmerId]);
 
-  const listSplit = splitEarnings(selectedProduct ? tableTotals.amount : overallTotals);
+  const listSplit = computeEarningsFromOrders(
+    selectedProduct ? visibleOrders : selectedFarmerId ? farmerOrders : orders
+  );
   const sheetUnit = selectedProduct?.unit || visibleOrders[0]?.unit || "Kg";
   const farmerBase = selectedFarmerId ? `${BASE}/farmer/${encodeURIComponent(selectedFarmerId)}` : BASE;
 
@@ -819,18 +856,19 @@ export default function ManagerEarningsPage() {
         />
       ) : (
         <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
-          <table className="w-max min-w-[720px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+          <table className="w-max min-w-[760px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
             <colgroup>
               <col className="w-[4%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
               <col className="w-[7%]" />
               {gradeColumns.map((g) => (
                 <Fragment key={`col-${g}`}>
-                  <col className="w-[10%]" />
                   <col className="w-[9%]" />
+                  <col className="w-[8%]" />
                 </Fragment>
               ))}
+              <col className="w-[8%]" />
               <col className="w-[8%]" />
               <col className="w-[8%]" />
             </colgroup>
@@ -865,6 +903,9 @@ export default function ManagerEarningsPage() {
                 </th>
                 <th className={TH} rowSpan={2}>
                   <HeadLabel line1="Amount" line2="₹" />
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Payment" line2="Status" />
                 </th>
               </tr>
               <tr>
@@ -901,7 +942,7 @@ export default function ManagerEarningsPage() {
                   <tr
                     key={id}
                     className="group cursor-pointer"
-                    onClick={() => navigate(`${ORDER_DETAIL}/${encodeURIComponent(id)}`)}
+                    onClick={() => navigate(`${BASE}/${encodeURIComponent(id)}`)}
                   >
                     <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
                     <td className={`${TD} ${zebra} whitespace-nowrap`}>
@@ -932,6 +973,9 @@ export default function ManagerEarningsPage() {
                       ) : (
                         <span className="font-semibold text-[#9CA3AF]">×</span>
                       )}
+                    </td>
+                    <td className={`${TD} ${zebra} whitespace-nowrap px-1 py-0.5`}>
+                      <StatusBadge status={order.paymentStatus || "Pending"} className="scale-90" />
                     </td>
                   </tr>
                 );
@@ -966,6 +1010,9 @@ export default function ManagerEarningsPage() {
                   ) : (
                     <span className="font-semibold text-[#9CA3AF]">×</span>
                   )}
+                </td>
+                <td className={`${TH} bg-[#FCE7F3] text-center text-[10px] font-semibold text-[#6B7280]`}>
+                  —
                 </td>
               </tr>
             </tfoot>

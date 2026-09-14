@@ -87,14 +87,10 @@ function qtyPrefill(d, key, label) {
   return current ?? "";
 }
 
-const QUALITY_TIMELINE = [
-  { key: "RECEIVED", label: "Received" },
-  { key: "QUALITY_CHECK", label: "Quality Check" },
-  { key: "GRADING", label: "Grading" },
-  { key: "GRADING_COMPLETED", label: "Grading Completed" },
-];
-
-function qualityTimelineIndex(status) {
+function qualityTimelineIndex(status, paymentStatus) {
+  const p = String(paymentStatus || "").toUpperCase().trim();
+  const isPaid = p === "PAID" || p === "PAYMENT_COMPLETED" || p === "COMPLETED" || p === "PAYMENT RECEIVED";
+  if (isPaid) return 4;
   const s = String(status || "").toUpperCase();
   if (s === "GRADE_CONFIRMED" || s === "ORDER_COMPLETED") return 3;
   if (s === "GRADING") return 2;
@@ -102,14 +98,25 @@ function qualityTimelineIndex(status) {
   return 0;
 }
 
-function QualityStatusTimeline({ status }) {
-  const idx = qualityTimelineIndex(status);
+function QualityStatusTimeline({ status, paymentStatus }) {
+  const isPaid = ["PAID", "PAYMENT_COMPLETED", "COMPLETED", "PAYMENT RECEIVED"].includes(
+    String(paymentStatus || "").toUpperCase().trim()
+  );
+  const idx = qualityTimelineIndex(status, paymentStatus);
+  const steps = [
+    { key: "RECEIVED", label: "Received" },
+    { key: "QUALITY_CHECK", label: "Quality Check" },
+    { key: "GRADING", label: "Grading" },
+    { key: "GRADING_COMPLETED", label: "Grading Completed" },
+    { key: "PAYMENT", label: isPaid ? "Payment Completed" : "Payment" },
+  ];
+
   return (
     <ol className="flex w-full items-start">
-      {QUALITY_TIMELINE.map((step, i) => {
+      {steps.map((step, i) => {
         const done = i <= idx;
         const lineDone = i < idx;
-        const last = i === QUALITY_TIMELINE.length - 1;
+        const last = i === steps.length - 1;
         return (
           <li key={step.key} className="relative flex min-w-0 flex-1 flex-col items-center px-0.5">
             {!last ? (
@@ -564,7 +571,7 @@ export default function ManagerQualityInspectionPage() {
       ) : null}
       <section className={EXCEL_PANEL}>
         <div className="px-2 py-3 sm:px-4">
-          <QualityStatusTimeline status={data.status} />
+          <QualityStatusTimeline status={data.status} paymentStatus={data.paymentStatus || data.order?.paymentStatus} />
         </div>
       </section>
       {error ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 print:hidden">{error}</div> : null}

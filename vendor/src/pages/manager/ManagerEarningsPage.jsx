@@ -10,6 +10,7 @@ import { usePolling } from "../../hooks/usePolling";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import SpreadsheetViewport from "../../components/ui/SpreadsheetViewport";
+import StatusBadge from "../../components/ui/StatusBadge";
 import { CopyButton } from "../../components/ui/CopyId";
 import { canonicalOrderStatus } from "../../utils/orderDisplay";
 import {
@@ -200,10 +201,31 @@ function productPhoto(product) {
   return product?.media?.mainPhoto || product?.image || "";
 }
 
-function splitEarnings(total) {
-  const t = Math.round(Number(total) || 0);
-  const deposited = Math.round(t * 0.7);
-  return { total: t, deposited, balance: t - deposited };
+function isOrderPaid(order) {
+  const s = String(order?.paymentStatus || "").toUpperCase().trim();
+  return s === "PAID" || s === "PAYMENT_COMPLETED" || s === "COMPLETED" || s === "PAYMENT RECEIVED";
+}
+
+function computeEarningsFromOrders(ordersList = []) {
+  let total = 0;
+  let deposited = 0;
+  let pending = 0;
+
+  ordersList.forEach((order) => {
+    const amt = orderAmount(order);
+    total += amt;
+    if (isOrderPaid(order)) {
+      deposited += amt;
+    } else {
+      pending += amt;
+    }
+  });
+
+  return {
+    total: Math.round(total),
+    deposited: Math.round(deposited),
+    balance: Math.round(pending),
+  };
 }
 
 function ProductPhoto({ src, name, className }) {
@@ -228,7 +250,11 @@ function ProductPhoto({ src, name, className }) {
 function ProductEarningsCard({ item, onOpen }) {
   const src = item.product || {};
   const unit = src.unit || item.unit || "Kg";
-  const money = splitEarnings(item.amount);
+  const money = {
+    total: Math.round(item.amount || 0),
+    deposited: Math.round(item.deposited || 0),
+    balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
+  };
   const productId = formatProductBusinessId(src);
   const details = [
     ["Crop", src.cropName || "—"],
@@ -457,7 +483,11 @@ function shortId(value = "", keep = 14) {
 }
 
 function FarmerEarningsCard({ item, onOpen }) {
-  const money = splitEarnings(item.amount);
+  const money = {
+    total: Math.round(item.amount || 0),
+    deposited: Math.round(item.deposited || 0),
+    balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
+  };
   const managerLabel =
     item.managerName && item.managerName !== "—" ? item.managerName : "Unassigned";
 
@@ -592,6 +622,8 @@ export default function ManagerEarningsPage() {
         productCount: 0,
         orderCount: 0,
         amount: 0,
+        deposited: 0,
+        pending: 0,
         productIds: new Set(),
       });
     });
@@ -614,6 +646,8 @@ export default function ManagerEarningsPage() {
           productCount: 0,
           orderCount: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           productIds: new Set(),
         });
       } else {
@@ -647,6 +681,8 @@ export default function ManagerEarningsPage() {
           productCount: 0,
           orderCount: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           productIds: new Set(),
         });
       } else {
@@ -655,8 +691,14 @@ export default function ManagerEarningsPage() {
         if (!row.managerId && order.managerId) row.managerId = order.managerId;
       }
       const row = map.get(fid);
+      const amt = orderAmount(order);
       row.orderCount += 1;
-      row.amount += orderAmount(order);
+      row.amount += amt;
+      if (isOrderPaid(order)) {
+        row.deposited += amt;
+      } else {
+        row.pending += amt;
+      }
       const pid = String(order.productId || `${order.productName || order.product || "Product"}::${order.variety || ""}`);
       if (pid && !row.productIds.has(pid)) {
         row.productIds.add(pid);
@@ -696,6 +738,8 @@ export default function ManagerEarningsPage() {
         unit: product.unit || "Kg",
         count: 0,
         amount: 0,
+        deposited: 0,
+        pending: 0,
         soldQty: 0,
         rejected: 0,
         gradeTotals: Object.fromEntries(STATEMENT_GRADES.map((g) => [g, { qty: 0, rate: 0, rejected: 0 }])),
@@ -716,6 +760,8 @@ export default function ManagerEarningsPage() {
           unit: order.unit || "Kg",
           count: 0,
           amount: 0,
+          deposited: 0,
+          pending: 0,
           soldQty: 0,
           rejected: 0,
           gradeTotals: Object.fromEntries(STATEMENT_GRADES.map((g) => [g, { qty: 0, rate: 0, rejected: 0 }])),
@@ -724,8 +770,14 @@ export default function ManagerEarningsPage() {
       const row = map.get(id);
       const statementRows = gradeStatementRows(order);
       const totals = gradeStatementTotals(statementRows);
+      const amt = orderAmount(order);
       row.count += 1;
-      row.amount += orderAmount(order);
+      row.amount += amt;
+      if (isOrderPaid(order)) {
+        row.deposited += amt;
+      } else {
+        row.pending += amt;
+      }
       row.soldQty += totals.finalQty;
       row.rejected += totals.rejected;
       statementRows.forEach((g) => {
@@ -843,7 +895,9 @@ export default function ManagerEarningsPage() {
     return Math.round(farmerRows.reduce((sum, row) => sum + Number(row.amount || 0), 0));
   }, [farmerRows, farmerOrders, selectedFarmerId]);
 
-  const listSplit = splitEarnings(selectedProduct ? tableTotals.amount : overallTotals);
+  const listSplit = computeEarningsFromOrders(
+    selectedProduct ? filteredVisibleOrders : selectedFarmerId ? farmerOrders : orders
+  );
   const sheetUnit = selectedProduct?.unit || visibleOrders[0]?.unit || "Kg";
   const farmerBase = selectedFarmerId ? `${BASE}/farmer/${encodeURIComponent(selectedFarmerId)}` : BASE;
 
@@ -967,18 +1021,19 @@ export default function ManagerEarningsPage() {
         <EmptyState title="No match found" description="Try another order ID, date, time, or amount." />
       ) : (
         <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
-          <table className="w-max min-w-[720px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+          <table className="w-max min-w-[760px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
             <colgroup>
               <col className="w-[4%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
               <col className="w-[7%]" />
               {gradeColumns.map((g) => (
                 <Fragment key={`col-${g}`}>
-                  <col className="w-[10%]" />
                   <col className="w-[9%]" />
+                  <col className="w-[8%]" />
                 </Fragment>
               ))}
+              <col className="w-[8%]" />
               <col className="w-[8%]" />
               <col className="w-[8%]" />
             </colgroup>
@@ -1013,6 +1068,9 @@ export default function ManagerEarningsPage() {
                 </th>
                 <th className={TH} rowSpan={2}>
                   <HeadLabel line1="Amount" line2="₹" />
+                </th>
+                <th className={TH} rowSpan={2}>
+                  <HeadLabel line1="Payment" line2="Status" />
                 </th>
               </tr>
               <tr>
@@ -1049,7 +1107,7 @@ export default function ManagerEarningsPage() {
                   <tr
                     key={id}
                     className="group cursor-pointer"
-                    onClick={() => navigate(`${ORDER_DETAIL}/${encodeURIComponent(id)}`)}
+                    onClick={() => navigate(`${BASE}/${encodeURIComponent(id)}`)}
                   >
                     <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
                     <td className={`${TD} ${zebra} whitespace-nowrap`}>
@@ -1080,6 +1138,9 @@ export default function ManagerEarningsPage() {
                       ) : (
                         <span className="font-semibold text-[#9CA3AF]">×</span>
                       )}
+                    </td>
+                    <td className={`${TD} ${zebra} whitespace-nowrap px-1 py-0.5`}>
+                      <StatusBadge status={order.paymentStatus || "Pending"} className="scale-90" />
                     </td>
                   </tr>
                 );
@@ -1114,6 +1175,9 @@ export default function ManagerEarningsPage() {
                   ) : (
                     <span className="font-semibold text-[#9CA3AF]">×</span>
                   )}
+                </td>
+                <td className={`${TH} bg-[#FCE7F3] text-center text-[10px] font-semibold text-[#6B7280]`}>
+                  —
                 </td>
               </tr>
             </tfoot>
