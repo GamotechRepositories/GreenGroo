@@ -91,7 +91,59 @@ async function ensureCentreBusinessId(centre, locationHint = {}) {
   return centre;
 }
 
-export { ensureCentreBusinessId, isCollectionCentreBusinessId, ensureDefaultCentre };
+export { ensureCentreBusinessId, isCollectionCentreBusinessId, ensureDefaultCentre, createManagerBusinessId };
+
+function managerNameSlug(name = "") {
+  const letters = String(name || "")
+    .trim()
+    .replace(/[^a-zA-Z]/g, "");
+  if (!letters) return "Mgr";
+  const code = letters.slice(0, 3);
+  return code.charAt(0).toUpperCase() + code.slice(1).toLowerCase();
+}
+
+/**
+ * Manager ID: {CC-ID}-{name3}-{serial}
+ * Example: GGC-CC-MH-NK-NAS-NAS-001-Pra-04
+ */
+async function createManagerBusinessId({
+  vendorId,
+  name,
+  collectionCentreId = "",
+  city = "",
+  state = "",
+  address = "",
+} = {}) {
+  let centre = null;
+  const requestedCentreId = String(collectionCentreId || "").trim();
+  if (requestedCentreId) {
+    centre = await CollectionCentre.findOne({
+      vendorId,
+      id: requestedCentreId,
+    });
+    if (centre) centre = await ensureCentreBusinessId(centre, { city, address });
+  }
+  if (!centre) {
+    centre = await ensureDefaultCentre(vendorId, { city, address, state });
+  }
+  if (!centre?.id) {
+    throw new Error("Collection centre is required to create manager ID");
+  }
+
+  const nameSlug = managerNameSlug(name);
+  const id = await generateId({
+    module: "MGR",
+    collectionCentreId: centre.id,
+    nameSlug,
+  });
+
+  return {
+    id,
+    managerCode: id,
+    collectionCentreId: centre.id,
+    nameSlug,
+  };
+}
 const ASSIGNED_STATUSES = ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED"];
 const IN_PROGRESS_STATUSES = ["DISPATCHED", "DRIVER_ARRIVED", "ORDER_VERIFIED", "QR_VERIFIED", "PICKED_UP", "IN_TRANSIT", "ARRIVED_AT_CENTRE"];
 const DRIVER_DONE_STATUSES = ["COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "COMPLETED"];

@@ -525,6 +525,20 @@ export const MODULES = {
     generate: (p, seq) =>
       `${COMPANY_PREFIX}-DRV-${String(p.nameCode || "XXX").toUpperCase()}-${pad(seq, 6)}`,
   },
+  MGR: {
+    description: "Farmer Manager ID — collection centre + first 3 letters of name + serial",
+    formatHint: "{collectionCentreId}-{name3}-{serial}",
+    example: "GGC-CC-MH-NK-NAS-NAS-001-Pra-04",
+    serialWidth: 2,
+    counterKey: (p) => `manager-${String(p.collectionCentreId || "CC").toUpperCase()}`,
+    generate: (p, seq) => {
+      req(p, ["collectionCentreId", "nameSlug"]);
+      const letters = String(p.nameSlug || "").replace(/[^a-zA-Z]/g, "");
+      const raw = (letters || "Mgr").slice(0, 3);
+      const name3 = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+      return `${String(p.collectionCentreId).trim()}-${name3}-${pad(seq, 2)}`;
+    },
+  },
   QC: {
     description: "Quality Check ID",
     formatHint: "GGC-QC-{YYYYMMDD}-{serial}",

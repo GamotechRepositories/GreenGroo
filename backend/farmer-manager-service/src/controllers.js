@@ -20,7 +20,7 @@ import {
   CollectionCentre,
   QualityInspection,
 } from "./models.js";
-import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
+import { ensurePickupForOrder, ensureCentreBusinessId, ensureDefaultCentre, createManagerBusinessId, formatFarmLocation, qrPayloadFor } from "./pickupControllers.js";
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { categoryFromName, cropCodeFromName, varietyCodeFromName, farmerSerialFromId } from "../../erp-service/src/config/idRegistry.js";
@@ -4125,6 +4125,8 @@ export async function getManagers(req, res) {
           m.name.toLowerCase().includes(needle) ||
           m.mobile.includes(needle) ||
           m.email.toLowerCase().includes(needle) ||
+          String(m.id || "").toLowerCase().includes(needle) ||
+          String(m.managerCode || "").toLowerCase().includes(needle) ||
           (m.location && m.location.toLowerCase().includes(needle))
       );
     }
@@ -4151,7 +4153,6 @@ export async function createManager(req, res) {
   try {
     const payload = req.body;
     const vendorId = req.user?.vendorId || payload.vendorId || DEFAULT_VENDOR_ID;
-    const id = `mgr-${Date.now()}`;
     const location = [payload.city, payload.state].filter(Boolean).join(", ") || payload.location || "";
 
     if (!payload.name || !payload.mobile) {
@@ -4163,11 +4164,22 @@ export async function createManager(req, res) {
       return res.status(409).json({ message: "A manager with this mobile number already exists" });
     }
 
+    const businessId = await createManagerBusinessId({
+      vendorId,
+      name: payload.name,
+      collectionCentreId: payload.collectionCentreId || "",
+      city: payload.city || "",
+      state: payload.state || "",
+      address: payload.address || "",
+    });
+
     const rawPassword = payload.password || "manager123";
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     const manager = new FarmerManager({
-      id,
+      id: businessId.id,
+      managerCode: businessId.managerCode,
+      collectionCentreId: businessId.collectionCentreId,
       vendorId,
       name: payload.name,
       profileImage: payload.profileImage || "",

@@ -7,6 +7,7 @@ import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import SupportMessage from "../../legacy/models/support/SupportMessage.js";
 import { FarmerManager, PickupDriver, Vendor } from "../../farmer-manager-service/src/models.js";
+import { createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { applyStoreOrderStatus } from "../../delivery-service/src/services/storeOrderLifecycle.js";
 import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask } from "./models.js";
@@ -302,9 +303,21 @@ export async function createHrStaff(req, res, next) {
     let payload = null;
 
     if (role === "farmer_manager") {
+      const vendorId = String(req.body.vendorId || "vendor-1").trim() || "vendor-1";
+      const businessId = await createManagerBusinessId({
+        vendorId,
+        name,
+        collectionCentreId: String(req.body.collectionCentreId || "").trim(),
+        city: String(req.body.city || "").trim(),
+        state: String(req.body.state || "").trim(),
+        address: String(req.body.address || "").trim(),
+      });
+      const hashedPassword = await bcrypt.hash(password, 10);
       const created = await FarmerManager.create({
-        id: `fm-${Date.now()}`,
-        vendorId: String(req.body.vendorId || "vendor-1").trim() || "vendor-1",
+        id: businessId.id,
+        managerCode: businessId.managerCode,
+        collectionCentreId: businessId.collectionCentreId,
+        vendorId,
         name,
         mobile: phone,
         email,
@@ -315,7 +328,7 @@ export async function createHrStaff(req, res, next) {
         location: String(req.body.location || req.body.city || "").trim(),
         joiningDate: String(req.body.joiningDate || "").trim(),
         status: "Active",
-        password,
+        password: hashedPassword,
         role: "FARMER_MANAGER",
       });
       employeeId = String(created.id || created._id);

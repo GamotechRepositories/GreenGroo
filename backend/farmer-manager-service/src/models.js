@@ -143,6 +143,8 @@ const farmerSchema = new mongoose.Schema(
 const farmerManagerSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
+    managerCode: { type: String, default: "" },
+    collectionCentreId: { type: String, default: "" },
     vendorId: { type: String, required: true, default: "vendor-1" },
     name: { type: String, required: true, trim: true },
     profileImage: { type: String, default: "" },
