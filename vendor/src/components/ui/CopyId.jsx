@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 
 function CopyIcon({ className }) {
   return (
@@ -60,9 +61,10 @@ export function CopyButton({ value, label = "Copy ID" }) {
     try {
       await copyText(text);
       setCopied(true);
+      toast.success("Copied");
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      /* ignore */
+      toast.error("Could not copy");
     }
   };
 
@@ -72,7 +74,7 @@ export function CopyButton({ value, label = "Copy ID" }) {
       onClick={copy}
       title={copied ? "Copied" : label}
       aria-label={copied ? "Copied" : label}
-      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#6B7280] hover:bg-gray-100 hover:text-[#217346]"
+      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[#6B7280] hover:bg-slate-100 hover:text-[#217346]"
     >
       {copied ? <CheckIcon className="h-3.5 w-3.5 text-[#217346]" /> : <CopyIcon className="h-3.5 w-3.5" />}
     </button>
@@ -82,7 +84,7 @@ export function CopyButton({ value, label = "Copy ID" }) {
 export default function CopyId({
   value,
   className = "",
-  textClassName = "font-mono text-[11px] font-semibold text-[#217346]",
+  textClassName = "font-mono text-[11px] text-emerald-700",
   breakAll = false,
 }) {
   const text = String(value || "").trim();
@@ -91,7 +93,7 @@ export default function CopyId({
   }
 
   return (
-    <span className={`inline-flex max-w-full min-w-0 items-start gap-0.5 ${className}`}>
+    <span className={`inline-flex max-w-full min-w-0 items-center gap-0.5 ${className}`}>
       <span className={`min-w-0 ${breakAll ? "break-all" : "truncate"} ${textClassName}`} title={text}>
         {text}
       </span>

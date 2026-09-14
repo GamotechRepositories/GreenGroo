@@ -38,6 +38,14 @@ import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsP
 import VendorSearchPage from './pages/search/VendorSearchPage'
 import ApplyLeavePage from './pages/leave/ApplyLeavePage'
 import DriverLeavePage from './pages/drivers/DriverLeavePage'
+import ManagerInventoryPage from './pages/manager/ManagerInventoryPage'
+import ManagerInventoryHistoryPage from './pages/manager/ManagerInventoryHistoryPage'
+import ManagerOrdersPage from './pages/manager/ManagerOrdersPage'
+import ManagerCreateOrderPage from './pages/manager/ManagerCreateOrderPage'
+import ManagerOrderDetailPage from './pages/manager/ManagerOrderDetailPage'
+import ManagerEarningsPage from './pages/manager/ManagerEarningsPage'
+import ManagerFarmerEarningsSpreadsheetPage from './pages/manager/ManagerFarmerEarningsSpreadsheetPage'
+import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
 
 function App() {
   return (
@@ -102,6 +110,14 @@ function App() {
                 <Route path="/vendor/quality/grading" element={<QualityListPage mode="grading" />} />
                 <Route path="/vendor/quality/completed" element={<QualityListPage mode="completed" />} />
                 <Route path="/vendor/quality/:orderId" element={<QualityInspectionPage />} />
+                <Route path="/vendor/inventory" element={<ManagerInventoryPage />} />
+                <Route path="/vendor/inventory/history" element={<ManagerInventoryHistoryPage />} />
+                <Route path="/vendor/orders" element={<ManagerOrdersPage />} />
+                <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
+                <Route path="/vendor/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
+                <Route path="/vendor/earnings" element={<ManagerEarningsPage />} />
+                <Route path="/vendor/earnings/farmer/:farmerId" element={<ManagerFarmerEarningsSpreadsheetPage />} />
+                <Route path="/vendor/documents" element={<ManagerDocumentsPage />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />
                 <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Panel configuration" />} />

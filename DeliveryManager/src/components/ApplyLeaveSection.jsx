@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
 
 const LEAVE_TYPES = [
   { value: "casual", label: "Casual" },
@@ -149,8 +148,7 @@ export default function ApplyLeaveSection({
               onClick={addDate}
               className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add date
+              + Add date
             </button>
           </div>
           {dates.length ? (
@@ -158,8 +156,8 @@ export default function ApplyLeaveSection({
               {dates.map((day) => (
                 <span key={day} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
                   {day}
-                  <button type="button" onClick={() => removeDate(day)} className="rounded-full p-0.5 hover:bg-emerald-100" aria-label={`Remove ${day}`}>
-                    <Trash2 className="h-3 w-3" />
+                  <button type="button" onClick={() => removeDate(day)} className="rounded-full px-1 hover:bg-emerald-100" aria-label={`Remove ${day}`}>
+                    ×
                   </button>
                 </span>
               ))}
@@ -175,7 +173,7 @@ export default function ApplyLeaveSection({
             disabled={saving}
             className="inline-flex min-h-10 items-center justify-center rounded-xl border border-emerald-700 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
           >
-            {saving ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Submitting…</> : "Submit leave request"}
+            {saving ? "Submitting…" : "Submit leave request"}
           </button>
         </div>
       </form>
@@ -183,7 +181,7 @@ export default function ApplyLeaveSection({
       <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">My leave requests</h2>
         {loading ? (
-          <div className="flex justify-center py-10 text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          <p className="mt-4 text-center text-sm text-slate-400">Loading…</p>
         ) : rows.length === 0 ? (
           <p className="mt-4 text-sm text-slate-400">No leave requests yet.</p>
         ) : (

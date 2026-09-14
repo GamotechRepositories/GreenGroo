@@ -61,6 +61,18 @@ const navItems = [
       { to: '/vendor/quality/completed', label: 'Completed' },
     ],
   },
+  {
+    id: 'inventory',
+    label: 'Inventory',
+    icon: 'box',
+    children: [
+      { to: '/vendor/inventory', label: 'All Inventory', end: true },
+      { to: '/vendor/inventory/history', label: 'History' },
+    ],
+  },
+  { to: '/vendor/orders', label: 'Orders', icon: 'inbox' },
+  { to: '/vendor/earnings', label: 'Earnings', icon: 'currency' },
+  { to: '/vendor/documents', label: 'Documents', icon: 'clipboard' },
   { to: '/inventory-requests', label: 'Inventory Requests', icon: 'box' },
 ]
 
