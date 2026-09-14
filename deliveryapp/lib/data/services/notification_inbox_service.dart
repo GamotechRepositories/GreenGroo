@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import '../../core/config/api_config.dart';
 import 'auth_service.dart';
@@ -234,8 +233,8 @@ class NotificationInboxService extends ChangeNotifier {
     notifyListeners();
     for (final id in ids) {
       try {
-        await http.delete(
-          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.notificationDelete(id)}'),
+        await apiDelete(
+          ApiConfig.notificationDelete(id),
           headers: _headers,
         );
       } catch (_) {}
@@ -253,8 +252,8 @@ class NotificationInboxService extends ChangeNotifier {
       notifyListeners();
     }
     try {
-      await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.notificationDelete(id)}'),
+      await apiDelete(
+        ApiConfig.notificationDelete(id),
         headers: _headers,
       );
     } catch (_) {}

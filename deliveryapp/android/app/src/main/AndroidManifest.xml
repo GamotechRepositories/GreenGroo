@@ -5,14 +5,10 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <!-- TODO: Remove android:usesCleartextTraffic once API_LIVE_URL is HTTPS -->
-    <!-- TODO: Remove android:networkSecurityConfig once API_LIVE_URL is HTTPS -->
     <application
         android:label="Delivery Partner"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"

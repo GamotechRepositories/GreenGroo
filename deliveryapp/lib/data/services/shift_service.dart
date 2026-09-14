@@ -123,6 +123,8 @@ class GoOnlineResult {
   final int? distanceMeters;
   final int? allowedRadius;
   final int? minutesUntilStart;
+  final String? startTime;
+  final String? endTime;
 
   const GoOnlineResult({
     required this.success,
@@ -131,6 +133,8 @@ class GoOnlineResult {
     this.distanceMeters,
     this.allowedRadius,
     this.minutesUntilStart,
+    this.startTime,
+    this.endTime,
   });
 }
 
@@ -286,6 +290,8 @@ class ShiftService {
         distanceMeters: (body['distanceMeters'] as num?)?.toInt(),
         allowedRadius: (body['allowedRadius'] as num?)?.toInt(),
         minutesUntilStart: (body['minutesUntilStart'] as num?)?.toInt(),
+        startTime: body['startTime']?.toString(),
+        endTime: body['endTime']?.toString(),
       );
     } catch (e) {
       return GoOnlineResult(

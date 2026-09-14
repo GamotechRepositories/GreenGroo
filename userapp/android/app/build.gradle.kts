@@ -41,21 +41,26 @@ android {
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String?
+                keyPassword = keystoreProperties["keyPassword"] as String?
+                storeFile = keystoreProperties["storeFile"]?.let { file(it as String) }
+                storePassword = keystoreProperties["storePassword"] as String?
             }
         }
     }
 
     buildTypes {
         release {
-            // Never fall back to debug signing — Play Console rejects debug-signed AABs.
-            check(keystorePropertiesFile.exists()) {
-                "Missing android/key.properties. Copy key.properties.example and create upload-keystore.jks for release builds."
-            }
-            signingConfig = signingConfigs.getByName("release")
+            // Use upload keystore when present; otherwise debug signing for local installs.
+            // Play Store / production releases still need android/key.properties + upload-keystore.jks.
+            signingConfig =
+                if (keystorePropertiesFile.exists() &&
+                    keystoreProperties["storeFile"] != null
+                ) {
+                    signingConfigs.getByName("release")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

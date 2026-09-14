@@ -1,8 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-
 import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
@@ -44,8 +42,8 @@ class _WalletScreenState extends State<WalletScreen> {
       _error = null;
     });
     try {
-      final res = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.walletSummary}'),
+      final res = await apiGet(
+        ApiConfig.walletSummary,
         headers: AuthService.instance.authHeaders,
       );
       if (res.statusCode != 200) throw Exception('Failed');

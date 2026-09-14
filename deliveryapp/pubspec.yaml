@@ -60,14 +60,25 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/branding/app_icon.png
-  # Transparent PNG as launcher icon (no solid adaptive black background)
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#126B43"
+  adaptive_icon_foreground: assets/icon/icon.png
   remove_alpha_ios: false
-  background_color_ios: "#00000000"
+
+flutter_native_splash:
+  color: "#126B43"
+  image: assets/splash/splash.png
+  android_12:
+    color: "#126B43"
+    image: assets/splash/splash.png
+  android: true
+  ios: true
+  web: false
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -83,9 +94,9 @@ flutter:
 
   assets:
     - .env
-    - assets/branding/app_icon.png
-    - assets/splash/delivery_scooter.webp
+    - assets/icon/
     - assets/splash/
+    - assets/branding/app_icon.png
     - assets/chooseVahicles/
 
   # An image asset can refer to one or more resolution-specific "variants", see

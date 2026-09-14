@@ -29,6 +29,8 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _notificationBadgeController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _forcedOfflineController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   Stream<Map<String, dynamic>> get onOrderAssigned =>
       _orderAssignedController.stream;
@@ -46,6 +48,8 @@ class SocketService {
       _riderNotificationController.stream;
   Stream<Map<String, dynamic>> get onNotificationBadge =>
       _notificationBadgeController.stream;
+  Stream<Map<String, dynamic>> get onForcedOffline =>
+      _forcedOfflineController.stream;
 
   void connect(String riderId) {
     if (riderId.isEmpty) return;
@@ -152,6 +156,25 @@ class SocketService {
       debugPrint('[Socket] Event notification_badge: $data');
       if (data is Map) {
         _notificationBadgeController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('forced_offline', (data) {
+      debugPrint('[Socket] Event forced_offline: $data');
+      if (data is Map) {
+        _forcedOfflineController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('status_updated', (data) {
+      debugPrint('[Socket] Event status_updated: $data');
+      if (data is Map) {
+        final map = Map<String, dynamic>.from(data);
+        if (map['status']?.toString() == 'offline' ||
+            map['reason']?.toString() == 'shift_ended' ||
+            map['reason']?.toString() == 'gig_ended') {
+          _forcedOfflineController.add(map);
+        }
       }
     });
   }

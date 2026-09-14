@@ -547,7 +547,8 @@ export const goOnline = async (req, res, next) => {
         return res.status(400).json({
           success: false,
           code: "NO_SHIFT_BOOKED",
-          message: "Mandatory: You must select and book today's shift slot before going online!",
+          message:
+            "You can go online only if you booked today's shift, or when a live gig is running for your store.",
         });
       }
     }

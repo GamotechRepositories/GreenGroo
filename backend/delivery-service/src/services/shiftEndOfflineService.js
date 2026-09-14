@@ -9,11 +9,78 @@ import { istDateString } from "../utils/onlineHoursHelper.js";
 import {
   getCurrentMinutesIST,
   isSlotEnded,
+  timeToMinutes,
 } from "../utils/shiftTimeHelper.js";
+import { findLiveGigForManager } from "../controllers/gigManagementController.js";
+import { getRiderManager } from "../controllers/shiftController.js";
 
 const POLL_MS = 5000;
+/** Rider stays online this many minutes after shift/gig end, then auto-offline. */
+const END_GRACE_MINUTES = 5;
 let _running = false;
 let _timer = null;
+
+/**
+ * Minutes past slot end (IST). Returns -1 if slot has not ended yet.
+ * Auto-offline should run when this is >= END_GRACE_MINUTES.
+ */
+function minutesPastSlotEnd(
+  startTime,
+  endTime,
+  currentMinutes,
+  dateString = "",
+  todayStr = ""
+) {
+  if (
+    !isSlotEnded(startTime, endTime, currentMinutes, dateString, todayStr)
+  ) {
+    return -1;
+  }
+
+  const startMin = timeToMinutes(startTime);
+  const endMin = timeToMinutes(endTime);
+
+  if (dateString && todayStr && dateString < todayStr) {
+    // Overnight slot that spilled into today morning
+    if (endMin <= startMin) {
+      const d = new Date(`${dateString}T12:00:00+05:30`);
+      d.setTime(d.getTime() + 24 * 60 * 60 * 1000);
+      const nextDay = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(d);
+      if (todayStr === nextDay && currentMinutes < endMin) return -1;
+      if (todayStr === nextDay) return currentMinutes - endMin;
+    }
+    return 9999;
+  }
+
+  if (endMin > startMin) {
+    return currentMinutes - endMin;
+  }
+
+  // Overnight: ended after midnight on next calendar day
+  return currentMinutes >= endMin ? currentMinutes - endMin : 9999;
+}
+
+function shouldForceOfflineAfterEnd(
+  startTime,
+  endTime,
+  currentMinutes,
+  dateString = "",
+  todayStr = ""
+) {
+  const past = minutesPastSlotEnd(
+    startTime,
+    endTime,
+    currentMinutes,
+    dateString,
+    todayStr
+  );
+  return past >= END_GRACE_MINUTES;
+}
 
 /**
  * Force a rider offline after their booked shift slot ends.
@@ -54,10 +121,12 @@ async function forceRiderOfflineForEndedShift(rider, shift, slot, booking) {
     const io = getIO();
     io.to(`rider_${rider._id}`).emit("forced_offline", {
       reason: "shift_ended",
-      message: "Your shift slot has ended. You are now offline.",
+      message:
+        "Your shift has ended. You were kept online for 5 more minutes and are now offline.",
       status: rider.status,
       endTime: slot?.endTime || "",
       dateString: shift?.dateString || "",
+      graceMinutes: END_GRACE_MINUTES,
     });
     if (wasOnline) {
       io.to(`rider_${rider._id}`).emit("status_updated", {
@@ -122,9 +191,9 @@ async function processRiderWithBooking(rider) {
       (b) => b.deliveryPartnerId?.toString() === rider._id.toString()
     );
 
-  const ended =
+  const forceNow =
     pastDay ||
-    isSlotEnded(
+    shouldForceOfflineAfterEnd(
       slot.startTime,
       slot.endTime,
       currentMin,
@@ -132,7 +201,7 @@ async function processRiderWithBooking(rider) {
       todayStr
     );
 
-  if (!ended) return false;
+  if (!forceNow) return false;
 
   await forceRiderOfflineForEndedShift(rider, shift, slot, booking);
   return true;
@@ -174,7 +243,7 @@ async function processOnlineRidersWithoutPointer() {
         );
         if (!booking) continue;
         if (
-          isSlotEnded(
+          shouldForceOfflineAfterEnd(
             slot.startTime,
             slot.endTime,
             currentMin,
@@ -194,6 +263,114 @@ async function processOnlineRidersWithoutPointer() {
         matched.shift,
         matched.slot,
         matched.booking
+      );
+    }
+  }
+}
+
+/**
+ * Gig-only online riders (no shift booking): force offline 5 min after live gig ends,
+ * or immediately if there is no live gig and no active shift today.
+ */
+async function processGigOnlyOnlineRiders() {
+  const todayStr = istDateString();
+  const currentMin = getCurrentMinutesIST();
+
+  const onlineRiders = await DeliveryBoy.find({
+    status: "online",
+    $or: [
+      { "currentBooking.shiftId": null },
+      { "currentBooking.shiftId": { $exists: false } },
+    ],
+  }).limit(200);
+
+  for (const rider of onlineRiders) {
+    try {
+      // Still has a non-ended shift booking today → leave alone
+      const shift = await Shift.findOne({
+        dateString: todayStr,
+        "slots.bookings.deliveryPartnerId": rider._id,
+      });
+      let hasActiveOrGraceShift = false;
+      if (shift) {
+        for (const slot of shift.slots || []) {
+          const booking = (slot.bookings || []).find(
+            (b) =>
+              b.deliveryPartnerId?.toString() === rider._id.toString() &&
+              b.status !== "CANCELLED" &&
+              b.status !== "COMPLETED"
+          );
+          if (!booking) continue;
+          const past = minutesPastSlotEnd(
+            slot.startTime,
+            slot.endTime,
+            currentMin,
+            shift.dateString,
+            todayStr
+          );
+          if (past < END_GRACE_MINUTES) {
+            hasActiveOrGraceShift = true;
+            break;
+          }
+        }
+      }
+      if (hasActiveOrGraceShift) continue;
+
+      const manager = await getRiderManager(rider).catch(() => null);
+      if (!manager?._id) {
+        await applyGigStatusChange(rider, "offline");
+        await rider.save();
+        await emitRiderStatusUpdated(rider, { reason: "no_shift_or_gig" });
+        continue;
+      }
+
+      const liveGig = await findLiveGigForManager(manager._id);
+      if (liveGig) continue;
+
+      // No live gig — check today's gigs for 5-min grace after end
+      const Gig = (await import("../models/Gig.js")).default;
+      const gigs = await Gig.find({
+        isActive: true,
+        managerId: manager._id,
+        dateString: todayStr,
+      });
+      let inGrace = false;
+      for (const g of gigs) {
+        if (!g.startTime || !g.endTime) continue;
+        const past = minutesPastSlotEnd(
+          g.startTime,
+          g.endTime,
+          currentMin,
+          g.dateString,
+          todayStr
+        );
+        if (past >= 0 && past < END_GRACE_MINUTES) {
+          inGrace = true;
+          break;
+        }
+      }
+      if (inGrace) continue;
+
+      await applyGigStatusChange(rider, "offline");
+      await rider.save();
+      await emitRiderStatusUpdated(rider, { reason: "gig_ended" });
+      try {
+        const io = getIO();
+        io.to(`rider_${rider._id}`).emit("forced_offline", {
+          reason: "gig_ended",
+          message:
+            "Your gig window has ended. You were kept online for 5 more minutes and are now offline.",
+          status: "offline",
+          graceMinutes: END_GRACE_MINUTES,
+        });
+      } catch (_) {}
+      console.log(
+        `[ShiftEndOffline] Rider ${rider._id} — no live gig/shift, forced OFFLINE`
+      );
+    } catch (err) {
+      console.warn(
+        `[ShiftEndOffline] Gig-only check failed for ${rider._id}:`,
+        err.message
       );
     }
   }
@@ -224,6 +401,12 @@ export async function forceOfflineEndedShiftRiders() {
     } catch (err) {
       console.warn("[ShiftEndOffline] Fallback scan failed:", err.message);
     }
+
+    try {
+      await processGigOnlyOnlineRiders();
+    } catch (err) {
+      console.warn("[ShiftEndOffline] Gig-only scan failed:", err.message);
+    }
   } catch (err) {
     console.error("[ShiftEndOffline] Tick error:", err.message);
   } finally {
@@ -231,7 +414,7 @@ export async function forceOfflineEndedShiftRiders() {
   }
 }
 
-/** Poll every 5 seconds so shift-end offline happens within ~5s. */
+/** Poll every 5 seconds; force offline 5 minutes after shift/gig end. */
 export function initShiftEndOfflineCron() {
   if (_timer) return;
   _timer = setInterval(() => {
@@ -240,6 +423,6 @@ export function initShiftEndOfflineCron() {
   // First run shortly after boot
   setTimeout(() => forceOfflineEndedShiftRiders(), 2000);
   console.log(
-    "[ShiftEndOffline] Auto-offline job scheduled (every 5s when shift slot ends)."
+    `[ShiftEndOffline] Auto-offline job scheduled (every 5s; ${END_GRACE_MINUTES} min grace after shift/gig end).`
   );
 }

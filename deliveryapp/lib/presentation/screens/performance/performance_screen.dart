@@ -2,8 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-
 import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
@@ -36,8 +34,8 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
       _error = null;
     });
     try {
-      final res = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.performance}'),
+      final res = await apiGet(
+        ApiConfig.performance,
         headers: AuthService.instance.authHeaders,
       );
       if (res.statusCode != 200) throw Exception('Failed');

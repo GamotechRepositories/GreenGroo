@@ -16,7 +16,7 @@ abstract final class ApiConfig {
     if (kReleaseMode || useLive) {
       url = live.isNotEmpty ? live : 'https://api.greengrocc.com';
     } else {
-      url = local.isNotEmpty ? local : 'http://127.0.0.1:5001';
+      url = local.isNotEmpty ? local : 'https://api.greengrocc.com';
     }
 
     if (url.endsWith('/')) {
@@ -111,13 +111,18 @@ abstract final class ApiConfig {
       '/api/delivery-managers/cash/rider/$riderId';
 }
 
-/// Friendly error message that tells the developer exactly what URL timed out.
-String _timeoutMessage(String url) =>
-    'Could not connect to server.\n\nURL tried: $url\n\n'
-    'Fix: Make sure your phone and PC are on the same WiFi, '
-    'then update API_BASE_URL in deliveryapp/.env to your PC\'s ipconfig IPv4 '
-    '(e.g. http://192.168.1.56:5001).\n'
-    'For emulators use: http://10.0.2.2:5001';
+/// User-facing network error; debug builds include URL hints for developers.
+String _timeoutMessage(String url) {
+  if (kReleaseMode) {
+    return 'Could not connect to the server. '
+        'Check your internet connection and try again.';
+  }
+  return 'Could not connect to server.\n\nURL tried: $url\n\n'
+      'Fix: Make sure your phone and PC are on the same WiFi, '
+      'then update API_BASE_URL in deliveryapp/.env to your PC\'s ipconfig IPv4 '
+      '(e.g. http://192.168.1.56:5001).\n'
+      'For emulators use: http://10.0.2.2:5001';
+}
 
 const Duration _kDefaultTimeout = Duration(seconds: 20);
 
@@ -180,6 +185,28 @@ Future<http.Response> apiPatch(
           Uri.parse(url),
           headers: {...ApiConfig.defaultHeaders, ...?headers},
           body: body,
+        )
+        .timeout(timeout);
+  } on Exception catch (e) {
+    final msg = e.toString();
+    if (msg.contains('TimeoutException') || msg.contains('SocketException')) {
+      throw Exception(_timeoutMessage(url));
+    }
+    rethrow;
+  }
+}
+
+Future<http.Response> apiDelete(
+  String path, {
+  Map<String, String>? headers,
+  Duration timeout = _kDefaultTimeout,
+}) async {
+  final url = '${ApiConfig.baseUrl}$path';
+  try {
+    return await http
+        .delete(
+          Uri.parse(url),
+          headers: {...ApiConfig.defaultHeaders, ...?headers},
         )
         .timeout(timeout);
   } on Exception catch (e) {

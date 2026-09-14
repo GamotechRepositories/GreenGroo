@@ -45,9 +45,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _updatingStatus = false;
   Timer? _heartbeat;
   Timer? _offerPoll;
+  Timer? _shiftEndOfflineTimer;
   StreamSubscription<Map<String, dynamic>>? _offerSocketSub;
   StreamSubscription<Map<String, dynamic>>? _verifySocketSub;
   StreamSubscription<Map<String, dynamic>>? _verifyNotifSub;
+  StreamSubscription<Map<String, dynamic>>? _forcedOfflineSub;
   VoidCallback? _offerRecoveryListener;
   bool _isShowingOffer = false;
   AreaManagerInfo? _areaManager;
@@ -132,8 +134,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
     _listenForOffers();
     _listenForVerification();
+    _listenForForcedOffline();
     _listenForOfferRecovery();
     _bootstrapHome();
+  }
+
+  void _listenForForcedOffline() {
+    _forcedOfflineSub?.cancel();
+    _forcedOfflineSub =
+        SocketService.instance.onForcedOffline.listen((data) async {
+      if (!mounted) return;
+      final msg = data['message']?.toString().trim();
+      setState(() => _isOnline = false);
+      _stopHeartbeat();
+      _stopOfferPoll();
+      _shiftEndOfflineTimer?.cancel();
+      await AuthService.instance.fetchMe();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            (msg != null && msg.isNotEmpty)
+                ? msg
+                : 'Your shift/gig ended. You are now offline.',
+          ),
+          backgroundColor: AppColors.warning,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    });
   }
 
   void _listenForOfferRecovery() {
@@ -403,9 +432,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   void dispose() {
     _heartbeat?.cancel();
     _offerPoll?.cancel();
+    _shiftEndOfflineTimer?.cancel();
     _offerSocketSub?.cancel();
     _verifySocketSub?.cancel();
     _verifyNotifSub?.cancel();
+    _forcedOfflineSub?.cancel();
     _offerRecoveryListener?.call();
     _offerRecoveryListener = null;
     super.dispose();
@@ -421,6 +452,61 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   void _stopHeartbeat() {
     _heartbeat?.cancel();
     _heartbeat = null;
+  }
+
+  /// Client backup: 5 minutes after shift/gig end → go offline locally + API.
+  void _scheduleShiftEndAutoOffline(String? endTime) {
+    _shiftEndOfflineTimer?.cancel();
+    if (endTime == null || endTime.trim().isEmpty) return;
+
+    final endMin = _parseTimeToMinutes(endTime);
+    if (endMin == null) return;
+
+    final now = DateTime.now();
+    final nowMin = now.hour * 60 + now.minute;
+    var minutesUntilForce = (endMin + 5) - nowMin;
+    if (minutesUntilForce <= 0) {
+      // End already passed — force soon (server is source of truth).
+      minutesUntilForce = 1;
+    }
+
+    _shiftEndOfflineTimer = Timer(Duration(minutes: minutesUntilForce), () async {
+      if (!mounted || !_isOnline || _hasActiveOrder) return;
+      final ok = await ShiftService.instance.goOffline();
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _isOnline = false);
+        _stopHeartbeat();
+        _stopOfferPoll();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your shift/gig ended. You stayed online 5 more minutes and are now offline.',
+            ),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    });
+  }
+
+  int? _parseTimeToMinutes(String time) {
+    final t = time.trim();
+    final ampm = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$', caseSensitive: false);
+    final m1 = ampm.firstMatch(t);
+    if (m1 != null) {
+      var h = int.parse(m1.group(1)!);
+      final min = int.parse(m1.group(2)!);
+      final ap = m1.group(3)!.toUpperCase();
+      if (ap == 'PM' && h != 12) h += 12;
+      if (ap == 'AM' && h == 12) h = 0;
+      return h * 60 + min;
+    }
+    final m2 = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(t);
+    if (m2 != null) {
+      return int.parse(m2.group(1)!) * 60 + int.parse(m2.group(2)!);
+    }
+    return null;
   }
 
   Future<void> _onStatusToggle({bool fromGig = false}) async {
@@ -464,6 +550,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           }
           _startHeartbeat();
           _startOfferPoll();
+          _scheduleShiftEndAutoOffline(res.endTime);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(res.message),
@@ -476,17 +563,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           });
 
           if (res.code == 'SHIFT_REQUIRED' || res.code == 'NO_SHIFT_BOOKED') {
-            if (fromGig) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Gigs do not need booking. Go online when the gig is live to join automatically.',
-                  ),
-                ),
-              );
-            } else {
-              _showShiftRequiredDialog(res.message);
-            }
+            _showShiftRequiredDialog(
+              res.message.isNotEmpty
+                  ? res.message
+                  : 'Book a shift for today, or go online only while a live gig is running.',
+            );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -507,6 +588,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           });
           _stopHeartbeat();
           _stopOfferPoll();
+          _shiftEndOfflineTimer?.cancel();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('You are now Offline.'),
@@ -546,9 +628,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           children: [
             Icon(Icons.schedule_rounded, color: AppColors.primary),
             const SizedBox(width: 8),
-            Text(
-              'Shift Slot Required',
-              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+            Flexible(
+              child: Text(
+                'Shift or live gig required',
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -576,7 +660,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 MaterialPageRoute(builder: (_) => const SelectShiftScreen()),
               );
             },
-            child: const Text('Book Shift Slot'),
+            child: const Text('Book Shift'),
           ),
         ],
       ),
