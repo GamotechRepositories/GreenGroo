@@ -283,6 +283,15 @@ export const MANAGER_SIDEBAR_ITEMS = [
     ],
   },
   {
+    id: "crops",
+    label: "Crops",
+    icon: "crops",
+    children: [
+      { to: "/manager/crops", label: "All Crops", end: true },
+      { to: "/manager/crops/add", label: "Add Crop" },
+    ],
+  },
+  {
     id: "products",
     label: "Products",
     icon: "products",

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ImageUploadField from "../ui/ImageUploadField";
 import SelectWithOther, { InlineSelectWithOther, resolvePreset, splitPreset } from "../ui/SelectWithOther";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../../utils/constants";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, FORM_INPUT } from "../../utils/excelStyles";
 import { formatCropBusinessId } from "../../utils/cropLinks";
+import { getCropsCatalog } from "../../api/farmerApi";
 
 function emptyCrop(defaults = {}) {
   const crop = splitPreset(CROP_OPTIONS, defaults.cropName);
@@ -55,10 +56,72 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
       areaUnit: initialCrop?.areaUnit || farmAreaUnit || "Acre",
     })
   );
+  const [catalog, setCatalog] = useState([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState("");
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    let cancelled = false;
+    getCropsCatalog().then((list) => {
+      if (!cancelled && Array.isArray(list)) setCatalog(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dynamicCropOptions = useMemo(() => {
+    const set = new Set(CROP_OPTIONS.filter((c) => c !== "Other"));
+    catalog.forEach((c) => {
+      if (c.cropName) set.add(c.cropName);
+    });
+    return [...set, "Other"];
+  }, [catalog]);
+
   const resolvedCropName = resolvePreset(form.cropName, form.customCropName);
-  const varietyOptions = useMemo(() => varietyOptionsForCrop(resolvedCropName), [resolvedCropName]);
+  const varietyOptions = useMemo(() => {
+    const base = varietyOptionsForCrop(resolvedCropName);
+    const set = new Set(base.filter((v) => v !== "Other"));
+    catalog.forEach((c) => {
+      if (c.cropName?.toLowerCase() === resolvedCropName?.toLowerCase() && c.variety) {
+        set.add(c.variety);
+      }
+    });
+    return [...set, "Other"];
+  }, [resolvedCropName, catalog]);
+
+  const applyCatalogCrop = (catId) => {
+    setSelectedCatalogId(catId);
+    if (!catId) return;
+    const found = catalog.find((c) => (c.cropId || c.id) === catId);
+    if (!found) return;
+
+    const crop = splitPreset(dynamicCropOptions, found.cropName);
+    const varietyOpts = varietyOptionsForCrop(found.cropName);
+    const variety = splitPreset(varietyOpts, found.variety);
+    const unit = splitPreset(CROP_UNITS, found.unit || "Kg");
+    const farmingMethod = splitPreset(FARMING_METHODS, found.farmingMethod);
+    const farmingType = splitPreset(FARMING_TYPES, found.farmingType);
+    const irrigationType = splitPreset(IRRIGATION_TYPES, found.irrigationType);
+
+    setForm((prev) => ({
+      ...prev,
+      cropName: crop.select,
+      customCropName: crop.custom,
+      variety: variety.select,
+      customVariety: variety.custom,
+      unit: unit.select || "Kg",
+      customUnit: unit.custom,
+      farmingMethod: farmingMethod.select || prev.farmingMethod,
+      customFarmingMethod: farmingMethod.custom,
+      farmingType: farmingType.select || prev.farmingType,
+      customFarmingType: farmingType.custom,
+      irrigationType: irrigationType.select || prev.irrigationType,
+      customIrrigationType: irrigationType.custom,
+      photos: found.photos?.length ? found.photos : prev.photos,
+    }));
+    setErrors({});
+  };
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -164,11 +227,34 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
         </div>
       ) : null}
 
+      {catalog.length > 0 && !initialCrop?.id && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-1.5 shadow-sm">
+          <label className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+            <span>🌱 Choose from All Registered Crops (नोंदणीकृत पिकांमधून निवडा)</span>
+          </label>
+          <select
+            value={selectedCatalogId}
+            onChange={(e) => applyCatalogCrop(e.target.value)}
+            className={`${FORM_INPUT} bg-white border-emerald-300 font-medium`}
+          >
+            <option value="">-- Select from existing crop catalogue or enter below --</option>
+            {catalog.map((c) => (
+              <option key={c.cropId || c.id} value={c.cropId || c.id}>
+                {c.cropName} - {c.variety} ({c.cropId || c.id})
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-emerald-700">
+            Selecting a registered crop auto-fills crop details, variety, and farming defaults.
+          </p>
+        </div>
+      )}
+
       <Section title="Crop">
         <SelectWithOther
           label="Select Crop"
           required
-          options={CROP_OPTIONS}
+          options={dynamicCropOptions}
           selectValue={form.cropName}
           customValue={form.customCropName}
           onSelect={onCropSelect}

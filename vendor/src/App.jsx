@@ -19,6 +19,7 @@ import FarmerDetailPage from './pages/vendor-farmers/FarmerDetailPage'
 import VendorProductsPage from './pages/vendor-farmers/VendorProductsPage'
 import VendorProductAddPage from './pages/vendor-farmers/VendorProductAddPage'
 import VendorProductFarmersPage from './pages/vendor-farmers/VendorProductFarmersPage'
+import VendorCropsPage from './pages/vendor-farmers/VendorCropsPage'
 import FarmerCropViewPage from './pages/vendor-farmers/FarmerCropViewPage'
 import FarmerCropFormPage from './pages/vendor-farmers/FarmerCropFormPage'
 import DriversPage from './pages/drivers/DriversPage'
@@ -78,6 +79,8 @@ function App() {
                 <Route path="/vendor/farmer-managers/add" element={<AddManagerPage />} />
                 <Route path="/vendor/farmer-managers/:managerId" element={<ManagerDetailPage />} />
                 <Route path="/vendor/all-farmers" element={<AllFarmersPage />} />
+                <Route path="/vendor/crops" element={<VendorCropsPage />} />
+                <Route path="/vendor/crops/add" element={<FarmerCropFormPage />} />
                 <Route path="/vendor/products/add" element={<VendorProductAddPage />} />
                 <Route path="/vendor/products/:productKey/farmers" element={<VendorProductFarmersPage />} />
                 <Route path="/vendor/products" element={<VendorProductsPage />} />

@@ -709,6 +709,18 @@ export async function getManagerAllProducts() {
   });
 }
 
+export async function getManagerAllCrops() {
+  return apiFetch("/api/farmer-manager/crops", {
+    headers: managerAuthHeaders(),
+  });
+}
+
+export async function getCropsCatalog() {
+  return apiFetch("/api/farmer-manager/crops/catalog", {
+    headers: managerAuthHeaders(),
+  }).catch(() => []);
+}
+
 export async function reviewManagerFarmerProduct(farmerId, productId, decision, reason = "") {
   return apiFetch(`/api/farmer-manager/farmers/${farmerId}/products/${encodeURIComponent(productId)}/review`, {
     method: "PATCH",
@@ -780,6 +792,10 @@ export async function createManagerFarmerCrop(farmerId, payload) {
     headers: managerAuthHeaders(),
     body: JSON.stringify(payload),
   });
+}
+
+export async function createManagerCrop(farmerId, payload) {
+  return createManagerFarmerCrop(farmerId, payload);
 }
 
 export async function updateManagerFarmerCrop(farmerId, cropId, payload) {
@@ -1131,6 +1147,8 @@ export async function updateManagerOrderPayment(orderId, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+
 
 
 

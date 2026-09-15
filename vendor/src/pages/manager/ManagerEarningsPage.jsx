@@ -40,7 +40,7 @@ const TD =
   "overflow-hidden border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] leading-tight text-[#1F2937] md:py-1 md:text-[11px]";
 
 const PAY_TH =
-  "border border-[#9CA3AF] bg-[#E8F0EA] px-0.5 py-1 text-center align-middle text-[10px] font-bold leading-tight text-[#374151] sm:px-1.5 sm:py-2 sm:text-xs md:text-[13px]";
+  "border border-[#9CA3AF] bg-[#E8F0EA] px-0.5 py-1 text-center align-middle text-[10px] font-normal leading-tight text-[#374151] sm:px-1.5 sm:py-2 sm:text-xs md:text-[13px]";
 const PAY_TD =
   "overflow-hidden border border-[#9CA3AF] px-0.5 py-1 text-center align-middle text-[10px] leading-tight text-[#1F2937] sm:px-1.5 sm:py-2 sm:text-xs md:text-sm";
 
@@ -127,7 +127,7 @@ function OrderIdCell({ id }) {
       title={copied ? "Order ID copied!" : "Click to copy Order ID"}
       className="group/oid inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded bg-emerald-50/70 hover:bg-emerald-100/90 active:bg-emerald-200 transition-colors border border-emerald-200/60 max-w-full"
     >
-      <span className="font-mono text-[11px] font-bold text-emerald-900 tracking-tight truncate">
+      <span className="font-mono text-[11px] font-normal text-emerald-900 tracking-tight truncate">
         {id}
       </span>
       {copied ? (
@@ -162,7 +162,7 @@ function FarmerIdTag({ id }) {
       title={copied ? "Farmer ID copied!" : "Click to copy Farmer ID"}
       className="group/fid inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-slate-50 hover:bg-emerald-50 text-emerald-700 hover:text-emerald-900 border border-slate-200/80 hover:border-emerald-300 transition-colors text-left max-w-full"
     >
-      <span className="font-mono text-[10px] font-semibold tracking-tight truncate">
+      <span className="font-mono text-[10px] font-normal tracking-tight truncate text-slate-600">
         {id}
       </span>
       {copied ? (
@@ -197,7 +197,7 @@ function ManagerIdTag({ id }) {
       title={copied ? "Manager ID copied!" : "Click to copy Manager ID"}
       className="group/mid inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/80 transition-colors text-left max-w-full"
     >
-      <span className="font-mono text-[10px] text-gray-500 font-medium tracking-tight truncate">
+      <span className="font-mono text-[10px] text-gray-500 font-normal tracking-tight truncate">
         {id}
       </span>
       {copied ? (
@@ -225,15 +225,15 @@ function PaymentStatusText({ status }) {
     s.includes("PAYMENT COMPLETED") ||
     s.includes("PAYMENT_COMPLETED")
   ) {
-    return <span className="font-extrabold text-[#15803D] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">Paid</span>;
+    return <span className="font-normal text-[#15803D] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">Paid</span>;
   }
   if (s === "PENDING" || s === "PAYMENT_PENDING" || s === "SUBMITTED" || s === "UNPAID" || !s) {
-    return <span className="font-extrabold text-[#D97706] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">Pending</span>;
+    return <span className="font-normal text-[#D97706] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">Pending</span>;
   }
   if (s === "FAILED" || s === "REJECTED" || s === "CANCELLED") {
-    return <span className="font-extrabold text-[#DC2626] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">{status}</span>;
+    return <span className="font-normal text-[#DC2626] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">{status}</span>;
   }
-  return <span className="font-bold text-gray-700 text-[10.5px] sm:text-xs md:text-[13px] block">{status}</span>;
+  return <span className="font-normal text-gray-700 text-[10.5px] sm:text-xs md:text-[13px] block">{status}</span>;
 }
 
 function PaymentMobileCard({ row, onClick, idx }) {
@@ -245,11 +245,11 @@ function PaymentMobileCard({ row, onClick, idx }) {
       {/* Top Header: # Index + Order ID (Copy) + Status */}
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 shrink-0">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-normal text-slate-600 shrink-0">
             {idx + 1}
           </span>
           <div className="flex items-center gap-1 min-w-0">
-            <span className="font-mono text-xs font-bold text-emerald-800 tracking-tight truncate" title={row.id}>
+            <span className="font-mono text-xs font-normal text-emerald-800 tracking-tight truncate" title={row.id}>
               {row.id}
             </span>
             <CopyButton value={row.id} label="Copy Order ID" className="h-5 w-5 text-emerald-700 hover:bg-emerald-50" />
@@ -263,11 +263,11 @@ function PaymentMobileCard({ row, onClick, idx }) {
       {/* Body: Farmer Details (Left) + Crop & Produce (Right) */}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="space-y-0.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Farmer Details</p>
-          <p className="font-extrabold text-slate-900 text-[13px] leading-tight truncate">{row.farmerName || "—"}</p>
+          <p className="text-[10px] font-normal uppercase tracking-wider text-slate-500">Farmer Details</p>
+          <p className="font-bold text-slate-900 text-[13px] leading-tight truncate">{row.farmerName || "—"}</p>
           {(row.farmerCode || row.farmerId) && (
             <div className="flex items-center gap-1 pt-0.5">
-              <span className="font-mono text-[11px] font-semibold text-emerald-700 truncate">
+              <span className="font-mono text-[11px] font-normal text-emerald-700 truncate">
                 {row.farmerCode || row.farmerId}
               </span>
               <CopyButton value={row.farmerCode || row.farmerId} label="Copy Farmer ID" className="h-4 w-4 text-emerald-600" />
@@ -276,11 +276,11 @@ function PaymentMobileCard({ row, onClick, idx }) {
         </div>
 
         <div className="space-y-0.5 text-right">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Crop / Produce</p>
-          <p className="font-extrabold text-slate-900 text-[13px] leading-tight truncate">{row.productName || "—"}</p>
+          <p className="text-[10px] font-normal uppercase tracking-wider text-slate-500">Crop / Produce</p>
+          <p className="font-normal text-slate-800 text-[13px] leading-tight truncate">{row.productName || "—"}</p>
           {row.variety ? (
             <div className="pt-0.5">
-              <span className="inline-block rounded-md bg-emerald-50 px-1.5 py-0.2 text-[10.5px] font-bold text-emerald-800 border border-emerald-200/60">
+              <span className="inline-block rounded-md bg-emerald-50 px-1.5 py-0.2 text-[10.5px] font-normal text-emerald-800 border border-emerald-200/60">
                 {row.variety}
               </span>
             </div>
@@ -292,18 +292,18 @@ function PaymentMobileCard({ row, onClick, idx }) {
       {(row.managerName || row.collectionCentre || row.managerId) ? (
         <div className="pt-2 text-xs border-t border-slate-100 flex items-center justify-between text-slate-600">
           <div className="flex flex-col min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Manager & Centre</span>
+            <span className="text-[10px] font-normal uppercase tracking-wider text-slate-500">Manager & Centre</span>
             <span className="font-bold text-slate-800 text-[12px] truncate">{row.managerName || "—"}</span>
           </div>
           <div className="text-right flex flex-col items-end min-w-0">
             {row.collectionCentre ? (
-              <span className="font-semibold text-emerald-800 text-[11px] truncate max-w-[170px]">
+              <span className="font-normal text-emerald-800 text-[11px] truncate max-w-[170px]">
                 📍 {row.collectionCentre}
               </span>
             ) : null}
             {row.managerId ? (
               <div className="flex items-center gap-1 mt-0.5">
-                <span className="font-mono text-[10px] text-slate-500 truncate max-w-[120px]">{row.managerId}</span>
+                <span className="font-mono text-[10px] font-normal text-slate-500 truncate max-w-[120px]">{row.managerId}</span>
                 <CopyButton value={row.managerId} label="Copy Manager ID" className="h-3.5 w-3.5 text-slate-400" />
               </div>
             ) : null}
@@ -314,22 +314,22 @@ function PaymentMobileCard({ row, onClick, idx }) {
       {/* Bottom Bar: Pickup Date/Time (Left) + Payable Amount (Right) */}
       <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs bg-slate-50/70 -mx-3.5 -mb-3.5 px-3.5 py-2.5 rounded-b-xl">
         <div className="flex flex-col">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Pickup Date & Time</span>
+          <span className="text-[10px] font-normal uppercase tracking-wider text-slate-500">Pickup Date & Time</span>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="font-bold text-slate-800 text-[11.5px]">{shortDate(row.pickupDate || row.orderDate)}</span>
+            <span className="font-normal text-slate-800 text-[11.5px]">{shortDate(row.pickupDate || row.orderDate)}</span>
             {weekdayName(row.pickupDate || row.orderDate) ? (
-              <span className="text-[10.5px] text-slate-600 font-semibold">({weekdayName(row.pickupDate || row.orderDate)})</span>
+              <span className="text-[10.5px] text-slate-600 font-normal">({weekdayName(row.pickupDate || row.orderDate)})</span>
             ) : null}
             {row.pickupTime ? (
-              <span className="text-[10.5px] font-semibold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+              <span className="text-[10.5px] font-normal text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
                 {formatTime12h(row.pickupTime)}
               </span>
             ) : null}
           </div>
         </div>
         <div className="text-right flex flex-col items-end">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Payable Amount</span>
-          <span className="text-base font-black text-[#15803D] tabular-nums leading-tight">
+          <span className="text-[10px] font-normal uppercase tracking-wider text-slate-500">Payable Amount</span>
+          <span className="text-base font-normal text-[#15803D] tabular-nums leading-tight">
             ₹{Number(row.amount || 0).toLocaleString("en-IN")}
           </span>
         </div>
@@ -486,8 +486,8 @@ function DateWithDay({ value }) {
   const day = weekdayName(value);
   return (
     <>
-      <span className="block">{date}</span>
-      {day ? <span className="block text-[10px] font-medium text-[#6B7280]">{day}</span> : null}
+      <span className="block font-normal">{date}</span>
+      {day ? <span className="block text-[10px] font-normal text-[#6B7280]">{day}</span> : null}
     </>
   );
 }
@@ -2050,16 +2050,16 @@ export default function ManagerEarningsPage({ defaultTab }) {
                 {/* Mobile Summary Total Card */}
                 <div className="bg-[#FCE7F3] rounded-xl border border-pink-200 p-3.5 flex items-center justify-between text-xs shadow-sm">
                   <div>
-                    <span className="font-bold text-[#1F2937] text-xs block">
+                    <span className="font-normal text-[#1F2937] text-xs block">
                       Total Filtered ({filteredPaymentRows.length} Orders)
                     </span>
-                    <span className="text-[11px] font-bold text-gray-700 mt-0.5 block">
+                    <span className="text-[11px] font-normal text-gray-700 mt-0.5 block">
                       Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")} · Pending: ₹{paymentTableTotals.pending.toLocaleString("en-IN")}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600 block">Total</span>
-                    <span className="text-base font-black text-[#15803D] tabular-nums">
+                    <span className="text-[10px] font-normal uppercase tracking-wider text-gray-600 block">Total</span>
+                    <span className="text-base font-normal text-[#15803D] tabular-nums">
                       ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
                     </span>
                   </div>
@@ -2115,16 +2115,16 @@ export default function ManagerEarningsPage({ defaultTab }) {
                           className="group cursor-pointer transition-colors"
                           title="Click to view Payment History & Grading Details"
                         >
-                          <td className={`${PAY_TD} ${zebra} text-[#9CA3AF] font-semibold text-xs`}>{idx + 1}</td>
+                          <td className={`${PAY_TD} ${zebra} text-[#9CA3AF] font-normal text-xs`}>{idx + 1}</td>
                           <td className={`${PAY_TD} ${zebra} px-1.5 py-2 text-center align-middle`}>
                             <OrderIdCell id={row.id} />
                           </td>
                           <td className={`${PAY_TD} ${zebra} px-1.5 py-2 text-center align-middle`}>
-                            <span className="text-xs font-bold text-gray-900 block leading-tight">
+                            <span className="text-xs font-normal text-gray-800 block leading-tight">
                               <DateWithDay value={row.pickupDate || row.orderDate} />
                             </span>
                             {row.pickupTime ? (
-                              <span className="inline-block text-[10px] text-emerald-800 font-semibold bg-emerald-50/80 border border-emerald-200/60 px-1.5 py-0.2 rounded mt-0.5 leading-tight">
+                              <span className="inline-block text-[10px] text-emerald-800 font-normal bg-emerald-50/80 border border-emerald-200/60 px-1.5 py-0.2 rounded mt-0.5 leading-tight">
                                 {formatTime12h(row.pickupTime)}
                               </span>
                             ) : null}
@@ -2136,7 +2136,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
                           <td className={`${PAY_TD} ${zebra} px-2 py-2 text-left`}>
                             <p className="font-bold text-gray-900 text-xs leading-tight truncate">{row.managerName || "—"}</p>
                             {row.collectionCentre ? (
-                              <p className="text-[10.5px] font-medium text-emerald-800 leading-tight mt-0.5 truncate" title={row.collectionCentre}>
+                              <p className="text-[10.5px] font-normal text-emerald-800 leading-tight mt-0.5 truncate" title={row.collectionCentre}>
                                 📍 {row.collectionCentre}
                               </p>
                             ) : null}
@@ -2146,16 +2146,16 @@ export default function ManagerEarningsPage({ defaultTab }) {
                           </td>
                           <td className={`${PAY_TD} ${zebra} px-2 py-2 text-left`}>
                             <div className="flex items-center gap-1 flex-wrap">
-                              <p className="font-bold text-gray-900 text-xs leading-tight">{row.productName}</p>
+                              <p className="font-normal text-gray-800 text-xs leading-tight">{row.productName}</p>
                               {row.variety ? (
-                                <span className="inline-block rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800 border border-emerald-200/60">
+                                <span className="inline-block rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-normal text-emerald-800 border border-emerald-200/60">
                                   {row.variety}
                                 </span>
                               ) : null}
                             </div>
                           </td>
                           <td className={`${PAY_TD} ${zebra} px-2 py-2 text-center align-middle`}>
-                            <span className="text-xs md:text-sm font-black tabular-nums text-[#15803D] block leading-tight">
+                            <span className="text-xs md:text-sm font-normal tabular-nums text-[#15803D] block leading-tight">
                               ₹{row.amount.toLocaleString("en-IN")}
                             </span>
                           </td>
@@ -2168,13 +2168,13 @@ export default function ManagerEarningsPage({ defaultTab }) {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td className={`${PAY_TH} bg-[#FCE7F3] text-left text-xs md:text-[13px] font-bold text-[#1F2937] px-2 py-2`} colSpan={6}>
+                      <td className={`${PAY_TH} bg-[#FCE7F3] text-left text-xs md:text-[13px] font-normal text-[#1F2937] px-2 py-2`} colSpan={6}>
                         Total Filtered ({filteredPaymentRows.length} Orders)
                       </td>
-                      <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-extrabold tabular-nums text-[#217346] text-xs md:text-sm px-1 py-2`}>
+                      <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-normal tabular-nums text-[#217346] text-xs md:text-sm px-1 py-2`}>
                         ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
                       </td>
-                      <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-bold text-[11px] md:text-xs text-gray-700 px-1 py-2 leading-tight`}>
+                      <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-normal text-[11px] md:text-xs text-gray-700 px-1 py-2 leading-tight`}>
                         Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")}
                       </td>
                     </tr>

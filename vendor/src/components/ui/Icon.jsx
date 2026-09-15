@@ -35,6 +35,16 @@ export function Icon({ name, size = 'md', className = '' }) {
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 19c6-6 11-6 16-11" />
       </svg>
     ),
+    sprout: (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={STROKE}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 20h10M12 20V10M12 10a5 5 0 015-5h2v2a5 5 0 01-5 5h-2m0 0a5 5 0 00-5-5H5v2a5 5 0 005 5h2" />
+      </svg>
+    ),
+    crops: (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={STROKE}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 20h10M12 20V10M12 10a5 5 0 015-5h2v2a5 5 0 01-5 5h-2m0 0a5 5 0 00-5-5H5v2a5 5 0 005 5h2" />
+      </svg>
+    ),
     download: (
       <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={STROKE}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

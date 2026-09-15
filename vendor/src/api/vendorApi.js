@@ -61,6 +61,9 @@ export const vendorApi = {
   // Farmers
   getFarmers: (params) => api.get("/api/vendor/farmers", { params }),
   getFarmerById: (id) => api.get(`/api/vendor/farmers/${id}`),
+  getCrops: () => api.get("/api/vendor/crops"),
+  getAllCrops: () => api.get("/api/vendor/crops"),
+  getCropsCatalog: () => api.get("/api/vendor/crops/catalog").then((res) => res.data || []).catch(() => []),
   getFarmerCrops: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/crops`),
   getFarmerCrop: (farmerId, cropId) => api.get(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/crops/${encodeURIComponent(cropId)}`),
   createFarmerCrop: (farmerId, data) => api.post(`/api/vendor/farmers/${encodeURIComponent(farmerId)}/crops`, data),

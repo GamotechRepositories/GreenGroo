@@ -474,6 +474,8 @@ const farmerCropSchema = new mongoose.Schema(
     farmId: { type: String, default: "" },
     cropName: { type: String, required: true, trim: true },
     variety: { type: String, required: true, trim: true },
+    category: { type: String, default: "Vegetables" },
+    categoryCode: { type: String, default: "VEG" },
     area: { type: Number, required: true, default: 0 },
     areaUnit: { type: String, default: "Acre" },
     sowingDate: { type: String, required: true },

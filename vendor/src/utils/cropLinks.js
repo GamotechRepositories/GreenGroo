@@ -47,6 +47,18 @@ const CROP_CODES = {
   banana: "BAN",
 };
 
+export const CROP_CATEGORY_OPTIONS = [
+  { label: "Vegetables (भाजीपाला)", value: "Vegetables", code: "VEG" },
+  { label: "Fruits (फळे)", value: "Fruits", code: "FRT" },
+  { label: "Oilseeds / Oil (तेलबिया / ऑइल)", value: "Oilseeds", code: "OIL" },
+  { label: "Grains & Cereals (धान्य)", value: "Grains", code: "GRN" },
+  { label: "Pulses (कडधान्य / डाळी)", value: "Pulses", code: "PLS" },
+  { label: "Spices (मसाले)", value: "Spices", code: "SPC" },
+  { label: "Flowers (फुले)", value: "Flowers", code: "FLW" },
+  { label: "Cash Crops (नगदी पिके / कापूस / ऊस)", value: "Cash Crops", code: "CSH" },
+  { label: "Other (इतर)", value: "Other", code: "OTH" },
+];
+
 const CROP_CATEGORIES = {
   mango: "FRT",
   banana: "FRT",
@@ -58,6 +70,12 @@ const CROP_CATEGORIES = {
   rice: "GRN",
   bajra: "GRN",
   jowar: "GRN",
+  soybean: "OIL",
+  mustard: "OIL",
+  sunflower: "OIL",
+  groundnut: "OIL",
+  cotton: "CSH",
+  sugarcane: "CSH",
 };
 
 export function cropCodeFromName(name = "") {
@@ -81,10 +99,37 @@ export function varietyCodeFromName(name = "") {
   return cleaned.slice(0, 3).toUpperCase().padEnd(3, "X");
 }
 
-export function cropCategoryFromName(name = "") {
+export function cropCategoryFromName(name = "", category = "") {
+  if (category) {
+    const catUpper = String(category).trim().toUpperCase();
+    if (["VEG", "FRT", "OIL", "GRN", "PLS", "SPC", "FLW", "CSH", "OTH"].includes(catUpper)) {
+      return catUpper;
+    }
+    const found = CROP_CATEGORY_OPTIONS.find(
+      (opt) => opt.value.toLowerCase() === String(category).toLowerCase() || opt.code === catUpper
+    );
+    if (found) return found.code;
+    const n = String(category).toLowerCase();
+    if (n.includes("veg")) return "VEG";
+    if (n.includes("fruit")) return "FRT";
+    if (n.includes("oil") || n.includes("soybean") || n.includes("mustard")) return "OIL";
+    if (n.includes("grain") || n.includes("cereal") || n.includes("wheat") || n.includes("rice")) return "GRN";
+    if (n.includes("pulse") || n.includes("dal")) return "PLS";
+    if (n.includes("spice")) return "SPC";
+    if (n.includes("flower")) return "FLW";
+    if (n.includes("cash") || n.includes("cotton") || n.includes("sugar")) return "CSH";
+  }
   const key = String(name).trim().toLowerCase();
   const hit = Object.keys(CROP_CATEGORIES).find((n) => key.includes(n));
-  return hit ? CROP_CATEGORIES[hit] : "VEG";
+  if (hit) return CROP_CATEGORIES[hit];
+  if (/(oil|soybean|mustard|sunflower|groundnut|sesame)/.test(key)) return "OIL";
+  if (/(mango|banana|apple|fruit|orange|grapes|pomegranate|papaya|guava)/.test(key)) return "FRT";
+  if (/(wheat|rice|grain|bajra|jowar|maize)/.test(key)) return "GRN";
+  if (/(dal|pulse|tur|moong|urad|gram|chana)/.test(key)) return "PLS";
+  if (/(chilli|turmeric|spice|cumin|ginger|garlic)/.test(key)) return "SPC";
+  if (/(flower|rose|marigold|jasmine)/.test(key)) return "FLW";
+  if (/(cotton|sugarcane|tobacco|cash)/.test(key)) return "CSH";
+  return "VEG";
 }
 
 /**
@@ -95,7 +140,7 @@ export function formatCropBusinessId(crop = {}) {
   const raw = String(crop.cropId || crop.id || "").trim();
   const parts = raw.split("-").filter(Boolean);
   const code = cropCodeFromName(crop.cropName || crop.cropCode) || "XXX";
-  const category = String(crop.category || cropCategoryFromName(crop.cropName) || "VEG").toUpperCase();
+  const category = String(crop.categoryCode || cropCategoryFromName(crop.cropName, crop.category) || "VEG").toUpperCase();
   const variety = varietyCodeFromName(crop.variety);
 
   if (parts[0] === "GGC" && parts[1] === "CRP") {

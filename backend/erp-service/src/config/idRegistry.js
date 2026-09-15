@@ -669,9 +669,12 @@ export function varietyCodeFromName(name = "") {
 
 export function categoryFromName(name = "") {
   const n = String(name).toLowerCase();
-  if (/(mango|banana|apple|fruit|orange|grapes)/.test(n)) return "FRT";
-  if (/(wheat|rice|grain|bajra|jowar)/.test(n)) return "GRN";
-  if (/(dal|pulse|tur|moong)/.test(n)) return "PLS";
-  if (/(chilli|turmeric|spice|cumin)/.test(n)) return "SPC";
+  if (/(oil|soybean|mustard|sunflower|groundnut|sesame|linseed)/.test(n)) return "OIL";
+  if (/(mango|banana|apple|fruit|orange|grapes|pomegranate|papaya|guava|watermelon|chikoo)/.test(n)) return "FRT";
+  if (/(wheat|rice|grain|bajra|jowar|maize|cereal|barley)/.test(n)) return "GRN";
+  if (/(dal|pulse|tur|moong|urad|gram|chana|pea|lentil)/.test(n)) return "PLS";
+  if (/(chilli|turmeric|spice|cumin|coriander|pepper|ginger|garlic|clove|cardamom)/.test(n)) return "SPC";
+  if (/(flower|rose|marigold|jasmine|mogra|shevanti)/.test(n)) return "FLW";
+  if (/(cotton|sugarcane|tobacco|cash|jute)/.test(n)) return "CSH";
   return "VEG";
 }

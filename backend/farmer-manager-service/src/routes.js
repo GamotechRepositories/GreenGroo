@@ -15,6 +15,7 @@ import {
   updateFarmerFarmLocation,
   confirmFarmerFarmLocation,
   listFarmerCrops,
+  getPublicCropsCatalog,
   getFarmerCrop,
   createFarmerCrop,
   updateFarmerCrop,
@@ -87,12 +88,14 @@ import {
   updateVendor,
   getVendorDashboard,
   getVendorAllProducts,
+  getVendorAllCrops,
   // Manager auth
   managerLogin,
   getManagerMe,
   getManagerFarmers,
   getManagerDashboard,
   getManagerAllProducts,
+  getManagerAllCrops,
   getManagerAllOrders,
   getManagerAllInventory,
   getManagerAllDocuments,
@@ -179,6 +182,7 @@ farmerRouter.put("/me/farm", requireFarmer, updateFarmerFarmProfile);
 farmerRouter.put("/me/farm-location", requireFarmer, updateFarmerFarmLocation);
 farmerRouter.post("/me/farm-location/confirm", requireFarmer, confirmFarmerFarmLocation);
 farmerRouter.get("/crops", requireFarmer, listFarmerCrops);
+farmerRouter.get("/crops/catalog", getPublicCropsCatalog);
 farmerRouter.post("/crops", requireFarmer, createFarmerCrop);
 farmerRouter.get("/crops/:cropId", requireFarmer, getFarmerCrop);
 farmerRouter.put("/crops/:cropId", requireFarmer, updateFarmerCrop);
@@ -345,6 +349,9 @@ vendorRouter.get("/farmers/:farmerId/products", requireVendor, getFarmerProducts
 vendorRouter.post("/farmers/:farmerId/products", requireVendor, createManagedFarmerProduct);
 vendorRouter.patch("/farmers/:farmerId/products/:productId/review", requireVendor, reviewFarmerProduct);
 vendorRouter.get("/products", requireVendor, getVendorAllProducts);
+vendorRouter.get("/crops", requireVendor, getVendorAllCrops);
+vendorRouter.post("/crops", requireVendor, createManagedFarmerCrop);
+vendorRouter.get("/crops/catalog", requireVendor, getPublicCropsCatalog);
 vendorRouter.get("/farmers/:farmerId/crops", requireVendor, getManagedFarmerCrops);
 vendorRouter.post("/farmers/:farmerId/crops", requireVendor, createManagedFarmerCrop);
 vendorRouter.get("/farmers/:farmerId/crops/:cropId", requireVendor, getManagedFarmerCrop);
@@ -412,6 +419,9 @@ managerAuthRouter.get("/me", requireManager, getManagerMe);
 managerRouter.get("/dashboard", requireManager, getManagerDashboard);
 managerRouter.get("/farmers", requireManager, getManagerFarmers);
 managerRouter.get("/products", requireManager, getManagerAllProducts);
+managerRouter.get("/crops", requireManager, getManagerAllCrops);
+managerRouter.post("/crops", requireManager, createManagedFarmerCrop);
+managerRouter.get("/crops/catalog", requireManager, getPublicCropsCatalog);
 managerRouter.patch("/farmers/:farmerId/products/:productId/review", requireManager, reviewFarmerProduct);
 managerRouter.get("/orders", requireManager, getManagerAllOrders);
 managerRouter.get("/inventory", requireManager, getManagerAllInventory);

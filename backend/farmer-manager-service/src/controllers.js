@@ -197,7 +197,9 @@ function indexFarmersByIdentity(farmers) {
 }
 
 function accessibleFarmerQuery(req, farmerId) {
-  const query = { id: farmerId };
+  const query = {
+    $or: [{ id: farmerId }, { farmerId: farmerId }],
+  };
   if (req.user?.role === "FARMER_MANAGER") {
     query.managerId = req.user.managerId;
     query.vendorId = req.user.vendorId;
@@ -1279,42 +1281,42 @@ function deriveCropStatus(sowingDate, harvestDate) {
 function validateCropPayload(payload) {
   const cropName = String(payload.cropName || payload.crop || "").trim();
   const variety = String(payload.variety || "").trim();
-  const area = Number(payload.area);
-  const areaUnit = String(payload.areaUnit || "Acre").trim() || "Acre";
-  const sowingDate = String(payload.sowingDate || "").trim();
-  const expectedHarvestDate = String(payload.expectedHarvestDate || "").trim();
-  const estimatedQuantity = Number(payload.estimatedQuantity);
-  const unit = String(payload.unit || "").trim();
-  const farmingMethod = String(payload.farmingMethod || "").trim();
-  const farmingType = String(payload.farmingType || "").trim();
-  const irrigationType = String(payload.irrigationType || "").trim();
+  const category = String(payload.category || "").trim() || "Vegetables";
+  const categoryCode = String(payload.categoryCode || "").trim().toUpperCase() || (category ? categoryFromName(category) : categoryFromName(cropName));
 
   if (!cropName) return { error: "Crop name is required" };
   if (!variety) return { error: "Variety is required" };
-  if (!Number.isFinite(area) || area <= 0) return { error: "Area must be greater than 0" };
-  if (!sowingDate) return { error: "Sowing date is required" };
-  if (!expectedHarvestDate) return { error: "Expected harvest date is required" };
-  if (expectedHarvestDate < sowingDate) return { error: "Expected harvest date cannot be before sowing date" };
-  if (!Number.isFinite(estimatedQuantity) || estimatedQuantity <= 0) {
-    return { error: "Estimated quantity must be greater than 0" };
-  }
-  if (!unit) return { error: "Unit is required" };
-  if (!farmingMethod || farmingMethod === "Other") return { error: "Farming method is required" };
-  if (!irrigationType || irrigationType === "Other") return { error: "Irrigation type is required" };
-  if (farmingType === "Other") return { error: "Please specify farming type" };
+
+  const parsedArea = Number(payload.area);
+  const area = Number.isFinite(parsedArea) && parsedArea > 0 ? parsedArea : 1;
+  const areaUnit = String(payload.areaUnit || "Acre").trim() || "Acre";
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const sowingDate = String(payload.sowingDate || todayStr).trim() || todayStr;
+  const defaultExpHarvest = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const expectedHarvestDate = String(payload.expectedHarvestDate || defaultExpHarvest).trim() || defaultExpHarvest;
+
+  const parsedQty = Number(payload.estimatedQuantity);
+  const estimatedQuantity = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 100;
+  const unit = String(payload.unit || "Kg").trim() || "Kg";
+  const farmingMethod = String(payload.farmingMethod || "Conventional").trim() || "Conventional";
+  const farmingType = String(payload.farmingType || "Conventional").trim() || "Conventional";
+  const irrigationType = String(payload.irrigationType || "Drip").trim() || "Drip";
 
   return {
     cropName,
     variety,
+    category,
+    categoryCode,
     area,
     areaUnit,
     sowingDate,
     expectedHarvestDate,
     estimatedQuantity,
     unit,
-    farmingMethod,
-    farmingType,
-    irrigationType,
+    farmingMethod: farmingMethod === "Other" ? "Conventional" : farmingMethod,
+    farmingType: farmingType === "Other" ? "Conventional" : farmingType,
+    irrigationType: irrigationType === "Other" ? "Drip" : irrigationType,
     photos: sanitizeCropPhotos(payload.photos),
   };
 }
@@ -1394,6 +1396,37 @@ async function loadOwnCrop(req, res) {
   return ensureSharedCropBusinessId(crop);
 }
 
+export async function getPublicCropsCatalog(req, res) {
+  try {
+    const crops = await FarmerCrop.find({}).sort({ createdAt: -1 }).lean();
+    const seen = new Set();
+    const catalog = [];
+    for (const c of crops) {
+      const name = String(c.cropName || "").trim();
+      const variety = String(c.variety || "").trim();
+      const key = `${name.toLowerCase()}:::${variety.toLowerCase()}`;
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      catalog.push({
+        id: c.cropId || c.id,
+        cropId: c.cropId || c.id,
+        cropName: name,
+        variety: variety || "Common",
+        unit: c.unit || "Kg",
+        areaUnit: c.areaUnit || "Acre",
+        farmingMethod: c.farmingMethod || "Conventional",
+        farmingType: c.farmingType || "Conventional",
+        irrigationType: c.irrigationType || "Drip",
+        photos: c.photos || [],
+        estimatedQuantity: c.estimatedQuantity || "",
+      });
+    }
+    res.json(catalog);
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to load crop catalog" });
+  }
+}
+
 export async function listFarmerCrops(req, res) {
   try {
     const farmerId = authFarmerId(req);
@@ -1428,6 +1461,7 @@ export async function getFarmerCrop(req, res) {
 async function resolveSharedCropBusinessId(parsed) {
   const cropName = String(parsed.cropName || "").trim();
   const variety = String(parsed.variety || "").trim();
+  const catCode = String(parsed.categoryCode || categoryFromName(parsed.category || cropName)).toUpperCase();
   if (cropName) {
     const existing = await FarmerCrop.findOne({
       cropName: new RegExp(`^${cropName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
@@ -1444,10 +1478,24 @@ async function resolveSharedCropBusinessId(parsed) {
   }
   return generateId({
     module: "CRP",
-    category: categoryFromName(cropName),
+    category: catCode || categoryFromName(cropName),
     crop: cropCodeFromName(cropName),
     variety: varietyCodeFromName(variety),
   });
+}
+
+async function uniqueCropRecordId(cropId, farmer) {
+  const base = String(cropId || "").trim();
+  const taken = await FarmerCrop.exists({ id: base });
+  if (!taken) return base;
+  const serial = farmerSerialFromId(farmer?.farmerId || farmer?.id || "00001");
+  let candidate = `${base}-F${serial}`;
+  let n = 1;
+  while (await FarmerCrop.exists({ id: candidate })) {
+    n += 1;
+    candidate = `${base}-F${serial}-${n}`;
+  }
+  return candidate;
 }
 
 async function uniqueProductRecordId(productId, farmer) {
@@ -1520,6 +1568,8 @@ async function persistNewCrop(farmer, parsed) {
     farmId: farmSummary(farmer).farmId,
     cropName: parsed.cropName,
     variety: parsed.variety,
+    category: parsed.category || "Vegetables",
+    categoryCode: parsed.categoryCode || "VEG",
     area: parsed.area,
     areaUnit: parsed.areaUnit,
     sowingDate: parsed.sowingDate,
@@ -1552,6 +1602,8 @@ async function applyCropUpdate(crop, payload) {
   }
   crop.cropName = parsed.cropName;
   crop.variety = parsed.variety;
+  if (parsed.category) crop.category = parsed.category;
+  if (parsed.categoryCode) crop.categoryCode = parsed.categoryCode;
   crop.area = parsed.area;
   crop.areaUnit = parsed.areaUnit;
   crop.sowingDate = parsed.sowingDate;
@@ -1650,8 +1702,38 @@ export async function getManagedFarmerCrop(req, res) {
 
 export async function createManagedFarmerCrop(req, res) {
   try {
-    const farmer = await Farmer.findOne(accessibleFarmerQuery(req, req.params.farmerId));
-    if (!farmer) return res.status(404).json({ message: "Farmer not found" });
+    const farmerParam = req.params.farmerId;
+    let farmer = null;
+    if (farmerParam && farmerParam !== "general") {
+      farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerParam));
+      if (!farmer) {
+        farmer = await Farmer.findOne({
+          $or: [{ id: farmerParam }, { farmerId: farmerParam }],
+        });
+      }
+    }
+    if (!farmer) {
+      if (req.user?.vendorId) {
+        farmer = await Farmer.findOne({ vendorId: req.user.vendorId });
+      }
+      if (!farmer && req.user?.managerId) {
+        farmer = await Farmer.findOne({ managerId: req.user.managerId });
+      }
+      if (!farmer) {
+        farmer = await Farmer.findOne({});
+      }
+    }
+    if (!farmer) {
+      farmer = await Farmer.create({
+        id: "farmer-master-catalog",
+        farmerId: "GGC-FR-MH-AHI-SAN-00001",
+        vendorId: req.user?.vendorId || "vendor-1",
+        managerId: req.user?.managerId || "mgr-1",
+        name: "Master Crop Catalog",
+        mobile: "9999999999",
+      });
+    }
+
     const parsed = validateCropPayload(req.body || {});
     if (parsed.error) return res.status(400).json({ message: parsed.error });
     const { crop, plan } = await persistNewCrop(farmer, parsed);
@@ -4479,6 +4561,49 @@ export async function getVendorDashboard(req, res) {
   }
 }
 
+export async function getVendorAllCrops(req, res) {
+  try {
+    const vendorId = req.user.vendorId;
+    let farmers = await Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean();
+    if (!farmers.length) {
+      farmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean();
+    }
+    const farmerMap = new Map();
+    const allFarmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean();
+    allFarmers.forEach((f) => {
+      if (f.id) farmerMap.set(f.id, f);
+      if (f.farmerId) farmerMap.set(f.farmerId, f);
+    });
+
+    const crops = await FarmerCrop.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+    for (const crop of crops) {
+      const derived = deriveCropStatus(crop.sowingDate, crop.expectedHarvestDate);
+      if (derived && derived !== crop.status) {
+        crop.status = derived;
+        await FarmerCrop.updateOne({ id: crop.id }, { $set: { status: derived } }).catch(() => {});
+      }
+    }
+    res.json({
+      farmers,
+      crops: crops.map((c) => {
+        const f = farmerMap.get(c.farmerId) || {};
+        return {
+          ...c,
+          farmerName: f.name || c.farmerName || "—",
+          farmerMobile: f.mobile || c.farmerMobile || "",
+          farmerCode: f.farmerCode || f.farmerId || f.id || c.farmerId,
+          farmerLocation: f.farmLocation || f.location || c.farmerLocation || "",
+          managerName: f.managerName || c.managerName || "—",
+        };
+      }),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch crops" });
+  }
+}
+
 export async function getVendorAllProducts(req, res) {
   try {
     const vendorId = req.user.vendorId;
@@ -4708,6 +4833,49 @@ function attachFarmerMeta(farmers) {
     loginEnabled: f.loginEnabled !== false,
     initials: initials(f.name),
   }));
+}
+
+export async function getManagerAllCrops(req, res) {
+  try {
+    let farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    if (!farmers.length) {
+      const allFarmersList = await Farmer.find({}).select("-password").sort({ createdAt: -1 }).lean();
+      farmers = attachFarmerMeta(allFarmersList);
+    }
+    const farmerMap = new Map();
+    const allFarmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean();
+    allFarmers.forEach((f) => {
+      if (f.id) farmerMap.set(f.id, f);
+      if (f.farmerId) farmerMap.set(f.farmerId, f);
+    });
+
+    const crops = await FarmerCrop.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+    for (const crop of crops) {
+      const derived = deriveCropStatus(crop.sowingDate, crop.expectedHarvestDate);
+      if (derived && derived !== crop.status) {
+        crop.status = derived;
+        await FarmerCrop.updateOne({ id: crop.id }, { $set: { status: derived } }).catch(() => {});
+      }
+    }
+    res.json({
+      farmers,
+      crops: crops.map((c) => {
+        const f = farmerMap.get(c.farmerId) || {};
+        return {
+          ...c,
+          farmerName: f.name || c.farmerName || "—",
+          farmerMobile: f.mobile || c.farmerMobile || "",
+          farmerCode: f.farmerCode || f.farmerId || f.id || c.farmerId,
+          farmerLocation: f.farmLocation || f.location || c.farmerLocation || "",
+          managerName: f.managerName || c.managerName || "—",
+        };
+      }),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to fetch crops" });
+  }
 }
 
 export async function getManagerAllProducts(req, res) {

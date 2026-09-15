@@ -239,6 +239,10 @@ export async function getCrops() {
   return apiFetch("/api/farmer/crops", { headers: authHeaders() });
 }
 
+export async function getCropsCatalog() {
+  return apiFetch("/api/farmer/crops/catalog", { headers: authHeaders() }).catch(() => []);
+}
+
 export async function getCrop(cropId) {
   return apiFetch(`/api/farmer/crops/${cropId}`, { headers: authHeaders() });
 }

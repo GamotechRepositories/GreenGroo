@@ -1,205 +1,216 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import {
+  CROP_CATEGORY_OPTIONS,
+  cropCategoryFromName,
+  formatCropBusinessId,
+} from "../../utils/cropLinks";
 
-const INPUT = "w-full border border-[#D4D4D4] px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]";
-const OTHER = "Other";
+const INPUT =
+  "w-full rounded-lg border border-[#D4D4D4] bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#217346] shadow-sm";
 const CROP_OPTIONS = [
   "Tomato", "Onion", "Potato", "Capsicum", "Brinjal", "Cabbage", "Cauliflower", "Okra",
   "Chilli", "Cotton", "Soybean", "Wheat", "Rice", "Sugarcane", "Grapes", "Pomegranate",
   "Banana", "Maize", "Groundnut", "Turmeric",
 ];
-const AREA_UNITS = ["Acre", "Hectare"];
-const CROP_UNITS = ["Kg", "Quintal", "Ton"];
-const FARMING_METHODS = ["Conventional", "Mixed", "Natural"];
-const IRRIGATION_TYPES = ["Drip", "Sprinkler", "Flood", "Rainfed", "Canal"];
-const FARMING_TYPES = ["Organic", "Conventional"];
-const STATUS_FLOW = {
-  Planned: ["Planned", "Growing"],
-  Growing: ["Growing", "Ready for Harvest"],
-  "Ready for Harvest": ["Ready for Harvest", "Harvested"],
-  Harvested: ["Harvested", "Completed"],
-  Completed: ["Completed"],
-};
-
-function splitValue(options, value) {
-  const raw = String(value || "").trim();
-  if (!raw) return { select: "", custom: "" };
-  if (options.includes(raw)) return { select: raw, custom: "" };
-  return { select: OTHER, custom: raw };
-}
-
-function resolveValue(select, custom) {
-  return select === OTHER ? String(custom || "").trim() : String(select || "").trim();
-}
-
-function emptyForm(defaults = {}) {
-  const crop = splitValue(CROP_OPTIONS, defaults.cropName);
-  const areaUnit = splitValue(AREA_UNITS, defaults.areaUnit || "Acre");
-  const unit = splitValue(CROP_UNITS, defaults.unit || "Kg");
-  const farmingMethod = splitValue(FARMING_METHODS, defaults.farmingMethod);
-  const irrigationType = splitValue(IRRIGATION_TYPES, defaults.irrigationType);
-  const farmingType = splitValue(FARMING_TYPES, defaults.farmingType);
-  return {
-    cropName: crop.select,
-    customCropName: crop.custom,
-    variety: defaults.variety || "",
-    area: defaults.area || "",
-    areaUnit: areaUnit.select || "Acre",
-    customAreaUnit: areaUnit.custom,
-    sowingDate: defaults.sowingDate || "",
-    expectedHarvestDate: defaults.expectedHarvestDate || "",
-    estimatedQuantity: defaults.estimatedQuantity || "",
-    unit: unit.select || "Kg",
-    customUnit: unit.custom,
-    farmingMethod: farmingMethod.select,
-    customFarmingMethod: farmingMethod.custom,
-    irrigationType: irrigationType.select,
-    customIrrigationType: irrigationType.custom,
-    farmingType: farmingType.select,
-    customFarmingType: farmingType.custom,
-    photos: defaults.photos?.filter(Boolean).length ? defaults.photos.filter(Boolean) : [""],
-    status: defaults.status || "Planned",
-  };
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function SelectField({ label, required, options, value, custom, onSelect, onCustom, error, customPlaceholder }) {
-  return (
-    <div>
-      <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">
-        {label}
-        {required ? " *" : ""}
-      </label>
-      <select className={INPUT} value={value} onChange={(e) => onSelect(e.target.value)}>
-        <option value="">Select</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-        <option value={OTHER}>{OTHER}</option>
-      </select>
-      {value === OTHER ? (
-        <input className={`${INPUT} mt-1.5`} value={custom} placeholder={customPlaceholder} onChange={(e) => onCustom(e.target.value)} />
-      ) : null}
-      {error ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{error}</p> : null}
-    </div>
-  );
-}
 
 export default function FarmerCropFormPage() {
-  const { farmerId, cropId } = useParams();
+  const { farmerId: farmerIdParam, cropId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const lockedFarmerId = farmerIdParam || searchParams.get("farmerId") || "";
   const isEdit = Boolean(cropId);
+
+  const [farmers, setFarmers] = useState([]);
+  const [selectedFarmerId, setSelectedFarmerId] = useState(lockedFarmerId);
+  const [catalog, setCatalog] = useState([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState("");
+  const [cropName, setCropName] = useState("");
+  const [variety, setVariety] = useState("");
+  const [category, setCategory] = useState("Vegetables");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [farmerName, setFarmerName] = useState("");
-  const [form, setForm] = useState(() => emptyForm());
   const [errors, setErrors] = useState({});
-  const backTo = `/vendor/all-farmers/${farmerId}`;
 
-  const setField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: "" }));
+  useEffect(() => {
+    let cancelled = false;
+    vendorApi.getCropsCatalog().then((list) => {
+      if (!cancelled && Array.isArray(list)) setCatalog(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dynamicCropOptions = useMemo(() => {
+    const set = new Set(CROP_OPTIONS);
+    catalog.forEach((c) => {
+      if (c.cropName) set.add(c.cropName);
+    });
+    return Array.from(set);
+  }, [catalog]);
+
+  const dynamicVarietyOptions = useMemo(() => {
+    const set = new Set(["Hybrid", "Desi", "Abhinav", "Super 10", "F1"]);
+    catalog.forEach((c) => {
+      if (
+        c.cropName?.toLowerCase() === cropName?.trim().toLowerCase() &&
+        c.variety
+      ) {
+        set.add(c.variety);
+      }
+    });
+    return Array.from(set);
+  }, [cropName, catalog]);
+
+  const onCropNameChange = (val) => {
+    setCropName(val);
+    setErrors((prev) => ({ ...prev, cropName: "" }));
+    const detectedCode = cropCategoryFromName(val);
+    const matchedOpt = CROP_CATEGORY_OPTIONS.find((c) => c.code === detectedCode);
+    if (matchedOpt) {
+      setCategory(matchedOpt.value);
+    }
+  };
+
+  const applyCatalogCrop = (catId) => {
+    setSelectedCatalogId(catId);
+    if (!catId) return;
+    const found = catalog.find((c) => (c.cropId || c.id) === catId);
+    if (!found) return;
+    setCropName(found.cropName || "");
+    setVariety(found.variety || "");
+    if (found.category) {
+      setCategory(found.category);
+    } else if (found.cropName) {
+      const code = cropCategoryFromName(found.cropName);
+      const matched = CROP_CATEGORY_OPTIONS.find((c) => c.code === code);
+      if (matched) setCategory(matched.value);
+    }
+    setErrors({});
   };
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        const farmer = (await vendorApi.getFarmerById(farmerId)).data;
-        setFarmerName(farmer?.name || "");
-        const defaults = {
-          farmingMethod: farmer?.farm?.farmingMethod || "",
-          farmingType: farmer?.farm?.farmingType || farmer?.farmType || "",
-          irrigationType: farmer?.farm?.irrigationType || "",
-          areaUnit: farmer?.farm?.totalFarmAreaUnit || "Acre",
-        };
-        if (isEdit) {
-          const crop = (await vendorApi.getFarmerCrop(farmerId, cropId)).data;
-          setForm(emptyForm({ ...defaults, ...crop }));
-        } else {
-          setForm(emptyForm(defaults));
+        if (!lockedFarmerId) {
+          const res = await vendorApi.getFarmers();
+          const list = Array.isArray(res?.data) ? res.data : res?.data?.farmers || [];
+          if (!cancelled) {
+            setFarmers(list);
+            if (!selectedFarmerId && list.length > 0) {
+              setSelectedFarmerId(list[0].id);
+            }
+          }
         }
-      } catch (err) {
-        setError(err?.response?.data?.message || "Failed to load crop");
+      } catch {
+        // ignore
       } finally {
-        setLoading(false);
+        if (!cancelled && !selectedFarmerId) setLoading(false);
       }
     })();
-  }, [farmerId, cropId, isEdit]);
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedFarmerId]);
 
-  const validate = () => {
-    const cropName = resolveValue(form.cropName, form.customCropName);
-    const areaUnit = resolveValue(form.areaUnit, form.customAreaUnit);
-    const unit = resolveValue(form.unit, form.customUnit);
-    const farmingMethod = resolveValue(form.farmingMethod, form.customFarmingMethod);
-    const irrigationType = resolveValue(form.irrigationType, form.customIrrigationType);
-    const farmingType = resolveValue(form.farmingType, form.customFarmingType);
-    const next = {};
-    if (!cropName) next.cropName = "Crop is required";
-    if (!form.variety.trim()) next.variety = "Variety is required";
-    if (!(Number(form.area) > 0)) next.area = "Area must be greater than 0";
-    if (!areaUnit) next.areaUnit = "Area unit is required";
-    if (!form.sowingDate) next.sowingDate = "Sowing date is required";
-    if (!form.expectedHarvestDate) next.expectedHarvestDate = "Expected harvest date is required";
-    if (form.sowingDate && form.expectedHarvestDate && form.expectedHarvestDate < form.sowingDate) {
-      next.expectedHarvestDate = "Expected harvest date cannot be before sowing date";
-    }
-    if (!(Number(form.estimatedQuantity) > 0)) next.estimatedQuantity = "Estimated quantity must be greater than 0";
-    if (!unit) next.unit = "Unit is required";
-    if (!farmingMethod) next.farmingMethod = "Farming method is required";
-    if (!irrigationType) next.irrigationType = "Irrigation type is required";
-    setErrors(next);
-    return { ok: Object.keys(next).length === 0, cropName, areaUnit, unit, farmingMethod, irrigationType, farmingType };
-  };
+  useEffect(() => {
+    if (!selectedFarmerId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const farmer = (await vendorApi.getFarmerById(selectedFarmerId)).data;
+        if (cancelled) return;
+        setFarmerName(farmer?.name || "");
+        if (isEdit && cropId) {
+          const crop = (await vendorApi.getFarmerCrop(selectedFarmerId, cropId)).data;
+          if (!cancelled && crop) {
+            setCropName(crop.cropName || crop.name || "");
+            setVariety(crop.variety || "");
+            if (crop.category) setCategory(crop.category);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setError(err?.response?.data?.message || "Failed to load crop");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedFarmerId, cropId, isEdit]);
 
-  const onPhoto = async (index, file) => {
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      window.alert("Photo must be 2MB or smaller");
-      return;
-    }
-    const url = await fileToDataUrl(file);
-    const next = [...form.photos];
-    next[index] = url;
-    setField("photos", next);
-  };
+  const backTo = lockedFarmerId ? `/vendor/all-farmers/${lockedFarmerId}` : "/vendor/crops";
+
+  const categoryCode = useMemo(() => {
+    const found = CROP_CATEGORY_OPTIONS.find(
+      (c) => c.value.toLowerCase() === String(category).toLowerCase()
+    );
+    return found ? found.code : cropCategoryFromName(cropName, category);
+  }, [category, cropName]);
+
+  const calculatedCropId = useMemo(() => {
+    if (!cropName && !variety) return `GGC-CRP-${categoryCode || "VEG"}-XXX-XXX-00001`;
+    return formatCropBusinessId({ cropName, variety, category, categoryCode });
+  }, [cropName, variety, category, categoryCode]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    const parsed = validate();
-    if (!parsed.ok) return;
+    const nextErrors = {};
+    const trimmedCrop = cropName.trim();
+    const trimmedVariety = variety.trim();
+
+    if (!trimmedCrop) nextErrors.cropName = "Crop name is required";
+    if (!trimmedVariety) nextErrors.variety = "Variety name is required";
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
     setSubmitting(true);
     setError("");
+
+    const targetFarmer = selectedFarmerId || (farmers[0]?.id || "farmer-1");
+
     const payload = {
-      cropName: parsed.cropName,
-      variety: form.variety.trim(),
-      area: Number(form.area),
-      areaUnit: parsed.areaUnit,
-      sowingDate: form.sowingDate,
-      expectedHarvestDate: form.expectedHarvestDate,
-      estimatedQuantity: Number(form.estimatedQuantity),
-      unit: parsed.unit,
-      farmingMethod: parsed.farmingMethod,
-      farmingType: parsed.farmingType,
-      irrigationType: parsed.irrigationType,
-      photos: form.photos.filter(Boolean),
-      status: form.status,
+      cropName: trimmedCrop,
+      variety: trimmedVariety,
+      category,
+      categoryCode,
+      cropId: calculatedCropId,
+      // Default attributes for backend compatibility
+      area: 1,
+      areaUnit: "Acre",
+      sowingDate: new Date().toISOString().slice(0, 10),
+      expectedHarvestDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+      estimatedQuantity: 100,
+      unit: "Kg",
+      farmingMethod: "Conventional",
+      farmingType: "Conventional",
+      irrigationType: "Drip",
+      photos: [],
+      status: "Planned",
     };
+
     try {
       const saved = isEdit
-        ? (await vendorApi.updateFarmerCrop(farmerId, cropId, payload)).data
-        : (await vendorApi.createFarmerCrop(farmerId, payload)).data;
+        ? (await vendorApi.updateFarmerCrop(targetFarmer, cropId, payload)).data
+        : (await vendorApi.createFarmerCrop(targetFarmer, payload)).data;
       const id = saved.cropId || saved.id;
-      navigate(`/vendor/all-farmers/${farmerId}/crops/${encodeURIComponent(id)}`);
+      if (lockedFarmerId) {
+        navigate(`/vendor/all-farmers/${targetFarmer}/crops/${encodeURIComponent(id)}`);
+      } else {
+        navigate("/vendor/crops");
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save crop");
     } finally {
@@ -210,148 +221,162 @@ export default function FarmerCropFormPage() {
   if (loading) return <p className="p-6 text-xs text-[#6B7280]">Loading…</p>;
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4 p-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6">
+      {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs text-[#6B7280]">
-        <Link to="/vendor/all-farmers" className="hover:text-[#217346]">Farmers</Link>
-        <span>›</span>
-        <Link to={backTo} className="hover:text-[#217346]">{farmerName || "Farmer"}</Link>
+        {lockedFarmerId ? (
+          <>
+            <Link to="/vendor/all-farmers" className="hover:text-[#217346]">Farmers</Link>
+            <span>›</span>
+            <Link to={backTo} className="hover:text-[#217346]">{farmerName || "Farmer"}</Link>
+          </>
+        ) : (
+          <Link to="/vendor/crops" className="hover:text-[#217346]">All Crops</Link>
+        )}
         <span>›</span>
         <span className="font-semibold text-[#1F2937]">{isEdit ? "Edit Crop" : "Add Crop"}</span>
       </div>
 
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-[#1F2937]">{isEdit ? "Edit Crop" : "Add Crop"}</h1>
-          <p className="text-sm text-[#6B7280]">{isEdit ? `Update crop for ${farmerName || "this farmer"}.` : `Add a crop for ${farmerName || "this farmer"}.`}</p>
+          <p className="text-xs text-[#6B7280]">
+            {isEdit
+              ? "Update crop details."
+              : "Enter crop category, name and variety to register a new crop in the system."}
+          </p>
         </div>
         <Link to={backTo} className="text-xs font-semibold text-[#217346] hover:underline">Back</Link>
       </div>
 
-      {error ? <p className="text-xs text-[#DC2626]">{error}</p> : null}
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-[#DC2626]">
+          {error}
+        </div>
+      ) : null}
 
-      <form onSubmit={onSubmit} className="space-y-4 border border-[#D4D4D4] bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <SelectField
-            label="Select Crop"
-            required
-            options={CROP_OPTIONS}
-            value={form.cropName}
-            custom={form.customCropName}
-            onSelect={(v) => setField("cropName", v)}
-            onCustom={(v) => setField("customCropName", v)}
-            error={errors.cropName}
-            customPlaceholder="Enter crop name"
-          />
-          <div>
-            <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">Variety *</label>
-            <input className={INPUT} value={form.variety} placeholder="Hybrid" onChange={(e) => setField("variety", e.target.value)} />
-            {errors.variety ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{errors.variety}</p> : null}
+      {/* Form Container */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
+        <form onSubmit={onSubmit} className="space-y-4 max-w-xl">
+          {/* Generated Crop ID display */}
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 shadow-sm">
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-800">
+              Generated Crop ID (तयार झालेला पीक आयडी)
+            </span>
+            <p className="mt-1 font-mono text-base font-bold text-emerald-900 tracking-wide">
+              {calculatedCropId}
+            </p>
+            <p className="mt-0.5 text-[11px] text-emerald-700">
+              Auto-generated based on Category, Crop Name and Variety Name.
+            </p>
           </div>
-          <div>
-            <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">Area *</label>
-            <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-1.5">
-              <input className={`${INPUT} min-w-0`} type="number" min="0" step="0.01" value={form.area} onChange={(e) => setField("area", e.target.value)} />
-              <select className="min-h-9 min-w-0 w-full border border-[#D4D4D4] px-1.5 py-1.5 text-xs outline-none focus:border-[#217346]" value={form.areaUnit} onChange={(e) => setField("areaUnit", e.target.value)}>
-                {AREA_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                <option value={OTHER}>{OTHER}</option>
-              </select>
-            </div>
-            {form.areaUnit === OTHER ? (
-              <input className={`${INPUT} mt-1.5`} value={form.customAreaUnit} placeholder="Unit" onChange={(e) => setField("customAreaUnit", e.target.value)} />
-            ) : null}
-            {errors.area || errors.areaUnit ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{errors.area || errors.areaUnit}</p> : null}
-          </div>
-          <div>
-            <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">Estimated Quantity *</label>
-            <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-1.5">
-              <input className={`${INPUT} min-w-0`} type="number" min="0" step="0.01" value={form.estimatedQuantity} onChange={(e) => setField("estimatedQuantity", e.target.value)} />
-              <select className="min-h-9 min-w-0 w-full border border-[#D4D4D4] px-1.5 py-1.5 text-xs outline-none focus:border-[#217346]" value={form.unit} onChange={(e) => setField("unit", e.target.value)}>
-                {CROP_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                <option value={OTHER}>{OTHER}</option>
-              </select>
-            </div>
-            {form.unit === OTHER ? (
-              <input className={`${INPUT} mt-1.5`} value={form.customUnit} placeholder="Unit" onChange={(e) => setField("customUnit", e.target.value)} />
-            ) : null}
-            {errors.estimatedQuantity || errors.unit ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{errors.estimatedQuantity || errors.unit}</p> : null}
-          </div>
-          <div>
-            <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">Sowing Date *</label>
-            <input className={INPUT} type="date" value={form.sowingDate} onChange={(e) => setField("sowingDate", e.target.value)} />
-            {errors.sowingDate ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{errors.sowingDate}</p> : null}
-          </div>
-          <div>
-            <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">Harvest Date *</label>
-            <input className={INPUT} type="date" value={form.expectedHarvestDate} onChange={(e) => setField("expectedHarvestDate", e.target.value)} />
-            {errors.expectedHarvestDate ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{errors.expectedHarvestDate}</p> : null}
-          </div>
-          <SelectField
-            label="Farming Method"
-            required
-            options={FARMING_METHODS}
-            value={form.farmingMethod}
-            custom={form.customFarmingMethod}
-            onSelect={(v) => setField("farmingMethod", v)}
-            onCustom={(v) => setField("customFarmingMethod", v)}
-            error={errors.farmingMethod}
-            customPlaceholder="Enter farming method"
-          />
-          <SelectField
-            label="Irrigation Type"
-            required
-            options={IRRIGATION_TYPES}
-            value={form.irrigationType}
-            custom={form.customIrrigationType}
-            onSelect={(v) => setField("irrigationType", v)}
-            onCustom={(v) => setField("customIrrigationType", v)}
-            error={errors.irrigationType}
-            customPlaceholder="Enter irrigation type"
-          />
-          <SelectField
-            label="Organic / Conventional"
-            options={FARMING_TYPES}
-            value={form.farmingType}
-            custom={form.customFarmingType}
-            onSelect={(v) => setField("farmingType", v)}
-            onCustom={(v) => setField("customFarmingType", v)}
-            customPlaceholder="Enter farming type"
-          />
-          {isEdit ? (
-            <div>
-              <label className="mb-0.5 block text-[11px] font-semibold text-slate-600">Status</label>
-              <select className={INPUT} value={form.status} onChange={(e) => setField("status", e.target.value)}>
-                {(STATUS_FLOW[form.status] || [form.status]).map((s) => (
-                  <option key={s} value={s}>{s}</option>
+
+          {catalog.length > 0 && !isEdit && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 space-y-1">
+              <label className="text-xs font-semibold text-slate-700">
+                🌱 Choose from Existing Registered Crops (ऐच्छिक)
+              </label>
+              <select
+                value={selectedCatalogId}
+                onChange={(e) => applyCatalogCrop(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
+              >
+                <option value="">-- Choose existing or type custom name below --</option>
+                {catalog.map((c) => (
+                  <option key={c.cropId || c.id} value={c.cropId || c.id}>
+                    {c.cropName} - {c.variety} ({formatCropBusinessId(c)})
+                  </option>
                 ))}
               </select>
             </div>
-          ) : null}
-        </div>
+          )}
 
-        <div>
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">Photos</p>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            {form.photos.map((photo, index) => (
-              <label key={index} className="cursor-pointer border border-dashed border-[#D4D4D4] p-2 text-center">
-                {photo ? (
-                  <img src={photo} alt="" className="mb-1 h-20 w-full object-cover" />
-                ) : null}
-                <span className="text-[10px] font-semibold text-[#6B7280]">{photo ? "Replace photo" : `Photo ${index + 1}`}</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => onPhoto(index, e.target.files?.[0])} />
-              </label>
-            ))}
+          {/* Select Category / Type * */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800">
+              Select Crop Category / Type (पिकाचा प्रकार) <span className="text-red-600">*</span>
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={INPUT}
+            >
+              {CROP_CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label} ({cat.code})
+                </option>
+              ))}
+            </select>
           </div>
-          {form.photos.length < 4 ? (
-            <button type="button" className="mt-2 border border-[#D4D4D4] px-2.5 py-1 text-[11px] font-semibold" onClick={() => setField("photos", [...form.photos, ""])}>
-              Add Photo
-            </button>
-          ) : null}
-        </div>
 
-        <button type="submit" disabled={submitting} className="bg-[#217346] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1a5c38] disabled:opacity-60">
-          {submitting ? "Saving…" : "Save Crop"}
-        </button>
-      </form>
+          {/* Enter Crop name * */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800">
+              Enter Crop name <span className="text-red-600">*</span>
+            </label>
+            <input
+              type="text"
+              list="vendor-crop-options-list"
+              value={cropName}
+              onChange={(e) => onCropNameChange(e.target.value)}
+              placeholder="Enter crop name (e.g. Tomato, Mango, Soybean, Wheat)"
+              className={INPUT}
+              autoFocus
+            />
+            <datalist id="vendor-crop-options-list">
+              {dynamicCropOptions.map((opt) => (
+                <option key={opt} value={opt} />
+              ))}
+            </datalist>
+            {errors.cropName && (
+              <p className="text-[11px] text-red-600 font-medium mt-0.5">{errors.cropName}</p>
+            )}
+          </div>
+
+          {/* Enter Variety Name * */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800">
+              Enter Variety Name <span className="text-red-600">*</span>
+            </label>
+            <input
+              type="text"
+              list="vendor-variety-options-list"
+              value={variety}
+              onChange={(e) => {
+                setVariety(e.target.value);
+                setErrors((prev) => ({ ...prev, variety: "" }));
+              }}
+              placeholder="Enter variety name (e.g. Hybrid, Abhinav, Desi)"
+              className={INPUT}
+            />
+            <datalist id="vendor-variety-options-list">
+              {dynamicVarietyOptions.map((opt) => (
+                <option key={opt} value={opt} />
+              ))}
+            </datalist>
+            {errors.variety && (
+              <p className="text-[11px] text-red-600 font-medium mt-0.5">{errors.variety}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
+            <Link
+              to={backTo}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-lg bg-[#217346] px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#1B5E38] disabled:opacity-50 transition-colors"
+            >
+              {submitting ? "Saving…" : isEdit ? "Update Crop" : "Save Crop"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
