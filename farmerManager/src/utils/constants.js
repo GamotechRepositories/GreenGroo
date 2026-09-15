@@ -310,7 +310,15 @@ export const MANAGER_SIDEBAR_ITEMS = [
       { to: "/manager/orders/create", label: "Create Order" },
     ],
   },
-  { to: "/manager/earnings", label: "Earnings", icon: "earnings" },
+  {
+    id: "earnings",
+    label: "Earnings",
+    icon: "earnings",
+    children: [
+      { to: "/manager/earnings", label: "Earning Statements", end: true },
+      { to: "/manager/earnings/payments", label: "All Payments" },
+    ],
+  },
   {
     id: "pickup",
     label: "Pickup",

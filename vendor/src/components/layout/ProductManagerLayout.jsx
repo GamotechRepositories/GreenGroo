@@ -71,7 +71,15 @@ const navItems = [
     ],
   },
   { to: '/vendor/orders', label: 'Orders', icon: 'inbox' },
-  { to: '/vendor/earnings', label: 'Earnings', icon: 'currency' },
+  {
+    id: 'earnings',
+    label: 'Earnings',
+    icon: 'currency',
+    children: [
+      { to: '/vendor/earnings', label: 'Earning Statements', end: true },
+      { to: '/vendor/earnings/payments', label: 'All Payments' },
+    ],
+  },
   { to: '/vendor/documents', label: 'Documents', icon: 'clipboard' },
   { to: '/inventory-requests', label: 'Inventory Requests', icon: 'box' },
 ]
@@ -94,10 +102,10 @@ function NavItem({ item, badge, onNavigate }) {
         end={item.end}
         onClick={onNavigate}
         className={({ isActive }) =>
-          `flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+          `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
             isActive
-              ? 'bg-green-primary font-medium text-white'
-              : 'text-white/80 hover:bg-white/10'
+              ? 'bg-green-primary text-white shadow-sm ring-1 ring-white/10'
+              : 'text-white/80 hover:bg-white/10 hover:text-white'
           }`
         }
       >
@@ -120,15 +128,19 @@ function NavGroup({ item, onNavigate }) {
   )
   const [open, setOpen] = useState(isChildActive)
 
+  useEffect(() => {
+    if (isChildActive) setOpen(true)
+  }, [location.pathname, isChildActive])
+
   return (
     <li>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
           isChildActive
-            ? 'bg-white/10 font-medium text-white'
-            : 'text-white/80 hover:bg-white/10'
+            ? 'bg-white/10 text-white font-semibold'
+            : 'text-white/80 hover:bg-white/10 hover:text-white'
         }`}
       >
         <Icon name={item.icon} size="sm" />
@@ -136,12 +148,12 @@ function NavGroup({ item, onNavigate }) {
         <Icon
           name="chevronDown"
           size="sm"
-          className={`transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
       {open ? (
-        <ul className="mt-1 space-y-0.5 border-l border-white/10 pl-3 ml-4">
+        <ul className="mt-1 space-y-0.5 border-l border-white/15 pl-3 ml-4">
           {item.children.map((child) => (
             <li key={child.to}>
               <NavLink
@@ -149,9 +161,9 @@ function NavGroup({ item, onNavigate }) {
                 end={child.end}
                 onClick={onNavigate}
                 className={({ isActive }) =>
-                  `block rounded-lg px-3 py-2 text-sm transition-colors ${
+                  `block rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-green-primary font-medium text-white'
+                      ? 'bg-green-primary text-white shadow-sm'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
                   }`
                 }
@@ -191,17 +203,18 @@ export default function ProductManagerLayout() {
       ) : null}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col bg-green-dark text-white transition-transform duration-200 print:hidden lg:translate-x-0 ${
+        className={`fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col bg-green-dark text-white shadow-xl transition-transform duration-200 print:hidden lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex items-center gap-3 px-5 py-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-primary">
+        {/* Brand Header */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-5 py-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-primary shadow-sm">
             <LogoIcon className="h-5 w-5 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold leading-tight text-white">GreenGroo</p>
-            <p className="text-xs text-white/60">Vendor Panel</p>
+            <p className="text-sm font-bold leading-tight tracking-wide text-white">GreenGroo</p>
+            <p className="text-[11px] text-white/60">Vendor Panel</p>
           </div>
           <button
             type="button"
@@ -213,53 +226,57 @@ export default function ProductManagerLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-4">
-          <ul className="space-y-0.5">
-            {navItems.map((item) => (
-              <NavItem
-                key={item.to || item.id}
-                item={item}
-                onNavigate={closeMobile}
-                badge={item.to === '/inventory-requests' ? pendingCount : 0}
-              />
-            ))}
-          </ul>
-        </nav>
+        {/* Scrollable Container with Hidden Scrollbar */}
+        <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 space-y-4">
+          <nav>
+            <ul className="space-y-1">
+              {navItems.map((item) => (
+                <NavItem
+                  key={item.to || item.id}
+                  item={item}
+                  onNavigate={closeMobile}
+                  badge={item.to === '/inventory-requests' ? pendingCount : 0}
+                />
+              ))}
+            </ul>
+          </nav>
 
-        <div className="border-t border-white/10 px-3 py-4">
-          <ul className="space-y-0.5">
-            {footerItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  onClick={closeMobile}
-                  className={({ isActive }) =>
-                    `flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-green-primary font-medium text-white'
-                        : 'text-white/80 hover:bg-white/10'
-                    }`
-                  }
+          {/* Footer Items inside scrollable flow */}
+          <div className="border-t border-white/10 pt-3 pb-8">
+            <ul className="space-y-1">
+              {footerItems.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    onClick={closeMobile}
+                    className={({ isActive }) =>
+                      `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                        isActive
+                          ? 'bg-green-primary text-white shadow-sm'
+                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Icon name={item.icon} size="sm" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vendor.logout()
+                    navigate('/vendor/login', { replace: true })
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-red-300 transition-colors"
                 >
-                  <Icon name={item.icon} size="sm" />
-                  <span className="flex-1 text-left">{item.label}</span>
-                </NavLink>
+                  <Icon name="power" size="sm" />
+                  <span className="flex-1 text-left">Logout</span>
+                </button>
               </li>
-            ))}
-            <li>
-              <button
-                type="button"
-                onClick={() => {
-                  vendor.logout()
-                  navigate('/vendor/login', { replace: true })
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10"
-              >
-                <Icon name="power" size="sm" />
-                Logout
-              </button>
-            </li>
-          </ul>
+            </ul>
+          </div>
         </div>
       </aside>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import CopyId from "../../components/ui/CopyId";
 
 const STATUS_BADGE = (status) => {
   const map = { Active: "bg-green-100 text-green-700", Inactive: "bg-gray-100 text-gray-600" };
@@ -46,9 +47,13 @@ export default function ManagerDetailPage() {
               <h1 className="text-xl font-bold text-gray-900">{manager.name}</h1>
               {STATUS_BADGE(manager.status)}
             </div>
-            <p className="mt-1 break-all font-mono text-[11px] font-semibold text-emerald-700">
-              {manager.managerCode || manager.id}
-            </p>
+            <div className="mt-1 flex items-center gap-1.5">
+              <CopyId
+                value={manager.managerCode || manager.id}
+                textClassName="break-all font-mono text-[11px] font-semibold text-emerald-700"
+                breakAll
+              />
+            </div>
             <p className="mt-0.5 text-sm text-gray-500">{manager.mobile} · {manager.email || "—"}</p>
             <p className="mt-0.5 text-xs text-gray-400">{manager.location || "—"} · Joined: {manager.joiningDate || manager.createdAt ? new Date(manager.joiningDate || manager.createdAt).toLocaleDateString("en-IN") : "—"}</p>
           </div>

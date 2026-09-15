@@ -65,6 +65,7 @@ function ManagerRoutes() {
           <Route path="orders/product/:productKey" element={<ManagerProductOrdersSpreadsheetPage />} />
           <Route path="orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
           <Route path="earnings" element={<ManagerEarningsPage />} />
+          <Route path="earnings/payments" element={<ManagerEarningsPage defaultTab="payments" />} />
           <Route path="earnings/:orderId" element={<ManagerEarningReportPage />} />
           <Route path="earnings/farmer/:farmerId" element={<ManagerEarningsPage />} />
           <Route path="earnings/farmer/:farmerId/product/:productId" element={<ManagerEarningsPage />} />

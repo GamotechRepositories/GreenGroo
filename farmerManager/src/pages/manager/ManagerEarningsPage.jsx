@@ -1,17 +1,18 @@
 import { Fragment, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   getManagerAllHarvestOrders,
   getManagerAllProducts,
   getManagerFarmers,
+  updateManagerOrderPayment,
 } from "../../api/farmerApi";
 import { usePolling } from "../../hooks/usePolling";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import SpreadsheetViewport from "../../components/ui/SpreadsheetViewport";
 import StatusBadge from "../../components/ui/StatusBadge";
-import CopyId from "../../components/ui/CopyId";
+import CopyId, { CopyButton } from "../../components/ui/CopyId";
 import { canonicalOrderStatus } from "../../utils/orderDisplay";
 import {
   STATEMENT_GRADES,
@@ -20,8 +21,14 @@ import {
   gradeStatementTotals,
 } from "../../utils/gradeStatement";
 import { formatCropDate, formatProductBusinessId } from "../../utils/cropLinks";
-import { formatProductPrice } from "../../utils/productActions";
-import { EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL } from "../../utils/excelStyles";
+import {
+  EXCEL_BTN,
+  EXCEL_BTN_PRIMARY,
+  EXCEL_INPUT,
+  EXCEL_PAGE_SUB,
+  EXCEL_PAGE_TITLE,
+  EXCEL_PANEL,
+} from "../../utils/excelStyles";
 
 const BASE = "/manager/earnings";
 const ORDER_DETAIL = "/manager/orders/detail";
@@ -69,9 +76,19 @@ const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 
 function parseDate(value) {
   if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   const raw = String(value).trim();
+  if (!raw) return null;
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
     const [y, m, d] = raw.slice(0, 10).split("-").map(Number);
+    const local = new Date(y, m - 1, d);
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+  const dmyMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (dmyMatch) {
+    const d = Number(dmyMatch[1]);
+    const m = Number(dmyMatch[2]);
+    const y = Number(dmyMatch[3]);
     const local = new Date(y, m - 1, d);
     return Number.isNaN(local.getTime()) ? null : local;
   }
@@ -89,6 +106,80 @@ function weekdayName(value) {
   const d = parseDate(value);
   if (!d) return "";
   return WEEKDAYS[d.getDay()] || "";
+}
+
+function isSameDay(d1, d2) {
+  if (!d1 || !d2) return false;
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+}
+
+function matchPaymentDateFilter(dateVal, dateFilter, customFrom = "", customTo = "") {
+  if (!dateFilter || dateFilter === "all") return true;
+  const d = parseDate(dateVal);
+  if (!d) return false;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (dateFilter === "today") {
+    return isSameDay(d, today);
+  }
+
+  if (dateFilter === "yesterday") {
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    return isSameDay(d, yesterday);
+  }
+
+  if (dateFilter === "this_week") {
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    return d >= startOfWeek && d <= endOfWeek;
+  }
+
+  if (dateFilter === "last_week") {
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1) - 7;
+    const startOfLastWeek = new Date(today);
+    startOfLastWeek.setDate(diff);
+    startOfLastWeek.setHours(0, 0, 0, 0);
+
+    const endOfLastWeek = new Date(startOfLastWeek);
+    endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+    endOfLastWeek.setHours(23, 59, 59, 999);
+
+    return d >= startOfLastWeek && d <= endOfLastWeek;
+  }
+
+  if (dateFilter === "this_month") {
+    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+  }
+
+  if (dateFilter === "custom") {
+    const from = customFrom ? parseDate(customFrom) : null;
+    const to = customTo ? parseDate(customTo) : null;
+    if (from) from.setHours(0, 0, 0, 0);
+    if (to) to.setHours(23, 59, 59, 999);
+
+    if (from && to) return d >= from && d <= to;
+    if (from) return d >= from;
+    if (to) return d <= to;
+    return true;
+  }
+
+  return true;
 }
 
 function DateWithDay({ value }) {
@@ -248,23 +339,6 @@ function ProductPhoto({ src, name, className }) {
   );
 }
 
-function DetailItem({ label, value, compact = false }) {
-  return (
-    <div className="min-w-0">
-      <p className={`${compact ? "text-[9px]" : "text-[10px]"} font-semibold uppercase tracking-wide text-slate-500`}>
-        {label}
-      </p>
-      <div
-        className={`mt-0.5 break-words font-semibold leading-snug text-[#1F2937] ${
-          compact ? "text-[11px]" : "text-[12px]"
-        }`}
-      >
-        {value || "—"}
-      </div>
-    </div>
-  );
-}
-
 function ProductEarningsCard({ item, onOpen }) {
   const src = item.product || {};
   const unit = src.unit || item.unit || "Kg";
@@ -273,25 +347,26 @@ function ProductEarningsCard({ item, onOpen }) {
     deposited: Math.round(item.deposited || 0),
     balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
   };
+  const productId = formatProductBusinessId(src);
   const details = [
-    ["Product ID", <CopyId key="id" value={formatProductBusinessId(src)} textClassName="font-mono text-[10px] font-semibold tracking-wide text-emerald-700" />],
-    ["Crop", src.cropName],
-    ["Variety", src.variety || item.variety],
-    ["Farm", src.farmName],
-    ["Location", src.farmLocation],
-    ["Harvest Date", formatCropDate(src.harvestDate)],
-    ["Available From", formatCropDate(src.availableFrom)],
-    ["Available Until", formatCropDate(src.availableUntil)],
+    ["Crop", src.cropName || "—"],
+    ["Variety", src.variety || item.variety || "—"],
+    ["Farm", src.farmName || "—"],
+    ["Location", src.farmLocation || "—"],
+    ["Harvest", formatCropDate(src.harvestDate) || "—"],
+    ["From", formatCropDate(src.availableFrom) || "—"],
+    ["Until", formatCropDate(src.availableUntil) || "—"],
     ["Orders", String(item.count || 0)],
   ];
   const grades = STATEMENT_GRADES.map((label) => {
     const t = item.gradeTotals?.[label] || {};
     return {
-      label,
+      label: label.replace("Grade ", ""),
       quantity: Number(t.qty) || 0,
       price: Number(t.rate) || 0,
       rejected: Number(t.rejected) || 0,
       unit,
+      fullLabel: label,
     };
   });
 
@@ -306,114 +381,88 @@ function ProductEarningsCard({ item, onOpen }) {
           onOpen();
         }
       }}
-      className={`${EXCEL_PANEL} cursor-pointer p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8] sm:p-2`}
+      className={`${EXCEL_PANEL} cursor-pointer overflow-hidden p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8]`}
     >
       <div className="flex items-start gap-1.5">
-        <ProductPhoto src={item.photo} name={item.name} className="h-9 w-9 shrink-0 rounded-md sm:h-10 sm:w-10" />
+        <ProductPhoto src={item.photo} name={item.name} className="h-8 w-8 shrink-0 rounded-md" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-1">
-            <p className="min-w-0 text-[12px] font-bold leading-tight text-[#1F2937] sm:text-[13px]">
+          <div className="flex items-center gap-1">
+            <p className="min-w-0 flex-1 truncate text-[11px] font-bold leading-tight text-[#1F2937]">
               {item.name}
               {item.variety ? <span className="font-medium text-slate-500"> · {item.variety}</span> : null}
             </p>
             {src.stockStatus || src.status ? (
-              <StatusBadge status={src.stockStatus || src.status} className="max-w-[40%] shrink-0 scale-90 origin-top-right" />
+              <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-semibold uppercase text-[#217346] bg-emerald-50">
+                {String(src.stockStatus || src.status).slice(0, 3)}
+              </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-[9px] leading-snug text-slate-500 sm:text-[10px]">
-            {[src.cropName, src.farmName].filter(Boolean).join(" • ") || "Open earning statement"}
+          <p className="mt-0.5 truncate text-[9px] text-slate-500">
+            {productId ? <span className="font-mono text-slate-600">{productId}</span> : null}
+            {src.farmLocation ? ` · ${src.farmLocation}` : ""}
           </p>
         </div>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-5 gap-x-1.5 gap-y-1">
-        {details.map(([label, value]) => (
-          <DetailItem key={label} label={label} value={value} compact />
+      <div className="mt-1.5 grid grid-cols-3 gap-1 text-center">
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Earned</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#1F2937]">₹{money.total.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Dep</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#065F46]">₹{money.deposited.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Pend</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#B45309]">₹{money.balance.toLocaleString("en-IN")}</p>
+        </div>
+      </div>
+
+      <div className="mt-1.5 grid grid-cols-3 gap-1 border-t border-slate-200/70 pt-1 text-center">
+        {grades.map((g) => (
+          <div key={g.fullLabel} className="rounded bg-slate-50 px-0.5 py-0.5">
+            <p className="text-[7px] font-bold text-slate-600">{g.label}</p>
+            <p className="truncate text-[8px] font-semibold tabular-nums text-slate-800">
+              {g.quantity} {unit}
+            </p>
+          </div>
         ))}
-      </div>
-
-      <div className="mt-1.5 overflow-hidden rounded-md border border-[#9CA3AF]">
-        <table className="w-full border-collapse text-[10px] sm:text-[11px]">
-          <thead>
-            <tr>
-              <th className="border-b border-[#9CA3AF] bg-[#E8F0EA] px-1.5 py-1 text-left font-bold text-[#374151]">
-                Grade
-              </th>
-              <th className="border-b border-l border-[#9CA3AF] bg-[#E8F0EA] px-1.5 py-1 text-center font-bold text-[#374151]">
-                Qty
-              </th>
-              <th className="border-b border-l border-[#9CA3AF] bg-[#E8F0EA] px-1.5 py-1 text-center font-bold text-[#374151]">
-                Rate
-              </th>
-              <th className={`border-b border-l border-[#9CA3AF] px-1.5 py-1 text-center font-bold ${REJECTED_TONE.head}`}>
-                Rejected
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {grades.map((grade) => {
-              const tone = gradeTone(grade.label);
-              return (
-                <tr key={grade.label}>
-                  <td className={`border-t border-[#9CA3AF] px-1.5 py-1 font-bold ${tone.cell} ${tone.text}`}>
-                    {grade.label}
-                  </td>
-                  <td className={`border-t border-l border-[#9CA3AF] px-1.5 py-1 text-center tabular-nums font-semibold text-[#1F2937] ${tone.cell}`}>
-                    {Number(grade.quantity || 0).toLocaleString("en-IN")} {grade.unit}
-                  </td>
-                  <td className={`border-t border-l border-[#9CA3AF] px-1.5 py-1 text-center tabular-nums font-semibold text-[#1F2937] ${tone.cell}`}>
-                    {formatProductPrice(grade.price, grade.unit)}
-                  </td>
-                  <td className={`border-t border-l border-[#9CA3AF] px-1.5 py-1 text-center tabular-nums font-semibold ${REJECTED_TONE.cell}`}>
-                    {Number(grade.rejected || 0).toLocaleString("en-IN")} {grade.unit}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-1.5">
-        <EarningsSummary compact total={money.total} deposited={money.deposited} balance={money.balance} />
       </div>
     </article>
   );
 }
 
-function EarningsSummary({ total, deposited, balance, compact = false }) {
+function EarningsSummary({ total, deposited, balance }) {
   const rows = [
-    { label: "Total", value: Number(total || 0).toLocaleString("en-IN"), tone: "bg-[#ECFDF5] text-[#217346]" },
-    { label: "Deposited", value: Number(deposited || 0).toLocaleString("en-IN"), tone: "bg-[#F0FDF4] text-[#065F46]" },
-    { label: "Pending", value: Number(balance || 0).toLocaleString("en-IN"), tone: "bg-[#FFFBEB] text-[#B45309]" },
+    {
+      label: "TOTAL EARNING",
+      value: (total || 0).toLocaleString("en-IN"),
+      tone: "border-[#9CA3AF] bg-[#E8F0EA] text-[#1F2937]",
+    },
+    {
+      label: "DEPOSITED / PAID",
+      value: (deposited || 0).toLocaleString("en-IN"),
+      tone: "border-[#A7F3D0] bg-[#D1FAE5] text-[#065F46]",
+    },
+    {
+      label: "PENDING / BALANCE",
+      value: (balance || 0).toLocaleString("en-IN"),
+      tone: "border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]",
+    },
   ];
-
-  if (compact) {
-    return (
-      <div className="grid grid-cols-3 gap-1">
-        {rows.map((item) => (
-          <div key={item.label} className="rounded-md border border-slate-200/80 bg-[#F8FAF8] px-1 py-1.5 text-center">
-            <p className="text-[9px] font-medium leading-tight text-slate-500">{item.label}</p>
-            <p className={`mt-0.5 text-[11px] break-words font-bold leading-none tabular-nums sm:text-[12px] ${item.tone.split(" ").pop()}`}>
-              ₹{item.value}
-            </p>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
-      <table className="w-full border-collapse text-[11px] sm:text-[12px]">
+      <table className="w-full border-collapse text-[11px] sm:text-xs">
         <thead>
           <tr>
             {rows.map((row) => (
               <th
-                key={`h-${row.label}`}
-                className="border border-[#9CA3AF] bg-[#E8F0EA] px-2 py-1.5 text-center font-bold text-[#374151] sm:px-3 sm:py-2"
+                key={row.label}
+                className="border border-[#9CA3AF] bg-[#F3F4F6] px-2 py-1.5 text-center text-[10px] font-bold tracking-wide text-[#374151] sm:px-3 sm:py-2 sm:text-[11px]"
               >
-                {row.label} <span className="font-semibold text-[#6B7280]">₹</span>
+                {row.label}
               </th>
             ))}
           </tr>
@@ -476,12 +525,22 @@ function orderMatchesFarmer(order, farmerId, farmerName = "") {
   return false;
 }
 
+function shortId(value = "", keep = 14) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length <= keep) return text;
+  return `…${text.slice(-keep)}`;
+}
+
 function FarmerEarningsCard({ item, onOpen }) {
   const money = {
     total: Math.round(item.amount || 0),
     deposited: Math.round(item.deposited || 0),
     balance: Math.round(item.pending != null ? item.pending : ((item.amount || 0) - (item.deposited || 0))),
   };
+  const managerLabel =
+    item.managerName && item.managerName !== "—" ? item.managerName : "Unassigned";
+
   return (
     <article
       role="button"
@@ -493,42 +552,56 @@ function FarmerEarningsCard({ item, onOpen }) {
           onOpen();
         }
       }}
-      className={`${EXCEL_PANEL} cursor-pointer p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8] sm:p-2`}
+      className={`${EXCEL_PANEL} cursor-pointer overflow-hidden p-1.5 text-left hover:border-[#217346] hover:bg-[#F8FBF8]`}
     >
       <div className="flex items-start gap-1.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-[#E8F5E9] text-[12px] font-bold text-[#217346] sm:h-10 sm:w-10">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-[#E8F5E9] text-[10px] font-bold text-[#217346]">
           {item.initials || String(item.name || "F").charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-1">
-            <p className="min-w-0 truncate text-[12px] font-bold text-[#1F2937] sm:text-[13px]">{item.name || "Farmer"}</p>
+          <div className="flex items-center gap-1">
+            <p className="min-w-0 flex-1 truncate text-[11px] font-bold leading-tight text-[#1F2937]">
+              {item.name || "Farmer"}
+            </p>
             {item.status ? (
-              <StatusBadge status={item.status} className="max-w-[40%] shrink-0 scale-90 origin-top-right" />
+              <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-[#217346] bg-emerald-50">
+                {String(item.status).slice(0, 3)}
+              </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-[9px] text-[#6B7280] sm:text-[10px]">
-            {[item.farmName, item.farmLocation].filter(Boolean).join(" • ") || "Open farmer earnings"}
+          <p className="mt-0.5 truncate text-[9px] text-slate-500">
+            {item.code ? <span className="font-mono text-slate-600">{shortId(item.code, 12)}</span> : null}
+            {item.mobile ? ` · ${item.mobile}` : ""}
           </p>
         </div>
       </div>
 
-      <div className="mt-1.5 grid grid-cols-5 gap-x-1.5 gap-y-1">
-        <DetailItem label="Farmer ID" value={<CopyId key="id" value={item.code || item.id} textClassName="font-mono text-[10px] font-semibold tracking-wide text-emerald-700" />} compact />
-        <DetailItem label="Mobile" value={item.mobile || "—"} compact />
-        <DetailItem label="Location" value={item.farmLocation || "—"} compact />
-        <DetailItem label="Products" value={String(item.productCount || 0)} compact />
-        <DetailItem label="Orders" value={String(item.orderCount || 0)} compact />
-      </div>
-
-      <div className="mt-1.5">
-        <EarningsSummary compact total={money.total} deposited={money.deposited} balance={money.balance} />
+      <div className="mt-1.5 grid grid-cols-3 gap-1 text-center">
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Total</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#1F2937]">₹{money.total.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Dep</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#065F46]">₹{money.deposited.toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-slate-200/80 bg-[#F8FAF8] px-0.5 py-1">
+          <p className="text-[7px] text-slate-500">Pend</p>
+          <p className="truncate text-[9px] font-bold tabular-nums text-[#B45309]">₹{money.balance.toLocaleString("en-IN")}</p>
+        </div>
       </div>
     </article>
   );
 }
 
-export default function ManagerEarningsPage() {
+export default function ManagerEarningsPage({ defaultTab }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isPaymentsPath = location.pathname.endsWith("/payments");
+  const tabQuery = searchParams.get("tab");
+  const mainTab = isPaymentsPath || defaultTab === "payments" || tabQuery === "payments" ? "payments" : "statements";
+
   const { farmerId: farmerIdParam, productId: productIdParam } = useParams();
   const selectedFarmerId = farmerIdParam ? decodeURIComponent(farmerIdParam) : "";
   const selectedProductId = productIdParam ? decodeURIComponent(productIdParam) : "";
@@ -536,12 +609,41 @@ export default function ManagerEarningsPage() {
   const [catalog, setCatalog] = useState([]);
   const [farmers, setFarmers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  // All Payments Tab Filters
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [paymentDateFilter, setPaymentDateFilter] = useState("all");
+  const [customFromDate, setCustomFromDate] = useState("");
+  const [customToDate, setCustomToDate] = useState("");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+  const [paymentFarmerFilter, setPaymentFarmerFilter] = useState("all");
+
+  // Payment Modal State
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [activePaymentOrder, setActivePaymentOrder] = useState(null);
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    paymentStatus: "Paid",
+    paymentMethod: "Bank Transfer",
+    transactionId: "",
+    paymentDate: new Date().toISOString().slice(0, 10),
+    notes: "",
+  });
+
+  const setMainTab = (tab) => {
+    if (tab === "payments") {
+      navigate("/manager/earnings/payments");
+    } else {
+      navigate("/manager/earnings");
+    }
+  };
 
   usePolling(() => {
     Promise.all([
       getManagerAllHarvestOrders().catch(() => ({ orders: [] })),
       getManagerAllProducts().catch(() => ({ products: [] })),
-      getManagerFarmers({ lite: true }).catch(() => []),
+      getManagerFarmers().catch(() => []),
     ])
       .then(([harvest, prods, farmerList]) => {
         setOrders(unwrapOrders(harvest).filter(isStatementOrder));
@@ -566,6 +668,8 @@ export default function ManagerEarningsPage() {
         farmName: farmer.farmName || "",
         farmLocation: farmer.farmLocation || "",
         status: farmer.status || "",
+        managerId: farmer.managerId || "",
+        managerName: farmer.managerName || "",
         productCount: 0,
         orderCount: 0,
         amount: 0,
@@ -584,10 +688,12 @@ export default function ManagerEarningsPage() {
           name: product.farmerName || "Farmer",
           initials: "",
           code: fid,
-          mobile: "",
+          mobile: product.farmerMobile || "",
           farmName: product.farmName || "",
           farmLocation: product.farmLocation || "",
           status: "",
+          managerId: product.managerId || "",
+          managerName: product.managerName || "",
           productCount: 0,
           orderCount: 0,
           amount: 0,
@@ -617,6 +723,8 @@ export default function ManagerEarningsPage() {
           farmName: order.farmName || "",
           farmLocation: order.farmLocation || "",
           status: "",
+          managerId: order.managerId || "",
+          managerName: order.managerName || "",
           productCount: 0,
           orderCount: 0,
           amount: 0,
@@ -624,6 +732,10 @@ export default function ManagerEarningsPage() {
           pending: 0,
           productIds: new Set(),
         });
+      } else {
+        const row = map.get(fid);
+        if (!row.managerName && order.managerName) row.managerName = order.managerName;
+        if (!row.managerId && order.managerId) row.managerId = order.managerId;
       }
       const row = map.get(fid);
       const amt = orderAmount(order);
@@ -727,6 +839,43 @@ export default function ManagerEarningsPage() {
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || null;
 
+  const needle = search.trim().toLowerCase();
+
+  const filteredFarmerRows = useMemo(() => {
+    if (!needle) return farmerRows;
+    return farmerRows.filter((f) =>
+      [
+        f.name,
+        f.mobile,
+        f.code,
+        f.id,
+        f.managerName,
+        f.managerId,
+        f.farmName,
+        f.farmLocation,
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle))
+    );
+  }, [farmerRows, needle]);
+
+  const filteredProducts = useMemo(() => {
+    if (!needle) return products;
+    return products.filter((p) =>
+      [
+        p.name,
+        p.variety,
+        p.id,
+        p.product?.productId,
+        p.product?.cropName,
+        p.product?.farmName,
+        formatProductBusinessId(p.product || {}),
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle))
+    );
+  }, [products, needle]);
+
   const visibleOrders = useMemo(() => {
     if (!selectedProduct) return [];
     return farmerOrders.filter((order) => {
@@ -735,6 +884,31 @@ export default function ManagerEarningsPage() {
       return fallback === selectedProduct.id;
     });
   }, [farmerOrders, selectedProduct]);
+
+  const filteredVisibleOrders = useMemo(() => {
+    if (!needle) return visibleOrders;
+    return visibleOrders.filter((order) => {
+      const id = order.orderId || order.id || "";
+      const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate || "";
+      const pickupDate = order.pickupDate || order.pickup?.pickupDate || "";
+      const pickupTime = order.pickupTime || order.pickup?.pickupTime || "";
+      const amount = String(orderAmount(order) || "");
+      return [
+        id,
+        orderDate,
+        pickupDate,
+        pickupTime,
+        amount,
+        order.productName,
+        order.variety,
+        shortDate(orderDate),
+        shortDate(pickupDate),
+        formatTime12h(pickupTime),
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle));
+    });
+  }, [visibleOrders, needle]);
 
   const gradeColumns = useMemo(() => {
     const set = new Set(DEFAULT_GRADES);
@@ -749,7 +923,7 @@ export default function ManagerEarningsPage() {
     const grades = Object.fromEntries(gradeColumns.map((g) => [g, { qty: 0, rejected: 0 }]));
     let rejected = 0;
     let amount = 0;
-    visibleOrders.forEach((order) => {
+    filteredVisibleOrders.forEach((order) => {
       const map = gradeDetailMap(order);
       gradeColumns.forEach((g) => {
         grades[g].qty += Number(map[g]?.qty || 0);
@@ -759,7 +933,7 @@ export default function ManagerEarningsPage() {
       amount += orderAmount(order);
     });
     return { grades, rejected, amount };
-  }, [visibleOrders, gradeColumns]);
+  }, [filteredVisibleOrders, gradeColumns]);
 
   const overallTotals = useMemo(() => {
     if (selectedFarmerId) {
@@ -768,8 +942,264 @@ export default function ManagerEarningsPage() {
     return Math.round(farmerRows.reduce((sum, row) => sum + Number(row.amount || 0), 0));
   }, [farmerRows, farmerOrders, selectedFarmerId]);
 
+  const allPaymentRows = useMemo(() => {
+    const farmerMap = new Map();
+    farmers.forEach((f) => {
+      const id = farmerKey(f);
+      if (id) farmerMap.set(id, f);
+    });
+
+    return orders.map((order) => {
+      const id = order.orderId || order.id || "";
+      const map = gradeDetailMap(order);
+      const unit = order.unit || "Kg";
+      const statementRows = gradeStatementRows(order);
+      const totals = gradeStatementTotals(statementRows);
+      const finalAcceptedQty =
+        totals.finalQty > 0
+          ? totals.finalQty
+          : Object.values(map).reduce((s, r) => s + Number(r.qty || 0), 0);
+      const rejQty = rejectedTotal(order, map);
+      const amount = orderAmount(order);
+      const isPaid = isOrderPaid(order);
+      const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate || "";
+      const pickupDate = order.pickupDate || order.pickup?.pickupDate || "";
+      const pickupTime = order.pickupTime || order.pickup?.pickupTime || "";
+      const farmerId = orderFarmerId(order);
+      const matchedFarmer = farmerMap.get(farmerId) || {};
+      const farmerName = order.farmerName || matchedFarmer.name || "Farmer";
+      const farmerCode = order.farmerCode || matchedFarmer.farmerCode || matchedFarmer.farmerId || farmerId || "—";
+      const farmerMobile = order.farmerMobile || matchedFarmer.mobile || "—";
+      const managerName = order.managerName || matchedFarmer.managerName || "—";
+      const managerId = order.managerId || matchedFarmer.managerId || "";
+      const details = order.paymentDetails || {};
+      const paymentMethod = details.paymentMethod || order.paymentMethod || (isPaid ? "Bank Transfer" : "—");
+      const transactionId = details.transactionId || order.transactionId || "";
+      const paymentDate = details.paymentDate || order.paymentDate || (isPaid ? (order.updatedAt || pickupDate) : "");
+      const paymentNotes = details.notes || order.notes || "";
+
+      return {
+        id,
+        order,
+        orderDate,
+        pickupDate,
+        pickupTime,
+        farmerId,
+        farmerName,
+        farmerCode,
+        farmerMobile,
+        managerName,
+        managerId,
+        productName: order.productName || order.product || "Product",
+        variety: order.variety || "",
+        unit,
+        statementRows,
+        finalAcceptedQty,
+        rejQty,
+        amount,
+        isPaid,
+        paymentStatus: isPaid ? "Paid" : (order.paymentStatus || "Pending"),
+        paymentMethod,
+        transactionId,
+        paymentDate,
+        paymentNotes,
+      };
+    }).sort((a, b) => {
+      const da = new Date(a.pickupDate || a.orderDate || 0).getTime();
+      const db = new Date(b.pickupDate || b.orderDate || 0).getTime();
+      return db - da;
+    });
+  }, [orders, farmers]);
+
+  const dateCounts = useMemo(() => {
+    const counts = {
+      all: 0,
+      today: 0,
+      yesterday: 0,
+      this_week: 0,
+      last_week: 0,
+      this_month: 0,
+    };
+
+    allPaymentRows.forEach((row) => {
+      if (paymentStatusFilter === "paid" && !row.isPaid) return;
+      if (paymentStatusFilter === "pending" && row.isPaid) return;
+
+      counts.all += 1;
+      const targetDate = row.pickupDate || row.orderDate || row.paymentDate;
+      if (matchPaymentDateFilter(targetDate, "today")) counts.today += 1;
+      if (matchPaymentDateFilter(targetDate, "yesterday")) counts.yesterday += 1;
+      if (matchPaymentDateFilter(targetDate, "this_week")) counts.this_week += 1;
+      if (matchPaymentDateFilter(targetDate, "last_week")) counts.last_week += 1;
+      if (matchPaymentDateFilter(targetDate, "this_month")) counts.this_month += 1;
+    });
+
+    return counts;
+  }, [allPaymentRows, paymentStatusFilter]);
+
+  const filteredPaymentRows = useMemo(() => {
+    return allPaymentRows.filter((row) => {
+      // 1. Status Filter
+      if (paymentStatusFilter === "paid" && !row.isPaid) return false;
+      if (paymentStatusFilter === "pending" && row.isPaid) return false;
+
+      // 2. Date Filter
+      const targetDate = row.pickupDate || row.orderDate || row.paymentDate;
+      if (!matchPaymentDateFilter(targetDate, paymentDateFilter, customFromDate, customToDate)) {
+        return false;
+      }
+
+      // 3. Payment Method Filter
+      if (
+        paymentMethodFilter !== "all" &&
+        row.paymentMethod.toLowerCase() !== paymentMethodFilter.toLowerCase()
+      ) {
+        return false;
+      }
+
+      // 4. Farmer Filter
+      if (paymentFarmerFilter !== "all" && row.farmerId !== paymentFarmerFilter) {
+        return false;
+      }
+
+      // 5. Text Search
+      if (!needle) return true;
+
+      return [
+        row.id,
+        row.farmerName,
+        row.farmerCode,
+        row.farmerMobile,
+        row.managerName,
+        row.managerId,
+        row.productName,
+        row.variety,
+        row.transactionId,
+        row.paymentMethod,
+        row.paymentStatus,
+        shortDate(row.orderDate),
+        shortDate(row.pickupDate),
+        shortDate(row.paymentDate),
+        String(row.amount),
+      ]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle));
+    });
+  }, [
+    allPaymentRows,
+    paymentStatusFilter,
+    paymentDateFilter,
+    customFromDate,
+    customToDate,
+    paymentMethodFilter,
+    paymentFarmerFilter,
+    needle,
+  ]);
+
+  const paymentStats = useMemo(() => {
+    let totalAmt = 0;
+    let paidAmt = 0;
+    let pendingAmt = 0;
+    let paidCount = 0;
+    let pendingCount = 0;
+
+    allPaymentRows.forEach((row) => {
+      totalAmt += row.amount;
+      if (row.isPaid) {
+        paidAmt += row.amount;
+        paidCount += 1;
+      } else {
+        pendingAmt += row.amount;
+        pendingCount += 1;
+      }
+    });
+
+    return {
+      totalAmt: Math.round(totalAmt),
+      paidAmt: Math.round(paidAmt),
+      pendingAmt: Math.round(pendingAmt),
+      paidCount,
+      pendingCount,
+      totalCount: allPaymentRows.length,
+    };
+  }, [allPaymentRows]);
+
+  const paymentTableTotals = useMemo(() => {
+    let accepted = 0;
+    let rejected = 0;
+    let amount = 0;
+    let paid = 0;
+    let pending = 0;
+
+    filteredPaymentRows.forEach((row) => {
+      accepted += row.finalAcceptedQty;
+      rejected += row.rejQty;
+      amount += row.amount;
+      if (row.isPaid) paid += row.amount;
+      else pending += row.amount;
+    });
+
+    return {
+      accepted: Math.round(accepted),
+      rejected: Math.round(rejected),
+      amount: Math.round(amount),
+      paid: Math.round(paid),
+      pending: Math.round(pending),
+    };
+  }, [filteredPaymentRows]);
+
+  const openPaymentModal = (row, e) => {
+    if (e) e.stopPropagation();
+    setActivePaymentOrder(row);
+    setPaymentForm({
+      paymentStatus: row.isPaid ? "Paid" : "Paid",
+      paymentMethod: row.paymentMethod !== "—" ? row.paymentMethod : "Bank Transfer",
+      transactionId: row.transactionId || `TXN-${Date.now().toString().slice(-6)}`,
+      paymentDate: row.paymentDate ? String(row.paymentDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      notes: row.paymentNotes || "",
+    });
+    setPaymentModalOpen(true);
+  };
+
+  const handleSavePayment = async (e) => {
+    e.preventDefault();
+    if (!activePaymentOrder) return;
+    setPaymentSaving(true);
+    try {
+      await updateManagerOrderPayment(activePaymentOrder.id, {
+        ...paymentForm,
+        amount: activePaymentOrder.amount,
+      });
+      toast.success(`Payment updated for ${activePaymentOrder.id} successfully!`);
+      setPaymentModalOpen(false);
+      setOrders((prev) =>
+        prev.map((o) => {
+          const oid = o.orderId || o.id;
+          if (oid === activePaymentOrder.id) {
+            return {
+              ...o,
+              paymentStatus: paymentForm.paymentStatus,
+              paymentMethod: paymentForm.paymentMethod,
+              transactionId: paymentForm.transactionId,
+              paymentDetails: {
+                ...(o.paymentDetails || {}),
+                ...paymentForm,
+                amount: activePaymentOrder.amount,
+              },
+            };
+          }
+          return o;
+        })
+      );
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update payment");
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
   const listSplit = computeEarningsFromOrders(
-    selectedProduct ? visibleOrders : selectedFarmerId ? farmerOrders : orders
+    selectedProduct ? filteredVisibleOrders : selectedFarmerId ? farmerOrders : orders
   );
   const sheetUnit = selectedProduct?.unit || visibleOrders[0]?.unit || "Kg";
   const farmerBase = selectedFarmerId ? `${BASE}/farmer/${encodeURIComponent(selectedFarmerId)}` : BASE;
@@ -777,247 +1207,884 @@ export default function ManagerEarningsPage() {
   if (loading) return <LoadingState rows={6} />;
 
   return (
-    <div className="space-y-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        {selectedProduct ? (
-          <button
-            type="button"
-            onClick={() => navigate(farmerBase)}
-            className="shrink-0 text-[12px] font-semibold text-[#217346]"
-          >
-            ← All Products
-          </button>
-        ) : selectedFarmerId ? (
-          <button
-            type="button"
-            onClick={() => navigate(BASE)}
-            className="shrink-0 text-[12px] font-semibold text-[#217346]"
-          >
-            ← All Farmers
-          </button>
-        ) : null}
-        <h1 className={`${EXCEL_PAGE_TITLE} !text-lg sm:!text-xl`}>Earning Statement</h1>
-        {selectedProduct ? (
-          <p className="min-w-0 truncate text-[13px] font-medium text-slate-500 sm:text-sm">
-            · {selectedFarmer?.name || "Farmer"} · {selectedProduct.name}
-            {selectedProduct.variety ? ` · ${selectedProduct.variety}` : ""}
-          </p>
-        ) : selectedFarmerId ? (
-          <p className="min-w-0 truncate text-[13px] font-medium text-slate-500 sm:text-sm">
-            · {selectedFarmer?.name || "Farmer"}
-          </p>
-        ) : (
-          <p className={`${EXCEL_PAGE_SUB} w-full sm:w-auto`}>Select a farmer to view products and earnings</p>
-        )}
-      </div>
-
-      <EarningsSummary total={listSplit.total} deposited={listSplit.deposited} balance={listSplit.balance} />
-
-      {!selectedFarmerId ? (
-        farmerRows.length === 0 ? (
-          <EmptyState
-            title="No farmers yet"
-            description="Add farmers first. After Quality and Grading Final Summary is confirmed, earnings will appear here."
-          />
-        ) : (
-          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-            {farmerRows.map((f) => (
-              <FarmerEarningsCard
-                key={f.id}
-                item={f}
-                onOpen={() => navigate(`${BASE}/farmer/${encodeURIComponent(f.id)}`)}
-              />
-            ))}
+    <div className="space-y-4">
+      {/* Top Header (Statements only) */}
+      {mainTab === "statements" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            {selectedProduct ? (
+              <button
+                type="button"
+                onClick={() => navigate(farmerBase)}
+                className="shrink-0 text-[12px] font-semibold text-[#217346] hover:underline"
+              >
+                ← All Products
+              </button>
+            ) : selectedFarmerId ? (
+              <button
+                type="button"
+                onClick={() => navigate(BASE)}
+                className="shrink-0 text-[12px] font-semibold text-[#217346] hover:underline"
+              >
+                ← All Farmers
+              </button>
+            ) : null}
+            <h1 className={`${EXCEL_PAGE_TITLE} !text-lg sm:!text-xl`}>
+              Earning Statement
+            </h1>
+            {selectedProduct ? (
+              <p className="min-w-0 truncate text-[13px] font-medium text-slate-500 sm:text-sm">
+                · {selectedFarmer?.name || "Farmer"}
+                {selectedFarmer?.managerName && selectedFarmer.managerName !== "—"
+                  ? ` · Mgr: ${selectedFarmer.managerName}`
+                  : ""}{" "}
+                · {selectedProduct.name}
+                {selectedProduct.variety ? ` · ${selectedProduct.variety}` : ""}
+              </p>
+            ) : selectedFarmerId ? (
+              <p className="min-w-0 truncate text-[13px] font-medium text-slate-500 sm:text-sm">
+                · {selectedFarmer?.name || "Farmer"}
+                {selectedFarmer?.managerName && selectedFarmer.managerName !== "—"
+                  ? ` · Mgr: ${selectedFarmer.managerName}`
+                  : ""}
+              </p>
+            ) : (
+              <p className={`${EXCEL_PAGE_SUB} w-full sm:w-auto`}>
+                Select a farmer to view products and earnings
+              </p>
+            )}
           </div>
-        )
-      ) : !selectedProduct ? (
-        products.length === 0 ? (
-          <EmptyState
-            title="No products yet"
-            description="Add a product for this farmer first. After Quality and Grading Final Summary is confirmed, earnings will appear here."
-          />
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
-            {products.map((p) => (
-              <ProductEarningsCard
-                key={p.id}
-                item={p}
-                onOpen={() =>
-                  navigate(`${farmerBase}/product/${encodeURIComponent(p.id)}`)
-                }
-              />
-            ))}
-          </div>
-        )
-      ) : visibleOrders.length === 0 ? (
-        <EmptyState
-          title="No earning records yet"
-          description="After Quality and Grading Final Summary is confirmed, that order will appear here."
-        />
-      ) : (
-        <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
-          <table className="w-max min-w-[760px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
-            <colgroup>
-              <col className="w-[4%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[7%]" />
-              {gradeColumns.map((g) => (
-                <Fragment key={`col-${g}`}>
-                  <col className="w-[9%]" />
-                  <col className="w-[8%]" />
-                </Fragment>
-              ))}
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-            </colgroup>
-            <thead className="sticky top-0 z-30">
-              <tr>
-                <th className={TH} rowSpan={2}>
-                  #
-                </th>
-                <th className={TH} rowSpan={2}>
-                  <HeadLabel line1="Order" line2="Date" />
-                </th>
-                <th className={TH} rowSpan={2}>
-                  <HeadLabel line1="Pickup" line2="Date" />
-                </th>
-                <th className={TH} rowSpan={2}>
-                  <HeadLabel line1="Pickup" line2="Time" />
-                </th>
-                {gradeColumns.map((g) => {
-                  const tone = gradeTone(g);
-                  return (
-                    <th
-                      key={g}
-                      className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold leading-tight md:px-2 md:py-1.5 md:text-[12px] ${tone.head}`}
-                      colSpan={2}
-                    >
-                      {g}
-                    </th>
-                  );
-                })}
-                <th className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold leading-tight md:px-2 md:py-1.5 md:text-[12px] ${REJECTED_TONE.head}`}>
-                  Rejected
-                </th>
-                <th className={TH} rowSpan={2}>
-                  <HeadLabel line1="Amount" line2="₹" />
-                </th>
-                <th className={TH} rowSpan={2}>
-                  <HeadLabel line1="Payment" line2="Status" />
-                </th>
-              </tr>
-              <tr>
-                {gradeColumns.map((g) => {
-                  const tone = gradeTone(g);
-                  const sub = `border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[10px] font-semibold md:px-2 md:py-1.5 md:text-[11px] ${tone.head}`;
-                  return (
-                    <Fragment key={`h-${g}`}>
-                      <th className={sub}>
-                        <HeadLabel line1="Qty" line2={sheetUnit} />
-                      </th>
-                      <th className={sub}>
-                        <HeadLabel line1="Rate" line2="₹" />
-                      </th>
-                    </Fragment>
-                  );
-                })}
-                <th className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[10px] font-semibold md:px-2 md:py-1.5 md:text-[11px] ${REJECTED_TONE.head}`}>
-                  <HeadLabel line1="Qty" line2={sheetUnit} />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleOrders.map((order, idx) => {
-                const id = order.orderId || order.id;
-                const map = gradeDetailMap(order);
-                const unit = order.unit || "Kg";
-                const rejectedQty = rejectedTotal(order, map);
-                const amount = orderAmount(order);
-                const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate;
-                const pickupDate = order.pickupDate || order.pickup?.pickupDate;
-                const zebra = idx % 2 === 0 ? "bg-white group-hover:bg-[#E5E7EB]" : "bg-[#F3F4F6] group-hover:bg-[#E5E7EB]";
-                return (
-                  <tr
-                    key={id}
-                    className="group cursor-pointer"
-                    onClick={() => navigate(`${BASE}/${encodeURIComponent(id)}`)}
+        </div>
+      )}
+
+      {mainTab === "payments" ? (
+        /* ================= ALL PAYMENTS TAB ================= */
+        <div className="space-y-4 p-4 sm:p-6">
+          {/* Top-Level Integrated Filters: Search, Status, Methods, Farmers & Date-wise */}
+          <div className="space-y-3">
+            {/* Row 1: Search + Status + Payment Method + Farmer Filter + Reset */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search Bar */}
+              <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search Order, Farmer, Crop, TXN…"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-[#217346] focus:ring-1 focus:ring-[#217346]"
+                />
+              </div>
+
+              {/* Payment Status Pills */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                  Payment Status:
+                </span>
+                <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentStatusFilter("all")}
+                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                      paymentStatusFilter === "all"
+                        ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
                   >
-                    <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
-                    <td className={`${TD} ${zebra} whitespace-nowrap`}>
-                      <DateWithDay value={orderDate} />
+                    <span>All</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        paymentStatusFilter === "all" ? "bg-gray-200 text-gray-800" : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
+                      {paymentStats.totalCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentStatusFilter("paid")}
+                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                      paymentStatusFilter === "paid"
+                        ? "bg-[#217346] text-white shadow-sm ring-1 ring-[#217346]"
+                        : "text-green-700 hover:bg-green-50"
+                    }`}
+                  >
+                    <span>✓ Paid</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        paymentStatusFilter === "paid"
+                          ? "bg-emerald-800 text-white"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {paymentStats.paidCount}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentStatusFilter("pending")}
+                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                      paymentStatusFilter === "pending"
+                        ? "bg-amber-600 text-white shadow-sm ring-1 ring-amber-600"
+                        : "text-amber-700 hover:bg-amber-50"
+                    }`}
+                  >
+                    <span>⏳ Pending</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                        paymentStatusFilter === "pending"
+                          ? "bg-amber-800 text-white"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {paymentStats.pendingCount}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Methods Dropdown */}
+              <select
+                value={paymentMethodFilter}
+                onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
+              >
+                <option value="all">All Payment Methods</option>
+                <option value="bank transfer">Bank Transfer</option>
+                <option value="upi">UPI</option>
+                <option value="cash">Cash</option>
+                <option value="cheque">Cheque</option>
+                <option value="online">Online Gateway</option>
+              </select>
+
+              {/* Farmers Dropdown */}
+              <select
+                value={paymentFarmerFilter}
+                onChange={(e) => setPaymentFarmerFilter(e.target.value)}
+                className="max-w-[180px] rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
+              >
+                <option value="all">All Farmers</option>
+                {farmers.map((f) => (
+                  <option key={farmerKey(f)} value={farmerKey(f)}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Reset All Filters Button */}
+              {(paymentStatusFilter !== "all" ||
+                paymentDateFilter !== "all" ||
+                customFromDate ||
+                customToDate ||
+                paymentMethodFilter !== "all" ||
+                paymentFarmerFilter !== "all" ||
+                search.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentStatusFilter("all");
+                    setPaymentDateFilter("all");
+                    setCustomFromDate("");
+                    setCustomToDate("");
+                    setPaymentMethodFilter("all");
+                    setPaymentFarmerFilter("all");
+                    setSearch("");
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                >
+                  <span>✕ Reset All Filters</span>
+                </button>
+              )}
+            </div>
+
+            {/* Row 2: Date-wise Quick Filter Pills */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mr-1">
+                  Date Range:
+                </span>
+                {[
+                  { id: "all", label: "All Time", count: dateCounts.all },
+                  { id: "today", label: "Today", count: dateCounts.today },
+                  { id: "yesterday", label: "Yesterday", count: dateCounts.yesterday },
+                  { id: "this_week", label: "This Week", count: dateCounts.this_week },
+                  { id: "last_week", label: "Last Week", count: dateCounts.last_week },
+                  { id: "this_month", label: "This Month", count: dateCounts.this_month },
+                  { id: "custom", label: "📅 Custom Range" },
+                ].map((tab) => {
+                  const active = paymentDateFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setPaymentDateFilter(tab.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                        active
+                          ? "bg-[#217346] text-white shadow-sm ring-1 ring-[#217346]"
+                          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      {tab.count != null && (
+                        <span
+                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                            active ? "bg-emerald-800 text-white" : "bg-gray-200 text-gray-700"
+                          }`}
+                        >
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date Range Picker */}
+              {paymentDateFilter === "custom" && (
+                <div className="flex flex-wrap items-center gap-2.5 rounded-md border border-emerald-200 bg-white p-2.5 text-xs shadow-sm">
+                  <span className="font-semibold text-[#217346]">📅 Select Date Range:</span>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-gray-600 font-medium">From:</label>
+                    <input
+                      type="date"
+                      value={customFromDate}
+                      onChange={(e) => setCustomFromDate(e.target.value)}
+                      className="rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#217346]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-gray-600 font-medium">To:</label>
+                    <input
+                      type="date"
+                      value={customToDate}
+                      onChange={(e) => setCustomToDate(e.target.value)}
+                      className="rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#217346]"
+                    />
+                  </div>
+                  {(customFromDate || customToDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomFromDate("");
+                        setCustomToDate("");
+                      }}
+                      className="text-[11px] font-semibold text-red-600 hover:underline ml-1"
+                    >
+                      Clear Dates
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Payment KPI Cards (Interactive) */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => setPaymentStatusFilter("all")}
+              className={`rounded border p-4 text-left transition-all ${
+                paymentStatusFilter === "all"
+                  ? "border-[#217346] bg-emerald-50/40 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <p className="text-xs text-gray-500">Total Settlement Valuation</p>
+              <p className="mt-1 text-xl font-bold text-[#217346]">
+                ₹{paymentStats.totalAmt.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-0.5 text-[10px] text-gray-400">{paymentStats.totalCount} Graded Orders</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentStatusFilter("paid")}
+              className={`rounded border p-4 text-left transition-all ${
+                paymentStatusFilter === "paid"
+                  ? "border-green-600 bg-green-50/40 shadow-sm ring-1 ring-green-500"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <p className="text-xs text-gray-500">Paid / Deposited</p>
+              <p className="mt-1 text-xl font-bold text-green-700">
+                ₹{paymentStats.paidAmt.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-0.5 text-[10px] text-green-600 font-semibold">{paymentStats.paidCount} Orders Paid</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentStatusFilter("pending")}
+              className={`rounded border p-4 text-left transition-all ${
+                paymentStatusFilter === "pending"
+                  ? "border-amber-600 bg-amber-50/40 shadow-sm ring-1 ring-amber-500"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <p className="text-xs text-gray-500">Pending / Balance</p>
+              <p className="mt-1 text-xl font-bold text-amber-600">
+                ₹{paymentStats.pendingAmt.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-0.5 text-[10px] text-amber-600 font-semibold">{paymentStats.pendingCount} Orders Pending</p>
+            </button>
+
+            <div className="rounded border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500">Settlement Progress</p>
+              <p className="mt-1 text-xl font-bold text-gray-900">
+                {paymentStats.totalAmt > 0
+                  ? `${Math.round((paymentStats.paidAmt / paymentStats.totalAmt) * 100)}%`
+                  : "0%"}
+              </p>
+              <p className="mt-0.5 text-[10px] text-gray-400">Paid vs Total Valuation</p>
+            </div>
+          </div>
+
+          {/* Payment History Table */}
+          {allPaymentRows.length === 0 ? (
+            <EmptyState
+              title="No payment records yet"
+              description="After Quality and Grading is confirmed, order payments will appear here."
+            />
+          ) : filteredPaymentRows.length === 0 ? (
+            <EmptyState title="No matching payments" description="Try adjusting your search or filters." />
+          ) : (
+            <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
+              <table className="w-max min-w-[1000px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+                <colgroup>
+                  <col className="w-[3%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
+                <thead className="sticky top-0 z-30">
+                  <tr>
+                    <th className={TH}>#</th>
+                    <th className={TH}>
+                      <HeadLabel line1="Order" line2="ID" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Pickup / Order" line2="Date & Time" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Farmer" line2="Details" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Manager /" line2="Collection Centre" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Crop /" line2="Produce" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Payable Amount" line2="₹" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Payment" line2="Status" />
+                    </th>
+                    <th className={TH}>
+                      <HeadLabel line1="Payment Method" line2="& Ref ID" />
+                    </th>
+                    <th className={TH}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPaymentRows.map((row, idx) => {
+                    const zebra = idx % 2 === 0 ? "bg-white hover:bg-emerald-50/70" : "bg-[#F9FAFB] hover:bg-emerald-50/70";
+                    return (
+                      <tr
+                        key={row.id}
+                        onClick={() => navigate(`${BASE}/${encodeURIComponent(row.id)}`)}
+                        className="group cursor-pointer transition-colors"
+                        title="Click to view full Invoice and Settlement Statement"
+                      >
+                        <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
+                        <td className={`${TD} ${zebra} px-2 py-1 text-left align-middle`}>
+                          <CopyId
+                            value={row.id}
+                            textClassName="font-mono text-[10px] font-bold text-emerald-800"
+                          />
+                        </td>
+                        <td className={`${TD} ${zebra} px-1.5 py-1 whitespace-nowrap`}>
+                          <DateWithDay value={row.pickupDate || row.orderDate} />
+                          {row.pickupTime ? (
+                            <span className="block text-[9px] text-[#6B7280]">
+                              {formatTime12h(row.pickupTime)}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
+                          <p className="truncate font-semibold text-gray-900">{row.farmerName}</p>
+                          <CopyId
+                            value={row.farmerCode}
+                            textClassName="font-mono text-[9px] text-emerald-700"
+                          />
+                          <p className="text-[9px] text-gray-500">{row.farmerMobile}</p>
+                        </td>
+                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
+                          <p className="truncate font-semibold text-gray-800">{row.managerName}</p>
+                          {row.managerId ? (
+                            <CopyId
+                              value={row.managerId}
+                              textClassName="font-mono text-[9px] text-gray-500"
+                            />
+                          ) : null}
+                        </td>
+                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
+                          <p className="truncate font-semibold text-gray-900">{row.productName}</p>
+                          {row.variety ? (
+                            <span className="inline-block rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-medium text-emerald-800">
+                              {row.variety}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className={`${TD} ${zebra} px-1.5 py-1 font-bold tabular-nums text-[#217346]`}>
+                          ₹{row.amount.toLocaleString("en-IN")}
+                        </td>
+                        <td className={`${TD} ${zebra} px-1 py-1 whitespace-nowrap`}>
+                          <StatusBadge status={row.paymentStatus} className="scale-90" />
+                        </td>
+                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
+                          <p className="truncate font-semibold text-gray-900">{row.paymentMethod}</p>
+                          {row.transactionId ? (
+                            <CopyId
+                              value={row.transactionId}
+                              textClassName="font-mono text-[9px] text-gray-600 font-medium"
+                            />
+                          ) : (
+                            <span className="text-[9px] text-gray-400">No ref</span>
+                          )}
+                          {row.paymentDate ? (
+                            <p className="text-[9px] text-gray-400">{shortDate(row.paymentDate)}</p>
+                          ) : null}
+                        </td>
+                        <td className={`${TD} ${zebra} px-1 py-1`}>
+                          <div className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`${BASE}/${encodeURIComponent(row.id)}`);
+                              }}
+                              className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-[#217346] hover:bg-emerald-100"
+                              title="View Invoice & Quality Statement"
+                            >
+                              Invoice
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openPaymentModal(row, e);
+                              }}
+                              className={`rounded px-2 py-1 text-[10px] font-semibold ${
+                                row.isPaid
+                                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                  : "bg-[#217346] text-white hover:bg-[#1a5c38]"
+                              }`}
+                              title={row.isPaid ? "Update Payment Details" : "Record Payment"}
+                            >
+                              {row.isPaid ? "Edit" : "Pay"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className={`${TH} bg-[#FCE7F3] text-left text-[11px] font-bold text-[#1F2937]`} colSpan={6}>
+                      Total Filtered ({filteredPaymentRows.length} Orders)
                     </td>
-                    <td className={`${TD} ${zebra} whitespace-nowrap`}>
-                      <DateWithDay value={pickupDate} />
+                    <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#217346] md:text-[12px]`}>
+                      ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
                     </td>
-                    <td className={`${TD} ${zebra} whitespace-nowrap`}>
-                      {formatTime12h(order.pickupTime || order.pickup?.pickupTime)}
+                    <td className={`${TH} bg-[#FCE7F3] text-center font-semibold text-[10px] text-gray-700`} colSpan={3}>
+                      Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")} · Pending: ₹{paymentTableTotals.pending.toLocaleString("en-IN")}
                     </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </SpreadsheetViewport>
+          )}
+        </div>
+      ) : (
+        /* ================= EARNING STATEMENTS TAB ================= */
+        <div className="space-y-3">
+          <EarningsSummary total={listSplit.total} deposited={listSplit.deposited} balance={listSplit.balance} />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={
+                selectedProduct
+                  ? "Search order ID, date, time, amount…"
+                  : selectedFarmerId
+                    ? "Search product, variety, ID…"
+                    : "Search farmer, mobile, manager, ID…"
+              }
+              className={`${EXCEL_INPUT} w-full max-w-md px-3 py-2 text-xs`}
+            />
+            {search.trim() ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-[11px] font-semibold text-[#217346]"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+
+          {!selectedFarmerId ? (
+            farmerRows.length === 0 ? (
+              <EmptyState
+                title="No farmers yet"
+                description="Add farmers first. After Quality and Grading Final Summary is confirmed, earnings will appear here."
+              />
+            ) : filteredFarmerRows.length === 0 ? (
+              <EmptyState title="No match found" description="Try another farmer, mobile, manager, or ID." />
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredFarmerRows.map((f) => (
+                  <FarmerEarningsCard
+                    key={f.id}
+                    item={f}
+                    onOpen={() => navigate(`${BASE}/farmer/${encodeURIComponent(f.id)}`)}
+                  />
+                ))}
+              </div>
+            )
+          ) : !selectedProduct ? (
+            products.length === 0 ? (
+              <EmptyState
+                title="No products yet"
+                description="Add a product for this farmer first. After Quality and Grading Final Summary is confirmed, earnings will appear here."
+              />
+            ) : filteredProducts.length === 0 ? (
+              <EmptyState title="No match found" description="Try another product name, variety, or ID." />
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3">
+                {filteredProducts.map((p) => (
+                  <ProductEarningsCard
+                    key={p.id}
+                    item={p}
+                    onOpen={() =>
+                      navigate(`${farmerBase}/product/${encodeURIComponent(p.id)}`)
+                    }
+                  />
+                ))}
+              </div>
+            )
+          ) : visibleOrders.length === 0 ? (
+            <EmptyState
+              title="No earning records yet"
+              description="After Quality and Grading Final Summary is confirmed, that order will appear here."
+            />
+          ) : filteredVisibleOrders.length === 0 ? (
+            <EmptyState title="No match found" description="Try another order ID, date, time, or amount." />
+          ) : (
+            <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
+              <table className="w-max min-w-[760px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+                <colgroup>
+                  <col className="w-[4%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[7%]" />
+                  {gradeColumns.map((g) => (
+                    <Fragment key={`col-${g}`}>
+                      <col className="w-[9%]" />
+                      <col className="w-[8%]" />
+                    </Fragment>
+                  ))}
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[8%]" />
+                </colgroup>
+                <thead className="sticky top-0 z-30">
+                  <tr>
+                    <th className={TH} rowSpan={2}>
+                      #
+                    </th>
+                    <th className={TH} rowSpan={2}>
+                      <HeadLabel line1="Order" line2="Date" />
+                    </th>
+                    <th className={TH} rowSpan={2}>
+                      <HeadLabel line1="Pickup" line2="Date" />
+                    </th>
+                    <th className={TH} rowSpan={2}>
+                      <HeadLabel line1="Pickup" line2="Time" />
+                    </th>
                     {gradeColumns.map((g) => {
-                      const row = map[g] || { qty: 0, rate: 0, unit };
-                      const cell = `overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[12px] ${zebra}`;
+                      const tone = gradeTone(g);
                       return (
-                        <Fragment key={`${id}-${g}`}>
-                          <td className={cell}>{formatQty(row.qty, row.unit || unit)}</td>
-                          <td className={cell}>{formatRate(row.rate, row.qty)}</td>
+                        <th
+                          key={g}
+                          className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold leading-tight md:px-2 md:py-1.5 md:text-[12px] ${tone.head}`}
+                          colSpan={2}
+                        >
+                          {g}
+                        </th>
+                      );
+                    })}
+                    <th className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold leading-tight md:px-2 md:py-1.5 md:text-[12px] ${REJECTED_TONE.head}`}>
+                      Rejected
+                    </th>
+                    <th className={TH} rowSpan={2}>
+                      <HeadLabel line1="Amount" line2="₹" />
+                    </th>
+                    <th className={TH} rowSpan={2}>
+                      <HeadLabel line1="Payment" line2="Status" />
+                    </th>
+                  </tr>
+                  <tr>
+                    {gradeColumns.map((g) => {
+                      const tone = gradeTone(g);
+                      const sub = `border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[10px] font-semibold md:px-2 md:py-1.5 md:text-[11px] ${tone.head}`;
+                      return (
+                        <Fragment key={`h-${g}`}>
+                          <th className={sub}>
+                            <HeadLabel line1="Qty" line2={sheetUnit} />
+                          </th>
+                          <th className={sub}>
+                            <HeadLabel line1="Rate" line2="₹" />
+                          </th>
                         </Fragment>
                       );
                     })}
-                    <td className={`overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[12px] ${zebra}`}>
-                      {formatQty(rejectedQty, unit, { danger: true })}
+                    <th className={`border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[10px] font-semibold md:px-2 md:py-1.5 md:text-[11px] ${REJECTED_TONE.head}`}>
+                      <HeadLabel line1="Qty" line2={sheetUnit} />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredVisibleOrders.map((order, idx) => {
+                    const id = order.orderId || order.id;
+                    const map = gradeDetailMap(order);
+                    const unit = order.unit || "Kg";
+                    const rejectedQty = rejectedTotal(order, map);
+                    const amount = orderAmount(order);
+                    const orderDate = order.orderDate || order.date || order.createdAt || order.requiredDate;
+                    const pickupDate = order.pickupDate || order.pickup?.pickupDate;
+                    const zebra = idx % 2 === 0 ? "bg-white group-hover:bg-[#E5E7EB]" : "bg-[#F3F4F6] group-hover:bg-[#E5E7EB]";
+                    return (
+                      <tr
+                        key={id}
+                        className="group cursor-pointer"
+                        onClick={() => navigate(`${BASE}/${encodeURIComponent(id)}`)}
+                      >
+                        <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
+                        <td className={`${TD} ${zebra} whitespace-nowrap`}>
+                          <DateWithDay value={orderDate} />
+                        </td>
+                        <td className={`${TD} ${zebra} whitespace-nowrap`}>
+                          <DateWithDay value={pickupDate} />
+                        </td>
+                        <td className={`${TD} ${zebra} whitespace-nowrap`}>
+                          {formatTime12h(order.pickupTime || order.pickup?.pickupTime)}
+                        </td>
+                        {gradeColumns.map((g) => {
+                          const row = map[g] || { qty: 0, rate: 0, unit };
+                          const cell = `overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[12px] ${zebra}`;
+                          return (
+                            <Fragment key={`${id}-${g}`}>
+                              <td className={cell}>{formatQty(row.qty, row.unit || unit)}</td>
+                              <td className={cell}>{formatRate(row.rate, row.qty)}</td>
+                            </Fragment>
+                          );
+                        })}
+                        <td className={`overflow-hidden whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[12px] ${zebra}`}>
+                          {formatQty(rejectedQty, unit, { danger: true })}
+                        </td>
+                        <td className={`${TD} ${zebra} whitespace-nowrap font-bold tabular-nums text-[#DC2626] md:text-[#217346]`}>
+                          {amount > 0 ? (
+                            <span>{Number(amount).toLocaleString("en-IN")}</span>
+                          ) : (
+                            <span className="font-semibold text-[#9CA3AF]">×</span>
+                          )}
+                        </td>
+                        <td className={`${TD} ${zebra} whitespace-nowrap px-1 py-0.5`}>
+                          <StatusBadge status={order.paymentStatus || "Pending"} className="scale-90" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td
+                      className={`${TH} bg-[#FCE7F3] text-left text-[12px] font-bold text-[#1F2937]`}
+                      colSpan={4}
+                    >
+                      Total
                     </td>
-                    <td className={`${TD} ${zebra} whitespace-nowrap font-bold tabular-nums text-[#DC2626] md:text-[#217346]`}>
-                      {amount > 0 ? (
-                        <span>{Number(amount).toLocaleString("en-IN")}</span>
+                    {gradeColumns.map((g) => {
+                      const tone = gradeTone(g);
+                      const cell = `whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold tabular-nums md:px-2 md:py-1.5 md:text-[13px] ${tone.head}`;
+                      return (
+                        <Fragment key={`total-${g}`}>
+                          <td className={cell}>{formatQty(tableTotals.grades[g]?.qty, "Kg")}</td>
+                          <td className={cell}>
+                            <span className="font-semibold text-[#9CA3AF]">×</span>
+                          </td>
+                        </Fragment>
+                      );
+                    })}
+                    <td className={`whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[13px] ${REJECTED_TONE.head}`}>
+                      {formatQty(tableTotals.rejected, "Kg", { danger: true })}
+                    </td>
+                    <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#DC2626] md:text-[13px] md:text-[#217346]`}>
+                      {tableTotals.amount > 0 ? (
+                        <span>{Number(tableTotals.amount).toLocaleString("en-IN")}</span>
                       ) : (
                         <span className="font-semibold text-[#9CA3AF]">×</span>
                       )}
                     </td>
-                    <td className={`${TD} ${zebra} whitespace-nowrap px-1 py-0.5`}>
-                      <StatusBadge status={order.paymentStatus || "Pending"} className="scale-90" />
+                    <td className={`${TH} bg-[#FCE7F3] text-center text-[10px] font-semibold text-[#6B7280]`}>
+                      —
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td
-                  className={`${TH} bg-[#FCE7F3] text-left text-[12px] font-bold text-[#1F2937]`}
-                  colSpan={4}
+                </tfoot>
+              </table>
+            </SpreadsheetViewport>
+          )}
+        </div>
+      )}
+
+      {/* Payment Action Modal */}
+      {paymentModalOpen && activePaymentOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPaymentModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg bg-white p-5 shadow-2xl border border-slate-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h2 className="text-sm font-extrabold text-[#1F2937]">Farmer Payment & Settlement</h2>
+                <p className="text-[11px] text-gray-500 font-mono mt-0.5">{activePaymentOrder.id}</p>
+              </div>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                onClick={() => setPaymentModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePayment} className="mt-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded border border-slate-200">
+                <div>
+                  <span className="text-gray-500 text-[10px] block">Farmer:</span>
+                  <span className="font-bold text-gray-900">{activePaymentOrder.farmerName}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500 text-[10px] block">Produce:</span>
+                  <span className="font-bold text-gray-900">
+                    {activePaymentOrder.productName} {activePaymentOrder.variety ? `(${activePaymentOrder.variety})` : ""}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#374151]">Payable Amount</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={`₹${activePaymentOrder.amount.toLocaleString("en-IN")}`}
+                  className="mt-1 w-full bg-slate-100 border border-slate-300 rounded px-3 py-2 text-sm font-extrabold text-[#217346]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#374151]">Payment Status</label>
+                <select
+                  value={paymentForm.paymentStatus}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, paymentStatus: e.target.value }))}
+                  className="mt-1 w-full border border-slate-300 rounded px-3 py-2 text-xs font-semibold focus:border-[#217346]"
                 >
-                  Total
-                </td>
-                {gradeColumns.map((g) => {
-                  const tone = gradeTone(g);
-                  const cell = `whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] font-bold tabular-nums md:px-2 md:py-1.5 md:text-[13px] ${tone.head}`;
-                  return (
-                    <Fragment key={`total-${g}`}>
-                      <td className={cell}>{formatQty(tableTotals.grades[g]?.qty, "Kg")}</td>
-                      <td className={cell}>
-                        <span className="font-semibold text-[#9CA3AF]">×</span>
-                      </td>
-                    </Fragment>
-                  );
-                })}
-                <td className={`whitespace-nowrap border border-[#9CA3AF] px-1 py-1 text-center align-middle text-[11px] tabular-nums md:px-2 md:py-1.5 md:text-[13px] ${REJECTED_TONE.head}`}>
-                  {formatQty(tableTotals.rejected, "Kg", { danger: true })}
-                </td>
-                <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#DC2626] md:text-[13px] md:text-[#217346]`}>
-                  {tableTotals.amount > 0 ? (
-                    <span>{Number(tableTotals.amount).toLocaleString("en-IN")}</span>
-                  ) : (
-                    <span className="font-semibold text-[#9CA3AF]">×</span>
-                  )}
-                </td>
-                <td className={`${TH} bg-[#FCE7F3] text-center text-[10px] font-semibold text-[#6B7280]`}>
-                  —
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </SpreadsheetViewport>
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#374151]">Payment Method</label>
+                <select
+                  value={paymentForm.paymentMethod}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, paymentMethod: e.target.value }))}
+                  className="mt-1 w-full border border-slate-300 rounded px-3 py-2 text-xs font-semibold focus:border-[#217346]"
+                >
+                  <option value="Bank Transfer">Bank Transfer (NEFT / IMPS / RTGS)</option>
+                  <option value="UPI">UPI / Google Pay / PhonePe</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Online">Online Gateway</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#374151]">Transaction / Ref ID</label>
+                <input
+                  type="text"
+                  value={paymentForm.transactionId}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, transactionId: e.target.value }))}
+                  placeholder="e.g. TXN-984210"
+                  className={`${EXCEL_INPUT} mt-1 w-full font-mono text-xs`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#374151]">Payment Date</label>
+                <input
+                  type="date"
+                  value={paymentForm.paymentDate}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, paymentDate: e.target.value }))}
+                  className={`${EXCEL_INPUT} mt-1 w-full text-xs`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-[#374151]">Remarks / Notes</label>
+                <input
+                  type="text"
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="e.g. Paid to farmer bank account"
+                  className={`${EXCEL_INPUT} mt-1 w-full text-xs`}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={paymentSaving}
+                  className={`${EXCEL_BTN_PRIMARY} flex-1 py-2 text-xs font-bold`}
+                >
+                  {paymentSaving ? "Saving…" : "Save Payment Details"}
+                </button>
+                <button
+                  type="button"
+                  className={`${EXCEL_BTN} py-2 text-xs`}
+                  onClick={() => setPaymentModalOpen(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

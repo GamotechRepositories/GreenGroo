@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import CopyId from "../../components/ui/CopyId";
 
 const STATUS_COLORS = {
   Active: "bg-green-100 text-green-700",
@@ -114,11 +115,12 @@ export default function FarmerManagersPage() {
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#E8F5E9] text-xs font-bold text-[#217346]">
                         {m.initials || m.name?.charAt(0)}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-semibold text-gray-900">{m.name}</p>
-                        <p className="max-w-[220px] truncate font-mono text-[10px] text-emerald-700" title={m.managerCode || m.id}>
-                          {m.managerCode || m.id}
-                        </p>
+                        <CopyId
+                          value={m.managerCode || m.id}
+                          textClassName="max-w-[200px] truncate font-mono text-[10px] text-emerald-700 font-medium"
+                        />
                         <p className="text-[10px] text-gray-400">{m.email || "—"}</p>
                       </div>
                     </div>

@@ -116,6 +116,7 @@ function App() {
                 <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
                 <Route path="/vendor/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
                 <Route path="/vendor/earnings" element={<ManagerEarningsPage />} />
+                <Route path="/vendor/earnings/payments" element={<ManagerEarningsPage defaultTab="payments" />} />
                 <Route path="/vendor/earnings/:orderId" element={<ManagerEarningReportPage />} />
                 <Route path="/vendor/earnings/farmer/:farmerId" element={<ManagerEarningsPage />} />
                 <Route path="/vendor/earnings/farmer/:farmerId/product/:productId" element={<ManagerEarningsPage />} />
