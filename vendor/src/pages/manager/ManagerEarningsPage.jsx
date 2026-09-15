@@ -12,7 +12,7 @@ import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import SpreadsheetViewport from "../../components/ui/SpreadsheetViewport";
 import StatusBadge from "../../components/ui/StatusBadge";
-import CopyId, { CopyButton } from "../../components/ui/CopyId";
+import CopyId, { CopyButton, CopyIcon, CheckIcon, copyText } from "../../components/ui/CopyId";
 import { canonicalOrderStatus } from "../../utils/orderDisplay";
 import {
   STATEMENT_GRADES,
@@ -38,6 +38,174 @@ const TH =
   "border border-[#9CA3AF] bg-[#E8F0EA] px-0 py-0 text-center align-middle text-[10px] font-bold leading-tight text-[#374151] md:py-1 md:text-[11px]";
 const TD =
   "overflow-hidden border border-[#9CA3AF] px-0 py-0 text-center align-middle text-[10px] leading-tight text-[#1F2937] md:py-1 md:text-[11px]";
+
+const PAY_TH =
+  "border border-[#9CA3AF] bg-[#E8F0EA] px-0.5 py-1 text-center align-middle text-[10px] font-bold leading-tight text-[#374151] sm:px-1.5 sm:py-2 sm:text-xs md:text-[13px]";
+const PAY_TD =
+  "overflow-hidden border border-[#9CA3AF] px-0.5 py-1 text-center align-middle text-[10px] leading-tight text-[#1F2937] sm:px-1.5 sm:py-2 sm:text-xs md:text-sm";
+
+function formatOrderId3Lines(id = "") {
+  const str = String(id || "").trim();
+  if (!str) return ["—"];
+
+  if (str.includes("-")) {
+    const parts = str.split("-").filter(Boolean);
+    if (parts.length === 4 && parts[0].toUpperCase() === "GGC" && parts[1].toUpperCase() === "ORD") {
+      return [`${parts[0]}-${parts[1]}`, parts[2], parts[3]];
+    }
+    if (parts.length === 3) {
+      return parts;
+    }
+    if (parts.length === 2) {
+      const p2 = parts[1];
+      const mid = Math.ceil(p2.length / 2);
+      return [parts[0], p2.slice(0, mid), p2.slice(mid)].filter(Boolean);
+    }
+    if (parts.length >= 4) {
+      const first = parts.slice(0, 2).join("-");
+      const last = parts[parts.length - 1];
+      const middle = parts.slice(2, -1).join("-");
+      return [first, middle, last].filter(Boolean);
+    }
+  }
+
+  if (str.length > 8) {
+    const chunkLen = Math.ceil(str.length / 3);
+    return [
+      str.slice(0, chunkLen),
+      str.slice(chunkLen, chunkLen * 2),
+      str.slice(chunkLen * 2),
+    ].filter(Boolean);
+  }
+
+  return [str];
+}
+
+function formatFarmerId2Lines(id = "") {
+  const str = String(id || "").trim();
+  if (!str) return ["—"];
+
+  if (str.includes("-")) {
+    const parts = str.split("-").filter(Boolean);
+    if (parts.length <= 2) {
+      return parts;
+    }
+    const midIndex = Math.ceil(parts.length / 2);
+    const line1 = parts.slice(0, midIndex).join("-");
+    const line2 = parts.slice(midIndex).join("-");
+    return [line1, line2];
+  }
+
+  if (str.length > 8) {
+    const mid = Math.ceil(str.length / 2);
+    return [str.slice(0, mid), str.slice(mid)].filter(Boolean);
+  }
+
+  return [str];
+}
+
+function OrderIdCell({ id }) {
+  const [copied, setCopied] = useState(false);
+  const lines = formatOrderId3Lines(id);
+
+  const handleCopy = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await copyText(id);
+      setCopied(true);
+      toast.success("Order ID copied");
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={copied ? "Order ID copied!" : "Click to copy Order ID"}
+      className="group/oid w-full text-center flex flex-col items-center justify-center p-0.5 sm:p-1 rounded hover:bg-emerald-100/70 active:bg-emerald-200 transition-colors"
+    >
+      <div className="flex items-center justify-center gap-1 w-full">
+        <span className="font-mono text-[9px] sm:text-[11px] font-bold text-emerald-800 leading-tight">
+          {lines[0]}
+        </span>
+        {copied ? (
+          <CheckIcon className="h-3 w-3 text-[#217346] shrink-0" />
+        ) : (
+          <CopyIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-600/70 group-hover/oid:text-emerald-900 shrink-0" />
+        )}
+      </div>
+      {lines.slice(1).map((line, idx) => (
+        <span
+          key={idx}
+          className="font-mono text-[9px] sm:text-[11px] font-bold text-emerald-800 leading-tight block"
+        >
+          {line}
+        </span>
+      ))}
+    </button>
+  );
+}
+
+function FarmerIdTag({ id }) {
+  const [copied, setCopied] = useState(false);
+  const lines = formatFarmerId2Lines(id);
+
+  const handleCopy = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await copyText(id);
+      setCopied(true);
+      toast.success("Farmer ID copied");
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={copied ? "Farmer ID copied!" : "Click to copy Farmer ID"}
+      className="group/fid w-full text-left flex flex-col mt-0.5 p-0.5 rounded hover:bg-emerald-100/70 active:bg-emerald-200 transition-colors"
+    >
+      <div className="flex items-center justify-between gap-0.5 w-full">
+        <span className="font-mono text-[8.5px] sm:text-[10.5px] font-semibold text-emerald-700 leading-tight truncate">
+          {lines[0]}
+        </span>
+        {copied ? (
+          <CheckIcon className="h-3 w-3 text-[#217346] shrink-0 ml-0.5" />
+        ) : (
+          <CopyIcon className="h-2.5 w-2.5 text-emerald-600/70 group-hover/fid:text-emerald-900 shrink-0 ml-0.5" />
+        )}
+      </div>
+      {lines[1] && (
+        <span className="font-mono text-[8.5px] sm:text-[10.5px] font-semibold text-emerald-700 leading-tight truncate block">
+          {lines[1]}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function PaymentStatusText({ status }) {
+  const s = String(status || "").trim().toUpperCase();
+  if (s === "PAID" || s === "PAYMENT_COMPLETED" || s === "COMPLETED") {
+    return <span className="font-extrabold text-emerald-700 text-[10.5px] sm:text-xs md:text-[13px] tracking-tight">Paid</span>;
+  }
+  if (s === "PENDING" || s === "PAYMENT_PENDING" || s === "SUBMITTED" || !s) {
+    return <span className="font-extrabold text-amber-600 text-[10.5px] sm:text-xs md:text-[13px] tracking-tight">Pending</span>;
+  }
+  if (s === "FAILED" || s === "REJECTED" || s === "CANCELLED") {
+    return <span className="font-extrabold text-red-600 text-[10.5px] sm:text-xs md:text-[13px] tracking-tight">{status}</span>;
+  }
+  return <span className="font-bold text-gray-700 text-[10.5px] sm:text-xs md:text-[13px]">{status}</span>;
+}
 
 const GRADE_COLORS = {
   "Grade A": {
@@ -1339,72 +1507,74 @@ export default function ManagerEarningsPage({ defaultTab }) {
 
       {mainTab === "payments" ? (
         /* ================= ALL PAYMENTS TAB ================= */
-        <div className="space-y-4 p-3 sm:p-5 md:p-6">
+        <div className="space-y-4 px-0 py-3 sm:p-5 md:p-6">
           {/* Payment KPI Cards (Interactive - 1 Single Row) - Placed Above Filters */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setPaymentStatusFilter("all")}
-              className={`rounded border p-2 sm:p-4 text-left transition-all ${
-                paymentStatusFilter === "all"
-                  ? "border-[#217346] bg-emerald-50/40 shadow-sm"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
-                Total Settlement
-              </p>
-              <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-[#217346] truncate">
-                ₹{paymentStats.totalAmt.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-0.5 text-[9px] sm:text-[10px] text-gray-400 truncate">
-                {paymentStats.totalCount} Graded
-              </p>
-            </button>
+          <div className="px-3 sm:px-0">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setPaymentStatusFilter("all")}
+                className={`rounded border p-2 sm:p-4 text-left transition-all ${
+                  paymentStatusFilter === "all"
+                    ? "border-[#217346] bg-emerald-50/40 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
+                  Total Settlement
+                </p>
+                <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-[#217346] truncate">
+                  ₹{paymentStats.totalAmt.toLocaleString("en-IN")}
+                </p>
+                <p className="mt-0.5 text-[9px] sm:text-[10px] text-gray-400 truncate">
+                  {paymentStats.totalCount} Graded
+                </p>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setPaymentStatusFilter("paid")}
-              className={`rounded border p-2 sm:p-4 text-left transition-all ${
-                paymentStatusFilter === "paid"
-                  ? "border-green-600 bg-green-50/40 shadow-sm ring-1 ring-green-500"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
-                Paid
-              </p>
-              <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-green-700 truncate">
-                ₹{paymentStats.paidAmt.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-0.5 text-[9px] sm:text-[10px] text-green-600 font-semibold truncate">
-                {paymentStats.paidCount} Paid
-              </p>
-            </button>
+              <button
+                type="button"
+                onClick={() => setPaymentStatusFilter("paid")}
+                className={`rounded border p-2 sm:p-4 text-left transition-all ${
+                  paymentStatusFilter === "paid"
+                    ? "border-green-600 bg-green-50/40 shadow-sm ring-1 ring-green-500"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
+                  Paid
+                </p>
+                <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-green-700 truncate">
+                  ₹{paymentStats.paidAmt.toLocaleString("en-IN")}
+                </p>
+                <p className="mt-0.5 text-[9px] sm:text-[10px] text-green-600 font-semibold truncate">
+                  {paymentStats.paidCount} Paid
+                </p>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setPaymentStatusFilter("pending")}
-              className={`rounded border p-2 sm:p-4 text-left transition-all ${
-                paymentStatusFilter === "pending"
-                  ? "border-amber-600 bg-amber-50/40 shadow-sm ring-1 ring-amber-500"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
-                Pending
-              </p>
-              <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-amber-600 truncate">
-                ₹{paymentStats.pendingAmt.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-0.5 text-[9px] sm:text-[10px] text-amber-600 font-semibold truncate">
-                {paymentStats.pendingCount} Pending
-              </p>
-            </button>
+              <button
+                type="button"
+                onClick={() => setPaymentStatusFilter("pending")}
+                className={`rounded border p-2 sm:p-4 text-left transition-all ${
+                  paymentStatusFilter === "pending"
+                    ? "border-amber-600 bg-amber-50/40 shadow-sm ring-1 ring-amber-500"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
+                  Pending
+                </p>
+                <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-amber-600 truncate">
+                  ₹{paymentStats.pendingAmt.toLocaleString("en-IN")}
+                </p>
+                <p className="mt-0.5 text-[9px] sm:text-[10px] text-amber-600 font-semibold truncate">
+                  {paymentStats.pendingCount} Pending
+                </p>
+              </button>
+            </div>
           </div>
 
           {/* Top-Level Integrated Filters: Search, Status, Methods, Farmers & Date-wise */}
-          <div className="space-y-3">
+          <div className="space-y-3 px-3 sm:px-0">
             {/* Top Row: Search + Mobile Filter Toggle Button + Payment Status Pills */}
             <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
               {/* Search Bar + Mobile Filter Toggle Button */}
@@ -1684,43 +1854,47 @@ export default function ManagerEarningsPage({ defaultTab }) {
 
           {/* Payment History Table */}
           {allPaymentRows.length === 0 ? (
-            <EmptyState
-              title="No payment records yet"
-              description="After Quality and Grading is confirmed, order payments will appear here."
-            />
+            <div className="px-3 sm:px-0">
+              <EmptyState
+                title="No payment records yet"
+                description="After Quality and Grading is confirmed, order payments will appear here."
+              />
+            </div>
           ) : filteredPaymentRows.length === 0 ? (
-            <EmptyState title="No matching payments" description="Try adjusting your search or filters." />
+            <div className="px-3 sm:px-0">
+              <EmptyState title="No matching payments" description="Try adjusting your search or filters." />
+            </div>
           ) : (
-            <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
-              <table className="w-max min-w-[1000px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
+            <div className="w-full overflow-hidden border-y border-slate-300 sm:border sm:border-[#9CA3AF] sm:rounded-lg bg-white shadow-sm">
+              <table className="w-full table-fixed border-collapse text-[10px] sm:text-xs md:text-sm">
                 <colgroup>
-                  <col className="w-[4%]" />
+                  <col className="w-[3.5%]" />
+                  <col className="w-[16.5%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[26%]" />
                   <col className="w-[16%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[24%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[10%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[12%]" />
                 </colgroup>
                 <thead className="sticky top-0 z-30">
                   <tr>
-                    <th className={TH}>#</th>
-                    <th className={TH}>
+                    <th className={PAY_TH}>#</th>
+                    <th className={PAY_TH}>
                       <HeadLabel line1="Order" line2="ID" />
                     </th>
-                    <th className={TH}>
+                    <th className={PAY_TH}>
                       <HeadLabel line1="Pickup / Order" line2="Date & Time" />
                     </th>
-                    <th className={TH}>
+                    <th className={PAY_TH}>
                       <HeadLabel line1="Farmer" line2="Details" />
                     </th>
-                    <th className={TH}>
+                    <th className={PAY_TH}>
                       <HeadLabel line1="Crop /" line2="Produce" />
                     </th>
-                    <th className={TH}>
+                    <th className={PAY_TH}>
                       <HeadLabel line1="Payable Amount" line2="₹" />
                     </th>
-                    <th className={TH}>
+                    <th className={PAY_TH}>
                       <HeadLabel line1="Payment" line2="Status" />
                     </th>
                   </tr>
@@ -1735,42 +1909,37 @@ export default function ManagerEarningsPage({ defaultTab }) {
                         className="group cursor-pointer transition-colors"
                         title="Click to view Payment History & Grading Details"
                       >
-                        <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
-                        <td className={`${TD} ${zebra} px-2 py-1 text-left align-middle`}>
-                          <CopyId
-                            value={row.id}
-                            textClassName="font-mono text-[10px] font-bold text-emerald-800"
-                          />
+                        <td className={`${PAY_TD} ${zebra} text-[#9CA3AF] font-semibold text-[10px] sm:text-xs`}>{idx + 1}</td>
+                        <td className={`${PAY_TD} ${zebra} px-0.5 py-0.5 sm:px-1 sm:py-1 text-center align-middle`}>
+                          <OrderIdCell id={row.id} />
                         </td>
-                        <td className={`${TD} ${zebra} px-1.5 py-1 whitespace-nowrap`}>
-                          <DateWithDay value={row.pickupDate || row.orderDate} />
+                        <td className={`${PAY_TD} ${zebra} px-0.5 py-1 sm:px-1 sm:py-1.5`}>
+                          <span className="text-[9.5px] sm:text-xs font-semibold text-gray-900 block leading-tight">
+                            <DateWithDay value={row.pickupDate || row.orderDate} />
+                          </span>
                           {row.pickupTime ? (
-                            <span className="block text-[9px] text-[#6B7280]">
+                            <span className="block text-[8.5px] sm:text-[11px] text-gray-500 font-medium mt-0.5 leading-tight">
                               {formatTime12h(row.pickupTime)}
                             </span>
                           ) : null}
                         </td>
-                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
-                          <p className="truncate font-semibold text-gray-900">{row.farmerName}</p>
-                          <CopyId
-                            value={row.farmerCode}
-                            textClassName="font-mono text-[9px] text-emerald-700"
-                          />
-                          <p className="text-[9px] text-gray-500">{row.farmerMobile}</p>
+                        <td className={`${PAY_TD} ${zebra} px-1 py-1 sm:px-1.5 sm:py-1.5 text-left`}>
+                          <p className="font-bold text-gray-900 text-[10.5px] sm:text-xs leading-tight truncate">{row.farmerName}</p>
+                          <FarmerIdTag id={row.farmerCode || row.farmerId} />
                         </td>
-                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
-                          <p className="truncate font-semibold text-gray-900">{row.productName}</p>
+                        <td className={`${PAY_TD} ${zebra} px-1 py-1 sm:px-1.5 sm:py-1.5 text-left`}>
+                          <p className="font-bold text-gray-900 text-[10.5px] sm:text-xs leading-tight truncate">{row.productName}</p>
                           {row.variety ? (
-                            <span className="inline-block rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-medium text-emerald-800">
+                            <span className="inline-block rounded bg-emerald-50 px-1.5 py-0.5 text-[8.5px] sm:text-[11px] font-semibold text-emerald-800 mt-0.5 truncate max-w-full">
                               {row.variety}
                             </span>
                           ) : null}
                         </td>
-                        <td className={`${TD} ${zebra} px-1.5 py-1 font-bold tabular-nums text-[#217346]`}>
+                        <td className={`${PAY_TD} ${zebra} px-0.5 py-1 sm:px-1 sm:py-1.5 text-[10.5px] sm:text-xs md:text-sm font-extrabold tabular-nums text-[#217346]`}>
                           ₹{row.amount.toLocaleString("en-IN")}
                         </td>
-                        <td className={`${TD} ${zebra} px-1 py-1 whitespace-nowrap`}>
-                          <StatusBadge status={row.paymentStatus} className="scale-90" />
+                        <td className={`${PAY_TD} ${zebra} px-0.5 py-1 sm:px-1 sm:py-1.5`}>
+                          <PaymentStatusText status={row.paymentStatus} />
                         </td>
                       </tr>
                     );
@@ -1778,19 +1947,19 @@ export default function ManagerEarningsPage({ defaultTab }) {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td className={`${TH} bg-[#FCE7F3] text-left text-[11px] font-bold text-[#1F2937]`} colSpan={5}>
+                    <td className={`${PAY_TH} bg-[#FCE7F3] text-left text-[10px] sm:text-xs md:text-[13px] font-bold text-[#1F2937] px-2 py-2`} colSpan={5}>
                       Total Filtered ({filteredPaymentRows.length} Orders)
                     </td>
-                    <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#217346] md:text-[12px]`}>
+                    <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-extrabold tabular-nums text-[#217346] text-[10.5px] sm:text-xs md:text-sm px-1 py-2`}>
                       ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
                     </td>
-                    <td className={`${TH} bg-[#FCE7F3] text-center font-semibold text-[10px] text-gray-700`}>
-                      Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")} · Pending: ₹{paymentTableTotals.pending.toLocaleString("en-IN")}
+                    <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-bold text-[9px] sm:text-[11px] md:text-xs text-gray-700 px-1 py-2 leading-tight`}>
+                      Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")}
                     </td>
                   </tr>
                 </tfoot>
               </table>
-            </SpreadsheetViewport>
+            </div>
           )}
         </div>
       ) : (
@@ -1991,7 +2160,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
                           )}
                         </td>
                         <td className={`${TD} ${zebra} whitespace-nowrap px-1 py-0.5`}>
-                          <StatusBadge status={order.paymentStatus || "Pending"} className="scale-90" />
+                          <PaymentStatusText status={order.paymentStatus || "Pending"} />
                         </td>
                       </tr>
                     );
