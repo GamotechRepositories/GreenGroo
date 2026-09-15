@@ -2,6 +2,7 @@ import crypto from "crypto";
 import {
   Farmer,
   FarmerOrder,
+  FarmerHarvestOrder,
   FarmerProduct,
   FarmerStockHistory,
   FarmerEarning,
@@ -388,7 +389,11 @@ async function findPickupForOrder(orderId) {
 }
 
 async function findOrder(orderId) {
-  return FarmerOrder.findOne({ $or: [{ id: orderId }, { orderId }] });
+  let ord = await FarmerOrder.findOne({ $or: [{ id: orderId }, { orderId }] });
+  if (!ord) {
+    ord = await FarmerHarvestOrder.findOne({ $or: [{ id: orderId }, { orderId }] });
+  }
+  return ord;
 }
 
 async function ensureInspection(pickup, order) {
@@ -1602,31 +1607,56 @@ export async function updateOrderPaymentStatus(req, res) {
     const query = { $or: [{ id: orderId }, { orderId: orderId }] };
 
     let order = await FarmerOrder.findOne(query);
-    if (!order) {
+    let harvestOrder = await FarmerHarvestOrder.findOne(query);
+
+    if (!order && !harvestOrder) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    order.paymentStatus = paymentStatus;
-    if (paymentMethod) order.paymentMethod = paymentMethod;
-    if (transactionId) order.transactionId = transactionId;
-    order.paymentDetails = {
-      ...(order.paymentDetails || {}),
+    const payDetails = {
       paymentStatus,
-      paymentMethod: paymentMethod || order.paymentMethod || "Bank Transfer",
-      transactionId: transactionId || order.transactionId || "",
+      paymentMethod: paymentMethod || "Bank Transfer",
+      transactionId: transactionId || "",
       paymentDate: paymentDate || new Date().toISOString(),
       notes: notes || "",
-      amount: amount || order.totalAmount || order.orderValue || 0,
+      amount: amount || (order?.totalAmount || order?.orderValue || harvestOrder?.totalAmount || harvestOrder?.amount || 0),
       updatedAt: new Date(),
     };
-    order.markModified("paymentDetails");
-    await order.save();
 
-    await FarmerEarning.updateMany({ orderId: order.id || order.orderId }, {
-      $set: { status: paymentStatus === "Paid" || paymentStatus === "PAID" ? "Paid" : "Pending" },
-    }).catch(() => {});
+    if (order) {
+      order.paymentStatus = paymentStatus;
+      if (paymentMethod) order.paymentMethod = paymentMethod;
+      if (transactionId) order.transactionId = transactionId;
+      order.paymentDetails = {
+        ...(order.paymentDetails || {}),
+        ...payDetails,
+      };
+      order.markModified("paymentDetails");
+      await order.save();
+    }
 
-    return res.json({ success: true, order, paymentStatus });
+    if (harvestOrder) {
+      harvestOrder.paymentStatus = paymentStatus;
+      if (paymentMethod) harvestOrder.paymentMethod = paymentMethod;
+      if (transactionId) harvestOrder.transactionId = transactionId;
+      harvestOrder.paymentDetails = {
+        ...(harvestOrder.paymentDetails || {}),
+        ...payDetails,
+      };
+      harvestOrder.markModified("paymentDetails");
+      await harvestOrder.save();
+    }
+
+    const isPaid = ["PAID", "PAYMENT_COMPLETED", "COMPLETED", "PAYMENT RECEIVED"].includes(
+      String(paymentStatus || "").toUpperCase().trim()
+    );
+
+    await FarmerEarning.updateMany(
+      { $or: [{ orderId: orderId }, { id: orderId }] },
+      { $set: { status: isPaid ? "Paid" : "Pending" } }
+    ).catch(() => {});
+
+    return res.json({ success: true, order: order || harvestOrder, paymentStatus });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to update payment status" });
   }

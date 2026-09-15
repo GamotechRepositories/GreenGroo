@@ -106,7 +106,6 @@ function formatFarmerId2Lines(id = "") {
 
 function OrderIdCell({ id }) {
   const [copied, setCopied] = useState(false);
-  const lines = formatOrderId3Lines(id);
 
   const handleCopy = async (e) => {
     e.preventDefault();
@@ -126,33 +125,22 @@ function OrderIdCell({ id }) {
       type="button"
       onClick={handleCopy}
       title={copied ? "Order ID copied!" : "Click to copy Order ID"}
-      className="group/oid w-full text-center flex flex-col items-center justify-center p-0.5 sm:p-1 rounded hover:bg-emerald-100/70 active:bg-emerald-200 transition-colors"
+      className="group/oid inline-flex items-center justify-center gap-1 px-1.5 py-1 rounded bg-emerald-50/70 hover:bg-emerald-100/90 active:bg-emerald-200 transition-colors border border-emerald-200/60 max-w-full"
     >
-      <div className="flex items-center justify-center gap-1 w-full">
-        <span className="font-mono text-[9px] sm:text-[11px] font-bold text-emerald-800 leading-tight">
-          {lines[0]}
-        </span>
-        {copied ? (
-          <CheckIcon className="h-3 w-3 text-[#217346] shrink-0" />
-        ) : (
-          <CopyIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-600/70 group-hover/oid:text-emerald-900 shrink-0" />
-        )}
-      </div>
-      {lines.slice(1).map((line, idx) => (
-        <span
-          key={idx}
-          className="font-mono text-[9px] sm:text-[11px] font-bold text-emerald-800 leading-tight block"
-        >
-          {line}
-        </span>
-      ))}
+      <span className="font-mono text-[11px] font-bold text-emerald-900 tracking-tight truncate">
+        {id}
+      </span>
+      {copied ? (
+        <CheckIcon className="h-3.5 w-3.5 text-[#217346] shrink-0" />
+      ) : (
+        <CopyIcon className="h-3 w-3 text-emerald-700/80 group-hover/oid:text-emerald-900 shrink-0" />
+      )}
     </button>
   );
 }
 
 function FarmerIdTag({ id }) {
   const [copied, setCopied] = useState(false);
-  const lines = formatFarmerId2Lines(id);
 
   const handleCopy = async (e) => {
     e.preventDefault();
@@ -172,22 +160,15 @@ function FarmerIdTag({ id }) {
       type="button"
       onClick={handleCopy}
       title={copied ? "Farmer ID copied!" : "Click to copy Farmer ID"}
-      className="group/fid w-full text-left flex flex-col mt-0.5 p-0.5 rounded hover:bg-emerald-100/70 active:bg-emerald-200 transition-colors"
+      className="group/fid inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-slate-50 hover:bg-emerald-50 text-emerald-700 hover:text-emerald-900 border border-slate-200/80 hover:border-emerald-300 transition-colors text-left max-w-full"
     >
-      <div className="flex items-center justify-between gap-0.5 w-full">
-        <span className="font-mono text-[8.5px] sm:text-[10.5px] font-semibold text-emerald-700 leading-tight truncate">
-          {lines[0]}
-        </span>
-        {copied ? (
-          <CheckIcon className="h-3 w-3 text-[#217346] shrink-0 ml-0.5" />
-        ) : (
-          <CopyIcon className="h-2.5 w-2.5 text-emerald-600/70 group-hover/fid:text-emerald-900 shrink-0 ml-0.5" />
-        )}
-      </div>
-      {lines[1] && (
-        <span className="font-mono text-[8.5px] sm:text-[10.5px] font-semibold text-emerald-700 leading-tight truncate block">
-          {lines[1]}
-        </span>
+      <span className="font-mono text-[10px] font-semibold tracking-tight truncate">
+        {id}
+      </span>
+      {copied ? (
+        <CheckIcon className="h-3 w-3 text-[#217346] shrink-0 ml-0.5" />
+      ) : (
+        <CopyIcon className="h-2.5 w-2.5 text-emerald-600/70 group-hover/fid:text-emerald-900 shrink-0 ml-0.5" />
       )}
     </button>
   );
@@ -195,7 +176,6 @@ function FarmerIdTag({ id }) {
 
 function ManagerIdTag({ id }) {
   const [copied, setCopied] = useState(false);
-  const lines = formatFarmerId2Lines(id);
 
   const handleCopy = async (e) => {
     e.preventDefault();
@@ -215,22 +195,15 @@ function ManagerIdTag({ id }) {
       type="button"
       onClick={handleCopy}
       title={copied ? "Manager ID copied!" : "Click to copy Manager ID"}
-      className="group/mid w-full text-left flex flex-col mt-0.5 p-0.5 rounded hover:bg-slate-100 active:bg-slate-200 transition-colors"
+      className="group/mid inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/80 transition-colors text-left max-w-full"
     >
-      <div className="flex items-center justify-between gap-0.5 w-full">
-        <span className="font-mono text-[8.5px] sm:text-[10.5px] text-gray-500 leading-tight truncate">
-          {lines[0]}
-        </span>
-        {copied ? (
-          <CheckIcon className="h-3 w-3 text-[#217346] shrink-0 ml-0.5" />
-        ) : (
-          <CopyIcon className="h-2.5 w-2.5 text-gray-400 group-hover/mid:text-gray-700 shrink-0 ml-0.5" />
-        )}
-      </div>
-      {lines[1] && (
-        <span className="font-mono text-[8.5px] sm:text-[10.5px] text-gray-500 leading-tight truncate block">
-          {lines[1]}
-        </span>
+      <span className="font-mono text-[10px] text-gray-500 font-medium tracking-tight truncate">
+        {id}
+      </span>
+      {copied ? (
+        <CheckIcon className="h-3 w-3 text-[#217346] shrink-0 ml-0.5" />
+      ) : (
+        <CopyIcon className="h-2.5 w-2.5 text-gray-400 group-hover/mid:text-gray-700 shrink-0 ml-0.5" />
       )}
     </button>
   );
@@ -238,16 +211,108 @@ function ManagerIdTag({ id }) {
 
 function PaymentStatusText({ status }) {
   const s = String(status || "").trim().toUpperCase();
-  if (s === "PAID" || s === "PAYMENT_COMPLETED" || s === "COMPLETED") {
-    return <span className="font-extrabold text-emerald-700 text-[10.5px] sm:text-xs md:text-[13px] tracking-tight">Paid</span>;
+  if (
+    s === "PAID" ||
+    s === "PAYMENT_COMPLETED" ||
+    s === "PAYMENT COMPLETED" ||
+    s === "COMPLETED" ||
+    s === "PAYMENT RECEIVED" ||
+    s === "PAID_ONLINE" ||
+    s === "PAID ONLINE" ||
+    s === "PAID_10" ||
+    s === "SETTLED" ||
+    s.startsWith("PAID") ||
+    s.includes("PAYMENT COMPLETED") ||
+    s.includes("PAYMENT_COMPLETED")
+  ) {
+    return <span className="font-extrabold text-[#15803D] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">Paid</span>;
   }
-  if (s === "PENDING" || s === "PAYMENT_PENDING" || s === "SUBMITTED" || !s) {
-    return <span className="font-extrabold text-amber-600 text-[10.5px] sm:text-xs md:text-[13px] tracking-tight">Pending</span>;
+  if (s === "PENDING" || s === "PAYMENT_PENDING" || s === "SUBMITTED" || s === "UNPAID" || !s) {
+    return <span className="font-extrabold text-[#D97706] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">Pending</span>;
   }
   if (s === "FAILED" || s === "REJECTED" || s === "CANCELLED") {
-    return <span className="font-extrabold text-red-600 text-[10.5px] sm:text-xs md:text-[13px] tracking-tight">{status}</span>;
+    return <span className="font-extrabold text-[#DC2626] text-[10.5px] sm:text-xs md:text-[13px] tracking-tight block">{status}</span>;
   }
-  return <span className="font-bold text-gray-700 text-[10.5px] sm:text-xs md:text-[13px]">{status}</span>;
+  return <span className="font-bold text-gray-700 text-[10.5px] sm:text-xs md:text-[13px] block">{status}</span>;
+}
+
+function PaymentMobileCard({ row, onClick, idx }) {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white rounded-xl border border-slate-200 shadow-sm p-3.5 space-y-3 cursor-pointer active:scale-[0.99] transition-all hover:border-emerald-500 hover:shadow-md relative overflow-hidden"
+    >
+      {/* Top Header: # Index + Order ID (Copy) + Status */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 shrink-0">
+            {idx + 1}
+          </span>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="font-mono text-xs font-bold text-emerald-800 tracking-tight truncate" title={row.id}>
+              {row.id}
+            </span>
+            <CopyButton value={row.id} label="Copy Order ID" className="h-5 w-5 text-emerald-700 hover:bg-emerald-50" />
+          </div>
+        </div>
+        <div className="shrink-0">
+          <PaymentStatusText status={row.paymentStatus} />
+        </div>
+      </div>
+
+      {/* Body: Farmer Details (Left) + Crop & Produce (Right) */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="space-y-0.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Farmer Details</p>
+          <p className="font-extrabold text-slate-900 text-[13px] leading-tight truncate">{row.farmerName || "—"}</p>
+          {(row.farmerCode || row.farmerId) && (
+            <div className="flex items-center gap-1 pt-0.5">
+              <span className="font-mono text-[11px] font-semibold text-emerald-700 truncate">
+                {row.farmerCode || row.farmerId}
+              </span>
+              <CopyButton value={row.farmerCode || row.farmerId} label="Copy Farmer ID" className="h-4 w-4 text-emerald-600" />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-0.5 text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Crop / Produce</p>
+          <p className="font-extrabold text-slate-900 text-[13px] leading-tight truncate">{row.productName || "—"}</p>
+          {row.variety ? (
+            <div className="pt-0.5">
+              <span className="inline-block rounded-md bg-emerald-50 px-1.5 py-0.2 text-[10.5px] font-bold text-emerald-800 border border-emerald-200/60">
+                {row.variety}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Bottom Bar: Pickup Date/Time (Left) + Payable Amount (Right) */}
+      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs bg-slate-50/70 -mx-3.5 -mb-3.5 px-3.5 py-2.5 rounded-b-xl">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Pickup Date & Time</span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="font-bold text-slate-800 text-[11.5px]">{shortDate(row.pickupDate || row.orderDate)}</span>
+            {weekdayName(row.pickupDate || row.orderDate) ? (
+              <span className="text-[10.5px] text-slate-600 font-semibold">({weekdayName(row.pickupDate || row.orderDate)})</span>
+            ) : null}
+            {row.pickupTime ? (
+              <span className="text-[10.5px] font-semibold text-emerald-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                {formatTime12h(row.pickupTime)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="text-right flex flex-col items-end">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Payable Amount</span>
+          <span className="text-base font-black text-[#15803D] tabular-nums leading-tight">
+            ₹{Number(row.amount || 0).toLocaleString("en-IN")}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const GRADE_COLORS = {
@@ -505,8 +570,36 @@ function productPhoto(product) {
 }
 
 function isOrderPaid(order) {
-  const s = String(order?.paymentStatus || "").toUpperCase().trim();
-  return s === "PAID" || s === "PAYMENT_COMPLETED" || s === "COMPLETED" || s === "PAYMENT RECEIVED";
+  if (!order) return false;
+  const candidates = [
+    order.paymentStatus,
+    order.payment_status,
+    order.paymentDetails?.paymentStatus,
+    order.paymentDetails?.status,
+    order.payment?.status,
+    order.payment?.paymentStatus,
+    order.earningStatus,
+    order.earningsStatus,
+    order.settlementStatus,
+  ].filter(Boolean);
+
+  return candidates.some((val) => {
+    const s = String(val).toUpperCase().trim();
+    return (
+      s === "PAID" ||
+      s === "PAYMENT_COMPLETED" ||
+      s === "PAYMENT COMPLETED" ||
+      s === "COMPLETED" ||
+      s === "PAYMENT RECEIVED" ||
+      s === "PAID_ONLINE" ||
+      s === "PAID ONLINE" ||
+      s === "PAID_10" ||
+      s === "SETTLED" ||
+      s.startsWith("PAID") ||
+      s.includes("PAYMENT COMPLETED") ||
+      s.includes("PAYMENT_COMPLETED")
+    );
+  });
 }
 
 function computeEarningsFromOrders(ordersList = []) {
@@ -1182,8 +1275,18 @@ export default function ManagerEarningsPage({ defaultTab }) {
       const farmerName = order.farmerName || matchedFarmer.name || "Farmer";
       const farmerCode = order.farmerCode || matchedFarmer.farmerCode || matchedFarmer.farmerId || farmerId || "—";
       const farmerMobile = order.farmerMobile || matchedFarmer.mobile || "—";
-      const managerName = order.managerName || matchedFarmer.managerName || "—";
-      const managerId = order.managerId || matchedFarmer.managerId || "";
+      const managerName = order.managerName || order.manager || matchedFarmer.managerName || matchedFarmer.manager || "—";
+      const managerId = order.managerId || order.manager_id || matchedFarmer.managerId || matchedFarmer.manager_id || "";
+      const matchedProduct = catalog.find((p) => orderMatchesProduct(order, p) || (p.productId && p.productId === order.productId));
+      const variety = order.variety || matchedProduct?.variety || order.products?.[0]?.variety || "";
+      const collectionCentre =
+        order.collectionCentreName ||
+        order.collectionCentre ||
+        order.collectionCenter ||
+        matchedFarmer.collectionCentre ||
+        matchedFarmer.collectionCentreName ||
+        matchedFarmer.centre ||
+        "";
       const details = order.paymentDetails || {};
       const paymentMethod = details.paymentMethod || order.paymentMethod || (isPaid ? "Bank Transfer" : "—");
       const transactionId = details.transactionId || order.transactionId || "";
@@ -1202,8 +1305,9 @@ export default function ManagerEarningsPage({ defaultTab }) {
         farmerMobile,
         managerName,
         managerId,
+        collectionCentre,
         productName: order.productName || order.product || "Product",
-        variety: order.variety || "",
+        variety,
         unit,
         statementRows,
         finalAcceptedQty,
@@ -1221,7 +1325,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
       const db = new Date(b.pickupDate || b.orderDate || 0).getTime();
       return db - da;
     });
-  }, [orders, farmers]);
+  }, [orders, farmers, catalog]);
 
   const dateCounts = useMemo(() => {
     const counts = {
@@ -1829,111 +1933,138 @@ export default function ManagerEarningsPage({ defaultTab }) {
               <EmptyState title="No matching payments" description="Try adjusting your search or filters." />
             </div>
           ) : (
-            <div className="w-full overflow-hidden border-y border-slate-300 sm:border sm:border-[#9CA3AF] sm:rounded-lg bg-white shadow-sm">
-              <table className="w-full table-fixed border-collapse text-[10px] sm:text-xs md:text-sm">
-                <colgroup>
-                  <col className="w-[3.5%]" />
-                  <col className="w-[14.5%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[17%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[9.5%]" />
-                  <col className="w-[9.5%]" />
-                </colgroup>
-                <thead className="sticky top-0 z-30">
-                  <tr>
-                    <th className={PAY_TH}>#</th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Order" line2="ID" />
-                    </th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Pickup / Order" line2="Date & Time" />
-                    </th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Farmer" line2="Details" />
-                    </th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Manager /" line2="Collection Centre" />
-                    </th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Crop /" line2="Produce" />
-                    </th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Payable Amount" line2="₹" />
-                    </th>
-                    <th className={PAY_TH}>
-                      <HeadLabel line1="Payment" line2="Status" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPaymentRows.map((row, idx) => {
-                    const zebra = idx % 2 === 0 ? "bg-white hover:bg-emerald-50/70" : "bg-[#F9FAFB] hover:bg-emerald-50/70";
-                    return (
-                      <tr
-                        key={row.id}
-                        onClick={() => navigate(`${BASE}/${encodeURIComponent(row.id)}`)}
-                        className="group cursor-pointer transition-colors"
-                        title="Click to view Payment History & Grading Details"
-                      >
-                        <td className={`${PAY_TD} ${zebra} text-[#9CA3AF] font-semibold text-[10px] sm:text-xs`}>{idx + 1}</td>
-                        <td className={`${PAY_TD} ${zebra} px-0.5 py-0.5 sm:px-1 sm:py-1 text-center align-middle`}>
-                          <OrderIdCell id={row.id} />
-                        </td>
-                        <td className={`${PAY_TD} ${zebra} px-0.5 py-1 sm:px-1 sm:py-1.5`}>
-                          <span className="text-[9.5px] sm:text-xs font-semibold text-gray-900 block leading-tight">
-                            <DateWithDay value={row.pickupDate || row.orderDate} />
-                          </span>
-                          {row.pickupTime ? (
-                            <span className="block text-[8.5px] sm:text-[11px] text-gray-500 font-medium mt-0.5 leading-tight">
-                              {formatTime12h(row.pickupTime)}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className={`${PAY_TD} ${zebra} px-1 py-1 sm:px-1.5 sm:py-1.5 text-left`}>
-                          <p className="font-bold text-gray-900 text-[10.5px] sm:text-xs leading-tight truncate">{row.farmerName}</p>
-                          <FarmerIdTag id={row.farmerCode || row.farmerId} />
-                        </td>
-                        <td className={`${PAY_TD} ${zebra} px-1 py-1 sm:px-1.5 sm:py-1.5 text-left`}>
-                          <p className="font-semibold text-gray-800 text-[10.5px] sm:text-xs leading-tight truncate">{row.managerName}</p>
-                          {row.managerId ? (
-                            <ManagerIdTag id={row.managerId} />
-                          ) : null}
-                        </td>
-                        <td className={`${PAY_TD} ${zebra} px-1 py-1 sm:px-1.5 sm:py-1.5 text-left`}>
-                          <p className="font-bold text-gray-900 text-[10.5px] sm:text-xs leading-tight truncate">{row.productName}</p>
-                          {row.variety ? (
-                            <span className="inline-block rounded bg-emerald-50 px-1.5 py-0.5 text-[8.5px] sm:text-[11px] font-semibold text-emerald-800 mt-0.5 truncate max-w-full">
-                              {row.variety}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className={`${PAY_TD} ${zebra} px-0.5 py-1 sm:px-1 sm:py-1.5 text-[10.5px] sm:text-xs md:text-sm font-extrabold tabular-nums text-[#217346]`}>
-                          ₹{row.amount.toLocaleString("en-IN")}
-                        </td>
-                        <td className={`${PAY_TD} ${zebra} px-0.5 py-1 sm:px-1 sm:py-1.5`}>
-                          <PaymentStatusText status={row.paymentStatus} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td className={`${PAY_TH} bg-[#FCE7F3] text-left text-[10px] sm:text-xs md:text-[13px] font-bold text-[#1F2937] px-2 py-2`} colSpan={6}>
+            <>
+              {/* MOBILE VIEW: Info Cards */}
+              <div className="block sm:hidden space-y-3 px-1">
+                {filteredPaymentRows.map((row, idx) => (
+                  <PaymentMobileCard
+                    key={row.id}
+                    row={row}
+                    idx={idx}
+                    onClick={() => navigate(`${BASE}/${encodeURIComponent(row.id)}`)}
+                  />
+                ))}
+
+                {/* Mobile Summary Total Card */}
+                <div className="bg-[#FCE7F3] rounded-xl border border-pink-200 p-3.5 flex items-center justify-between text-xs shadow-sm">
+                  <div>
+                    <span className="font-bold text-[#1F2937] text-xs block">
                       Total Filtered ({filteredPaymentRows.length} Orders)
-                    </td>
-                    <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-extrabold tabular-nums text-[#217346] text-[10.5px] sm:text-xs md:text-sm px-1 py-2`}>
+                    </span>
+                    <span className="text-[11px] font-bold text-gray-700 mt-0.5 block">
+                      Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")} · Pending: ₹{paymentTableTotals.pending.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600 block">Total</span>
+                    <span className="text-base font-black text-[#15803D] tabular-nums">
                       ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
-                    </td>
-                    <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-bold text-[9px] sm:text-[11px] md:text-xs text-gray-700 px-1 py-2 leading-tight`}>
-                      Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* DESKTOP VIEW: Full Table */}
+              <div className="hidden sm:block w-full overflow-hidden border border-[#9CA3AF] rounded-lg bg-white shadow-sm">
+                <table className="w-full table-fixed border-collapse text-xs md:text-sm">
+                  <colgroup>
+                    <col className="w-[4%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[11.5%]" />
+                    <col className="w-[10.5%]" />
+                  </colgroup>
+                  <thead className="sticky top-0 z-30">
+                    <tr>
+                      <th className={PAY_TH}>#</th>
+                      <th className={PAY_TH}>
+                        <HeadLabel line1="Order" line2="ID" />
+                      </th>
+                      <th className={PAY_TH}>
+                        <HeadLabel line1="Pickup / Order" line2="Date & Time" />
+                      </th>
+                      <th className={PAY_TH}>
+                        <HeadLabel line1="Farmer" line2="Details" />
+                      </th>
+                      <th className={PAY_TH}>
+                        <HeadLabel line1="Crop /" line2="Produce" />
+                      </th>
+                      <th className={PAY_TH}>
+                        <HeadLabel line1="Payable Amount" line2="₹" />
+                      </th>
+                      <th className={PAY_TH}>
+                        <HeadLabel line1="Payment" line2="Status" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPaymentRows.map((row, idx) => {
+                      const zebra = idx % 2 === 0 ? "bg-white hover:bg-emerald-50/70" : "bg-[#F9FAFB] hover:bg-emerald-50/70";
+                      return (
+                        <tr
+                          key={row.id}
+                          onClick={() => navigate(`${BASE}/${encodeURIComponent(row.id)}`)}
+                          className="group cursor-pointer transition-colors"
+                          title="Click to view Payment History & Grading Details"
+                        >
+                          <td className={`${PAY_TD} ${zebra} text-[#9CA3AF] font-semibold text-xs`}>{idx + 1}</td>
+                          <td className={`${PAY_TD} ${zebra} px-1.5 py-2 text-center align-middle`}>
+                            <OrderIdCell id={row.id} />
+                          </td>
+                          <td className={`${PAY_TD} ${zebra} px-1.5 py-2 text-center align-middle`}>
+                            <span className="text-xs font-bold text-gray-900 block leading-tight">
+                              <DateWithDay value={row.pickupDate || row.orderDate} />
+                            </span>
+                            {row.pickupTime ? (
+                              <span className="inline-block text-[10px] text-emerald-800 font-semibold bg-emerald-50/80 border border-emerald-200/60 px-1.5 py-0.2 rounded mt-0.5 leading-tight">
+                                {formatTime12h(row.pickupTime)}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className={`${PAY_TD} ${zebra} px-2 py-2 text-left`}>
+                            <p className="font-bold text-gray-900 text-xs leading-tight truncate">{row.farmerName}</p>
+                            <FarmerIdTag id={row.farmerCode || row.farmerId} />
+                          </td>
+                          <td className={`${PAY_TD} ${zebra} px-2 py-2 text-left`}>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <p className="font-bold text-gray-900 text-xs leading-tight">{row.productName}</p>
+                              {row.variety ? (
+                                <span className="inline-block rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800 border border-emerald-200/60">
+                                  {row.variety}
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className={`${PAY_TD} ${zebra} px-2 py-2 text-center align-middle`}>
+                            <span className="text-xs md:text-sm font-black tabular-nums text-[#15803D] block leading-tight">
+                              ₹{row.amount.toLocaleString("en-IN")}
+                            </span>
+                          </td>
+                          <td className={`${PAY_TD} ${zebra} px-1.5 py-2 text-center align-middle`}>
+                            <PaymentStatusText status={row.paymentStatus} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td className={`${PAY_TH} bg-[#FCE7F3] text-left text-xs md:text-[13px] font-bold text-[#1F2937] px-2 py-2`} colSpan={5}>
+                        Total Filtered ({filteredPaymentRows.length} Orders)
+                      </td>
+                      <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-extrabold tabular-nums text-[#217346] text-xs md:text-sm px-1 py-2`}>
+                        ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
+                      </td>
+                      <td className={`${PAY_TH} bg-[#FCE7F3] text-center font-bold text-[11px] md:text-xs text-gray-700 px-1 py-2 leading-tight`}>
+                        Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
           )}
         </div>
       ) : (
