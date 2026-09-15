@@ -267,8 +267,8 @@ export default function ManagerEarningReportPage() {
   if (!data) {
     return (
       <div className="space-y-3 p-4">
-        <Link to="/manager/earnings" className="text-xs text-[#6B7280] hover:text-[#217346]">
-          ← Back to Earning Statement
+        <Link to="/manager/earnings/payments" className="text-xs text-[#6B7280] hover:text-[#217346] font-semibold">
+          ← Back to All Payments
         </Link>
         <EmptyState title="Quality report not ready" description={error || "This report is available after Grading Completed."} />
       </div>
@@ -278,10 +278,10 @@ export default function ManagerEarningReportPage() {
   return (
     <div className="space-y-4 p-4 sm:p-6 font-sans text-slate-800">
       <p className="mb-1 break-words text-xs text-[#6B7280] print:hidden">
-        <Link to="/manager/earnings" className="hover:text-[#217346] font-semibold">
-          ← Back to Earning Statement
+        <Link to="/manager/earnings/payments" className="hover:text-[#217346] font-semibold">
+          ← Back to All Payments
         </Link>
-        <span> › {data.orderDisplayId || orderId}</span>
+        <span> › Order #{data.orderDisplayId || orderId}</span>
       </p>
 
       {/* Quality Status Timeline (Screen Only) */}
@@ -308,16 +308,16 @@ export default function ManagerEarningReportPage() {
                 GreenGroo Agri Network
               </h1>
               <p className="text-[11px] font-bold text-emerald-800 tracking-wide uppercase">
-                Farmer Produce Procurement & Settlement Invoice
+                Payment History & Quality Grading Statement
               </p>
             </div>
           </div>
 
           <div className="text-right">
             <div className="flex items-center justify-end gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Invoice No:</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Order ID:</span>
               <span className="font-mono text-xs font-extrabold text-slate-900">
-                INV-{data.orderDisplayId || data.orderId}
+                #{data.orderDisplayId || data.orderId}
               </span>
             </div>
             <div className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] text-slate-600">
@@ -326,7 +326,7 @@ export default function ManagerEarningReportPage() {
                 {data.receivedDate || data.pickupDate || new Date().toISOString().slice(0, 10)}
               </span>
             </div>
-            <div className="mt-1 flex items-center justify-end gap-2">
+            <div className="mt-1 flex items-center justify-end">
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide uppercase ${
                   isPaid
@@ -336,13 +336,6 @@ export default function ManagerEarningReportPage() {
               >
                 {isPaid ? "✓ Paid" : "⏳ Pending"}
               </span>
-              <button
-                type="button"
-                onClick={handleOpenPaymentModal}
-                className="print:hidden text-xs font-bold text-emerald-700 hover:underline"
-              >
-                {isPaid ? "Edit Payment" : "💳 Pay Now"}
-              </button>
             </div>
           </div>
         </div>
@@ -539,13 +532,6 @@ export default function ManagerEarningReportPage() {
               <span className={`text-[10px] font-extrabold ${isPaid ? "text-emerald-800" : "text-amber-800"}`}>
                 {currentPaymentStatus}
               </span>
-              <button
-                type="button"
-                onClick={handleOpenPaymentModal}
-                className="print:hidden rounded bg-emerald-700 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm hover:bg-emerald-800"
-              >
-                💳 {isPaid ? "Update Payment" : "Mark Paid"}
-              </button>
             </div>
           </div>
 
@@ -625,44 +611,13 @@ export default function ManagerEarningReportPage() {
           </div>
         ) : null}
 
-        {/* 7. Signatures & Official Footer */}
-        <div className="pt-2">
-          <div className="grid grid-cols-2 gap-8 text-center text-[10.5px]">
-            <div>
-              <div className="h-6"></div>
-              <div className="border-t border-slate-300 pt-1">
-                <p className="font-bold text-slate-900">{data.farmerName || data.farmer?.name || "Nitin Nehe"}</p>
-                <p className="text-[9px] font-semibold text-slate-500">Farmer Signature / Acknowledgment</p>
-              </div>
-            </div>
-
-            <div>
-              <div className="h-6"></div>
-              <div className="border-t border-slate-300 pt-1">
-                <p className="font-bold text-slate-900">GreenGroo Sourcing Manager</p>
-                <p className="text-[9px] font-semibold text-slate-500">Authorized Signatory & Stamp</p>
-              </div>
-            </div>
-          </div>
-
-          <p className="mt-2 text-center text-[9px] text-slate-400">
-            This is a computer-generated tax invoice & quality settlement slip from GreenGroo Logistics. For any inquiries, please contact your designated Collection Centre.
-          </p>
-        </div>
       </div>
 
-      {/* 8. Action Buttons (Screen Only) */}
+      {/* Action Buttons (Screen Only) */}
       <div className="flex flex-col gap-2 print:hidden sm:flex-row">
-        <Link to="/manager/earnings" className={`${EXCEL_BTN} w-full sm:w-auto text-center font-semibold`}>
-          ← Back to Earning Statement
+        <Link to="/manager/earnings/payments" className={`${EXCEL_BTN} w-full sm:w-auto text-center font-semibold`}>
+          ← Back to All Payments
         </Link>
-        <button
-          type="button"
-          className={`${EXCEL_BTN_PRIMARY} flex w-full items-center justify-center gap-1.5 font-bold sm:w-auto shadow-sm`}
-          onClick={() => window.print()}
-        >
-          🧾 Download Invoice {isPaid ? "(Paid)" : "(Unpaid)"}
-        </button>
       </div>
 
       {/* Payment Action Modal */}

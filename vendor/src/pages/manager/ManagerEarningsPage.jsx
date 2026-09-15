@@ -1694,15 +1694,13 @@ export default function ManagerEarningsPage({ defaultTab }) {
             <SpreadsheetViewport className="overflow-hidden border border-[#9CA3AF] bg-white shadow-sm">
               <table className="w-max min-w-[1000px] border-collapse text-[10px] md:w-full md:min-w-0 md:table-fixed md:text-[11px]">
                 <colgroup>
-                  <col className="w-[3%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[17%]" />
+                  <col className="w-[4%]" />
                   <col className="w-[16%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[9%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[8%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
                 </colgroup>
                 <thead className="sticky top-0 z-30">
                   <tr>
@@ -1725,10 +1723,6 @@ export default function ManagerEarningsPage({ defaultTab }) {
                     <th className={TH}>
                       <HeadLabel line1="Payment" line2="Status" />
                     </th>
-                    <th className={TH}>
-                      <HeadLabel line1="Payment Method" line2="& Ref ID" />
-                    </th>
-                    <th className={TH}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1739,7 +1733,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
                         key={row.id}
                         onClick={() => navigate(`${BASE}/${encodeURIComponent(row.id)}`)}
                         className="group cursor-pointer transition-colors"
-                        title="Click to view full Invoice and Settlement Statement"
+                        title="Click to view Payment History & Grading Details"
                       >
                         <td className={`${TD} ${zebra} text-[#9CA3AF]`}>{idx + 1}</td>
                         <td className={`${TD} ${zebra} px-2 py-1 text-left align-middle`}>
@@ -1778,63 +1772,19 @@ export default function ManagerEarningsPage({ defaultTab }) {
                         <td className={`${TD} ${zebra} px-1 py-1 whitespace-nowrap`}>
                           <StatusBadge status={row.paymentStatus} className="scale-90" />
                         </td>
-                        <td className={`${TD} ${zebra} px-2 py-1 text-left`}>
-                          <p className="truncate font-semibold text-gray-900">{row.paymentMethod}</p>
-                          {row.transactionId ? (
-                            <CopyId
-                              value={row.transactionId}
-                              textClassName="font-mono text-[9px] text-gray-600 font-medium"
-                            />
-                          ) : (
-                            <span className="text-[9px] text-gray-400">No ref</span>
-                          )}
-                          {row.paymentDate ? (
-                            <p className="text-[9px] text-gray-400">{shortDate(row.paymentDate)}</p>
-                          ) : null}
-                        </td>
-                        <td className={`${TD} ${zebra} px-1 py-1`}>
-                          <div className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`${BASE}/${encodeURIComponent(row.id)}`);
-                              }}
-                              className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-[#217346] hover:bg-emerald-100"
-                              title="View Invoice & Quality Statement"
-                            >
-                              Invoice
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openPaymentModal(row, e);
-                              }}
-                              className={`rounded px-2 py-1 text-[10px] font-semibold ${
-                                row.isPaid
-                                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                  : "bg-[#217346] text-white hover:bg-[#1a5c38]"
-                              }`}
-                              title={row.isPaid ? "Update Payment Details" : "Record Payment"}
-                            >
-                              {row.isPaid ? "Edit" : "Pay"}
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td className={`${TH} bg-[#FCE7F3] text-left text-[11px] font-bold text-[#1F2937]`} colSpan={6}>
+                    <td className={`${TH} bg-[#FCE7F3] text-left text-[11px] font-bold text-[#1F2937]`} colSpan={5}>
                       Total Filtered ({filteredPaymentRows.length} Orders)
                     </td>
                     <td className={`${TH} bg-[#FCE7F3] text-center font-bold tabular-nums text-[#217346] md:text-[12px]`}>
                       ₹{paymentTableTotals.amount.toLocaleString("en-IN")}
                     </td>
-                    <td className={`${TH} bg-[#FCE7F3] text-center font-semibold text-[10px] text-gray-700`} colSpan={3}>
+                    <td className={`${TH} bg-[#FCE7F3] text-center font-semibold text-[10px] text-gray-700`}>
                       Paid: ₹{paymentTableTotals.paid.toLocaleString("en-IN")} · Pending: ₹{paymentTableTotals.pending.toLocaleString("en-IN")}
                     </td>
                   </tr>
