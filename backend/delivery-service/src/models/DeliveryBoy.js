@@ -109,14 +109,6 @@ const deliveryBoySchema = new mongoose.Schema(
       default: () => ({}),
     },
 
-    livenessPassed: {
-      type: Boolean,
-      default: false,
-    },
-    livenessPassedAt: {
-      type: Date,
-    },
-
     /// Live availability — changes often (go online/offline anytime).
     status: {
       type: String,
@@ -283,7 +275,6 @@ const deliveryBoySchema = new mongoose.Schema(
         "area",
         "documents",
         "selfie",
-        "liveness",
         "home",
       ],
       default: "vehicle",
@@ -320,8 +311,6 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     bankDetails: this.bankDetails,
     documents: this.documents,
     selfie: this.selfie,
-    livenessPassed: this.livenessPassed,
-    livenessPassedAt: this.livenessPassedAt,
     status: this.status,
     lastStatusAt: this.lastStatusAt,
     lastSeenAt: this.lastSeenAt,

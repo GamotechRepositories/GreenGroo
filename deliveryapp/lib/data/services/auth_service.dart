@@ -626,7 +626,6 @@ class AuthService {
       'area' => '/select-area',
       'documents' => '/upload-documents',
       'selfie' => '/take-selfie',
-      'liveness' => '/liveness-check',
       'home' => '/home',
       _ => '/select-vehicle',
     };

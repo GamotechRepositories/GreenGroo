@@ -138,6 +138,84 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _listenForOfferRecovery();
     _bootstrapHome();
   }
+  /// One coordinated load: single /me + parallel page data (no stacked waits).
+  Future<void> _bootstrapHome() async {
+    final meFuture = AuthService.instance.fetchMe();
+
+    await Future.wait<void>([
+      meFuture.then((boy) {
+        if (!mounted) return;
+        _applyVerificationFromBoy(boy);
+        setState(() {
+          _isOnline = boy?.isOnline ?? _isOnline;
+        });
+        if (_hasActiveOrder && _isOnline) {
+          _startHeartbeat();
+        }
+      }),
+      OrderService.instance.fetchActiveDelivery().then((_) {
+        if (mounted) setState(() {});
+      }),
+      RiderLiveService.instance.refreshLoginHours().then((_) async {
+        await RiderLiveService.instance.refreshPeakHours('store_1');
+        if (mounted) setState(() {});
+      }),
+      _loadGigsData(),
+      _fetchTodayProgress(),
+      _loadAnnouncements(),
+    ]);
+
+    if (!mounted) return;
+    // After first /me settles, check slot alerts (shares fetchMe in-flight when possible).
+    _showSlotCancellationAlerts();
+    // Recover pending Accept/Decline if offer arrived while app was closed.
+    if (_isOnline) {
+      _startOfferPoll();
+      _checkOrderOffers();
+    }
+  }
+
+  void _applyVerificationFromBoy(DeliveryBoy? boy) {
+    final status = boy?.verificationStatus ?? 'pending';
+    if (_lastVerificationStatus == 'pending' && status == 'approved') {
+      setState(() => _showVerifiedBanner = true);
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _showVerifiedBanner = false);
+      });
+    }
+    _lastVerificationStatus = status;
+    if (boy != null && (boy.isVerificationPending || status == 'rejected')) {
+      _fetchAreaManagerDetails();
+    }
+  }
+
+  void _startOfferPoll() {
+    _offerPoll?.cancel();
+    // Backup poll while online — socket can miss offers; silent API check.
+    _offerPoll = Timer.periodic(const Duration(seconds: 4), (_) {
+      _checkOrderOffers();
+    });
+    _checkOrderOffers();
+  }
+
+  void _stopOfferPoll() {
+    _offerPoll?.cancel();
+    _offerPoll = null;
+  }
+
+  void _listenForOffers() {
+    _offerSocketSub?.cancel();
+    _offerSocketSub = SocketService.instance.onOrderOfferReceived.listen((data) {
+      if (!_isOnline || _isShowingOffer || !mounted) return;
+      // Only skip if rider already has a real active trip
+      if (_hasActiveTrip) return;
+      try {
+        final offer = OrderOffer.fromJson(data);
+        if (offer.orderId.isEmpty) return;
+        _showOfferDialog(offer);
+      } catch (_) {}
+    });
+  }
 
   void _listenForForcedOffline() {
     _forcedOfflineSub?.cancel();
@@ -220,8 +298,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              result.message ??
-                  'This assignment is no longer available.',
+              result.message ?? 'This assignment is no longer available.',
             ),
             backgroundColor: const Color(0xFFB45309),
           ),
@@ -260,9 +337,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _handleVerificationEvent(Map<String, dynamic> data) async {
     var status = data['verificationStatus']?.toString() ?? '';
     if (status == 'verified') status = 'approved';
-    // Whole-profile verification decision
     if (status != 'approved' && status != 'rejected') {
-      // Still sync once from server in case payload shape differs
       final boy = await AuthService.instance.fetchMe();
       if (!mounted) return;
       _applyVerificationFromBoy(boy);
@@ -275,85 +350,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     if (!mounted) return;
     _applyVerificationFromBoy(AuthService.instance.deliveryBoy);
     setState(() {});
-  }
-
-  /// One coordinated load: single /me + parallel page data (no stacked waits).
-  Future<void> _bootstrapHome() async {
-    final meFuture = AuthService.instance.fetchMe();
-
-    await Future.wait<void>([
-      meFuture.then((boy) {
-        if (!mounted) return;
-        _applyVerificationFromBoy(boy);
-        setState(() {
-          _isOnline = boy?.isOnline ?? _isOnline;
-        });
-        if (_hasActiveOrder && _isOnline) {
-          _startHeartbeat();
-        }
-      }),
-      OrderService.instance.fetchActiveDelivery().then((_) {
-        if (mounted) setState(() {});
-      }),
-      RiderLiveService.instance.refreshLoginHours().then((_) async {
-        await RiderLiveService.instance.refreshPeakHours('store_1');
-        if (mounted) setState(() {});
-      }),
-      _loadGigsData(),
-      _fetchTodayProgress(),
-      _loadAnnouncements(),
-    ]);
-
-    if (!mounted) return;
-    // After first /me settles, check slot alerts (shares fetchMe in-flight when possible).
-    _showSlotCancellationAlerts();
-    // Recover pending Accept/Decline if offer arrived while app was closed.
-    if (_isOnline) {
-      _startOfferPoll();
-      _checkOrderOffers();
-    }
-  }
-
-  void _applyVerificationFromBoy(DeliveryBoy? boy) {
-    final status = boy?.verificationStatus ?? 'pending';
-    if (_lastVerificationStatus == 'pending' && status == 'approved') {
-      setState(() => _showVerifiedBanner = true);
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) setState(() => _showVerifiedBanner = false);
-      });
-    }
-    _lastVerificationStatus = status;
-    if (boy != null && (boy.isVerificationPending || status == 'rejected')) {
-      _fetchAreaManagerDetails();
-    }
-  }
-
-  void _startOfferPoll() {
-    _offerPoll?.cancel();
-    // Backup poll while online — socket can miss offers; silent API check.
-    _offerPoll = Timer.periodic(const Duration(seconds: 4), (_) {
-      _checkOrderOffers();
-    });
-    _checkOrderOffers();
-  }
-
-  void _stopOfferPoll() {
-    _offerPoll?.cancel();
-    _offerPoll = null;
-  }
-
-  void _listenForOffers() {
-    _offerSocketSub?.cancel();
-    _offerSocketSub = SocketService.instance.onOrderOfferReceived.listen((data) {
-      if (!_isOnline || _isShowingOffer || !mounted) return;
-      // Only skip if rider already has a real active trip
-      if (_hasActiveTrip) return;
-      try {
-        final offer = OrderOffer.fromJson(data);
-        if (offer.orderId.isEmpty) return;
-        _showOfferDialog(offer);
-      } catch (_) {}
-    });
   }
 
   Future<void> _checkOrderOffers() async {

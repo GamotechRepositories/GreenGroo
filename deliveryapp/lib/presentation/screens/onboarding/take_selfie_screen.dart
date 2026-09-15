@@ -10,6 +10,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/image_upload_utils.dart';
 import '../../../core/utils/onboarding_nav.dart';
+import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
 import '../../widgets/buttons/secondary_button.dart';
@@ -226,13 +227,21 @@ class _TakeSelfieScreenState extends State<TakeSelfieScreen> {
                           try {
                             final selfie = await documentPayload(XFile(path));
                             if (!mounted) return;
-                            final currentContext = context;
-                            await goOnboardingStep(
-                              currentContext,
-                              step: 'liveness',
-                              route: AppRoutes.livenessCheck,
-                              arguments: path,
+                            await AuthService.instance.updateOnboarding(
+                              step: 'selfie',
                               data: {'selfie': selfie},
+                            );
+                            if (!mounted) return;
+                            await completeOnboarding(context);
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e is AuthApiException
+                                    ? e.message
+                                    : e.toString()),
+                                backgroundColor: AppColors.error,
+                              ),
                             );
                           } finally {
                             if (mounted) setState(() => _submitting = false);

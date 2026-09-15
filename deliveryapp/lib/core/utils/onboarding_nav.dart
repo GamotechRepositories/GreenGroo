@@ -67,7 +67,6 @@ Future<void> completeOnboarding(BuildContext context) async {
     await AuthService.instance.updateOnboarding(
       step: 'home',
       complete: true,
-      data: {'livenessPassed': true},
     );
   } catch (e) {
     if (!context.mounted) return;

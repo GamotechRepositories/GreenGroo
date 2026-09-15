@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../data/services/auth_service.dart';
-import '../../../data/services/push_notification_service.dart';
 
 /// Simple white splash — centered logo, then navigate to next screen.
 class SplashScreen extends StatefulWidget {
@@ -28,7 +27,6 @@ class _SplashScreenState extends State<SplashScreen> {
     );
 
     _prepareAuthInBackground();
-    PushNotificationService.instance.init();
     Future.delayed(_holdDuration, _goNext);
   }
 
@@ -74,19 +72,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: Image.asset(
-            'assets/icon/icon.png',
+      body: Center(
+        child: Image.asset(
+          'assets/icon/icon.png',
+          width: logoSize,
+          height: logoSize,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Image.asset(
+            'assets/branding/app_icon.png',
             width: logoSize,
             height: logoSize,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => Image.asset(
-              'assets/branding/app_icon.png',
-              width: logoSize,
-              height: logoSize,
-              fit: BoxFit.contain,
-            ),
           ),
         ),
       ),
