@@ -618,6 +618,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
   const [customToDate, setCustomToDate] = useState("");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [paymentFarmerFilter, setPaymentFarmerFilter] = useState("all");
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   // Payment Modal State
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -1259,32 +1260,126 @@ export default function ManagerEarningsPage({ defaultTab }) {
 
       {mainTab === "payments" ? (
         /* ================= ALL PAYMENTS TAB ================= */
-        <div className="space-y-4 p-4 sm:p-6">
+        <div className="space-y-4 p-3 sm:p-5 md:p-6">
+          {/* Payment KPI Cards (Interactive - 1 Single Row) - Placed Above Filters */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setPaymentStatusFilter("all")}
+              className={`rounded border p-2 sm:p-4 text-left transition-all ${
+                paymentStatusFilter === "all"
+                  ? "border-[#217346] bg-emerald-50/40 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
+                Total Settlement
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-[#217346] truncate">
+                ₹{paymentStats.totalAmt.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-0.5 text-[9px] sm:text-[10px] text-gray-400 truncate">
+                {paymentStats.totalCount} Graded
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentStatusFilter("paid")}
+              className={`rounded border p-2 sm:p-4 text-left transition-all ${
+                paymentStatusFilter === "paid"
+                  ? "border-green-600 bg-green-50/40 shadow-sm ring-1 ring-green-500"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
+                Paid
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-green-700 truncate">
+                ₹{paymentStats.paidAmt.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-0.5 text-[9px] sm:text-[10px] text-green-600 font-semibold truncate">
+                {paymentStats.paidCount} Paid
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentStatusFilter("pending")}
+              className={`rounded border p-2 sm:p-4 text-left transition-all ${
+                paymentStatusFilter === "pending"
+                  ? "border-amber-600 bg-amber-50/40 shadow-sm ring-1 ring-amber-500"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-tight truncate">
+                Pending
+              </p>
+              <p className="mt-0.5 sm:mt-1 text-sm sm:text-xl font-bold text-amber-600 truncate">
+                ₹{paymentStats.pendingAmt.toLocaleString("en-IN")}
+              </p>
+              <p className="mt-0.5 text-[9px] sm:text-[10px] text-amber-600 font-semibold truncate">
+                {paymentStats.pendingCount} Pending
+              </p>
+            </button>
+          </div>
+
           {/* Top-Level Integrated Filters: Search, Status, Methods, Farmers & Date-wise */}
           <div className="space-y-3">
-            {/* Row 1: Search + Status + Payment Method + Farmer Filter + Reset */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Search Bar */}
-              <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search Order, Farmer, Crop, TXN…"
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-[#217346] focus:ring-1 focus:ring-[#217346]"
-                />
+            {/* Top Row: Search + Mobile Filter Toggle Button + Payment Status Pills */}
+            <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+              {/* Search Bar + Mobile Filter Toggle Button */}
+              <div className="flex items-center gap-2 w-full lg:w-72 lg:flex-none">
+                <div className="relative flex-1">
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search Order, Farmer, Crop, TXN…"
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs outline-none focus:border-[#217346] focus:ring-1 focus:ring-[#217346]"
+                  />
+                </div>
+
+                {/* Mobile Filter Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setMobileFilterOpen((prev) => !prev)}
+                  aria-label="Filter Options"
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold lg:hidden transition-all shrink-0 ${
+                    mobileFilterOpen ||
+                    paymentMethodFilter !== "all" ||
+                    paymentFarmerFilter !== "all" ||
+                    paymentDateFilter !== "all" ||
+                    customFromDate ||
+                    customToDate
+                      ? "bg-[#217346] text-white shadow-sm ring-1 ring-[#217346]"
+                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span>Filter</span>
+                  {(paymentMethodFilter !== "all" ||
+                    paymentFarmerFilter !== "all" ||
+                    paymentDateFilter !== "all" ||
+                    customFromDate ||
+                    customToDate) && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300 ring-2 ring-white" />
+                  )}
+                </button>
               </div>
 
-              {/* Payment Status Pills */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              {/* Payment Status Segment Pills */}
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">
                   Payment Status:
                 </span>
-                <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+                <div className="grid grid-cols-3 gap-1 rounded-lg bg-gray-100 p-1 sm:flex sm:items-center">
                   <button
                     type="button"
                     onClick={() => setPaymentStatusFilter("all")}
-                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                    className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
                       paymentStatusFilter === "all"
                         ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
                         : "text-gray-600 hover:text-gray-900"
@@ -1303,7 +1398,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
                   <button
                     type="button"
                     onClick={() => setPaymentStatusFilter("paid")}
-                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                    className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
                       paymentStatusFilter === "paid"
                         ? "bg-[#217346] text-white shadow-sm ring-1 ring-[#217346]"
                         : "text-green-700 hover:bg-green-50"
@@ -1324,7 +1419,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
                   <button
                     type="button"
                     onClick={() => setPaymentStatusFilter("pending")}
-                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                    className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
                       paymentStatusFilter === "pending"
                         ? "bg-amber-600 text-white shadow-sm ring-1 ring-amber-600"
                         : "text-amber-700 hover:bg-amber-50"
@@ -1343,200 +1438,168 @@ export default function ManagerEarningsPage({ defaultTab }) {
                   </button>
                 </div>
               </div>
+            </div>
 
-              {/* Payment Methods Dropdown */}
-              <select
-                value={paymentMethodFilter}
-                onChange={(e) => setPaymentMethodFilter(e.target.value)}
-                className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
-              >
-                <option value="all">All Payment Methods</option>
-                <option value="bank transfer">Bank Transfer</option>
-                <option value="upi">UPI</option>
-                <option value="cash">Cash</option>
-                <option value="cheque">Cheque</option>
-                <option value="online">Online Gateway</option>
-              </select>
-
-              {/* Farmers Dropdown */}
-              <select
-                value={paymentFarmerFilter}
-                onChange={(e) => setPaymentFarmerFilter(e.target.value)}
-                className="max-w-[180px] rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
-              >
-                <option value="all">All Farmers</option>
-                {farmers.map((f) => (
-                  <option key={farmerKey(f)} value={farmerKey(f)}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* Reset All Filters Button */}
-              {(paymentStatusFilter !== "all" ||
-                paymentDateFilter !== "all" ||
-                customFromDate ||
-                customToDate ||
-                paymentMethodFilter !== "all" ||
-                paymentFarmerFilter !== "all" ||
-                search.trim()) && (
+            {/* Collapsible Filter Panel on Mobile, Always Visible on Desktop (lg:block) */}
+            <div
+              className={`${
+                mobileFilterOpen ? "block" : "hidden"
+              } lg:block space-y-3 rounded-lg border border-emerald-100 bg-emerald-50/30 p-3 lg:border-0 lg:bg-transparent lg:p-0 transition-all`}
+            >
+              {/* Mobile Filter Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60 lg:hidden">
+                <div className="flex items-center gap-1.5 font-semibold text-xs text-gray-800">
+                  <svg className="h-3.5 w-3.5 text-[#217346]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span>Filter Options</span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentStatusFilter("all");
-                    setPaymentDateFilter("all");
-                    setCustomFromDate("");
-                    setCustomToDate("");
-                    setPaymentMethodFilter("all");
-                    setPaymentFarmerFilter("all");
-                    setSearch("");
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                  onClick={() => setMobileFilterOpen(false)}
+                  className="rounded px-2 py-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700 text-xs font-bold"
                 >
-                  <span>✕ Reset All Filters</span>
+                  ✕ Close
                 </button>
-              )}
-            </div>
-
-            {/* Row 2: Date-wise Quick Filter Pills */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mr-1">
-                  Date Range:
-                </span>
-                {[
-                  { id: "all", label: "All Time", count: dateCounts.all },
-                  { id: "today", label: "Today", count: dateCounts.today },
-                  { id: "yesterday", label: "Yesterday", count: dateCounts.yesterday },
-                  { id: "this_week", label: "This Week", count: dateCounts.this_week },
-                  { id: "last_week", label: "Last Week", count: dateCounts.last_week },
-                  { id: "this_month", label: "This Month", count: dateCounts.this_month },
-                  { id: "custom", label: "📅 Custom Range" },
-                ].map((tab) => {
-                  const active = paymentDateFilter === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setPaymentDateFilter(tab.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
-                        active
-                          ? "bg-[#217346] text-white shadow-sm ring-1 ring-[#217346]"
-                          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                      {tab.count != null && (
-                        <span
-                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                            active ? "bg-emerald-800 text-white" : "bg-gray-200 text-gray-700"
-                          }`}
-                        >
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
               </div>
 
-              {/* Custom Date Range Picker */}
-              {paymentDateFilter === "custom" && (
-                <div className="flex flex-wrap items-center gap-2.5 rounded-md border border-emerald-200 bg-white p-2.5 text-xs shadow-sm">
-                  <span className="font-semibold text-[#217346]">📅 Select Date Range:</span>
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-gray-600 font-medium">From:</label>
-                    <input
-                      type="date"
-                      value={customFromDate}
-                      onChange={(e) => setCustomFromDate(e.target.value)}
-                      className="rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#217346]"
-                    />
+              {/* Dropdowns (Method & Farmer) */}
+              <div className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:inline-flex lg:items-center">
+                <select
+                  value={paymentMethodFilter}
+                  onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
+                >
+                  <option value="all">All Payment Methods</option>
+                  <option value="bank transfer">Bank Transfer</option>
+                  <option value="upi">UPI</option>
+                  <option value="cash">Cash</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="online">Online Gateway</option>
+                </select>
+
+                <select
+                  value={paymentFarmerFilter}
+                  onChange={(e) => setPaymentFarmerFilter(e.target.value)}
+                  className="w-full lg:max-w-[180px] rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]"
+                >
+                  <option value="all">All Farmers</option>
+                  {farmers.map((f) => (
+                    <option key={farmerKey(f)} value={farmerKey(f)}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date-wise Quick Filter Pills */}
+              <div className="space-y-2">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                    Date Range:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                      { id: "all", label: "All Time", count: dateCounts.all },
+                      { id: "today", label: "Today", count: dateCounts.today },
+                      { id: "yesterday", label: "Yesterday", count: dateCounts.yesterday },
+                      { id: "this_week", label: "This Week", count: dateCounts.this_week },
+                      { id: "last_week", label: "Last Week", count: dateCounts.last_week },
+                      { id: "this_month", label: "This Month", count: dateCounts.this_month },
+                      { id: "custom", label: "📅 Custom Range" },
+                    ].map((tab) => {
+                      const active = paymentDateFilter === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setPaymentDateFilter(tab.id)}
+                          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-all ${
+                            active
+                              ? "bg-[#217346] text-white shadow-sm ring-1 ring-[#217346]"
+                              : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300"
+                          }`}
+                        >
+                          <span>{tab.label}</span>
+                          {tab.count != null && (
+                            <span
+                              className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                                active ? "bg-emerald-800 text-white" : "bg-gray-200 text-gray-700"
+                              }`}
+                            >
+                              {tab.count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {/* Reset All Filters Button placed to the right of Custom Range */}
+                    {(paymentStatusFilter !== "all" ||
+                      paymentDateFilter !== "all" ||
+                      customFromDate ||
+                      customToDate ||
+                      paymentMethodFilter !== "all" ||
+                      paymentFarmerFilter !== "all" ||
+                      search.trim()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentStatusFilter("all");
+                          setPaymentDateFilter("all");
+                          setCustomFromDate("");
+                          setCustomToDate("");
+                          setPaymentMethodFilter("all");
+                          setPaymentFarmerFilter("all");
+                          setSearch("");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                      >
+                        <span>✕ Reset All Filters</span>
+                      </button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-gray-600 font-medium">To:</label>
-                    <input
-                      type="date"
-                      value={customToDate}
-                      onChange={(e) => setCustomToDate(e.target.value)}
-                      className="rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#217346]"
-                    />
-                  </div>
-                  {(customFromDate || customToDate) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomFromDate("");
-                        setCustomToDate("");
-                      }}
-                      className="text-[11px] font-semibold text-red-600 hover:underline ml-1"
-                    >
-                      Clear Dates
-                    </button>
-                  )}
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Payment KPI Cards (Interactive) */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <button
-              type="button"
-              onClick={() => setPaymentStatusFilter("all")}
-              className={`rounded border p-4 text-left transition-all ${
-                paymentStatusFilter === "all"
-                  ? "border-[#217346] bg-emerald-50/40 shadow-sm"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <p className="text-xs text-gray-500">Total Settlement Valuation</p>
-              <p className="mt-1 text-xl font-bold text-[#217346]">
-                ₹{paymentStats.totalAmt.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-0.5 text-[10px] text-gray-400">{paymentStats.totalCount} Graded Orders</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaymentStatusFilter("paid")}
-              className={`rounded border p-4 text-left transition-all ${
-                paymentStatusFilter === "paid"
-                  ? "border-green-600 bg-green-50/40 shadow-sm ring-1 ring-green-500"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <p className="text-xs text-gray-500">Paid / Deposited</p>
-              <p className="mt-1 text-xl font-bold text-green-700">
-                ₹{paymentStats.paidAmt.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-0.5 text-[10px] text-green-600 font-semibold">{paymentStats.paidCount} Orders Paid</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPaymentStatusFilter("pending")}
-              className={`rounded border p-4 text-left transition-all ${
-                paymentStatusFilter === "pending"
-                  ? "border-amber-600 bg-amber-50/40 shadow-sm ring-1 ring-amber-500"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <p className="text-xs text-gray-500">Pending / Balance</p>
-              <p className="mt-1 text-xl font-bold text-amber-600">
-                ₹{paymentStats.pendingAmt.toLocaleString("en-IN")}
-              </p>
-              <p className="mt-0.5 text-[10px] text-amber-600 font-semibold">{paymentStats.pendingCount} Orders Pending</p>
-            </button>
-
-            <div className="rounded border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500">Settlement Progress</p>
-              <p className="mt-1 text-xl font-bold text-gray-900">
-                {paymentStats.totalAmt > 0
-                  ? `${Math.round((paymentStats.paidAmt / paymentStats.totalAmt) * 100)}%`
-                  : "0%"}
-              </p>
-              <p className="mt-0.5 text-[10px] text-gray-400">Paid vs Total Valuation</p>
+                {/* Custom Date Range Picker */}
+                {paymentDateFilter === "custom" && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-md border border-emerald-200 bg-white p-2.5 text-xs shadow-sm">
+                    <span className="font-semibold text-[#217346] whitespace-nowrap">📅 Select Date Range:</span>
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-gray-600 font-medium">From:</label>
+                        <input
+                          type="date"
+                          value={customFromDate}
+                          onChange={(e) => setCustomFromDate(e.target.value)}
+                          className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#217346]"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-gray-600 font-medium">To:</label>
+                        <input
+                          type="date"
+                          value={customToDate}
+                          onChange={(e) => setCustomToDate(e.target.value)}
+                          className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs outline-none focus:border-[#217346]"
+                        />
+                      </div>
+                    </div>
+                    {(customFromDate || customToDate) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomFromDate("");
+                          setCustomToDate("");
+                        }}
+                        className="text-[11px] font-semibold text-red-600 hover:underline self-start sm:self-auto"
+                      >
+                        Clear Dates
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
