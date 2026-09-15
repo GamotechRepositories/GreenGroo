@@ -57,9 +57,16 @@ export function gradeStatementRows(order = {}) {
     const ordered = roundQty(g.orderedQuantity ?? og.orderedQuantity ?? og.quantity ?? og.qty);
     const assigned = roundQty(g.assignedQuantity ?? order[ASSIGNED_KEYS[label]]);
     const rate = num(g.price ?? g.rate ?? og.price ?? og.rate ?? (ordered > 0 || assigned > 0 ? order.price : 0));
-    const base = ordered > 0 ? ordered : assigned;
-    const finalQty = roundQty(Math.max(0, base - rejected));
-    const amount = roundQty(finalQty * rate);
+    
+    let finalQty = 0;
+    if (g.quantity != null && Number.isFinite(Number(g.quantity)) && (assigned > 0 || num(g.quantity) > 0 || ordered > 0)) {
+      finalQty = roundQty(g.quantity);
+    } else {
+      const base = assigned > 0 ? assigned : ordered;
+      finalQty = roundQty(Math.max(0, base - rejected));
+    }
+
+    const amount = num(g.amount) > 0 ? roundQty(g.amount) : roundQty(finalQty * rate);
     return {
       label,
       ordered,

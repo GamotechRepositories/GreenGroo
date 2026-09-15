@@ -91,27 +91,60 @@ function formatTime12h(value) {
 function gradeDetailMap(row) {
   const unit = row.unit || "Kg";
   const map = {};
+
+  // If finalStatement exists, use the final accepted quantity for each grade
+  if (Array.isArray(row.finalStatement) && row.finalStatement.length) {
+    row.finalStatement.forEach((g) => {
+      const label = String(g.label || g.name || g.grade || "").trim();
+      if (!label) return;
+      const finalQty = Number(
+        g.quantity ?? g.qty ?? Math.max(0, Number(g.assignedQuantity || 0) - Number(g.rejectedQuantity || 0))
+      );
+      if (finalQty > 0 || Number(g.assignedQuantity) > 0 || Number(g.orderedQuantity) > 0) {
+        map[label] = { qty: Math.max(0, finalQty), unit: g.unit || unit };
+      }
+    });
+    return map;
+  }
+
+  const gq = row.gradeQuality && typeof row.gradeQuality === "object" ? row.gradeQuality : {};
+  const isCompleted = ["GRADE_CONFIRMED", "ORDER_COMPLETED"].includes(
+    String(row.status || row.qualityStatus || "").toUpperCase()
+  );
+
+  const assigned = {
+    "Grade A": Number(row.gradeAAssigned ?? row.gradeAQuantity ?? 0),
+    "Grade B": Number(row.gradeBAssigned ?? row.gradeBQuantity ?? 0),
+    "Grade C": Number(row.gradeCAssigned ?? row.gradeCQuantity ?? 0),
+  };
+
+  const hasAssigned = Object.values(assigned).some((v) => v > 0);
+  if (hasAssigned) {
+    Object.entries(assigned).forEach(([label, assignedQty]) => {
+      if (!(assignedQty > 0)) return;
+      const rej = Number(gq[label]?.rejectedQuantity || 0);
+      const finalQty = isCompleted ? Math.max(0, assignedQty - rej) : assignedQty;
+      map[label] = { qty: finalQty, unit };
+    });
+    return map;
+  }
+
   (Array.isArray(row.grades) ? row.grades : []).forEach((g) => {
     const label = String(g.label || g.name || g.grade || "").trim();
     if (!label) return;
-    const qty = Number(g.quantity || g.qty || 0);
-    if (!(qty > 0)) return;
+    const rej = Number(g.rejectedQuantity ?? gq[label]?.rejectedQuantity ?? 0);
+    const rawQty = Number(g.quantity ?? g.qty ?? g.assignedQuantity ?? 0);
+    const finalQty = isCompleted && g.assignedQuantity ? Math.max(0, rawQty - rej) : rawQty;
+    if (!(finalQty > 0)) return;
     if (!map[label]) map[label] = { qty: 0, unit };
-    map[label].qty += qty;
+    map[label].qty = finalQty;
   });
-  const assigned = {
-    "Grade A": Number(row.gradeAQuantity || 0),
-    "Grade B": Number(row.gradeBQuantity || 0),
-    "Grade C": Number(row.gradeCQuantity || 0),
-  };
-  Object.entries(assigned).forEach(([label, qty]) => {
-    if (!(qty > 0)) return;
-    if (!map[label]) map[label] = { qty: 0, unit };
-    map[label].qty = qty;
-  });
+
   if (!Object.keys(map).length) {
     const qty = Number(row.receivedQuantity || row.orderedQuantity || 0);
-    if (qty > 0) map["Grade A"] = { qty, unit };
+    const rej = Number(row.rejectedQuantity || 0);
+    const finalQty = isCompleted ? Math.max(0, qty - rej) : qty;
+    if (finalQty > 0) map["Grade A"] = { qty: finalQty, unit };
   }
   Object.keys(map).forEach((label) => {
     if (!(Number(map[label].qty) > 0)) delete map[label];
