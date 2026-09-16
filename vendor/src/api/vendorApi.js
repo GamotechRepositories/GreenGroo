@@ -35,7 +35,7 @@ export const vendorApi = {
   me: () => api.get("/api/vendor/auth/me"),
 
   // Dashboard
-  getDashboard: () => api.get("/api/vendor/dashboard"),
+  getDashboard: (params) => api.get("/api/vendor/dashboard", { params }),
   liveAnnouncements: () =>
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "vendor" } })

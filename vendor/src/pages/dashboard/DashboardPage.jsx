@@ -5,10 +5,12 @@ import {
   ArrowRight,
   BadgeCheck,
   Building2,
+  Calendar,
   CheckCircle2,
   ChevronRight,
   ClipboardList,
   Clock,
+  Filter,
   IdCard,
   Package,
   Plus,
@@ -24,6 +26,7 @@ import {
   Truck,
   Users,
   Wallet,
+  X,
   XCircle,
 } from "lucide-react";
 import { PageShell } from "../../components/layout/ProductManagerLayout";
@@ -48,31 +51,53 @@ function formatWhen(value) {
   }
 }
 
-function StatCard({ title, value, hint, icon: Icon, to, color = "text-slate-900", iconBg = "bg-emerald-50 text-emerald-700", border = "border-slate-200/80" }) {
-  const content = (
-    <div className={`group relative h-full rounded-2xl border ${border} bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</p>
-          <p className={`mt-1.5 truncate text-2xl font-bold tracking-tight sm:text-3xl ${color}`}>{value ?? "—"}</p>
-          {hint ? <p className="mt-1 truncate text-xs text-slate-500">{hint}</p> : null}
-        </div>
-        {Icon ? (
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${iconBg} shadow-inner transition-transform group-hover:scale-105`}>
-            <Icon className="h-5 w-5" strokeWidth={2} />
-          </span>
-        ) : null}
-      </div>
-      {to ? (
-        <div className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-emerald-700 opacity-80 group-hover:opacity-100">
-          <span>Manage</span>
-          <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-        </div>
-      ) : null}
-    </div>
-  );
+const DATE_RANGE_OPTIONS = [
+  { id: "all", label: "All Time" },
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "this_week", label: "This Week" },
+  { id: "this_month", label: "This Month" },
+  { id: "this_year", label: "This Year" },
+  { id: "custom", label: "Custom Range" },
+];
 
-  return to ? <Link to={to} className="block min-w-0">{content}</Link> : content;
+function MultiMetricCard({ title, mainValue, subItems = [], icon: Icon, iconBg, to }) {
+  return (
+    <Link
+      to={to}
+      className="group relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs transition hover:border-emerald-300 hover:bg-slate-50/30 sm:p-3"
+    >
+      <div>
+        <div className="flex items-start justify-between gap-1.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] text-slate-500 line-clamp-1">{title}</p>
+            <p className="mt-0.5 text-base sm:text-lg font-semibold text-slate-800">
+              {mainValue}
+            </p>
+          </div>
+          {Icon ? (
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${iconBg}`}>
+              <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </span>
+          ) : null}
+        </div>
+
+        {/* Sub metrics list */}
+        {subItems.length > 0 && (
+          <div className="mt-2 space-y-1 border-t border-slate-100 pt-1.5">
+            {subItems.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between text-[11px]">
+                <span className="truncate text-slate-500">{item.label}</span>
+                <span className={`ml-1 shrink-0 font-medium ${item.color || "text-slate-700"}`}>
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
 }
 
 export default function DashboardPage() {
@@ -85,11 +110,28 @@ export default function DashboardPage() {
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
 
-  const loadAll = useCallback(async (isSilent = false) => {
+  // Date Range Filter State
+  const [range, setRange] = useState("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [customApplied, setCustomApplied] = useState(false);
+
+  const loadAll = useCallback(async (isSilent = false, overrideRange, overrideStart, overrideEnd) => {
     if (!isSilent) setRefreshing(true);
+    const activeRange = overrideRange !== undefined ? overrideRange : range;
+    const activeStart = overrideStart !== undefined ? overrideStart : customStart;
+    const activeEnd = overrideEnd !== undefined ? overrideEnd : customEnd;
+
     try {
+      const params = {};
+      if (activeRange && activeRange !== "all") params.range = activeRange;
+      if (activeRange === "custom" && activeStart && activeEnd) {
+        params.startDate = activeStart;
+        params.endDate = activeEnd;
+      }
+
       const [dashRes, reqRes] = await Promise.all([
-        vendorApi.getDashboard().catch(() => ({ data: {} })),
+        vendorApi.getDashboard(params).catch(() => ({ data: {} })),
         staffApi.inventoryRequests().catch(() => ({ data: { requests: [] } })),
       ]);
       setData(dashRes.data || {});
@@ -101,13 +143,27 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [range, customStart, customEnd]);
 
   useEffect(() => {
     loadAll(false);
-    const timer = window.setInterval(() => loadAll(true), 12000);
+    const timer = window.setInterval(() => loadAll(true), 15000);
     return () => window.clearInterval(timer);
   }, [loadAll]);
+
+  const handleRangeChange = (newRange) => {
+    setRange(newRange);
+    if (newRange !== "custom") {
+      setCustomApplied(false);
+      loadAll(false, newRange);
+    }
+  };
+
+  const handleApplyCustom = () => {
+    if (!customStart || !customEnd) return;
+    setCustomApplied(true);
+    loadAll(false, "custom", customStart, customEnd);
+  };
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const approvedRequestsCount = requests.filter((r) => r.status === "approved").length;
@@ -142,10 +198,7 @@ export default function DashboardPage() {
   const rejectedPercent = totalGraded > 0 ? Math.round((rejected / totalGraded) * 100) : 0;
 
   return (
-    <PageShell
-      title="Vendor Command Center"
-      subtitle="Executive oversight across Farmer Managers, Farmers, Harvest Logistics, Quality Grading, and Dark Store Restock."
-    >
+    <PageShell>
       {/* Toast Alert */}
       {toast ? (
         <div className="animate-in fade-in slide-in-from-top-2 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 shadow-sm">
@@ -172,175 +225,262 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {/* Top Action Hub */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 p-4 text-white shadow-md sm:p-5">
-        <div className="min-w-0">
+      {/* Top Controls Strip (Quick Operations + Date Filter directly attached to Navbar with no gap) */}
+      <div className="-mx-3 -mt-3 mb-4 sm:-mx-4 sm:-mt-4 lg:-mx-5 lg:-mt-5 border-b border-slate-200/90 bg-white shadow-xs divide-y divide-slate-100">
+        {/* Row 1: Quick Operations */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 sm:px-5">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20 text-xs font-bold text-white backdrop-blur-sm">
-              <Sparkles className="h-4 w-4" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-100 text-emerald-800">
+              <Sparkles className="h-3.5 w-3.5 text-emerald-700" />
             </span>
-            <h2 className="text-base font-bold sm:text-lg">Quick Operations</h2>
+            <span className="text-xs font-bold text-slate-800">Quick Operations</span>
           </div>
-          <p className="mt-1 text-xs text-emerald-100/90 sm:text-sm">
-            Launch new harvest workflows, register farmers, add crops, or dispatch drivers in seconds.
-          </p>
+
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <Link
+              to="/vendor/all-farmers/add"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Plus className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Add Farmer</span>
+            </Link>
+
+            <Link
+              to="/vendor/farmer-managers/add"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Plus className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Add Manager</span>
+            </Link>
+
+            <Link
+              to="/vendor/orders/create"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <ShoppingCart className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Create Order</span>
+            </Link>
+
+            <Link
+              to="/vendor/crops/add"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Sprout className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Add Crop</span>
+            </Link>
+
+            <Link
+              to="/vendor/products/add"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+            >
+              <Package className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Add Product</span>
+            </Link>
+
+            <Link
+              to="/vendor/pickups/ready"
+              className="hidden items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 md:inline-flex"
+            >
+              <Truck className="h-3.5 w-3.5 text-sky-700" />
+              <span>Pickups</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => loadAll(false)}
+              disabled={refreshing}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              title="Refresh dashboard metrics"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-emerald-700" : ""}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/vendor/all-farmers/add"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50 sm:text-sm"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Farmer</span>
-          </Link>
-          <Link
-            to="/vendor/farmer-managers/add"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-900/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-emerald-900 sm:text-sm"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Manager</span>
-          </Link>
-          <Link
-            to="/vendor/orders/create"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-900/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-emerald-900 sm:text-sm"
-          >
-            <ShoppingCart className="h-4 w-4" />
-            <span>Create Order</span>
-          </Link>
-          <Link
-            to="/vendor/crops/add"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-900/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-emerald-900 sm:text-sm"
-          >
-            <Sprout className="h-4 w-4" />
-            <span>Add Crop</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => loadAll(false)}
-            disabled={refreshing}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
-            title="Refresh dashboard"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          </button>
+        {/* Row 2: Date Filter Bar (seamlessly joined without margin/gap) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 sm:px-5 bg-slate-50/40">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-3.5 w-3.5 text-emerald-700" />
+            <span className="text-xs font-bold text-slate-700">Filter by Date:</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => handleRangeChange(opt.id)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                  range === opt.id
+                    ? "bg-emerald-700 text-white shadow-xs"
+                    : "bg-white border border-slate-200/80 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Date Range Picker Input */}
+          {range === "custom" && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 w-full lg:w-auto border-t lg:border-t-0 border-slate-200">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800 outline-none focus:border-emerald-600"
+              />
+              <span className="text-xs text-slate-400">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="h-7 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800 outline-none focus:border-emerald-600"
+              />
+              <button
+                type="button"
+                onClick={handleApplyCustom}
+                disabled={!customStart || !customEnd}
+                className="h-7 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50"
+              >
+                Apply Range
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* KPI Stat Cards Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        {/* Network Domain */}
-        <StatCard
-          title="Total Farmers"
-          value={loading ? "…" : d.totalFarmers ?? 0}
-          hint={`${d.activeFarmers ?? 0} active farmers`}
-          icon={Tractor}
-          to="/vendor/all-farmers"
-          color="text-emerald-700"
-          iconBg="bg-emerald-50 text-emerald-700"
-        />
-        <StatCard
-          title="Farmer Managers"
-          value={loading ? "…" : d.totalManagers ?? 0}
-          hint={`${d.activeManagers ?? 0} active managers`}
+      {/* 10 Detailed Summary Cards Grid */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {/* Card 1 – Total Farmer Managers */}
+        <MultiMetricCard
+          title="Total Farmer Managers"
+          mainValue={loading ? "…" : d.totalManagers ?? 0}
           icon={Users}
-          to="/vendor/farmer-managers"
-          color="text-emerald-700"
           iconBg="bg-teal-50 text-teal-700"
+          to="/vendor/farmer-managers"
+          subItems={[
+            { label: "Active Managers", value: d.activeManagers ?? 0, color: "text-emerald-700" },
+            { label: "Inactive / Pending", value: d.inactiveManagers ?? 0, color: "text-slate-500" },
+          ]}
         />
-        <StatCard
-          title="Registered Crops"
-          value={loading ? "…" : d.totalCrops ?? 0}
-          hint={`${d.harvestReadyCrops ?? 0} ready to harvest`}
+
+        {/* Card 2 – Total Farmers */}
+        <MultiMetricCard
+          title="Total Farmers"
+          mainValue={loading ? "…" : d.totalFarmers ?? 0}
+          icon={Tractor}
+          iconBg="bg-emerald-50 text-emerald-700"
+          to="/vendor/all-farmers"
+          subItems={[
+            { label: "Farmer Approval Pending", value: d.farmerApprovalPending ?? 0, color: "text-amber-600" },
+            { label: "Manager Assign Pending", value: d.farmerManagerAssignPending ?? 0, color: "text-sky-700" },
+          ]}
+        />
+
+        {/* Card 3 – Total Crops */}
+        <MultiMetricCard
+          title="Total Crops"
+          mainValue={loading ? "…" : d.totalCrops ?? 0}
           icon={Sprout}
+          iconBg="bg-emerald-50 text-emerald-700"
           to="/vendor/crops"
-          color="text-emerald-700"
-          iconBg="bg-emerald-50 text-emerald-700"
+          subItems={[
+            { label: "Growing / Sowing", value: d.growingCrops ?? 0, color: "text-sky-700" },
+            { label: "Ready for Harvest", value: d.harvestReadyCrops ?? 0, color: "text-emerald-700" },
+          ]}
         />
-        <StatCard
-          title="Product Catalog"
-          value={loading ? "…" : d.totalProducts ?? 0}
-          hint={`${d.pendingProductApprovals ?? 0} pending review`}
+
+        {/* Card 4 – Total Products */}
+        <MultiMetricCard
+          title="Total Products"
+          mainValue={loading ? "…" : d.totalProducts ?? 0}
           icon={Package}
+          iconBg="bg-amber-50 text-amber-700"
           to="/vendor/products"
-          color="text-slate-900"
-          iconBg="bg-amber-50 text-amber-700"
+          subItems={[
+            { label: "Products Approval Pending", value: d.productsApprovalPending ?? 0, color: "text-amber-600" },
+            { label: "Active / In Stock", value: d.activeProducts ?? 0, color: "text-emerald-700" },
+          ]}
         />
 
-        {/* Operations & Logistics */}
-        <StatCard
-          title="Harvest Orders"
-          value={loading ? "…" : d.totalOrders ?? 0}
-          hint={`${d.pendingOrders ?? 0} pending / in-progress`}
-          icon={ShoppingCart}
-          to="/vendor/orders"
-          color="text-slate-900"
-          iconBg="bg-indigo-50 text-indigo-700"
-        />
-        <StatCard
-          title="Live Pickups"
-          value={loading ? "…" : d.totalPickups ?? 0}
-          hint={`${(d.transitPickups ?? 0) + (d.centrePickups ?? 0)} in transit / at centre`}
-          icon={Truck}
-          to="/vendor/pickups/all"
-          color="text-slate-900"
-          iconBg="bg-sky-50 text-sky-700"
-        />
-        <StatCard
-          title="Driver Fleet"
-          value={loading ? "…" : d.totalDrivers ?? 0}
-          hint={`${d.onDutyDrivers ?? 0} active on route`}
-          icon={IdCard}
-          to="/vendor/drivers"
-          color="text-slate-900"
-          iconBg="bg-cyan-50 text-cyan-700"
-        />
-        <StatCard
-          title="Quality & Grading"
-          value={loading ? "…" : (d.qualityPending ?? 0) + (d.qualityGrading ?? 0) + (d.qualityInspecting ?? 0)}
-          hint={`${d.qualityCompleted ?? 0} completed`}
-          icon={BadgeCheck}
-          to="/vendor/quality/pending"
-          color="text-amber-700"
-          iconBg="bg-amber-50 text-amber-700"
-        />
-
-        {/* Inventory, Restock & Financials */}
-        <StatCard
-          title="Warehouse Stock"
-          value={loading ? "…" : `${(d.totalInventory ?? 0).toLocaleString("en-IN")} Kg`}
-          hint={`${d.lowStockCount ?? 0} low stock alerts`}
+        {/* Card 5 – Available Inventory */}
+        <MultiMetricCard
+          title="Available Inventory"
+          mainValue={loading ? "…" : `${(d.totalInventory ?? 0).toLocaleString("en-IN")} Kg`}
           icon={ClipboardList}
+          iconBg="bg-emerald-50 text-emerald-700"
           to="/vendor/inventory"
-          color="text-emerald-700"
-          iconBg="bg-emerald-50 text-emerald-700"
+          subItems={[
+            { label: "Number of Products", value: `${d.inventoryProductsCount ?? 0} items`, color: "text-slate-700" },
+            { label: "Low Stock Count", value: d.lowStockCount ?? 0, color: "text-red-600" },
+          ]}
         />
-        <StatCard
-          title="Dark Store Restock"
-          value={loading ? "…" : pendingRequests.length}
-          hint={`${approvedRequestsCount} approved requests`}
-          icon={Store}
-          to="/inventory-requests"
-          color={pendingRequests.length > 0 ? "text-amber-600" : "text-slate-900"}
-          iconBg="bg-purple-50 text-purple-700"
+
+        {/* Card 6 – Total Orders */}
+        <MultiMetricCard
+          title="Total Orders"
+          mainValue={loading ? "…" : d.totalOrders ?? 0}
+          icon={ShoppingCart}
+          iconBg="bg-indigo-50 text-indigo-700"
+          to="/vendor/orders"
+          subItems={[
+            { label: "Pending Orders", value: d.pendingOrders ?? 0, color: "text-amber-600" },
+            { label: "Rejected Orders", value: d.rejectedOrders ?? 0, color: "text-red-600" },
+            { label: "Completed Orders", value: d.completedOrders ?? 0, color: "text-emerald-700" },
+          ]}
         />
-        <StatCard
-          title="Gross Earnings"
-          value={loading ? "…" : `₹${(d.totalEarnings ?? 0).toLocaleString("en-IN")}`}
-          hint="Total settled revenue"
-          icon={Wallet}
-          to="/vendor/earnings"
-          color="text-emerald-700"
-          iconBg="bg-emerald-50 text-emerald-700"
+
+        {/* Card 7 – Total Driver */}
+        <MultiMetricCard
+          title="Total Driver"
+          mainValue={loading ? "…" : d.totalDrivers ?? 0}
+          icon={IdCard}
+          iconBg="bg-cyan-50 text-cyan-700"
+          to="/vendor/drivers"
+          subItems={[
+            { label: "Driver Approval Pending", value: d.driverApprovalPending ?? 0, color: "text-amber-600" },
+            { label: "Active Drivers", value: d.activeDrivers ?? 0, color: "text-emerald-700" },
+          ]}
         />
-        <StatCard
-          title="Pending Settlements"
-          value={loading ? "…" : `₹${(d.pendingEarnings ?? 0).toLocaleString("en-IN")}`}
-          hint="Pending payments"
-          icon={Clock}
-          to="/vendor/earnings/payments"
-          color="text-amber-600"
+
+        {/* Card 8 – Ready for Pickup */}
+        <MultiMetricCard
+          title="Ready for Pickup"
+          mainValue={loading ? "…" : d.readyPickups ?? 0}
+          icon={Truck}
           iconBg="bg-amber-50 text-amber-700"
+          to="/vendor/pickups/ready"
+          subItems={[
+            { label: "Assigned Pickups", value: d.assignedPickups ?? 0, color: "text-sky-700" },
+          ]}
+        />
+
+        {/* Card 9 – All Pickups */}
+        <MultiMetricCard
+          title="All Pickups"
+          mainValue={loading ? "…" : d.totalPickups ?? 0}
+          icon={RotateCcw}
+          iconBg="bg-sky-50 text-sky-700"
+          to="/vendor/pickups/all"
+          subItems={[
+            { label: "Incoming Pickups", value: d.incomingPickups ?? 0, color: "text-indigo-600" },
+            { label: "Pickups at Center", value: d.centrePickups ?? 0, color: "text-emerald-700" },
+          ]}
+        />
+
+        {/* Card 10 – Quality & Grading */}
+        <MultiMetricCard
+          title="Quality & Grading"
+          mainValue={loading ? "…" : d.totalInspections ?? ((d.qualityPending ?? 0) + (d.qualityInProcess ?? 0) + (d.qualityCompleted ?? 0))}
+          icon={BadgeCheck}
+          iconBg="bg-purple-50 text-purple-700"
+          to="/vendor/quality/pending"
+          subItems={[
+            { label: "Pending Inspection", value: d.qualityPending ?? 0, color: "text-amber-600" },
+            { label: "In Process", value: d.qualityInProcess ?? 0, color: "text-sky-700" },
+            { label: "Completed Inspection", value: d.qualityCompleted ?? 0, color: "text-emerald-700" },
+          ]}
         />
       </div>
 
@@ -402,7 +542,7 @@ export default function DashboardPage() {
               <span className="text-[11px] font-bold text-slate-500">4. Quality & Grading</span>
               <BadgeCheck className="h-4 w-4 text-slate-400 group-hover:text-emerald-600" />
             </div>
-            <p className="mt-2 text-xl font-bold text-slate-900">{(d.qualityPending ?? 0) + (d.qualityGrading ?? 0)}</p>
+            <p className="mt-2 text-xl font-bold text-slate-900">{(d.qualityPending ?? 0) + (d.qualityInProcess ?? 0)}</p>
             <p className="text-[10px] text-slate-500">Inspection & Grading</p>
           </Link>
 
@@ -536,7 +676,7 @@ export default function DashboardPage() {
             </div>
             <div className="rounded-xl bg-slate-50 p-2">
               <p className="text-[10px] text-slate-500">Grading Stage</p>
-              <p className="text-sm font-bold text-slate-800">{d.qualityGrading ?? 0}</p>
+              <p className="text-sm font-bold text-slate-800">{d.qualityInProcess ?? 0}</p>
             </div>
             <div className="rounded-xl bg-slate-50 p-2">
               <p className="text-[10px] text-slate-500">Completed</p>
@@ -586,7 +726,7 @@ export default function DashboardPage() {
               className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center transition hover:bg-indigo-100/60"
             >
               <p className="text-[11px] font-semibold text-indigo-800">In Transit</p>
-              <p className="mt-1 text-2xl font-bold text-indigo-900">{d.transitPickups ?? 0}</p>
+              <p className="mt-1 text-2xl font-bold text-indigo-900">{d.incomingPickups ?? 0}</p>
               <p className="text-[10px] text-indigo-700">On The Road</p>
             </Link>
 
@@ -610,15 +750,15 @@ export default function DashboardPage() {
             <div className="mt-2 flex items-center gap-4 text-xs text-slate-600">
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span>Available: {Math.max(0, (d.totalDrivers ?? 0) - (d.onDutyDrivers ?? 0))}</span>
+                <span>Available: {d.activeDrivers ?? 0}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
-                <span>On Duty: {d.onDutyDrivers ?? 0}</span>
+                <span>Pending Approval: {d.driverApprovalPending ?? 0}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-slate-400" />
-                <span>Total Fleet: {d.totalDrivers ?? 0}</span>
+                <span>Total Drivers: {d.totalDrivers ?? 0}</span>
               </div>
             </div>
           </div>
@@ -807,7 +947,7 @@ export default function DashboardPage() {
               ) : recentOrders.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                    No harvest orders found yet.
+                    No harvest orders found for selected date range.
                   </td>
                 </tr>
               ) : (

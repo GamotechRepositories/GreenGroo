@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import Header from './Header'
+import VendorTopNavbar from './VendorTopNavbar'
 import VendorBottomNav from './VendorBottomNav'
 import { useVendorAuth } from '../../context/VendorAuthContext'
 import { useInventoryRequests } from '../../hooks/useInventoryRequests'
@@ -141,13 +142,13 @@ function NavGroup({ item, collapsed, onNavigate }) {
         title={item.label}
         onClick={onNavigate}
         className={() =>
-          `group relative mx-2 mb-1 flex items-center justify-center rounded-xl px-2.5 py-2.5 text-sm font-medium transition ${
+          `group relative mx-1.5 mb-0.5 flex items-center justify-center rounded-lg px-2 py-2 text-xs font-medium transition ${
             isChildActive ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-100'
           }`
         }
       >
         <Icon
-          className={`h-5 w-5 shrink-0 ${isChildActive ? 'text-emerald-700' : 'text-slate-500'}`}
+          className={`h-4.5 w-4.5 shrink-0 ${isChildActive ? 'text-emerald-700' : 'text-slate-500'}`}
           strokeWidth={isChildActive ? 2.25 : 1.75}
         />
       </NavLink>
@@ -155,25 +156,25 @@ function NavGroup({ item, collapsed, onNavigate }) {
   }
 
   return (
-    <div className="mx-2 mb-1">
+    <div className="mx-1.5 mb-0.5">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+        className={`group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
           isChildActive ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-slate-700 hover:bg-slate-100'
         }`}
       >
         <Icon
-          className={`h-5 w-5 shrink-0 ${isChildActive ? 'text-emerald-700' : 'text-slate-500'}`}
+          className={`h-4.5 w-4.5 shrink-0 ${isChildActive ? 'text-emerald-700' : 'text-slate-500'}`}
           strokeWidth={isChildActive ? 2.25 : 1.75}
         />
-        <span className="flex-1 text-left leading-tight">{item.label}</span>
+        <span className="flex-1 text-left leading-tight truncate">{item.label}</span>
         <ChevronDown
-          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
       {open && (
-        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-200 pl-3">
+        <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2.5">
           {item.children.map((child) => (
             <NavLink
               key={child.to}
@@ -181,9 +182,9 @@ function NavGroup({ item, collapsed, onNavigate }) {
               end={child.end}
               onClick={onNavigate}
               className={({ isActive }) =>
-                `block rounded-lg px-2.5 py-2 text-sm transition ${
+                `block rounded-md px-2 py-1.5 text-xs transition ${
                   isActive
-                    ? 'bg-white font-semibold text-emerald-700 shadow-sm border border-slate-100'
+                    ? 'bg-white font-semibold text-emerald-700 shadow-xs border border-slate-100'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`
               }
@@ -211,8 +212,8 @@ function NavItem({ item, collapsed, badge, onNavigate }) {
       title={collapsed ? item.label : undefined}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `group relative mx-2 mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-          collapsed ? 'justify-center px-2.5' : ''
+        `group relative mx-1.5 mb-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
+          collapsed ? 'justify-center px-2' : ''
         } ${
           isActive
             ? 'bg-emerald-50 text-emerald-800 font-semibold'
@@ -223,14 +224,14 @@ function NavItem({ item, collapsed, badge, onNavigate }) {
       {({ isActive }) => (
         <>
           <Icon
-            className={`h-5 w-5 shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'}`}
+            className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'}`}
             strokeWidth={isActive ? 2.25 : 1.75}
           />
           {!collapsed ? (
             <>
               <span className="flex-1 truncate text-left">{item.label}</span>
               {badge > 0 ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                <span className="rounded-full bg-emerald-100 px-1.5 py-0.2 text-[9px] font-bold text-emerald-800">
                   {badge}
                 </span>
               ) : null}
@@ -274,29 +275,29 @@ export default function ProductManagerLayout() {
         />
       ) : null}
 
-      {/* Sidebar matching Farmer Manager */}
+      {/* Slim Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col border-r border-slate-200/80 bg-white shadow-xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-0 lg:shadow-none print:hidden ${
-          compact ? 'w-[76px]' : 'w-[min(272px,86vw)]'
+          compact ? 'w-[64px]' : 'w-[218px]'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Brand Header */}
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-3">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-100 px-2.5">
           {!compact ? (
             <div className="min-w-0 flex-1 px-1">
               <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-700 text-xs font-bold text-white shadow-sm">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700 text-xs font-bold text-white shadow-xs">
                   GG
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold leading-tight text-slate-900">GreenGroo</p>
-                  <p className="truncate text-xs leading-tight text-slate-500">Vendor Panel</p>
+                  <p className="truncate text-xs font-bold leading-tight text-slate-900">GreenGroo</p>
+                  <p className="truncate text-[10px] leading-tight text-slate-400">Vendor Panel</p>
                 </div>
               </div>
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-700 text-xs font-bold text-white shadow-sm">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700 text-xs font-bold text-white shadow-xs">
                 GG
               </span>
             </div>
@@ -305,25 +306,25 @@ export default function ProductManagerLayout() {
           <button
             type="button"
             onClick={() => setCollapsed((v) => !v)}
-            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:inline-flex"
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:inline-flex"
             aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'}
             title={compact ? 'Expand' : 'Collapse'}
           >
-            {compact ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {compact ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
           </button>
 
           <button
             type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:hidden"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:hidden"
             onClick={closeMobile}
             aria-label="Close sidebar"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {/* Scrollable Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3">
+        <nav className="flex-1 overflow-y-auto py-2">
           {navItems.map((item) => (
             <NavItem
               key={item.to || item.id}
@@ -335,7 +336,7 @@ export default function ProductManagerLayout() {
           ))}
 
           {/* Footer Items */}
-          <div className="mt-4 border-t border-slate-200/80 pt-3 pb-6">
+          <div className="mt-3 border-t border-slate-200/80 pt-2 pb-5">
             {footerItems.map((item) => {
               const Icon = item.icon || Package
               return (
@@ -345,8 +346,8 @@ export default function ProductManagerLayout() {
                   title={compact ? item.label : undefined}
                   onClick={onNavigate}
                   className={({ isActive }) =>
-                    `group relative mx-2 mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                      compact ? 'justify-center px-2.5' : ''
+                    `group relative mx-1.5 mb-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
+                      compact ? 'justify-center px-2' : ''
                     } ${
                       isActive
                         ? 'bg-emerald-50 text-emerald-800 font-semibold'
@@ -357,7 +358,7 @@ export default function ProductManagerLayout() {
                   {({ isActive }) => (
                     <>
                       <Icon
-                        className={`h-5 w-5 shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'}`}
+                        className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'}`}
                         strokeWidth={isActive ? 2.25 : 1.75}
                       />
                       {!compact ? <span className="truncate">{item.label}</span> : null}
@@ -374,11 +375,11 @@ export default function ProductManagerLayout() {
                 navigate('/vendor/login', { replace: true })
               }}
               title={compact ? 'Logout' : undefined}
-              className={`group relative mx-2 mb-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition ${
-                compact ? 'justify-center px-2.5' : ''
+              className={`group relative mx-1.5 mb-0.5 flex w-[calc(100%-0.75rem)] items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition ${
+                compact ? 'justify-center px-2' : ''
               }`}
             >
-              <LogOut className="h-5 w-5 shrink-0 text-slate-500 group-hover:text-red-600" strokeWidth={1.75} />
+              <LogOut className="h-4.5 w-4.5 shrink-0 text-slate-500 group-hover:text-red-600" strokeWidth={1.75} />
               {!compact ? <span className="truncate">Logout</span> : null}
             </button>
           </div>
@@ -387,31 +388,16 @@ export default function ProductManagerLayout() {
 
       {/* Main Content Area */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Mobile Header */}
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-md print:hidden lg:hidden">
-          <button
-            type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900">GreenGroo</p>
-            <p className="truncate text-xs text-slate-500">Vendor Panel</p>
-          </div>
-        </header>
+        {/* Top Navbar with Searchbar */}
+        <VendorTopNavbar onOpenMobileMenu={() => setMobileOpen(true)} />
 
         {/* Announcements & Page Content */}
         <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-          <div className="px-4 pt-3 lg:px-6 lg:pt-4 print:hidden">
-            <RoleAnnouncements
-              roleKey="vendor"
-              load={() => vendorApi.liveAnnouncements()}
-              loadCalendar={() => vendorApi.liveCalendar()}
-            />
-          </div>
+          <RoleAnnouncements
+            roleKey="vendor"
+            load={() => vendorApi.liveAnnouncements()}
+            loadCalendar={() => vendorApi.liveCalendar()}
+          />
           <Outlet />
         </main>
       </div>
@@ -426,14 +412,16 @@ export default function ProductManagerLayout() {
 export function PageShell({ title, subtitle, children }) {
   return (
     <>
-      <Header title={title} subtitle={subtitle} />
-      <main className="space-y-4 p-4 sm:space-y-5 sm:p-6">
-        <div className="lg:hidden">
-          <h1 className="text-lg font-bold leading-tight text-gray-900">{title}</h1>
-          {subtitle ? <p className="mt-0.5 text-xs leading-snug text-gray-500">{subtitle}</p> : null}
-        </div>
+      {title || subtitle ? <Header title={title} subtitle={subtitle} /> : null}
+      <div className="space-y-3 p-3 sm:space-y-4 sm:p-4 lg:p-5">
+        {title || subtitle ? (
+          <div className="lg:hidden">
+            {title ? <h1 className="text-lg font-bold leading-tight text-gray-900">{title}</h1> : null}
+            {subtitle ? <p className="mt-0.5 text-xs leading-snug text-gray-500">{subtitle}</p> : null}
+          </div>
+        ) : null}
         {children}
-      </main>
+      </div>
     </>
   )
 }

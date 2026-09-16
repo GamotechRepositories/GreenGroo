@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import { productFarmersPath, productNameOf } from "../../utils/productList";
 
@@ -12,10 +12,15 @@ function asList(res) {
 }
 
 export default function VendorSearchPage() {
-  const [q, setQ] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get("q") || "");
   const [farmers, setFarmers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setQ(searchParams.get("q") || "");
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;

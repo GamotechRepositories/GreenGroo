@@ -64,7 +64,7 @@ export default function RoleAnnouncements({ roleKey, load, loadCalendar }) {
   if (!items.length) return null;
 
   return (
-    <section className="mb-3 space-y-2 sm:mb-4">
+    <section className="mb-3 px-3 pt-3 sm:px-5 sm:pt-4 space-y-2">
       {items.map((item) => {
         const isShift = item.kind === "shift";
         const isHoliday = item.kind === "holiday";
