@@ -8,8 +8,6 @@ import FarmerRegistrationSuccessPage from "../pages/FarmerRegistrationSuccessPag
 import FarmerKycPage from "../pages/FarmerKycPage";
 import DocumentsPage from "../pages/DocumentsPage";
 import DashboardPage from "../pages/DashboardPage";
-import MarketPricesPage from "../pages/MarketPricesPage";
-import FarmerCommunityPage from "../pages/FarmerCommunityPage";
 import GovernmentSchemesPage from "../pages/GovernmentSchemesPage";
 import ProductsPage from "../pages/ProductsPage";
 import ProductAddPage from "../pages/ProductAddPage";
@@ -49,8 +47,8 @@ function FarmerRoutes() {
           <Route path="kyc" element={<FarmerKycPage />} />
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="market-prices" element={<MarketPricesPage />} />
-          <Route path="community" element={<FarmerCommunityPage />} />
+          <Route path="market-prices" element={<Navigate to="/farmer/dashboard" replace />} />
+          <Route path="community" element={<Navigate to="/farmer/dashboard" replace />} />
           <Route path="schemes" element={<GovernmentSchemesPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/add" element={<ProductAddPage />} />

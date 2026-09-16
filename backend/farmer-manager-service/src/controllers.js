@@ -4599,58 +4599,153 @@ export async function updateVendor(req, res) {
 
 export async function getVendorDashboard(req, res) {
   try {
-    const vendorId = req.user.vendorId;
-    const [farmers, managers, productAgg, orderAgg, earningAgg, recentOrders] = await Promise.all([
-      Farmer.find({ vendorId }).select("id name status").lean(),
-      FarmerManager.find({ vendorId }).select("id status").lean(),
-      FarmerProduct.aggregate([
-        { $match: { vendorId } },
-        { $group: { _id: null, totalProducts: { $sum: 1 }, totalInventory: { $sum: { $ifNull: ["$stock", 0] } } } },
-      ]),
-      FarmerOrder.aggregate([
-        { $match: { vendorId } },
-        {
-          $group: {
-            _id: null,
-            totalOrders: { $sum: 1 },
-            pendingOrders: { $sum: { $cond: [{ $in: ["$status", ["New", "NEW", "Confirmed", "Approved", "Processing"]] }, 1, 0] } },
-          },
-        },
-      ]),
-      FarmerEarning.aggregate([
-        { $match: { vendorId } },
-        {
-          $group: {
-            _id: null,
-            totalEarnings: { $sum: { $ifNull: ["$netEarnings", 0] } },
-            pendingEarnings: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, { $ifNull: ["$netEarnings", 0] }, 0] } },
-          },
-        },
-      ]),
-      FarmerOrder.find({ vendorId }).sort({ orderDate: -1 }).limit(10).select("id farmerId products totalQuantity totalAmount status orderDate").lean(),
+    const vendorId = req.user?.vendorId;
+    let farmers = await Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name status mobile location farmName").lean();
+    if (!farmers.length) {
+      farmers = await Farmer.find({}).select("id farmerId name status mobile location farmName").lean();
+    }
+    const farmerMap = new Map();
+    farmers.forEach((f) => {
+      if (f.id) farmerMap.set(f.id, f.name);
+      if (f.farmerId) farmerMap.set(f.farmerId, f.name);
+    });
+    const farmerIds = farmers.map((f) => f.id).concat(farmers.map((f) => f.farmerId)).filter(Boolean);
+
+    const [
+      managers,
+      crops,
+      products,
+      harvestOrders,
+      earnings,
+      pickups,
+      drivers,
+      qualityInspections,
+    ] = await Promise.all([
+      FarmerManager.find(vendorId ? { $or: [{ vendorId }, { vendorId: { $exists: false } }, { vendorId: null }] } : {}).select("id name status mobile").lean().catch(() => []),
+      FarmerCrop.find({}).select("id farmerId cropName status sowingDate expectedHarvestDate").lean().catch(() => []),
+      FarmerProduct.find({}).select("id farmerId name category status stock lowStockLimit grades price").lean().catch(() => []),
+      FarmerHarvestOrder.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).limit(100).lean().catch(() => []),
+      FarmerEarning.find({}).select("farmerId netEarnings status createdAt").lean().catch(() => []),
+      Pickup.find(vendorId ? { vendorId } : {}).select("id pickupNumber status driverName farmerName totalQuantity scheduledDate").lean().catch(() => []),
+      PickupDriver.find(vendorId ? { vendorId } : {}).select("id name status mobile isAvailable").lean().catch(() => []),
+      QualityInspection.find({}).select("id orderId status result totalGradedKg gradeBreakdown").lean().catch(() => []),
     ]);
 
-    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
-    const p = productAgg[0] || { totalProducts: 0, totalInventory: 0 };
-    const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0 };
-    const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
+    const totalFarmers = farmers.length;
+    const activeFarmers = farmers.filter((f) => f.status === "Active" || f.status === "ACTIVE").length;
+
+    const totalManagers = managers.length;
+    const activeManagers = managers.filter((m) => m.status === "Active" || m.status === "ACTIVE").length;
+
+    const totalCrops = crops.length;
+    const activeCrops = crops.filter((c) => ["Growing", "Planned", "READY_FOR_HARVEST", "Ready for Harvest"].includes(c.status)).length;
+    const harvestReadyCrops = crops.filter((c) => ["READY_FOR_HARVEST", "Ready for Harvest"].includes(c.status)).length;
+
+    const totalProducts = products.length;
+    const pendingProductApprovals = products.filter((p) => ["Pending", "Pending Approval", "PENDING_APPROVAL", "SUBMITTED"].includes(p.status)).length;
+    const totalInventory = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+    const lowStockProducts = products
+      .filter((p) => Number(p.stock || 0) <= (Number(p.lowStockLimit) || 10))
+      .slice(0, 8)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        farmerName: farmerMap.get(p.farmerId) || "—",
+        stock: p.stock || 0,
+        lowStockLimit: p.lowStockLimit || 10,
+        category: p.category || "General",
+      }));
+    const lowStockCount = lowStockProducts.length;
+
+    const totalOrders = harvestOrders.length;
+    const pendingOrders = harvestOrders.filter((o) => ["New", "NEW", "Confirmed", "Approved", "Processing", "PREPARING", "ACCEPTED", "Ready for pickup", "READY_FOR_PICKUP"].includes(o.status)).length;
+    const inProgressOrders = harvestOrders.filter((o) => ["IN_TRANSIT", "ARRIVED", "ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "DISPATCHED"].includes(o.status)).length;
+    const completedOrders = harvestOrders.filter((o) => ["Completed", "COMPLETED", "GRADE_CONFIRMED", "ORDER_COMPLETED", "Received"].includes(o.status)).length;
+    const totalOrderValue = harvestOrders.reduce((sum, o) => sum + (Number(o.totalAmount || o.orderValue || o.amount || 0)), 0);
+
+    const recentOrders = harvestOrders.slice(0, 10).map((o) => ({
+      id: o.id || o.orderId,
+      orderNumber: o.orderNumber || o.id || o.orderId,
+      farmerId: o.farmerId,
+      farmerName: farmerMap.get(o.farmerId) || o.farmerName || "—",
+      productName: o.productName || o.cropName || (o.products && o.products[0]?.name) || "—",
+      totalQuantity: o.totalQuantity ?? o.orderedQuantity ?? 0,
+      unit: o.unit || "Kg",
+      totalAmount: o.totalAmount ?? o.orderValue ?? o.amount ?? 0,
+      status: o.status || "New",
+      orderDate: o.orderDate || o.createdAt,
+    }));
+
+    const totalPickups = pickups.length;
+    const readyPickups = pickups.filter((p) => ["READY_FOR_PICKUP", "READY", "PENDING", "Draft"].includes(p.status)).length;
+    const assignedPickups = pickups.filter((p) => ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "ARRIVED"].includes(p.status)).length;
+    const transitPickups = pickups.filter((p) => ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED"].includes(p.status)).length;
+    const centrePickups = pickups.filter((p) => ["ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "UNLOADING", "WEIGHT_CHECK"].includes(p.status)).length;
+    const completedPickups = pickups.filter((p) => ["COMPLETED", "RECEIVED", "Received"].includes(p.status)).length;
+
+    const totalDrivers = drivers.length;
+    const activeDrivers = drivers.filter((d) => d.status === "Active" || d.status === "ACTIVE").length;
+    const onDutyDrivers = drivers.filter((d) => d.isAvailable === false || d.status === "On Duty").length;
+
+    const qualityPending = qualityInspections.filter((q) => ["QUALITY_PENDING", "Pending", "PENDING"].includes(q.status)).length;
+    const qualityInspecting = qualityInspections.filter((q) => ["INSPECTION", "Quality Check", "QUALITY_CHECK"].includes(q.status)).length;
+    const qualityGrading = qualityInspections.filter((q) => ["GRADING", "Grading"].includes(q.status)).length;
+    const qualityCompleted = qualityInspections.filter((q) => ["GRADE_CONFIRMED", "ORDER_COMPLETED", "Completed", "COMPLETED"].includes(q.status)).length;
+
+    const totalEarnings = earnings.reduce((sum, e) => sum + (Number(e.netEarnings) || 0), 0);
+    const pendingEarnings = earnings.filter((e) => e.status === "Pending" || e.status === "PAYMENT_PENDING").reduce((sum, e) => sum + (Number(e.netEarnings) || 0), 0);
+    const paidEarnings = earnings.filter((e) => e.status === "Paid" || e.status === "PAID" || e.status === "PAYMENT_COMPLETED").reduce((sum, e) => sum + (Number(e.netEarnings) || 0), 0);
+
+    let gradeA = 0, gradeB = 0, gradeC = 0, rejected = 0;
+    products.forEach((p) => {
+      if (Array.isArray(p.grades)) {
+        p.grades.forEach((g) => {
+          const qty = Number(g.quantity || g.stock || 0);
+          const lbl = String(g.label || g.name || g.grade || "").toUpperCase();
+          if (lbl.includes("A")) gradeA += qty;
+          else if (lbl.includes("B")) gradeB += qty;
+          else if (lbl.includes("C")) gradeC += qty;
+          else if (lbl.includes("REJECT")) rejected += qty;
+        });
+      }
+    });
 
     res.json({
-      totalFarmers: farmers.length,
-      activeFarmers: farmers.filter((f) => f.status === "Active").length,
-      totalManagers: managers.length,
-      activeManagers: managers.filter((m) => m.status === "Active").length,
-      totalProducts: p.totalProducts,
-      totalInventory: p.totalInventory,
-      totalOrders: o.totalOrders,
-      pendingOrders: o.pendingOrders,
-      totalEarnings: e.totalEarnings,
-      pendingEarnings: e.pendingEarnings,
-      pendingProductApprovals: await FarmerProduct.countDocuments({
-        vendorId,
-        status: { $in: ["Pending Approval", "Pending", "PENDING_APPROVAL"] },
-      }),
-      recentOrders: recentOrders.map((ord) => ({ ...ord, farmerName: farmerNameMap.get(ord.farmerId) || "—" })),
+      totalFarmers,
+      activeFarmers,
+      totalManagers,
+      activeManagers,
+      totalCrops,
+      activeCrops,
+      harvestReadyCrops,
+      totalProducts,
+      pendingProductApprovals,
+      totalInventory,
+      lowStockCount,
+      lowStockProducts,
+      totalOrders,
+      pendingOrders,
+      inProgressOrders,
+      completedOrders,
+      totalOrderValue,
+      recentOrders,
+      totalPickups,
+      readyPickups,
+      assignedPickups,
+      transitPickups,
+      centrePickups,
+      completedPickups,
+      totalDrivers,
+      activeDrivers,
+      onDutyDrivers,
+      qualityPending,
+      qualityInspecting,
+      qualityGrading,
+      qualityCompleted,
+      totalEarnings,
+      pendingEarnings,
+      paidEarnings,
+      grades: { gradeA, gradeB, gradeC, rejected },
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed" });

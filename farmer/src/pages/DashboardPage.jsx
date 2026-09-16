@@ -5,7 +5,6 @@ import { getDashboardCharts, getEarnings, getHarvestOrders } from "../api/farmer
 import StatCard from "../components/ui/StatCard";
 import LoadingState from "../components/ui/LoadingState";
 import ProductGradeChart from "../components/products/ProductGradeChart";
-import DashboardMarketPricesWidget from "../components/market/DashboardMarketPricesWidget";
 import FarmerDashboardCharts from "../components/dashboard/FarmerDashboardCharts";
 import {
   EXCEL_BTN,
@@ -92,9 +91,6 @@ function DashboardPage() {
         products={products}
         stats={stats}
       />
-
-      {/* Live Mandi Market Prices Widget */}
-      <DashboardMarketPricesWidget />
 
       <section className={`${EXCEL_PANEL} p-3`}>
         <ProductGradeChart rows={all.rows} summary={all.summary} title="All Products Summary" />
