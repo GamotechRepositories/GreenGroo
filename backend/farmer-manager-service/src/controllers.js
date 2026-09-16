@@ -411,48 +411,69 @@ function isOrderPaidString(val) {
   );
 }
 
+function isOrderDeleted(item) {
+  if (!item) return true;
+  if (item.isDeleted === true || item.deleted === true) return true;
+  const s = String(item.status || "").trim().toUpperCase();
+  if (s === "DELETED" || s === "CANCELLED" || s === "CANCELED" || s === "DELETED_ORDER") return true;
+  return false;
+}
+
 function mergeHarvestLists(harvestOrders, mappedFarmerOrders) {
   const idMap = new Map();
   const remember = (item) => {
-    harvestOrderKeys(item).forEach((key) => {
-      const prev = idMap.get(key);
-      if (!prev) {
-        idMap.set(key, item);
-      } else {
-        const isPrevPaid =
-          isOrderPaidString(prev.paymentStatus) ||
-          isOrderPaidString(prev.paymentDetails?.paymentStatus) ||
-          isOrderPaidString(prev.paymentDetails?.status);
-        const isItemPaid =
-          isOrderPaidString(item.paymentStatus) ||
-          isOrderPaidString(item.paymentDetails?.paymentStatus) ||
-          isOrderPaidString(item.paymentDetails?.status);
-        const resolvedPaymentStatus = isPrevPaid || isItemPaid
-          ? "Paid"
-          : (item.paymentStatus || prev.paymentStatus || "Pending");
+    if (!item || isOrderDeleted(item)) return;
+    const itemKeys = harvestOrderKeys(item);
+    if (!itemKeys.length) return;
 
-        const merged = {
-          ...prev,
-          ...item,
-          paymentStatus: resolvedPaymentStatus,
-          paymentDetails: item.paymentDetails || prev.paymentDetails || null,
-          paymentMethod: item.paymentMethod || prev.paymentMethod || "",
-          transactionId: item.transactionId || prev.transactionId || "",
-          paymentDate: item.paymentDate || prev.paymentDate || "",
-          variety: item.variety || prev.variety || "",
-          qualityStatus: item.qualityStatus || prev.qualityStatus || item.status || prev.status,
-          qualityGrading: item.qualityGrading || prev.qualityGrading || null,
-          status: normalizeOrderStatus(item.status || prev.status),
-        };
-        idMap.set(key, merged);
+    let existing = null;
+    for (const key of itemKeys) {
+      if (idMap.has(key)) {
+        existing = idMap.get(key);
+        break;
       }
-    });
+    }
+
+    if (!existing) {
+      itemKeys.forEach((key) => idMap.set(key, item));
+    } else {
+      const isPrevPaid =
+        isOrderPaidString(existing.paymentStatus) ||
+        isOrderPaidString(existing.paymentDetails?.paymentStatus) ||
+        isOrderPaidString(existing.paymentDetails?.status);
+      const isItemPaid =
+        isOrderPaidString(item.paymentStatus) ||
+        isOrderPaidString(item.paymentDetails?.paymentStatus) ||
+        isOrderPaidString(item.paymentDetails?.status);
+      const resolvedPaymentStatus = isPrevPaid || isItemPaid
+        ? "Paid"
+        : (item.paymentStatus || existing.paymentStatus || "Pending");
+
+      const merged = {
+        ...existing,
+        ...item,
+        paymentStatus: resolvedPaymentStatus,
+        paymentDetails: item.paymentDetails || existing.paymentDetails || null,
+        paymentMethod: item.paymentMethod || existing.paymentMethod || "",
+        transactionId: item.transactionId || existing.transactionId || "",
+        paymentDate: item.paymentDate || existing.paymentDate || "",
+        variety: item.variety || existing.variety || "",
+        qualityStatus: item.qualityStatus || existing.qualityStatus || item.status || existing.status,
+        qualityGrading: item.qualityGrading || existing.qualityGrading || null,
+        status: normalizeOrderStatus(item.status || existing.status),
+      };
+      const allKeys = [...new Set([...harvestOrderKeys(existing), ...itemKeys])];
+      allKeys.forEach((k) => idMap.set(k, merged));
+    }
   };
+
   harvestOrders.forEach((item) => remember({ ...item, status: normalizeOrderStatus(item.status) }));
   mappedFarmerOrders.forEach((item) => remember(item));
+
   const seen = new Set();
   const merged = [];
   idMap.forEach((item) => {
+    if (isOrderDeleted(item)) return;
     const keys = harvestOrderKeys(item);
     if (!keys.length || keys.some((k) => seen.has(k))) return;
     keys.forEach((k) => seen.add(k));
@@ -2559,9 +2580,16 @@ function publicMyOrder(order, extra = {}) {
 }
 
 async function loadOwnOrder(req, res) {
-  const farmerId = authFarmerId(req);
+  let ids = [];
+  if (req.user?.role === "FARMER_MANAGER") {
+    const farmers = await getAssignedFarmers(req);
+    ids = farmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
+  } else {
+    const farmerId = authFarmerId(req);
+    const resolved = await resolveFarmerIdentity(farmerId);
+    ids = resolved.ids;
+  }
   const orderId = req.params.orderId;
-  const { ids } = await resolveFarmerIdentity(farmerId);
   let order = await FarmerOrder.findOne({
     farmerId: { $in: ids },
     $or: [{ id: orderId }, { orderId }],
@@ -2676,8 +2704,32 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null) {
     driverName: driver?.name || pickup?.driverName || "",
     vehicleNumber: driver?.vehicleNumber || pickup?.vehicleNumber || "",
   });
+  const farmerCode = farmer?.farmerCode || farmer?.farmerId || farmer?.id || order.farmerId || "";
+  const farmerVillage = farmer?.farmGeo?.village || farmer?.address?.village || farmer?.farmLocation || "";
+  const farmerAddress = farmer?.farmAddress || [
+    farmer?.address?.village,
+    farmer?.address?.taluka,
+    farmer?.address?.district,
+    farmer?.address?.state,
+    farmer?.address?.pincode,
+  ].filter(Boolean).join(", ") || farmer?.farmLocation || "";
   return publicMyOrder(order, {
+    farmerId: farmer?.id || order.farmerId || "",
+    farmerCode,
     farmerName: farmer?.name || "",
+    farmerMobile: farmer?.mobile || "",
+    farmerEmail: farmer?.email || "",
+    farmerVillage,
+    farmerTaluka: farmer?.address?.taluka || farmer?.farmGeo?.taluka || "",
+    farmerDistrict: farmer?.address?.district || farmer?.farmGeo?.district || "",
+    farmerState: farmer?.address?.state || farmer?.farmGeo?.state || "",
+    farmerPincode: farmer?.address?.pincode || "",
+    farmerAddress,
+    farmerFarmName: farmer?.farmName || "",
+    farmerFarmArea: farmer?.farmArea || "",
+    farmerFarmType: farmer?.farmType || "",
+    farmerLocation: farmer?.farmLocation || farmerAddress || farmerVillage,
+    farmerBank: farmer?.bank || null,
     harvestDate: order.harvestDate || product?.harvestDate || "",
     availableStock: sellable,
     productStock: product
@@ -2746,10 +2798,21 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null) {
 
 export async function listMyOrders(req, res) {
   try {
-    const farmerId = authFarmerId(req);
     const filter = String(req.query.filter || "").toLowerCase();
     const q = String(req.query.q || "").trim().toLowerCase();
-    const { farmer, ids } = await resolveFarmerIdentity(farmerId);
+
+    let farmers = [];
+    let ids = [];
+    if (req.user?.role === "FARMER_MANAGER") {
+      farmers = attachFarmerMeta(await getAssignedFarmers(req));
+      ids = farmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
+    } else {
+      const farmerId = authFarmerId(req);
+      const resolved = await resolveFarmerIdentity(farmerId);
+      if (resolved.farmer) farmers = [resolved.farmer];
+      ids = resolved.ids;
+    }
+
     const orders = await FarmerOrder.find({ farmerId: { $in: ids } }).sort({ createdAt: -1, orderDate: -1 });
     const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId].filter(Boolean)).map(String))];
     const inspections = orderIds.length
@@ -2759,15 +2822,26 @@ export async function listMyOrders(req, res) {
     inspections.forEach((item) => {
       if (item?.orderId) inspectionByOrder.set(String(item.orderId), item);
     });
+
+    const farmerMap = new Map();
+    farmers.forEach((f) => {
+      if (f.id) farmerMap.set(String(f.id), f);
+      if (f.farmerId) farmerMap.set(String(f.farmerId), f);
+    });
+
     let rows = [];
     for (const order of orders) {
       const status = normalizeOrderStatus(order.status);
       if (filter && ORDER_FILTERS[filter] && !ORDER_FILTERS[filter].includes(status)) continue;
       const inspection =
         inspectionByOrder.get(String(order.id)) || inspectionByOrder.get(String(order.orderId || ""));
+      const farmer =
+        farmerMap.get(String(order.farmerId)) ||
+        (order.farmerId ? await Farmer.findOne({ $or: [{ id: order.farmerId }, { farmerId: order.farmerId }] }) : null) ||
+        farmers[0];
       const row = await enrichOwnOrder(order, farmer, inspection);
       if (q) {
-        const hay = `${row.orderId} ${row.productName} ${row.customerName} ${row.variety}`.toLowerCase();
+        const hay = `${row.orderId} ${row.productName} ${row.customerName} ${row.variety} ${farmer?.name || ""}`.toLowerCase();
         if (!hay.includes(q)) continue;
       }
       rows.push(row);
@@ -2782,7 +2856,7 @@ export async function getMyOrder(req, res) {
   try {
     const order = await loadOwnOrder(req, res);
     if (!order) return;
-    const farmer = await Farmer.findOne({ id: order.farmerId });
+    const farmer = await Farmer.findOne({ $or: [{ id: order.farmerId }, { farmerId: order.farmerId }] });
     res.json(await enrichOwnOrder(order, farmer));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load order" });
@@ -3550,10 +3624,15 @@ export async function getFarmerOrders(req, res) {
     const { farmerId } = req.params;
     const { status, q } = req.query;
     const { ids } = await resolveFarmerIdentity(farmerId);
-    const query = { farmerId: { $in: ids.length ? ids : [farmerId] } };
+    const query = {
+      farmerId: { $in: ids.length ? ids : [farmerId] },
+      isDeleted: { $ne: true },
+    };
     if (status) {
       const wanted = normalizeOrderStatus(status);
       query.status = { $in: [...new Set([status, wanted])] };
+    } else {
+      query.status = { $nin: ["DELETED", "Deleted", "deleted", "CANCELLED", "Cancelled", "cancelled"] };
     }
 
     let orders = await FarmerOrder.find(query).sort({ orderDate: -1 }).lean();
@@ -3565,7 +3644,7 @@ export async function getFarmerOrders(req, res) {
           (o.customer?.name && o.customer.name.toLowerCase().includes(needle))
       );
     }
-    res.json(orders.map(withCanonicalOrderStatus));
+    res.json(orders.filter((o) => !isOrderDeleted(o)).map(withCanonicalOrderStatus));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch orders" });
   }
@@ -3844,7 +3923,9 @@ export async function createFarmerOrder(req, res) {
       variety = linkedProduct?.variety || "";
     }
 
-    const orderStatus = String(status || "NEW").trim() || "NEW";
+    const rawStatus = String(status || "NEW").trim();
+    const isPreAccepted = ["ACCEPTED", "PREPARING", "PACKING", "READY_FOR_PICKUP", "PICKUP_SCHEDULED", "DRIVER_ASSIGNED", "DISPATCHED", "COMPLETED"].includes(rawStatus);
+    const orderStatus = isPreAccepted ? rawStatus : "NEW";
 
     const order = new FarmerOrder({
       id,
@@ -3889,7 +3970,7 @@ export async function createFarmerOrder(req, res) {
       status: orderStatus,
       deliveryStatus,
       paymentStatus,
-      preparationStatus: ["NEW", "New"].includes(orderStatus) ? "NOT_STARTED" : "PREPARING",
+      preparationStatus: orderStatus === "NEW" ? "NOT_STARTED" : "PREPARING",
       timeline: [
         {
           status: orderStatus,
@@ -3951,17 +4032,28 @@ export async function createFarmerOrder(req, res) {
 export async function deleteFarmerOrder(req, res) {
   try {
     const { farmerId, orderId } = req.params;
-    const query = {
-      farmerId,
-      $or: [{ id: orderId }, { orderId: orderId }],
-    };
+    let farmerIds = [];
+    if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
+      const { ids } = await resolveFarmerIdentity(farmerId);
+      farmerIds = ids.length ? ids : [farmerId];
+    }
+    const orderOr = [{ id: orderId }, { orderId: orderId }];
     if (mongoose.Types.ObjectId.isValid(orderId)) {
-      query.$or.push({ _id: orderId });
+      orderOr.push({ _id: orderId });
     }
 
-    await FarmerOrder.deleteMany(query);
-    await FarmerHarvestOrder.deleteMany(query).catch(() => {});
-    await FarmerEarning.deleteMany({ orderId }).catch(() => {});
+    const query = { $or: orderOr };
+    if (farmerIds.length) {
+      query.farmerId = { $in: farmerIds };
+    }
+
+    const res1 = await FarmerOrder.deleteMany(query);
+    if (res1.deletedCount === 0) {
+      await FarmerOrder.deleteMany({ $or: orderOr });
+    }
+    await FarmerHarvestOrder.deleteMany({ $or: orderOr }).catch(() => {});
+    await FarmerEarning.deleteMany({ $or: [{ orderId }, { id: orderId }] }).catch(() => {});
+    await Pickup.deleteMany({ $or: [{ orderId }, { id: orderId }] }).catch(() => {});
     return res.json({ success: true, message: "Harvest order deleted successfully" });
   } catch (err) {
     console.error("Error deleting harvest order:", err);
@@ -4907,10 +4999,16 @@ export async function getManagerAllOrders(req, res) {
     const farmerIds = farmers.map((f) => f.id);
     if (!farmerIds.length) return res.json({ farmers, orders: [] });
     const farmerMap = new Map(farmers.map((f) => [f.id, f]));
-    const orders = await FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean();
+    const orders = await FarmerOrder.find({
+      farmerId: { $in: farmerIds },
+      isDeleted: { $ne: true },
+      status: { $nin: ["DELETED", "Deleted", "deleted", "CANCELLED", "Cancelled", "cancelled"] },
+    })
+      .sort({ orderDate: -1 })
+      .lean();
     res.json({
       farmers,
-      orders: orders.map((o) => {
+      orders: orders.filter((o) => !isOrderDeleted(o)).map((o) => {
         const f = farmerMap.get(o.farmerId);
         return {
           ...o,
@@ -5094,9 +5192,14 @@ export async function getManagerAllHarvestOrders(req, res) {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
     const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(farmers);
     if (!farmerIds.length) return res.json({ farmers, orders: [] });
+    const notDeletedQuery = {
+      farmerId: { $in: farmerIds },
+      isDeleted: { $ne: true },
+      status: { $nin: ["DELETED", "Deleted", "deleted", "CANCELLED", "Cancelled", "cancelled"] },
+    };
     const [harvestOrders, farmerOrders, earnings] = await Promise.all([
-      FarmerHarvestOrder.find({ farmerId: { $in: farmerIds } }).sort({ createdAt: -1 }).lean(),
-      FarmerOrder.find({ farmerId: { $in: farmerIds } }).sort({ orderDate: -1 }).lean(),
+      FarmerHarvestOrder.find(notDeletedQuery).sort({ createdAt: -1 }).lean(),
+      FarmerOrder.find(notDeletedQuery).sort({ orderDate: -1 }).lean(),
       FarmerEarning.find({ farmerId: { $in: farmerIds } }).lean().catch(() => []),
     ]);
 
@@ -5108,30 +5211,35 @@ export async function getManagerAllHarvestOrders(req, res) {
       }
     });
 
-    const mapped = mapFarmerOrdersToHarvest(farmerOrders).map((o) => {
-      const f = farmerMap.get(o.farmerId);
-      const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
-      const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
-      return {
-        ...o,
-        paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
-        farmerName: o.farmerName || f?.name || "—",
-        farmerMobile: f?.mobile || "",
-      };
-    });
-    const harvestWithNames = harvestOrders.map((o) => {
-      const f = farmerMap.get(o.farmerId);
-      const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
-      const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
-      return {
-        ...o,
-        paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
-        status: normalizeOrderStatus(o.status),
-        farmerName: o.farmerName || f?.name || "—",
-        farmerMobile: f?.mobile || "",
-      };
-    });
-    res.json({ farmers, orders: mergeHarvestLists(harvestWithNames, mapped) });
+    const mapped = mapFarmerOrdersToHarvest(farmerOrders)
+      .filter((o) => !isOrderDeleted(o))
+      .map((o) => {
+        const f = farmerMap.get(o.farmerId);
+        const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
+        const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
+        return {
+          ...o,
+          paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
+          farmerName: o.farmerName || f?.name || "—",
+          farmerMobile: f?.mobile || "",
+        };
+      });
+    const harvestWithNames = harvestOrders
+      .filter((o) => !isOrderDeleted(o))
+      .map((o) => {
+        const f = farmerMap.get(o.farmerId);
+        const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
+        const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
+        return {
+          ...o,
+          paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
+          status: normalizeOrderStatus(o.status),
+          farmerName: o.farmerName || f?.name || "—",
+          farmerMobile: f?.mobile || "",
+        };
+      });
+    const finalOrders = mergeHarvestLists(harvestWithNames, mapped).filter((o) => !isOrderDeleted(o));
+    res.json({ farmers, orders: finalOrders });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch harvest orders" });
   }
@@ -5186,16 +5294,27 @@ export async function assignFarmerManager(req, res) {
 // ----------------------------------------------------
 export async function getHarvestOrders(req, res) {
   try {
-    const farmerId = req.params.farmerId || req.query.farmerId || req.user?.farmerId || req.user?.id;
-    const filter = {};
-    if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
-      const { ids } = await resolveFarmerIdentity(farmerId);
-      filter.farmerId = { $in: ids.length ? ids : [farmerId] };
+    let ids = [];
+    if (req.user?.role === "FARMER_MANAGER") {
+      const farmers = await getAssignedFarmers(req);
+      ids = farmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
+    } else {
+      const farmerId = req.params.farmerId || req.query.farmerId || req.user?.farmerId || req.user?.id;
+      if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
+        const { ids: resolvedIds } = await resolveFarmerIdentity(farmerId);
+        ids = resolvedIds.length ? resolvedIds : [farmerId];
+      }
     }
+    const filter = ids.length ? { farmerId: { $in: ids } } : {};
+    const notDeletedQuery = {
+      ...filter,
+      isDeleted: { $ne: true },
+      status: { $nin: ["DELETED", "Deleted", "deleted", "CANCELLED", "Cancelled", "cancelled"] },
+    };
 
     const [harvestOrders, farmerOrders, earnings] = await Promise.all([
-      FarmerHarvestOrder.find(filter).sort({ createdAt: -1 }).lean(),
-      FarmerOrder.find(filter).sort({ orderDate: -1, createdAt: -1 }).lean(),
+      FarmerHarvestOrder.find(notDeletedQuery).sort({ createdAt: -1 }).lean(),
+      FarmerOrder.find(notDeletedQuery).sort({ orderDate: -1, createdAt: -1 }).lean(),
       FarmerEarning.find(filter).lean().catch(() => []),
     ]);
 
@@ -5207,26 +5326,50 @@ export async function getHarvestOrders(req, res) {
       }
     });
 
-    const mapped = mapFarmerOrdersToHarvest(farmerOrders).map((o) => {
-      const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
-      const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
-      return {
-        ...o,
-        paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
-      };
-    });
+    const mapped = mapFarmerOrdersToHarvest(farmerOrders)
+      .filter((o) => !isOrderDeleted(o))
+      .map((o) => {
+        const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
+        const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
+        return {
+          ...o,
+          paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
+        };
+      });
 
-    const harvestWithNames = harvestOrders.map((o) => {
-      const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
-      const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
-      return {
-        ...o,
-        paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
-        status: normalizeOrderStatus(o.status),
-      };
-    });
+    const harvestWithNames = harvestOrders
+      .filter((o) => !isOrderDeleted(o))
+      .map((o) => {
+        const isPaidFromEarning = earningPaidMap.get(String(o.id)) || earningPaidMap.get(String(o.orderId));
+        const payStatus = isPaidFromEarning ? "Paid" : (o.paymentStatus || "Pending");
+        return {
+          ...o,
+          paymentStatus: isOrderPaidString(payStatus) ? "Paid" : payStatus,
+          status: normalizeOrderStatus(o.status),
+        };
+      });
 
-    const combined = mergeHarvestLists(harvestWithNames, mapped);
+    const farmerMap = new Map();
+    if (req.user?.role === "FARMER_MANAGER") {
+      const farmers = await getAssignedFarmers(req);
+      farmers.forEach((f) => {
+        if (f.id) farmerMap.set(String(f.id), f);
+        if (f.farmerId) farmerMap.set(String(f.farmerId), f);
+      });
+    }
+
+    const combined = mergeHarvestLists(harvestWithNames, mapped)
+      .filter((row) => !isOrderDeleted(row))
+      .map((row) => {
+        const f = farmerMap.get(String(row.farmerId));
+        return {
+          ...row,
+          farmerName: f?.name || row.farmerName || "",
+          farmerCode: f?.farmerId || f?.id || row.farmerId || "",
+          farmerMobile: f?.mobile || "",
+          farmerLocation: f?.farmLocation || f?.farmGeo?.village || "",
+        };
+      });
     res.json(combined);
   } catch (err) {
     console.error("Error in getHarvestOrders:", err);
@@ -5290,9 +5433,17 @@ export async function updateHarvestOrder(req, res) {
 
 export async function deleteHarvestOrder(req, res) {
   try {
-    const { id } = req.params;
-    await FarmerHarvestOrder.deleteOne({ id });
-    res.json({ success: true });
+    const { id, orderId } = req.params;
+    const targetId = id || orderId;
+    const orderOr = [{ id: targetId }, { orderId: targetId }];
+    if (mongoose.Types.ObjectId.isValid(targetId)) {
+      orderOr.push({ _id: targetId });
+    }
+    await FarmerHarvestOrder.deleteMany({ $or: orderOr });
+    await FarmerOrder.deleteMany({ $or: orderOr }).catch(() => {});
+    await FarmerEarning.deleteMany({ $or: [{ orderId: targetId }, { id: targetId }] }).catch(() => {});
+    await Pickup.deleteMany({ $or: [{ orderId: targetId }, { id: targetId }] }).catch(() => {});
+    res.json({ success: true, message: "Harvest order deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to delete harvest order" });
   }

@@ -57,6 +57,18 @@ export function requireFarmer(req, res, next) {
 }
 
 /**
+ * Allow FARMER or FARMER_MANAGER
+ */
+export function requireFarmerOrManager(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user?.role !== "FARMER" && req.user?.role !== "FARMER_MANAGER") {
+      return res.status(403).json({ message: "Forbidden — Farmer or Manager access required" });
+    }
+    next();
+  });
+}
+
+/**
  * Allow only DRIVER role
  */
 export function requireDriver(req, res, next) {

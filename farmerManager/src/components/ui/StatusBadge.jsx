@@ -3,82 +3,78 @@ import { pickupStatusLabel, PICKUP_STATUS_LABELS } from "../pickup/PickupTimelin
 const PICKUP_KEYS = new Set(Object.keys(PICKUP_STATUS_LABELS));
 const PICKUP_LABELS = new Set(Object.values(PICKUP_STATUS_LABELS));
 
-const STATUS_STYLES = {
-  pending: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  PENDING: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  SUBMITTED: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  APPROVED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  REJECTED: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  VERIFIED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  Pending: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  Verified: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  approved: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  rejected: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  not_uploaded: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",
-  Draft: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",
-  "Pending Approval": "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  Approved: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  Rejected: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  "Out of Stock": "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  Inactive: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",
-  New: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  Confirmed: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
-  Processing: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  "Ready for Harvest": "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  "READY FOR HARVEST": "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  READY_FOR_HARVEST: "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  Growing: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  Planned: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
-  Harvested: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  Completed: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  Cancelled: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  Paid: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  PAID: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  paid: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  "Payment Pending": "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  "Payment Received": "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  "Payment Completed": "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  PAYMENT_PENDING: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  PAYMENT_COMPLETED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  Failed: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  "In Stock": "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  "Low Stock": "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  Active: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  Paused: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",
-  PENDING_APPROVAL: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  NEW: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  ACCEPTED: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
-  PREPARING: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  PACKING: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  DISPATCHED: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  ORDER_VERIFIED: "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  ARRIVED: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  READY_FOR_PICKUP: "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  "Ready for Pickup": "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  PICKUP_SCHEDULED: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
-  DRIVER_ASSIGNED: "border-[#4F46E5] bg-[#EEF2FF] text-[#4338CA]",
-  DRIVER_ARRIVED: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  QR_VERIFIED: "border-[#0D9488] bg-[#F0FDFA] text-[#0F766E]",
-  PICKUP_CONFIRMED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  PICKED_UP: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  COMPLETED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  IN_TRANSIT: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  ARRIVED_AT_CENTRE: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  COLLECTION_CENTRE_RECEIVED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  RECEIVED_AT_COLLECTION_CENTRE: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  ARRIVED: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  UNLOADING: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  WEIGHT_CHECK: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  RECEIVED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  QUALITY_PENDING: "border-[#F59E0B] bg-[#FFFBEB] text-[#B45309]",
-  INSPECTION: "border-[#0284C7] bg-[#F0F9FF] text-[#0369A1]",
-  GRADING: "border-[#7C3AED] bg-[#F5F3FF] text-[#6D28D9]",
-  GRADE_CONFIRMED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  ORDER_COMPLETED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  COMPLETED: "border-[#217346] bg-[#E8F5E9] text-[#217346]",
-  REJECTED: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  CANCELLED: "border-[#DC2626] bg-[#FEE2E2] text-[#DC2626]",
-  NOT_STARTED: "border-[#D4D4D4] bg-[#F2F2F2] text-[#6B7280]",
+const STATUS_TEXT_COLORS = {
+  pending: "text-amber-700",
+  PENDING: "text-amber-700",
+  SUBMITTED: "text-amber-700",
+  APPROVED: "text-emerald-700",
+  Approved: "text-emerald-700",
+  approved: "text-emerald-700",
+  REJECTED: "text-red-600",
+  Rejected: "text-red-600",
+  rejected: "text-red-600",
+  VERIFIED: "text-emerald-700",
+  Verified: "text-emerald-700",
+  not_uploaded: "text-slate-500",
+  Draft: "text-slate-500",
+  "Pending Approval": "text-amber-700",
+  "Out of Stock": "text-red-600",
+  Inactive: "text-slate-500",
+  New: "text-sky-700",
+  NEW: "text-sky-700",
+  Confirmed: "text-indigo-700",
+  Processing: "text-purple-700",
+  "Ready for Harvest": "text-teal-700",
+  "READY FOR HARVEST": "text-teal-700",
+  READY_FOR_HARVEST: "text-teal-700",
+  Growing: "text-sky-700",
+  Planned: "text-indigo-700",
+  Harvested: "text-emerald-700",
+  Completed: "text-emerald-700",
+  COMPLETED: "text-emerald-700",
+  Cancelled: "text-red-600",
+  CANCELLED: "text-red-600",
+  Paid: "text-emerald-700",
+  PAID: "text-emerald-700",
+  paid: "text-emerald-700",
+  "Payment Pending": "text-amber-700",
+  "Payment Received": "text-emerald-700",
+  "Payment Completed": "text-emerald-700",
+  PAYMENT_PENDING: "text-amber-700",
+  PAYMENT_COMPLETED: "text-emerald-700",
+  Failed: "text-red-600",
+  "In Stock": "text-emerald-700",
+  "Low Stock": "text-amber-700",
+  Active: "text-emerald-700",
+  Paused: "text-slate-500",
+  PENDING_APPROVAL: "text-amber-700",
+  ACCEPTED: "text-indigo-700",
+  PREPARING: "text-purple-700",
+  PACKING: "text-purple-700",
+  DISPATCHED: "text-purple-700",
+  ORDER_VERIFIED: "text-teal-700",
+  ARRIVED: "text-sky-700",
+  READY_FOR_PICKUP: "text-teal-700",
+  "Ready for Pickup": "text-teal-700",
+  PICKUP_SCHEDULED: "text-indigo-700",
+  DRIVER_ASSIGNED: "text-indigo-700",
+  DRIVER_ARRIVED: "text-sky-700",
+  QR_VERIFIED: "text-teal-700",
+  PICKUP_CONFIRMED: "text-emerald-700",
+  PICKED_UP: "text-emerald-700",
+  IN_TRANSIT: "text-purple-700",
+  ARRIVED_AT_CENTRE: "text-emerald-700",
+  COLLECTION_CENTRE_RECEIVED: "text-emerald-700",
+  RECEIVED_AT_COLLECTION_CENTRE: "text-emerald-700",
+  UNLOADING: "text-purple-700",
+  WEIGHT_CHECK: "text-amber-700",
+  RECEIVED: "text-emerald-700",
+  QUALITY_PENDING: "text-amber-700",
+  INSPECTION: "text-sky-700",
+  GRADING: "text-purple-700",
+  GRADE_CONFIRMED: "text-emerald-700",
+  ORDER_COMPLETED: "text-emerald-700",
+  NOT_STARTED: "text-slate-500",
 };
 
 const STATUS_LABELS = {
@@ -120,21 +116,11 @@ const STATUS_LABELS = {
   ORDER_COMPLETED: "Grading Completed",
 };
 
-const QUALITY_KEYS = new Set([
-  "QUALITY_PENDING",
-  "QUALITY_CHECK",
-  "INSPECTION",
-  "GRADING",
-  "GRADE_CONFIRMED",
-  "ORDER_COMPLETED",
-]);
-
 function StatusBadge({ status, className = "" }) {
-  const key = String(status || "");
+  const key = String(status || "").trim();
   const pickupLabel = pickupStatusLabel(key);
   const isPickup = PICKUP_KEYS.has(key) || PICKUP_LABELS.has(pickupLabel);
-  const isQuality = QUALITY_KEYS.has(key);
-  const style = STATUS_STYLES[key] || (isPickup ? "border-[#217346] bg-[#E8F5E9] text-[#217346]" : "border-[#D4D4D4] bg-[#F2F2F2] text-[#374151]");
+  const color = STATUS_TEXT_COLORS[key] || (isPickup ? "text-emerald-700" : "text-slate-700");
   const label =
     key === "not_uploaded"
       ? "Not Uploaded"
@@ -143,11 +129,7 @@ function StatusBadge({ status, className = "" }) {
         : STATUS_LABELS[key] || key.replace(/_/g, " ");
 
   return (
-    <span
-      className={`inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-        isPickup || isQuality ? "normal-case tracking-normal" : "uppercase tracking-wide"
-      } ${style} ${className}`}
-    >
+    <span className={`inline-block truncate font-bold text-[11px] ${color} ${className}`}>
       {label}
     </span>
   );

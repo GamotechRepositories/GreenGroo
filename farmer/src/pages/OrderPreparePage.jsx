@@ -29,6 +29,11 @@ function OrderPreparePage() {
     setLoading(true);
     try {
       const data = await getMyOrder(id);
+      if (data.status === "NEW") {
+        toast.error("Order must be accepted before preparation");
+        navigate(`/farmer/orders/${id}`);
+        return;
+      }
       setOrder(data);
       setForm({
         packedQuantity: data.packedQuantity || data.orderedQuantity || "",
@@ -40,7 +45,7 @@ function OrderPreparePage() {
       });
     } catch (err) {
       toast.error(err.message || "Order not found");
-      navigate("/farmer/orders/preparing");
+      navigate("/farmer/orders/new");
     } finally {
       setLoading(false);
     }

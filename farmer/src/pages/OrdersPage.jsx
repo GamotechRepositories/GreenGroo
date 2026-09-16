@@ -134,6 +134,13 @@ function formatRate(rate, qty = 0) {
   return formatMoney(n);
 }
 
+function isOrderDeleted(o) {
+  if (!o) return true;
+  if (o.isDeleted === true || o.deleted === true) return true;
+  const s = String(o.status || "").trim().toUpperCase();
+  return s === "DELETED" || s === "CANCELLED" || s === "CANCELED" || s === "DELETED_ORDER";
+}
+
 function OrdersPage({ filter = "new" }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +151,8 @@ function OrdersPage({ filter = "new" }) {
   const load = async () => {
     setLoading(true);
     try {
-      setOrders(await getMyOrders({ filter }));
+      const data = await getMyOrders({ filter });
+      setOrders(Array.isArray(data) ? data.filter((o) => !isOrderDeleted(o)) : []);
     } catch (err) {
       toast.error(err.message || "Failed to load orders");
     } finally {
@@ -154,7 +162,7 @@ function OrdersPage({ filter = "new" }) {
 
   usePolling(() => {
     getMyOrders({ filter })
-      .then(setOrders)
+      .then((data) => setOrders(Array.isArray(data) ? data.filter((o) => !isOrderDeleted(o)) : []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filter], 5000);

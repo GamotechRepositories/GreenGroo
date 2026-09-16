@@ -145,7 +145,7 @@ import {
   transitDriverPickup,
   arriveAtCentreDriverPickup,
 } from "./pickupControllers.js";
-import { requireVendor, requireManager, requireFarmer, requireDriver, requireVendorOrManager } from "./middleware.js";
+import { requireVendor, requireManager, requireFarmer, requireFarmerOrManager, requireDriver, requireVendorOrManager } from "./middleware.js";
 import {
   listQualityPending,
   getQualityInspection,
@@ -199,14 +199,14 @@ farmerRouter.delete("/products/:productId", requireFarmer, deleteMyProduct);
 farmerRouter.patch("/products/:productId/price", requireFarmer, patchMyProductPrice);
 farmerRouter.patch("/products/:productId/stock", requireFarmer, patchMyProductStock);
 farmerRouter.patch("/products/:productId/status", requireFarmer, patchMyProductStatus);
-farmerRouter.get("/orders", requireFarmer, listMyOrders);
-farmerRouter.get("/orders/:orderId/quality-report", requireFarmer, getMyQualityReport);
-farmerRouter.get("/orders/:orderId", requireFarmer, getMyOrder);
-farmerRouter.patch("/orders/:orderId/accept", requireFarmer, acceptMyOrder);
-farmerRouter.patch("/orders/:orderId/reject", requireFarmer, rejectMyOrder);
-farmerRouter.patch("/orders/:orderId/prepare", requireFarmer, prepareMyOrder);
-farmerRouter.patch("/orders/:orderId/ready-for-pickup", requireFarmer, readyMyOrder);
-farmerRouter.patch("/orders/:orderId/packing", requireFarmer, packMyOrder);
+farmerRouter.get("/orders", requireFarmerOrManager, listMyOrders);
+farmerRouter.get("/orders/:orderId/quality-report", requireFarmerOrManager, getMyQualityReport);
+farmerRouter.get("/orders/:orderId", requireFarmerOrManager, getMyOrder);
+farmerRouter.patch("/orders/:orderId/accept", requireFarmerOrManager, acceptMyOrder);
+farmerRouter.patch("/orders/:orderId/reject", requireFarmerOrManager, rejectMyOrder);
+farmerRouter.patch("/orders/:orderId/prepare", requireFarmerOrManager, prepareMyOrder);
+farmerRouter.patch("/orders/:orderId/ready-for-pickup", requireFarmerOrManager, readyMyOrder);
+farmerRouter.patch("/orders/:orderId/packing", requireFarmerOrManager, packMyOrder);
 farmerRouter.get("/", getFarmers);
 farmerRouter.post("/", createFarmer);
 farmerRouter.get("/:farmerId", getFarmerById);
@@ -259,6 +259,7 @@ farmerRouter.get("/:farmerId/harvest-orders", getHarvestOrders);
 farmerRouter.post("/:farmerId/harvest-orders", createHarvestOrder);
 farmerRouter.put("/:farmerId/harvest-orders/:id", updateHarvestOrder);
 farmerRouter.delete("/:farmerId/harvest-orders/:id", deleteHarvestOrder);
+farmerRouter.delete("/harvest-orders/:id", deleteHarvestOrder);
 
 // Documents
 farmerRouter.get("/:farmerId/documents", getFarmerDocuments);
@@ -428,6 +429,9 @@ managerRouter.get("/inventory", requireManager, getManagerAllInventory);
 managerRouter.get("/documents", requireManager, getManagerAllDocuments);
 managerRouter.get("/stock-history", requireManager, getManagerAllStockHistory);
 managerRouter.get("/harvest-orders", requireManager, getManagerAllHarvestOrders);
+managerRouter.delete("/harvest-orders/:id", requireManager, deleteHarvestOrder);
+managerRouter.delete("/farmers/:farmerId/harvest-orders/:id", requireManager, deleteHarvestOrder);
+managerRouter.delete("/:farmerId/harvest-orders/:id", requireManager, deleteHarvestOrder);
 managerRouter.get("/earnings", requireManager, getManagerAllEarnings);
 managerRouter.get("/pickups", requireManager, listManagerPickups);
 managerRouter.get("/batches/:batchId", requireManager, getManagerBatch);

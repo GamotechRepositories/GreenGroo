@@ -305,7 +305,6 @@ export const MANAGER_SIDEBAR_ITEMS = [
     label: "Inventory",
     icon: "inventory",
     children: [
-      { to: "/manager/inventory", label: "All Inventory" },
       { to: "/manager/inventory/history", label: "Inventory History" },
     ],
   },
@@ -314,18 +313,12 @@ export const MANAGER_SIDEBAR_ITEMS = [
     label: "Orders",
     icon: "orders",
     children: [
-      { to: "/manager/orders", label: "All Orders", end: true },
-      { to: "/manager/orders?tab=by-product", label: "Create Order by Product" },
-      { to: "/manager/orders/create", label: "Create Order" },
-    ],
-  },
-  {
-    id: "earnings",
-    label: "Earnings",
-    icon: "earnings",
-    children: [
-      { to: "/manager/earnings", label: "Earning Statements", end: true },
-      { to: "/manager/earnings/payments", label: "All Payments" },
+      { to: "/manager/orders/new", label: "New Orders" },
+      { to: "/manager/orders/preparing", label: "Preparing" },
+      { to: "/manager/orders/ready", label: "Ready for Pickup" },
+      { to: "/manager/orders/completed", label: "Completed" },
+      { to: "/manager/orders/rejected", label: "Rejected" },
+      { to: "/manager/harvest-orders", label: "Harvest Orders" },
     ],
   },
   {

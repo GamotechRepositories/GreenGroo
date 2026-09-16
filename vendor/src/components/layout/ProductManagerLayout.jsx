@@ -1,6 +1,28 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Icon, LogoIcon } from '../ui/Icon'
+import {
+  BadgeCheck,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  IdCard,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Settings,
+  ShoppingCart,
+  Sprout,
+  Tractor,
+  Truck,
+  UserRound,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react'
 import Header from './Header'
 import VendorBottomNav from './VendorBottomNav'
 import { useVendorAuth } from '../../context/VendorAuthContext'
@@ -9,21 +31,21 @@ import { vendorApi } from '../../api/vendorApi'
 import RoleAnnouncements from '../RoleAnnouncements'
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   {
     id: 'farmer-manager',
     label: 'Farmer Managers',
-    icon: 'user',
+    icon: Users,
     children: [
       { to: '/vendor/farmer-managers', label: 'All Managers' },
       { to: '/vendor/farmer-managers/add', label: 'Add Manager' },
     ],
   },
-  { to: '/vendor/all-farmers', label: 'Farmers', icon: 'tractor' },
+  { to: '/vendor/all-farmers', label: 'Farmers', icon: Tractor },
   {
     id: 'crops',
     label: 'Crops',
-    icon: 'sprout',
+    icon: Sprout,
     children: [
       { to: '/vendor/crops', label: 'All Crops', end: true },
       { to: '/vendor/crops/add', label: 'Add Crop' },
@@ -32,7 +54,7 @@ const navItems = [
   {
     id: 'products',
     label: 'Products',
-    icon: 'leaf',
+    icon: Package,
     children: [
       { to: '/vendor/products', label: 'All Products', end: true },
       { to: '/vendor/products/add', label: 'Add Product' },
@@ -41,7 +63,7 @@ const navItems = [
   {
     id: 'pickup',
     label: 'Pickup',
-    icon: 'truck',
+    icon: Truck,
     children: [
       { to: '/vendor/pickups/incoming', label: 'Incoming Pickups' },
       { to: '/vendor/pickups/centre', label: 'Pickups at Centre' },
@@ -51,7 +73,7 @@ const navItems = [
   {
     id: 'driver',
     label: 'Driver',
-    icon: 'user',
+    icon: IdCard,
     children: [
       { to: '/vendor/pickups/ready', label: 'Ready for Pickup' },
       { to: '/vendor/pickups/assigned', label: 'Assigned Pickups' },
@@ -62,7 +84,7 @@ const navItems = [
   {
     id: 'quality',
     label: 'Quality & Grading',
-    icon: 'search',
+    icon: BadgeCheck,
     children: [
       { to: '/vendor/quality/pending', label: 'Pending Inspection' },
       { to: '/vendor/quality/inspection', label: 'Quality Inspection' },
@@ -73,117 +95,150 @@ const navItems = [
   {
     id: 'inventory',
     label: 'Inventory',
-    icon: 'box',
+    icon: ClipboardList,
     children: [
       { to: '/vendor/inventory', label: 'All Inventory', end: true },
       { to: '/vendor/inventory/history', label: 'History' },
     ],
   },
-  { to: '/vendor/orders', label: 'Orders', icon: 'inbox' },
+  { to: '/vendor/orders', label: 'Orders', icon: ShoppingCart },
   {
     id: 'earnings',
     label: 'Earnings',
-    icon: 'currency',
+    icon: Wallet,
     children: [
       { to: '/vendor/earnings', label: 'Earning Statements', end: true },
       { to: '/vendor/earnings/payments', label: 'All Payments' },
     ],
   },
-  { to: '/vendor/documents', label: 'Documents', icon: 'clipboard' },
-  { to: '/inventory-requests', label: 'Inventory Requests', icon: 'box' },
+  { to: '/vendor/documents', label: 'Documents', icon: FileText },
+  { to: '/inventory-requests', label: 'Inventory Requests', icon: Package },
 ]
 
 const footerItems = [
-  { to: '/leave', label: 'Apply Leave', icon: 'calendar' },
-  { to: '/settings', label: 'Settings', icon: 'settings' },
-  { to: '/profile', label: 'My Profile', icon: 'user' },
+  { to: '/leave', label: 'Apply Leave', icon: CalendarDays },
+  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/profile', label: 'My Profile', icon: UserRound },
 ]
 
-function NavItem({ item, badge, onNavigate }) {
-  if (item.children) {
-    return <NavGroup item={item} onNavigate={onNavigate} />
-  }
-
-  return (
-    <li>
-      <NavLink
-        to={item.to}
-        end={item.end}
-        onClick={onNavigate}
-        className={({ isActive }) =>
-          `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-            isActive
-              ? 'bg-green-primary text-white shadow-sm ring-1 ring-white/10'
-              : 'text-white/80 hover:bg-white/10 hover:text-white'
-          }`
-        }
-      >
-        <Icon name={item.icon} size="sm" />
-        <span className="flex-1 text-left">{item.label}</span>
-        {badge > 0 ? (
-          <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
-            {badge}
-          </span>
-        ) : null}
-      </NavLink>
-    </li>
-  )
-}
-
-function NavGroup({ item, onNavigate }) {
+function NavGroup({ item, collapsed, onNavigate }) {
   const location = useLocation()
-  const isChildActive = item.children.some((child) =>
-    location.pathname.startsWith(child.to),
+  const path = location.pathname
+  const isChildActive = Boolean(
+    item.children?.some((child) => path.startsWith(String(child.to || '').split('?')[0]))
   )
   const [open, setOpen] = useState(isChildActive)
+  const Icon = item.icon || Package
 
   useEffect(() => {
     if (isChildActive) setOpen(true)
   }, [location.pathname, isChildActive])
 
+  if (collapsed) {
+    return (
+      <NavLink
+        to={item.children?.[0]?.to || '#'}
+        title={item.label}
+        onClick={onNavigate}
+        className={() =>
+          `group relative mx-2 mb-1 flex items-center justify-center rounded-xl px-2.5 py-2.5 text-sm font-medium transition ${
+            isChildActive ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-100'
+          }`
+        }
+      >
+        <Icon
+          className={`h-5 w-5 shrink-0 ${isChildActive ? 'text-emerald-700' : 'text-slate-500'}`}
+          strokeWidth={isChildActive ? 2.25 : 1.75}
+        />
+      </NavLink>
+    )
+  }
+
   return (
-    <li>
+    <div className="mx-2 mb-1">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-          isChildActive
-            ? 'bg-white/10 text-white font-semibold'
-            : 'text-white/80 hover:bg-white/10 hover:text-white'
+        onClick={() => setOpen((v) => !v)}
+        className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+          isChildActive ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-slate-700 hover:bg-slate-100'
         }`}
       >
-        <Icon name={item.icon} size="sm" />
-        <span className="flex-1 text-left">{item.label}</span>
         <Icon
-          name="chevronDown"
-          size="sm"
-          className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          className={`h-5 w-5 shrink-0 ${isChildActive ? 'text-emerald-700' : 'text-slate-500'}`}
+          strokeWidth={isChildActive ? 2.25 : 1.75}
+        />
+        <span className="flex-1 text-left leading-tight">{item.label}</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </button>
-
-      {open ? (
-        <ul className="mt-1 space-y-0.5 border-l border-white/15 pl-3 ml-4">
+      {open && (
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-200 pl-3">
           {item.children.map((child) => (
-            <li key={child.to}>
-              <NavLink
-                to={child.to}
-                end={child.end}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  `block rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    isActive
-                      ? 'bg-green-primary text-white shadow-sm'
-                      : 'text-white/70 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                {child.label}
-              </NavLink>
-            </li>
+            <NavLink
+              key={child.to}
+              to={child.to}
+              end={child.end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `block rounded-lg px-2.5 py-2 text-sm transition ${
+                  isActive
+                    ? 'bg-white font-semibold text-emerald-700 shadow-sm border border-slate-100'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                }`
+              }
+            >
+              {child.label}
+            </NavLink>
           ))}
-        </ul>
-      ) : null}
-    </li>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NavItem({ item, collapsed, badge, onNavigate }) {
+  if (item.children) {
+    return <NavGroup item={item} collapsed={collapsed} onNavigate={onNavigate} />
+  }
+
+  const Icon = item.icon || Package
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      title={collapsed ? item.label : undefined}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        `group relative mx-2 mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+          collapsed ? 'justify-center px-2.5' : ''
+        } ${
+          isActive
+            ? 'bg-emerald-50 text-emerald-800 font-semibold'
+            : 'text-slate-700 hover:bg-slate-100'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon
+            className={`h-5 w-5 shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'}`}
+            strokeWidth={isActive ? 2.25 : 1.75}
+          />
+          {!collapsed ? (
+            <>
+              <span className="flex-1 truncate text-left">{item.label}</span>
+              {badge > 0 ? (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                  {badge}
+                </span>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      )}
+    </NavLink>
   )
 }
 
@@ -193,125 +248,172 @@ export default function ProductManagerLayout() {
   const location = useLocation()
   const { requests } = useInventoryRequests(12000)
   const pendingCount = requests.filter((request) => request.status === 'pending').length
+  const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeMobile = () => setMobileOpen(false)
+
+  const compact = collapsed && !mobileOpen
 
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
 
+  const onNavigate = () => {
+    closeMobile()
+    if (window.innerWidth < 1024) setCollapsed(false)
+  }
+
   return (
-    <div className="min-h-dvh bg-[#f8f9fa]">
+    <div className="flex min-h-dvh bg-[#f3f6f4] text-slate-900">
       {mobileOpen ? (
         <button
           type="button"
           aria-label="Close menu"
-          className="fixed inset-0 z-[45] bg-black/40 lg:hidden print:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px] lg:hidden print:hidden"
           onClick={closeMobile}
         />
       ) : null}
 
+      {/* Sidebar matching Farmer Manager */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col bg-green-dark text-white shadow-xl transition-transform duration-200 print:hidden lg:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col border-r border-slate-200/80 bg-white shadow-xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-0 lg:shadow-none print:hidden ${
+          compact ? 'w-[76px]' : 'w-[min(272px,86vw)]'
+        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Brand Header */}
-        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-primary shadow-sm">
-            <LogoIcon className="h-5 w-5 text-white" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold leading-tight tracking-wide text-white">GreenGroo</p>
-            <p className="text-[11px] text-white/60">Vendor Panel</p>
-          </div>
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-3">
+          {!compact ? (
+            <div className="min-w-0 flex-1 px-1">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-700 text-xs font-bold text-white shadow-sm">
+                  GG
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold leading-tight text-slate-900">GreenGroo</p>
+                  <p className="truncate text-xs leading-tight text-slate-500">Vendor Panel</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-700 text-xs font-bold text-white shadow-sm">
+                GG
+              </span>
+            </div>
+          )}
+
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 lg:hidden"
-            onClick={closeMobile}
-            aria-label="Close menu"
+            onClick={() => setCollapsed((v) => !v)}
+            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:inline-flex"
+            aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={compact ? 'Expand' : 'Collapse'}
           >
-            <span className="text-lg leading-none">×</span>
+            {compact ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 lg:hidden"
+            onClick={closeMobile}
+            aria-label="Close sidebar"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Scrollable Container with Hidden Scrollbar */}
-        <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-3 space-y-4">
-          <nav>
-            <ul className="space-y-1">
-              {navItems.map((item) => (
-                <NavItem
-                  key={item.to || item.id}
-                  item={item}
-                  onNavigate={closeMobile}
-                  badge={item.to === '/inventory-requests' ? pendingCount : 0}
-                />
-              ))}
-            </ul>
-          </nav>
+        {/* Scrollable Navigation */}
+        <nav className="flex-1 overflow-y-auto py-3">
+          {navItems.map((item) => (
+            <NavItem
+              key={item.to || item.id}
+              item={item}
+              collapsed={compact}
+              onNavigate={onNavigate}
+              badge={item.to === '/inventory-requests' ? pendingCount : 0}
+            />
+          ))}
 
-          {/* Footer Items inside scrollable flow */}
-          <div className="border-t border-white/10 pt-3 pb-8">
-            <ul className="space-y-1">
-              {footerItems.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    onClick={closeMobile}
-                    className={({ isActive }) =>
-                      `flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                        isActive
-                          ? 'bg-green-primary text-white shadow-sm'
-                          : 'text-white/80 hover:bg-white/10 hover:text-white'
-                      }`
-                    }
-                  >
-                    <Icon name={item.icon} size="sm" />
-                    <span className="flex-1 text-left">{item.label}</span>
-                  </NavLink>
-                </li>
-              ))}
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    vendor.logout()
-                    navigate('/vendor/login', { replace: true })
-                  }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-red-300 transition-colors"
+          {/* Footer Items */}
+          <div className="mt-4 border-t border-slate-200/80 pt-3 pb-6">
+            {footerItems.map((item) => {
+              const Icon = item.icon || Package
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  title={compact ? item.label : undefined}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    `group relative mx-2 mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                      compact ? 'justify-center px-2.5' : ''
+                    } ${
+                      isActive
+                        ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`
+                  }
                 >
-                  <Icon name="power" size="sm" />
-                  <span className="flex-1 text-left">Logout</span>
-                </button>
-              </li>
-            </ul>
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={`h-5 w-5 shrink-0 ${isActive ? 'text-emerald-700' : 'text-slate-500 group-hover:text-slate-700'}`}
+                        strokeWidth={isActive ? 2.25 : 1.75}
+                      />
+                      {!compact ? <span className="truncate">{item.label}</span> : null}
+                    </>
+                  )}
+                </NavLink>
+              )
+            })}
+
+            <button
+              type="button"
+              onClick={() => {
+                vendor.logout()
+                navigate('/vendor/login', { replace: true })
+              }}
+              title={compact ? 'Logout' : undefined}
+              className={`group relative mx-2 mb-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition ${
+                compact ? 'justify-center px-2.5' : ''
+              }`}
+            >
+              <LogOut className="h-5 w-5 shrink-0 text-slate-500 group-hover:text-red-600" strokeWidth={1.75} />
+              {!compact ? <span className="truncate">Logout</span> : null}
+            </button>
           </div>
-        </div>
+        </nav>
       </aside>
 
-      <div className="min-h-dvh pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:ml-64 lg:pb-0 print:ml-0 print:pb-0 print:min-h-0">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 print:hidden lg:hidden">
+      {/* Main Content Area */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Mobile Header */}
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-md print:hidden lg:hidden">
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
-            <Icon name="menu" size="sm" />
+            <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900">GreenGroo</p>
-            <p className="truncate text-[11px] text-gray-500">Vendor Panel</p>
+            <p className="text-sm font-bold text-slate-900">GreenGroo</p>
+            <p className="truncate text-xs text-slate-500">Vendor Panel</p>
           </div>
         </header>
-        <div className="px-4 pt-3 lg:px-6 lg:pt-4 print:hidden">
-          <RoleAnnouncements
-            roleKey="vendor"
-            load={() => vendorApi.liveAnnouncements()}
-            loadCalendar={() => vendorApi.liveCalendar()}
-          />
-        </div>
-        <Outlet />
+
+        {/* Announcements & Page Content */}
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto max-lg:pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+          <div className="px-4 pt-3 lg:px-6 lg:pt-4 print:hidden">
+            <RoleAnnouncements
+              roleKey="vendor"
+              load={() => vendorApi.liveAnnouncements()}
+              loadCalendar={() => vendorApi.liveCalendar()}
+            />
+          </div>
+          <Outlet />
+        </main>
       </div>
 
       <div className="print:hidden">

@@ -29,6 +29,11 @@ function OrderPreparePage() {
     setLoading(true);
     try {
       const data = await getMyOrder(id);
+      if (data.status === "NEW") {
+        toast.error("Order must be accepted before preparation");
+        navigate(`/manager/orders/${id}`);
+        return;
+      }
       setOrder(data);
       setForm({
         packedQuantity: data.packedQuantity || data.orderedQuantity || "",
@@ -40,7 +45,7 @@ function OrderPreparePage() {
       });
     } catch (err) {
       toast.error(err.message || "Order not found");
-      navigate("/farmer/orders/preparing");
+      navigate("/manager/orders/new");
     } finally {
       setLoading(false);
     }
@@ -70,7 +75,7 @@ function OrderPreparePage() {
       }
       setOrder(await readyMyOrder(id));
       toast.success("Marked ready for pickup");
-      navigate("/farmer/orders/ready");
+      navigate("/manager/orders/ready");
     } catch (err) {
       toast.error(err.message || "Add packing details before marking ready");
     } finally {
@@ -85,7 +90,7 @@ function OrderPreparePage() {
           <h1 className={EXCEL_PAGE_TITLE}>Order Preparation</h1>
           <p className={EXCEL_PAGE_SUB}>
             {order.orderId || order.id} • {order.productName}{" "}
-            <Link to={`/farmer/orders/${id}`} className="font-semibold text-[#217346] hover:underline">
+            <Link to={`/manager/orders/${id}`} className="font-semibold text-[#217346] hover:underline">
               View order
             </Link>
           </p>

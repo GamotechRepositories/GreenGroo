@@ -17,6 +17,10 @@ import ManagerProductsPage from "../pages/manager/ManagerProductsPage";
 import ManagerProductAddPage from "../pages/manager/ManagerProductAddPage";
 import ManagerInventoryPage from "../pages/manager/ManagerInventoryPage";
 import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistoryPage";
+import OrdersPage from "../pages/OrdersPage";
+import OrderDetailPage from "../pages/OrderDetailPage";
+import OrderPreparePage from "../pages/OrderPreparePage";
+import HarvestOrdersPage from "../pages/HarvestOrdersPage";
 import ManagerOrdersPage from "../pages/manager/ManagerOrdersPage";
 import ManagerOrderDetailPage from "../pages/manager/ManagerOrderDetailPage";
 import ManagerStatusOrdersSheetPage from "../pages/manager/ManagerStatusOrdersSheetPage";
@@ -59,11 +63,19 @@ function ManagerRoutes() {
           <Route path="products" element={<ManagerProductsPage />} />
           <Route path="inventory" element={<ManagerInventoryPage />} />
           <Route path="inventory/history" element={<ManagerInventoryHistoryPage />} />
-          <Route path="orders" element={<ManagerOrdersPage />} />
+          <Route path="harvest-orders" element={<HarvestOrdersPage />} />
+          <Route path="orders" element={<Navigate to="/manager/orders/new" replace />} />
+          <Route path="orders/new" element={<OrdersPage filter="new" />} />
+          <Route path="orders/preparing" element={<OrdersPage filter="preparing" />} />
+          <Route path="orders/ready" element={<OrdersPage filter="ready" />} />
+          <Route path="orders/completed" element={<OrdersPage filter="completed" />} />
+          <Route path="orders/rejected" element={<OrdersPage filter="rejected" />} />
+          <Route path="orders/:id/prepare" element={<OrderPreparePage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="orders/detail/:orderId" element={<OrderDetailPage />} />
+          <Route path="orders/all" element={<ManagerOrdersPage />} />
           <Route path="orders/accepted" element={<ManagerStatusOrdersSheetPage />} />
-          <Route path="orders/rejected" element={<ManagerStatusOrdersSheetPage />} />
           <Route path="orders/create" element={<ManagerCreateOrderPage />} />
-          <Route path="orders/detail/:orderId" element={<ManagerOrderDetailPage />} />
           <Route path="orders/product/:productKey/farmers" element={<ManagerProductFarmersPage />} />
           <Route path="orders/product/:productKey" element={<ManagerProductOrdersSpreadsheetPage />} />
           <Route path="orders/farmer/:farmerId" element={<ManagerFarmerOrdersSpreadsheetPage />} />
