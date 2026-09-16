@@ -57,7 +57,6 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
     })
   );
   const [catalog, setCatalog] = useState([]);
-  const [selectedCatalogId, setSelectedCatalogId] = useState("");
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -71,81 +70,81 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
   }, []);
 
   const dynamicCropOptions = useMemo(() => {
-    const set = new Set(CROP_OPTIONS.filter((c) => c !== "Other"));
-    catalog.forEach((c) => {
-      if (c.cropName) set.add(c.cropName);
-    });
-    return [...set, "Other"];
+    const registeredCrops = [...new Set(catalog.map((c) => String(c.cropName || c.name || "").trim()).filter(Boolean))];
+    if (registeredCrops.length > 0) {
+      return [...registeredCrops, "Other"];
+    }
+    return [...CROP_OPTIONS];
   }, [catalog]);
 
   const resolvedCropName = resolvePreset(form.cropName, form.customCropName);
   const varietyOptions = useMemo(() => {
-    const base = varietyOptionsForCrop(resolvedCropName);
-    const set = new Set(base.filter((v) => v !== "Other"));
-    catalog.forEach((c) => {
-      if (c.cropName?.toLowerCase() === resolvedCropName?.toLowerCase() && c.variety) {
-        set.add(c.variety);
-      }
-    });
-    return [...set, "Other"];
+    if (!resolvedCropName) return ["Other"];
+    const regVarieties = catalog
+      .filter((c) => String(c.cropName || c.name || "").trim().toLowerCase() === resolvedCropName.toLowerCase())
+      .map((c) => String(c.variety || "").trim())
+      .filter(Boolean);
+
+    const uniqueReg = [...new Set(regVarieties)];
+    if (uniqueReg.length > 0) {
+      return [...uniqueReg, "Other"];
+    }
+    const base = varietyOptionsForCrop(resolvedCropName).filter((v) => v !== "Other");
+    return base.length > 0 ? [...base, "Other"] : ["Other"];
   }, [resolvedCropName, catalog]);
-
-  const applyCatalogCrop = (catId) => {
-    setSelectedCatalogId(catId);
-    if (!catId) return;
-    const found = catalog.find((c) => (c.cropId || c.id) === catId);
-    if (!found) return;
-
-    const crop = splitPreset(dynamicCropOptions, found.cropName);
-    const varietyOpts = varietyOptionsForCrop(found.cropName);
-    const variety = splitPreset(varietyOpts, found.variety);
-    const unit = splitPreset(CROP_UNITS, found.unit || "Kg");
-    const farmingMethod = splitPreset(FARMING_METHODS, found.farmingMethod);
-    const farmingType = splitPreset(FARMING_TYPES, found.farmingType);
-    const irrigationType = splitPreset(IRRIGATION_TYPES, found.irrigationType);
-
-    setForm((prev) => ({
-      ...prev,
-      cropName: crop.select,
-      customCropName: crop.custom,
-      variety: variety.select,
-      customVariety: variety.custom,
-      unit: unit.select || "Kg",
-      customUnit: unit.custom,
-      farmingMethod: farmingMethod.select || prev.farmingMethod,
-      customFarmingMethod: farmingMethod.custom,
-      farmingType: farmingType.select || prev.farmingType,
-      customFarmingType: farmingType.custom,
-      irrigationType: irrigationType.select || prev.irrigationType,
-      customIrrigationType: irrigationType.custom,
-      photos: found.photos?.length ? found.photos : prev.photos,
-    }));
-    setErrors({});
-  };
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
+  const syncDefaultsFromCatalog = (cropName, variety) => {
+    if (!cropName) return;
+    const found = catalog.find(
+      (c) =>
+        String(c.cropName || c.name || "").trim().toLowerCase() === cropName.toLowerCase() &&
+        (!variety || String(c.variety || "").trim().toLowerCase() === variety.toLowerCase())
+    );
+    if (!found) return;
+
+    setForm((prev) => ({
+      ...prev,
+      unit: prev.unit || found.unit || "Kg",
+      farmingMethod: prev.farmingMethod || found.farmingMethod || "Conventional",
+      farmingType: prev.farmingType || found.farmingType || "Conventional",
+      irrigationType: prev.irrigationType || found.irrigationType || "Drip",
+      photos: found.photos?.length && !prev.photos?.filter(Boolean).length ? found.photos : prev.photos,
+    }));
+  };
+
   const onCropSelect = (v) => {
     const nextName = resolvePreset(v, v === "Other" ? form.customCropName : "");
-    const opts = varietyOptionsForCrop(nextName);
+    const matchingCatalog = catalog.filter((c) => String(c.cropName || c.name || "").trim().toLowerCase() === String(nextName).trim().toLowerCase());
+    const regVarieties = [...new Set(matchingCatalog.map((c) => String(c.variety || "").trim()).filter(Boolean))];
+    const availableOpts = regVarieties.length > 0 ? [...regVarieties, "Other"] : [...varietyOptionsForCrop(nextName).filter((x) => x !== "Other"), "Other"];
+
+    const currentVariety = resolvePreset(form.variety, form.customVariety);
+    const stillValid = availableOpts.includes(currentVariety);
+    const nextVariety = stillValid
+      ? currentVariety
+      : regVarieties.length === 1
+      ? regVarieties[0]
+      : "";
+
     setForm((prev) => {
-      const currentVariety = resolvePreset(prev.variety, prev.customVariety);
-      const stillValid = opts.includes(currentVariety);
-      const nextVariety = stillValid
-        ? splitPreset(opts, currentVariety)
-        : { select: "", custom: "" };
+      const splitVar = splitPreset(availableOpts, nextVariety);
       return {
         ...prev,
         cropName: v,
         customCropName: v === "Other" ? prev.customCropName : "",
-        variety: nextVariety.select,
-        customVariety: nextVariety.custom,
+        variety: splitVar.select,
+        customVariety: splitVar.custom,
       };
     });
     setErrors((prev) => ({ ...prev, cropName: "", variety: "" }));
+    if (nextName) {
+      syncDefaultsFromCatalog(nextName, nextVariety);
+    }
   };
 
   const onCropCustom = (v) => {
@@ -156,6 +155,17 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
       customVariety: "",
     }));
     setErrors((prev) => ({ ...prev, cropName: "", variety: "" }));
+  };
+
+  const onVarietyChange = (v, isCustom = false) => {
+    if (isCustom) {
+      setField("customVariety", v);
+      syncDefaultsFromCatalog(resolvedCropName, v);
+    } else {
+      setField("variety", v);
+      const varName = resolvePreset(v, form.customVariety);
+      syncDefaultsFromCatalog(resolvedCropName, varName);
+    }
   };
 
   const validate = () => {
@@ -227,29 +237,6 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
         </div>
       ) : null}
 
-      {catalog.length > 0 && !initialCrop?.id && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-1.5 shadow-sm">
-          <label className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-            <span>🌱 Choose from All Registered Crops (नोंदणीकृत पिकांमधून निवडा)</span>
-          </label>
-          <select
-            value={selectedCatalogId}
-            onChange={(e) => applyCatalogCrop(e.target.value)}
-            className={`${FORM_INPUT} bg-white border-emerald-300 font-medium`}
-          >
-            <option value="">-- Select from existing crop catalogue or enter below --</option>
-            {catalog.map((c) => (
-              <option key={c.cropId || c.id} value={c.cropId || c.id}>
-                {c.cropName} - {c.variety} ({c.cropId || c.id})
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] text-emerald-700">
-            Selecting a registered crop auto-fills crop details, variety, and farming defaults.
-          </p>
-        </div>
-      )}
-
       <Section title="Crop">
         <SelectWithOther
           label="Select Crop"
@@ -270,8 +257,8 @@ export default function CropForm({ initialCrop, farmAreaUnit = "Acre", submittin
           options={varietyOptions}
           selectValue={form.variety}
           customValue={form.customVariety}
-          onSelect={(v) => setField("variety", v)}
-          onCustom={(v) => setField("customVariety", v)}
+          onSelect={(v) => onVarietyChange(v, false)}
+          onCustom={(v) => onVarietyChange(v, true)}
           error={errors.variety}
           customLabel="Variety name"
           placeholder="Enter variety"

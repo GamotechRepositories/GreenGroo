@@ -1402,22 +1402,26 @@ export async function getPublicCropsCatalog(req, res) {
     const seen = new Set();
     const catalog = [];
     for (const c of crops) {
-      const name = String(c.cropName || "").trim();
+      const name = String(c.cropName || c.name || "").trim();
       const variety = String(c.variety || "").trim();
       const key = `${name.toLowerCase()}:::${variety.toLowerCase()}`;
       if (!name || seen.has(key)) continue;
       seen.add(key);
+      const photoList = Array.isArray(c.photos) && c.photos.length > 0 
+        ? c.photos 
+        : (c.media?.mainPhoto || c.image ? [c.media?.mainPhoto || c.image] : []);
       catalog.push({
         id: c.cropId || c.id,
         cropId: c.cropId || c.id,
         cropName: name,
-        variety: variety || "Common",
+        variety: variety || "General",
+        category: c.category || "",
         unit: c.unit || "Kg",
         areaUnit: c.areaUnit || "Acre",
         farmingMethod: c.farmingMethod || "Conventional",
         farmingType: c.farmingType || "Conventional",
         irrigationType: c.irrigationType || "Drip",
-        photos: c.photos || [],
+        photos: photoList,
         estimatedQuantity: c.estimatedQuantity || "",
       });
     }
