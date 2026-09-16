@@ -101,7 +101,7 @@ function geoErrorMessage(error) {
   return error?.message || "Could not detect current location";
 }
 
-function getPosition() {
+export function getPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Location is not supported in this browser"));
@@ -115,7 +115,7 @@ function getPosition() {
   });
 }
 
-async function clientReverseGeocode(lat, lng) {
+export async function clientReverseGeocode(lat, lng) {
   for (const zoom of [14, 16, 18]) {
     try {
       const params = new URLSearchParams({

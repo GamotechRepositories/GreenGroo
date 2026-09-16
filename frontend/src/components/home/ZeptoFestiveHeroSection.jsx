@@ -90,7 +90,7 @@ function MovingOfferMarquee() {
           animation-play-state: paused;
         }
       `}</style>
-      
+
       <div className="animate-offer-marquee flex items-center gap-2.5">
         {[...TICKER_OFFERS, ...TICKER_OFFERS].map((offer, index) => (
           <Link

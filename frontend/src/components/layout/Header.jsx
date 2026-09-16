@@ -4,7 +4,7 @@ import { useCart } from "../../context/CartContext";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from "../../config/contact";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 
-export const LOGO_URL = "/greengrocc-logo.png";
+export const LOGO_URL = "/assets/payment/logo.png";
 
 function SearchIcon({ className = "w-4 h-4" }) {
   return (
@@ -54,7 +54,7 @@ function SearchBar({ className = "" }) {
 }
 
 function UtilityIcons({ user, onLoginClick }) {
-  const { cartCount } = useCart();
+  const { cartCount, openCartSidebar } = useCart();
 
   return (
     <div className="flex items-center shrink-0 justify-end">
@@ -85,8 +85,9 @@ function UtilityIcons({ user, onLoginClick }) {
 
       <div className="w-px h-9 bg-gray-200 mx-1 lg:mx-2" aria-hidden="true" />
 
-      <Link
-        to="/cart"
+      <button
+        type="button"
+        onClick={openCartSidebar}
         className="flex flex-col items-center justify-center gap-1 px-3 lg:px-4 text-gray-700 hover:text-accent transition"
       >
         <span className="relative inline-flex">
@@ -100,14 +101,14 @@ function UtilityIcons({ user, onLoginClick }) {
           )}
         </span>
         <span className="text-[10px] font-medium">My Cart</span>
-      </Link>
+      </button>
     </div>
   );
 }
 
 function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
   return (
-    <div className="bg-light-bg border-b border-gray-200 shadow-sm">
+    <div className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-3">
         {/* Mobile: logo + menu */}
         <div className="flex md:hidden items-center justify-between gap-3 min-w-0">
@@ -115,7 +116,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
             <img
               src={LOGO_URL}
               alt="GreenGrocc.in - Smart Choice, Best Price"
-              className="h-11 sm:h-12 w-auto max-w-full object-contain object-left hover:opacity-90 transition"
+              className="h-16 sm:h-20 w-auto max-w-full object-contain object-left hover:opacity-90 transition"
             />
           </Link>
           <button
@@ -143,7 +144,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
             <img
               src={LOGO_URL}
               alt="GreenGrocc.in - Smart Choice, Best Price"
-              className="h-10 lg:h-12 w-auto object-contain object-left hover:opacity-90 transition"
+              className="h-16 lg:h-20 w-auto object-contain object-left hover:opacity-90 transition"
             />
           </Link>
 
@@ -155,7 +156,7 @@ function Header({ user, onLoginClick, onMenuToggle, menuOpen }) {
         </div>
       </div>
 
-      <div className="md:hidden px-4 pb-3 bg-light-bg">
+      <div className="md:hidden px-4 pb-3 bg-white">
         <SearchBar className="w-full" />
       </div>
     </div>

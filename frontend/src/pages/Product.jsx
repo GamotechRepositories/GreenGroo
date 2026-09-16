@@ -105,10 +105,13 @@ function useListingFilters({ brandParamKey = "brand" } = {}) {
   const selectedBrand =
     searchParams.get(brandParamKey)?.trim() || searchParams.get("brand")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "newest";
+  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
+  const onSale = searchParams.get("onSale") === "true";
+  const inStock = searchParams.get("inStock") === "true";
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
-    if (value) next.set(key, value);
+    if (value && value !== "false") next.set(key, value);
     else next.delete(key);
     if (key === brandParamKey && brandParamKey !== "brand") {
       next.delete("brand");
@@ -126,12 +129,15 @@ function useListingFilters({ brandParamKey = "brand" } = {}) {
   };
 
   const hasActiveFilters = Boolean(
-    (brandParamKey === "brand" && selectedBrand) || (sortBy && sortBy !== "newest")
+    (brandParamKey === "brand" && selectedBrand) || (sortBy && sortBy !== "newest") || maxPrice || onSale || inStock
   );
 
   return {
     selectedBrand,
     sortBy,
+    maxPrice,
+    onSale,
+    inStock,
     updateParam,
     clearFilters,
     hasActiveFilters,
@@ -169,9 +175,29 @@ function FilteredProductsView({
       ) {
         return false;
       }
+      
+      const price = product.discountedPrice ?? product.price ?? 0;
+      if (filters.maxPrice && price > Number(filters.maxPrice)) {
+        return false;
+      }
+
+      if (filters.onSale) {
+        const originalPrice = product.price ?? price;
+        if (!(originalPrice > price && price > 0)) {
+          return false;
+        }
+      }
+
+      if (filters.inStock) {
+        const stockAmt = product.storeStock ?? product.stock ?? 0;
+        if (stockAmt <= 0 && product.inStock !== true) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [products, filters.selectedBrand, brandParamKey]);
+  }, [products, filters.selectedBrand, brandParamKey, filters.maxPrice, filters.onSale, filters.inStock]);
 
   const sortedProducts = useMemo(() => {
     const list = [...filteredProducts];
@@ -199,7 +225,7 @@ function FilteredProductsView({
   };
 
   return (
-    <div className="min-h-screen bg-mobile-bg pb-6 lg:flex lg:h-[calc(100vh-108px)] lg:min-h-0 lg:flex-col lg:overflow-hidden lg:pb-0">
+    <div className="min-h-screen bg-mobile-bg pb-6 lg:pb-0">
       <div className="lg:hidden">
         <MobileProductToolbar
           title={pageTitle}
@@ -222,6 +248,12 @@ function FilteredProductsView({
               showSort={false}
               selectedBrand={filters.selectedBrand}
               onBrandChange={(value) => filters.updateParam(brandParamKey, value)}
+              maxPrice={filters.maxPrice}
+              onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+              onSale={filters.onSale}
+              onOnSaleChange={(value) => filters.updateParam("onSale", value ? "true" : "false")}
+              inStock={filters.inStock}
+              onInStockChange={(value) => filters.updateParam("inStock", value ? "true" : "false")}
               onClear={() => filters.clearFilters(preserveKeys)}
               hasActiveFilters={filterActive}
             />
@@ -261,12 +293,12 @@ function FilteredProductsView({
         </div>
       </div>
 
-      <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
-        <div className="mx-auto grid h-full min-h-0 w-full max-w-[1600px] grid-cols-[240px_1fr] bg-mobile-bg xl:grid-cols-[260px_1fr]">
-          <div className="min-h-0 overflow-hidden">
+      <div className="hidden lg:block">
+        <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[240px_1fr] bg-mobile-bg xl:grid-cols-[260px_1fr] items-start">
+          <div className="sticky top-[120px] h-[calc(100vh-120px)] overflow-hidden">
             <DesktopCategorySidebar categories={categories} activeCategory="" />
           </div>
-          <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto border-l border-border-light bg-white">
+          <div className="min-h-0 flex-1 border-l border-border-light bg-white">
             <div className="border-b border-border-light px-3 py-4 lg:px-6 lg:py-5">
               <h1 className="mb-3 text-xl font-bold text-text-primary">{pageTitle}</h1>
               <ProductFiltersBar
@@ -324,6 +356,10 @@ function Product() {
   const searchQuery = searchParams.get("q")?.trim() || "";
   const brandName = searchParams.get("brandName")?.trim() || "";
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [categoryName, searchQuery, brandName, storeParam]);
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
   const productParams = useProductListParams(searchParams);
@@ -450,7 +486,7 @@ function Product() {
 
   if (categoryName) {
     return (
-      <div className="h-[calc(100dvh-124px)] min-h-0 overflow-hidden bg-white lg:flex lg:h-[calc(100vh-108px)] lg:flex-col lg:pb-0">
+      <div className="bg-white lg:pb-0">
         <MobileCategoryProductLayout
           categories={categories}
           categoryName={categoryName}
@@ -482,7 +518,7 @@ function Product() {
   }
 
   return (
-    <div className="h-[calc(100dvh-124px)] min-h-0 overflow-hidden bg-white lg:flex lg:h-[calc(100vh-108px)] lg:flex-col lg:pb-0">
+    <div className="bg-white lg:pb-0">
       <AllProductsLayout
         categories={categories}
         products={products}

@@ -73,6 +73,9 @@ function QuickCommerceProductCard({
 
   const { originalPrice, salePrice, hasDiscount } = getProductListPriceInfo(product);
   const discountAmt = hasDiscount ? Math.round(originalPrice - salePrice) : 0;
+  const discountPercent = hasDiscount && originalPrice > 0 
+    ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
+    : 0;
   const unit = getProductUnit(product);
   const rating = getRating(product);
   const reviewCount = getReviewCount(product);
@@ -110,7 +113,7 @@ function QuickCommerceProductCard({
         boxShadow: disabled ? "none" : `2px 2px 0 0 ${ADD_PINK}`,
       }}
     >
-      {disabled ? "OOS" : "ADD"}
+      ADD
     </button>
   );
 
@@ -184,11 +187,24 @@ function QuickCommerceProductCard({
             />
           </Link>
           {disabled ? (
-            <span className="absolute left-2 top-2 z-10 rounded bg-slate-900/80 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 rounded bg-slate-900/80 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white text-center whitespace-nowrap">
               Out of stock
             </span>
           ) : null}
-          {product.badge && (
+          {/* Discount Ribbon Badge */}
+          {hasDiscount && discountPercent > 0 && (
+            <div 
+              className="absolute top-0 left-3 z-10 flex flex-col items-center justify-start bg-[#2874F0] text-white px-1.5 pt-1.5 pb-[10px] min-w-[34px]"
+              style={{
+                clipPath: "polygon(0 0, 100% 0, 100% 100%, 75% calc(100% - 4px), 50% 100%, 25% calc(100% - 4px), 0 100%)"
+              }}
+            >
+              <span className="text-[12px] font-black leading-none tracking-tight">{discountPercent}%</span>
+              <span className="text-[9px] font-black leading-none mt-1">OFF</span>
+            </div>
+          )}
+
+          {product.badge && !(hasDiscount && discountPercent > 0) && (
             <span
               className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white shadow-xs tracking-wide uppercase"
               style={{ backgroundColor: glowColor || '#10B981' }}
@@ -196,7 +212,7 @@ function QuickCommerceProductCard({
               {product.badge}
             </span>
           )}
-          {cartQuantity > 0 ? stepper : addButton}
+          {disabled ? null : cartQuantity > 0 ? stepper : addButton}
         </div>
 
         <Link to={productUrl} className="mt-2.5 block min-w-0">

@@ -4,7 +4,7 @@ import { useCart } from "../../context/CartContext";
 const CART_GREEN = "#0C831F";
 
 function FloatingCartBar() {
-  const { items, cartCount } = useCart();
+  const { items, cartCount, openCartSidebar } = useCart();
 
   // Always keep a visible-size target so fly-to-cart works on first ADD
   if (cartCount === 0) {
@@ -20,10 +20,10 @@ function FloatingCartBar() {
   const thumbnails = items.slice(0, 5);
 
   return (
-    <Link
-      to="/cart"
+    <button
+      onClick={openCartSidebar}
       data-cart-target="floating"
-      className="fixed bottom-[72px] left-1/2 z-40 w-auto max-w-[min(260px,calc(100%-4rem))] -translate-x-1/2 lg:hidden"
+      className="fixed bottom-[72px] left-1/2 z-40 w-auto max-w-[min(260px,calc(100%-4rem))] -translate-x-1/2 lg:hidden block"
     >
       <div
         className="flex items-center gap-2 rounded-full px-2.5 py-1.5 shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
@@ -71,7 +71,7 @@ function FloatingCartBar() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
       </div>
-    </Link>
+    </button>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { LocateFixed, Loader2 } from "lucide-react";
+import { LocateFixed, Loader2, Map as MapIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getLocationByPincode,
@@ -9,6 +9,7 @@ import {
 } from "../../api/api";
 import LocationAutocomplete from "./LocationAutocomplete";
 import { detectCurrentLocation } from "../../utils/detectCurrentLocation";
+import MapLocationPicker from "./MapLocationPicker";
 
 export const ADDRESS_FORM_FIELDS = {
   fullName: "",
@@ -71,18 +72,37 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
   const [form, setForm] = useState(initial || ADDRESS_FORM_FIELDS);
   const [validationError, setValidationError] = useState("");
   const [isDetecting, setIsDetecting] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+
+  const handleMapConfirm = (detected) => {
+    const detectedArea = detected.area || detected.label || "Detected Location";
+    setForm((prev) => ({
+      ...prev,
+      city: detected.city || prev.city || "Detected City",
+      state: detected.state || prev.state || "Detected State",
+      pincode: detected.pincode || prev.pincode || "000000",
+      area: prev.area || detectedArea,
+      landmark: prev.landmark || detectedArea,
+      fullAddress: prev.fullAddress || detected.address || "",
+      location: { lat: detected.lat, lng: detected.lng },
+    }));
+    toast.success("Location selected from map!");
+    setIsMapOpen(false);
+  };
 
   const handleDetectLocation = async () => {
     setIsDetecting(true);
     try {
       const detected = await detectCurrentLocation();
+      const detectedArea = detected.area || detected.label || "Detected Location";
+      
       setForm((prev) => ({
         ...prev,
-        city: detected.city || prev.city,
-        state: detected.state || prev.state,
-        pincode: detected.pincode || prev.pincode,
-        area: prev.area || detected.area || "",
-        landmark: prev.landmark || detected.area || "",
+        city: detected.city || prev.city || "Detected City",
+        state: detected.state || prev.state || "Detected State",
+        pincode: detected.pincode || prev.pincode || "000000",
+        area: prev.area || detectedArea,
+        landmark: prev.landmark || detectedArea,
         fullAddress: prev.fullAddress || detected.address || "",
         location: { lat: detected.lat, lng: detected.lng },
       }));
@@ -93,6 +113,8 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
       setIsDetecting(false);
     }
   };
+
+  const isLocationDetected = Boolean(form.location?.lat && form.location?.lng);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -176,6 +198,17 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
     });
   };
 
+  if (isMapOpen) {
+    return (
+      <div className={plain ? "" : "rounded-xl border border-border-light bg-white p-4"}>
+        <MapLocationPicker
+          onConfirm={handleMapConfirm}
+          onCancel={() => setIsMapOpen(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -189,19 +222,30 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{validationError}</p>
       )}
 
-      <button
-        type="button"
-        onClick={handleDetectLocation}
-        disabled={isDetecting}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-70"
-      >
-        {isDetecting ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <LocateFixed className="h-4 w-4" />
-        )}
-        {isDetecting ? "Detecting location..." : "Detect Live Location"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleDetectLocation}
+          disabled={isDetecting}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-3 text-[13px] font-bold text-primary transition-colors hover:bg-primary/10 disabled:opacity-70"
+        >
+          {isDetecting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LocateFixed className="h-4 w-4" />
+          )}
+          {isDetecting ? "Detecting..." : "Detect Live Location"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsMapOpen(true)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-blue-600 bg-blue-50 px-4 py-3 text-[13px] font-bold text-blue-600 transition-colors hover:bg-blue-100"
+        >
+          <MapIcon className="h-4 w-4" />
+          Choose on Map
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input
@@ -264,52 +308,73 @@ function AddressForm({ initial, onSubmit, onCancel, submitting, plain = false })
         className={`${inputClass} resize-none`}
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <input
-          name="area"
-          value={form.area || ""}
-          onChange={handleChange}
-          required
-          placeholder="Area / locality"
-          className={inputClass}
-        />
-        <input
-          name="landmark"
-          value={form.landmark}
-          onChange={handleChange}
-          placeholder="Landmark (optional)"
-          className={inputClass}
-        />
-      </div>
+      {isLocationDetected ? (
+        <div className="rounded-lg bg-green-50 p-3 border border-green-100 flex items-start gap-2">
+          <LocateFixed className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-green-800">Location Detected</p>
+            <p className="text-xs text-green-700 mt-0.5 leading-tight">
+              {[form.area, form.city, form.state, form.pincode].filter(Boolean).join(", ")}
+            </p>
+            <button
+               type="button"
+               onClick={() => setForm(prev => ({...prev, location: null}))}
+               className="text-[10px] text-green-600 font-bold underline mt-1"
+            >
+               Enter manually instead
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input
+              name="area"
+              value={form.area || ""}
+              onChange={handleChange}
+              required
+              placeholder="Area / locality"
+              className={inputClass}
+            />
+            <input
+              name="landmark"
+              value={form.landmark}
+              onChange={handleChange}
+              placeholder="Landmark (optional)"
+              className={inputClass}
+            />
+          </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <LocationAutocomplete
-          name="state"
-          placeholder="State"
-          value={form.state}
-          onChange={handleStateChange}
-          fetchSuggestions={fetchStates}
-          required
-        />
-        <LocationAutocomplete
-          name="city"
-          placeholder={form.state ? "City" : "Select state first"}
-          value={form.city}
-          onChange={handleCityChange}
-          fetchSuggestions={fetchCities}
-          disabled={!form.state.trim()}
-          required
-        />
-        <LocationAutocomplete
-          name="pincode"
-          placeholder={form.city ? "Pincode" : "Select city first"}
-          value={form.pincode}
-          onChange={handlePincodeChange}
-          fetchSuggestions={fetchPincodes}
-          disabled={!form.state.trim() || !form.city.trim()}
-          required
-        />
-      </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <LocationAutocomplete
+              name="state"
+              placeholder="State"
+              value={form.state}
+              onChange={handleStateChange}
+              fetchSuggestions={fetchStates}
+              required
+            />
+            <LocationAutocomplete
+              name="city"
+              placeholder={form.state ? "City" : "Select state first"}
+              value={form.city}
+              onChange={handleCityChange}
+              fetchSuggestions={fetchCities}
+              disabled={!form.state.trim()}
+              required
+            />
+            <LocationAutocomplete
+              name="pincode"
+              placeholder={form.city ? "Pincode" : "Select city first"}
+              value={form.pincode}
+              onChange={handlePincodeChange}
+              fetchSuggestions={fetchPincodes}
+              disabled={!form.state.trim() || !form.city.trim()}
+              required
+            />
+          </div>
+        </>
+      )}
 
       <div className="flex items-center justify-end gap-4 pt-1">
         <button

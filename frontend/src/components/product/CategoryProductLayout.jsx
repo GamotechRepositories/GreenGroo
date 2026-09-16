@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import DealProductCard from "./DealProductCard";
 import SidebarCategoryImage from "./SidebarCategoryImage";
 import CategoryHeaderSection from "./CategoryHeaderSection";
@@ -21,6 +21,9 @@ function useCategoryFilters(products, categoryName) {
   const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "newest";
+  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
+  const onSale = searchParams.get("onSale") === "true";
+  const inStock = searchParams.get("inStock") === "true";
 
   const filteredProducts = products.filter((product) => {
     if (subcategory) {
@@ -38,6 +41,26 @@ function useCategoryFilters(products, categoryName) {
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
       return false;
     }
+
+    const price = product.discountedPrice ?? product.price ?? 0;
+    if (maxPrice && price > Number(maxPrice)) {
+      return false;
+    }
+
+    if (onSale) {
+      const originalPrice = product.price ?? price;
+      if (!(originalPrice > price && price > 0)) {
+        return false;
+      }
+    }
+
+    if (inStock) {
+      const stockAmt = product.storeStock ?? product.stock ?? 0;
+      if (stockAmt <= 0 && product.inStock !== true) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -59,7 +82,7 @@ function useCategoryFilters(products, categoryName) {
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
-    if (value) next.set(key, value);
+    if (value && value !== "false") next.set(key, value);
     else next.delete(key);
     setSearchParams(next, { replace: true });
   };
@@ -71,12 +94,17 @@ function useCategoryFilters(products, categoryName) {
     setSearchParams(next, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "newest"));
+  const hasActiveFilters = Boolean(
+    selectedBrand || (sortBy && sortBy !== "newest") || maxPrice || onSale || inStock
+  );
 
   return {
     subcategory,
     selectedBrand,
     sortBy,
+    maxPrice,
+    onSale,
+    inStock,
     sortedProducts,
     updateParam,
     clearFilters,
@@ -89,11 +117,34 @@ function useAllProductsFilters(products) {
 
   const selectedBrand = searchParams.get("brand")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "newest";
+  const maxPrice = searchParams.get("maxPrice")?.trim() || "";
+  const onSale = searchParams.get("onSale") === "true";
+  const inStock = searchParams.get("inStock") === "true";
 
   const filteredProducts = products.filter((product) => {
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
       return false;
     }
+
+    const price = product.discountedPrice ?? product.price ?? 0;
+    if (maxPrice && price > Number(maxPrice)) {
+      return false;
+    }
+
+    if (onSale) {
+      const originalPrice = product.price ?? price;
+      if (!(originalPrice > price && price > 0)) {
+        return false;
+      }
+    }
+
+    if (inStock) {
+      const stockAmt = product.storeStock ?? product.stock ?? 0;
+      if (stockAmt <= 0 && product.inStock !== true) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -115,7 +166,7 @@ function useAllProductsFilters(products) {
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
-    if (value) next.set(key, value);
+    if (value && value !== "false") next.set(key, value);
     else next.delete(key);
     setSearchParams(next, { replace: true });
   };
@@ -124,11 +175,16 @@ function useAllProductsFilters(products) {
     setSearchParams({}, { replace: true });
   };
 
-  const hasActiveFilters = Boolean(selectedBrand || (sortBy && sortBy !== "newest"));
+  const hasActiveFilters = Boolean(
+    selectedBrand || (sortBy && sortBy !== "newest") || maxPrice || onSale || inStock
+  );
 
   return {
     selectedBrand,
     sortBy,
+    maxPrice,
+    onSale,
+    inStock,
     sortedProducts,
     updateParam,
     clearFilters,
@@ -234,21 +290,23 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
 
   if (variant === "mobile") {
     return (
-      <aside className="flex h-full min-h-0 w-[88px] shrink-0 flex-col overflow-hidden border-r border-border-light bg-[#FAFAFA]">
+      <aside className="flex h-full min-h-0 w-[84px] shrink-0 flex-col overflow-hidden border-r border-slate-100 bg-slate-50/50">
         <nav
-          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain px-1.5 py-2"
+          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain px-1.5 py-3"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <Link
             to={allUrl}
-            className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] transition ${
+            className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
               allActive
-                ? "bg-primary/10 font-semibold text-primary"
-                : "text-text-primary"
+                ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
+                : "text-slate-500 hover:bg-white hover:text-slate-700"
             }`}
           >
-            <SidebarCategoryImage showGrid name="All Products" />
-            <span className="text-center leading-tight">All</span>
+            <div className={`transition-transform duration-200 ${allActive ? "scale-110" : "group-hover:scale-105"}`}>
+              <SidebarCategoryImage showGrid name="All Products" />
+            </div>
+            <span className="text-center leading-[1.1] tracking-tight">All</span>
           </Link>
           {categories.map((cat) => {
             const isActive = activeCategory === cat.categoryName;
@@ -256,14 +314,16 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
               <Link
                 key={cat._id}
                 to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
-                className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] transition ${
+                className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
                   isActive
-                    ? "bg-primary/10 font-semibold text-primary"
-                    : "text-text-primary"
+                    ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
+                    : "text-slate-500 hover:bg-white hover:text-slate-700"
                 }`}
               >
-                <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
-                <span className="line-clamp-2 w-full text-center leading-tight">
+                <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
+                  <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
+                </div>
+                <span className="line-clamp-2 w-full text-center leading-[1.1] tracking-tight">
                   {cat.categoryName}
                 </span>
               </Link>
@@ -275,21 +335,30 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
   }
 
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border-light bg-white">
-      <h2 className="shrink-0 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-        Categories
-      </h2>
-      <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-100 bg-slate-50/30">
+      <div className="shrink-0 px-5 py-4 pb-2">
+        <h2 className="text-[12px] font-bold tracking-widest text-slate-400 uppercase">
+          Categories
+        </h2>
+      </div>
+      <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
         <Link
           to={allUrl}
-          className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs transition ${
+          className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
             allActive
-              ? "border-primary bg-primary/10 font-semibold text-primary"
-              : "border-border-light font-medium text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
+              ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
+              : "hover:bg-slate-100/80"
           }`}
         >
-          <SidebarCategoryImage showGrid name="All Products" />
-          <span>All Products</span>
+          {allActive && (
+            <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+          )}
+          <div className={`transition-transform duration-300 ${allActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
+            <SidebarCategoryImage showGrid name="All Products" />
+          </div>
+          <span className={`text-[13px] leading-tight ${allActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
+            All Products
+          </span>
         </Link>
         {categories.map((cat) => {
           const isActive = activeCategory === cat.categoryName;
@@ -297,14 +366,21 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
             <Link
               key={cat._id}
               to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
-              className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs transition ${
+              className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
                 isActive
-                  ? "border-primary bg-primary/10 font-semibold text-primary"
-                  : "border-border-light font-medium text-text-primary hover:border-primary/40 hover:bg-mobile-surface"
+                  ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
+                  : "hover:bg-slate-100/80"
               }`}
             >
-              <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
-              <span className="min-w-0 truncate">{cat.categoryName}</span>
+              {isActive && (
+                <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+              )}
+              <div className={`transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
+                <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
+              </div>
+              <span className={`text-[13px] leading-tight ${isActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
+                {cat.categoryName}
+              </span>
             </Link>
           );
         })}
@@ -315,6 +391,54 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
 
 function DesktopCategorySidebar({ categories, activeCategory }) {
   return <CategoryListBox categories={categories} activeCategory={activeCategory} variant="desktop" />;
+}
+
+function FilterSheet({ filters, showFilters, setShowFilters }) {
+  return (
+    <>
+      <button
+        onClick={() => setShowFilters(true)}
+        className="fixed bottom-[90px] right-4 sm:right-8 z-40 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-slate-800 text-white shadow-xl hover:bg-slate-700 active:scale-95 transition-all"
+        aria-label="Filters"
+      >
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h18M6 9.75h12M9 15h6M10.5 20.25h3" />
+        </svg>
+      </button>
+
+      {showFilters && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowFilters(false)} />
+          <div className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-[150px] sm:right-8 sm:w-[340px] z-[70] rounded-t-3xl sm:rounded-2xl bg-white p-5 pb-8 sm:pb-5 shadow-2xl animate-in sm:slide-in-from-bottom-4 slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-[16px]">Filters & Sorting</h3>
+              <button onClick={() => setShowFilters(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 transition">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <ProductFiltersBar
+              showBrand={true}
+              selectedBrand={filters.selectedBrand}
+              onBrandChange={(value) => filters.updateParam("brand", value)}
+              sortBy={filters.sortBy}
+              onSortChange={(value) => filters.updateParam("sort", value)}
+              maxPrice={filters.maxPrice}
+              onMaxPriceChange={(value) => filters.updateParam("maxPrice", value)}
+              onSale={filters.onSale}
+              onOnSaleChange={(value) => filters.updateParam("onSale", value ? "true" : "false")}
+              inStock={filters.inStock}
+              onInStockChange={(value) => filters.updateParam("inStock", value ? "true" : "false")}
+              onClear={filters.clearFilters}
+              hasActiveFilters={filters.hasActiveFilters}
+              className="px-0 py-0 flex-col !items-stretch [&>select]:w-full [&>select]:h-11 [&>select]:text-[14px] [&>button]:h-11 [&>button]:text-[14px] gap-4 bg-transparent"
+            />
+          </div>
+        </>
+      )}
+    </>
+  );
 }
 
 function CategoryProductMain({
@@ -336,27 +460,20 @@ function CategoryProductMain({
   const activeCategoryDoc = categories.find(
     (cat) => cat.categoryName.toLowerCase() === categoryName.toLowerCase()
   );
+  const [showFilters, setShowFilters] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-0 pt-0 lg:px-3 lg:pt-2">
-        <ShopTopSlidingBanners />
-        <CategoryHeaderSection
-          category={activeCategoryDoc}
-          categoryName={categoryName}
-          subcategories={activeCategoryDoc?.subcategories || []}
-          activeSubcategory={filters.subcategory}
-        />
-      </div>
-      <CategoryFilterToolbar
-        selectedBrand={filters.selectedBrand}
-        onBrandChange={(value) => filters.updateParam("brand", value)}
-        sortBy={filters.sortBy}
-        onSortChange={(value) => filters.updateParam("sort", value)}
-        onClear={filters.clearFilters}
-        hasActiveFilters={filters.hasActiveFilters}
-      />
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-2 lg:px-3 lg:py-3">
+      <div className="px-2 py-2 lg:px-3 lg:py-3 pb-24">
+        <div className="mb-3">
+          <ShopTopSlidingBanners />
+          <CategoryHeaderSection
+            category={activeCategoryDoc}
+            categoryName={categoryName}
+            subcategories={activeCategoryDoc?.subcategories || []}
+            activeSubcategory={filters.subcategory}
+          />
+        </div>
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
@@ -370,6 +487,7 @@ function CategoryProductMain({
           onLoadMore={onLoadMore}
         />
       </div>
+      <FilterSheet filters={filters} showFilters={showFilters} setShowFilters={setShowFilters} />
     </div>
   );
 }
@@ -387,21 +505,14 @@ function AllProductsMain({
   onLoadMore,
 }) {
   const filters = useAllProductsFilters(products);
+  const [showFilters, setShowFilters] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-0 pt-0 lg:px-3 lg:pt-2">
-        <ShopTopSlidingBanners />
-      </div>
-      <AllProductsFilterToolbar
-        selectedBrand={filters.selectedBrand}
-        onBrandChange={(value) => filters.updateParam("brand", value)}
-        sortBy={filters.sortBy}
-        onSortChange={(value) => filters.updateParam("sort", value)}
-        onClear={filters.clearFilters}
-        hasActiveFilters={filters.hasActiveFilters}
-      />
-      <div className="hide-scrollbar flex-1 overflow-y-auto px-2 py-3 lg:px-3 lg:py-4">
+      <div className="px-2 py-3 lg:px-3 lg:py-4 pb-24">
+        <div className="mb-3">
+          <ShopTopSlidingBanners />
+        </div>
         <ProductResultsGrid
           products={filters.sortedProducts}
           loading={loading}
@@ -415,6 +526,7 @@ function AllProductsMain({
           onLoadMore={onLoadMore}
         />
       </div>
+      <FilterSheet filters={filters} showFilters={showFilters} setShowFilters={setShowFilters} />
     </div>
   );
 }
@@ -429,11 +541,11 @@ export {
 
 function ProductPageTwoBoxLayout({ categories, activeCategory, children }) {
   return (
-    <div className="mx-auto grid h-full min-h-0 w-full max-w-[1600px] grid-cols-[260px_1fr] bg-white xl:grid-cols-[280px_1fr]">
-      <div className="min-h-0 overflow-hidden">
+    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[260px_1fr] bg-white xl:grid-cols-[280px_1fr] items-start">
+      <div className="sticky top-[120px] h-[calc(100vh-120px)] overflow-hidden">
         <CategoryListBox categories={categories} activeCategory={activeCategory} variant="desktop" />
       </div>
-      <div className="flex min-h-0 flex-col overflow-hidden bg-white">{children}</div>
+      <div className="flex flex-col bg-white min-w-0">{children}</div>
     </div>
   );
 }
@@ -454,7 +566,7 @@ export default function CategoryProductLayout({
   onLoadMore,
 }) {
   return (
-    <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
+    <div className="hidden lg:block">
       <ProductPageTwoBoxLayout categories={categories} activeCategory={activeCategory}>
         <CategoryProductMain
           categories={categories}
@@ -491,7 +603,7 @@ export function AllProductsLayout({
 }) {
   return (
     <>
-      <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
+      <div className="hidden lg:block">
         <ProductPageTwoBoxLayout categories={categories} activeCategory="">
           <AllProductsMain
             products={products}
@@ -507,23 +619,23 @@ export function AllProductsLayout({
           />
         </ProductPageTwoBoxLayout>
       </div>
-      <div className="h-full lg:hidden">
-        <div className="flex h-full min-h-0 overflow-hidden">
+      <div className="lg:hidden flex items-start">
+        <div className="sticky top-[70px] h-[calc(100vh-70px)] shrink-0 overflow-hidden">
           <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
-          <div className="min-h-0 flex-1 flex flex-col bg-white overflow-hidden px-1 pb-1 pt-0">
-            <AllProductsMain
-              products={products}
-              loading={loading}
-              onAdd={onAdd}
-              onGetCartQuantity={onGetCartQuantity}
-              onIncrease={onIncrease}
-              onDecrease={onDecrease}
-              emptyMessage={emptyMessage}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              onLoadMore={onLoadMore}
-            />
-          </div>
+        </div>
+        <div className="flex-1 flex flex-col bg-white px-1 pb-1 pt-0 min-w-0">
+          <AllProductsMain
+            products={products}
+            loading={loading}
+            onAdd={onAdd}
+            onGetCartQuantity={onGetCartQuantity}
+            onIncrease={onIncrease}
+            onDecrease={onDecrease}
+            emptyMessage={emptyMessage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onLoadMore={onLoadMore}
+          />
         </div>
       </div>
     </>
@@ -545,25 +657,25 @@ export function MobileCategoryProductLayout({
   onLoadMore,
 }) {
   return (
-    <div className="h-full lg:hidden">
-      <div className="flex h-full min-h-0 overflow-hidden">
+    <div className="lg:hidden flex items-start">
+      <div className="sticky top-[70px] h-[calc(100vh-70px)] shrink-0 overflow-hidden">
         <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
-        <div className="min-h-0 flex-1 flex flex-col bg-white overflow-hidden px-1 pb-1 pt-0">
-          <CategoryProductMain
-            categories={categories}
-            categoryName={categoryName}
-            products={products}
-            loading={loading}
-            onAdd={onAdd}
-            onGetCartQuantity={onGetCartQuantity}
-            onIncrease={onIncrease}
-            onDecrease={onDecrease}
-            emptyMessage={emptyMessage}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            onLoadMore={onLoadMore}
-          />
-        </div>
+      </div>
+      <div className="flex-1 flex flex-col bg-white px-1 pb-1 pt-0 min-w-0">
+        <CategoryProductMain
+          categories={categories}
+          categoryName={categoryName}
+          products={products}
+          loading={loading}
+          onAdd={onAdd}
+          onGetCartQuantity={onGetCartQuantity}
+          onIncrease={onIncrease}
+          onDecrease={onDecrease}
+          emptyMessage={emptyMessage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          onLoadMore={onLoadMore}
+        />
       </div>
     </div>
   );

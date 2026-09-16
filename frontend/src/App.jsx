@@ -7,6 +7,7 @@ import AuthModal from "./components/auth/AuthModal";
 import ScrollToTop from "./components/layout/ScrollToTop";
 import FloatingCornerActions from "./components/layout/FloatingCornerActions";
 import BumperBountyModal from "./components/grocery/BumperBountyModal";
+import CartSidebar from "./components/cart/CartSidebar";
 import AppRoutes from "./routes/AppRoutes";
 
 function AuthModalHost() {
@@ -34,6 +35,7 @@ function App() {
               <AppRoutes />
               <FloatingCornerActions />
               <BumperBountyModal />
+              <CartSidebar />
               <AuthModalHost />
             </WishlistProvider>
           </CartProvider>
