@@ -15,6 +15,7 @@ import {
   ensureFarmerIndexes,
   FarmerCrop,
   FarmerCropPlan,
+  CROP_STATUSES,
   Pickup,
   PickupDriver,
   CollectionCentre,
@@ -1368,6 +1369,8 @@ function publicPlan(plan, crop) {
     variety: crop?.variety || "",
     farmingMethod: crop?.farmingMethod || "",
     farmingType: crop?.farmingType || "",
+    status: crop?.status || plain.status || "Planning Created",
+    certificates: (plain.certificates && plain.certificates.length > 0) ? plain.certificates : (crop?.certificates || []),
   };
 }
 
@@ -1621,9 +1624,10 @@ async function applyCropUpdate(crop, payload) {
   const parsed = validateCropPayload({ ...toPlain(crop), ...(payload || {}) });
   if (parsed.error) return { error: parsed.error };
   const nextStatus = String(payload?.status || crop.status);
-  const allowed = CROP_STATUS_FLOW[crop.status] || [crop.status];
-  if (!allowed.includes(nextStatus)) {
-    return { error: `Cannot change status from ${crop.status} to ${nextStatus}` };
+  if (payload?.status) {
+    if (!CROP_STATUSES.includes(nextStatus)) {
+      return { error: `Invalid crop status: ${nextStatus}` };
+    }
   }
   crop.cropName = parsed.cropName;
   crop.variety = parsed.variety;
@@ -1638,10 +1642,17 @@ async function applyCropUpdate(crop, payload) {
   crop.farmingMethod = parsed.farmingMethod;
   crop.farmingType = parsed.farmingType;
   crop.irrigationType = parsed.irrigationType;
-  crop.photos = parsed.photos;
+  if (Array.isArray(payload?.certificates)) {
+    crop.certificates = payload.certificates;
+  }
   crop.status = nextStatus;
   await crop.save();
   const plan = await upsertCropPlan(crop.farmerId, crop);
+  if (plan) {
+    if (payload?.status) plan.status = nextStatus;
+    if (Array.isArray(payload?.certificates)) plan.certificates = payload.certificates;
+    await plan.save();
+  }
   return { crop, plan };
 }
 
@@ -1858,31 +1869,57 @@ export async function createFarmerCropPlan(req, res) {
 }
 
 async function updatePlanFields(plan, payload, crop, res) {
-  const estimatedProduction = Number(payload.estimatedProduction ?? plan.estimatedProduction);
-  const expectedDemand = Number(payload.expectedDemand ?? plan.expectedDemand);
-  const suggestedSaleQuantity = Number(payload.suggestedSaleQuantity ?? plan.suggestedSaleQuantity);
-  if (!Number.isFinite(estimatedProduction) || estimatedProduction <= 0) {
-    res.status(400).json({ message: "Estimated production must be greater than 0" });
-    return;
+  if (payload.status) {
+    const nextStatus = String(payload.status).trim();
+    if (!CROP_STATUSES.includes(nextStatus)) {
+      res.status(400).json({ message: `Invalid crop status: ${nextStatus}` });
+      return;
+    }
+    plan.status = nextStatus;
+    if (crop) {
+      crop.status = nextStatus;
+      await crop.save();
+    }
   }
-  if (!Number.isFinite(expectedDemand) || expectedDemand < 0) {
-    res.status(400).json({ message: "Expected demand cannot be negative" });
-    return;
+
+  if (Array.isArray(payload.certificates)) {
+    plan.certificates = payload.certificates;
+    if (crop) {
+      crop.certificates = payload.certificates;
+      await crop.save();
+    }
   }
-  if (!Number.isFinite(suggestedSaleQuantity) || suggestedSaleQuantity < 0) {
-    res.status(400).json({ message: "Suggested sale quantity cannot be negative" });
-    return;
+
+  if (payload.estimatedProduction != null || payload.expectedDemand != null || payload.suggestedSaleQuantity != null) {
+    const estimatedProduction = Number(payload.estimatedProduction ?? plan.estimatedProduction);
+    const expectedDemand = Number(payload.expectedDemand ?? plan.expectedDemand);
+    const suggestedSaleQuantity = Number(payload.suggestedSaleQuantity ?? plan.suggestedSaleQuantity);
+    if (!Number.isFinite(estimatedProduction) || estimatedProduction <= 0) {
+      res.status(400).json({ message: "Estimated production must be greater than 0" });
+      return;
+    }
+    if (!Number.isFinite(expectedDemand) || expectedDemand < 0) {
+      res.status(400).json({ message: "Expected demand cannot be negative" });
+      return;
+    }
+    if (!Number.isFinite(suggestedSaleQuantity) || suggestedSaleQuantity < 0) {
+      res.status(400).json({ message: "Suggested sale quantity cannot be negative" });
+      return;
+    }
+    if (suggestedSaleQuantity > estimatedProduction) {
+      res.status(400).json({ message: "Suggested sale quantity cannot be greater than estimated production" });
+      return;
+    }
+    plan.estimatedProduction = estimatedProduction;
+    plan.expectedDemand = expectedDemand;
+    plan.suggestedSaleQuantity = suggestedSaleQuantity;
   }
-  if (suggestedSaleQuantity > estimatedProduction) {
-    res.status(400).json({ message: "Suggested sale quantity cannot be greater than estimated production" });
-    return;
-  }
-  plan.estimatedProduction = estimatedProduction;
-  plan.expectedDemand = expectedDemand;
-  plan.suggestedSaleQuantity = suggestedSaleQuantity;
+
   if (payload.harvestDate) plan.harvestDate = String(payload.harvestDate);
   if (payload.unit && ["Kg", "Quintal", "Ton"].includes(payload.unit)) plan.unit = payload.unit;
-  plan.status = "Updated";
+  if (!payload.status && !plan.status) {
+    plan.status = "Updated";
+  }
   const saved = await plan.save();
   res.json(publicPlan(saved, crop));
 }
@@ -4128,15 +4165,21 @@ export async function uploadFarmerDocument(req, res) {
       }
     }
 
-    const allowed = ["aadhaar", "pan", "bank", "address", "other"];
-    const docType = allowed.includes(String(type)) ? String(type) : "other";
     const names = {
       aadhaar: "Aadhaar / ID Proof",
       pan: "PAN Card",
       bank: "Bank Details",
       address: "Address Proof",
-      other: "Other Documents",
+      soil_report: "Soil Testing Report (मृदा परीक्षण अहवाल)",
+      organic_cert: "Organic Farming Certificate (सेंद्रिय शेती प्रमाणपत्र)",
+      land_712: "7/12 & 8-A Extract (७/१२ व ८-अ उतारा)",
+      crop_insurance: "Crop Insurance Certificate (पीक विमा पावती)",
+      water_testing: "Water Testing Report (पाणी चाचणी अहवाल)",
+      gap_cert: "GAP / APEDA Quality Certificate (जीएपी / गुणवत्ता प्रमाणपत्र)",
+      pesticide_report: "Pesticide Residue Free Certificate (कीटकनाशक अवशेषमुक्त प्रमाणपत्र)",
+      other: "Other Certificate / Document",
     };
+    const docType = String(type || "other").trim().toLowerCase();
 
     let doc = await FarmerDocument.findOne({ farmerId, type: docType });
     if (!doc) {

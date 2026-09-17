@@ -100,22 +100,68 @@ export function varietyOptionsForCrop(cropName = "") {
 
 export const CROP_UNITS = ["Kg", "Quintal", "Ton"];
 
-export const CROP_STATUSES = ["Planned", "Growing", "Ready for Harvest", "Harvested", "Completed"];
+export const CROP_STATUSES = [
+  "Planning Created",
+  "Soil Testing Pending",
+  "Soil Testing Completed",
+  "Soil Report Uploaded",
+  "Soil Report Under Review",
+  "Soil Report Approved",
+  "Land Preparation",
+  "Crop & Variety Selected",
+  "Seed/Input Planning",
+  "Sowing/Plantation Started",
+  "Sowing/Plantation Completed",
+  "Crop Growing",
+  "Irrigation in Progress",
+  "Fertilizer Application",
+  "Pesticide Application",
+  "Pest/Disease Monitoring",
+  "Field Inspection Pending",
+  "Field Inspection Completed",
+  "Crop Growth Monitoring",
+  "Pre-Harvest Inspection",
+  "Harvest Readiness",
+  "Ready for Harvest",
+  "Harvesting Started",
+  "Harvesting In Progress",
+  "Harvesting Completed",
+  "Harvest Quantity Recorded",
+  "Harvest Batch Created",
+  "Completed",
+];
 
-export const CROP_STATUS_FLOW = {
-  Planned: ["Planned", "Growing"],
-  Growing: ["Growing", "Ready for Harvest"],
-  "Ready for Harvest": ["Ready for Harvest", "Harvested"],
-  Harvested: ["Harvested", "Completed"],
-  Completed: ["Completed"],
-};
+export const CROP_STATUS_FLOW = Object.fromEntries(
+  CROP_STATUSES.map((s, i) => [
+    s,
+    i < CROP_STATUSES.length - 1 ? [s, CROP_STATUSES[i + 1]] : [s],
+  ])
+);
 
 export const DOCUMENT_TYPES = [
   { id: "aadhaar", name: "Aadhaar / ID Proof", required: false },
   { id: "pan", name: "PAN Card", required: false },
   { id: "bank", name: "Bank Details", required: false },
   { id: "address", name: "Address Proof", required: false },
+  { id: "soil_report", name: "Soil Testing Report (मृदा परीक्षण अहवाल)", required: false },
+  { id: "organic_cert", name: "Organic Farming Certificate (सेंद्रिय शेती प्रमाणपत्र)", required: false },
+  { id: "land_712", name: "7/12 & 8-A Extract (७/१२ व ८-अ उतारा)", required: false },
+  { id: "crop_insurance", name: "Crop Insurance Certificate (पीक विमा पावती)", required: false },
+  { id: "water_testing", name: "Water Testing Report (पाणी चाचणी अहवाल)", required: false },
+  { id: "gap_cert", name: "GAP / APEDA Quality Certificate (जीएपी / गुणवत्ता प्रमाणपत्र)", required: false },
   { id: "other", name: "Other Documents", required: false },
+];
+
+export const CERTIFICATE_TYPES = [
+  { id: "soil_report", name: "Soil Testing Report (मृदा परीक्षण अहवाल)", icon: "🧪", defaultStage: "Soil Report Uploaded" },
+  { id: "organic_cert", name: "Organic Farming Certificate (सेंद्रिय शेती प्रमाणपत्र)", icon: "🌿" },
+  { id: "land_712", name: "7/12 & 8-A Extract (७/१२ व ८-अ उतारा)", icon: "📜" },
+  { id: "crop_insurance", name: "Crop Insurance Certificate (पीक विमा पावती)", icon: "🛡️" },
+  { id: "water_testing", name: "Water Testing Report (पाणी चाचणी अहवाल)", icon: "💧" },
+  { id: "gap_cert", name: "GAP / APEDA Quality Certificate (जीएपी / गुणवत्ता प्रमाणपत्र)", icon: "🏅" },
+  { id: "pesticide_report", name: "Pesticide Residue Free Certificate (कीटकनाशक अवशेषमुक्त अहवाल)", icon: "🌱" },
+  { id: "pre_harvest_cert", name: "Pre-Harvest Inspection Report (कापणीपूर्व तपासणी अहवाल)", icon: "📋", defaultStage: "Pre-Harvest Inspection" },
+  { id: "other", name: "Other Certificate / Document (इतर प्रमाणपत्र)", icon: "📄" },
 ];
 
 export const VERIFICATION_STATUS = {

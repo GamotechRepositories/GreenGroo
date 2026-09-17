@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { getCrop, getCropPlan, updateCropPlan } from "../api/farmerApi";
 import LoadingState from "../components/ui/LoadingState";
 import { createProductPath, formatCropDate, formatCropBusinessId } from "../utils/cropLinks";
+import { CROP_STATUSES } from "../utils/constants";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY, EXCEL_INPUT, EXCEL_PAGE_SUB, EXCEL_PAGE_TITLE, EXCEL_PANEL, EXCEL_PANEL_HEAD } from "../utils/excelStyles";
 
 function CropPlanPage() {
@@ -15,6 +16,7 @@ function CropPlanPage() {
     estimatedProduction: "",
     expectedDemand: "",
     suggestedSaleQuantity: "",
+    status: "Planning Created",
   });
   const [error, setError] = useState("");
 
@@ -28,6 +30,7 @@ function CropPlanPage() {
         estimatedProduction: plan?.estimatedProduction ?? cropData.estimatedQuantity ?? "",
         expectedDemand: plan?.expectedDemand ?? "",
         suggestedSaleQuantity: plan?.suggestedSaleQuantity ?? "",
+        status: cropData.status || plan?.status || "Planning Created",
       });
     } catch (err) {
       toast.error(err.message || "Failed to load crop plan");
@@ -62,6 +65,7 @@ function CropPlanPage() {
         suggestedSaleQuantity,
         harvestDate: crop.expectedHarvestDate,
         unit: crop.unit,
+        status: form.status,
       });
       toast.success("Crop plan updated");
       await load();
@@ -96,6 +100,20 @@ function CropPlanPage() {
           <Read label="Variety" value={crop.variety} />
           <Read label="Sowing Date" value={formatCropDate(crop.sowingDate)} />
           <Read label="Harvest Date" value={formatCropDate(crop.expectedHarvestDate)} />
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-[#6B7280]">Planning Stage</label>
+            <select
+              value={form.status || "Planning Created"}
+              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            >
+              {CROP_STATUSES.map((st, sIdx) => (
+                <option key={st} value={st}>
+                  {sIdx + 1}. {st}
+                </option>
+              ))}
+            </select>
+          </div>
           <Field
             label={`Estimated Production (${crop.unit})`}
             value={form.estimatedProduction}

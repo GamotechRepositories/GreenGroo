@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { EXCEL_CELL, EXCEL_HEAD, EXCEL_INPUT, EXCEL_SELECT, EXCEL_TABLE, EXCEL_WRAP, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
@@ -404,7 +404,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee, showFarmerCol,
                       const gData = getGradeData(row, gName);
                       rowTotal += gData.amount;
                       return (
-                        <tr key={gName} className="contents">
+                        <React.Fragment key={gName}>
                           <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-medium">
                             {gData.qty > 0 ? `${gData.qty} ${rUnit}` : "0"}
                           </td>
@@ -418,7 +418,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee, showFarmerCol,
                           <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-[#1F2937] tabular-nums bg-[#F9F9F9] group-hover:bg-[#e4f4e4]">
                             {formatRupee(gData.amount)}
                           </td>
-                        </tr>
+                        </React.Fragment>
                       );
                     })}
                     <td className="border border-[#D4D4D4] px-2 py-1.5 text-right font-bold text-red-600 tabular-nums bg-[#FEF2F2] group-hover:bg-[#ffe2e2]">
@@ -441,7 +441,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee, showFarmerCol,
                 {dynamicGrades.map((gName) => {
                   const gTot = totals.gradeTotals[gName] || { qty: 0, rate: 0, amount: 0 };
                   return (
-                    <tr key={gName} className="contents">
+                    <React.Fragment key={gName}>
                       <td className="border border-[#D4D4D4] px-2 py-2 text-right tabular-nums">
                         {gTot.qty} {unit}
                       </td>
@@ -451,7 +451,7 @@ function DailyChartSection({ rows, unit, formatDate, formatRupee, showFarmerCol,
                       <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold tabular-nums">
                         {formatRupee(gTot.amount)}
                       </td>
-                    </tr>
+                    </React.Fragment>
                   );
                 })}
                 <td className="border border-[#D4D4D4] px-2 py-2 text-right font-bold text-red-600 tabular-nums">

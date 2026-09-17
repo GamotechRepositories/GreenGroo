@@ -362,7 +362,7 @@ const farmerDocumentSchema = new mongoose.Schema(
     managerId: { type: String, default: "" },
     farmerId: { type: String, required: true },
     name: { type: String, default: "" },
-    type: { type: String, enum: ["aadhaar", "pan", "address", "bank", "other"], default: "other" },
+    type: { type: String, default: "other" },
     fileName: { type: String, default: "" },
     fileUrl: { type: String, default: "" },
     uploadedAt: { type: Date, default: null },
@@ -463,7 +463,40 @@ farmerHarvestOrderSchema.index({ managerId: 1, createdAt: -1 });
 farmerHarvestOrderSchema.index({ vendorId: 1, createdAt: -1 });
 farmerHarvestOrderSchema.index({ status: 1 });
 
-const CROP_STATUSES = ["Planned", "Growing", "Ready for Harvest", "Harvested", "Completed"];
+export const CROP_STATUSES = [
+  "Planning Created",
+  "Soil Testing Pending",
+  "Soil Testing Completed",
+  "Soil Report Uploaded",
+  "Soil Report Under Review",
+  "Soil Report Approved",
+  "Land Preparation",
+  "Crop & Variety Selected",
+  "Seed/Input Planning",
+  "Sowing/Plantation Started",
+  "Sowing/Plantation Completed",
+  "Crop Growing",
+  "Irrigation in Progress",
+  "Fertilizer Application",
+  "Pesticide Application",
+  "Pest/Disease Monitoring",
+  "Field Inspection Pending",
+  "Field Inspection Completed",
+  "Crop Growth Monitoring",
+  "Pre-Harvest Inspection",
+  "Harvest Readiness",
+  "Ready for Harvest",
+  "Harvesting Started",
+  "Harvesting In Progress",
+  "Harvesting Completed",
+  "Harvest Quantity Recorded",
+  "Harvest Batch Created",
+  "Completed",
+  // Legacy aliases – keep for backward compat
+  "Planned",
+  "Growing",
+  "Harvested",
+];
 
 const farmerCropSchema = new mongoose.Schema(
   {
@@ -486,8 +519,20 @@ const farmerCropSchema = new mongoose.Schema(
     farmingType: { type: String, default: "" },
     irrigationType: { type: String, default: "" },
     photos: [{ type: String }],
+    certificates: [
+      {
+        id: { type: String },
+        type: { type: String, default: "Soil Testing Report" },
+        fileName: { type: String, default: "" },
+        fileUrl: { type: String, default: "" },
+        certNumber: { type: String, default: "" },
+        labName: { type: String, default: "" },
+        issueDate: { type: String, default: "" },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
     previousCropId: { type: String, default: "" },
-    status: { type: String, enum: CROP_STATUSES, default: "Planned" },
+    status: { type: String, enum: CROP_STATUSES, default: "Planning Created" },
   },
   { timestamps: true }
 );
@@ -504,6 +549,18 @@ const farmerCropPlanSchema = new mongoose.Schema(
     suggestedSaleQuantity: { type: Number, default: 0 },
     unit: { type: String, default: "Kg" },
     status: { type: String, default: "Planned" },
+    certificates: [
+      {
+        id: { type: String },
+        type: { type: String, default: "Soil Testing Report" },
+        fileName: { type: String, default: "" },
+        fileUrl: { type: String, default: "" },
+        certNumber: { type: String, default: "" },
+        labName: { type: String, default: "" },
+        issueDate: { type: String, default: "" },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
