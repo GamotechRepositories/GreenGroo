@@ -35,7 +35,74 @@ async function mapSettled(list, fn) {
   return results.map((r) => (r.status === "fulfilled" ? r.value : null));
 }
 
-/** Quality list — same /api/quality/pending?bucket= used by FM inventory. */
+// ----------------------------------------------------
+// DRIVERS API
+// ----------------------------------------------------
+export async function getManagerDrivers({ q = "", status = "" } = {}) {
+  try {
+    const res = await vendorApi.getDrivers({ q, status });
+    return res?.data || [];
+  } catch {
+    return [];
+  }
+}
+
+// ----------------------------------------------------
+// PICKUPS API
+// ----------------------------------------------------
+export async function getManagerPickups(params = {}) {
+  try {
+    const res = await vendorApi.getPickups(params);
+    const data = res?.data;
+    if (data && Array.isArray(data.farmers)) return data;
+    const list = Array.isArray(data) ? data : data?.pickups || [];
+    const map = {};
+    list.forEach((p) => {
+      const fid = p.farmerId || "unknown";
+      if (!map[fid]) {
+        map[fid] = { farmerId: fid, farmerName: p.farmerName || "—", pickups: [] };
+      }
+      map[fid].pickups.push(p);
+    });
+    return { farmers: Object.values(map), pickups: list };
+  } catch {
+    return { farmers: [], pickups: [] };
+  }
+}
+
+export async function getManagerPickup(pickupId) {
+  const res = await vendorApi.getPickup(pickupId);
+  return res?.data;
+}
+
+export async function assignManagerPickup(pickupId, driverId) {
+  const res = await vendorApi.assignPickupDriver(pickupId, driverId);
+  return res?.data;
+}
+
+export async function reassignManagerPickup(pickupId, driverId) {
+  const res = await vendorApi.reassignPickupDriver(pickupId, driverId);
+  return res?.data;
+}
+
+export async function receiveManagerPickup(pickupId, payload = {}) {
+  const res = await vendorApi.receivePickup(pickupId, payload);
+  return res?.data;
+}
+
+export async function getManagerPickupReceipt(pickupId) {
+  const res = await vendorApi.getPickupReceipt(pickupId);
+  return res?.data;
+}
+
+export async function getManagerBatch(batchId) {
+  const res = await vendorApi.getBatch(batchId);
+  return res?.data;
+}
+
+// ----------------------------------------------------
+// QUALITY & GRADING API
+// ----------------------------------------------------
 export async function listManagerQuality({ bucket = "pending" } = {}) {
   try {
     const res = await vendorApi.getQualityPending({ bucket });
@@ -45,6 +112,59 @@ export async function listManagerQuality({ bucket = "pending" } = {}) {
   }
 }
 
+export async function getManagerQuality(orderId) {
+  const res = await vendorApi.getQuality(orderId);
+  return res?.data;
+}
+
+export async function startManagerQuality(orderId) {
+  const res = await vendorApi.startQuality(orderId);
+  return res?.data;
+}
+
+export async function uploadManagerQualityPhotos(orderId, payload) {
+  const res = await vendorApi.uploadQualityPhotos(orderId, payload);
+  return res?.data;
+}
+
+export async function saveManagerQualityParameters(orderId, payload) {
+  const res = await vendorApi.saveQualityParameters(orderId, payload);
+  return res?.data;
+}
+
+export async function saveManagerQualityGrading(orderId, payload) {
+  const res = await vendorApi.saveQualityGrading(orderId, payload);
+  return res?.data;
+}
+
+export async function confirmManagerQuality(orderId) {
+  const res = await vendorApi.confirmQuality(orderId);
+  return res?.data;
+}
+
+export async function getManagerQualitySummary(orderId) {
+  const res = await vendorApi.getQualitySummary(orderId);
+  return res?.data;
+}
+
+export async function getManagerQualityReport(orderId) {
+  const res = await vendorApi.getQualityReport(orderId);
+  return res?.data;
+}
+
+export async function updateManagerOrderPayment(orderId, payload) {
+  const res = await vendorApi.updateOrderPayment(orderId, payload);
+  return res?.data;
+}
+
+export async function verifyManagerQualityQr(payload) {
+  const res = await vendorApi.verifyQualityQr(payload);
+  return res?.data;
+}
+
+// ----------------------------------------------------
+// FARMERS, PRODUCTS, ORDERS, EARNINGS API
+// ----------------------------------------------------
 export async function getManagerFarmers({ q = "", status = "" } = {}) {
   let farmers = await listFarmers();
   if (status) {

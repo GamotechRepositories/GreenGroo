@@ -22,15 +22,15 @@ import VendorProductFarmersPage from './pages/vendor-farmers/VendorProductFarmer
 import VendorCropsPage from './pages/vendor-farmers/VendorCropsPage'
 import FarmerCropViewPage from './pages/vendor-farmers/FarmerCropViewPage'
 import FarmerCropFormPage from './pages/vendor-farmers/FarmerCropFormPage'
-import DriversPage from './pages/drivers/DriversPage'
 import DriverFormPage from './pages/drivers/DriverFormPage'
 import DriverDetailPage from './pages/drivers/DriverDetailPage'
-import VendorPickupsPage from './pages/pickups/VendorPickupsPage'
-import VendorPickupDetailPage from './pages/pickups/VendorPickupDetailPage'
-import CollectionReceivePage from './pages/pickups/CollectionReceivePage'
-import VendorBatchPage from './pages/pickups/VendorBatchPage'
-import QualityListPage from './pages/quality/QualityListPage'
-import QualityInspectionPage from './pages/quality/QualityInspectionPage'
+import ManagerDriversPage from './pages/manager/ManagerDriversPage'
+import ManagerPickupsPage from './pages/manager/ManagerPickupsPage'
+import ManagerPickupDetailPage from './pages/manager/ManagerPickupDetailPage'
+import ManagerReceivePage from './pages/manager/ManagerReceivePage'
+import ManagerBatchPage from './pages/manager/ManagerBatchPage'
+import ManagerQualityListPage from './pages/manager/ManagerQualityListPage'
+import ManagerQualityInspectionPage from './pages/manager/ManagerQualityInspectionPage'
 import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
 import DriverHomePage from './pages/drivers/DriverHomePage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
@@ -90,29 +90,35 @@ function App() {
                 <Route path="/vendor/all-farmers/:farmerId/crops/:cropId" element={<FarmerCropViewPage />} />
                 <Route path="/vendor/all-farmers/:farmerId/products/add" element={<VendorProductAddPage />} />
                 <Route path="/vendor/all-farmers/:farmerId" element={<FarmerDetailPage />} />
-                <Route path="/vendor/drivers" element={<DriversPage />} />
+                <Route path="/vendor/drivers" element={<ManagerDriversPage />} />
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId" element={<DriverDetailPage />} />
-                <Route path="/vendor/pickups/ready" element={<VendorPickupsPage mode="ready" />} />
-                <Route path="/vendor/pickups/assigned" element={<VendorPickupsPage mode="assigned" />} />
+                <Route path="/vendor/pickups" element={<Navigate to="/vendor/pickups/ready" replace />} />
+                <Route path="/vendor/pickups/requests" element={<Navigate to="/vendor/pickups/ready" replace />} />
+                <Route path="/vendor/pickups/ready" element={<ManagerPickupsPage mode="ready" />} />
+                <Route path="/vendor/pickups/assigned" element={<ManagerPickupsPage mode="assigned" />} />
                 <Route path="/vendor/pickups/assignments" element={<Navigate to="/vendor/pickups/ready" replace />} />
-                <Route path="/vendor/pickups/today" element={<VendorPickupsPage mode="today" />} />
-                <Route path="/vendor/pickups/incoming" element={<VendorPickupsPage mode="incoming" />} />
-                <Route path="/vendor/pickups/centre" element={<VendorPickupsPage mode="centre" />} />
-                <Route path="/vendor/pickups/all" element={<VendorPickupsPage mode="all" />} />
+                <Route path="/vendor/pickups/today" element={<ManagerPickupsPage mode="today" />} />
+                <Route path="/vendor/pickups/incoming" element={<ManagerPickupsPage mode="incoming" />} />
+                <Route path="/vendor/pickups/centre" element={<ManagerPickupsPage mode="centre" />} />
+                <Route path="/vendor/pickups/all" element={<ManagerPickupsPage mode="all" />} />
                 <Route path="/vendor/pickups/active" element={<Navigate to="/vendor/pickups/all" replace />} />
-                <Route path="/vendor/pickups/history" element={<Navigate to="/vendor/pickups/all" replace />} />
-                <Route path="/vendor/pickups/:pickupId" element={<VendorPickupDetailPage />} />
+                <Route path="/vendor/pickups/completed" element={<ManagerPickupsPage mode="history" />} />
+                <Route path="/vendor/pickups/history" element={<ManagerPickupsPage mode="history" />} />
+                <Route path="/vendor/pickups/batches/:batchId" element={<ManagerBatchPage />} />
+                <Route path="/vendor/pickups/:pickupId/receive" element={<ManagerReceivePage />} />
+                <Route path="/vendor/pickups/:pickupId" element={<ManagerPickupDetailPage />} />
                 <Route path="/vendor/collection-centre" element={<Navigate to="/vendor/pickups/centre" replace />} />
-                <Route path="/vendor/collection-centre/:pickupId" element={<CollectionReceivePage />} />
-                <Route path="/vendor/batches/:batchId" element={<VendorBatchPage />} />
-                <Route path="/vendor/quality" element={<Navigate to="/vendor/quality/pending" replace />} />
-                <Route path="/vendor/quality/pending" element={<QualityListPage mode="pending" />} />
-                <Route path="/vendor/quality/inspection" element={<QualityListPage mode="inspection" />} />
-                <Route path="/vendor/quality/grading" element={<QualityListPage mode="grading" />} />
-                <Route path="/vendor/quality/completed" element={<QualityListPage mode="completed" />} />
-                <Route path="/vendor/quality/:orderId" element={<QualityInspectionPage />} />
+                <Route path="/vendor/collection-centre/:pickupId" element={<ManagerReceivePage />} />
+                <Route path="/vendor/batches/:batchId" element={<ManagerBatchPage />} />
+                <Route path="/vendor/quality" element={<Navigate to="/vendor/quality/all" replace />} />
+                <Route path="/vendor/quality/all" element={<ManagerQualityListPage mode="all" />} />
+                <Route path="/vendor/quality/pending" element={<ManagerQualityListPage mode="pending" />} />
+                <Route path="/vendor/quality/inspection" element={<ManagerQualityListPage mode="inspection" />} />
+                <Route path="/vendor/quality/grading" element={<Navigate to="/vendor/quality/inspection" replace />} />
+                <Route path="/vendor/quality/completed" element={<ManagerQualityListPage mode="completed" />} />
+                <Route path="/vendor/quality/:orderId" element={<ManagerQualityInspectionPage />} />
                 <Route path="/vendor/inventory" element={<ManagerInventoryPage />} />
                 <Route path="/vendor/inventory/history" element={<ManagerInventoryHistoryPage />} />
                 <Route path="/vendor/orders" element={<ManagerOrdersPage />} />

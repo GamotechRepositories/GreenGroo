@@ -84,12 +84,12 @@ const navItems = [
   },
   {
     id: 'quality',
-    label: 'Quality & Grading',
+    label: 'Quality and Grading Manager',
     icon: BadgeCheck,
     children: [
+      { to: '/vendor/quality/all', label: 'All Inspection' },
       { to: '/vendor/quality/pending', label: 'Pending Inspection' },
-      { to: '/vendor/quality/inspection', label: 'Quality Inspection' },
-      { to: '/vendor/quality/grading', label: 'Grading' },
+      { to: '/vendor/quality/inspection', label: 'Quality Inspection & Grading' },
       { to: '/vendor/quality/completed', label: 'Completed' },
     ],
   },
