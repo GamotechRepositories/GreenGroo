@@ -10,6 +10,11 @@ const REVIEWER_ROLES = new Set([
   "admin",
 ]);
 
+const isReviewerRole = (role) => {
+  if (!role) return false;
+  return REVIEWER_ROLES.has(String(role).trim().toLowerCase());
+};
+
 const makeRequestNumber = () =>
   `INV-${Date.now().toString().slice(-8)}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -137,7 +142,7 @@ export const listMyInventoryRequests = async (req, res, next) => {
 
 export const listAllInventoryRequests = async (req, res, next) => {
   try {
-    if (!REVIEWER_ROLES.has(req.user?.role)) {
+    if (!isReviewerRole(req.user?.role)) {
       return res.status(403).json({
         success: false,
         message: "Only product managers can review inventory requests",
@@ -163,7 +168,7 @@ export const listAllInventoryRequests = async (req, res, next) => {
 
 export const reviewInventoryRequest = async (req, res, next) => {
   try {
-    if (!REVIEWER_ROLES.has(req.user?.role)) {
+    if (!isReviewerRole(req.user?.role)) {
       return res.status(403).json({
         success: false,
         message: "Only product managers can review inventory requests",

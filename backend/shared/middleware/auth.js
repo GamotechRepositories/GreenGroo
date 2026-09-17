@@ -33,13 +33,14 @@ export const protect = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    let role = decoded.role || null;
+    let role = decoded.role ? String(decoded.role).trim().toLowerCase() : null;
 
     if (!role) {
-      role = await resolveRoleFromUserCollection(decoded.id);
+      const userRole = await resolveRoleFromUserCollection(decoded.id || decoded.vendorId);
+      role = userRole ? String(userRole).trim().toLowerCase() : null;
     }
 
-    req.user = { id: decoded.id, role, email: decoded.email };
+    req.user = { id: decoded.id || decoded.vendorId, role, email: decoded.email };
     next();
   } catch {
     return res.status(401).json({
@@ -60,7 +61,9 @@ export const requireAdmin = (req, res, next) => {
 };
 
 export const requireRoles = (...roles) => (req, res, next) => {
-  if (!req.user?.role || !roles.includes(req.user.role)) {
+  const userRole = req.user?.role ? String(req.user.role).trim().toLowerCase() : "";
+  const allowedRoles = roles.map((r) => String(r).trim().toLowerCase());
+  if (!userRole || !allowedRoles.includes(userRole)) {
     return res.status(403).json({
       success: false,
       message: "You do not have permission for this action",

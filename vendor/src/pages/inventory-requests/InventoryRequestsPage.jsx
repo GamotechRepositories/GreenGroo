@@ -62,7 +62,7 @@ export default function InventoryRequestsPage() {
 
   return (
     <PageShell
-      title="Inventory Requests"
+      title="Segregation Manager"
       subtitle="Dark store restock requests appear here as soon as a Delivery Manager sends them"
     >
       {toast && (

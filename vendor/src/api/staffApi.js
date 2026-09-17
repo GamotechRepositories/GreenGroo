@@ -5,20 +5,35 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-const AUTH_STORAGE_KEY = "greengroo_product_manager_auth";
+export function getActiveAuthToken() {
+  const keys = [
+    "greengroo_vendor_auth",
+    "greengroo_product_manager_auth",
+    "greengroo_driver_auth",
+    "token",
+  ];
+  for (const k of keys) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      if (raw.startsWith("{")) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.token) return parsed.token;
+      } else if (raw.length > 20) {
+        return raw;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
 
 api.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
-  if (!config.headers.Authorization) {
-    try {
-      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-      const token = raw ? JSON.parse(raw).token : null;
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch {
-      /* ignore malformed auth cache */
-    }
+  const token = getActiveAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

@@ -62,16 +62,6 @@ const navItems = [
     ],
   },
   {
-    id: 'pickup',
-    label: 'Pickup',
-    icon: Truck,
-    children: [
-      { to: '/vendor/pickups/incoming', label: 'Incoming Pickups' },
-      { to: '/vendor/pickups/centre', label: 'Pickups at Centre' },
-      { to: '/vendor/pickups/all', label: 'All Pickups' },
-    ],
-  },
-  {
     id: 'driver',
     label: 'Driver',
     icon: IdCard,
@@ -80,6 +70,16 @@ const navItems = [
       { to: '/vendor/pickups/assigned', label: 'Assigned Pickups' },
       { to: '/vendor/pickups/today', label: "Today's Pickups" },
       { to: '/vendor/drivers', label: 'All Drivers', end: true },
+    ],
+  },
+  {
+    id: 'pickup',
+    label: 'Pickup',
+    icon: Truck,
+    children: [
+      { to: '/vendor/pickups/incoming', label: 'Incoming Pickups' },
+      { to: '/vendor/pickups/centre', label: 'Pickups at Centre' },
+      { to: '/vendor/pickups/all', label: 'All Pickups' },
     ],
   },
   {
@@ -102,7 +102,15 @@ const navItems = [
       { to: '/vendor/inventory/history', label: 'History' },
     ],
   },
-  { to: '/vendor/orders', label: 'Orders', icon: ShoppingCart },
+  {
+    id: 'orders',
+    label: 'Order Manager',
+    icon: ShoppingCart,
+    children: [
+      { to: '/vendor/orders/farmer', label: 'Farmer Orders' },
+      { to: '/vendor/orders/darkstore', label: 'Darkstore Orders' },
+    ],
+  },
   {
     id: 'earnings',
     label: 'Earnings',
@@ -113,7 +121,7 @@ const navItems = [
     ],
   },
   { to: '/vendor/documents', label: 'Documents', icon: FileText },
-  { to: '/inventory-requests', label: 'Inventory Requests', icon: Package },
+  { to: '/inventory-requests', label: 'Segregation Manager', icon: Package },
 ]
 
 const footerItems = [
@@ -126,7 +134,13 @@ function NavGroup({ item, collapsed, onNavigate }) {
   const location = useLocation()
   const path = location.pathname
   const isChildActive = Boolean(
-    item.children?.some((child) => path.startsWith(String(child.to || '').split('?')[0]))
+    item.children?.some((child) => {
+      const childPath = String(child.to || '').split('?')[0]
+      return (
+        path.startsWith(childPath) ||
+        (childPath.endsWith('/farmer') && (path === '/vendor/orders' || path.startsWith('/vendor/orders/create') || path.startsWith('/vendor/orders/detail')))
+      )
+    })
   )
   const [open, setOpen] = useState(isChildActive)
   const Icon = item.icon || Package
@@ -175,23 +189,34 @@ function NavGroup({ item, collapsed, onNavigate }) {
       </button>
       {open && (
         <div className="ml-3.5 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2.5">
-          {item.children.map((child) => (
-            <NavLink
-              key={child.to}
-              to={child.to}
-              end={child.end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `block rounded-md px-2 py-1.5 text-xs transition ${
-                  isActive
-                    ? 'bg-white font-semibold text-emerald-700 shadow-xs border border-slate-100'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`
-              }
-            >
-              {child.label}
-            </NavLink>
-          ))}
+          {item.children.map((child) => {
+            const childPath = String(child.to || '').split('?')[0]
+            const isChildItemActive =
+              path === childPath ||
+              path.startsWith(childPath + '/') ||
+              (childPath.endsWith('/farmer') &&
+                (path === '/vendor/orders' ||
+                  path.startsWith('/vendor/orders/create') ||
+                  path.startsWith('/vendor/orders/detail')))
+
+            return (
+              <NavLink
+                key={child.to}
+                to={child.to}
+                end={child.end}
+                onClick={onNavigate}
+                className={() =>
+                  `block rounded-md px-2 py-1.5 text-xs transition ${
+                    isChildItemActive
+                      ? 'bg-white font-semibold text-emerald-700 shadow-xs border border-slate-100'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  }`
+                }
+              >
+                {child.label}
+              </NavLink>
+            )
+          })}
         </div>
       )}
     </div>
