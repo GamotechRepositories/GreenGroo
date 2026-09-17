@@ -25,7 +25,7 @@ function HomeProductRow({ title, viewAllTo, products, loading }) {
   );
 
   return (
-    <section className="bg-white px-4 py-4 sm:px-6 lg:rounded-2xl lg:border lg:border-border-light lg:px-6 lg:py-6 lg:shadow-sm xl:px-8">
+    <section className="bg-transparent px-4 py-4 sm:px-6 lg:px-6 lg:py-6 xl:px-8">
       <div className="mx-auto max-w-[1440px]">
         <SectionHeader title={title} viewAllTo={viewAllTo} className="mb-4" />
 

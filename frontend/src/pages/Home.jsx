@@ -12,6 +12,7 @@ import FreshProduceStoreSection from "../components/home/FreshProduceStoreSectio
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
 import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
+import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
 import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection";
 
@@ -34,8 +35,20 @@ function StoreContent() {
 
   return (
     <>
-      <ZeptoFestiveHeroSection />
       <CategoryPills />
+      <ZeptoFestiveHeroSection />
+      <HotSelling />
+      <JustArrived />
+      
+      <section className="px-4 py-2 sm:px-6 lg:px-0 lg:py-4">
+        <img 
+          src="/assets/payment/image.png" 
+          alt="Promotional Banner" 
+          className="w-full h-auto object-cover rounded-xl sm:rounded-2xl"
+        />
+      </section>
+
+      <BestDeals title="Previously bought" viewAllTo="/product" />
       <SuggestedForYouSection />
       <TopPaymentOffersSection />
       <HomeAllCategoryProducts limitPerCategory={20} />
@@ -55,25 +68,23 @@ function Home() {
       </div>
 
       {/* Desktop store view */}
-      <div className="mx-auto max-w-7xl lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-7xl lg:px-8 lg:pt-8">
         {store === "main" && (
-          <div className="mb-0 hidden lg:mb-8 lg:flex lg:items-stretch lg:gap-5">
-            <DesktopSideBanner />
-            <div className="min-w-0 flex-[3]">
-              <FreshPromoBanner />
-            </div>
+          <div className="hidden lg:block mb-4">
+            <HomeSlidingBanners />
           </div>
         )}
+      </div>
 
+      {store === "main" && (
+        <div className="hidden lg:block mb-8">
+          <MovingOfferMarquee />
+        </div>
+      )}
+
+      <div className="mx-auto max-w-7xl lg:px-8 lg:pb-8">
         <div className="hidden space-y-6 lg:block">
           <StoreContent />
-          {store === "main" && (
-            <>
-              <BestDeals title="Previously bought" viewAllTo="/product" />
-              <JustArrived />
-              <HotSelling />
-            </>
-          )}
         </div>
       </div>
     </div>

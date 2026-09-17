@@ -62,26 +62,29 @@ function CategoryPills() {
   }, [currentStore, dbCategories]);
 
   return (
-    <section className="bg-white px-4 py-4 sm:px-6 lg:px-0 lg:py-0">
+    <section className="px-4 py-4 sm:px-6 lg:px-0 lg:py-0">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-4 flex items-end justify-between lg:mb-5">
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-text-primary lg:text-xl">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900">
               Shop by Category
             </h2>
-            <p className="mt-0.5 text-xs font-medium text-text-secondary lg:text-sm">
+            <p className="mt-1 text-xs sm:text-sm font-medium text-gray-500">
               Fresh picks for every kitchen need
             </p>
           </div>
           <Link
             to={currentStore && currentStore !== "main" ? `/categories?store=${currentStore}` : "/categories"}
-            className="text-sm font-semibold text-[#0C831F] hover:underline"
+            className="flex items-center gap-1 text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
           >
             View All
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5 md:grid-cols-3 lg:grid-cols-4 lg:gap-3.5">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 lg:gap-4">
           {displayList.map((cat) => (
             <CategoryCard key={cat._id || cat.slug || cat.categoryName || cat.name} cat={cat} />
           ))}

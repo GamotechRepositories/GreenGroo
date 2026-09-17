@@ -58,7 +58,7 @@ function HomeCategoryProducts({ categoryName }) {
   }
 
   return (
-    <section className="bg-white px-4 py-4 lg:rounded-2xl lg:px-5 lg:py-5 lg:shadow-sm">
+    <section className="bg-transparent px-4 py-4 lg:px-5 lg:py-5">
       <h2 className="mb-3 text-base font-bold text-text-primary lg:mb-4 lg:text-xl">
         {categoryName}
       </h2>

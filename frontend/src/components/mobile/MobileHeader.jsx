@@ -51,28 +51,28 @@ function MobileHeader() {
     <>
       <header
         ref={headerRef}
-        className="fixed top-0 left-0 right-0 z-50 border-b border-border-light bg-white px-4 pt-3 pb-3 shadow-sm sm:px-6 md:px-8 lg:hidden"
+        className="fixed top-0 left-0 right-0 z-50 border-b border-gray-100 bg-white px-4 pt-3 pb-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-6 md:px-8 lg:hidden"
       >
         <div className="flex items-center justify-between gap-3">
-          <Link to="/" className="shrink-0">
+          <Link to="/" className="shrink-0 transition-transform active:scale-95">
             <img
               src={LOGO_URL}
               alt="GreenGrocc"
-              className="h-11 w-auto object-contain sm:h-12"
+              className="h-14 w-auto object-contain sm:h-[60px]"
             />
           </Link>
 
-          <div className="flex shrink-0 items-center gap-1 overflow-visible">
+          <div className="flex shrink-0 items-center gap-1.5 overflow-visible">
             <button
               type="button"
               onClick={toggleSearch}
-              className={`flex h-10 w-10 items-center justify-center rounded-lg transition ${
-                searchOpen ? "bg-primary/10 text-primary" : "text-text-primary hover:text-primary"
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${
+                searchOpen ? "bg-[#0C831F]/10 text-[#0C831F]" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
               }`}
               aria-label={searchOpen ? "Close search" : "Open search"}
               aria-expanded={searchOpen}
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -86,11 +86,11 @@ function MobileHeader() {
             <Link
               to="/wishlist"
               data-wishlist-target="mobile"
-              className="relative flex h-10 w-10 items-center justify-center overflow-visible rounded-lg text-primary transition hover:bg-primary/5 hover:text-primary-dark"
+              className="relative flex h-10 w-10 items-center justify-center overflow-visible rounded-full bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ""}`}
             >
               <NavIconWrap badge={wishlistCount}>
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -103,7 +103,7 @@ function MobileHeader() {
             <button
               type="button"
               onClick={openMenu}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-text-primary transition hover:text-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100"
               aria-label="Open menu"
             >
               <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
