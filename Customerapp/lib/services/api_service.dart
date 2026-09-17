@@ -13,6 +13,7 @@ import '../models/brand.dart';
 import '../models/cart_item.dart';
 import '../models/category.dart';
 import '../models/coupon.dart';
+import '../models/dark_store.dart';
 import '../models/hero_banner.dart';
 import '../models/offer_banner.dart';
 import '../models/order.dart';
@@ -35,10 +36,17 @@ class ApiService {
   Future<Response<dynamic>> getOfferBanners({String device = 'mobile'}) =>
       _dio.get('/api/offerbanners', queryParameters: {'device': device});
 
-  Future<Response<dynamic>> getCategories() => _dio.get('/api/categories');
+  Future<Response<dynamic>> getCategories([Map<String, dynamic>? params]) =>
+      _dio.get('/api/categories', queryParameters: params);
 
   Future<Response<dynamic>> getCategoryById(String id) =>
       _dio.get('/api/categories/$id');
+
+  Future<Response<dynamic>> getSections([Map<String, dynamic>? params]) =>
+      _dio.get('/api/sections', queryParameters: params);
+
+  Future<Response<dynamic>> getNearestStore([Map<String, dynamic>? params]) =>
+      _dio.get('/api/stores/nearest', queryParameters: params);
 
   Future<Response<dynamic>> getBrands() => _dio.get('/api/brands');
 
@@ -104,6 +112,9 @@ class ApiService {
 
   Future<Response<dynamic>> loginUser(Map<String, dynamic> data) =>
       _dio.post('/api/users/login', data: data);
+
+  Future<Response<dynamic>> loginWithPhoneApi(Map<String, dynamic> data) =>
+      _dio.post('/api/users/login/phone', data: data);
 
   Future<Response<dynamic>> sendOtpLogin(Map<String, dynamic> data) =>
       _dio.post('/api/users/otp/send', data: data);
@@ -345,9 +356,35 @@ class ApiService {
     return parseOnBackground(parseOfferBannersResponse, response.data);
   }
 
-  Future<List<Category>> fetchCategories() async {
-    final response = await getCategories();
+  Future<List<Category>> fetchCategories({String? section}) async {
+    final response = await getCategories(section != null && section.isNotEmpty ? {'section': section} : null);
     return parseOnBackground(parseCategoriesResponse, response.data);
+  }
+
+  Future<NearestStoreResult> fetchNearestStore([Map<String, dynamic>? params]) async {
+    try {
+      final response = await getNearestStore(params);
+      final data = ApiResponseParser.getData(response.data);
+      if (data is Map<String, dynamic>) {
+        return NearestStoreResult.fromJson(data);
+      }
+      return const NearestStoreResult(needsLocation: true);
+    } catch (_) {
+      return const NearestStoreResult(needsLocation: true);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSections([Map<String, dynamic>? params]) async {
+    try {
+      final response = await getSections(params);
+      final data = ApiResponseParser.getData(response.data);
+      if (data is List) {
+        return data.whereType<Map<String, dynamic>>().toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<Brand>> fetchBrands() async {
@@ -415,7 +452,7 @@ class ApiService {
     required String phone,
     required String password,
   }) async {
-    final response = await loginUser({
+    final response = await loginWithPhoneApi({
       'phone': phone.trim(),
       'password': password,
     });
@@ -536,17 +573,27 @@ class ApiService {
 
   Future<AuthSession> signup({
     required String name,
-    required String email,
     required String phone,
     required String password,
+    String? email,
   }) async {
-    final response = await signupUser({
-      'name': name,
-      'email': email,
-      'phone': phone,
+    final payload = <String, dynamic>{
+      'name': name.trim(),
+      'phone': phone.trim(),
       'password': password,
-    });
-    final data = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
+    };
+    final trimmedEmail = email?.trim();
+    if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
+      payload['email'] = trimmedEmail;
+    }
+    final response = await signupUser(payload);
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw['success'] == false) {
+      throw ApiException(
+        ApiResponseParser.getMessage(raw) ?? 'Registration failed',
+      );
+    }
+    final data = ApiResponseParser.getData(raw) as Map<String, dynamic>;
     return AuthSession(
       user: User.fromJson(data['user'] as Map<String, dynamic>),
       token: data['token']?.toString() ?? '',

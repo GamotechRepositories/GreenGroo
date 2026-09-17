@@ -7,8 +7,29 @@ import '../../models/product.dart';
 
 const homeProductLimit = 12;
 
+class SelectedStoreTabNotifier extends Notifier<String> {
+  @override
+  String build() => 'main';
+
+  void setStore(String key) => state = key;
+}
+
+final selectedStoreTabProvider =
+    NotifierProvider<SelectedStoreTabNotifier, String>(SelectedStoreTabNotifier.new);
+
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
-  final categories = await ref.read(apiServiceProvider).fetchCategories();
+  final currentStore = ref.watch(selectedStoreTabProvider);
+  String? sectionParam;
+  if (currentStore == 'festive' || currentStore == 'ready2cook') {
+    sectionParam = 'ready2cook';
+  } else if (currentStore == 'mall' || currentStore == 'instantorder') {
+    sectionParam = 'instantorder';
+  } else {
+    // 'main', 'preorder', or default -> fetch ALL categories
+    sectionParam = null;
+  }
+
+  final categories = await ref.read(apiServiceProvider).fetchCategories(section: sectionParam);
   return categories
       .where(
         (category) =>

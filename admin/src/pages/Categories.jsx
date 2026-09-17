@@ -41,18 +41,18 @@ import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } fro
 const API_BASE = 'http://localhost:5001';
 
 const PRESET_ICONS_AND_IMAGES = [
-  { name: 'Vegetables', image: '/categories/vegetables.webp', bg: '#E2F0D9', section: 'greengrocc' },
-  { name: 'Fruits', image: '/categories/fruits.webp', bg: '#F0F7ED', section: 'greengrocc' },
-  { name: 'Dairy', image: '/categories/dairy.webp', bg: '#E8F5E9', section: 'greengrocc' },
-  { name: 'Grains', image: '/categories/grains.webp', bg: '#E8F5E0', section: 'greengrocc' },
-  { name: 'Pulses', image: '/categories/pulses.webp', bg: '#EAF5DF', section: 'greengrocc' },
-  { name: 'Grocery', image: '/categories/grocery.webp', bg: '#EAF5DF', section: 'greengrocc' },
-  { name: 'Oils', image: '/categories/oils.webp', bg: '#F7F1DC', section: 'greengrocc' },
-  { name: 'Spices', image: '/categories/spices.webp', bg: '#F7F1DC', section: 'greengrocc' },
-  { name: 'Dry Fruits', image: '/categories/dry-fruits.webp', bg: '#F5EDE0', section: 'greengrocc' },
-  { name: 'Organic', image: '/categories/organic.webp', bg: '#E8F5DF', section: 'greengrocc' },
-  { name: 'Beverages', image: '/categories/beverages.webp', bg: '#E8F4FC', section: 'greengrocc' },
-  { name: 'Bakery', image: '/categories/bakery.webp', bg: '#F5EBD9', section: 'greengrocc' },
+  { name: 'Vegetables', image: '/categories/vegetables.webp', bg: '#E2F0D9', section: 'preorder' },
+  { name: 'Fruits', image: '/categories/fruits.webp', bg: '#F0F7ED', section: 'preorder' },
+  { name: 'Dairy', image: '/categories/dairy.webp', bg: '#E8F5E9', section: 'preorder' },
+  { name: 'Grains', image: '/categories/grains.webp', bg: '#E8F5E0', section: 'preorder' },
+  { name: 'Pulses', image: '/categories/pulses.webp', bg: '#EAF5DF', section: 'preorder' },
+  { name: 'Grocery', image: '/categories/grocery.webp', bg: '#EAF5DF', section: 'preorder' },
+  { name: 'Oils', image: '/categories/oils.webp', bg: '#F7F1DC', section: 'preorder' },
+  { name: 'Spices', image: '/categories/spices.webp', bg: '#F7F1DC', section: 'preorder' },
+  { name: 'Dry Fruits', image: '/categories/dry-fruits.webp', bg: '#F5EDE0', section: 'preorder' },
+  { name: 'Organic', image: '/categories/organic.webp', bg: '#E8F5DF', section: 'preorder' },
+  { name: 'Beverages', image: '/categories/beverages.webp', bg: '#E8F4FC', section: 'preorder' },
+  { name: 'Bakery', image: '/categories/bakery.webp', bg: '#F5EBD9', section: 'preorder' },
   { name: 'Chopped Veggies', image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?auto=format&fit=crop&w=300&h=300&q=80', bg: '#E8F8EE', section: 'ready2cook' },
   { name: 'Cut & Sliced', image: 'https://images.unsplash.com/photo-1598170845058-12ef4a457c39?auto=format&fit=crop&w=300&h=300&q=80', bg: '#EEFBEB', section: 'ready2cook' },
   { name: 'Peeled Garlic', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&h=300&q=80', bg: '#EBF7FF', section: 'ready2cook' },
@@ -151,8 +151,8 @@ export default function Categories() {
   const [catFormData, setCatFormData] = useState({
     categoryName: '',
     slug: '',
-    section: 'greengrocc',
-    sectionName: 'GreenGrocc',
+    section: 'preorder',
+    sectionName: 'Preorder',
     categoryImage: '',
     itemCount: '100+ items',
     emoji: '',
@@ -254,7 +254,8 @@ export default function Categories() {
   const sectionCounts = useMemo(() => {
     const counts = { all: categories.length };
     categories.forEach((cat) => {
-      const slug = (cat.section || 'greengrocc').toLowerCase();
+      let slug = (cat.section || 'preorder').toLowerCase();
+      if (slug === 'greengrocc' || slug === 'main') slug = 'preorder';
       counts[slug] = (counts[slug] || 0) + 1;
     });
     return counts;
@@ -290,11 +291,15 @@ export default function Categories() {
           ? cat.isActive
           : !cat.isActive;
 
-      const catSectionSlug = (cat.section || 'greengrocc').toLowerCase();
+      let catSectionSlug = (cat.section || 'preorder').toLowerCase();
+      if (catSectionSlug === 'greengrocc' || catSectionSlug === 'main') catSectionSlug = 'preorder';
+      const selSec = selectedSectionFilter.toLowerCase();
       const matchSection =
-        selectedSectionFilter === 'all'
+        selSec === 'all'
           ? true
-          : catSectionSlug === selectedSectionFilter.toLowerCase();
+          : selSec === 'preorder'
+          ? (catSectionSlug === 'preorder' || cat.storeType === 'main')
+          : catSectionSlug === selSec;
 
       return matchSearch && matchStatus && matchSection;
     });
@@ -316,8 +321,9 @@ export default function Categories() {
   }, [categories, searchTerm, statusFilter, selectedSectionFilter, sortBy]);
 
   const getSectionInfo = (secSlug) => {
-    const slug = (secSlug || 'greengrocc').toLowerCase();
-    const found = sections.find((s) => s.slug.toLowerCase() === slug);
+    let slug = (secSlug || 'preorder').toLowerCase();
+    if (slug === 'greengrocc' || slug === 'main') slug = 'preorder';
+    const found = sections.find((s) => (s.slug || '').toLowerCase() === slug);
     if (found) {
       return {
         name: found.sectionName,
@@ -325,8 +331,8 @@ export default function Categories() {
       };
     }
     if (slug === 'ready2cook') return { name: 'Ready2Cook', color: '#EA580C' };
-    if (slug === 'supermall') return { name: 'SuperMall', color: '#2563EB' };
-    return { name: 'GreenGrocc', color: '#10B981' };
+    if (slug === 'instantorder' || slug === 'supermall') return { name: 'Instant Order', color: '#2563EB' };
+    return { name: 'Preorder', color: '#10B981' };
   };
 
   // ================= IMAGE UPLOAD HANDLERS =================
@@ -343,18 +349,21 @@ export default function Categories() {
     try {
       setImageUploading(true);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('image', file);
       formData.append('folder', 'categories');
 
-      const res = await fetch(`${API_BASE}/api/upload`, {
+      const token = localStorage.getItem('greengrocc_admin_token');
+      const res = await fetch(`${API_BASE}/api/upload/image`, {
         method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
       const data = await res.json();
 
-      if (data.success && data.url) {
-        setCatFormData((prev) => ({ ...prev, categoryImage: data.url }));
-        setImagePreview(data.url);
+      const uploadedUrl = data?.data?.url || data?.url;
+      if (data.success && uploadedUrl) {
+        setCatFormData((prev) => ({ ...prev, categoryImage: uploadedUrl }));
+        setImagePreview(uploadedUrl);
         showToast('Image uploaded to S3 ✓');
       } else {
         showToast(data.message || 'Upload failed', 'error');

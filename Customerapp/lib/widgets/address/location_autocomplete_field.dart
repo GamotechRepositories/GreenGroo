@@ -83,7 +83,6 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
     _removeOverlay();
 
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
 
     final renderBox = context.findRenderObject() as RenderBox?;
     final width = renderBox?.size.width ?? MediaQuery.of(context).size.width;

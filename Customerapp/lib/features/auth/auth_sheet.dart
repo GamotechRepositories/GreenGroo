@@ -1,18 +1,13 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/utils/validators.dart';
-import '../../widgets/auth/otp_input.dart';
 import '../../models/user.dart';
 import 'auth_completion.dart';
 import 'auth_controller.dart';
 import 'auth_state.dart';
-
-enum _AuthStep { details, verify }
 
 class AuthSheet extends ConsumerStatefulWidget {
   const AuthSheet({super.key, required this.mode});
@@ -26,14 +21,11 @@ class AuthSheet extends ConsumerStatefulWidget {
 class _AuthSheetState extends ConsumerState<AuthSheet> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _shopNameController = TextEditingController();
-  final _shopAddressController = TextEditingController();
-  final _gstController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
-  _AuthStep _step = _AuthStep.details;
-  String _otp = '';
-  int _resendCooldown = 0;
-  Timer? _cooldownTimer;
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
   bool _submitting = false;
   String? _error;
 
@@ -44,26 +36,24 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     super.initState();
     _phoneController.addListener(_clearError);
     _nameController.addListener(_clearError);
-    _shopNameController.addListener(_clearError);
-    _shopAddressController.addListener(_clearError);
+    _passwordController.addListener(_clearError);
+    _confirmPasswordController.addListener(_clearError);
   }
 
   @override
   void didUpdateWidget(covariant AuthSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.mode != widget.mode) {
-      _resetFlow();
+      _resetForm();
     }
   }
 
   @override
   void dispose() {
-    _cooldownTimer?.cancel();
     _nameController.dispose();
     _phoneController.dispose();
-    _shopNameController.dispose();
-    _shopAddressController.dispose();
-    _gstController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -71,70 +61,42 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     if (_error != null) setState(() => _error = null);
   }
 
-  void _resetFlow() {
-    _cooldownTimer?.cancel();
+  void _resetForm() {
+    _nameController.clear();
+    _phoneController.clear();
+    _passwordController.clear();
+    _confirmPasswordController.clear();
     setState(() {
-      _step = _AuthStep.details;
-      _otp = '';
-      _resendCooldown = 0;
+      _showPassword = false;
+      _showConfirmPassword = false;
+      _submitting = false;
       _error = null;
-      _shopNameController.clear();
-      _shopAddressController.clear();
-      _gstController.clear();
     });
   }
 
-  void _startCooldown() {
-    _cooldownTimer?.cancel();
-    setState(() => _resendCooldown = 60);
-    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_resendCooldown <= 1) {
-        timer.cancel();
-        setState(() => _resendCooldown = 0);
-      } else {
-        setState(() => _resendCooldown -= 1);
-      }
-    });
-  }
+  String? _validateForm() {
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
-  String? _validateDetailsStep() {
-    if (_isSignup && !Validators.isValidName(_nameController.text)) {
+    if (_isSignup && !Validators.isValidName(name)) {
       return 'Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)';
     }
-    if (!Validators.isValidPhone(_phoneController.text)) {
+    if (!Validators.isValidPhone(phone)) {
       return 'Phone must be 10 digits starting with 6, 7, 8, or 9';
     }
-    if (_isSignup && !Validators.isValidShopName(_shopNameController.text)) {
-      return 'Shop name must be at least 2 characters';
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
     }
-    if (_isSignup && !Validators.isValidShopAddress(_shopAddressController.text)) {
-      return 'Please enter a complete shop address';
-    }
-    final gst = _gstController.text.trim();
-    if (_isSignup && gst.isNotEmpty && !Validators.isValidGst(gst)) {
-      return 'Please enter a valid GST number';
+    if (_isSignup && password != confirmPassword) {
+      return 'Passwords do not match';
     }
     return null;
   }
 
-  Map<String, String> _signupProfilePayload() {
-    return {
-      'shopName': _shopNameController.text.trim(),
-      'shopAddress': _shopAddressController.text.trim(),
-      'gstNumber': _gstController.text.trim(),
-    };
-  }
-
-  Future<void> _submitDetailsStep() async {
-    await _sendOtp();
-  }
-
-  Future<void> _sendOtp() async {
-    final validationError = _validateDetailsStep();
+  Future<void> _handleSubmit() async {
+    final validationError = _validateForm();
     if (validationError != null) {
       setState(() => _error = validationError);
       return;
@@ -146,101 +108,23 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     });
 
     try {
-      await ref
-          .read(authControllerProvider.notifier)
-          .sendOtp(
-            _phoneController.text.trim(),
-            purpose: _isSignup ? 'signup' : 'login',
-          );
-      if (!mounted) return;
-      setState(() {
-        _step = _AuthStep.verify;
-        _otp = '';
-        _submitting = false;
-      });
-      _startCooldown();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('OTP sent to +91 ${_phoneController.text.trim()}'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _submitting = false;
-        _error = authErrorMessage(
-          error,
+      final controller = ref.read(authControllerProvider.notifier);
+      final User user;
+      if (_isSignup) {
+        user = await controller.signup(
+          name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          password: _passwordController.text,
         );
-      });
-    }
-  }
-
-  void _handleAuthSuccess(User user, {required bool isSignup}) {
-    if (!mounted) return;
-    completeAuthAndGoHome(
-      ref: ref,
-      sheetContext: context,
-      user: user,
-      isSignup: isSignup,
-    );
-  }
-
-  Future<void> _verifyOtp() async {
-    if (!RegExp(r'^\d{6}$').hasMatch(_otp.trim())) {
-      setState(() => _error = 'Please enter the 6-digit OTP sent to your phone');
-      return;
-    }
-
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
-
-    try {
-      final auth = ref.read(authControllerProvider.notifier);
-      final profile = _signupProfilePayload();
-      final result = await auth.verifyOtp(
-        phone: _phoneController.text.trim(),
-        otp: _otp.trim(),
-        name: _isSignup ? _nameController.text.trim() : null,
-        shopName: _isSignup ? profile['shopName'] : null,
-        shopAddress: _isSignup ? profile['shopAddress'] : null,
-        gstNumber: _isSignup ? profile['gstNumber'] : null,
-      );
-
-      if (result.needsSignup) {
-        if (_isSignup) {
-          final user = await auth.completeOtpSignupProfile(
-            phone: _phoneController.text.trim(),
-            name: _nameController.text.trim(),
-            shopName: profile['shopName']!,
-            shopAddress: profile['shopAddress']!,
-            gstNumber: profile['gstNumber'],
-          );
-          if (!mounted) return;
-          _handleAuthSuccess(user, isSignup: true);
-          return;
-        }
-
-        setState(() {
-          _submitting = false;
-          _error = 'No account found with this number. Please sign up first.';
-        });
-        return;
+      } else {
+        user = await controller.login(
+          phone: _phoneController.text.trim(),
+          password: _passwordController.text,
+        );
       }
 
-      final user = result.user;
-      if (user != null) {
-        if (!mounted) return;
-        _handleAuthSuccess(user, isSignup: _isSignup);
-        return;
-      }
-
-      setState(() {
-        _submitting = false;
-        _error = 'Could not complete sign in. Please try again.';
-      });
+      if (!mounted) return;
+      _handleAuthSuccess(user, isSignup: _isSignup);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -250,8 +134,17 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     }
   }
 
+  void _handleAuthSuccess(User user, {required bool isSignup}) {
+    completeAuthAndGoHome(
+      ref: ref,
+      sheetContext: context,
+      user: user,
+      isSignup: isSignup,
+    );
+  }
+
   void _switchMode(AuthModalMode nextMode) {
-    _resetFlow();
+    _resetForm();
     ref.read(authControllerProvider.notifier).setAuthModal(nextMode);
     Navigator.of(context, rootNavigator: true).pop();
     Future.microtask(() {
@@ -261,14 +154,12 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = _phoneController.text.trim();
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 20,
           right: 20,
-          top: 12,
+          top: 16,
           bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
         ),
         child: Column(
@@ -277,7 +168,7 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
           children: [
             Row(
               children: [
-                Expanded(child: _buildHeader(phone)),
+                Expanded(child: _buildHeader()),
                 IconButton(
                   onPressed: () {
                     ref.read(authControllerProvider.notifier).closeAuthModal();
@@ -288,132 +179,78 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
               ],
             ),
             const SizedBox(height: 20),
-            if (_step == _AuthStep.details) ...[
-              if (_isSignup) ...[
-                TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    hintText: 'Enter your full name',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
-                    hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    prefixText: '+91 ',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _shopNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Shop Name',
-                    hintText: 'Enter your shop name',
-                    prefixIcon: Icon(Icons.store_outlined),
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _shopAddressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Shop Address',
-                    hintText: 'Building, street, area, city',
-                    prefixIcon: Icon(Icons.location_on_outlined),
-                    alignLabelWithHint: true,
-                  ),
-                  minLines: 2,
-                  maxLines: 3,
-                  keyboardType: TextInputType.streetAddress,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _gstController,
-                  decoration: const InputDecoration(
-                    labelText: 'GST Number (Optional)',
-                    hintText: '22AAAAA0000A1Z5',
-                    prefixIcon: Icon(Icons.description_outlined),
-                  ),
-                  maxLength: 15,
-                  textCapitalization: TextCapitalization.characters,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-                  ],
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submitDetailsStep(),
-                ),
-              ] else ...[
-                TextField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile Number',
-                    hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    prefixText: '+91 ',
-                  ),
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submitDetailsStep(),
-                ),
-              ],
-            ] else ...[
-              Text(
-                'Enter OTP',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              OtpInput(
-                value: _otp,
-                onChanged: (value) => setState(() {
-                  _otp = value;
-                  _error = null;
-                }),
+            if (_isSignup) ...[
+              TextField(
+                controller: _nameController,
                 enabled: !_submitting,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  hintText: 'Enter your full name',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                textInputAction: TextInputAction.next,
               ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton(
-                    onPressed: _submitting
-                        ? null
-                        : () => setState(() {
-                              _step = _AuthStep.details;
-                              _otp = '';
-                              _error = null;
-                            }),
-                    child: const Text('Change number'),
+              const SizedBox(height: 14),
+            ],
+            TextField(
+              controller: _phoneController,
+              enabled: !_submitting,
+              decoration: const InputDecoration(
+                labelText: 'Mobile Number',
+                hintText: 'Enter 10-digit number',
+                prefixIcon: Icon(Icons.phone_outlined),
+                prefixText: '+91 ',
+              ),
+              keyboardType: TextInputType.phone,
+              maxLength: 10,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _passwordController,
+              enabled: !_submitting,
+              obscureText: !_showPassword,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                hintText: 'Enter your password (min 6 chars)',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _showPassword ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
                   ),
-                  TextButton(
-                    onPressed:
-                        _submitting || _resendCooldown > 0 ? null : _sendOtp,
-                    child: Text(
-                      _resendCooldown > 0
-                          ? 'Resend in ${_resendCooldown}s'
-                          : 'Resend OTP',
+                  onPressed: () => setState(() => _showPassword = !_showPassword),
+                ),
+              ),
+              textInputAction: _isSignup ? TextInputAction.next : TextInputAction.done,
+              onSubmitted: _isSignup ? null : (_) => _handleSubmit(),
+            ),
+            if (_isSignup) ...[
+              const SizedBox(height: 14),
+              TextField(
+                controller: _confirmPasswordController,
+                enabled: !_submitting,
+                obscureText: !_showConfirmPassword,
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  hintText: 'Re-enter your password',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _showConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                      size: 20,
                     ),
+                    onPressed: () =>
+                        setState(() => _showConfirmPassword = !_showConfirmPassword),
                   ),
-                ],
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _handleSubmit(),
               ),
             ],
             if (_error != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -427,25 +264,31 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             FilledButton(
-              onPressed: _submitting
-                  ? null
-                  : (_step == _AuthStep.details
-                      ? _submitDetailsStep
-                      : _verifyOtp),
+              onPressed: _submitting ? null : _handleSubmit,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: Text(
-                _submitting
-                    ? 'Please wait...'
-                    : _step == _AuthStep.details
-                        ? 'Send OTP'
-                        : (_isSignup
-                            ? 'Verify & Sign Up'
-                            : 'Verify & Sign In'),
-              ),
+              child: _submitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      _isSignup ? 'Create Account' : 'Sign In',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
             const SizedBox(height: 16),
             TextButton(
@@ -458,60 +301,57 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                 _isSignup
                     ? 'Already have an account? Sign In'
                     : "Don't have an account? Sign Up",
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            if (_isSignup && _step == _AuthStep.details) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Your information is secure and will never be shared',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted.withValues(alpha: 0.9),
-                ),
+            const SizedBox(height: 4),
+            Text(
+              'Your information is secure and encrypted',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textMuted.withValues(alpha: 0.9),
               ),
-            ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(String phone) {
-    if (_step == _AuthStep.verify) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Verify OTP',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Enter the 6-digit code sent to +91 $phone',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-          ),
-        ],
-      );
-    }
-
+  Widget _buildHeader() {
     if (_isSignup) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Create Your Account',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(
+                  Icons.person_add_outlined,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Create Your Account',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            'Fill your details and verify your phone with OTP',
+            'Fill your details and set a password to sign up',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -523,15 +363,34 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Welcome Back',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(
+                Icons.phone_android_outlined,
+                color: AppColors.primary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Welcome Back',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
-          'Sign in with OTP sent to your mobile number',
+          'Sign in with your phone number and password',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.textSecondary,
               ),

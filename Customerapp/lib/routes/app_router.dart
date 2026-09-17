@@ -7,6 +7,7 @@ import '../features/checkout/checkout_screen.dart';
 import '../features/coupons/coupons_screen.dart';
 import '../features/home/home_providers.dart';
 import '../features/home/home_screen.dart';
+import '../features/location/location_screen.dart';
 import '../features/product/featured_products_screen.dart';
 import '../features/product/product_detail_screen.dart';
 import '../features/product/product_list_screen.dart';
@@ -171,6 +172,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.shippingDetails,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const InfoPageScreen(content: shippingDetailsPage),
+      ),
+      GoRoute(
+        path: RoutePaths.location,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const LocationScreen(),
       ),
       GoRoute(
         path: RoutePaths.wishlist,

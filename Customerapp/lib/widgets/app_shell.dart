@@ -5,11 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/bootstrap/app_bootstrap.dart';
-import '../../core/scroll/tab_scroll_registry.dart';
-import '../../features/auth/auth_controller.dart';
-import '../../features/cart/cart_controller.dart';
-import '../../features/home/home_screen.dart';
+import 'package:customer_app/core/bootstrap/app_bootstrap.dart';
+import 'package:customer_app/core/scroll/tab_scroll_registry.dart';
+import 'package:customer_app/features/auth/auth_controller.dart';
+import 'package:customer_app/features/cart/cart_controller.dart';
+import 'package:customer_app/routes/route_paths.dart';
 import 'app_back_binding.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
@@ -34,8 +34,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     ),
     FlipkartNavItem(
       label: 'Categories',
-      icon: Icons.grid_view_outlined,
-      activeIcon: Icons.grid_view_rounded,
+      icon: Icons.widgets_outlined,
+      activeIcon: Icons.widgets_rounded,
     ),
     FlipkartNavItem(
       label: 'Orders',
@@ -50,8 +50,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     ),
     FlipkartNavItem(
       label: 'Account',
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
+      icon: Icons.account_circle_outlined,
+      activeIcon: Icons.account_circle_rounded,
     ),
   ];
 
@@ -103,6 +103,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       }),
     );
 
+    final currentRoute = GoRouterState.of(context).uri.path;
+    final isCategoriesTab = widget.navigationShell.currentIndex == 1;
+    final isProductRoute = currentRoute == RoutePaths.product || currentRoute == RoutePaths.categories;
+    final hideBottomNav = isCategoriesTab || isProductRoute;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -125,29 +130,31 @@ class _AppShellState extends ConsumerState<AppShell> {
                   children: [
                     MobileHeader(
                       key: ValueKey(widget.navigationShell.currentIndex),
-                      isHomeTab: widget.navigationShell.currentIndex == 0,
+                      isHomeTab: widget.navigationShell.currentIndex == 0 ||
+                          widget.navigationShell.currentIndex == 1,
                     ),
                     Expanded(child: widget.navigationShell),
                   ],
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: FlipkartBottomNav(
-                    currentIndex: widget.navigationShell.currentIndex,
-                    items: _tabs,
-                    cartBadgeCount: cartCount,
-                    accountInitial: accountInitial,
-                    onTap: _onTap,
-                  ),
-                ),
-                if (widget.navigationShell.currentIndex == 0)
+                if (!hideBottomNav)
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: MediaQuery.paddingOf(context).bottom + 78,
-                    child: const FreeDeliveryOfferBar(),
+                    bottom: 0,
+                    child: FlipkartBottomNav(
+                      currentIndex: widget.navigationShell.currentIndex,
+                      items: _tabs,
+                      cartBadgeCount: cartCount,
+                      accountInitial: accountInitial,
+                      onTap: _onTap,
+                    ),
+                  ),
+                if (widget.navigationShell.currentIndex == 0)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: SizedBox.shrink(),
                   ),
                 const _ShellSideEffects(),
                 const WishlistToast(),

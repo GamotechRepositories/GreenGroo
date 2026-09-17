@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../routes/app_router.dart';
-import '../../core/utils/deep_link_utils.dart';
+import 'package:customer_app/routes/app_router.dart';
+import 'package:customer_app/core/utils/deep_link_utils.dart';
 
 /// Navigates the app when opened from a shared product link or web URL.
 class DeepLinkListener extends ConsumerStatefulWidget {

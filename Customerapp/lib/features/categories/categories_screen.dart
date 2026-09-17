@@ -1,23 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../../config/theme.dart';
+import '../../core/providers/app_providers.dart';
+import '../../core/providers/location_provider.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
-import '../../core/utils/product_pricing.dart';
-import '../../models/cart_item.dart';
 import '../../models/category.dart';
-import '../../models/product.dart';
+import '../../routes/route_paths.dart';
 import '../../widgets/category/category_grid_tile.dart';
-import '../../widgets/category/category_header_section.dart';
-import '../../widgets/category/category_horizontal_strip.dart';
 import '../../widgets/common/app_loading.dart';
+import '../../widgets/common/app_network_image.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
-import '../../widgets/product/deal_product_card.dart';
-import '../auth/auth_controller.dart';
-import '../cart/cart_controller.dart';
 import '../home/home_providers.dart';
-import '../product/product_providers.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -27,10 +23,13 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 }
 
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
-  String? _selectedCategoryName;
-  String? _selectedSubcategory;
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+
+  List<Category> _preorderCategories = [];
+  List<Category> _readyToCookCategories = [];
+  List<Category> _instantCategories = [];
 
   @override
   void initState() {
@@ -39,349 +38,322 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
+      _fetchDepartmentCategories();
     });
+  }
+
+  Future<void> _fetchDepartmentCategories() async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final results = await Future.wait<List<Category>>([
+        api.fetchCategories(section: 'preorder').catchError((_, _) => <Category>[]),
+        api.fetchCategories(section: 'ready2cook').catchError((_, _) => <Category>[]),
+        api.fetchCategories(section: 'instantorder').catchError((_, _) => <Category>[]),
+      ]);
+      if (mounted) {
+        setState(() {
+          _preorderCategories = results[0];
+          _readyToCookCategories = results[1];
+          _instantCategories = results[2];
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabScrollRegistry.unregister(ShellTabIndex.categories, _scrollController);
     _scrollController.dispose();
     super.dispose();
   }
 
-  Category? _findCategory(List<Category> categories, String? name) {
-    if (name == null || name.isEmpty) return null;
-    final lower = name.toLowerCase();
-    for (final category in categories) {
-      if (category.categoryName.toLowerCase() == lower) return category;
-    }
-    return null;
-  }
-
-  List<Product> _filterBySubcategory(
-    List<Product> products,
-    String? subcategory,
-  ) {
-    if (subcategory == null || subcategory.isEmpty) return products;
-    final lower = subcategory.toLowerCase();
-    return products
-        .where((p) => p.subcategory.toLowerCase() == lower)
-        .toList();
-  }
-
-  Future<void> _handleAdd(Product product, BuildContext context) async {
-    final defaults = resolveCartDefaults(product);
-    final result =
-        await ref.read(cartControllerProvider.notifier).addToCart(
-              product,
-              defaults.quantity,
-              variantName: defaults.variantName,
-              colorName: defaults.colorName,
-              flySourceContext: context,
-            );
-    if (result == AddToCartResult.requiresLogin && mounted) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-    }
-  }
-
-  CartItem? _cartLineForProduct(List<CartItem> cartItems, Product product) {
-    final defaults = resolveCartDefaults(product);
-    for (final item in cartItems) {
-      if (item.id != product.id) continue;
-      if (item.variantName.trim() != defaults.variantName.trim()) continue;
-      if (item.colorName.trim() != defaults.colorName.trim()) continue;
-      return item;
-    }
-    return null;
-  }
-
-  Future<void> _handleIncrease(Product product) async {
-    final cartItems = ref.read(cartControllerProvider).items;
-    final line = _cartLineForProduct(cartItems, product);
-    if (line == null) {
-      final defaults = resolveCartDefaults(product);
-      final result = await ref.read(cartControllerProvider.notifier).addToCart(
-            product,
-            defaults.quantity,
-            variantName: defaults.variantName,
-            colorName: defaults.colorName,
-          );
-      if (result == AddToCartResult.requiresLogin && mounted) {
-        ref.read(authControllerProvider.notifier).openAuthModal();
-      }
-      return;
-    }
-    final step = getCartStepForProduct(product, line.variantName);
-    await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-          productId: product.id,
-          quantity: line.quantity + step,
-          variantName: line.variantName,
-          colorName: line.colorName,
-        );
-  }
-
-  Future<void> _handleDecrease(Product product) async {
-    final cartItems = ref.read(cartControllerProvider).items;
-    final line = _cartLineForProduct(cartItems, product);
-    if (line == null) return;
-
-    final nextQty = getDecreasedCartQuantityForProduct(
-      product,
-      line.quantity,
-      line.variantName,
+  void _onCategoryTapped(BuildContext context, String categoryName) {
+    context.push(
+      '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
     );
-    if (nextQty <= 0) {
-      await ref.read(cartControllerProvider.notifier).removeFromCartLine(
-            productId: product.id,
-            variantName: line.variantName,
-            colorName: line.colorName,
-          );
+  }
+
+  void _submitSearch(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      context.push(RoutePaths.product);
       return;
     }
-
-    await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
-          productId: product.id,
-          quantity: nextQty,
-          variantName: line.variantName,
-          colorName: line.colorName,
-        );
+    context.push('${RoutePaths.product}?q=${Uri.encodeComponent(trimmed)}');
   }
 
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
-    final productQuery = ProductQuery(
-      categoryName: _selectedCategoryName?.isNotEmpty == true
-          ? _selectedCategoryName
-          : null,
-    );
-    final productsAsync = ref.watch(productListProvider(productQuery));
+    final topInset = MediaQuery.paddingOf(context).top;
+    final location = ref.watch(deliveryLocationProvider);
+    final nearestAsync = ref.watch(nearestStoreProvider);
+
+    final addressText = location?.hasLocation == true
+        ? location!.displayAddress
+        : 'Select location to see nearby stock';
+    final storeName = nearestAsync.value?.store?.storeName;
 
     return ColoredBox(
-      color: AppColors.mobileSurface,
-      child: categoriesAsync.when(
-        loading: () => const AppLoading(message: 'Loading categories...'),
-        error: (error, _) {
-          final fallback = resolveDisplayCategories(const []);
-          return _CategoriesProductLayout(
-            scrollController: _scrollController,
-            categories: fallback,
-            productsAsync: productsAsync,
-            selectedCategoryName: _selectedCategoryName,
-            selectedSubcategory: _selectedSubcategory,
-            activeCategory: _findCategory(fallback, _selectedCategoryName),
-            onCategorySelected: (name) {
-              setState(() {
-                _selectedCategoryName = name;
-                _selectedSubcategory = null;
-              });
-            },
-            onSubcategorySelected: (sub) {
-              setState(() => _selectedSubcategory = sub);
-            },
-            onAdd: _handleAdd,
-            onIncrease: _handleIncrease,
-            onDecrease: _handleDecrease,
-            onRefresh: () async {
-              ref.invalidate(categoriesProvider);
-              ref.invalidate(productListProvider(productQuery));
-            },
-            filterBySubcategory: _filterBySubcategory,
-          );
+      color: const Color(0xFFF8FAFC),
+      child: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(categoriesProvider);
+          await _fetchDepartmentCategories();
         },
-        data: (categories) {
-          final displayCategories = resolveDisplayCategories(categories);
-          return _CategoriesProductLayout(
-            scrollController: _scrollController,
-            categories: displayCategories,
-            productsAsync: productsAsync,
-            selectedCategoryName: _selectedCategoryName,
-            selectedSubcategory: _selectedSubcategory,
-            activeCategory:
-                _findCategory(displayCategories, _selectedCategoryName),
-            onCategorySelected: (name) {
-              setState(() {
-                _selectedCategoryName = name;
-                _selectedSubcategory = null;
-              });
-            },
-            onSubcategorySelected: (sub) {
-              setState(() => _selectedSubcategory = sub);
-            },
-            onAdd: _handleAdd,
-            onIncrease: _handleIncrease,
-            onDecrease: _handleDecrease,
-            onRefresh: () async {
-              ref.invalidate(categoriesProvider);
-              ref.invalidate(productListProvider(productQuery));
-            },
-            filterBySubcategory: _filterBySubcategory,
-          );
-        },
+        color: const Color(0xFF047857),
+        child: categoriesAsync.when(
+          loading: () => const AppLoading(message: 'Loading department categories...'),
+          error: (error, _) => _buildDirectoryBody(
+            context: context,
+            topInset: topInset,
+            addressText: addressText,
+            storeName: storeName,
+            allCategories: resolveDisplayCategories(const []),
+          ),
+          data: (allCats) => _buildDirectoryBody(
+            context: context,
+            topInset: topInset,
+            addressText: addressText,
+            storeName: storeName,
+            allCategories: resolveDisplayCategories(allCats),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDirectoryBody({
+    required BuildContext context,
+    required double topInset,
+    required String addressText,
+    required String? storeName,
+    required List<Category> allCategories,
+  }) {
+    final preorderList = _preorderCategories.isNotEmpty
+        ? _preorderCategories
+        : allCategories;
+
+    final readyList = _readyToCookCategories.isNotEmpty
+        ? _readyToCookCategories
+        : allCategories;
+
+    final instantList = _instantCategories.isNotEmpty
+        ? _instantCategories
+        : allCategories;
+
+    return CustomScrollView(
+      controller: _scrollController,
+      physics: AppScrollConfig.listPhysics,
+      cacheExtent: AppScrollConfig.cacheExtent,
+      slivers: [
+        // 1. Pinned Sticky Header with Full Gradient (#A8DEE0 to #F9EAD2): Location Bar (collapsible) + Search Bar (sticky)
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _StickyCategoryHeaderDelegate(
+            topInset: topInset,
+            addressText: addressText,
+            storeName: storeName,
+            searchController: _searchController,
+            onSubmitted: _submitSearch,
+          ),
+        ),
+
+        // 2. Department Section 1: Preorder Store Categories (Whitish Grey Background)
+        _buildDepartmentHeaderSliver(
+          title: 'Preorder Categories',
+          subtitle: 'Book in advance for fresh produce & farm items',
+          icon: Icons.calendar_today_rounded,
+          iconColor: const Color(0xFF047857),
+          badgeColor: Colors.white,
+        ),
+        _buildCategoryGridSliver(context, preorderList),
+
+        // 3. Department Section 2: Ready to Cook Store Categories (Whitish Grey Background)
+        _buildDepartmentHeaderSliver(
+          title: 'Ready to Cook Categories',
+          subtitle: 'Pre-cut vegetables, meal kits & instant cooking',
+          icon: Icons.restaurant_rounded,
+          iconColor: const Color(0xFFEA580C),
+          badgeColor: Colors.white,
+        ),
+        _buildCategoryGridSliver(context, readyList),
+
+        // 4. Department Section 3: Instant Order Store Categories (Whitish Grey Background)
+        _buildDepartmentHeaderSliver(
+          title: 'Instant Order Categories',
+          subtitle: 'Express delivery items & quick snacks',
+          icon: Icons.bolt_rounded,
+          iconColor: const Color(0xFF2563EB),
+          badgeColor: Colors.white,
+        ),
+        _buildCategoryGridSliver(context, instantList),
+
+        SliverToBoxAdapter(
+          child: SizedBox(height: ShellBottomInsets.of(context) + 24),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDepartmentHeaderSliver({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required Color badgeColor,
+  }) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryGridSliver(
+    BuildContext context,
+    List<Category> categoryList,
+  ) {
+    if (categoryList.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.82,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final cat = categoryList[index];
+            final imageUrl = resolveCategoryImageUrl(cat);
+
+            return InkWell(
+              onTap: () => _onCategoryTapped(context, cat.categoryName),
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Single image box (NO double box around tile)
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: Center(
+                        child: imageUrl != null
+                            ? AppNetworkImage(
+                                imageUrl: imageUrl,
+                                fit: BoxFit.contain,
+                                errorIcon: Icons.restaurant_rounded,
+                                errorIconSize: 32,
+                              )
+                            : const Icon(
+                                Icons.category_rounded,
+                                size: 32,
+                                color: Color(0xFF047857),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Category name outside the box (NO '4 items' or 'Explore' text)
+                  Text(
+                    cat.categoryName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          childCount: categoryList.length,
+        ),
       ),
     );
   }
 }
 
-class _CategoriesProductLayout extends StatelessWidget {
-  const _CategoriesProductLayout({
-    required this.scrollController,
-    required this.categories,
-    required this.productsAsync,
-    required this.selectedCategoryName,
-    required this.selectedSubcategory,
-    required this.activeCategory,
-    required this.onCategorySelected,
-    required this.onSubcategorySelected,
-    required this.onAdd,
-    required this.onIncrease,
-    required this.onDecrease,
-    required this.onRefresh,
-    required this.filterBySubcategory,
+class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double topInset;
+  final String addressText;
+  final String? storeName;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSubmitted;
+
+  _StickyCategoryHeaderDelegate({
+    required this.topInset,
+    required this.addressText,
+    required this.storeName,
+    required this.searchController,
+    required this.onSubmitted,
   });
 
-  final ScrollController scrollController;
-  final List<Category> categories;
-  final AsyncValue<List<Product>> productsAsync;
-  final String? selectedCategoryName;
-  final String? selectedSubcategory;
-  final Category? activeCategory;
-  final ValueChanged<String?> onCategorySelected;
-  final ValueChanged<String?> onSubcategorySelected;
-  final Future<void> Function(Product, BuildContext) onAdd;
-  final Future<void> Function(Product) onIncrease;
-  final Future<void> Function(Product) onDecrease;
-  final Future<void> Function() onRefresh;
-  final List<Product> Function(List<Product>, String?) filterBySubcategory;
+  @override
+  double get minExtent => topInset + 86.0;
 
   @override
-  Widget build(BuildContext context) {
-    final hasCategory = selectedCategoryName != null &&
-        selectedCategoryName!.isNotEmpty;
-    final subcategories = activeCategory?.subcategories ?? const <String>[];
-
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      color: AppColors.primary,
-      child: CustomScrollView(
-        controller: scrollController,
-        physics: AppScrollConfig.listPhysics,
-        cacheExtent: AppScrollConfig.cacheExtent,
-        slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _StickyCategoryStripDelegate(
-              categories: categories,
-              selectedCategoryName: selectedCategoryName,
-              onSelect: onCategorySelected,
-            ),
-          ),
-          if (hasCategory)
-            SliverToBoxAdapter(
-              child: CategoryHeaderSection(
-                category: activeCategory,
-                categoryName: selectedCategoryName!,
-                subcategories: subcategories,
-                selectedSubcategory: selectedSubcategory,
-                onSubcategorySelected: onSubcategorySelected,
-              ),
-            ),
-          productsAsync.when(
-            loading: () => const SliverFillRemaining(
-              hasScrollBody: false,
-              child: AppLoading(message: 'Loading products...'),
-            ),
-            error: (error, _) => SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      error.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: onRefresh,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            data: (products) {
-              final filtered =
-                  filterBySubcategory(products, selectedSubcategory);
-
-              if (filtered.isEmpty) {
-                return SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      hasCategory
-                          ? 'No products in this category.'
-                          : 'No products available yet.',
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                );
-              }
-
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final product = filtered[index];
-                      return _CategoryDealCard(
-                        product: product,
-                        onAdd: (context) => onAdd(product, context),
-                        onIncrease: () => onIncrease(product),
-                        onDecrease: () => onDecrease(product),
-                      );
-                    },
-                    childCount: filtered.length,
-                  ),
-                ),
-              );
-            },
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(height: ShellBottomInsets.of(context)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StickyCategoryStripDelegate extends SliverPersistentHeaderDelegate {
-  _StickyCategoryStripDelegate({
-    required this.categories,
-    required this.selectedCategoryName,
-    required this.onSelect,
-  });
-
-  /// Matches [CategoryHorizontalStrip] padding (10+10) + list height (84).
-  static const double stripHeight = 104;
-
-  final List<Category> categories;
-  final String? selectedCategoryName;
-  final ValueChanged<String?> onSelect;
-
-  @override
-  double get minExtent => stripHeight;
-
-  @override
-  double get maxExtent => stripHeight;
+  double get maxExtent => topInset + 86.0;
 
   @override
   Widget build(
@@ -389,50 +361,161 @@ class _StickyCategoryStripDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Material(
-      color: Colors.white,
-      elevation: overlapsContent || shrinkOffset > 0 ? 1.5 : 0,
-      shadowColor: const Color(0x1A000000),
-      child: CategoryHorizontalStrip(
-        categories: categories,
-        selectedCategoryName: selectedCategoryName,
-        onSelect: onSelect,
+    final currentHeight = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
+
+    return Container(
+      width: double.infinity,
+      height: currentHeight,
+      color: const Color(0xFFFFF6EE),
+      child: ClipRect(
+        child: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              SizedBox(height: topInset + 2),
+              // 1. Select Location Row (with Back Button)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(RoutePaths.home);
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 20,
+                        color: Color(0xFF0F172A),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => context.push(RoutePaths.location),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_rounded,
+                                size: 16,
+                                color: Color(0xFF047857),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  addressText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF06311D),
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: Color(0xFF047857),
+                              ),
+                              if (storeName?.isNotEmpty == true) ...[
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    '($storeName)',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF047857),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              // 2. Search Bar Box (Pure White inner box)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Container(
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFF047857),
+                        size: 19,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: searchController,
+                          onSubmitted: onSubmitted,
+                          textInputAction: TextInputAction.search,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF111827),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search',
+                            hintStyle: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   @override
-  bool shouldRebuild(covariant _StickyCategoryStripDelegate oldDelegate) {
-    return oldDelegate.selectedCategoryName != selectedCategoryName ||
-        oldDelegate.categories != categories ||
-        oldDelegate.onSelect != onSelect;
-  }
-}
-
-class _CategoryDealCard extends ConsumerWidget {
-  const _CategoryDealCard({
-    required this.product,
-    required this.onAdd,
-    required this.onIncrease,
-    required this.onDecrease,
-  });
-
-  final Product product;
-  final void Function(BuildContext context) onAdd;
-  final VoidCallback onIncrease;
-  final VoidCallback onDecrease;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final qty = ref.watch(cartProductQuantityProvider(product.id));
-
-    return DealProductCard(
-      product: product,
-      fillCell: true,
-      cartQuantity: qty,
-      onAdd: onAdd,
-      onIncrease: onIncrease,
-      onDecrease: onDecrease,
-    );
+  bool shouldRebuild(covariant _StickyCategoryHeaderDelegate oldDelegate) {
+    return oldDelegate.topInset != topInset ||
+        oldDelegate.addressText != addressText ||
+        oldDelegate.storeName != storeName;
   }
 }

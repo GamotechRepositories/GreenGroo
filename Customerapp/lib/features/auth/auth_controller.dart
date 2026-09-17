@@ -64,6 +64,38 @@ class AuthController extends Notifier<AuthState> {
     state = state.copyWith(authModal: mode);
   }
 
+  Future<User> login({
+    required String phone,
+    required String password,
+  }) async {
+    final session = await ref.read(apiServiceProvider).loginWithPhone(
+          phone: phone,
+          password: password,
+        );
+    if (session.user.isAdmin) {
+      throw ApiException('Please use the admin panel to sign in.');
+    }
+    await _persistSession(session);
+    return session.user;
+  }
+
+  Future<User> signup({
+    required String name,
+    required String phone,
+    required String password,
+  }) async {
+    final session = await ref.read(apiServiceProvider).signup(
+          name: name,
+          phone: phone,
+          password: password,
+        );
+    if (session.user.isAdmin) {
+      throw ApiException('Please use the admin panel to sign in.');
+    }
+    await _persistSession(session);
+    return session.user;
+  }
+
   Future<void> sendOtp(String phone, {String purpose = 'login'}) async {
     await ref.read(apiServiceProvider).sendOtp(
           phone.trim(),

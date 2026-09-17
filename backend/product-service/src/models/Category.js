@@ -14,14 +14,14 @@ const categorySchema = new mongoose.Schema(
     },
     section: {
       type: String,
-      default: "greengrocc",
+      default: "preorder",
       trim: true,
       lowercase: true,
       index: true,
     },
     sectionName: {
       type: String,
-      default: "GreenGrocc",
+      default: "Preorder",
       trim: true,
     },
     categoryImage: {
@@ -75,15 +75,15 @@ categorySchema.pre("save", function () {
     this.slug = this.categoryName.trim();
   }
   if (!this.section) {
-    this.section = "greengrocc";
+    this.section = "preorder";
   }
   if (!this.sectionName) {
     this.sectionName =
       this.section === "ready2cook"
         ? "Ready2Cook"
-        : this.section === "supermall"
-        ? "SuperMall"
-        : "GreenGrocc";
+        : this.section === "instantorder" || this.section === "supermall"
+        ? "Instant Order"
+        : "Preorder";
   }
 });
 

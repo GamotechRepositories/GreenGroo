@@ -3,11 +3,11 @@ import Category from "../models/Category.js";
 
 export const DEFAULT_SECTIONS = [
   {
-    sectionName: "GreenGrocc",
-    slug: "greengrocc",
-    description: "Fresh Farm Produce, Fruits, Daily Veggies & Essentials",
-    emoji: "🥦",
-    badge: "10 Mins Delivery",
+    sectionName: "Preorder",
+    slug: "preorder",
+    description: "All products & categories available for preorder",
+    emoji: "🛒",
+    badge: "Preorder",
     color: "#10B981",
     order: 1,
     isActive: true,
@@ -15,19 +15,19 @@ export const DEFAULT_SECTIONS = [
   {
     sectionName: "Ready2Cook",
     slug: "ready2cook",
-    description: "Pre-cut, peeled & sliced vegetables & meal kits for 10-min cooking",
+    description: "Pre-cut, peeled & sliced vegetables & meal kits for fast cooking",
     emoji: "🍳",
-    badge: "Fast Cooking",
+    badge: "Ready 2 Cook",
     color: "#EA580C",
     order: 2,
     isActive: true,
   },
   {
-    sectionName: "SuperMall",
-    slug: "supermall",
-    description: "Top brand groceries, dry fruits, snacks & packaged foods",
-    emoji: "🏬",
-    badge: "Mega Deals",
+    sectionName: "Instant Order",
+    slug: "instantorder",
+    description: "Instant delivery from SuperMall & Dark Stores",
+    emoji: "⚡",
+    badge: "Instant Order",
     color: "#2563EB",
     order: 3,
     isActive: true,
@@ -47,11 +47,28 @@ const generateSlug = (name) => {
  */
 export async function seedDefaultSectionsIfEmpty() {
   try {
+    // Migration: update existing section with slug "greengrocc" to "preorder"
+    await Section.updateMany(
+      { slug: "greengrocc" },
+      { $set: { slug: "preorder", sectionName: "Preorder" } }
+    );
+    await Section.updateMany(
+      { slug: "supermall" },
+      { $set: { slug: "instantorder", sectionName: "Instant Order" } }
+    );
+
     const count = await Section.countDocuments();
     if (count === 0) {
       console.log("[SectionService] Seeding default sections...");
       await Section.insertMany(DEFAULT_SECTIONS);
       console.log(`[SectionService] Successfully seeded ${DEFAULT_SECTIONS.length} default sections`);
+    } else {
+      for (const defSec of DEFAULT_SECTIONS) {
+        const exists = await Section.findOne({ slug: defSec.slug });
+        if (!exists) {
+          await Section.create(defSec);
+        }
+      }
     }
   } catch (error) {
     console.error("[SectionService] Failed to seed default sections:", error.message);
@@ -76,13 +93,14 @@ export const getSections = async (req, res) => {
     // Aggregate category counts per section
     const categoryCounts = await Category.aggregate([
       { $match: { isActive: { $ne: false } } },
-      { $group: { _id: { $toLower: { $ifNull: ["$section", "greengrocc"] } }, count: { $sum: 1 } } },
+      { $group: { _id: { $toLower: { $ifNull: ["$section", "preorder"] } }, count: { $sum: 1 } } },
     ]);
 
     const countMap = {};
     categoryCounts.forEach((item) => {
       if (item._id) countMap[item._id] = item.count;
     });
+    countMap["preorder"] = (countMap["preorder"] || 0) + (countMap["greengrocc"] || 0);
 
     const sectionsWithCounts = sections.map((sec) => {
       const secObj = sec.toObject();
@@ -134,7 +152,7 @@ export const getAllSections = async (req, res) => {
         .limit(limit),
       Category.aggregate([
         { $match: { isActive: { $ne: false } } },
-        { $group: { _id: { $toLower: { $ifNull: ["$section", "greengrocc"] } }, count: { $sum: 1 } } },
+        { $group: { _id: { $toLower: { $ifNull: ["$section", "preorder"] } }, count: { $sum: 1 } } },
       ]),
     ]);
 
@@ -142,6 +160,7 @@ export const getAllSections = async (req, res) => {
     categoryCounts.forEach((item) => {
       if (item._id) countMap[item._id] = item.count;
     });
+    countMap["preorder"] = (countMap["preorder"] || 0) + (countMap["greengrocc"] || 0);
 
     const sectionsWithCounts = sections.map((sec) => {
       const secObj = sec.toObject();

@@ -40,10 +40,13 @@ export function isUploadFolder(value) {
 
 export function buildCdnUrl(key) {
   const base = (process.env.CLOUDFRONT_URL || "").replace(/\/$/, "");
-  if (!base) {
-    throw new Error("CLOUDFRONT_URL is not configured");
+  if (base) {
+    return `${base}/${key.replace(/^\//, "")}`;
   }
-  return `${base}/${key.replace(/^\//, "")}`;
+  // Fallback: direct S3 URL when CloudFront is not configured
+  const bucket = process.env.AWS_BUCKET_NAME;
+  const region = process.env.AWS_REGION || "ap-south-1";
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key.replace(/^\//, "")}`;
 }
 
 function extensionFromMime(mimeType) {
@@ -102,8 +105,7 @@ export function isS3Configured() {
   return Boolean(
     process.env.AWS_ACCESS_KEY_ID &&
       process.env.AWS_SECRET_ACCESS_KEY &&
-      process.env.AWS_BUCKET_NAME &&
-      process.env.CLOUDFRONT_URL
+      process.env.AWS_BUCKET_NAME
   );
 }
 

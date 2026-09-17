@@ -2,21 +2,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/refresh/app_refresh.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
-import '../../routes/route_paths.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import 'home_load_gate.dart';
 import 'widgets/best_deals_section.dart';
+import 'widgets/category_pills_section.dart';
+import 'widgets/home_all_category_products.dart';
+import 'widgets/home_delivery_bar.dart';
+import 'widgets/home_header_category_strip.dart';
+import 'widgets/home_search_bar.dart';
 import 'widgets/hot_selling_section.dart';
 import 'widgets/just_arrived_section.dart';
 import 'widgets/recently_viewed_section.dart';
-import 'widgets/zepto_festive_home.dart';
+import 'widgets/zepto_festive_hero_section.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -29,6 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
   final _verticalScrolling = ValueNotifier<bool>(false);
+  final _isHeaderLightNotifier = ValueNotifier<bool>(false);
 
   bool _scrollGateTriggered = false;
   bool _scrollActivityAttached = false;
@@ -69,11 +73,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onScroll() {
     _attachVerticalScrollActivityListener();
+
+    if (_scrollController.hasClients) {
+      final isLight = _scrollController.offset >= 300;
+      if (_isHeaderLightNotifier.value != isLight) {
+        _isHeaderLightNotifier.value = isLight;
+      }
+    }
+
     if (_scrollGateTriggered) return;
     if (_scrollController.offset < 48) return;
     _scrollGateTriggered = true;
     ref.read(homeLoadGateProvider.notifier).enableScrolled();
-    _scrollController.removeListener(_onScroll);
   }
 
   @override
@@ -84,6 +95,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .removeListener(_onVerticalScrollActivity);
     }
     _verticalScrolling.dispose();
+    _isHeaderLightNotifier.dispose();
     _tabScrollRegistry.unregister(ShellTabIndex.home, _scrollController);
     _scrollController.dispose();
     super.dispose();
@@ -91,23 +103,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
     final bottomContentSpacer = ShellBottomInsets.of(context) + 56;
 
     return VerticalScrollPauseScope(
       isScrolling: _verticalScrolling,
       child: ColoredBox(
-        color: const Color(0xFFFFF6E0),
+        color: const Color(0xFFF8FAFC),
         child: RefreshIndicator(
-          color: const Color(0xFFE11D48),
+          color: const Color(0xFF0C831F),
           onRefresh: () => refreshHomeData(ref),
           child: CustomScrollView(
             controller: _scrollController,
             physics: AppScrollConfig.listPhysics,
             cacheExtent: AppScrollConfig.cacheExtent,
             slivers: [
-              const SliverToBoxAdapter(child: ZeptoFestiveHeroSection()),
-              const ContouredCreamToWhite(),
-              const SliverToBoxAdapter(child: FestiveTopPicksSection()),
+              // 1. Pinned Sticky Header containing Department cards + Location bar (collapsible) and Search bar + Category strip (sticky)
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyHeaderDelegate(
+                  topInset: topInset,
+                  isLightNotifier: _isHeaderLightNotifier,
+                ),
+              ),
+
+              // 2. Hero Section with custom 7-color gradient (Video card & offers marquee strip)
+              SliverToBoxAdapter(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF016846),
+                        Color(0xFF1E6B4F),
+                        Color(0xFF3E8F73),
+                        Color(0xFF8DBF9F),
+                        Color(0xFFEAF6EF),
+                      ],
+                      stops: [0.0, 0.25, 0.50, 0.75, 1.0],
+                    ),
+                  ),
+                  child: const ZeptoFestiveHeroSection(),
+                ),
+              ),
+
+              // 3. 4-Column Offer Cards Grid + SBI Card Box on Whitish Grey Background
+              const SliverToBoxAdapter(
+                child: ZeptoHeroOfferCardsSection(),
+              ),
+
+              // Shop by Category Pills Grid
+              const SliverToBoxAdapter(child: CategoryPillsSection()),
+
+              // 4. Darkstore Notice Banner + Category-wise Products Grid
+              const SliverToBoxAdapter(child: HomeAllCategoryProducts()),
+
+              // 5. Featured Deal Sections
               const SliverToBoxAdapter(
                 child: GatedHomeSection(
                   minPhase: HomeLoadPhase.scrolled,
@@ -136,9 +188,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: RepaintBoundary(child: RecentlyViewedSection()),
                 ),
               ),
-              ContouredCreamToWhite(
+
+              // 6. Footer
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                   child: Text(
                     'GreenGrocc · Fresh groceries, fast',
                     textAlign: TextAlign.center,
@@ -159,124 +213,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// Soft curve from cream hero into white content.
-class ContouredCreamToWhite extends StatelessWidget {
-  const ContouredCreamToWhite({super.key, this.child});
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double topInset;
+  final ValueNotifier<bool> isLightNotifier;
 
-  final Widget? child;
+  _StickyHeaderDelegate({
+    required this.topInset,
+    required this.isLightNotifier,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        ),
-        child: child ?? const SizedBox(height: 8),
-      ),
+  double get minExtent => topInset + 100.0;
+
+  @override
+  double get maxExtent => topInset + 174.0;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final maxShrink = maxExtent - minExtent;
+    final progress =
+        maxShrink > 0 ? (shrinkOffset / maxShrink).clamp(0.0, 1.0) : 1.0;
+    final deliveryBarHeight = (74.0 * (1.0 - progress)).clamp(0.0, 74.0);
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: isLightNotifier,
+      builder: (context, isLightBg, _) {
+        final bgColor =
+            isLightBg ? const Color(0xFFF2F1ED) : const Color(0xFF016846);
+
+        return ColoredBox(
+          color: bgColor,
+          child: Padding(
+            padding: EdgeInsets.only(top: topInset),
+            child: ClipRect(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (progress < 1.0)
+                    SizedBox(
+                      height: deliveryBarHeight,
+                      child: OverflowBox(
+                        minHeight: 74.0,
+                        maxHeight: 74.0,
+                        alignment: Alignment.bottomCenter,
+                        child: Opacity(
+                          opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                          child: const HomeDeliveryBar(),
+                        ),
+                      ),
+                    ),
+                  HomeSearchBar(isLightBg: isLightBg),
+                  HomeHeaderCategoryStrip(isLightBg: isLightBg),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
-}
-
-/// Dark floating “Unlock free delivery” bar (Zepto-style).
-class FreeDeliveryOfferBar extends StatelessWidget {
-  const FreeDeliveryOfferBar({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.push(RoutePaths.coupons),
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F2937),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF374151),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.delivery_dining_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Unlock free delivery',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'Shop for ₹199',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFFD1D5DB),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, color: Colors.white70),
-                ],
-              ),
-            ),
-            Positioned(
-              top: -10,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE11D48),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Offers ▲',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
+    return oldDelegate.isLightNotifier != isLightNotifier ||
+        oldDelegate.topInset != topInset;
   }
 }

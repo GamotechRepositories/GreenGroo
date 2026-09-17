@@ -2,12 +2,12 @@ import Category from "../models/Category.js";
 import Section from "../models/Section.js";
 
 const DEFAULT_CATEGORIES = [
-  // --- GreenGrocc Section Categories ---
+  // --- Preorder Section Categories ---
   {
     categoryName: "Vegetables",
     slug: "Vegetables",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/vegetables.webp",
     itemCount: "150+ items",
     emoji: "🥦",
@@ -21,8 +21,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Fruits",
     slug: "Fruits",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/fruits.webp",
     itemCount: "120+ items",
     emoji: "🍎",
@@ -36,8 +36,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Dairy",
     slug: "Dairy",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/dairy.webp",
     itemCount: "80+ items",
     emoji: "🥛",
@@ -51,13 +51,13 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Grains",
     slug: "Grains",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/grains.webp",
     itemCount: "90+ items",
     emoji: "🌾",
     bg: "#E8F5E0",
-    bgClass: "bg-[#E8F5E0]",
+    bgClass: "bg-[#E8F8E0]",
     subcategories: ["Rice & Basmati", "Wheat & Atta", "Millet & Oats", "Flours & Sooji"],
     storeType: "main",
     order: 4,
@@ -66,8 +66,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Pulses",
     slug: "Pulses",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/pulses.webp",
     itemCount: "70+ items",
     emoji: "🌱",
@@ -81,8 +81,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Grocery",
     slug: "Grocery",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/grocery.webp",
     itemCount: "200+ items",
     emoji: "🧂",
@@ -96,8 +96,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Oils",
     slug: "Oils",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/oils.webp",
     itemCount: "45+ items",
     emoji: "🫒",
@@ -111,8 +111,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Spices",
     slug: "Spices",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/spices.webp",
     itemCount: "110+ items",
     emoji: "🌶️",
@@ -126,8 +126,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Dry Fruits",
     slug: "Dry Fruits",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/dry-fruits.webp",
     itemCount: "60+ items",
     emoji: "🥜",
@@ -141,8 +141,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Organic",
     slug: "Organic",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/organic.webp",
     itemCount: "55+ items",
     emoji: "🍯",
@@ -156,8 +156,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Beverages",
     slug: "Beverages",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/beverages.webp",
     itemCount: "85+ items",
     emoji: "🥤",
@@ -171,8 +171,8 @@ const DEFAULT_CATEGORIES = [
   {
     categoryName: "Bakery",
     slug: "Bakery",
-    section: "greengrocc",
-    sectionName: "GreenGrocc",
+    section: "preorder",
+    sectionName: "Preorder",
     categoryImage: "/categories/bakery.webp",
     itemCount: "40+ items",
     emoji: "🍞",
@@ -345,23 +345,29 @@ const normalizeSubcategories = (subcategories) => {
  */
 export async function seedDefaultCategoriesIfEmpty() {
   try {
+    // Migration: Update all existing categories with legacy section "greengrocc" or "GreenGrocc" to "preorder" / "Preorder"
+    await Category.updateMany(
+      { $or: [{ section: "greengrocc" }, { sectionName: "GreenGrocc" }, { sectionName: "greengrocc" }] },
+      { $set: { section: "preorder", sectionName: "Preorder" } }
+    );
+
     const existing = await Category.find();
     const existingNames = new Set(existing.map((c) => c.categoryName.toLowerCase()));
 
     // Backfill section info for any existing categories that don't have section
     for (const cat of existing) {
       let needsSave = false;
-      if (!cat.section) {
-        cat.section = cat.storeType === "festive" ? "ready2cook" : cat.storeType === "mall" ? "supermall" : "greengrocc";
+      if (!cat.section || cat.section === "greengrocc") {
+        cat.section = cat.storeType === "festive" ? "ready2cook" : cat.storeType === "mall" ? "instantorder" : "preorder";
         needsSave = true;
       }
-      if (!cat.sectionName) {
+      if (!cat.sectionName || cat.sectionName === "GreenGrocc") {
         cat.sectionName =
           cat.section === "ready2cook"
             ? "Ready2Cook"
-            : cat.section === "supermall"
-            ? "SuperMall"
-            : "GreenGrocc";
+            : cat.section === "instantorder" || cat.section === "supermall"
+            ? "Instant Order"
+            : "Preorder";
         needsSave = true;
       }
       if (needsSave) {
@@ -399,19 +405,19 @@ export const getCategories = async (req, res) => {
     // Section filtering (support section slug, section name, or storeType)
     const targetSection = (section || "").trim().toLowerCase();
     if (targetSection && targetSection !== "all") {
-      if (targetSection === "main" || targetSection === "greengrocc") {
-        filter.$or = [
-          { section: "greengrocc" },
-          { storeType: "main" },
-          { section: { $exists: false } },
-        ];
-      } else if (targetSection === "festive" || targetSection === "ready2cook") {
+      if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc") {
+        // Preorder shows EVERYTHING - all categories across all departments!
+      } else if (targetSection === "ready2cook" || targetSection === "ready-2-cook" || targetSection === "festive") {
         filter.$or = [
           { section: "ready2cook" },
+          { section: "ready-2-cook" },
+          { section: "festive" },
           { storeType: "festive" },
         ];
-      } else if (targetSection === "mall" || targetSection === "supermall") {
+      } else if (targetSection === "instantorder" || targetSection === "instant" || targetSection === "supermall" || targetSection === "mall") {
         filter.$or = [
+          { section: "instantorder" },
+          { section: "instant" },
           { section: "supermall" },
           { storeType: "mall" },
         ];
@@ -422,10 +428,10 @@ export const getCategories = async (req, res) => {
       const sType = storeType.trim().toLowerCase();
       if (sType === "festive" || sType === "ready2cook") {
         filter.$or = [{ section: "ready2cook" }, { storeType: "festive" }];
-      } else if (sType === "mall" || sType === "supermall") {
-        filter.$or = [{ section: "supermall" }, { storeType: "mall" }];
-      } else {
-        filter.$or = [{ section: "greengrocc" }, { storeType: "main" }, { section: { $exists: false } }];
+      } else if (sType === "mall" || sType === "supermall" || sType === "instantorder" || sType === "instant") {
+        filter.$or = [{ section: "supermall" }, { section: "instantorder" }, { storeType: "mall" }];
+      } else if (sType === "preorder" || sType === "main") {
+        // Preorder shows EVERYTHING
       }
     }
 
@@ -468,10 +474,21 @@ export const getAllCategories = async (req, res) => {
 
     if (req.query.section && req.query.section !== "all") {
       const targetSec = req.query.section.trim().toLowerCase();
-      if (targetSec === "greengrocc") {
+      if (targetSec === "preorder" || targetSec === "greengrocc" || targetSec === "main") {
+        // Preorder shows ALL categories in admin panel
+      } else if (targetSec === "ready2cook" || targetSec === "ready-2-cook" || targetSec === "festive") {
         filter.$or = [
-          { section: "greengrocc" },
-          { section: { $exists: false } },
+          { section: "ready2cook" },
+          { section: "ready-2-cook" },
+          { section: "festive" },
+          { storeType: "festive" },
+        ];
+      } else if (targetSec === "instantorder" || targetSec === "instant" || targetSec === "supermall" || targetSec === "mall") {
+        filter.$or = [
+          { section: "instantorder" },
+          { section: "instant" },
+          { section: "supermall" },
+          { storeType: "mall" },
         ];
       } else {
         filter.section = new RegExp(`^${targetSec}$`, "i");
@@ -570,14 +587,15 @@ export const createCategory = async (req, res) => {
     }
 
     // Determine section name if not supplied
-    let resolvedSection = (section?.trim() || "greengrocc").toLowerCase();
+    let resolvedSection = (section?.trim() || "preorder").toLowerCase();
+    if (resolvedSection === "greengrocc") resolvedSection = "preorder";
     let resolvedSectionName = sectionName?.trim();
 
-    if (!resolvedSectionName) {
+    if (!resolvedSectionName || resolvedSectionName === "GreenGrocc") {
       const parentSection = await Section.findOne({ slug: resolvedSection });
       resolvedSectionName = parentSection ? parentSection.sectionName : (
         resolvedSection === "ready2cook" ? "Ready2Cook" :
-        resolvedSection === "supermall" ? "SuperMall" : "GreenGrocc"
+        resolvedSection === "instantorder" || resolvedSection === "supermall" ? "Instant Order" : "Preorder"
       );
     }
 

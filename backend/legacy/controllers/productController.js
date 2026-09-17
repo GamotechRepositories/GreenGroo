@@ -505,11 +505,35 @@ export const getProducts = async (req, res) => {
     }
 
     if (req.query.section?.trim()) {
-      filter.section = req.query.section.trim().toLowerCase();
-    }
-
-    if (req.query.storeType?.trim()) {
-      filter.storeType = req.query.storeType.trim().toLowerCase();
+      const targetSection = req.query.section.trim().toLowerCase();
+      if (targetSection === "preorder" || targetSection === "main" || targetSection === "greengrocc" || targetSection === "all") {
+        // Preorder shows EVERYTHING - all products across all departments!
+      } else if (targetSection === "ready2cook" || targetSection === "ready-2-cook" || targetSection === "festive") {
+        filter.$or = [
+          { section: "ready2cook" },
+          { section: "ready-2-cook" },
+          { section: "festive" },
+          { storeType: "festive" },
+        ];
+      } else if (targetSection === "instantorder" || targetSection === "instant" || targetSection === "supermall" || targetSection === "mall") {
+        filter.$or = [
+          { section: "instantorder" },
+          { section: "instant" },
+          { section: "supermall" },
+          { storeType: "mall" },
+        ];
+      } else {
+        filter.section = targetSection;
+      }
+    } else if (req.query.storeType?.trim()) {
+      const sType = req.query.storeType.trim().toLowerCase();
+      if (sType === "festive" || sType === "ready2cook") {
+        filter.$or = [{ section: "ready2cook" }, { storeType: "festive" }];
+      } else if (sType === "mall" || sType === "supermall" || sType === "instantorder" || sType === "instant") {
+        filter.$or = [{ section: "supermall" }, { section: "instantorder" }, { storeType: "mall" }];
+      } else if (sType === "preorder" || sType === "main") {
+        // Preorder shows EVERYTHING
+      }
     }
 
     if (req.query.ids) {
@@ -649,6 +673,29 @@ export const getAllProducts = async (req, res) => {
 
       if (category && category !== "all") {
         filter.categories = category;
+      }
+
+      if (req.query.section && req.query.section !== "all") {
+        const targetSec = req.query.section.trim().toLowerCase();
+        if (targetSec === "preorder" || targetSec === "main" || targetSec === "greengrocc") {
+          // Preorder shows ALL products
+        } else if (targetSec === "ready2cook" || targetSec === "ready-2-cook" || targetSec === "festive") {
+          filter.$or = [
+            { section: "ready2cook" },
+            { section: "ready-2-cook" },
+            { section: "festive" },
+            { storeType: "festive" },
+          ];
+        } else if (targetSec === "instantorder" || targetSec === "instant" || targetSec === "supermall" || targetSec === "mall") {
+          filter.$or = [
+            { section: "instantorder" },
+            { section: "instant" },
+            { section: "supermall" },
+            { storeType: "mall" },
+          ];
+        } else {
+          filter.section = new RegExp(`^${escapeRegex(targetSec)}$`, "i");
+        }
       }
 
       const query = typeof search === "string" ? search.trim() : "";

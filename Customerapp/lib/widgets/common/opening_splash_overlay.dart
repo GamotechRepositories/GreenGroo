@@ -17,7 +17,6 @@ class _OpeningSplashHostState extends State<OpeningSplashHost>
     with SingleTickerProviderStateMixin {
   static const _maxTotal = Duration(milliseconds: 2200);
   static const _holdDuration = Duration(milliseconds: 1500);
-  static const _fadeDuration = Duration(milliseconds: 500);
 
   AnimationController? _controller;
   Animation<double>? _contentOpacity;

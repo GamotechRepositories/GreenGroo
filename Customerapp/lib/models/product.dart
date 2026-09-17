@@ -67,6 +67,11 @@ class Product {
   String? get primaryImage =>
       productImages.isNotEmpty ? productImages.first : null;
 
+  String get title => name;
+  bool get isAvailable => isActive && stock > 0;
+  double get effectivePrice => discountedPrice > 0 ? discountedPrice : price;
+  String get weightUnit => subcategory.isNotEmpty ? subcategory : '';
+
   factory Product.fromJson(Map<String, dynamic> json) {
     final legacyBulk = json['bulkPricing'];
     return Product(

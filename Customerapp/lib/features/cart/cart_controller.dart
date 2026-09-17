@@ -202,6 +202,7 @@ class CartController extends Notifier<CartState> {
         variantName: effectiveVariant,
         colorName: effectiveColor,
       );
+      unawaited(loadCart(silent: true));
 
       if (!buyNow) {
         unawaited(UiSoundEffects.playCartAdd());

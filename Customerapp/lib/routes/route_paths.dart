@@ -23,5 +23,6 @@ class RoutePaths {
   static const blog = '/blog';
   static const privacyPolicy = '/privacy-policy';
   static const terms = '/terms-and-conditions';
+  static const location = '/location';
   static const shippingDetails = '/shipping-details';
 }

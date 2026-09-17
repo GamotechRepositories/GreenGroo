@@ -4,8 +4,11 @@ import '../exceptions/api_exception.dart';
 import '../../config/env.dart';
 import '../storage/auth_storage.dart';
 
+import '../providers/location_provider.dart';
+
 class ApiClient {
-  ApiClient(this._authStorage) {
+  ApiClient(this._authStorage, {DeliveryLocation? Function()? locationGetter})
+      : _locationGetter = locationGetter {
     _dio = Dio(
       BaseOptions(
         baseUrl: Env.apiUrl,
@@ -25,6 +28,18 @@ class ApiClient {
               options.headers['Authorization'] = 'Bearer $token';
             }
           }
+
+          final path = options.path;
+          if (path.contains('/api/products') || path.contains('/api/stores')) {
+            final locationParams = _locationGetter?.call()?.toQueryParams();
+            if (locationParams != null && locationParams.isNotEmpty) {
+              options.queryParameters = {
+                ...locationParams,
+                ...options.queryParameters,
+              };
+            }
+          }
+
           handler.next(options);
         },
         onError: (error, handler) {
@@ -43,6 +58,7 @@ class ApiClient {
   }
 
   final AuthStorage _authStorage;
+  final DeliveryLocation? Function()? _locationGetter;
   late final Dio _dio;
 
   Dio get dio => _dio;

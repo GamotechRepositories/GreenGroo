@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/theme.dart';
 import '../common/fly_target_anchor.dart';
@@ -22,10 +23,7 @@ class FlipkartBottomNav extends StatefulWidget {
   final int cartBadgeCount;
   final String? accountInitial;
 
-  static const barHeight = 58.0;
-  static const _horizontalMargin = 22.0;
-  static const _bottomMargin = 14.0;
-  static const _pillHeight = 40.0;
+  static const barHeight = 62.0;
 
   static final barColor = const Color(0xF5FFFFFF);
   static final activePillColor = Colors.black.withValues(alpha: 0.07);
@@ -127,40 +125,28 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
     final visualIndex =
         _isDragging ? _indicatorIndex.round() : widget.currentIndex;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        FlipkartBottomNav._horizontalMargin,
-        0,
-        FlipkartBottomNav._horizontalMargin,
-        FlipkartBottomNav._bottomMargin + bottomInset,
-      ),
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.only(bottom: bottomInset),
       child: RepaintBoundary(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: FlipkartBottomNav.barColor,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: AppColors.borderLight,
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final count = widget.items.length;
-                final tabWidth = width / count;
-                final pillWidth = tabWidth * 0.78;
-                final pillLeft =
-                    tabWidth * (_indicatorIndex + 0.5) - pillWidth / 2;
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 8,
+                offset: Offset(0, -2),
+              ),
+            ],
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final count = widget.items.length;
 
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -172,50 +158,20 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
                       _onHorizontalDragEnd(details, width),
                   child: SizedBox(
                     height: FlipkartBottomNav.barHeight,
-                    child: Stack(
-                      clipBehavior: Clip.none,
+                    child: Row(
                       children: [
-                        AnimatedPositioned(
-                          duration: _isDragging
-                              ? Duration.zero
-                              : const Duration(milliseconds: 280),
-                          curve: Curves.easeOutCubic,
-                          left: pillLeft,
-                          top: (FlipkartBottomNav.barHeight -
-                                  FlipkartBottomNav._pillHeight) /
-                              2,
-                          width: pillWidth,
-                          height: FlipkartBottomNav._pillHeight,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: FlipkartBottomNav.activePillColor,
-                              borderRadius: BorderRadius.circular(22),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                        for (var i = 0; i < count; i++)
+                          Expanded(
+                            child: _FloatingNavTab(
+                              item: widget.items[i],
+                              selected: visualIndex == i,
+                              isAccount: i == count - 1,
+                              accountInitial: widget.accountInitial,
+                              badgeCount: widget.items[i].showBadge
+                                  ? widget.cartBadgeCount
+                                  : 0,
                             ),
                           ),
-                        ),
-                        Row(
-                          children: [
-                            for (var i = 0; i < count; i++)
-                              Expanded(
-                                child: _FloatingNavTab(
-                                  item: widget.items[i],
-                                  selected: visualIndex == i,
-                                  isAccount: i == count - 1,
-                                  accountInitial: widget.accountInitial,
-                                  badgeCount: widget.items[i].showBadge
-                                      ? widget.cartBadgeCount
-                                      : 0,
-                                ),
-                              ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -224,8 +180,7 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -262,8 +217,27 @@ class _FloatingNavTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: _buildIcon(),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildIcon(),
+            const SizedBox(height: 2),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                color: selected
+                    ? FlipkartBottomNav.iconActive
+                    : FlipkartBottomNav.iconInactive,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -276,7 +250,7 @@ class _FloatingNavTab extends StatelessWidget {
           )
         : Icon(
             selected ? item.activeIcon : item.icon,
-            size: 23,
+            size: 20,
             color: selected
                 ? FlipkartBottomNav.iconActive
                 : FlipkartBottomNav.iconInactive,
