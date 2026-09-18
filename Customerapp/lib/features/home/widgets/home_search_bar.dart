@@ -98,48 +98,55 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
             ),
           ),
           const SizedBox(width: 8),
-          // Super Offers 50% OFF Chip
+          // Super Offers 50% OFF Chip (Matching reference image)
           InkWell(
             onTap: () => context.push('${RoutePaths.product}?discount=50'),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+                color: const Color(0xFFEFFDF5), // Soft light green
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Row(
                 children: [
-                  Text(
-                    'SUPER OFFERS',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFFB45309),
-                      letterSpacing: 0.2,
-                    ),
+                  const Icon(
+                    Icons.eco_rounded,
+                    color: Color(0xFF22C55E),
+                    size: 18,
                   ),
-                  Text(
-                    '50% OFF',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF92400E),
-                    ),
+                  const SizedBox(width: 5),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SUPER OFFERS',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF16A34A),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      Text(
+                        '50% OFF',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF15803D),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

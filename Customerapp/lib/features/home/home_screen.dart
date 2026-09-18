@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/refresh/app_refresh.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
+import '../../routes/route_paths.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import 'home_load_gate.dart';
 import 'widgets/best_deals_section.dart';
@@ -32,7 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
   final _verticalScrolling = ValueNotifier<bool>(false);
-  final _isHeaderLightNotifier = ValueNotifier<bool>(false);
+  final _isHeaderLightNotifier = ValueNotifier<bool>(true);
 
   bool _scrollGateTriggered = false;
   bool _scrollActivityAttached = false;
@@ -74,13 +76,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _onScroll() {
     _attachVerticalScrollActivityListener();
 
-    if (_scrollController.hasClients) {
-      final isLight = _scrollController.offset >= 300;
-      if (_isHeaderLightNotifier.value != isLight) {
-        _isHeaderLightNotifier.value = isLight;
-      }
-    }
-
     if (_scrollGateTriggered) return;
     if (_scrollController.offset < 48) return;
     _scrollGateTriggered = true;
@@ -118,7 +113,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             physics: AppScrollConfig.listPhysics,
             cacheExtent: AppScrollConfig.cacheExtent,
             slivers: [
-              // 1. Pinned Sticky Header containing Department cards + Location bar (collapsible) and Search bar + Category strip (sticky)
+              // 1. Pinned Sticky White Header containing Department cards, Location bar, Search bar + Super Offers badge & Category icons strip
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyHeaderDelegate(
@@ -127,39 +122,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              // 2. Hero Section with custom 7-color gradient (Video card & offers marquee strip)
+              // 2. Banner 1 Hero Image Card (Fresh FRUITS Nature's Goodness in Every Bite)
               SliverToBoxAdapter(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF016846),
-                        Color(0xFF1E6B4F),
-                        Color(0xFF3E8F73),
-                        Color(0xFF8DBF9F),
-                        Color(0xFFEAF6EF),
-                      ],
-                      stops: [0.0, 0.25, 0.50, 0.75, 1.0],
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                  child: InkWell(
+                    onTap: () => context.push(RoutePaths.product),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.asset(
+                          'assets/images/banner1.png',
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
+                      ),
                     ),
                   ),
-                  child: const ZeptoFestiveHeroSection(),
                 ),
               ),
 
-              // 3. 4-Column Offer Cards Grid + SBI Card Box on Whitish Grey Background
+              // 3. Continuous Full-Width Marquee Offer Ticker Animation (Right-to-Left)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  child: TickerMarqueeStrip(
+                    backgroundColor: Color(0xFF047857),
+                  ),
+                ),
+              ),
+
+              // 4. Offer Banner Carousel (1.png, 2.png, 3.png) + SBI Card Instant Discount Pill
               const SliverToBoxAdapter(
                 child: ZeptoHeroOfferCardsSection(),
               ),
 
-              // Shop by Category Pills Grid
+              // 5. Explore GG Category (2 Rows Grid with Leaf/Wheat Watermark Shades + Ready to Cook + Instant Order + Book Order)
               const SliverToBoxAdapter(child: CategoryPillsSection()),
 
-              // 4. Darkstore Notice Banner + Category-wise Products Grid
+              // 6. Category-wise Products Grid
               const SliverToBoxAdapter(child: HomeAllCategoryProducts()),
 
-              // 5. Featured Deal Sections
+              // 7. Featured Deal Sections
               const SliverToBoxAdapter(
                 child: GatedHomeSection(
                   minPhase: HomeLoadPhase.scrolled,
@@ -189,7 +204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              // 6. Footer
+              // 8. Footer
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -239,41 +254,33 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
         maxShrink > 0 ? (shrinkOffset / maxShrink).clamp(0.0, 1.0) : 1.0;
     final deliveryBarHeight = (74.0 * (1.0 - progress)).clamp(0.0, 74.0);
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: isLightNotifier,
-      builder: (context, isLightBg, _) {
-        final bgColor =
-            isLightBg ? const Color(0xFFF2F1ED) : const Color(0xFF016846);
-
-        return ColoredBox(
-          color: bgColor,
-          child: Padding(
-            padding: EdgeInsets.only(top: topInset),
-            child: ClipRect(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (progress < 1.0)
-                    SizedBox(
-                      height: deliveryBarHeight,
-                      child: OverflowBox(
-                        minHeight: 74.0,
-                        maxHeight: 74.0,
-                        alignment: Alignment.bottomCenter,
-                        child: Opacity(
-                          opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
-                          child: const HomeDeliveryBar(),
-                        ),
-                      ),
+    return ColoredBox(
+      color: Colors.white,
+      child: Padding(
+        padding: EdgeInsets.only(top: topInset),
+        child: ClipRect(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (progress < 1.0)
+                SizedBox(
+                  height: deliveryBarHeight,
+                  child: OverflowBox(
+                    minHeight: 74.0,
+                    maxHeight: 74.0,
+                    alignment: Alignment.bottomCenter,
+                    child: Opacity(
+                      opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                      child: const HomeDeliveryBar(),
                     ),
-                  HomeSearchBar(isLightBg: isLightBg),
-                  HomeHeaderCategoryStrip(isLightBg: isLightBg),
-                ],
-              ),
-            ),
+                  ),
+                ),
+              const HomeSearchBar(isLightBg: true),
+              const HomeHeaderCategoryStrip(isLightBg: true),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 

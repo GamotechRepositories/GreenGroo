@@ -79,14 +79,10 @@ class _ZeptoFestiveHeroSectionState extends State<ZeptoFestiveHeroSection> {
   VideoPlayerController? _videoController;
   bool _videoInitialized = false;
 
-  final ScrollController _marqueeScrollController = ScrollController();
-  Timer? _marqueeTimer;
-
   @override
   void initState() {
     super.initState();
     _initVideo();
-    _startMarqueeTimer();
   }
 
   Future<void> _initVideo() async {
@@ -101,8 +97,7 @@ class _ZeptoFestiveHeroSectionState extends State<ZeptoFestiveHeroSection> {
       if (mounted) {
         setState(() => _videoInitialized = true);
       }
-    } catch (e, st) {
-      debugPrint('Error initializing local asset video: $e\n$st');
+    } catch (e) {
       try {
         _videoController = VideoPlayerController.networkUrl(
           Uri.parse(
@@ -116,10 +111,92 @@ class _ZeptoFestiveHeroSectionState extends State<ZeptoFestiveHeroSection> {
         if (mounted) {
           setState(() => _videoInitialized = true);
         }
-      } catch (e2) {
-        debugPrint('Error initializing fallback network video: $e2');
-      }
+      } catch (_) {}
     }
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 180,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F172A),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (_videoInitialized && _videoController != null)
+            FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _videoController!.value.size.width,
+                height: _videoController!.value.size.height,
+                child: VideoPlayer(_videoController!),
+              ),
+            )
+          else
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 64,
+                  color: Colors.white24,
+                ),
+              ),
+            ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.2),
+                  Colors.black.withValues(alpha: 0.6),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TickerMarqueeStrip extends StatefulWidget {
+  final Color backgroundColor;
+
+  const TickerMarqueeStrip({
+    super.key,
+    this.backgroundColor = const Color(0xFF047857),
+  });
+
+  @override
+  State<TickerMarqueeStrip> createState() => _TickerMarqueeStripState();
+}
+
+class _TickerMarqueeStripState extends State<TickerMarqueeStrip> {
+  final ScrollController _marqueeScrollController = ScrollController();
+  Timer? _marqueeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startMarqueeTimer();
   }
 
   void _startMarqueeTimer() {
@@ -139,147 +216,76 @@ class _ZeptoFestiveHeroSectionState extends State<ZeptoFestiveHeroSection> {
   void dispose() {
     _marqueeTimer?.cancel();
     _marqueeScrollController.dispose();
-    _videoController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.transparent,
-      child: Column(
-        children: [
-          // 1. Sky Blue / Video Header Card with "Explore More" Button
-          Container(
-            height: 180,
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
+      color: widget.backgroundColor,
+      height: 36,
+      width: double.infinity,
+      child: ListView.builder(
+        controller: _marqueeScrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemBuilder: (context, index) {
+          final offer = _tickerOffers[index % _tickerOffers.length];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
               children: [
-                if (_videoInitialized && _videoController != null)
-                  FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _videoController!.value.size.width,
-                      height: _videoController!.value.size.height,
-                      child: VideoPlayer(_videoController!),
-                    ),
-                  )
-                else
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.shopping_bag_outlined,
-                        size: 64,
-                        color: Colors.white24,
-                      ),
-                    ),
-                  ),
-                // Dark Overlay Gradient
+                Text(offer.icon, style: const TextStyle(fontSize: 12)),
+                const SizedBox(width: 4),
                 Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.2),
-                        Colors.black.withValues(alpha: 0.6),
-                      ],
+                    color: offer.badgeBg,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    offer.badge,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: offer.badgeTextColor,
                     ),
                   ),
                 ),
+                const SizedBox(width: 6),
+                Text(
+                  offer.text,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    offer.code,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Text('•', style: TextStyle(color: Colors.white54)),
               ],
             ),
-          ),
-
-          // 2. Continuous Moving Offers Marquee Strip
-          Container(
-            height: 34,
-            margin: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: ListView.builder(
-              controller: _marqueeScrollController,
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) {
-                final offer = _tickerOffers[index % _tickerOffers.length];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    children: [
-                      Text(offer.icon, style: const TextStyle(fontSize: 12)),
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: offer.badgeBg,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          offer.badge,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            color: offer.badgeTextColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        offer.text,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF111827),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: const Color(0xFFA7F3D0)),
-                        ),
-                        child: Text(
-                          offer.code,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF065F46),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('•', style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 12),
-        ],
+          );
+        },
       ),
     );
   }
@@ -293,7 +299,7 @@ class ZeptoHeroOfferCardsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFF8FAFC),
-      padding: const EdgeInsets.only(top: 14, bottom: 6),
+      padding: const EdgeInsets.only(top: 10, bottom: 6),
       child: Column(
         children: [
           // Banner Image Carousel (1.png, 2.png, 3.png)
@@ -315,8 +321,7 @@ class ZeptoHeroOfferCardsSection extends StatelessWidget {
                 children: [
                   // SBI Logo Pill
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00A3E0),
                       borderRadius: BorderRadius.circular(6),
@@ -401,7 +406,6 @@ class _BannerSliderCarouselState extends State<BannerSliderCarousel> {
   @override
   void initState() {
     super.initState();
-    // Start at a high page multiple of 3 so scrolling left/right infinitely works smoothly
     _pageController = PageController(
       initialPage: 1000 * _images.length,
       viewportFraction: 0.85,

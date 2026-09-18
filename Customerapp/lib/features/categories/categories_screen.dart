@@ -9,9 +9,10 @@ import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/category/category_grid_tile.dart';
+import '../../widgets/category/triangular_category_card.dart';
 import '../../widgets/common/app_loading.dart';
-import '../../widgets/common/app_network_image.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../home/home_providers.dart';
 
@@ -270,61 +271,18 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           crossAxisCount: 3,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 0.82,
+          childAspectRatio: 0.88,
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final cat = categoryList[index];
             final imageUrl = resolveCategoryImageUrl(cat);
 
-            return InkWell(
+            return CategoryTriangularCard(
+              categoryName: cat.categoryName,
+              imageUrl: imageUrl,
+              index: index,
               onTap: () => _onCategoryTapped(context, cat.categoryName),
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Single image box (NO double box around tile)
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Center(
-                        child: imageUrl != null
-                            ? AppNetworkImage(
-                                imageUrl: imageUrl,
-                                fit: BoxFit.contain,
-                                errorIcon: Icons.restaurant_rounded,
-                                errorIconSize: 32,
-                              )
-                            : const Icon(
-                                Icons.category_rounded,
-                                size: 32,
-                                color: Color(0xFF047857),
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  // Category name outside the box (NO '4 items' or 'Explore' text)
-                  Text(
-                    cat.categoryName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                ],
-              ),
             );
           },
           childCount: categoryList.length,
@@ -398,52 +356,54 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                     ),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: InkWell(
-                        onTap: () => context.push(RoutePaths.location),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.location_on_rounded,
-                                size: 16,
-                                color: Color(0xFF047857),
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  addressText,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF06311D),
-                                  ),
+                      child: Consumer(
+                        builder: (context, ref, _) => InkWell(
+                          onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.location_on_rounded,
+                                  size: 16,
+                                  color: Color(0xFF047857),
                                 ),
-                              ),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 18,
-                                color: Color(0xFF047857),
-                              ),
-                              if (storeName?.isNotEmpty == true) ...[
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    '($storeName)',
+                                    addressText,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF047857),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF06311D),
                                     ),
                                   ),
                                 ),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 18,
+                                  color: Color(0xFF047857),
+                                ),
+                                if (storeName?.isNotEmpty == true) ...[
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      '($storeName)',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF047857),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/theme.dart';
+import '../../core/exceptions/api_exception.dart';
+import '../../core/network/api_response_parser.dart';
+import '../../core/providers/app_providers.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/utils/cart_utils.dart';
@@ -13,13 +17,14 @@ import '../../features/cart/cart_controller.dart';
 import '../../features/home/home_providers.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../features/wishlist/wishlist_controller.dart';
+import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/cart/important_message_cards.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
-import '../../widgets/cart/important_message_cards.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -65,7 +70,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove item?'),
+        title: const Text('Remove item?', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text('Remove "${item.name}" from your cart?'),
         actions: [
           TextButton(
@@ -123,7 +128,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear cart?'),
+        title: const Text('Clear cart?', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Remove all items from your cart?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -137,6 +142,24 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     await ref.read(cartControllerProvider.notifier).clearCart();
     if (!mounted) return;
     setState(() => _clearing = false);
+  }
+
+  void _openPaymentSelectionSheet(
+    BuildContext context,
+    CartSummary summary,
+    Address? activeAddress,
+    List<CartItem> items,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SelectPaymentMethodSheet(
+        summary: summary,
+        activeAddress: activeAddress,
+        cartItems: items,
+      ),
+    );
   }
 
   @override
@@ -202,7 +225,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 left: 14,
                 right: 14,
                 top: 10,
-                bottom: 140, // Space for sticky bottom bar
+                bottom: 150, // Space for sticky bottom bar
               ),
               children: [
                 // 1. Delivery Speed Banner
@@ -261,7 +284,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ],
 
                 // 5. Bill Details Card with Total Savings Highlight
-                _BlinkitBillDetailsCard(summary: summary),
+                _BlinkitBillDetailsCard(summary: summary, items: items),
                 const SizedBox(height: 12),
 
                 // 6. Add GSTIN Card
@@ -294,7 +317,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ),
           ),
 
-          // Sticky Bottom Location & Proceed Button Bar
+          // Sticky Bottom Location & "Select Payment Method" Button Bar
           Positioned(
             left: 0,
             right: 0,
@@ -309,7 +332,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   ? activeAddress.fullAddress
                   : 'Add or choose a delivery address',
               onChangeAddress: () => context.push(RoutePaths.checkout),
-              onProceed: () => context.push(RoutePaths.checkout),
+              onProceed: () => _openPaymentSelectionSheet(context, summary, activeAddress, items),
               buttonText: 'Select Payment Method',
             ),
           ),
@@ -343,7 +366,7 @@ class _CartTopAppBar extends StatelessWidget {
           : null,
       title: Text(
         title,
-        style: const TextStyle(
+        style: GoogleFonts.plusJakartaSans(
           color: Colors.black,
           fontSize: 18,
           fontWeight: FontWeight.w800,
@@ -354,30 +377,12 @@ class _CartTopAppBar extends StatelessWidget {
           icon: const Icon(Icons.search, color: Colors.black, size: 22),
           onPressed: () => context.push(RoutePaths.product),
         ),
-        Container(
-          margin: const EdgeInsets.only(right: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade300),
+        if (onClear != null)
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
+            onPressed: onClear,
+            tooltip: 'Clear Cart',
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.ios_share_rounded, size: 14, color: Colors.black),
-              SizedBox(width: 4),
-              Text(
-                'Share',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -429,18 +434,19 @@ class _DeliverySpeedHeaderCard extends StatelessWidget {
               children: [
                 Text(
                   'Free delivery in $deliveryTime',
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F2937),
+                    color: const Color(0xFF1F2937),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Shipment of $itemCount item${itemCount > 1 ? 's' : ''}',
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
-                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF6B7280),
                   ),
                 ),
               ],
@@ -569,10 +575,10 @@ class _BlinkitCartItemRow extends StatelessWidget {
                     item.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: Color(0xFF1F2937),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: const Color(0xFF0F172A),
                       height: 1.25,
                     ),
                   ),
@@ -584,9 +590,10 @@ class _BlinkitCartItemRow extends StatelessWidget {
                   item.variantName.isNotEmpty
                       ? item.variantName
                       : (item.colorName.isNotEmpty ? item.colorName : 'Standard'),
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
-                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF64748B),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -594,12 +601,12 @@ class _BlinkitCartItemRow extends StatelessWidget {
                 // Move to Wishlist Link
                 GestureDetector(
                   onTap: onMoveToWishlist,
-                  child: const Text(
+                  child: Text(
                     'Move to wishlist',
-                    style: TextStyle(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF6B7280),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF16A34A),
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -613,27 +620,28 @@ class _BlinkitCartItemRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Solid Green Stepper Box [ - 4 + ]
+              // Light Green Stepper Box [ − 1 + ]
               Container(
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF16A34A),
+                  color: const Color(0xFFEFFDF5), // Light green tint
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF16A34A), width: 1.2),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     InkWell(
                       onTap: onDecrease,
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(7)),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         child: Text(
                           '−',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Color(0xFF16A34A),
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
@@ -642,24 +650,24 @@ class _BlinkitCartItemRow extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Text(
                         '${item.quantity}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFF16A34A),
                           fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
                     InkWell(
                       onTap: onIncrease,
-                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(7)),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         child: Text(
                           '+',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Color(0xFF16A34A),
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
@@ -676,8 +684,9 @@ class _BlinkitCartItemRow extends StatelessWidget {
                   if (hasDiscount) ...[
                     Text(
                       formatInr(item.price * item.quantity),
-                      style: const TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
+                        fontWeight: FontWeight.w600,
                         color: Colors.grey,
                         decoration: TextDecoration.lineThrough,
                       ),
@@ -686,10 +695,10 @@ class _BlinkitCartItemRow extends StatelessWidget {
                   ],
                   Text(
                     formatInr(item.lineTotal),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1F2937),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0F172A),
                     ),
                   ),
                 ],
@@ -734,24 +743,25 @@ class _GiftingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Make this a gift!',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF92400E),
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF92400E),
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
                   'Get your items in a special gift bag for just ₹30',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
-                    color: Color(0xFFB45309),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFB45309),
                   ),
                 ),
               ],
@@ -791,14 +801,14 @@ class _YouMightAlsoLikeSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 2, bottom: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 10),
           child: Text(
             'You might also like',
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1F2937),
+              color: const Color(0xFF1F2937),
             ),
           ),
         ),
@@ -839,7 +849,6 @@ class _RecommendationProductCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image + Wishlist Icon
           Stack(
             children: [
               Container(
@@ -889,14 +898,14 @@ class _RecommendationProductCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Weight + ADD Button Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       '250 g',
-                      style: TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
+                        fontWeight: FontWeight.w600,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -908,16 +917,16 @@ class _RecommendationProductCard extends ConsumerWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: const Color(0xFFEFFDF5),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: const Color(0xFF16A34A), width: 1.2),
                         ),
-                        child: const Text(
+                        child: Text(
                           'ADD',
-                          style: TextStyle(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF16A34A),
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF16A34A),
                           ),
                         ),
                       ),
@@ -925,23 +934,21 @@ class _RecommendationProductCard extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-
-                // Price line
                 Row(
                   children: [
                     Text(
                       formatInr(product.discountedPrice),
-                      style: const TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF1F2937),
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
                     if (hasDiscount) ...[
                       const SizedBox(width: 4),
                       Text(
                         formatInr(product.price),
-                        style: const TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           color: Colors.grey,
                           decoration: TextDecoration.lineThrough,
@@ -950,29 +957,26 @@ class _RecommendationProductCard extends ConsumerWidget {
                     ],
                   ],
                 ),
-
-                // Discount tag
                 if (hasDiscount) ...[
                   const SizedBox(height: 2),
                   Text(
                     '${product.discountedPercent}% OFF on MRP',
-                    style: const TextStyle(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF2563EB),
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF2563EB),
                     ),
                   ),
                 ],
-
                 const SizedBox(height: 4),
                 Text(
                   product.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF374151),
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF374151),
                   ),
                 ),
               ],
@@ -984,16 +988,31 @@ class _RecommendationProductCard extends ConsumerWidget {
   }
 }
 
-// --- 5. Bill Details Card ---
+// --- 5. Bill Details Card (Accurate Calculations) ---
 class _BlinkitBillDetailsCard extends StatelessWidget {
-  const _BlinkitBillDetailsCard({required this.summary});
+  const _BlinkitBillDetailsCard({
+    required this.summary,
+    required this.items,
+  });
 
   final CartSummary summary;
+  final List<CartItem> items;
 
   @override
   Widget build(BuildContext context) {
-    final originalTotal = summary.subtotal + 45;
-    final totalSavings = 45 + (summary.shippingFree ? 30 : 0);
+    final originalTotalMRP = items.fold<double>(
+      0,
+      (sum, item) => sum + (item.price > 0 ? item.price : item.discountedPrice) * item.quantity,
+    );
+    final productDiscount = items.fold<double>(
+      0,
+      (sum, item) {
+        final original = item.price > 0 ? item.price : item.discountedPrice;
+        final diff = (original - item.discountedPrice).clamp(0.0, double.infinity);
+        return sum + diff * item.quantity;
+      },
+    );
+    final totalSavings = productDiscount + (summary.shippingFree ? 30 : 0);
 
     return Container(
       decoration: BoxDecoration(
@@ -1015,57 +1034,65 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Bill details',
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F2937),
+                    color: const Color(0xFF1F2937),
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // Items total
+                // Items total MRP
                 Row(
                   children: [
                     const Icon(Icons.article_outlined, size: 18, color: Color(0xFF4B5563)),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Items total',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF374151)),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDBEAFE),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Saved ₹45',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D4ED8),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      formatInr(originalTotal),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      formatInr(summary.subtotal),
-                      style: const TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1F2937),
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    if (productDiscount > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDBEAFE),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Saved ₹${productDiscount.toStringAsFixed(0)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF1D4ED8),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    if (originalTotalMRP > summary.subtotal) ...[
+                      Text(
+                        formatInr(originalTotalMRP),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          color: Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      formatInr(summary.subtotal),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
                   ],
@@ -1077,9 +1104,13 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                   children: [
                     const Icon(Icons.delivery_dining_outlined, size: 18, color: Color(0xFF4B5563)),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Delivery charge',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF374151)),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF374151),
+                      ),
                     ),
                     const Spacer(),
                     const Text(
@@ -1091,12 +1122,12 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'FREE',
-                      style: TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF16A34A),
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF16A34A),
                       ),
                     ),
                   ],
@@ -1104,21 +1135,25 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // Handling charge
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.shopping_bag_outlined, size: 18, color: Color(0xFF4B5563)),
-                    SizedBox(width: 8),
+                    const Icon(Icons.shopping_bag_outlined, size: 18, color: Color(0xFF4B5563)),
+                    const SizedBox(width: 8),
                     Text(
                       'Handling charge',
-                      style: TextStyle(fontSize: 14, color: Color(0xFF374151)),
-                    ),
-                    Spacer(),
-                    Text(
-                      '₹5',
-                      style: TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1F2937),
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '₹5',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
                   ],
@@ -1131,21 +1166,21 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                 // Grand total
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       'Grand total',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1F2937),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
                     const Spacer(),
                     Text(
                       formatInr(summary.subtotal + 5),
-                      style: const TextStyle(
-                        fontSize: 18,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 18.5,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF1F2937),
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
                   ],
@@ -1154,7 +1189,7 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
             ),
           ),
 
-          // Total Savings Highlight Card (Light Blue Container)
+          // Total Savings Highlight Card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1168,31 +1203,32 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Your total savings',
-                        style: TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1D4ED8),
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1D4ED8),
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
+                      Text(
                         'Includes ₹30 savings through free delivery',
-                        style: TextStyle(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
-                          color: Color(0xFF3B82F6),
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF3B82F6),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Text(
-                  '₹$totalSavings',
-                  style: const TextStyle(
-                    fontSize: 16,
+                  '₹${totalSavings.toStringAsFixed(0)}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16.5,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1D4ED8),
+                    color: const Color(0xFF1D4ED8),
                   ),
                 ),
               ],
@@ -1238,24 +1274,25 @@ class _AddGstinCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Add GSTIN',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1F2937),
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
                   'Claim GST input credit up to 18% on your order',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
-                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF6B7280),
                   ),
                 ),
               ],
@@ -1283,14 +1320,14 @@ class _DeliveryInstructionsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 2, bottom: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 10),
           child: Text(
             'Delivery instructions',
-            style: TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1F2937),
+              color: const Color(0xFF1F2937),
             ),
           ),
         ),
@@ -1384,17 +1421,18 @@ class _InstructionTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     color: titleColor ?? const Color(0xFF1F2937),
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 10,
-                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF6B7280),
                   ),
                 ),
               ],
@@ -1428,24 +1466,24 @@ class _FeedingIndiaBanner extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Text(
                 'Join us at feeding india',
-                style: TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF15803D),
+                  color: const Color(0xFF15803D),
                 ),
               ),
-              SizedBox(width: 4),
-              Icon(Icons.arrow_forward_rounded, size: 16, color: Color(0xFF15803D)),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward_rounded, size: 16, color: Color(0xFF15803D)),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Together, we can fuel young minds to grow, learn, and thrive',
-            style: TextStyle(fontSize: 12, color: Color(0xFF166534)),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF166534)),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1547,19 +1585,20 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
                   children: [
                     Text(
                       'Delivering to $addressLabel',
-                      style: const TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF1F2937),
                       ),
                     ),
                     Text(
                       addressText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
-                        color: Color(0xFF6B7280),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF6B7280),
                       ),
                     ),
                   ],
@@ -1572,12 +1611,12 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
+                child: Text(
                   'Change',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF16A34A),
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF16A34A),
                   ),
                 ),
               ),
@@ -1585,7 +1624,7 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // Main Green Action Button
+          // Main Light Green Action Button
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -1599,15 +1638,367 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
               ),
               child: Text(
                 buttonText,
-                style: const TextStyle(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w900,
                   color: Colors.white,
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// =========================================================
+// Select Payment Method Sheet / Modal
+// =========================================================
+class _SelectPaymentMethodSheet extends ConsumerStatefulWidget {
+  const _SelectPaymentMethodSheet({
+    required this.summary,
+    required this.activeAddress,
+    required this.cartItems,
+  });
+
+  final CartSummary summary;
+  final Address? activeAddress;
+  final List<CartItem> cartItems;
+
+  @override
+  ConsumerState<_SelectPaymentMethodSheet> createState() =>
+      __SelectPaymentMethodSheetState();
+}
+
+class __SelectPaymentMethodSheetState
+    extends ConsumerState<_SelectPaymentMethodSheet> {
+  String _selectedPaymentMode = 'cod'; // 'cod' or 'online' or 'upi'
+  bool _placingOrder = false;
+  String _error = '';
+
+  Future<void> _handlePlaceOrder() async {
+    final address = widget.activeAddress;
+    if (address == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a delivery address first.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _placingOrder = true;
+      _error = '';
+    });
+
+    try {
+      final itemsPayload = widget.cartItems
+          .map(
+            (item) => {
+              'productId': item.id,
+              'quantity': item.quantity,
+              'variantName': item.variantName,
+              'colorName': item.colorName,
+            },
+          )
+          .toList();
+
+      final api = ref.read(apiServiceProvider);
+      final response = await api.placeOrder({
+        'addressId': address.id,
+        'paymentMethod': _selectedPaymentMode == 'cod' ? 'cod' : 'online',
+        'checkoutItems': itemsPayload,
+        'checkoutMode': 'cart',
+      });
+
+      final body = ApiResponseParser.getData(response.data);
+      if (body is! Map<String, dynamic>) {
+        throw ApiException(
+          ApiResponseParser.getMessage(response.data) ??
+              'Failed to create order. Try again.',
+        );
+      }
+
+      await ref.read(cartControllerProvider.notifier).clearCart();
+      if (!mounted) return;
+
+      Navigator.pop(context); // Close sheet
+
+      // Show Order Placed Success Modal
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFDCFCE7),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 54),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Order Placed Successfully! 🎉',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your fresh items are being prepared for express delivery.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.go(RoutePaths.orders);
+                  },
+                  child: const Text('View My Orders', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _placingOrder = false;
+        _error = apiErrorMessage(e, fallback: 'Failed to place order.');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grandTotal = widget.summary.subtotal + 5;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.paddingOf(context).bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row: Back button (←) + Bill Total Amount
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 24),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bill Total: ${formatInr(grandTotal)}',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'Includes all taxes & handling charges',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+
+          Text(
+            'Select Payment Method',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Option 1: UPI Payment
+          _PaymentOptionTile(
+            icon: Icons.qr_code_scanner_rounded,
+            title: 'UPI Payment',
+            subtitle: 'Google Pay, PhonePe, Paytm, BHIM UPI',
+            isSelected: _selectedPaymentMode == 'upi',
+            onTap: () => setState(() => _selectedPaymentMode = 'upi'),
+          ),
+          const SizedBox(height: 10),
+
+          // Option 2: Cash on Delivery (COD)
+          _PaymentOptionTile(
+            icon: Icons.payments_outlined,
+            title: 'Cash on Delivery (COD)',
+            subtitle: 'Pay cash or UPI upon delivery at your door',
+            isSelected: _selectedPaymentMode == 'cod',
+            onTap: () => setState(() => _selectedPaymentMode = 'cod'),
+          ),
+          const SizedBox(height: 10),
+
+          // Option 3: Online Payment / Cards
+          _PaymentOptionTile(
+            icon: Icons.credit_card_rounded,
+            title: 'Cards / NetBanking / Razorpay',
+            subtitle: 'Credit Card, Debit Card, NetBanking',
+            isSelected: _selectedPaymentMode == 'online',
+            onTap: () => setState(() => _selectedPaymentMode = 'online'),
+          ),
+
+          if (_error.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(_error, style: const TextStyle(color: Colors.red, fontSize: 13)),
+          ],
+
+          const SizedBox(height: 20),
+
+          // CTA Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: _placingOrder ? null : _handlePlaceOrder,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _placingOrder
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(
+                      'Choose Payment & Place Order · ${formatInr(grandTotal)}',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentOptionTile extends StatelessWidget {
+  const _PaymentOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFEFFDF5) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: isSelected ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1628,15 +2019,15 @@ class _LoginPrompt extends StatelessWidget {
           children: [
             const Icon(Icons.shopping_cart_outlined, size: 64, color: AppColors.textMuted),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Sign in to view your cart',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Items you add to your cart will appear here',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             FilledButton(
@@ -1669,15 +2060,15 @@ class _EmptyCart extends StatelessWidget {
           children: [
             const Icon(Icons.remove_shopping_cart_outlined, size: 64, color: AppColors.textMuted),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Your cart is empty',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Explore our fresh products and add items to your cart',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             FilledButton(

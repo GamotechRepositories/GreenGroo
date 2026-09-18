@@ -189,12 +189,14 @@ class FlipkartNavItem {
     required this.label,
     required this.icon,
     required this.activeIcon,
+    this.assetIcon,
     this.showBadge = false,
   });
 
   final String label;
   final IconData icon;
   final IconData activeIcon;
+  final String? assetIcon;
   final bool showBadge;
 }
 
@@ -243,18 +245,32 @@ class _FloatingNavTab extends StatelessWidget {
   }
 
   Widget _buildIcon() {
-    final iconWidget = isAccount && accountInitial != null
-        ? _AccountAvatar(
-            initial: accountInitial!,
-            selected: selected,
-          )
-        : Icon(
-            selected ? item.activeIcon : item.icon,
-            size: 20,
-            color: selected
-                ? FlipkartBottomNav.iconActive
-                : FlipkartBottomNav.iconInactive,
-          );
+    Widget iconWidget;
+
+    if (item.assetIcon != null && item.assetIcon!.isNotEmpty) {
+      iconWidget = Image.asset(
+        item.assetIcon!,
+        width: 22,
+        height: 22,
+        fit: BoxFit.contain,
+        color: selected
+            ? FlipkartBottomNav.iconActive
+            : FlipkartBottomNav.iconInactive,
+      );
+    } else if (isAccount && accountInitial != null) {
+      iconWidget = _AccountAvatar(
+        initial: accountInitial!,
+        selected: selected,
+      );
+    } else {
+      iconWidget = Icon(
+        selected ? item.activeIcon : item.icon,
+        size: 20,
+        color: selected
+            ? FlipkartBottomNav.iconActive
+            : FlipkartBottomNav.iconInactive,
+      );
+    }
 
     if (!item.showBadge) {
       return iconWidget;

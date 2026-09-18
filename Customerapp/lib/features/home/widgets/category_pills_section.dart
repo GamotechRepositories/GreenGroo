@@ -7,6 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../models/category.dart';
 import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
+import '../../../widgets/category/triangular_category_card.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../cart/cart_controller.dart';
 import '../home_providers.dart';
@@ -32,13 +33,23 @@ class CategoryPillsSection extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Explore GG Category',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 20.5,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF0F172A),
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Explore GG Category',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 20.5,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.eco_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 22,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 categoriesAsync.when(
@@ -70,53 +81,20 @@ class CategoryPillsSection extends ConsumerWidget {
                             crossAxisCount: 3,
                             mainAxisSpacing: 10,
                             crossAxisSpacing: 10,
-                            childAspectRatio: 0.82,
+                            childAspectRatio: 0.88,
                           ),
                           itemCount: displayCats.length,
                           itemBuilder: (context, index) {
                             final cat = displayCats[index];
-                            return InkWell(
+                            return CategoryTriangularCard(
+                              categoryName: cat.categoryName,
+                              imageUrl: cat.categoryImage,
+                              index: index,
                               onTap: () {
                                 context.push(
                                   '${RoutePaths.product}?categoryName=${Uri.encodeComponent(cat.categoryName)}',
                                 );
                               },
-                              borderRadius: BorderRadius.circular(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE0F2FE), // Lightish blue box
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      padding: const EdgeInsets.all(8),
-                                      child: Center(
-                                        child: AppNetworkImage(
-                                          imageUrl: cat.categoryImage,
-                                          fit: BoxFit.contain,
-                                          errorIcon: Icons.category_rounded,
-                                          errorIconSize: 32,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    cat.categoryName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF1E293B),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             );
                           },
                         ),
@@ -348,53 +326,21 @@ class __ReadyToCookCategoriesSectionState
             crossAxisCount: 3,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.82,
+            childAspectRatio: 0.88,
           ),
           itemCount: displayCats.length,
           itemBuilder: (context, index) {
             final cat = displayCats[index];
-            return InkWell(
+            return CategoryTriangularCard(
+              categoryName: cat.categoryName,
+              imageUrl: cat.categoryImage,
+              errorIcon: Icons.restaurant_rounded,
+              index: index + 3,
               onTap: () {
                 context.push(
                   '${RoutePaths.product}?categoryName=${Uri.encodeComponent(cat.categoryName)}',
                 );
               },
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0F2FE), // Same lightish blue box as Explore GG Category
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Center(
-                        child: AppNetworkImage(
-                          imageUrl: cat.categoryImage,
-                          fit: BoxFit.contain,
-                          errorIcon: Icons.restaurant_rounded,
-                          errorIconSize: 32,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    cat.categoryName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                ],
-              ),
             );
           },
         ),
@@ -402,11 +348,7 @@ class __ReadyToCookCategoriesSectionState
         _SeeAllButton(
           title: 'See all Ready to Cook categories',
           categoryImages: catImages,
-          onTap: () {
-            context.push(
-              '${RoutePaths.product}?categoryName=${Uri.encodeComponent('Ready2Cook')}',
-            );
-          },
+          onTap: () => context.go(RoutePaths.categories),
         ),
       ],
     );

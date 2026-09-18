@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/location_provider.dart';
 import '../../../routes/route_paths.dart';
+import '../../../widgets/address/select_delivery_location_sheet.dart';
 
 import '../home_providers.dart';
 
@@ -52,7 +53,7 @@ class HomeDeliveryBar extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: currentStore == 'main'
-                                ? const Color(0xFF047857)
+                                ? const Color(0xFF16A34A)
                                 : const Color(0xFFE5E7EB),
                             width: currentStore == 'main' ? 2 : 1,
                           ),
@@ -71,7 +72,7 @@ class HomeDeliveryBar extends ConsumerWidget {
                             const Icon(
                               Icons.calendar_today_rounded,
                               size: 13,
-                              color: Color(0xFF047857),
+                              color: Color(0xFF16A34A),
                             ),
                             const SizedBox(width: 3),
                             Flexible(
@@ -82,7 +83,7 @@ class HomeDeliveryBar extends ConsumerWidget {
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF047857),
+                                  color: const Color(0xFF16A34A),
                                 ),
                               ),
                             ),
@@ -218,7 +219,7 @@ class HomeDeliveryBar extends ConsumerWidget {
 
           // 2. Below Department Cards: Full-width Location selector
           InkWell(
-            onTap: () => context.push(RoutePaths.location),
+            onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
@@ -226,8 +227,8 @@ class HomeDeliveryBar extends ConsumerWidget {
                 children: [
                   const Icon(
                     Icons.location_on_rounded,
-                    size: 15,
-                    color: Color(0xFFBFD59E),
+                    size: 16,
+                    color: Color(0xFF047857),
                   ),
                   const SizedBox(width: 4),
                   Flexible(
@@ -238,14 +239,14 @@ class HomeDeliveryBar extends ConsumerWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFFBFD59E),
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
                   ),
                   const Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    size: 17,
-                    color: Color(0xFFBFD59E),
+                    size: 18,
+                    color: Color(0xFF475569),
                   ),
                   if (storeName != null && storeName.isNotEmpty) ...[
                     const SizedBox(width: 4),
@@ -257,7 +258,7 @@ class HomeDeliveryBar extends ConsumerWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFFBFD59E),
+                          color: const Color(0xFF64748B),
                         ),
                       ),
                     ),

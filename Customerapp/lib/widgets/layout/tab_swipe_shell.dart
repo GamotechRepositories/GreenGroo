@@ -59,7 +59,7 @@ class TabSwipeShell extends ConsumerStatefulWidget {
 }
 
 class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
-  static const _authRequiredIndices = {2, 3};
+  static const _authRequiredIndices = {2};
 
   late final PageController _pageController;
   bool _syncingFromShell = false;

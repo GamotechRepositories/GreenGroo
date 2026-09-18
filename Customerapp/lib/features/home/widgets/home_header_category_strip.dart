@@ -245,11 +245,11 @@ class HomeHeaderCategoryStrip extends ConsumerWidget {
           final isSelected = selectedCategory == catName;
 
           final activeColor = isLightBg
-              ? const Color(0xFF047857)
+              ? const Color(0xFF16A34A)
               : Colors.white;
           final inactiveColor = isLightBg
               ? const Color(0xFF475569)
-              : const Color(0xFFE1ECC5);
+              : const Color(0xFFCBD5E1);
 
           return InkWell(
             onTap: () {

@@ -31,16 +31,19 @@ class _AppShellState extends ConsumerState<AppShell> {
       label: 'Home',
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
+      assetIcon: 'assets/images/homeIcon.png',
     ),
     FlipkartNavItem(
       label: 'Categories',
       icon: Icons.widgets_outlined,
       activeIcon: Icons.widgets_rounded,
+      assetIcon: 'assets/images/categoriesIcon (1).png',
     ),
     FlipkartNavItem(
       label: 'Orders',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long_rounded,
+      assetIcon: 'assets/images/orderAgainIcon.png',
     ),
     FlipkartNavItem(
       label: 'Cart',
@@ -52,10 +55,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       label: 'Account',
       icon: Icons.account_circle_outlined,
       activeIcon: Icons.account_circle_rounded,
+      assetIcon: 'assets/images/profileIcon.png',
     ),
   ];
 
-  static const _authRequiredIndices = {2, 3};
+  static const _authRequiredIndices = {2};
 
   @override
   void initState() {
@@ -104,9 +108,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
 
     final currentRoute = GoRouterState.of(context).uri.path;
-    final isCategoriesTab = widget.navigationShell.currentIndex == 1;
-    final isProductRoute = currentRoute == RoutePaths.product || currentRoute == RoutePaths.categories;
-    final hideBottomNav = isCategoriesTab || isProductRoute;
+    final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final isProductRoute = currentRoute == RoutePaths.product;
+    final hideBottomNav = isKeyboardOpen || isProductRoute;
 
     return PopScope(
       canPop: false,
@@ -121,6 +125,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           systemNavigationBarIconBrightness: Brightness.dark,
         ),
         child: Scaffold(
+          resizeToAvoidBottomInset: false,
           extendBody: true,
           backgroundColor: const Color(0xFFF4F5F7),
           body: OfflineBannerHost(
