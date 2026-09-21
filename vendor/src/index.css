@@ -45,11 +45,14 @@
   }
 
   #invoice-print-area,
-  #invoice-print-area * {
+  #invoice-print-area *,
+  #segregation-print-area,
+  #segregation-print-area * {
     visibility: visible;
   }
 
-  #invoice-print-area {
+  #invoice-print-area,
+  #segregation-print-area {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
