@@ -97,6 +97,23 @@ export function isMultiVariant(product) {
   return product?.variantType === "multi" && Array.isArray(product?.variants) && product.variants.length > 0;
 }
 
+export function parseBulkGradeKey(variantName = "") {
+  if (!variantName) return null;
+  const match = String(variantName)
+    .trim()
+    .match(/^Grade\s*([ABC])(?:\s*[·•\-–:].*)?$/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
+export function getBulkGrade(product, gradeOrVariantName = "") {
+  const grade =
+    parseBulkGradeKey(gradeOrVariantName) ||
+    String(gradeOrVariantName || "").trim().toUpperCase();
+  if (!["A", "B", "C"].includes(grade)) return null;
+  if (!Array.isArray(product?.bulkGrades)) return null;
+  return product.bulkGrades.find((entry) => entry.grade === grade) || null;
+}
+
 export function getVariant(product, variantName) {
   if (!isMultiVariant(product) || !variantName) return null;
 
@@ -109,6 +126,12 @@ export function getVariant(product, variantName) {
 }
 
 export function isProductInStock(product, variantName = "") {
+  const bulkGrade = getBulkGrade(product, variantName);
+  if (bulkGrade && (product?.enableBulkGrades || parseBulkGradeKey(variantName))) {
+    if (bulkGrade.isAvailable === false) return false;
+    return true;
+  }
+
   if (isMultiVariant(product)) {
     const variant = getVariant(product, variantName);
     if (!variant) return false;
@@ -154,6 +177,21 @@ export function getPricingSource(product, variantName) {
     product?.maxOrderQuantity ?? product?.maxOrderQty ?? product?.bulkPricing?.maxOrderQuantity ?? null;
   const productStep =
     product?.stepByQuantity ?? product?.bulkPricing?.stepByQuantity ?? null;
+
+  const bulkGrade = getBulkGrade(product, variantName);
+  if (bulkGrade && (product?.enableBulkGrades || parseBulkGradeKey(variantName))) {
+    const mrp = Number(bulkGrade.mrp);
+    const price = Number(bulkGrade.price) || 0;
+    return {
+      pricingType: "single",
+      bulkPricing: { slabs: [] },
+      price: Number.isFinite(mrp) && mrp > 0 ? mrp : price,
+      discountedPrice: price,
+      minOrderQuantity: bulkGrade.minOrderQuantity ?? productMoq,
+      maxOrderQuantity: productMax,
+      stepByQuantity: productStep,
+    };
+  }
 
   if (isMultiVariant(product)) {
     const variant = getVariant(product, variantName);

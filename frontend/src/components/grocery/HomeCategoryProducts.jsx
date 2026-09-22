@@ -4,6 +4,7 @@ import { useProductCartActions } from "../../hooks/useProductCartActions";
 import { getProducts } from "../../api/api";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 import { useDeliveryLocationKey } from "../../context/LocationContext";
+import { addCategoryVisit } from "../../utils/categoryVisits";
 
 function HomeCategoryProducts({ categoryName }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
@@ -12,6 +13,10 @@ function HomeCategoryProducts({ categoryName }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const locationKey = useDeliveryLocationKey();
+
+  useEffect(() => {
+    if (categoryName) addCategoryVisit(categoryName);
+  }, [categoryName]);
 
   useEffect(() => {
     let isMounted = true;

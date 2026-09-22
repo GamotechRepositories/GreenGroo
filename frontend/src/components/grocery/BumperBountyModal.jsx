@@ -6,7 +6,12 @@ export default function BumperBountyModal() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Show offer popup automatically on page load
+    try {
+      if (sessionStorage.getItem("bumperBountySeen") === "1") return undefined;
+    } catch {
+      // ignore storage failures
+    }
+
     const timer = setTimeout(() => {
       setIsOpen(true);
     }, 400);
@@ -17,11 +22,16 @@ export default function BumperBountyModal() {
   if (!isOpen) return null;
 
   const handleClose = () => {
+    try {
+      sessionStorage.setItem("bumperBountySeen", "1");
+    } catch {
+      // ignore storage failures
+    }
     setIsOpen(false);
   };
 
   const handleOrderNow = () => {
-    setIsOpen(false);
+    handleClose();
     navigate("/product?categoryName=Vegetables");
   };
 

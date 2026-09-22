@@ -75,6 +75,25 @@ const userSchema = new mongoose.Schema(
         message: "Please provide a valid GST number",
       },
     },
+    accountType: {
+      type: String,
+      enum: ["retail", "bulk"],
+      default: "retail",
+      index: true,
+    },
+    ownerContact: {
+      type: String,
+      trim: true,
+      default: "",
+      validate: {
+        validator(value) {
+          if (!value) return true;
+          return PHONE_PATTERN.test(value);
+        },
+        message:
+          "Owner contact must be 10 digits and start with 6, 7, 8, or 9",
+      },
+    },
     password: {
       type: String,
       minlength: [6, "Password must be at least 6 characters"],

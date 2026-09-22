@@ -21,6 +21,7 @@ import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
+import ReturnOrderSection from "./ReturnOrderSection";
 
 function StatusBadge({ status }) {
   const color = getOrderStatusColor(status);
@@ -107,7 +108,15 @@ function DetailRow({ label, value, action = null }) {
   );
 }
 
-function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
+function DesktopOrderDetail({
+  order,
+  onCancel,
+  cancelling,
+  cancelError,
+  onReturn,
+  returning,
+  returnError,
+}) {
   const navigate = useNavigate();
   const items = order.items || [];
   const shipments = useMemo(() => splitOrderShipments(items), [items]);
@@ -421,6 +430,14 @@ function DesktopOrderDetail({ order, onCancel, cancelling, cancelError }) {
                 {cancelError ? <p className="mt-2 text-xs text-red-600">{cancelError}</p> : null}
               </section>
             ) : null}
+
+            <ReturnOrderSection
+              order={order}
+              onSubmit={onReturn}
+              returning={returning}
+              returnError={returnError}
+              variant="desktop"
+            />
           </div>
         </div>
       </div>

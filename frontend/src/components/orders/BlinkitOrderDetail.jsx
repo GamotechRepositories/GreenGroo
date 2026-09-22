@@ -15,10 +15,19 @@ import OrderGiftHamperSection from "./OrderGiftHamperSection";
 import ShipmentExtraDetails from "./ShipmentExtraDetails";
 import ShipmentTrackingBanner from "./ShipmentTrackingBanner";
 import DeliveryOtpBanner from "./DeliveryOtpBanner";
+import ReturnOrderSection from "./ReturnOrderSection";
 
 const ACTION_PINK = "#E23744";
 
-function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
+function BlinkitOrderDetail({
+  order,
+  onCancel,
+  cancelling,
+  cancelError,
+  onReturn,
+  returning,
+  returnError,
+}) {
   const navigate = useNavigate();
   const shipments = useMemo(() => splitOrderShipments(order.items || []), [order.items]);
   const [shipmentIndex, setShipmentIndex] = useState(0);
@@ -275,6 +284,13 @@ function BlinkitOrderDetail({ order, onCancel, cancelling, cancelError }) {
             {cancelError ? <p className="mt-2 text-xs text-red-600">{cancelError}</p> : null}
           </div>
         ) : null}
+
+        <ReturnOrderSection
+          order={order}
+          onSubmit={onReturn}
+          returning={returning}
+          returnError={returnError}
+        />
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-border-light bg-white p-4 lg:static lg:mx-auto lg:mt-6 lg:max-w-3xl lg:border-0 lg:p-0">

@@ -55,19 +55,48 @@ const bulkSellingDealSchema = new mongoose.Schema(
 const refundClaimSchema = new mongoose.Schema(
   {
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
-    orderNumber: { type: String, default: "", trim: true },
-    type: { type: String, enum: ["refund", "warranty"], default: "refund" },
+    orderNumber: { type: String, default: "", trim: true, index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "UserBulkMart", default: null, index: true },
+    accountType: {
+      type: String,
+      enum: ["retail", "bulk"],
+      default: "retail",
+      index: true,
+    },
+    type: { type: String, enum: ["refund", "warranty"], default: "refund", index: true },
     reason: { type: String, required: true, trim: true },
     amount: { type: Number, default: 0, min: 0 },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "processed"],
+      enum: ["pending", "accepted", "rejected", "successful", "approved", "processed"],
       default: "pending",
       index: true,
     },
     customerName: { type: String, default: "", trim: true },
     customerPhone: { type: String, default: "", trim: true },
+    customerAddress: { type: String, default: "", trim: true },
+    productImage: { type: String, default: "", trim: true },
     adminNote: { type: String, default: "", trim: true },
+    darkStoreId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryManager",
+      default: null,
+      index: true,
+    },
+    managerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryManager",
+      default: null,
+      index: true,
+    },
+    returnPickupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ReturnPickup",
+      default: null,
+    },
+    acceptedAt: { type: Date, default: null },
+    rejectedAt: { type: Date, default: null },
+    successfulAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -380,4 +409,66 @@ export const HrVacancy =
   mongoose.models.AdminHrVacancy || mongoose.model("AdminHrVacancy", hrVacancySchema);
 export const HrCandidate =
   mongoose.models.AdminHrCandidate || mongoose.model("AdminHrCandidate", hrCandidateSchema);
+
+const ASSET_ROLES = ["delivery_manager", "delivery_boy", "customer", "admin"];
+const ASSET_TYPES = ["vehicle", "phone", "uniform", "bag", "tablet", "helmet", "id_card", "other"];
+const ASSET_STATUSES = ["assigned", "returned", "lost", "damaged", "under_repair"];
+const ASSET_CONDITIONS = ["new", "good", "fair", "damaged"];
+
+const opsAssetSchema = new mongoose.Schema(
+  {
+    darkStoreId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryManager",
+      required: true,
+      index: true,
+    },
+    zoneKey: { type: String, required: true, trim: true, index: true },
+    city: { type: String, default: "", trim: true, index: true },
+    area: { type: String, default: "", trim: true },
+    storeName: { type: String, default: "", trim: true },
+    role: {
+      type: String,
+      enum: ASSET_ROLES,
+      required: true,
+      index: true,
+    },
+    assigneeName: { type: String, required: true, trim: true },
+    assigneePhone: { type: String, required: true, trim: true },
+    assigneeRefId: { type: String, default: "", trim: true, index: true },
+    assetName: { type: String, required: true, trim: true },
+    assetType: {
+      type: String,
+      enum: ASSET_TYPES,
+      default: "other",
+      index: true,
+    },
+    assetCode: { type: String, default: "", trim: true, index: true },
+    serialNumber: { type: String, default: "", trim: true },
+    quantity: { type: Number, default: 1, min: 1 },
+    condition: {
+      type: String,
+      enum: ASSET_CONDITIONS,
+      default: "good",
+    },
+    status: {
+      type: String,
+      enum: ASSET_STATUSES,
+      default: "assigned",
+      index: true,
+    },
+    assignedAt: { type: Date, default: Date.now },
+    returnedAt: { type: Date, default: null },
+    notes: { type: String, default: "", trim: true },
+    createdBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+opsAssetSchema.index({ darkStoreId: 1, role: 1, createdAt: -1 });
+
+export const OpsAsset =
+  mongoose.models.AdminOpsAsset || mongoose.model("AdminOpsAsset", opsAssetSchema);
+export { ASSET_ROLES, ASSET_TYPES, ASSET_STATUSES, ASSET_CONDITIONS };
+
 export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };

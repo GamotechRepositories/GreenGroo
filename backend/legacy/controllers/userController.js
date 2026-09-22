@@ -32,31 +32,63 @@ const formatAuthUser = (user) => ({
   shopName: user.shopName || "",
   shopAddress: user.shopAddress || "",
   gstNumber: user.gstNumber || "",
+  accountType: user.accountType || "retail",
+  ownerContact: user.ownerContact || "",
   role: user.role,
   rewardPoints: user.rewardPoints || 0,
 });
 
-function pickSignupProfileFields(body) {
-  const fields = {};
+function normalizeAccountType(value) {
+  const normalized = String(value || "retail").trim().toLowerCase();
+  if (normalized === "bulk" || normalized === "b2b" || normalized === "wholesale") {
+    return "bulk";
+  }
+  return "retail";
+}
+
+function pickSignupProfileFields(body, accountType = "retail") {
+  const fields = { accountType };
   if (body.shopName?.trim()) fields.shopName = body.shopName.trim();
   if (body.shopAddress?.trim()) fields.shopAddress = body.shopAddress.trim();
   if (body.shopNo?.trim()) fields.shopNo = body.shopNo.trim();
   if (body.gstNumber?.trim()) fields.gstNumber = body.gstNumber.trim().toUpperCase();
+  if (body.ownerContact?.trim()) {
+    fields.ownerContact = normalizeIndianPhone(body.ownerContact) || body.ownerContact.trim();
+  }
   return fields;
 }
 
-function validateSignupProfile(body) {
+function validateSignupProfile(body, accountType = "retail") {
   const shopName = body.shopName?.trim() || "";
   const shopAddress = body.shopAddress?.trim() || "";
   const gstNumber = body.gstNumber?.trim() || "";
+  const ownerContactRaw = body.ownerContact?.trim() || "";
+  const ownerContact = ownerContactRaw
+    ? normalizeIndianPhone(ownerContactRaw) || ownerContactRaw
+    : "";
 
-  // Shop fields are optional for customer signup
-  if (shopName && shopName.length < 2) {
-    return "Shop name must be at least 2 characters";
+  if (accountType === "bulk") {
+    if (!shopName || shopName.length < 2) {
+      return "Business name is required (at least 2 characters)";
+    }
+    if (!shopAddress || shopAddress.length < 5) {
+      return "Please enter a complete business location";
+    }
+    if (!ownerContact) {
+      return "Owner contact must be 10 digits starting with 6, 7, 8, or 9";
+    }
+  } else {
+    if (shopName && shopName.length < 2) {
+      return "Shop name must be at least 2 characters";
+    }
+    if (shopAddress && shopAddress.length < 5) {
+      return "Please enter a complete shop address";
+    }
+    if (ownerContactRaw && !ownerContact) {
+      return "Owner contact must be 10 digits starting with 6, 7, 8, or 9";
+    }
   }
-  if (shopAddress && shopAddress.length < 5) {
-    return "Please enter a complete shop address";
-  }
+
   if (gstNumber && !GST_PATTERN.test(gstNumber.toUpperCase())) {
     return "Please provide a valid GST number";
   }
@@ -67,7 +99,15 @@ export const signup = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
     const { name, password, role = "user" } = req.body;
-    const profileFields = pickSignupProfileFields(req.body);
+    const accountType = normalizeAccountType(req.body.accountType || req.body.userType);
+    const profileError = validateSignupProfile(req.body, accountType);
+    if (profileError) {
+      return res.status(400).json({
+        success: false,
+        message: profileError,
+      });
+    }
+    const profileFields = pickSignupProfileFields(req.body, accountType);
 
     if (!phone) {
       return res.status(400).json({
@@ -79,7 +119,7 @@ export const signup = async (req, res) => {
     if (!name?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Name is required",
+        message: accountType === "bulk" ? "Owner name is required" : "Name is required",
       });
     }
 
@@ -384,7 +424,8 @@ export const completeOtpSignup = async (req, res) => {
   try {
     const phone = normalizeIndianPhone(req.body.phone);
     const { name } = req.body;
-    const optionalSignupFields = pickSignupProfileFields(req.body);
+    const accountType = normalizeAccountType(req.body.accountType || req.body.userType);
+    const optionalSignupFields = pickSignupProfileFields(req.body, accountType);
 
     if (!phone) {
       return res.status(400).json({
@@ -403,11 +444,11 @@ export const completeOtpSignup = async (req, res) => {
     if (!name?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Name is required",
+        message: accountType === "bulk" ? "Owner name is required" : "Name is required",
       });
     }
 
-    const profileError = validateSignupProfile(req.body);
+    const profileError = validateSignupProfile(req.body, accountType);
     if (profileError) {
       return res.status(400).json({
         success: false,
@@ -536,6 +577,8 @@ export const getMe = async (req, res) => {
         shopName: req.user.shopName || "",
         shopAddress: req.user.shopAddress || "",
         gstNumber: req.user.gstNumber || "",
+        accountType: req.user.accountType || "retail",
+        ownerContact: req.user.ownerContact || "",
         role: req.user.role,
         rewardPoints: req.user.rewardPoints || 0,
         createdAt: req.user.createdAt,
@@ -865,6 +908,8 @@ export const updateMe = async (req, res) => {
         shopName: user.shopName || "",
         shopAddress: user.shopAddress || "",
         gstNumber: user.gstNumber || "",
+        accountType: user.accountType || "retail",
+        ownerContact: user.ownerContact || "",
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

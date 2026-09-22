@@ -1,36 +1,20 @@
-import { useEffect, useState } from "react";
-import { getProducts } from "../../api/api";
+import { usePurchasedProductsQuery } from "../../hooks/queries/useProductsQuery";
+import { useAuth } from "../../context/AuthContext";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "./SectionHeader";
 import DealProductCard from "../product/DealProductCard";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
-import { useDeliveryLocationKey } from "../../context/LocationContext";
 
 const HOME_PRODUCT_LIMIT = 8;
 
-function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const locationKey = useDeliveryLocationKey();
+function BestDeals({ title = "Previously bought", viewAllTo = "/orders" }) {
+  const { user } = useAuth();
+  const { data: products = [], isLoading: loading } = usePurchasedProductsQuery({
+    enabled: Boolean(user),
+  });
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        const { data } = await getProducts({ limit: HOME_PRODUCT_LIMIT });
-        setProducts((data.data || []).slice(0, HOME_PRODUCT_LIMIT));
-      } catch {
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [locationKey]);
 
   const displayProducts = products.slice(0, HOME_PRODUCT_LIMIT);
 
@@ -49,6 +33,7 @@ function BestDeals({ title = "Previously bought", viewAllTo = "/product" }) {
     />
   );
 
+  if (!user) return null;
   if (!loading && displayProducts.length === 0) return null;
 
   return (

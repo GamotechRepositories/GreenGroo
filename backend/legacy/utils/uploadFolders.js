@@ -4,8 +4,10 @@ export const UPLOAD_FOLDERS = {
   CATEGORIES: "categories",
   PRODUCTS: "products",
   BRANDS: "brands",
+  FARMERS: "farmers",
   PAYMENT_PROOFS: "payment-proofs",
   SUPPORT: "support",
+  RETURNS: "returns",
   SHIPMENT_EVIDENCE: "shipment-evidence",
 };
 
@@ -24,12 +26,16 @@ export const ADMIN_UPLOAD_FOLDERS = new Set([
   UPLOAD_FOLDERS.CATEGORIES,
   UPLOAD_FOLDERS.PRODUCTS,
   UPLOAD_FOLDERS.BRANDS,
+  UPLOAD_FOLDERS.FARMERS,
   UPLOAD_FOLDERS.SHIPMENT_EVIDENCE,
 ]);
 
 export const USER_UPLOAD_FOLDERS = new Set([UPLOAD_FOLDERS.PAYMENT_PROOFS]);
 
-export const PUBLIC_UPLOAD_FOLDERS = new Set([UPLOAD_FOLDERS.SUPPORT]);
+export const PUBLIC_UPLOAD_FOLDERS = new Set([
+  UPLOAD_FOLDERS.SUPPORT,
+  UPLOAD_FOLDERS.RETURNS,
+]);
 
 export function normalizeUploadFolder(value) {
   const raw = String(value || "").trim();

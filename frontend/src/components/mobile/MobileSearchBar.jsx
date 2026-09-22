@@ -21,7 +21,7 @@ function MobileSearchBar({ className = "", autoFocus = false, onSubmit }) {
 
   return (
     <form
-      className={`flex items-center gap-2 rounded-full border border-border-light bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5 ${className}`}
+      className={`flex items-center gap-2 rounded-full border border-border-light bg-white px-3 py-2 sm:px-4 sm:py-2.5 ${className}`}
       onSubmit={handleSubmit}
     >
       <svg

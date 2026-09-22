@@ -74,6 +74,14 @@ abstract final class ApiConfig {
   static String failDelivery(String id) => '/api/delivery-boys/orders/$id/fail';
   static String pickupQr(String id) => '/api/delivery-boys/orders/$id/pickup-qr';
 
+  // Return / warranty pickup (admin-accepted claims)
+  static const returnPickups = '/api/delivery-boys/return-pickups';
+  static const scanReturnPickupQr = '/api/delivery-boys/return-pickups/scan-qr';
+  static String submitReturnPickupProof(String id) =>
+      '/api/delivery-boys/return-pickups/$id/pickup-proof';
+  static String returnPickupToStore(String id) =>
+      '/api/delivery-boys/return-pickups/$id/return-to-store';
+
   // Extended delivery completion flow
   static String uploadDeliveryProof(String id) => '/api/delivery-boys/orders/$id/delivery-proof';
   static String verifyCustomerOtp(String id) => '/api/delivery-boys/orders/$id/verify-otp';

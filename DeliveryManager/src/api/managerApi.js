@@ -73,6 +73,15 @@ export const managerApi = {
   confirmOrderCash: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/confirm-cash`),
 
+  returnPickups: (params) => api.get(`${BASE}/return-pickups`, { params }),
+  returnPickup: (id) => api.get(`${BASE}/return-pickups/${id}`),
+  assignReturnPickup: (id, riderId) =>
+    api.post(`${BASE}/return-pickups/${id}/assign`, { riderId }),
+  getReturnPickupQr: (id) => api.get(`${BASE}/return-pickups/${id}/pickup-qr`),
+  approveReturnProof: (id) => api.post(`${BASE}/return-pickups/${id}/approve-proof`),
+  markReturnSuccessful: (id, body = {}) =>
+    api.post(`${BASE}/return-pickups/${id}/mark-successful`, body),
+
   // Shift & Slot Management APIs
   createShift: (data) => api.post(`${BASE}/shifts`, data),
   getShifts: () => api.get(`${BASE}/shifts`),

@@ -763,6 +763,103 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
+/** Customer requests return/refund for a delivered order → pending AdminRefundClaim. */
+export const createReturnClaim = async (req, res) => {
+  try {
+    const reason = String(req.body.reason || "").trim();
+    if (!reason || reason.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a reason for the return",
+      });
+    }
+
+    const imageUrl = String(req.body.imageUrl || req.body.productImage || "").trim();
+    if (!imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload a photo of the product to return",
+      });
+    }
+
+    const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.status !== "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Return can only be requested after the order is delivered",
+      });
+    }
+
+    const { RefundClaim } = await import("../../admin-ops-service/src/models.js");
+    const StoreOrder = (await import("../../delivery-service/src/models/StoreOrder.js")).default;
+
+    const existing = await RefundClaim.findOne({
+      orderId: order._id,
+      status: { $in: ["pending", "accepted", "approved"] },
+    }).lean();
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "A return request for this order is already in progress",
+        data: { claimId: String(existing._id), status: existing.status },
+      });
+    }
+
+    let darkStoreId = null;
+    let managerId = null;
+    let customerAddress = "";
+    const storeOrder = await StoreOrder.findOne({ sourceOrderId: order._id })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (storeOrder) {
+      managerId = storeOrder.managerId || null;
+      darkStoreId = storeOrder.darkStoreId || storeOrder.managerId || null;
+      customerAddress = storeOrder.customerAddress || "";
+    }
+
+    const addr = order.deliveryAddress || {};
+    const claim = await RefundClaim.create({
+      orderId: order._id,
+      orderNumber: order.orderNumber || "",
+      userId: req.user._id,
+      accountType: req.user.accountType === "bulk" ? "bulk" : "retail",
+      type: req.body.type === "warranty" ? "warranty" : "refund",
+      reason,
+      amount: Number(req.body.amount || order.total || 0),
+      customerName: String(req.user.name || addr.fullName || "").trim(),
+      customerPhone: String(req.user.phone || addr.number || "").trim(),
+      customerAddress:
+        customerAddress ||
+        String(addr.addressLine || addr.fullAddress || addr.street || "").trim(),
+      productImage: imageUrl,
+      status: "pending",
+      darkStoreId,
+      managerId,
+      adminNote: "",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Return request submitted. Our team will review it shortly.",
+      data: {
+        id: String(claim._id),
+        orderId: String(order._id),
+        orderNumber: claim.orderNumber,
+        status: claim.status,
+        reason: claim.reason,
+        type: claim.type,
+        productImage: claim.productImage || "",
+        createdAt: claim.createdAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getDashboardStats = async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();

@@ -14,6 +14,7 @@ import ProductFiltersBar, { PRODUCT_SORT_OPTIONS } from "../components/product/P
 import { DUMMY_SHOP_CATEGORIES } from "../data/dummyCategoryProducts";
 import { SUPER_MALL_CATEGORIES } from "../data/superMallCategories";
 import { READY2COOK_SHOP_CATEGORIES } from "../components/home/FestiveStoreSection";
+import { addCategoryVisit } from "../utils/categoryVisits";
 
 function FilterIcon() {
   return (
@@ -359,6 +360,7 @@ function Product() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+    if (categoryName) addCategoryVisit(categoryName);
   }, [categoryName, searchQuery, brandName, storeParam]);
 
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
@@ -378,7 +380,7 @@ function Product() {
     [data]
   );
 
-  // Section-aware category list for left scroll bar
+  // Section-aware category list for left scroll bar (include API subcategories)
   const categories = useMemo(() => {
     if (storeParam === "mall") {
       return SUPER_MALL_CATEGORIES.map((cat) => ({
@@ -386,35 +388,91 @@ function Product() {
         categoryName: cat.name,
         categoryImage: cat.image,
         slug: cat.slug,
+        subcategories: cat.subcategories || [],
       }));
     }
 
     if (storeParam === "festive") {
-      return READY2COOK_SHOP_CATEGORIES.map((cat) => ({
-        _id: cat.name,
-        categoryName: cat.name,
-        categoryImage: cat.image,
-        slug: cat.name,
-      }));
+      const byName = new Map(
+        (apiCategories || []).map((cat) => [String(cat.categoryName).toLowerCase(), cat])
+      );
+      return READY2COOK_SHOP_CATEGORIES.map((cat) => {
+        const apiCat = byName.get(cat.name.toLowerCase());
+        return {
+          _id: apiCat?._id || cat.name,
+          categoryName: cat.name,
+          categoryImage: apiCat?.categoryImage || cat.image,
+          slug: cat.name,
+          subcategories: apiCat?.subcategories || [],
+        };
+      });
     }
 
+    const apiList = (apiCategories || []).filter(
+      (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
+    );
     const byName = new Map(
-      (apiCategories || [])
-        .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
-        .map((cat) => [String(cat.categoryName).toLowerCase(), cat])
+      apiList.map((cat) => [String(cat.categoryName).toLowerCase(), cat])
     );
 
-    return DUMMY_SHOP_CATEGORIES.map((shopCat) => {
+    const fromDummy = DUMMY_SHOP_CATEGORIES.map((shopCat) => {
       const apiCat = byName.get(shopCat.categoryName.toLowerCase());
-      if (!apiCat) return shopCat;
+      if (!apiCat) return { ...shopCat, subcategories: shopCat.subcategories || [] };
       return {
         ...shopCat,
         _id: apiCat._id || shopCat._id,
         categoryImage: shopCat.categoryImage || apiCat.categoryImage,
-        subcategories: apiCat.subcategories || [],
+        subcategories: apiCat.subcategories || shopCat.subcategories || [],
       };
     });
+
+    // Append any API categories not already in the dummy shop list
+    const known = new Set(fromDummy.map((c) => c.categoryName.toLowerCase()));
+    const extras = apiList
+      .filter((cat) => !known.has(String(cat.categoryName).toLowerCase()))
+      .map((cat) => ({
+        _id: cat._id,
+        categoryName: cat.categoryName,
+        categoryImage: cat.categoryImage,
+        slug: cat.slug || cat.categoryName,
+        subcategories: Array.isArray(cat.subcategories) ? cat.subcategories : [],
+      }));
+
+    return [...fromDummy, ...extras];
   }, [apiCategories, storeParam]);
+
+  // Enrich missing subcategory lists from loaded products for the active category
+  const categoriesWithSubs = useMemo(() => {
+    if (!categoryName) return categories;
+    return categories.map((cat) => {
+      if (cat.categoryName?.toLowerCase() !== categoryName.toLowerCase()) return cat;
+      if (Array.isArray(cat.subcategories) && cat.subcategories.length > 0) return cat;
+      const target = categoryName.toLowerCase();
+      const found = new Set();
+      apiProducts.forEach((p) => {
+        const pCats = [
+          ...(Array.isArray(p.categories) ? p.categories : []),
+          p.categoryName,
+          p.storeCategory,
+        ]
+          .filter(Boolean)
+          .map((c) => String(c).toLowerCase());
+        if (!pCats.some((c) => c === target || target.includes(c) || c.includes(target))) {
+          return;
+        }
+        const subs = Array.isArray(p.subcategories)
+          ? p.subcategories
+          : p.subcategory
+            ? [p.subcategory]
+            : [];
+        subs.forEach((s) => {
+          const name = String(s || "").trim();
+          if (name) found.add(name);
+        });
+      });
+      return { ...cat, subcategories: [...found] };
+    });
+  }, [categories, categoryName, apiProducts]);
 
   // Product list for right product grid
   const products = useMemo(() => {
@@ -488,7 +546,7 @@ function Product() {
     return (
       <div className="bg-white lg:pb-0">
         <MobileCategoryProductLayout
-          categories={categories}
+          categories={categoriesWithSubs}
           categoryName={categoryName}
           products={products}
           loading={loading}
@@ -501,7 +559,7 @@ function Product() {
         />
 
         <CategoryProductLayout
-          categories={categories}
+          categories={categoriesWithSubs}
           activeCategory={categoryName}
           categoryName={categoryName}
           products={products}
@@ -520,7 +578,7 @@ function Product() {
   return (
     <div className="bg-white lg:pb-0">
       <AllProductsLayout
-        categories={categories}
+        categories={categoriesWithSubs}
         products={products}
         loading={loading || categoriesLoading}
         onAdd={handleIncrease}

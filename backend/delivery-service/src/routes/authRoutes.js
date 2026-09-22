@@ -46,6 +46,12 @@ import {
   getRiderEarningsDetail,
   riderSubmitCash,
 } from "../controllers/cashSettlementController.js";
+import {
+  listRiderReturnPickups,
+  scanReturnPickupQr,
+  submitReturnPickupProof,
+  markReturnedToStore,
+} from "../controllers/returnPickupController.js";
 
 import {
   goOnline,
@@ -124,6 +130,12 @@ router.post("/orders/:orderId/confirm-online-payment", protect, confirmOnlinePay
 router.get("/orders/:orderId/payment-status", protect, getOrderPaymentStatus);
 router.post("/orders/:orderId/complete", protect, completeDelivery);
 router.post("/orders/:orderId/fail", protect, failDelivery);
+
+router.get("/return-pickups", protect, listRiderReturnPickups);
+router.post("/return-pickups/scan-qr", protect, scanReturnPickupQr);
+router.post("/return-pickups/:id/pickup-proof", protect, submitReturnPickupProof);
+router.post("/return-pickups/:id/return-to-store", protect, markReturnedToStore);
+
 // Cash & earnings
 router.get("/cash/pending", protect, getRiderCashPending);
 router.post("/cash/submit", protect, riderSubmitCash);

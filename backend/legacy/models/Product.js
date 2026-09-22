@@ -57,6 +57,51 @@ const productColorSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const bulkGradeSchema = new mongoose.Schema(
+  {
+    grade: {
+      type: String,
+      enum: ["A", "B", "C"],
+      required: true,
+    },
+    variety: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    price: {
+      type: Number,
+      min: [0, "Grade price cannot be negative"],
+      default: 0,
+    },
+    mrp: {
+      type: Number,
+      min: [0, "Grade MRP cannot be negative"],
+      default: 0,
+    },
+    stock: {
+      type: Number,
+      min: [0, "Grade stock cannot be negative"],
+      default: 0,
+    },
+    unit: {
+      type: String,
+      trim: true,
+      default: "1 Kg",
+    },
+    isAvailable: {
+      type: Boolean,
+      default: false,
+    },
+    minOrderQuantity: {
+      type: Number,
+      min: [1, "Minimum order quantity must be at least 1"],
+      default: 1,
+    },
+  },
+  { _id: false }
+);
+
 const productSpecificationSchema = new mongoose.Schema(
   {
     name: {
@@ -209,6 +254,15 @@ const productSchema = new mongoose.Schema(
       type: bulkPricingSchema,
       default: () => ({ slabs: [] }),
     },
+    enableBulkGrades: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    bulkGrades: {
+      type: [bulkGradeSchema],
+      default: [],
+    },
     price: {
       type: Number,
       required: [true, "Price is required"],
@@ -336,6 +390,19 @@ const productSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "1 pc",
+    },
+    /** Shared id linking full-product variety siblings (clone via admin "Add variety") */
+    varietyGroupId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    /** Short label shown under Select Unit on PDP (e.g. Alphonso, Kesar) */
+    varietyName: {
+      type: String,
+      trim: true,
+      default: "",
     },
     farmerName: {
       type: String,

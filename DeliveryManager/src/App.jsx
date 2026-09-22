@@ -12,6 +12,7 @@ import PendingDriversPage from "./pages/drivers/PendingDriversPage";
 import PendingDriverDetailPage from "./pages/drivers/PendingDriverDetailPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import OrderDetailPage from "./pages/orders/OrderDetailPage";
+import ReturnPickupsPage from "./pages/returns/ReturnPickupsPage";
 import ShiftManagementPage from "./pages/shifts/ShiftManagementPage";
 import CreateShiftPage from "./pages/shifts/CreateShiftPage";
 import IncentivesPage from "./pages/incentives/IncentivesPage";
@@ -38,6 +39,7 @@ function App() {
               <Route path="/drivers/pending/:id" element={<PendingDriverDetailPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+              <Route path="/return-pickups" element={<ReturnPickupsPage />} />
               <Route path="/incentives" element={<IncentivesPage />} />
               <Route path="/incentives/create" element={<CreateGigPage />} />
               <Route path="/alerts" element={<AlertsPage />} />

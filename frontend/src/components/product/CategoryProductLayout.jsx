@@ -285,8 +285,22 @@ function ProductResultsGrid({
 function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
   const [searchParams] = useSearchParams();
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
+  const activeSubcategory = searchParams.get("subcategory")?.trim() || "";
   const allActive = !activeCategory;
   const allUrl = storeParam ? `/product?store=${storeParam}` : "/product";
+
+  const activeCategoryDoc = categories.find(
+    (cat) =>
+      cat.categoryName?.toLowerCase() === String(activeCategory || "").toLowerCase() ||
+      cat.slug?.toLowerCase() === String(activeCategory || "").toLowerCase()
+  );
+  const subcategories = Array.isArray(activeCategoryDoc?.subcategories)
+    ? activeCategoryDoc.subcategories.filter(Boolean)
+    : [];
+  const showSubcategories = Boolean(activeCategory && subcategories.length > 0);
+  const categoryHomeUrl = activeCategory
+    ? buildCategoryUrl(activeCategoryDoc?.categoryName || activeCategory, {}, storeParam)
+    : allUrl;
 
   if (variant === "mobile") {
     return (
@@ -295,40 +309,94 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
           className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain px-1.5 py-3"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <Link
-            to={allUrl}
-            className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
-              allActive
-                ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
-                : "text-slate-500 hover:bg-white hover:text-slate-700"
-            }`}
-          >
-            <div className={`transition-transform duration-200 ${allActive ? "scale-110" : "group-hover:scale-105"}`}>
-              <SidebarCategoryImage showGrid name="All Products" />
-            </div>
-            <span className="text-center leading-[1.1] tracking-tight">All</span>
-          </Link>
-          {categories.map((cat) => {
-            const isActive = activeCategory === cat.categoryName;
-            return (
+          {showSubcategories ? (
+            <>
               <Link
-                key={cat._id}
-                to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+                to={allUrl}
+                className="group flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-semibold text-slate-400 hover:bg-white hover:text-slate-600"
+              >
+                ← Cats
+              </Link>
+              <Link
+                to={categoryHomeUrl}
                 className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
-                  isActive
+                  !activeSubcategory
                     ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
                     : "text-slate-500 hover:bg-white hover:text-slate-700"
                 }`}
               >
-                <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
-                  <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
+                <div className={`transition-transform duration-200 ${!activeSubcategory ? "scale-110" : "group-hover:scale-105"}`}>
+                  <SidebarCategoryImage
+                    image={activeCategoryDoc?.categoryImage}
+                    name={activeCategoryDoc?.categoryName || activeCategory}
+                  />
                 </div>
-                <span className="line-clamp-2 w-full text-center leading-[1.1] tracking-tight">
-                  {cat.categoryName}
-                </span>
+                <span className="text-center leading-[1.1] tracking-tight">All</span>
               </Link>
-            );
-          })}
+              {subcategories.map((sub) => {
+                const isActive = activeSubcategory.toLowerCase() === String(sub).toLowerCase();
+                return (
+                  <Link
+                    key={sub}
+                    to={buildCategoryUrl(
+                      activeCategoryDoc?.categoryName || activeCategory,
+                      { subcategory: sub },
+                      storeParam
+                    )}
+                    className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
+                      isActive
+                        ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
+                        : "text-slate-500 hover:bg-white hover:text-slate-700"
+                    }`}
+                  >
+                    <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
+                      <SidebarCategoryImage name={sub} />
+                    </div>
+                    <span className="line-clamp-2 w-full text-center leading-[1.1] tracking-tight">
+                      {sub}
+                    </span>
+                  </Link>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              <Link
+                to={allUrl}
+                className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
+                  allActive
+                    ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
+                    : "text-slate-500 hover:bg-white hover:text-slate-700"
+                }`}
+              >
+                <div className={`transition-transform duration-200 ${allActive ? "scale-110" : "group-hover:scale-105"}`}>
+                  <SidebarCategoryImage showGrid name="All Products" />
+                </div>
+                <span className="text-center leading-[1.1] tracking-tight">All</span>
+              </Link>
+              {categories.map((cat) => {
+                const isActive = activeCategory === cat.categoryName;
+                return (
+                  <Link
+                    key={cat._id || cat.categoryName}
+                    to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+                    className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
+                      isActive
+                        ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
+                        : "text-slate-500 hover:bg-white hover:text-slate-700"
+                    }`}
+                  >
+                    <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
+                      <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
+                    </div>
+                    <span className="line-clamp-2 w-full text-center leading-[1.1] tracking-tight">
+                      {cat.categoryName}
+                    </span>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
       </aside>
     );
@@ -338,52 +406,128 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-100 bg-slate-50/30">
       <div className="shrink-0 px-5 py-4 pb-2">
         <h2 className="text-[12px] font-bold tracking-widest text-slate-400 uppercase">
-          Categories
+          {showSubcategories ? "Subcategories" : "Categories"}
         </h2>
+        {showSubcategories ? (
+          <Link
+            to={allUrl}
+            className="mt-2 inline-flex text-[11px] font-semibold text-emerald-700 hover:underline"
+          >
+            ← All categories
+          </Link>
+        ) : null}
       </div>
       <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
-        <Link
-          to={allUrl}
-          className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
-            allActive
-              ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
-              : "hover:bg-slate-100/80"
-          }`}
-        >
-          {allActive && (
-            <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-          )}
-          <div className={`transition-transform duration-300 ${allActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
-            <SidebarCategoryImage showGrid name="All Products" />
-          </div>
-          <span className={`text-[13px] leading-tight ${allActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
-            All Products
-          </span>
-        </Link>
-        {categories.map((cat) => {
-          const isActive = activeCategory === cat.categoryName;
-          return (
+        {showSubcategories ? (
+          <>
             <Link
-              key={cat._id}
-              to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+              to={categoryHomeUrl}
               className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
-                isActive
+                !activeSubcategory
                   ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
                   : "hover:bg-slate-100/80"
               }`}
             >
-              {isActive && (
+              {!activeSubcategory && (
                 <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
               )}
-              <div className={`transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
-                <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
+              <div className={`transition-transform duration-300 ${!activeSubcategory ? "scale-105" : "group-hover:scale-105"}`}>
+                <SidebarCategoryImage
+                  image={activeCategoryDoc?.categoryImage}
+                  name={activeCategoryDoc?.categoryName || activeCategory}
+                />
               </div>
-              <span className={`text-[13px] leading-tight ${isActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
-                {cat.categoryName}
+              <span
+                className={`text-[13px] leading-tight ${
+                  !activeSubcategory
+                    ? "font-bold text-emerald-700"
+                    : "font-semibold text-slate-600 group-hover:text-slate-900"
+                }`}
+              >
+                All {activeCategoryDoc?.categoryName || activeCategory}
               </span>
             </Link>
-          );
-        })}
+            {subcategories.map((sub) => {
+              const isActive = activeSubcategory.toLowerCase() === String(sub).toLowerCase();
+              return (
+                <Link
+                  key={sub}
+                  to={buildCategoryUrl(
+                    activeCategoryDoc?.categoryName || activeCategory,
+                    { subcategory: sub },
+                    storeParam
+                  )}
+                  className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
+                    isActive
+                      ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
+                      : "hover:bg-slate-100/80"
+                  }`}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+                  )}
+                  <div className={`transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-105"}`}>
+                    <SidebarCategoryImage name={sub} />
+                  </div>
+                  <span
+                    className={`text-[13px] leading-tight ${
+                      isActive
+                        ? "font-bold text-emerald-700"
+                        : "font-semibold text-slate-600 group-hover:text-slate-900"
+                    }`}
+                  >
+                    {sub}
+                  </span>
+                </Link>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            <Link
+              to={allUrl}
+              className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
+                allActive
+                  ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
+                  : "hover:bg-slate-100/80"
+              }`}
+            >
+              {allActive && (
+                <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+              )}
+              <div className={`transition-transform duration-300 ${allActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
+                <SidebarCategoryImage showGrid name="All Products" />
+              </div>
+              <span className={`text-[13px] leading-tight ${allActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
+                All Products
+              </span>
+            </Link>
+            {categories.map((cat) => {
+              const isActive = activeCategory === cat.categoryName;
+              return (
+                <Link
+                  key={cat._id || cat.categoryName}
+                  to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+                  className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
+                    isActive
+                      ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
+                      : "hover:bg-slate-100/80"
+                  }`}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
+                  )}
+                  <div className={`transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
+                    <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
+                  </div>
+                  <span className={`text-[13px] leading-tight ${isActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
+                    {cat.categoryName}
+                  </span>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
     </aside>
   );

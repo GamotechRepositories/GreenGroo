@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
@@ -260,26 +260,26 @@ const READY2COOK_PRODUCTS = [
 ];
 
 function FestiveStoreSection() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [searchParams] = useSearchParams();
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
     useProductCartActions();
 
   const categoryFromUrl = searchParams.get("categoryName")?.trim() || "";
-  const currentFilter = categoryFromUrl || activeCategory;
+  const currentFilter = categoryFromUrl || "All";
+  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
 
-  const handleSelectCategory = (catName) => {
-    setActiveCategory(catName);
-    const nextParams = new URLSearchParams(searchParams);
-    if (catName === "All") {
-      nextParams.delete("categoryName");
-    } else {
-      nextParams.set("categoryName", catName);
+  const buildProductCategoryUrl = (catName) => {
+    const params = new URLSearchParams();
+    if (currentStore && currentStore !== "main") {
+      params.set("store", currentStore);
     }
-    setSearchParams(nextParams);
+    if (catName && catName !== "All") {
+      params.set("categoryName", catName);
+    }
+    const qs = params.toString();
+    return qs ? `/product?${qs}` : "/product";
   };
 
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
   const targetSection = currentStore === "mall" ? "supermall" : "ready2cook";
   const { data: dbCategories = [] } = useCategoriesQuery({ section: targetSection });
 
@@ -339,13 +339,12 @@ function FestiveStoreSection() {
                 : "Fresh picks for every kitchen need"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => handleSelectCategory("All")}
+          <Link
+            to={buildProductCategoryUrl("All")}
             className="text-xs sm:text-sm font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
           >
             View All
-          </button>
+          </Link>
         </div>
 
         <div className={`grid gap-2.5 sm:gap-4 ${
@@ -356,9 +355,9 @@ function FestiveStoreSection() {
           {displayCategories.map((cat) => {
             const isSelected = currentFilter === cat.name || currentFilter === cat.slug;
             return (
-              <div
+              <Link
                 key={cat.name}
-                onClick={() => handleSelectCategory(cat.name)}
+                to={buildProductCategoryUrl(cat.name)}
                 className={`group relative overflow-hidden rounded-[22px] p-3 sm:p-4 min-h-[96px] sm:min-h-[118px] cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md border ${
                   isSelected
                     ? "border-indigo-600 ring-2 ring-indigo-500/30"
@@ -386,7 +385,7 @@ function FestiveStoreSection() {
                     }}
                   />
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -406,7 +405,7 @@ function FestiveStoreSection() {
       <section className="px-4 sm:px-6 py-2">
         <SectionHeader
           title={!currentFilter || currentFilter === "All" ? (currentStore === "mall" ? "All Super Mall Marketplace Deals" : "All Ready-to-Cook Products") : currentFilter}
-          viewAllTo={currentStore === "mall" ? "/product?store=mall" : "/product?store=festive"}
+          viewAllTo={buildProductCategoryUrl("All")}
           className="mb-3"
         />
 

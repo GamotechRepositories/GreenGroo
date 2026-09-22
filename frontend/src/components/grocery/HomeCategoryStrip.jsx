@@ -5,27 +5,6 @@ import CategoryIcon from "./CategoryIcon";
 import { resolveStoreTheme } from "./homeHeaderThemes";
 import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 
-const CATEGORY_IMAGES = {
-  fruits: "/fruits.png",
-  fruit: "/fruits.png",
-  vegetables: "/vegetables.png",
-  vegetable: "/vegetables.png",
-  veggies: "/vegetables.png",
-  organic: "/organic.png",
-  dairy: "/dairy.png",
-  milk: "/dairy.png",
-};
-
-function getCategoryImage(name, apiImage) {
-  const key = String(name || "").trim().toLowerCase();
-  if (CATEGORY_IMAGES[key]) return CATEGORY_IMAGES[key];
-  if (key.includes("fruit")) return "/fruits.png";
-  if (key.includes("vegetable") || key.includes("veggie")) return "/vegetables.png";
-  if (key.includes("organic")) return "/organic.png";
-  if (key.includes("dairy") || key.includes("milk")) return "/dairy.png";
-  return apiImage || null;
-}
-
 function isFruitsCategory(name) {
   const key = String(name || "").trim().toLowerCase();
   return key === "fruits" || key === "fruit" || key.includes("fruit");
@@ -33,7 +12,12 @@ function isFruitsCategory(name) {
 
 function isVegetablesCategory(name) {
   const key = String(name || "").trim().toLowerCase();
-  return key === "vegetables" || key === "vegetable" || key.includes("vegetable") || key.includes("veggie");
+  return (
+    key === "vegetables" ||
+    key === "vegetable" ||
+    key.includes("vegetable") ||
+    key.includes("veggie")
+  );
 }
 
 function isOrganicCategory(name) {
@@ -44,16 +28,6 @@ function isOrganicCategory(name) {
 function isDairyCategory(name) {
   const key = String(name || "").trim().toLowerCase();
   return key === "dairy" || key === "milk" || key.includes("dairy") || key.includes("milk");
-}
-
-function applyLocalCategoryImages(categories) {
-  return categories.map((cat) => {
-    if (isFruitsCategory(cat.name)) return { ...cat, image: "/fruits.png" };
-    if (isVegetablesCategory(cat.name)) return { ...cat, image: "/vegetables.png" };
-    if (isOrganicCategory(cat.name)) return { ...cat, image: "/organic.png" };
-    if (isDairyCategory(cat.name)) return { ...cat, image: "/dairy.png" };
-    return cat;
-  });
 }
 
 function BasketFilledIcon({ className = "h-5 w-5" }) {
@@ -81,7 +55,11 @@ function BasketOutlineIcon({ className = "h-5 w-5" }) {
       strokeWidth={1.6}
       aria-hidden="true"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 10h16l-1.2 9.2A2 2 0 0116.82 21H7.18a2 2 0 01-1.98-1.8L4 10z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 10h16l-1.2 9.2A2 2 0 0116.82 21H7.18a2 2 0 01-1.98-1.8L4 10z"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 10V7a4 4 0 018 0v3" />
     </svg>
   );
@@ -90,17 +68,13 @@ function BasketOutlineIcon({ className = "h-5 w-5" }) {
 function CategoryTabIcon({ cat, index, isActive, isAll }) {
   if (isAll) {
     return isActive ? (
-      <BasketFilledIcon className="h-5 w-5 text-slate-900" />
+      <BasketFilledIcon className="h-5 w-5 text-current" />
     ) : (
-      <BasketOutlineIcon className="h-5 w-5 text-slate-600" />
+      <BasketOutlineIcon className="h-5 w-5 text-current" />
     );
   }
 
-  if (cat.image) {
-    return <img src={cat.image} alt="" className="h-5 w-5 object-contain" />;
-  }
-
-  return <CategoryIcon name={cat.name} index={index} className="h-5 w-5" />;
+  return <CategoryIcon name={cat.name} index={index} className="h-5 w-5 text-current" />;
 }
 
 function resolveActiveCategory(categories, categoryFromUrl) {
@@ -138,10 +112,10 @@ function HomeCategoryStrip() {
     currentStore === "mall"
       ? "supermall"
       : currentStore === "festive"
-      ? "ready2cook"
-      : currentStore === "main"
-      ? "greengrocc"
-      : currentStore;
+        ? "ready2cook"
+        : currentStore === "main"
+          ? "greengrocc"
+          : currentStore;
 
   const { data: apiCategories = [] } = useCategoriesQuery({ section: targetSection });
 
@@ -155,7 +129,6 @@ function HomeCategoryStrip() {
         .map((cat) => ({
           name: cat.categoryName,
           slug: cat.slug || cat.categoryName,
-          image: cat.categoryImage || getCategoryImage(cat.categoryName, null),
         }));
       list.push(...fromApi);
       return list;
@@ -167,7 +140,6 @@ function HomeCategoryStrip() {
         ...SUPER_MALL_CATEGORIES.slice(0, 5).map((cat) => ({
           name: cat.name,
           slug: cat.slug,
-          image: cat.image,
         })),
       ];
     }
@@ -175,19 +147,19 @@ function HomeCategoryStrip() {
     if (currentStore === "festive") {
       return [
         { name: "All", slug: "" },
-        { name: "Chopped", slug: "Chopped", image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cf?auto=format&fit=crop&w=300&h=300&q=80" },
-        { name: "Cut & Sliced", slug: "Cut & Sliced", image: "https://images.unsplash.com/photo-1598170845058-12ef4a457c39?auto=format&fit=crop&w=300&h=300&q=80" },
-        { name: "Peeled & Cleaned", slug: "Peeled & Cleaned", image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&h=300&q=80" },
-        { name: "Cleaned Bhaji", slug: "Cleaned Bhaji", image: "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=300&h=300&q=80" },
+        { name: "Chopped", slug: "Chopped" },
+        { name: "Cut & Sliced", slug: "Cut & Sliced" },
+        { name: "Peeled & Cleaned", slug: "Peeled & Cleaned" },
+        { name: "Cleaned Bhaji", slug: "Cleaned Bhaji" },
       ];
     }
 
     return [
       { name: "All", slug: "" },
-      { name: "Vegetables", slug: "Vegetables", image: "/categories/vegetables.webp" },
-      { name: "Fruits", slug: "Fruits", image: "/categories/fruits.webp" },
-      { name: "Dairy", slug: "Dairy", image: "/categories/dairy.webp" },
-      { name: "Organic", slug: "Organic", image: "/categories/organic.webp" },
+      { name: "Vegetables", slug: "Vegetables" },
+      { name: "Fruits", slug: "Fruits" },
+      { name: "Dairy", slug: "Dairy" },
+      { name: "Organic", slug: "Organic" },
     ];
   }, [apiCategories, currentStore]);
 
@@ -202,7 +174,7 @@ function HomeCategoryStrip() {
       <div className={`flex items-center justify-between border-b ${theme.categoryBorder}`}>
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
-          
+
           const params = new URLSearchParams();
           if (currentStore && currentStore !== "main") {
             params.set("store", currentStore);
@@ -211,7 +183,7 @@ function HomeCategoryStrip() {
             params.set("categoryName", cat.slug);
           }
           const queryString = params.toString();
-          const to = queryString ? `/?${queryString}` : "/";
+          const to = queryString ? `/product?${queryString}` : "/product";
 
           return (
             <Link
@@ -241,4 +213,3 @@ function HomeCategoryStrip() {
 }
 
 export default HomeCategoryStrip;
-

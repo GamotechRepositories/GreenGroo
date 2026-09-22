@@ -602,4 +602,88 @@ class OrderService extends ChangeNotifier {
       return null;
     }
   }
+
+  /// Admin-accepted return / warranty pickups assigned to this rider.
+  Future<List<Map<String, dynamic>>> fetchReturnPickups() async {
+    try {
+      final res = await apiGet(
+        ApiConfig.returnPickups,
+        headers: AuthService.instance.authHeaders,
+      );
+      if (res.statusCode != 200) return [];
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = body['data'];
+      if (data is List) {
+        return data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<({bool success, String? error})> scanReturnPickupQr(String qrPayload) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.scanReturnPickupQr,
+        headers: AuthService.instance.authHeaders,
+        body: {'qrPayload': qrPayload},
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Invalid return QR',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  Future<({bool success, String? error})> submitReturnPickupProof(
+    String returnPickupId,
+    String imageBase64,
+  ) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.submitReturnPickupProof(returnPickupId),
+        headers: AuthService.instance.authHeaders,
+        body: {'imageBase64': imageBase64},
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Photo upload failed',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  Future<({bool success, String? error})> markReturnPickupToStore(
+    String returnPickupId,
+  ) async {
+    try {
+      final res = await apiPost(
+        ApiConfig.returnPickupToStore(returnPickupId),
+        headers: AuthService.instance.authHeaders,
+        body: {},
+      );
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        return (success: true, error: null);
+      }
+      return (
+        success: false,
+        error: body['message'] as String? ?? 'Could not mark returned to store',
+      );
+    } catch (_) {
+      return (success: false, error: 'Network error. Please try again.');
+    }
+  }
 }

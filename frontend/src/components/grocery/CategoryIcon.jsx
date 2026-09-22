@@ -1,4 +1,4 @@
-/** Outline SVG icons for grocery categories (no emojis). */
+/** Outline SVG icons for grocery categories (no photos/emojis). */
 function IconShell({ children, className = "h-6 w-6" }) {
   return (
     <svg
@@ -72,6 +72,63 @@ function CarrotIcon({ className }) {
   );
 }
 
+function GrainsIcon({ className }) {
+  return (
+    <IconShell className={className}>
+      <path d="M12 3c-2 3-4 5-4 8a4 4 0 008 0c0-3-2-5-4-8z" />
+      <path d="M8 14c-1.5 2-2 3.5-2 5a3 3 0 006 0c0-1.5-.5-3-2-5" />
+      <path d="M16 14c-1.5 2-2 3.5-2 5a3 3 0 006 0c0-1.5-.5-3-2-5" />
+    </IconShell>
+  );
+}
+
+function SpicesIcon({ className }) {
+  return (
+    <IconShell className={className}>
+      <path d="M9 3h6v3H9z" />
+      <path d="M8 6h8l1 3v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9l1-3z" />
+      <path d="M10 12h4M10 15h4" />
+    </IconShell>
+  );
+}
+
+function BeverageIcon({ className }) {
+  return (
+    <IconShell className={className}>
+      <path d="M8 4h8l1 4H7l1-4z" />
+      <path d="M7 8h10v10a2 2 0 01-2 2H9a2 2 0 01-2-2V8z" />
+      <path d="M10 12h4" />
+    </IconShell>
+  );
+}
+
+function BakeryIcon({ className }) {
+  return (
+    <IconShell className={className}>
+      <path d="M4 14c0-3 2.5-5 4.5-5 .8 0 1.5.2 2 .6.5-.4 1.2-.6 2-.6s1.5.2 2 .6c.5-.4 1.2-.6 2-.6C18.5 9 21 11 21 14c0 2-1 4-4 4H8c-3 0-4-2-4-4z" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01" />
+    </IconShell>
+  );
+}
+
+function OilIcon({ className }) {
+  return (
+    <IconShell className={className}>
+      <path d="M10 3h4v3l2 2v11a2 2 0 01-2 2h-4a2 2 0 01-2-2V8l2-2V3z" />
+      <path d="M10 12h4" />
+    </IconShell>
+  );
+}
+
+function KnifeIcon({ className }) {
+  return (
+    <IconShell className={className}>
+      <path d="M4 20 14 6l4 4-6 10H4z" />
+      <path d="M14 6c1.5-1.5 3.5-2 5-1.5.2 1.8-.8 3.5-2.5 4.5" />
+    </IconShell>
+  );
+}
+
 function BasketIcon({ className }) {
   return (
     <IconShell className={className}>
@@ -88,12 +145,54 @@ const ICONS_BY_KEY = {
   vegetables: VegetablesIcon,
   vegetable: VegetablesIcon,
   veggies: VegetablesIcon,
+  vegies: VegetablesIcon,
   organic: OrganicIcon,
   dairy: DairyIcon,
   milk: DairyIcon,
+  curd: DairyIcon,
   carrots: CarrotIcon,
   carrot: CarrotIcon,
+  grains: GrainsIcon,
+  grain: GrainsIcon,
+  pulses: GrainsIcon,
+  pulse: GrainsIcon,
+  rice: GrainsIcon,
+  spices: SpicesIcon,
+  spice: SpicesIcon,
+  masala: SpicesIcon,
+  oils: OilIcon,
+  oil: OilIcon,
+  beverages: BeverageIcon,
+  beverage: BeverageIcon,
+  drinks: BeverageIcon,
+  drink: BeverageIcon,
+  soda: BeverageIcon,
+  bakery: BakeryIcon,
+  bread: BakeryIcon,
+  grocery: BasketIcon,
+  household: BasketIcon,
+  personal: BasketIcon,
+  chopped: KnifeIcon,
+  sliced: KnifeIcon,
+  peeled: KnifeIcon,
+  cleaned: KnifeIcon,
+  bhaji: VegetablesIcon,
+  leafy: VegetablesIcon,
 };
+
+const KEYWORD_RULES = [
+  [/fruit/, FruitsIcon],
+  [/vegetable|veggie|vegie|bhaji|leafy|salad/, VegetablesIcon],
+  [/organic|farm/, OrganicIcon],
+  [/dairy|milk|curd|paneer|butter|ghee/, DairyIcon],
+  [/carrot/, CarrotIcon],
+  [/grain|pulse|rice|wheat|flour|atta/, GrainsIcon],
+  [/spice|masala|chili|chilli|pepper/, SpicesIcon],
+  [/oil|ghee/, OilIcon],
+  [/beverage|drink|juice|soda|tea|coffee/, BeverageIcon],
+  [/bakery|bread|cake|biscuit/, BakeryIcon],
+  [/chop|slice|peel|clean|cut|ready/, KnifeIcon],
+];
 
 const FALLBACK_ICONS = [BasketIcon, FruitsIcon, VegetablesIcon, OrganicIcon, DairyIcon, CarrotIcon];
 
@@ -104,6 +203,15 @@ function resolveCategoryKey(name = "") {
 export function getCategoryIcon(name, index = 0) {
   const key = resolveCategoryKey(name);
   if (ICONS_BY_KEY[key]) return ICONS_BY_KEY[key];
+
+  for (const token of key.split(/[\s&/_,-]+/).filter(Boolean)) {
+    if (ICONS_BY_KEY[token]) return ICONS_BY_KEY[token];
+  }
+
+  for (const [pattern, Icon] of KEYWORD_RULES) {
+    if (pattern.test(key)) return Icon;
+  }
+
   return FALLBACK_ICONS[index % FALLBACK_ICONS.length];
 }
 

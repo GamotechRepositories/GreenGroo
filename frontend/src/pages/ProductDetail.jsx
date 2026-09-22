@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
+import { addCategoryVisit } from "../utils/categoryVisits";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { buildApiUrl, getProductById } from "../api/api";
+import { buildApiUrl, getProductById, getProductVarieties } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import WishlistButton from "../components/product/WishlistButton";
 import ProductPriceDisplay from "../components/product/ProductPriceDisplay";
 import { useCanViewProductPrice } from "../hooks/useCanViewProductPrice";
 import {
+  buildBulkGradeVariantName,
+  getAvailableBulkGrades,
   getAvailableColors,
   getBulkTierRows,
   getMinOrderQuantity,
@@ -29,6 +32,7 @@ import ProductImageFrame from "../components/product/ProductImageFrame";
 import ProductVideo from "../components/product/ProductVideo";
 import ProductDescriptionContent from "../components/product/ProductDescriptionContent";
 import SimilarProducts from "../components/product/SimilarProducts";
+import ProductReviews from "../components/product/ProductReviews";
 import { normalizeProductImages } from "../utils/productImage";
 import ProductShareMenu from "../components/product/ProductShareMenu";
 import ProductAdminShareMenu from "../components/product/ProductAdminShareMenu";
@@ -383,16 +387,19 @@ function WhyShopFromGreenGroo() {
 
   return (
     <section>
-      <h2 className="text-lg font-bold text-[#1a1a1a]">Why shop from GreenGroo?</h2>
-      <ul className="mt-4 space-y-5">
+      <h2 className="text-[15px] font-bold text-slate-900 sm:text-base">Why shop from GreenGroo?</h2>
+      <ul className="mt-3 space-y-3">
         {points.map((point) => (
-          <li key={point.title} className="flex gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F7F0D8] text-[#0C831F]">
+          <li
+            key={point.title}
+            className="flex gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
               {point.icon}
             </div>
             <div className="min-w-0">
-              <p className="text-[15px] font-bold text-[#1a1a1a]">{point.title}</p>
-              <p className="mt-0.5 text-[13px] leading-snug text-[#666]">{point.text}</p>
+              <p className="text-[13px] font-bold text-slate-900">{point.title}</p>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500">{point.text}</p>
             </div>
           </li>
         ))}
@@ -401,96 +408,157 @@ function WhyShopFromGreenGroo() {
   );
 }
 
+function hasText(value) {
+  return Boolean(String(value || "").trim());
+}
+
 function FarmerDetailsCard({ product }) {
-  const images = normalizeProductImages(product?.productImages);
-  
-  const farmer = {
-    name: product?.farmerName || product?.farmerDetails?.name || "Kiran Pawar",
-    location: product?.farmerLocation || product?.farmerDetails?.location || "Niphad, NASHIK",
-    farmerImage: product?.farmerImage || product?.farmerDetails?.farmerImage || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80",
-    farmImage: product?.farmImage || product?.farmerDetails?.farmImage || images[0] || "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=400&h=400&q=80",
-    totalArea: product?.farmerDetails?.totalArea || "3",
-    cultivationArea: product?.farmerDetails?.cultivationArea || "3",
-    cropCycle: product?.farmerDetails?.cropCycle || product?.name?.split("-")[0]?.trim() || "Cauliflower",
-    agricultureMethod: product?.farmerDetails?.agricultureMethod || "Modern and Traditional",
-    lastCropTaken: product?.farmerDetails?.lastCropTaken || "Onion",
-    currentCrop: product?.farmerDetails?.currentCrop || product?.name?.split("-")[0]?.trim() || "Cauliflower",
-    waterSource: product?.farmerDetails?.waterSource || "Rivers, Well",
-    soilType: product?.farmerDetails?.soilType || "Black soils",
-    farmTools: product?.farmerDetails?.farmTools || "Tractor",
-    harvestingDate: product?.harvestingDate || product?.farmerDetails?.harvestingDate || "Today (Fresh Morning Harvest)",
-    bio: product?.farmerDetails?.bio || `Hello, my name is ${product?.farmerName || "Kiran Vitthal Pawar"}. I am a graduate and I have been actively involved in farming for the past 5 years in Niphad, Nashik. We cultivate fresh organic produce using modern and traditional sustainable farming techniques.`,
-  };
+  const name = String(product?.farmerName || product?.farmerDetails?.name || "").trim();
+  const location = String(product?.farmerLocation || product?.farmerDetails?.location || "").trim();
+  const farmerImage = String(product?.farmerImage || product?.farmerDetails?.farmerImage || "").trim();
+  const farmImage = String(product?.farmImage || product?.farmerDetails?.farmImage || "").trim();
+  const harvestingDate = String(
+    product?.harvestingDate || product?.farmerDetails?.harvestingDate || ""
+  ).trim();
+  const details = product?.farmerDetails || {};
+
+  const rows = [
+    { label: "Total Area", value: details.totalArea },
+    { label: "Area Under Cultivation", value: details.cultivationArea },
+    { label: "Crop Cycle", value: details.cropCycle },
+    { label: "Agriculture Method", value: details.agricultureMethod },
+    { label: "Last Crop Taken", value: details.lastCropTaken },
+    { label: "Current Crop", value: details.currentCrop },
+    { label: "Water Source", value: details.waterSource },
+    { label: "Soil Type", value: details.soilType },
+    { label: "Farm Tools", value: details.farmTools },
+    { label: "Harvesting Date", value: harvestingDate },
+  ].filter((row) => hasText(row.value));
+
+  const bio = String(details.bio || "").trim();
+  const hasAnyFarmerInfo =
+    hasText(name) ||
+    hasText(location) ||
+    hasText(farmerImage) ||
+    hasText(farmImage) ||
+    rows.length > 0 ||
+    hasText(bio);
+
+  if (!hasAnyFarmerInfo) return null;
 
   return (
-    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-      {/* Title Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-          {product?.name} <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">Traceable</span>
+    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[15px] font-bold text-slate-900 sm:text-base">
+          Farmer details
         </h3>
+        {hasText(name) ? (
+          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
+            Traceable
+          </span>
+        ) : null}
       </div>
 
-      {/* 2 Photos side by side with overlay labels */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-xs">
-          <img
-            src={farmer.farmerImage}
-            alt={farmer.name}
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80";
-            }}
-          />
-          <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-slate-900/75 backdrop-blur-xs px-2 py-1 text-center text-[10px] sm:text-xs font-black text-white shadow-xs">
-            👨‍🌾 Farmer Photo
-          </div>
+      {(farmerImage || farmImage) ? (
+        <div className={`mt-4 grid gap-3 ${farmerImage && farmImage ? "grid-cols-2" : "grid-cols-1"}`}>
+          {farmerImage ? (
+            <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-50">
+              <img
+                src={farmerImage}
+                alt={name || "Farmer"}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+              <span className="absolute bottom-2 left-2 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white">
+                Farmer
+              </span>
+            </div>
+          ) : null}
+          {farmImage ? (
+            <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-50">
+              <img
+                src={farmImage}
+                alt="Farm land"
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+              <span className="absolute bottom-2 left-2 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white">
+                Farm land
+              </span>
+            </div>
+          ) : null}
         </div>
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-xs">
-          <img
-            src={farmer.farmImage}
-            alt={farmer.cropCycle}
-            className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=400&h=400&q=80";
-            }}
-          />
-          <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-slate-900/75 backdrop-blur-xs px-2 py-1 text-center text-[10px] sm:text-xs font-black text-white shadow-xs">
-            🚜 Farm Land Photo
-          </div>
+      ) : null}
+
+      {(name || location) ? (
+        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
+          {name ? <h4 className="text-[15px] font-bold text-slate-900">{name}</h4> : null}
+          {location ? (
+            <p className="text-xs font-medium text-slate-500 sm:text-sm">{location}</p>
+          ) : null}
         </div>
-      </div>
+      ) : null}
 
-      {/* Farmer Name & Location Row */}
-      <div className="flex items-center justify-between pt-1">
-        <h4 className="text-base sm:text-lg font-extrabold text-slate-900">{farmer.name}</h4>
-        <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-700">
-          <svg className="h-4 w-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>{farmer.location}</span>
-        </div>
-      </div>
+      {rows.length > 0 ? (
+        <ul className="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-[13px] text-slate-700">
+          {rows.map((row) => (
+            <li key={row.label} className="flex gap-2">
+              <span className="shrink-0 font-semibold text-slate-900">{row.label}:</span>
+              <span className="min-w-0 text-slate-600">{row.value}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-      {/* Bulleted Details List */}
-      <ul className="space-y-1.5 text-xs sm:text-sm text-slate-800 font-medium pt-2 border-t border-slate-100">
-        <li><span className="font-bold text-slate-900">• Total Area :</span> {farmer.totalArea}</li>
-        <li><span className="font-bold text-slate-900">• Area Under Cultivation :</span> {farmer.cultivationArea}</li>
-        <li><span className="font-bold text-slate-900">• Crop Cycle :</span> {farmer.cropCycle}</li>
-        <li><span className="font-bold text-slate-900">• Agriculture Method :</span> {farmer.agricultureMethod}</li>
-        <li><span className="font-bold text-slate-900">• Last Crop Taken :</span> {farmer.lastCropTaken}</li>
-        <li><span className="font-bold text-slate-900">• Current Crop :</span> {farmer.currentCrop}</li>
-        <li><span className="font-bold text-slate-900">• Water Source :</span> {farmer.waterSource}</li>
-        <li><span className="font-bold text-slate-900">• Soil Type :</span> {farmer.soilType}</li>
-        <li><span className="font-bold text-slate-900">• Farm Tools :</span> {farmer.farmTools}</li>
-      </ul>
-
-      {/* Bio / Story Paragraph */}
-      <div className="pt-2 border-t border-slate-100 text-xs sm:text-sm text-slate-700 leading-relaxed">
-        <p>{farmer.bio}</p>
-      </div>
+      {bio ? (
+        <p className="mt-3 border-t border-slate-100 pt-3 text-[13px] leading-relaxed text-slate-600">
+          {bio}
+        </p>
+      ) : null}
     </section>
+  );
+}
+
+function FarmerQuickCard({ product }) {
+  const name = String(product?.farmerName || product?.farmerDetails?.name || "").trim();
+  const location = String(product?.farmerLocation || product?.farmerDetails?.location || "").trim();
+  const farmerImage = String(product?.farmerImage || product?.farmerDetails?.farmerImage || "").trim();
+  if (!name && !location) return null;
+
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-emerald-100 ring-2 ring-white">
+        {farmerImage ? (
+          <img
+            src={farmerImage}
+            alt={name || "Farmer"}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-emerald-700">
+            {(name || "F").charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+          Direct from farmer
+        </p>
+        {name ? (
+          <h4 className="truncate text-sm font-bold text-slate-900">{name}</h4>
+        ) : null}
+        {location ? (
+          <p className="truncate text-xs text-slate-500">{location}</p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -611,47 +679,113 @@ function ProductDetailsSection({
   specifications,
   className = "",
 }) {
+  const harvestingDate = String(
+    product?.harvestingDate || product?.farmerDetails?.harvestingDate || ""
+  ).trim();
+  const unit = String(product?.unit || product?.sub || product?.weight || "").trim();
+  const brand = String(product?.brandName || "").trim();
+  const category = Array.isArray(product?.categories)
+    ? String(product.categories[0] || "").trim()
+    : "";
+  const metaItems = [
+    productType ? { label: "Type", value: productType } : null,
+    category ? { label: "Category", value: category } : null,
+    brand ? { label: "Brand", value: brand } : null,
+    unit ? { label: "Unit", value: unit } : null,
+    harvestingDate ? { label: "Harvest", value: harvestingDate, accent: true } : null,
+  ].filter(Boolean);
+
   return (
     <section className={className}>
-      <h2 className="text-lg font-bold text-[#1a1a1a]">Product Details</h2>
-      <div className="mt-3 space-y-2 text-[14px]">
-        <p>
-          <span className="font-semibold text-[#1a1a1a]">Type </span>
-          <span className="text-[#666]">{productType}</span>
-        </p>
-        <p>
-          <span className="font-semibold text-[#1a1a1a]">Harvesting Date: </span>
-          <span className="font-bold text-[#0C831F]">
-            {product?.harvestingDate || product?.farmerDetails?.harvestingDate || "Today (Fresh Morning Harvest)"}
-          </span>
-        </p>
-        {detailsOpen ? (
-          <div className="space-y-2 text-[#666]">
-            <ProductDescriptionContent
-              description={product.description}
-              features={product.features}
-              fallback={`Fresh ${product.name} from GreenGroo. Quality checked and ready for delivery.`}
-            />
-            {specifications.length > 0 ? (
-              <ul className="space-y-1 pt-1">
-                {specifications.map((spec, index) => (
-                  <li key={`${spec.name}-${index}`}>
-                    <span className="font-semibold text-[#1a1a1a]">{spec.name}: </span>
-                    {spec.value}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-        <button
-          type="button"
-          onClick={onToggleDetails}
-          className="inline-flex items-center gap-1 text-[14px] font-semibold text-[#0C831F]"
-        >
-          {detailsOpen ? "View less details" : "View more details"}
-          <span className="text-xs">{detailsOpen ? "▴" : "▾"}</span>
-        </button>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3 sm:px-5">
+          <h2 className="text-[15px] font-bold text-slate-900 sm:text-base">Product Details</h2>
+          <button
+            type="button"
+            onClick={onToggleDetails}
+            className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[12px] font-semibold text-emerald-700 ring-1 ring-slate-200 transition hover:bg-emerald-50"
+          >
+            {detailsOpen ? "Less" : "More"}
+            <svg
+              className={`h-3.5 w-3.5 transition ${detailsOpen ? "rotate-180" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4 p-4 sm:p-5">
+          {metaItems.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {metaItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-xl bg-slate-50 px-3 py-2.5 ring-1 ring-slate-100"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    {item.label}
+                  </p>
+                  <p
+                    className={`mt-0.5 truncate text-[13px] font-semibold ${
+                      item.accent ? "text-emerald-700" : "text-slate-800"
+                    }`}
+                    title={item.value}
+                  >
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {detailsOpen ? (
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-400">
+                  Description
+                </p>
+                <div className="text-[13px] leading-relaxed text-slate-600 sm:text-[14px] [&_li]:text-slate-600 [&_p]:text-slate-600 [&_ul]:mt-2">
+                  <ProductDescriptionContent
+                    description={product.description}
+                    features={product.features}
+                    fallback={`Fresh ${product.name} from GreenGroo. Quality checked and ready for delivery.`}
+                  />
+                </div>
+              </div>
+
+              {specifications.length > 0 ? (
+                <div>
+                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-slate-400">
+                    Specifications
+                  </p>
+                  <div className="overflow-hidden rounded-xl ring-1 ring-slate-100">
+                    <dl className="divide-y divide-slate-100">
+                      {specifications.map((spec, index) => (
+                        <div
+                          key={`${spec.name}-${index}`}
+                          className="grid grid-cols-[110px_1fr] gap-3 bg-white px-3 py-2.5 sm:grid-cols-[140px_1fr]"
+                        >
+                          <dt className="text-[12px] font-semibold text-slate-500 sm:text-[13px]">
+                            {spec.name}
+                          </dt>
+                          <dd className="text-[12px] text-slate-800 sm:text-[13px]">{spec.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-[13px] text-slate-500">
+              Tap More to read the full description and specifications.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -704,7 +838,7 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart, items: cartItems, incrementCartItem, decrementCartItem } = useCart();
-  const { openAuthModal } = useAuth();
+  const { openAuthModal, user } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -715,7 +849,9 @@ function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState("");
   const [downloadingImage, setDownloadingImage] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [varietyOptions, setVarietyOptions] = useState([]);
   const canViewPrice = useCanViewProductPrice(product);
+  const isBulkUser = user?.accountType === "bulk";
 
   useEffect(() => {
     if (!id || String(id).startsWith("dummy-") || String(id).startsWith("deal-")) return;
@@ -738,8 +874,13 @@ function ProductDetail() {
           throw new Error("Product not found");
         }
 
-        const initialVariant =
-          nextProduct?.variantType === "multi"
+        const availableGrades = getAvailableBulkGrades(nextProduct);
+        const useBulkGrades =
+          user?.accountType === "bulk" && availableGrades.length > 0;
+
+        const initialVariant = useBulkGrades
+          ? buildBulkGradeVariantName(availableGrades[0].grade, availableGrades[0].variety)
+          : nextProduct?.variantType === "multi"
             ? nextProduct.variants?.[0]?.name || ""
             : "";
         const initialColors = getAvailableColors(nextProduct, initialVariant);
@@ -752,6 +893,10 @@ function ProductDetail() {
 
         if (nextProduct?._id && !String(nextProduct._id).startsWith("dummy-")) {
           addRecentlyViewed(nextProduct._id);
+          const productCategory = Array.isArray(nextProduct.categories)
+            ? String(nextProduct.categories[0] || "").trim()
+            : "";
+          if (productCategory) addCategoryVisit(productCategory);
         }
       } catch (err) {
         console.error("fetchProduct error:", err);
@@ -765,7 +910,36 @@ function ProductDetail() {
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, user?.accountType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadVarieties = async () => {
+      if (
+        !product?._id ||
+        String(product._id).startsWith("dummy-") ||
+        String(product._id).startsWith("deal-")
+      ) {
+        setVarietyOptions([]);
+        return;
+      }
+      try {
+        const res = await getProductVarieties(product._id);
+        const list = res?.data?.data || res?.data || [];
+        const items = Array.isArray(list) ? list : [];
+        // Only keep a real multi-variety group
+        if (!cancelled) {
+          setVarietyOptions(items.length > 1 ? items : []);
+        }
+      } catch {
+        if (!cancelled) setVarietyOptions([]);
+      }
+    };
+    loadVarieties();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?._id]);
 
   const handleVariantChange = (variantName) => {
     setSelectedVariant(variantName);
@@ -801,7 +975,17 @@ function ProductDetail() {
   const isVideoActive = activeGalleryItem?.type === "video";
   const imageOnlyIndex = activeMedia;
 
-  const activeVariantName = product && isMultiVariant(product) ? selectedVariant : "";
+  const availableBulkGrades = useMemo(
+    () => (product && isBulkUser ? getAvailableBulkGrades(product) : []),
+    [product, isBulkUser]
+  );
+  const showBulkGrades = availableBulkGrades.length > 0;
+
+  const activeVariantName = showBulkGrades
+    ? selectedVariant
+    : product && isMultiVariant(product)
+      ? selectedVariant
+      : "";
 
   const shareUrl =
     typeof window !== "undefined" && product?._id
@@ -984,7 +1168,28 @@ function ProductDetail() {
   const unitLabel = product.sub || product.unit || product.weight || "1 pc";
   const priceInfo = getProductListPriceInfo(product, activeVariantName);
 
-  const unitOptions = isMultiVariant(product)
+  const unitOptions = showBulkGrades
+    ? availableBulkGrades.map((grade) => {
+        const variantName = buildBulkGradeVariantName(grade.grade, grade.variety);
+        const info = getProductListPriceInfo(product, variantName);
+        const discountPct =
+          info.hasDiscount && info.originalPrice > 0
+            ? Math.round(((info.originalPrice - info.salePrice) / info.originalPrice) * 100)
+            : 0;
+        return {
+          key: variantName,
+          label: grade.variety
+            ? `Grade ${grade.grade} · ${grade.variety}`
+            : `Grade ${grade.grade}`,
+          salePrice: info.salePrice,
+          originalPrice: info.originalPrice,
+          discountPct,
+          selected: selectedVariant === variantName,
+          onSelect: () => handleVariantChange(variantName),
+          unitHint: grade.unit,
+        };
+      })
+    : isMultiVariant(product)
     ? (product.variants || []).map((variant) => {
         const info = getProductListPriceInfo(product, variant.name);
         const discountPct =
@@ -1028,8 +1233,8 @@ function ProductDetail() {
       {/* lg:pt accounts for TopNav (72) */}
       <div className="mx-auto w-full max-w-6xl px-0 pt-0 sm:px-5 lg:px-6 lg:pt-6">
         <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:items-start lg:gap-10">
-          {/* Left — scrolls with page through Product Details */}
-          <div className="min-w-0">
+          {/* Left — sticky product image on desktop */}
+          <div className="min-w-0 lg:sticky lg:top-[88px] lg:self-start">
             <div className="relative overflow-hidden rounded-none sm:rounded-2xl bg-white border-b border-slate-100 sm:border-none">
               <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2">
                 <button
@@ -1071,95 +1276,141 @@ function ProductDetail() {
                 onSelect={setActiveMedia}
               />
             </div>
-
-            <ProductDetailsSection
-              className="mt-8 hidden border-t border-[#F0F0F0] pt-6 lg:block lg:min-h-[55vh] lg:pb-16"
-              productType={productType}
-              detailsOpen={detailsOpen}
-              onToggleDetails={() => setDetailsOpen((v) => !v)}
-              product={product}
-              specifications={specifications}
-            />
-
-            <div className="hidden lg:block">
-              <FarmerDetailsCard product={product} />
-            </div>
           </div>
 
-          {/* Right — sticks to top under header while left scrolls */}
-          <aside className="min-w-0 bg-white px-4 sm:px-0 lg:sticky lg:top-[88px] lg:z-10 lg:self-start">
-            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[12px] text-[#757575]">
-              <Link to="/" className="hover:text-[#0C831F]">
-                Home
-              </Link>
-              <span>/</span>
-              <Link
-                to={`/product?categoryName=${encodeURIComponent(category)}`}
-                className="hover:text-[#0C831F]"
-              >
-                {category}
-              </Link>
-              <span>/</span>
-              <span className="line-clamp-1 text-[#1a1a1a]">{product.name}</span>
-            </nav>
+          {/* Right — product info, details, farmer */}
+          <aside className="min-w-0 space-y-5 bg-white px-4 pb-2 sm:px-0">
+            <div>
+              <nav className="mb-2 flex flex-wrap items-center gap-1 text-[12px] text-slate-500">
+                <Link to="/" className="hover:text-emerald-700">
+                  Home
+                </Link>
+                <span>/</span>
+                <Link
+                  to={`/product?categoryName=${encodeURIComponent(category)}`}
+                  className="hover:text-emerald-700"
+                >
+                  {category}
+                </Link>
+                <span>/</span>
+                <span className="line-clamp-1 text-slate-800">{product.name}</span>
+              </nav>
 
-            <h1 className="text-[22px] font-bold leading-snug sm:text-[26px]">
-              {product.name}
-            </h1>
-            {(() => {
-              const raw =
-                product.shortDescription ||
-                product.description ||
-                `Fresh ${product.name}${category ? ` from ${category}` : ""}.`;
-              const short = String(raw)
-                .replace(/<[^>]+>/g, "")
-                .replace(/\s+/g, " ")
-                .trim()
-                .slice(0, 120);
-              if (!short) return null;
-              return (
-                <p className="mt-1.5 text-[13px] font-bold leading-snug text-[#1a1a1a] sm:text-[14px]">
-                  {short}
-                  {String(raw).replace(/<[^>]+>/g, "").trim().length > 120 ? "…" : ""}
-                </p>
-              );
-            })()}
-
-            {/* Farmer Quick Profile Card */}
-            <div className="mt-3.5 flex items-center gap-3 rounded-2xl bg-emerald-50/80 p-2.5 sm:p-3 border border-emerald-200/60 shadow-xs">
-              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-emerald-600 shadow-xs bg-slate-100">
-                <img
-                  src={product?.farmerImage || product?.farmerDetails?.farmerImage || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80"}
-                  alt={product?.farmerName || "Farmer"}
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&h=600&q=80";
-                  }}
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] text-white font-black shadow-xs">
-                  ✓
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-md">
-                    👨‍🌾 Direct Farmer
-                  </span>
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    Harvested Fresh
-                  </span>
-                </div>
-                <h4 className="text-sm font-black text-slate-900 leading-tight mt-0.5 truncate">
-                  {product?.farmerName || product?.farmerDetails?.name || "Kiran Vitthal Pawar"}
-                </h4>
-                <p className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-0.5">
-                  <span>📍 {product?.farmerLocation || product?.farmerDetails?.location || "Niphad, Nashik"}</span>
-                </p>
-              </div>
+              <h1 className="text-[22px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[26px]">
+                {product.name}
+              </h1>
+              {(() => {
+                const raw =
+                  product.shortDescription ||
+                  product.description ||
+                  "";
+                const short = String(raw)
+                  .replace(/<[^>]+>/g, "")
+                  .replace(/\s+/g, " ")
+                  .trim()
+                  .slice(0, 140);
+                if (!short) return null;
+                return (
+                  <p className="mt-2 text-[13px] leading-relaxed text-slate-600 sm:text-[14px]">
+                    {short}
+                    {String(raw).replace(/<[^>]+>/g, "").trim().length > 140 ? "…" : ""}
+                  </p>
+                );
+              })()}
             </div>
 
-            <div className="mt-5">
-              <p className="mb-2.5 text-[15px] font-semibold text-[#1a1a1a]">Select Unit</p>
+            {/* Price + ATC — directly under description */}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 sm:p-4">
+              <div className="flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium text-slate-500">{unitLabel}</p>
+                  {canViewPrice ? (
+                    <>
+                      <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                        <p className="text-[26px] font-extrabold leading-none text-slate-900 sm:text-[28px]">
+                          {formatPrice(priceInfo.salePrice).replace(".00", "")}
+                        </p>
+                        {priceInfo.originalPrice > priceInfo.salePrice ? (
+                          <span className="text-[14px] font-medium text-slate-400 line-through sm:text-[15px]">
+                            {formatPrice(priceInfo.originalPrice).replace(".00", "")}
+                          </span>
+                        ) : null}
+                        {priceInfo.hasDiscount && priceInfo.originalPrice > 0 ? (
+                          <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                            {Math.round(
+                              ((priceInfo.originalPrice - priceInfo.salePrice) /
+                                priceInfo.originalPrice) *
+                                100
+                            )}
+                            % OFF
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500 sm:text-[12px]">
+                        (Inclusive of all taxes)
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-500">Login to view price</p>
+                  )}
+                </div>
+
+                {cartLineQuantity != null ? (
+                  <div className="w-[140px] shrink-0 sm:w-[160px]">
+                    <CartActionQuantity
+                      quantity={cartLineQuantity}
+                      min={minOrderQuantity}
+                      max={maxQuantity}
+                      disabled={!inStock}
+                      onDecrease={handleQuantityDecrease}
+                      onIncrease={handleQuantityIncrease}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => handleAddToCart(e.currentTarget)}
+                    disabled={!inStock}
+                    className="h-12 min-w-[130px] shrink-0 rounded-xl bg-emerald-700 px-5 text-[14px] font-bold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[150px] sm:text-[15px]"
+                  >
+                    {inStock ? "Add to cart" : "Out of Stock"}
+                  </button>
+                )}
+              </div>
+
+              {Array.isArray(product.quantityDiscounts) && product.quantityDiscounts.length > 0 ? (
+                <p className="mt-2 text-xs font-semibold text-emerald-700">
+                  {product.quantityDiscounts
+                    .map((rule) =>
+                      rule.discountType === "fixed"
+                        ? `Buy ${rule.minQuantity}+ · ₹${rule.discountValue} off / unit`
+                        : `Buy ${rule.minQuantity}+ · Get ${rule.discountValue}% off`
+                    )
+                    .join(" · ")}
+                </p>
+              ) : null}
+
+              {(showMoq || showStepByQty) && (
+                <p className="mt-2 text-[12px] text-slate-500">
+                  {[
+                    showMoq ? `MOQ: ${minOrderQuantity}` : null,
+                    showStepByQty ? `Step: ${quantityStep}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2.5 text-[14px] font-semibold text-slate-900">
+                {showBulkGrades ? "Select Grade" : "Select Unit"}
+              </p>
+              {showBulkGrades ? (
+                <p className="mb-2.5 text-[12px] text-slate-500">
+                  Bulk pricing by quality grade — each grade can have its own variety and rate.
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2.5">
                 {unitOptions.map((opt) => (
                   <UnitOptionCard
@@ -1175,9 +1426,50 @@ function ProductDetail() {
               </div>
             </div>
 
+            {varietyOptions.length > 1 ? (
+              <div>
+                <p className="mb-2.5 text-[14px] font-semibold text-slate-900">
+                  Select Variety
+                </p>
+                <div className="flex flex-wrap gap-2.5">
+                  {varietyOptions.map((v) => {
+                    const info = getProductListPriceInfo(v);
+                    const discountPct =
+                      info.hasDiscount && info.originalPrice > 0
+                        ? Math.round(
+                            ((info.originalPrice - info.salePrice) / info.originalPrice) * 100
+                          )
+                        : 0;
+                    const label =
+                      (v.varietyName && String(v.varietyName).trim()) ||
+                      (v.name && String(v.name).trim()) ||
+                      v.unit ||
+                      "Variety";
+                    return (
+                      <UnitOptionCard
+                        key={v._id}
+                        label={label}
+                        salePrice={info.salePrice}
+                        originalPrice={info.originalPrice}
+                        selected={String(v._id) === String(product._id)}
+                        discountPct={discountPct}
+                        onClick={() => {
+                          if (String(v._id) !== String(product._id)) {
+                            navigate(`/product/${v._id}`);
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <FarmerQuickCard product={product} />
+
             {availableColors.length > 0 ? (
-              <div className="mt-4">
-                <p className="mb-2 text-[15px] font-semibold">Select color</p>
+              <div>
+                <p className="mb-2 text-[14px] font-semibold text-slate-900">Select color</p>
                 <div className="flex flex-wrap gap-2">
                   {availableColors.map((color) => {
                     const isActive = selectedColor === color.name;
@@ -1188,8 +1480,8 @@ function ProductDetail() {
                         onClick={() => setSelectedColor(color.name)}
                         className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
                           isActive
-                            ? "border-[#0C831F] bg-[#F6FBF7] text-[#0C831F]"
-                            : "border-[#E5E5E5] text-[#1a1a1a]"
+                            ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 text-slate-800"
                         }`}
                       >
                         {color.name}
@@ -1200,68 +1492,8 @@ function ProductDetail() {
               </div>
             ) : null}
 
-            <div className="mt-6 flex items-end justify-between gap-4">
-              <div>
-                <p className="text-[13px] font-medium text-[#666]">{unitLabel}</p>
-                {canViewPrice ? (
-                  <>
-                    <p className="mt-0.5 text-[28px] font-extrabold leading-none text-[#1a1a1a]">
-                      {formatPrice(priceInfo.salePrice).replace(".00", "")}
-                    </p>
-                    <p className="mt-1 text-[12px] text-[#757575]">(Inclusive of all taxes)</p>
-                    {Array.isArray(product.quantityDiscounts) && product.quantityDiscounts.length > 0 ? (
-                      <p className="mt-2 text-xs font-semibold text-[#0C831F]">
-                        {product.quantityDiscounts
-                          .map((rule) =>
-                            rule.discountType === "fixed"
-                              ? `Buy ${rule.minQuantity}+ · ₹${rule.discountValue} off / unit`
-                              : `Buy ${rule.minQuantity}+ · Get ${rule.discountValue}% off`
-                          )
-                          .join(" · ")}
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="mt-1 text-sm text-[#757575]">Login to view price</p>
-                )}
-              </div>
-
-              {cartLineQuantity != null ? (
-                <div className="w-[160px] shrink-0">
-                  <CartActionQuantity
-                    quantity={cartLineQuantity}
-                    min={minOrderQuantity}
-                    max={maxQuantity}
-                    disabled={!inStock}
-                    onDecrease={handleQuantityDecrease}
-                    onIncrease={handleQuantityIncrease}
-                  />
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => handleAddToCart(e.currentTarget)}
-                  disabled={!inStock}
-                  className="h-12 min-w-[150px] shrink-0 rounded-xl bg-[#0C831F] px-6 text-[15px] font-bold text-white transition hover:bg-[#097019] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {inStock ? "Add to cart" : "Out of Stock"}
-                </button>
-              )}
-            </div>
-
-            {(showMoq || showStepByQty) && (
-              <p className="mt-3 text-[12px] text-[#757575]">
-                {[
-                  showMoq ? `MOQ: ${minOrderQuantity}` : null,
-                  showStepByQty ? `Step: ${quantityStep}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            )}
-
             <ProductDetailsSection
-              className="mt-8 border-t border-[#F0F0F0] pt-6 lg:hidden"
+              className=""
               productType={productType}
               detailsOpen={detailsOpen}
               onToggleDetails={() => setDetailsOpen((v) => !v)}
@@ -1271,13 +1503,15 @@ function ProductDetail() {
 
             <FarmerDetailsCard product={product} />
 
-            <div className="mt-8 border-t border-[#F0F0F0] pt-6">
+            <ProductReviews productId={product._id} />
+
+            <div className="border-t border-slate-100 pt-5">
               <WhyShopFromGreenGroo />
             </div>
           </aside>
         </div>
 
-        <div className="mt-8 grid grid-cols-6 border-t border-[#F0F0F0] pt-6">
+        <div className="mt-8 border-t border-slate-100 px-0 pt-6 sm:px-0">
           <SimilarProducts
             productId={product._id}
             categoryName={product.categories?.[0] || product.subcategory || ""}

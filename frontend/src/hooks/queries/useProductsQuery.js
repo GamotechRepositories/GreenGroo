@@ -1,11 +1,29 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { getProducts } from "../../api/api";
-import { getRecentlyViewedIds } from "../../utils/recentlyViewed";
+import { getProducts, getMyOrders } from "../../api/api";
+import { getMostViewedIds, getRecentlyViewedIds } from "../../utils/recentlyViewed";
+import { extractPurchasedProductIds } from "../../utils/orderItems";
 import { queryKeys } from "./queryKeys";
 import { useDeliveryLocationKey } from "../../context/LocationContext";
+import { useAuth } from "../../context/AuthContext";
 
 const HOME_PRODUCT_LIMIT = 12;
 export const PRODUCTS_PAGE_SIZE = 50;
+
+async function fetchProductsByIds(ids, limit = HOME_PRODUCT_LIMIT) {
+  if (!ids.length) return [];
+
+  const { data } = await getProducts({
+    ids: ids.join(","),
+    limit,
+  });
+  const fetched = data.data || [];
+  const byId = new Map(fetched.map((product) => [String(product._id), product]));
+
+  return ids
+    .map((id) => byId.get(String(id)))
+    .filter(Boolean)
+    .slice(0, limit);
+}
 
 export function useInfiniteProductsQuery(params, options = {}) {
   const locationKey = useDeliveryLocationKey();
@@ -75,23 +93,39 @@ export function useRecentlyViewedProductsQuery(options = {}) {
 
   return useQuery({
     queryKey: [...queryKeys.products.recentlyViewed(ids), locationKey],
-    queryFn: async () => {
-      if (!ids.length) return [];
-
-      const { data } = await getProducts({
-        ids: ids.join(","),
-        limit: HOME_PRODUCT_LIMIT,
-      });
-      const fetched = data.data || [];
-      const byId = new Map(fetched.map((product) => [String(product._id), product]));
-
-      return ids
-        .map((id) => byId.get(String(id)))
-        .filter(Boolean)
-        .slice(0, HOME_PRODUCT_LIMIT);
-    },
+    queryFn: () => fetchProductsByIds(ids, HOME_PRODUCT_LIMIT),
     enabled: ids.length > 0,
     staleTime: 60 * 1000,
+    ...options,
+  });
+}
+
+export function useMostViewedProductsQuery(options = {}) {
+  const ids = getMostViewedIds(HOME_PRODUCT_LIMIT);
+  const locationKey = useDeliveryLocationKey();
+
+  return useQuery({
+    queryKey: [...queryKeys.products.mostViewed(ids), locationKey],
+    queryFn: () => fetchProductsByIds(ids, HOME_PRODUCT_LIMIT),
+    enabled: ids.length > 0,
+    staleTime: 60 * 1000,
+    ...options,
+  });
+}
+
+export function usePurchasedProductsQuery(options = {}) {
+  const { user } = useAuth();
+  const locationKey = useDeliveryLocationKey();
+
+  return useQuery({
+    queryKey: [...queryKeys.products.purchased(user?._id || "guest"), locationKey],
+    queryFn: async () => {
+      const { data } = await getMyOrders();
+      const ids = extractPurchasedProductIds(data.data || [], HOME_PRODUCT_LIMIT);
+      return fetchProductsByIds(ids, HOME_PRODUCT_LIMIT);
+    },
+    enabled: Boolean(user),
+    staleTime: 2 * 60 * 1000,
     ...options,
   });
 }

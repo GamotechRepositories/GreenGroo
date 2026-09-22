@@ -1,27 +1,30 @@
 import express from "express";
 import multer from "multer";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomBytes } from "crypto";
 import path from "path";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const router = express.Router();
 
-// ---  AWS S3 Client Setup ---
-const s3 = new S3Client({
-  region: process.env.AWS_REGION || "ap-south-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
+const getS3Client = () => {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error("AWS credentials are not configured. Check AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in backend/.env");
+  }
+  return new S3Client({
+    region: process.env.AWS_REGION || "ap-south-1",
+    credentials: { accessKeyId, secretAccessKey },
+  });
+};
 
-const BUCKET_NAME = process.env.AWS_BUCKET_NAME || "greengrocc-s3";
-const CLOUDFRONT_URL = (process.env.CLOUDFRONT_URL || "").replace(/\/$/, "");
+const BUCKET_NAME = () => process.env.AWS_BUCKET_NAME || "";
+const REGION = () => process.env.AWS_REGION || "ap-south-1";
+const CLOUDFRONT_URL = () => (process.env.CLOUDFRONT_URL || "").replace(/\/$/, "");
 
-// --- Multer in-memory storage (no disk needed) ---
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB max for images and video
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (
       file.mimetype.startsWith("image/") ||
@@ -35,42 +38,69 @@ const upload = multer({
   },
 });
 
+const buildPublicUrl = (s3Key) => {
+  const cdn = CLOUDFRONT_URL();
+  if (cdn) return `${cdn}/${s3Key}`;
+  return `https://${BUCKET_NAME()}.s3.${REGION()}.amazonaws.com/${s3Key}`;
+};
+
+const normalizeFolder = (raw) => {
+  const cleaned = String(raw || "uploads")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/[^a-zA-Z0-9/_-]/g, "");
+  // Keep first path segment for safety (products, categories, farmers, …)
+  const segment = cleaned.split("/").filter(Boolean)[0] || "uploads";
+  return segment;
+};
+
 /**
  * POST /api/upload
- * Accepts multipart/form-data with:
- *   - file or files: single or multiple images/videos
- *   - folder: optional prefix in S3 (e.g. "categories", "products", "videos"). defaults to "uploads"
+ * multipart: file | files (+ optional folder)
  */
 router.post("/", upload.any(), async (req, res) => {
   try {
+    if (!BUCKET_NAME()) {
+      return res.status(500).json({
+        success: false,
+        message: "AWS_BUCKET_NAME is not configured in backend/.env",
+      });
+    }
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      return res.status(500).json({
+        success: false,
+        message: "AWS credentials are not configured in backend/.env",
+      });
+    }
+
     const files = req.files || (req.file ? [req.file] : []);
     if (!files.length) {
       return res.status(400).json({ success: false, message: "No file provided" });
     }
 
-    const folder = (req.body?.folder || "uploads").replace(/[^a-zA-Z0-9_-]/g, "");
+    const folder = normalizeFolder(req.body?.folder);
+    const s3 = getS3Client();
 
     const uploadedResults = await Promise.all(
       files.map(async (file) => {
-        const ext = path.extname(file.originalname).toLowerCase() || (file.mimetype.startsWith("video/") ? ".mp4" : ".jpg");
+        const ext =
+          path.extname(file.originalname).toLowerCase() ||
+          (file.mimetype.startsWith("video/") ? ".mp4" : ".jpg");
         const randomName = randomBytes(16).toString("hex");
-        const s3Key = `${folder}/${randomName}${ext}`;
+        const s3Key = `${folder}/${Date.now()}-${randomName}${ext}`;
 
-        const command = new PutObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: s3Key,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-        });
-
-        await s3.send(command);
-
-        const publicUrl = CLOUDFRONT_URL
-          ? `${CLOUDFRONT_URL}/${s3Key}`
-          : `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION || "ap-south-1"}.amazonaws.com/${s3Key}`;
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: BUCKET_NAME(),
+            Key: s3Key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+          })
+        );
 
         return {
-          url: publicUrl,
+          url: buildPublicUrl(s3Key),
           key: s3Key,
           originalName: file.originalname,
           mimetype: file.mimetype,

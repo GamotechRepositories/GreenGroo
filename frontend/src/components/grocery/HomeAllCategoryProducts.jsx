@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import SectionHeader from "../mobile/SectionHeader";
@@ -7,6 +7,7 @@ import { getProducts } from "../../api/api";
 import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 import { useDeliveryLocationKey, useLocation } from "../../context/LocationContext";
 import { useNearestStore } from "../../hooks/useNearestStore";
+import { getMostVisitedCategories } from "../../utils/categoryVisits";
 
 export const HOME_PRODUCT_CATEGORIES = ["Vegetables", "Fruits", "Dairy", "Staples"];
 
@@ -69,13 +70,28 @@ function CategoryProductSection({ categoryName, limit = 20 }) {
   );
 }
 
+function rankHomeCategories() {
+  const visited = getMostVisitedCategories(HOME_PRODUCT_CATEGORIES.length);
+  const visitedLower = new Set(visited.map((name) => name.toLowerCase()));
+  const preferred = visited.filter((name) =>
+    HOME_PRODUCT_CATEGORIES.some((cat) => cat.toLowerCase() === name.toLowerCase())
+  );
+  const rest = HOME_PRODUCT_CATEGORIES.filter(
+    (cat) => !visitedLower.has(cat.toLowerCase())
+  );
+  return [...preferred, ...rest];
+}
+
 function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
   const { hasLocation } = useLocation();
   const { data: nearest } = useNearestStore();
+  const locationKey = useDeliveryLocationKey();
   const storeName = nearest?.store?.storeName;
   const needsLocation = nearest?.needsLocation || !hasLocation;
   const noStore =
     hasLocation && !nearest?.store && nearest?.reason && nearest.reason !== "no_store";
+
+  const categories = useMemo(() => rankHomeCategories(), [locationKey]);
 
   return (
     <div className="space-y-1 lg:space-y-5">
@@ -83,13 +99,11 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
         <div className="mx-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 lg:mx-0">
           <p className="font-semibold">Set your delivery location</p>
           <p className="mt-1 text-amber-800">
-          <p className="mt-1 text-amber-800">
             All catalog products are listed here. Stock depends on your nearest dark store.{" "}
             <Link to="/location" className="font-semibold text-primary underline">
               Choose location
             </Link>{" "}
             to see what is available near you.
-          </p>
           </p>
         </div>
       ) : null}
@@ -114,7 +128,7 @@ function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
         </div>
       ) : null}
 
-      {HOME_PRODUCT_CATEGORIES.map((category) => (
+      {categories.map((category) => (
         <CategoryProductSection
           key={category}
           categoryName={category}

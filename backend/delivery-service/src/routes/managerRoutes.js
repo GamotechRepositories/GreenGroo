@@ -64,6 +64,14 @@ import {
   confirmOrderCash,
   getRiderCashHistory,
 } from "../controllers/cashSettlementController.js";
+import {
+  listManagerReturnPickups,
+  getManagerReturnPickup,
+  assignReturnPickup,
+  getReturnPickupQr,
+  approveReturnProof,
+  markReturnSuccessful,
+} from "../controllers/returnPickupController.js";
 
 const router = express.Router();
 
@@ -103,6 +111,13 @@ router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);
 router.post("/orders/:orderId/cancel", cancelStoreOrder);
+
+router.get("/return-pickups", listManagerReturnPickups);
+router.get("/return-pickups/:id", getManagerReturnPickup);
+router.post("/return-pickups/:id/assign", assignReturnPickup);
+router.get("/return-pickups/:id/pickup-qr", getReturnPickupQr);
+router.post("/return-pickups/:id/approve-proof", approveReturnProof);
+router.post("/return-pickups/:id/mark-successful", markReturnSuccessful);
 
 // Shift & Slot Management APIs
 router.post("/shifts", createShift);

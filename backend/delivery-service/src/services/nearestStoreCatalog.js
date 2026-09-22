@@ -212,6 +212,20 @@ async function resolveMatchingProducts(items) {
 }
 
 function applyStoreStock(doc, item, catalog) {
+  const hasStore = Boolean(catalog?.store?.id || catalog?.store?._id || catalog?.manager);
+  // No resolved dark store (or no location) → keep catalog stock as-is
+  if (!hasStore && !item) {
+    return {
+      ...doc,
+      storeStock: null,
+      storeSku: "",
+      storeCategory: "",
+      storeId: null,
+      storeName: "",
+      storeArea: "",
+    };
+  }
+
   const storeStock = item ? Number(item.stockCount) || 0 : 0;
   const inStock = storeStock > 0;
   const storePrice = Number(item?.price);
@@ -230,7 +244,7 @@ function applyStoreStock(doc, item, catalog) {
     storeStock,
     storeSku: item?.sku || "",
     storeCategory: item?.category || "",
-    storeId: catalog?.store?.id || null,
+    storeId: catalog?.store?.id || catalog?.store?._id || null,
     storeName: catalog?.store?.storeName || "",
     storeArea: catalog?.store?.area || "",
     ...(item && Number.isFinite(storePrice) && storePrice > 0

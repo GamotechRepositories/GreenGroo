@@ -2,10 +2,62 @@ import Order from "../../legacy/models/order/Order.js";
 import Product from "../../legacy/models/Product.js";
 import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
+import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
+import ReturnPickup from "../../delivery-service/src/models/ReturnPickup.js";
+import User from "../../legacy/models/user.js";
 import { FinanceLedger, RefundClaim } from "./models.js";
+import {
+  createReturnPickupFromClaim,
+  resolveDarkStoreForOrder,
+} from "../../delivery-service/src/controllers/returnPickupController.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
+
+function normalizeAccountType(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "bulk" || raw === "b2b" || raw === "wholesale") return "bulk";
+  return "retail";
+}
+
+function normalizeClaimStatus(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "approved") return "accepted";
+  if (raw === "processed") return "successful";
+  if (["pending", "accepted", "rejected", "successful"].includes(raw)) return raw;
+  return "";
+}
+
+function serializeClaim(claim, extras = {}) {
+  const row = claim?.toObject ? claim.toObject() : claim;
+  const status = normalizeClaimStatus(row.status) || row.status || "pending";
+  return {
+    id: String(row._id),
+    _id: String(row._id),
+    orderId: row.orderId ? String(row.orderId) : null,
+    orderNumber: row.orderNumber || "",
+    userId: row.userId ? String(row.userId) : null,
+    accountType: row.accountType === "bulk" ? "bulk" : "retail",
+    type: row.type || "refund",
+    reason: row.reason || "",
+    productImage: row.productImage || "",
+    amount: Number(row.amount || 0),
+    status,
+    customerName: row.customerName || "",
+    customerPhone: row.customerPhone || "",
+    customerAddress: row.customerAddress || "",
+    adminNote: row.adminNote || "",
+    darkStoreId: row.darkStoreId ? String(row.darkStoreId) : null,
+    managerId: row.managerId ? String(row.managerId) : null,
+    returnPickupId: row.returnPickupId ? String(row.returnPickupId) : null,
+    acceptedAt: row.acceptedAt,
+    rejectedAt: row.rejectedAt,
+    successfulAt: row.successfulAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ...extras,
+  };
+}
 
 export async function listFinance(req, res, next) {
   try {
@@ -102,17 +154,76 @@ export async function deleteFinanceEntry(req, res, next) {
 export async function listRefunds(req, res, next) {
   try {
     const filter = {};
-    if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
+    if (req.query.accountType || req.query.userType) {
+      filter.accountType = normalizeAccountType(req.query.accountType || req.query.userType);
+    }
+    const status = normalizeClaimStatus(req.query.status);
+    if (status) {
+      filter.status =
+        status === "accepted"
+          ? { $in: ["accepted", "approved"] }
+          : status === "successful"
+            ? { $in: ["successful", "processed"] }
+            : status;
+    }
     if (req.query.type && req.query.type !== "all") filter.type = req.query.type;
+
+    if (req.query.dateFrom || req.query.dateTo) {
+      filter.createdAt = {};
+      if (req.query.dateFrom) filter.createdAt.$gte = new Date(req.query.dateFrom);
+      if (req.query.dateTo) {
+        const end = new Date(req.query.dateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+
+    const search = String(req.query.search || req.query.q || "").trim();
+    if (search) {
+      filter.$or = [
+        { orderNumber: new RegExp(search, "i") },
+        { customerName: new RegExp(search, "i") },
+        { customerPhone: new RegExp(search, "i") },
+        { reason: new RegExp(search, "i") },
+      ];
+    }
+
     const claims = await RefundClaim.find(filter).sort({ createdAt: -1 }).lean();
-    return ok(res, claims, {
+    const pickupIds = claims.map((c) => c.returnPickupId).filter(Boolean);
+    const pickups = pickupIds.length
+      ? await ReturnPickup.find({ _id: { $in: pickupIds } }).select("status").lean()
+      : [];
+    const pickupMap = Object.fromEntries(pickups.map((p) => [String(p._id), p]));
+
+    const storeIds = [
+      ...new Set(claims.map((c) => c.darkStoreId || c.managerId).filter(Boolean).map(String)),
+    ];
+    const stores = storeIds.length
+      ? await DeliveryManager.find({ _id: { $in: storeIds } })
+          .select("storeName name city area")
+          .lean()
+      : [];
+    const storeMap = Object.fromEntries(stores.map((s) => [String(s._id), s]));
+
+    const data = claims.map((claim) => {
+      const pickup = claim.returnPickupId ? pickupMap[String(claim.returnPickupId)] : null;
+      const store = storeMap[String(claim.darkStoreId || claim.managerId || "")];
+      return serializeClaim(claim, {
+        returnStatus: pickup?.status || null,
+        storeName: store?.storeName || store?.name || "",
+        storeArea: store?.area || "",
+        storeCity: store?.city || "",
+      });
+    });
+
+    return ok(res, data, {
+      count: data.length,
       stats: {
-        total: claims.length,
-        pending: claims.filter((c) => c.status === "pending").length,
-        approved: claims.filter((c) => c.status === "approved").length,
-        refundAmount: claims
-          .filter((c) => ["approved", "processed"].includes(c.status) && c.type === "refund")
-          .reduce((sum, c) => sum + Number(c.amount || 0), 0),
+        total: data.length,
+        pending: data.filter((c) => c.status === "pending").length,
+        accepted: data.filter((c) => c.status === "accepted").length,
+        rejected: data.filter((c) => c.status === "rejected").length,
+        successful: data.filter((c) => c.status === "successful").length,
       },
     });
   } catch (error) {
@@ -124,23 +235,59 @@ export async function createRefund(req, res, next) {
   try {
     const reason = String(req.body.reason || "").trim();
     if (!reason) return fail(res, 400, "Reason is required");
+
     let order = null;
     if (req.body.orderId) order = await Order.findById(req.body.orderId);
     if (!order && req.body.orderNumber) {
       order = await Order.findOne({ orderNumber: String(req.body.orderNumber).trim() });
     }
+
+    let user = null;
+    if (order?.user) user = await User.findById(order.user).select("name phone accountType").lean();
+    if (!user && req.body.customerPhone) {
+      const phone = String(req.body.customerPhone).replace(/\D/g, "").slice(-10);
+      if (phone) user = await User.findOne({ phone }).select("name phone accountType").lean();
+    }
+
+    const accountType = normalizeAccountType(req.body.accountType || user?.accountType || "retail");
+
+    let darkStoreId = req.body.darkStoreId || null;
+    let managerId = req.body.managerId || darkStoreId || null;
+    let customerAddress = String(req.body.customerAddress || "").trim();
+
+    if (order?._id) {
+      const resolved = await resolveDarkStoreForOrder(order._id);
+      if (resolved) {
+        darkStoreId = darkStoreId || resolved.darkStoreId;
+        managerId = managerId || resolved.managerId;
+        customerAddress = customerAddress || resolved.customerAddress || "";
+      }
+    }
+
     const claim = await RefundClaim.create({
       orderId: order?._id || null,
       orderNumber: order?.orderNumber || String(req.body.orderNumber || "").trim(),
+      userId: user?._id || order?.user || null,
+      accountType,
       type: req.body.type === "warranty" ? "warranty" : "refund",
       reason,
       amount: Number(req.body.amount || order?.total || 0),
-      customerName: String(req.body.customerName || order?.deliveryAddress?.fullName || "").trim(),
-      customerPhone: String(req.body.customerPhone || order?.deliveryAddress?.number || "").trim(),
+      customerName: String(
+        req.body.customerName || user?.name || order?.deliveryAddress?.fullName || ""
+      ).trim(),
+      customerPhone: String(
+        req.body.customerPhone || user?.phone || order?.deliveryAddress?.number || ""
+      ).trim(),
+      customerAddress:
+        customerAddress ||
+        String(order?.deliveryAddress?.addressLine || order?.deliveryAddress?.fullAddress || "").trim(),
       adminNote: String(req.body.adminNote || "").trim(),
       status: "pending",
+      darkStoreId: darkStoreId || null,
+      managerId: managerId || null,
     });
-    return res.status(201).json({ success: true, data: claim });
+
+    return res.status(201).json({ success: true, data: serializeClaim(claim) });
   } catch (error) {
     next(error);
   }
@@ -150,17 +297,58 @@ export async function updateRefund(req, res, next) {
   try {
     const claim = await RefundClaim.findById(req.params.id);
     if (!claim) return fail(res, 404, "Claim not found");
-    if (req.body.status && ["pending", "approved", "rejected", "processed"].includes(req.body.status)) {
-      claim.status = req.body.status;
-    }
+
+    const nextStatus = normalizeClaimStatus(req.body.status);
     if (req.body.adminNote !== undefined) claim.adminNote = String(req.body.adminNote);
     if (req.body.amount !== undefined) claim.amount = Number(req.body.amount);
-    await claim.save();
-
-    if (claim.orderId && (claim.status === "approved" || claim.status === "processed") && claim.type === "refund") {
-      await Order.findByIdAndUpdate(claim.orderId, { paymentStatus: "refundable" });
+    if (req.body.darkStoreId) {
+      claim.darkStoreId = req.body.darkStoreId;
+      claim.managerId = req.body.darkStoreId;
     }
-    return ok(res, claim);
+
+    if (nextStatus && nextStatus !== normalizeClaimStatus(claim.status)) {
+      if (nextStatus === "accepted") {
+        try {
+          const pickup = await createReturnPickupFromClaim(claim, {
+            managerId: claim.managerId,
+            darkStoreId: claim.darkStoreId,
+          });
+          claim.returnPickupId = pickup._id;
+          claim.managerId = pickup.managerId;
+          claim.darkStoreId = pickup.darkStoreId;
+          claim.status = "accepted";
+          claim.acceptedAt = new Date();
+        } catch (err) {
+          return fail(res, 400, err.message || "Could not create return pickup for dark store");
+        }
+      } else if (nextStatus === "rejected") {
+        claim.status = "rejected";
+        claim.rejectedAt = new Date();
+        if (claim.returnPickupId) {
+          await ReturnPickup.findByIdAndUpdate(claim.returnPickupId, { status: "cancelled" });
+        }
+      } else if (nextStatus === "pending") {
+        claim.status = "pending";
+      } else if (nextStatus === "successful") {
+        claim.status = "successful";
+        claim.successfulAt = new Date();
+        if (claim.returnPickupId) {
+          await ReturnPickup.findByIdAndUpdate(claim.returnPickupId, {
+            status: "successful",
+            successfulAt: new Date(),
+          });
+        }
+        if (claim.orderId && claim.type === "refund") {
+          await Order.findByIdAndUpdate(claim.orderId, {
+            status: "return",
+            paymentStatus: "refundable",
+          });
+        }
+      }
+    }
+
+    await claim.save();
+    return ok(res, serializeClaim(claim));
   } catch (error) {
     next(error);
   }

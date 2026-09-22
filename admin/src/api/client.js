@@ -15,6 +15,15 @@ apiClient.interceptors.request.use((config) => {
   if (token && token !== 'demo_admin_jwt_token' && token !== 'mock_jwt_token') {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Let the browser set multipart boundary — default application/json breaks FormData
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (config.headers && typeof config.headers.delete === 'function') {
+      config.headers.delete('Content-Type');
+    } else if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete config.headers['content-type'];
+    }
+  }
   return config;
 }, (error) => {
   return Promise.reject(error);

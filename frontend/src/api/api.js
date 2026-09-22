@@ -66,6 +66,11 @@ export const getStoreSettings = () => api.get("/api/settings");
 
 export const getProducts = (params) => api.get("/api/products", { params });
 export const getProductById = (id) => api.get(`/api/products/${id}`);
+export const getProductReviews = (id) => api.get(`/api/products/${id}/reviews`);
+export const submitProductReview = (id, data) =>
+  api.post(`/api/products/${id}/reviews`, data);
+export const getProductVarieties = (id, params) =>
+  api.get(`/api/products/${id}/varieties`, { params });
 export const getSimilarProducts = (id, params) =>
   api.get(`/api/products/${id}/similar`, { params });
 export const getNearestStore = (params) =>
@@ -151,6 +156,7 @@ export const submitUpiPaymentProof = (data) => api.post("/api/payments/submit-up
 export const getMyOrders = () => api.get("/api/orders");
 export const getOrderById = (id) => api.get(`/api/orders/${id}`);
 export const cancelOrder = (id) => api.patch(`/api/orders/${id}/cancel`);
+export const createReturnClaim = (id, data) => api.post(`/api/orders/${id}/return-claim`, data);
 
 export const validateCoupon = (data) => api.post("/api/coupons/validate", data);
 export const getAvailableCoupons = (params) => api.get("/api/coupons/available", { params });
@@ -166,8 +172,22 @@ export const uploadImageFile = (file, folder) => {
   const formData = new FormData();
   formData.append("image", file);
   formData.append("folder", folder);
-  // Let axios set multipart boundary automatically.
-  return api.post("/api/upload/image", formData);
+  // Let axios set multipart boundary automatically — do not force Content-Type.
+  return api.post("/api/upload/image", formData, {
+    headers: { "Content-Type": undefined },
+    transformRequest: [
+      (data, headers) => {
+        if (typeof FormData !== "undefined" && data instanceof FormData) {
+          if (headers && typeof headers.delete === "function") {
+            headers.delete("Content-Type");
+          } else if (headers) {
+            delete headers["Content-Type"];
+          }
+        }
+        return data;
+      },
+    ],
+  });
 };
 
 export default api;

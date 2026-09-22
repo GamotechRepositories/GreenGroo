@@ -18,7 +18,6 @@ import RewardPoints from './pages/RewardPoints';
 import Login from './pages/Login';
 import GiftCards from './pages/ops/GiftCards';
 import DynamicPricing from './pages/ops/DynamicPricing';
-import BulkSelling from './pages/ops/BulkSelling';
 import BulkImportExport from './pages/ops/BulkImportExport';
 import CsvImportExport from './pages/ops/CsvImportExport';
 import MultiVendor from './pages/ops/MultiVendor';
@@ -39,10 +38,25 @@ import DeliveryBoy360Page from './pages/ops/DeliveryBoy360Page';
 import DeliveryTracking from './pages/ops/DeliveryTracking';
 import StoreSupport from './pages/ops/StoreSupport';
 import FinanceManagement from './pages/ops/FinanceManagement';
-import RefundWarranty from './pages/ops/RefundWarranty';
+import RefundWarranty, {
+  RefundWarrantyTypePage,
+  RefundWarrantyListPage,
+} from './pages/ops/RefundWarranty';
 import Reports from './pages/ops/Reports';
 import InventoryHubPage from './pages/inventory/InventoryHubPage';
 import InventoryDetailPage from './pages/inventory/InventoryDetailPage';
+import {
+  UserManagementTypePage,
+  UserManagementZonesPage,
+  UserManagementStoresPage,
+  UserManagementUsersPage,
+} from './pages/ops/UserManagementPage';
+import {
+  AssetsZonesPage,
+  AssetsStoresPage,
+  AssetsRolesPage,
+  AssetsListPage,
+} from './pages/ops/AssetsManagementPage';
 
 export default function App() {
   return (
@@ -69,7 +83,6 @@ export default function App() {
               <Route path="rewards" element={<RewardPoints />} />
               <Route path="gift-cards" element={<GiftCards />} />
               <Route path="dynamic-pricing" element={<DynamicPricing />} />
-              <Route path="bulk-selling" element={<BulkSelling />} />
               <Route path="bulk-import-export" element={<BulkImportExport />} />
               <Route path="csv-import-export" element={<CsvImportExport />} />
               <Route path="multi-vendor" element={<MultiVendor />} />
@@ -88,9 +101,27 @@ export default function App() {
               <Route path="delivery-team/managers/:id" element={<DeliveryManager360Page />} />
               <Route path="delivery-team/boys/:id" element={<DeliveryBoy360Page />} />
               <Route path="delivery-tracking" element={<DeliveryTracking />} />
+              <Route path="user-management" element={<UserManagementTypePage />} />
+              <Route path="user-management/:accountType" element={<UserManagementZonesPage />} />
+              <Route path="user-management/:accountType/zones/:zoneKey" element={<UserManagementStoresPage />} />
+              <Route
+                path="user-management/:accountType/zones/:zoneKey/stores/:storeId"
+                element={<UserManagementUsersPage />}
+              />
+              <Route path="assets-management" element={<AssetsZonesPage />} />
+              <Route path="assets-management/zones/:zoneKey" element={<AssetsStoresPage />} />
+              <Route
+                path="assets-management/zones/:zoneKey/stores/:storeId"
+                element={<AssetsRolesPage />}
+              />
+              <Route
+                path="assets-management/zones/:zoneKey/stores/:storeId/roles/:role"
+                element={<AssetsListPage />}
+              />
               <Route path="store-support" element={<StoreSupport />} />
               <Route path="finance" element={<FinanceManagement />} />
-              <Route path="refund-warranty" element={<RefundWarranty />} />
+              <Route path="refund-warranty" element={<RefundWarrantyTypePage />} />
+              <Route path="refund-warranty/:accountType" element={<RefundWarrantyListPage />} />
               <Route path="reports" element={<Reports />} />
               <Route path="sections" element={<Navigate to="/categories" replace />} />
             </Route>

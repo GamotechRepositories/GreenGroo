@@ -1,14 +1,17 @@
 import { Link } from "react-router-dom";
+import { addCategoryVisit } from "../../utils/categoryVisits";
 
 function CategoryCard({ cat, size = "default" }) {
   const name = cat.name || cat.categoryName || "";
   const slug = cat.slug || cat.categoryName || cat.name || "";
   const image = cat.image || cat.categoryImage;
   const bg = cat.bg || cat.bgColor || "#E2F0D9";
+  const visitName = name || slug;
 
   return (
     <Link
       to={`/product?categoryName=${encodeURIComponent(slug)}`}
+      onClick={() => addCategoryVisit(visitName)}
       className="group relative flex cursor-pointer overflow-hidden rounded-[14px] sm:rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow border border-black/5"
       style={{
         background: `linear-gradient(135deg, ${bg} 0%, ${bg} 55%, #f4f1ea 55%, #f4f1ea 100%)`,

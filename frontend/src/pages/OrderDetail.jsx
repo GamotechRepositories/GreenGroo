@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { cancelOrder, getOrderById } from "../api/api";
+import { cancelOrder, createReturnClaim, getOrderById } from "../api/api";
 import BlinkitOrderDetail from "../components/orders/BlinkitOrderDetail";
 import DesktopOrderDetail from "../components/orders/DesktopOrderDetail";
 
@@ -12,6 +12,8 @@ function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -54,6 +56,26 @@ function OrderDetail() {
       setCancelError(err.response?.data?.message || "Failed to cancel order");
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleReturnOrder = async ({ reason, imageUrl }) => {
+    if (!order || returning || order.status !== "delivered") {
+      throw new Error("Invalid return");
+    }
+    setReturning(true);
+    setReturnError("");
+    try {
+      await createReturnClaim(order._id, {
+        reason,
+        imageUrl,
+        type: "refund",
+      });
+    } catch (err) {
+      setReturnError(err.response?.data?.message || "Failed to submit return request");
+      throw err;
+    } finally {
+      setReturning(false);
     }
   };
 
@@ -109,6 +131,9 @@ function OrderDetail() {
     onCancel: handleCancelOrder,
     cancelling,
     cancelError,
+    onReturn: handleReturnOrder,
+    returning,
+    returnError,
   };
 
   return (

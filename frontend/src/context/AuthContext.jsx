@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api, { loginWithPhone, signupUser, updateMe } from "../api/api";
 import { STORAGE_KEY } from "../utils/authStorage";
 
@@ -18,10 +19,10 @@ function assertCustomerUser(authUser) {
 }
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authModal, setAuthModal] = useState(null);
 
   const persistCustomerAuth = (authUser, authToken) => {
     setUser(authUser);
@@ -38,13 +39,27 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const openAuthModal = useCallback((mode = "login") => {
-    setAuthModal(mode);
-  }, []);
+  const openAuthModal = useCallback(
+    (mode = "login") => {
+      navigate(mode === "signup" ? "/signup" : "/login");
+    },
+    [navigate]
+  );
 
   const closeAuthModal = useCallback(() => {
-    setAuthModal(null);
-  }, []);
+    navigate("/");
+  }, [navigate]);
+
+  const setAuthModal = useCallback(
+    (mode) => {
+      if (!mode) {
+        navigate("/");
+        return;
+      }
+      navigate(mode === "signup" ? "/signup" : "/login");
+    },
+    [navigate]
+  );
 
   useEffect(() => {
     const initAuth = async () => {
@@ -84,7 +99,6 @@ export function AuthProvider({ children }) {
   const persistAuthSession = (authUser, authToken) => {
     assertCustomerUser(authUser);
     persistCustomerAuth(authUser, authToken);
-    closeAuthModal();
   };
 
   const login = async ({ phone, password }) => {
@@ -94,12 +108,8 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const signup = async ({ name, phone, password }) => {
-    const res = await signupUser({
-      name,
-      phone,
-      password,
-    });
+  const signup = async (payload) => {
+    const res = await signupUser(payload);
     const { user: authUser, token: authToken } = res.data.data;
     persistAuthSession(authUser, authToken);
     return res.data;
@@ -126,7 +136,7 @@ export function AuthProvider({ children }) {
         signup,
         logout,
         updateProfile,
-        authModal,
+        authModal: null,
         openAuthModal,
         closeAuthModal,
         setAuthModal,

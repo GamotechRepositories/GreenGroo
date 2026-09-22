@@ -1,12 +1,12 @@
-import { useRecentlyViewedProductsQuery } from "../../hooks/queries/useProductsQuery";
+import { useMostViewedProductsQuery } from "../../hooks/queries/useProductsQuery";
 import HomeProductRow from "./HomeProductRow";
 
 function RecentlyViewed() {
-  const { data: products = [], isLoading: loading } = useRecentlyViewedProductsQuery();
+  const { data: products = [], isLoading: loading } = useMostViewedProductsQuery();
 
   return (
     <HomeProductRow
-      title="Recently Viewed"
+      title="Most viewed"
       viewAllTo="/product"
       products={products}
       loading={loading}

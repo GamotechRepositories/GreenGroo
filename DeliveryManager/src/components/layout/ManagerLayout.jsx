@@ -10,6 +10,7 @@ import RoleAnnouncements from "../RoleAnnouncements";
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
   { to: "/orders", label: "Incoming Orders", icon: "orders" },
+  { to: "/return-pickups", label: "Return Pickups", icon: "box" },
   {
     key: "shifts",
     label: "Shifts & Slots",

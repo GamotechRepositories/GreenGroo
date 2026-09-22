@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { createReturnClaim } from "../../api/api";
 import Product3DImage from "./Product3DImage";
+import ReturnOrderSection from "./ReturnOrderSection";
 import { getDeliveryRating, setDeliveryRating } from "../../utils/deliveryRatings";
 import {
   formatOrderPrice,
@@ -83,6 +85,8 @@ function BlinkitOrderCard({ order }) {
   const [rating, setRating] = useState(() => getDeliveryRating(order._id));
   const [rateOpen, setRateOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState("");
 
   const isDelivered = order.status === "delivered";
   const productId = getPrimaryProductId(order);
@@ -114,6 +118,26 @@ function BlinkitOrderCard({ order }) {
     setDeliveryRating(order._id, value);
     setRating(value);
     setRateOpen(false);
+  };
+
+  const handleReturnOrder = async ({ reason, imageUrl }) => {
+    if (returning || order.status !== "delivered") {
+      throw new Error("Invalid return");
+    }
+    setReturning(true);
+    setReturnError("");
+    try {
+      await createReturnClaim(order._id, {
+        reason,
+        imageUrl,
+        type: "refund",
+      });
+    } catch (err) {
+      setReturnError(err.response?.data?.message || "Failed to submit return request");
+      throw err;
+    } finally {
+      setReturning(false);
+    }
   };
 
   return (
@@ -190,7 +214,21 @@ function BlinkitOrderCard({ order }) {
           ) : null}
         </div>
 
-        <div className="mt-3.5 border-t border-border-light">
+        {isDelivered ? (
+          <div
+            className="border-t border-border-light px-4 py-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ReturnOrderSection
+              order={order}
+              onSubmit={handleReturnOrder}
+              returning={returning}
+              returnError={returnError}
+            />
+          </div>
+        ) : null}
+
+        <div className="border-t border-border-light">
           {isDelivered && !rating ? (
             <div className="grid grid-cols-2 divide-x divide-border-light">
               <button

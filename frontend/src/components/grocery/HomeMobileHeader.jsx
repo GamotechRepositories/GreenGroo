@@ -60,8 +60,8 @@ function StoreTab({ storeKey, isCurrentActive, activeColor, onSelect, children }
         onClick={() => onSelect(storeKey)}
         className={`relative w-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
           isCurrentActive
-            ? "h-[60px] rounded-t-[20px] rounded-b-none px-2 z-10 text-white font-black"
-            : "bg-white h-[54px] rounded-[18px] px-3 border border-black/10 mb-1 hover:bg-gray-50 z-0 text-slate-800 font-bold"
+            ? "h-[44px] rounded-t-[16px] rounded-b-none px-2 z-10 text-white font-black"
+            : "bg-white h-[40px] rounded-[14px] px-3 border border-black/10 mb-1 hover:bg-gray-50 z-0 text-slate-800 font-bold"
         }`}
         style={{
           backgroundColor: isCurrentActive ? activeBgHex : undefined,
@@ -122,25 +122,25 @@ export function HomeDeliveryBar() {
   const displaySections = sections && sections.length > 0 ? sections : DEFAULT_FALLBACK_SECTIONS;
 
   return (
-    <div className={`${theme.deliveryBg} px-4 pb-0 pt-2.5 sm:pt-3 transition-colors duration-300`}>
+    <div className={`${theme.deliveryBg} px-3 pb-0 pt-1.5 sm:pt-2 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-3">
         <Link to="/location" className="min-w-0 flex-1">
-          <div className={`flex items-center gap-1.5 ${theme.textColor}`}>
-            <LightningIcon className="h-5 w-5 shrink-0" />
-            <span className="text-[19px] font-black leading-none tracking-tight">
+          <div className={`flex items-center gap-1 ${theme.textColor}`}>
+            <LightningIcon className="h-4 w-4 shrink-0" />
+            <span className="text-[16px] font-black leading-none tracking-tight">
               {theme.time || "15 minutes"}
             </span>
           </div>
-          <div className="mt-1 flex items-center gap-1">
-            <span className={`max-w-[230px] sm:max-w-[320px] truncate text-[11px] font-semibold leading-tight ${theme.subTextColor}`}>
+          <div className="mt-0.5 flex items-center gap-1">
+            <span className={`max-w-[230px] sm:max-w-[320px] truncate text-[10px] font-semibold leading-tight ${theme.subTextColor}`}>
               {addressText}
             </span>
-            <svg className={`h-3 w-3 shrink-0 ${theme.subTextColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className={`h-2.5 w-2.5 shrink-0 ${theme.subTextColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
           {storeName ? (
-            <p className={`mt-0.5 max-w-[280px] truncate text-[10px] font-medium ${theme.subTextColor}`}>
+            <p className={`max-w-[280px] truncate text-[9px] font-medium ${theme.subTextColor}`}>
               From {storeName}
             </p>
           ) : null}
@@ -148,7 +148,7 @@ export function HomeDeliveryBar() {
         <ProfileButton theme={theme} />
       </div>
 
-      <div className="mt-3 flex items-end gap-2.5 w-full pb-0 overflow-x-auto hide-scrollbar">
+      <div className="mt-1.5 flex items-end gap-2 w-full pb-0 overflow-x-auto hide-scrollbar">
         {displaySections.map((sec) => {
           const secSlug = (sec.slug || "").toLowerCase();
           const storeKey =
@@ -179,12 +179,12 @@ export function HomeDeliveryBar() {
                 <img
                   src="/greengrocc-logo.png"
                   alt="GreenGrocc"
-                  className="h-10 w-auto max-w-[135px] object-contain mx-auto"
+                  className="h-7 w-auto max-w-[110px] object-contain mx-auto"
                 />
               ) : secSlug === "ready2cook" || storeKey === "festive" ? (
                 <div className="text-center leading-none">
                   <span
-                    className={`text-[15px] sm:text-[16px] font-black tracking-tight ${
+                    className={`text-[13px] sm:text-[14px] font-black tracking-tight ${
                       isCurrentActive ? "text-white" : "text-[#EA580C]"
                     }`}
                   >
@@ -194,14 +194,14 @@ export function HomeDeliveryBar() {
               ) : secSlug === "supermall" || storeKey === "mall" ? (
                 <div className="text-left leading-[1.1]">
                   <span
-                    className={`block text-[14px] sm:text-[15px] font-black ${
+                    className={`block text-[12px] sm:text-[13px] font-black ${
                       isCurrentActive ? "text-white" : "text-slate-900"
                     }`}
                   >
                     Super
                   </span>
                   <span
-                    className={`block text-[14px] sm:text-[15px] font-black ${
+                    className={`block text-[12px] sm:text-[13px] font-black ${
                       isCurrentActive ? "text-white" : "text-[#2563EB]"
                     }`}
                   >
@@ -243,10 +243,10 @@ export function HomeSearchBar() {
   };
 
   return (
-    <div className={`${theme.searchBg || theme.contentBg} px-4 py-2.5 transition-colors duration-300`}>
+    <div className={`${theme.searchBg || theme.contentBg} px-3 py-1.5 transition-colors duration-300`}>
       <div className="flex items-center gap-2">
         <form onSubmit={handleSearch} className="min-w-0 flex-1">
-          <div className="flex h-12 items-center rounded-[18px] bg-white px-4 shadow-sm border border-transparent">
+          <div className="flex h-10 items-center rounded-[14px] bg-white px-3 border border-transparent">
             <SearchIcon className="mr-2.5 h-4 w-4 shrink-0 text-slate-700" />
             <input
               type="search"
@@ -260,7 +260,7 @@ export function HomeSearchBar() {
 
         <Link
           to="/coupons"
-          className="flex h-12 shrink-0 items-center justify-between gap-1.5 overflow-hidden rounded-[16px] bg-gradient-to-r from-amber-50 to-emerald-50 px-2.5 py-1 shadow-sm border border-emerald-200/80 transition hover:scale-[1.02] active:scale-95 max-w-[140px] cursor-pointer"
+          className="flex h-10 shrink-0 items-center justify-between gap-1 overflow-hidden rounded-[12px] bg-gradient-to-r from-amber-50 to-emerald-50 px-2 py-0.5 border border-emerald-200/80 transition hover:scale-[1.02] active:scale-95 max-w-[120px] cursor-pointer"
         >
           <div className="leading-tight text-left">
             <p className="text-[11px] font-black text-[#047857]">Super</p>

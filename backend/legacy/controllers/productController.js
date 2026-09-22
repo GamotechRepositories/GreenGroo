@@ -153,6 +153,61 @@ const normalizeInStock = (value, legacyStock) => {
   return true;
 };
 
+const normalizeBulkGrades = (grades, enableBulkGrades) => {
+  const enabled = enableBulkGrades === true || enableBulkGrades === "true";
+  if (!enabled) {
+    return { enableBulkGrades: false, bulkGrades: [] };
+  }
+
+  const byGrade = new Map();
+  const source = Array.isArray(grades) ? grades : [];
+
+  for (const entry of source) {
+    const grade = String(entry?.grade || "").trim().toUpperCase();
+    if (!["A", "B", "C"].includes(grade)) continue;
+
+    const price = Number(entry.price);
+    const mrp = Number(entry.mrp);
+    const stock = Number(entry.stock);
+    const minOrderQuantity = normalizeOptionalQuantity(entry.minOrderQuantity) || 1;
+    const isAvailable =
+      entry.isAvailable === true ||
+      entry.isAvailable === "true" ||
+      (entry.isAvailable == null && Number.isFinite(price) && price > 0);
+
+    byGrade.set(grade, {
+      grade,
+      variety: String(entry.variety || "").trim(),
+      price: Number.isFinite(price) && price >= 0 ? price : 0,
+      mrp: Number.isFinite(mrp) && mrp >= 0 ? mrp : 0,
+      stock: Number.isFinite(stock) && stock >= 0 ? stock : 0,
+      unit: String(entry.unit || "1 Kg").trim() || "1 Kg",
+      isAvailable,
+      minOrderQuantity,
+    });
+  }
+
+  const bulkGrades = ["A", "B", "C"].map((grade) => {
+    if (byGrade.has(grade)) return byGrade.get(grade);
+    return {
+      grade,
+      variety: "",
+      price: 0,
+      mrp: 0,
+      stock: 0,
+      unit: "1 Kg",
+      isAvailable: false,
+      minOrderQuantity: 1,
+    };
+  });
+
+  const hasAvailable = bulkGrades.some((g) => g.isAvailable);
+  return {
+    enableBulkGrades: hasAvailable,
+    bulkGrades,
+  };
+};
+
 const legacyStockFromInStock = (inStock) => (inStock ? 1 : 0);
 
 const findCategoryByName = async (categoryName) =>
@@ -289,6 +344,7 @@ const buildProductPayload = (body) => {
         ? mapBulkPricingInput(body.bulkPricing)
         : { slabs: [] },
     ...mapQuantityFields(body),
+    ...normalizeBulkGrades(body.bulkGrades, body.enableBulkGrades),
     price: body.price ?? body.original_price,
     discountedPrice: body.discountedPrice ?? body.discounted_price,
     discountedPercent: body.discountedPercent ?? body.discount_percent,
@@ -308,6 +364,10 @@ const buildProductPayload = (body) => {
     cardGlowColor: (body.cardGlowColor ?? body.glowColor)?.trim() ?? "",
     badge: body.badge?.trim() ?? "",
     unit: body.unit?.trim() || "1 pc",
+    varietyGroupId: body.varietyGroupId != null ? String(body.varietyGroupId).trim() : "",
+    varietyName: body.varietyName != null ? String(body.varietyName).trim() : "",
+    section: (body.section || body.department || "greengrocc").trim().toLowerCase(),
+    storeType: (body.storeType || "").trim() || undefined,
     farmerName: body.farmerName?.trim() || body.farmerDetails?.name?.trim() || "",
     farmerLocation: body.farmerLocation?.trim() || body.farmerDetails?.location?.trim() || "",
     farmerImage: body.farmerImage?.trim() || body.farmerDetails?.farmerImage?.trim() || "",
@@ -357,6 +417,10 @@ const resolveProductPricing = (payload) => {
 
     for (const variant of namedVariants) {
       const inStock = normalizeInStock(variant.inStock, variant.stock);
+      const variantStock = Number(variant.stock);
+      const resolvedStock = Number.isFinite(variantStock)
+        ? Math.max(0, variantStock)
+        : legacyStockFromInStock(inStock);
 
       const pricing = resolvePricingFields({
         pricingType: variant.pricingType,
@@ -377,6 +441,8 @@ const resolveProductPricing = (payload) => {
 
       resolvedVariants.push({
         name: variant.name,
+        quantity: variant.quantity != null ? Number(variant.quantity) || 1 : 1,
+        unitType: (variant.unitType || "Piece").trim() || "Piece",
         pricingType: pricing.pricingType,
         bulkPricing: pricing.bulkPricing,
         minOrderQuantity: null,
@@ -386,12 +452,16 @@ const resolveProductPricing = (payload) => {
         discountedPrice: pricing.discountedPrice,
         discountedPercent: pricing.discountedPercent,
         inStock,
-        stock: legacyStockFromInStock(inStock),
+        stock: resolvedStock,
         colors: normalizeColors(variant.colors),
       });
     }
 
     const productInStock = resolvedVariants.some((variant) => variant.inStock);
+    const productStock = resolvedVariants.reduce(
+      (sum, variant) => sum + (Number(variant.stock) || 0),
+      0
+    );
 
     const minDiscounted = Math.min(
       ...resolvedVariants.map((variant) => variant.discountedPrice)
@@ -403,7 +473,7 @@ const resolveProductPricing = (payload) => {
       variantType: "multi",
       variants: resolvedVariants,
       inStock: productInStock,
-      stock: legacyStockFromInStock(productInStock),
+      stock: productStock > 0 ? productStock : legacyStockFromInStock(productInStock),
       colors: [],
       pricingType: hasBulk ? "bulk" : "single",
       bulkPricing: { slabs: [] },
@@ -425,12 +495,16 @@ const resolveProductPricing = (payload) => {
   }
 
   const inStock = normalizeInStock(payload.inStock, payload.stock);
+  const stockNum = Number(payload.stock);
+  const resolvedStock = Number.isFinite(stockNum)
+    ? Math.max(0, stockNum)
+    : legacyStockFromInStock(inStock);
 
   return {
     variantType: "single",
     variants: [],
     inStock,
-    stock: legacyStockFromInStock(inStock),
+    stock: resolvedStock,
     colors: normalizeColors(payload.colors),
     pricingType: pricing.pricingType,
     bulkPricing: pricing.bulkPricing,
@@ -833,6 +907,93 @@ export const getProductById = async (req, res) => {
   }
 };
 
+export const getProductVarieties = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    const product = await Product.findById(req.params.id).lean();
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    const normalizeVarietyBase = (name) =>
+      String(name || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s*[-–]?\s*var(?:iety|ity|ieties)?[-.\s]*\d*$/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const groupId = String(product.varietyGroupId || "").trim();
+    const byId = new Map();
+
+    const looksLikeVarietyProduct = (p) =>
+      Boolean(String(p?.varietyName || "").trim()) ||
+      Boolean(String(p?.varietyGroupId || "").trim()) ||
+      /\bvar(?:iety|ity|ieties)\b/i.test(String(p?.name || ""));
+
+    // Explicit links from admin "Add variety"
+    if (groupId) {
+      const linkedQuery = {
+        isActive: { $ne: false },
+        $or: [{ varietyGroupId: groupId }, { varietyGroupId: String(product._id) }],
+      };
+      if (mongoose.Types.ObjectId.isValid(groupId)) {
+        linkedQuery.$or.push({ _id: groupId });
+      }
+      const linked = await Product.find(linkedQuery).sort({ createdAt: 1 }).lean();
+      linked.forEach((p) => byId.set(String(p._id), p));
+    }
+
+    // Name-based fallback only for clear variety clones (e.g. "palak varity-1")
+    const baseName = normalizeVarietyBase(product.name);
+    const primaryCat = Array.isArray(product.categories) ? product.categories[0] : "";
+    if (baseName.length >= 2) {
+      const candidates = await Product.find({
+        isActive: { $ne: false },
+        ...(primaryCat ? { categories: primaryCat } : {}),
+        name: { $regex: `^${escapeRegex(baseName)}`, $options: "i" },
+      })
+        .sort({ createdAt: 1 })
+        .lean();
+
+      const sameBase = candidates.filter((p) => normalizeVarietyBase(p.name) === baseName);
+      const groupHasVarietySignal =
+        byId.size > 0 ||
+        sameBase.some((p) => looksLikeVarietyProduct(p));
+
+      // Only surface Select Variety when there are 2+ siblings AND a variety signal exists
+      if (sameBase.length > 1 && groupHasVarietySignal) {
+        sameBase.forEach((p) => byId.set(String(p._id), p));
+      }
+    }
+
+    byId.set(String(product._id), product);
+
+    const list = [...byId.values()];
+    if (list.length < 2) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        varietyGroupId: "",
+      });
+    }
+
+    const catalog = await loadNearestStoreCatalog(req.query);
+    const decorated = attachStoreAvailability(list, catalog);
+
+    res.status(200).json({
+      success: true,
+      data: decorated,
+      varietyGroupId: groupId || String(product._id),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const getSimilarProductLimit = (rawLimit) =>
   Math.min(Math.max(parseInt(rawLimit, 10) || 12, 1), 24);
 
@@ -951,6 +1112,63 @@ export const getSimilarProducts = async (req, res) => {
   }
 };
 
+const resolveStoreType = (section, storeType) => {
+  if (storeType && String(storeType).trim()) return String(storeType).trim().toLowerCase();
+  const sec = String(section || "").toLowerCase();
+  if (sec === "ready2cook" || sec === "ready-2-cook" || sec === "festive") return "festive";
+  if (sec === "supermall" || sec === "instantorder" || sec === "instant" || sec === "mall") {
+    return "mall";
+  }
+  return "main";
+};
+
+const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => ({
+  name: payload.name,
+  sku: payload.sku,
+  categories: categoryCheck.categories,
+  subcategory: categoryCheck.subcategory,
+  subcategories: categoryCheck.subcategories,
+  brandName: payload.brandName,
+  variantType: pricingFields.variantType,
+  variants: pricingFields.variants,
+  pricingType: pricingFields.pricingType,
+  bulkPricing: pricingFields.bulkPricing,
+  minOrderQuantity: pricingFields.minOrderQuantity,
+  maxOrderQuantity: pricingFields.maxOrderQuantity,
+  stepByQuantity: pricingFields.stepByQuantity,
+  price: pricingFields.price,
+  discountedPrice: pricingFields.discountedPrice,
+  discountedPercent: pricingFields.discountedPercent,
+  ratings: payload.ratings ?? 0,
+  inStock: pricingFields.inStock ?? payload.inStock ?? true,
+  stock: pricingFields.stock ?? legacyStockFromInStock(payload.inStock),
+  colors: pricingFields.colors ?? [],
+  productImages: payload.productImages,
+  videoUrl: payload.videoUrl,
+  description: payload.description,
+  features: payload.features,
+  specifications: payload.specifications,
+  warranty: payload.warranty,
+  isActive: payload.isActive ?? true,
+  justArrived: payload.justArrived,
+  hotSelling: payload.hotSelling,
+  cardGlowColor: payload.cardGlowColor,
+  badge: payload.badge,
+  enableBulkGrades: payload.enableBulkGrades,
+  bulkGrades: payload.bulkGrades,
+  unit: payload.unit || "1 pc",
+  varietyGroupId: payload.varietyGroupId || "",
+  varietyName: payload.varietyName || "",
+  section: payload.section || "greengrocc",
+  storeType: resolveStoreType(payload.section, payload.storeType),
+  farmerName: payload.farmerName || "",
+  farmerLocation: payload.farmerLocation || "",
+  farmerImage: payload.farmerImage || "",
+  farmImage: payload.farmImage || "",
+  harvestingDate: payload.harvestingDate || "",
+  farmerDetails: payload.farmerDetails || {},
+});
+
 export const addProduct = async (req, res) => {
   try {
     const payload = buildProductPayload(req.body);
@@ -976,39 +1194,21 @@ export const addProduct = async (req, res) => {
       return res.status(400).json({ success: false, message: pricingFields.error });
     }
 
-    const product = await Product.create({
-      name: payload.name,
-      sku: payload.sku,
-      categories: categoryCheck.categories,
-      subcategory: categoryCheck.subcategory,
-      subcategories: categoryCheck.subcategories,
-      brandName: payload.brandName,
-      variantType: pricingFields.variantType,
-      variants: pricingFields.variants,
-      pricingType: pricingFields.pricingType,
-      bulkPricing: pricingFields.bulkPricing,
-      minOrderQuantity: pricingFields.minOrderQuantity,
-      maxOrderQuantity: pricingFields.maxOrderQuantity,
-      stepByQuantity: pricingFields.stepByQuantity,
-      price: pricingFields.price,
-      discountedPrice: pricingFields.discountedPrice,
-      discountedPercent: pricingFields.discountedPercent,
-      ratings: payload.ratings ?? 0,
-      inStock: pricingFields.inStock ?? payload.inStock ?? true,
-      stock: pricingFields.stock ?? legacyStockFromInStock(payload.inStock),
-      colors: pricingFields.colors ?? [],
-      productImages: payload.productImages,
-      videoUrl: payload.videoUrl,
-      description: payload.description,
-      features: payload.features,
-      specifications: payload.specifications,
-      warranty: payload.warranty,
-      isActive: payload.isActive ?? true,
-      justArrived: payload.justArrived,
-      hotSelling: payload.hotSelling,
-      cardGlowColor: payload.cardGlowColor,
-      badge: payload.badge,
-    });
+    const product = await Product.create(
+      buildPersistedProductFields(payload, pricingFields, categoryCheck)
+    );
+
+    // When creating a variety sibling, ensure the source product shares the same group id
+    const groupId = String(payload.varietyGroupId || "").trim();
+    if (groupId && mongoose.Types.ObjectId.isValid(groupId)) {
+      await Product.updateOne(
+        {
+          _id: groupId,
+          $or: [{ varietyGroupId: "" }, { varietyGroupId: null }, { varietyGroupId: { $exists: false } }],
+        },
+        { $set: { varietyGroupId: groupId } }
+      );
+    }
 
     res.status(201).json({ success: true, data: product });
   } catch (error) {
@@ -1103,6 +1303,49 @@ export const updateProduct = async (req, res) => {
         req.body.badge !== undefined
           ? req.body.badge
           : existing.badge,
+      enableBulkGrades:
+        req.body.enableBulkGrades !== undefined
+          ? req.body.enableBulkGrades
+          : existing.enableBulkGrades,
+      bulkGrades:
+        req.body.bulkGrades !== undefined
+          ? req.body.bulkGrades
+          : existing.bulkGrades,
+      unit: req.body.unit !== undefined ? req.body.unit : existing.unit,
+      varietyGroupId:
+        req.body.varietyGroupId !== undefined
+          ? req.body.varietyGroupId
+          : existing.varietyGroupId,
+      varietyName:
+        req.body.varietyName !== undefined
+          ? req.body.varietyName
+          : existing.varietyName,
+      section:
+        req.body.section !== undefined
+          ? req.body.section
+          : req.body.department !== undefined
+            ? req.body.department
+            : existing.section,
+      storeType:
+        req.body.storeType !== undefined ? req.body.storeType : existing.storeType,
+      farmerName:
+        req.body.farmerName !== undefined ? req.body.farmerName : existing.farmerName,
+      farmerLocation:
+        req.body.farmerLocation !== undefined
+          ? req.body.farmerLocation
+          : existing.farmerLocation,
+      farmerImage:
+        req.body.farmerImage !== undefined ? req.body.farmerImage : existing.farmerImage,
+      farmImage:
+        req.body.farmImage !== undefined ? req.body.farmImage : existing.farmImage,
+      harvestingDate:
+        req.body.harvestingDate !== undefined
+          ? req.body.harvestingDate
+          : existing.harvestingDate,
+      farmerDetails:
+        req.body.farmerDetails !== undefined
+          ? req.body.farmerDetails
+          : existing.farmerDetails,
     });
 
     const requiredError = validateRequiredFields(payload);
@@ -1129,39 +1372,7 @@ export const updateProduct = async (req, res) => {
 
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      {
-        name: payload.name,
-        sku: payload.sku,
-        categories: categoryCheck.categories,
-        subcategory: categoryCheck.subcategory,
-        subcategories: categoryCheck.subcategories,
-        brandName: payload.brandName,
-        variantType: pricingFields.variantType,
-        variants: pricingFields.variants,
-        pricingType: pricingFields.pricingType,
-        bulkPricing: pricingFields.bulkPricing,
-        minOrderQuantity: pricingFields.minOrderQuantity,
-        maxOrderQuantity: pricingFields.maxOrderQuantity,
-        stepByQuantity: pricingFields.stepByQuantity,
-        price: pricingFields.price,
-        discountedPrice: pricingFields.discountedPrice,
-        discountedPercent: pricingFields.discountedPercent,
-        ratings: payload.ratings,
-        inStock: pricingFields.inStock ?? payload.inStock ?? true,
-        stock: pricingFields.stock ?? legacyStockFromInStock(payload.inStock),
-        colors: pricingFields.colors ?? [],
-        productImages: payload.productImages,
-        videoUrl: payload.videoUrl,
-        description: payload.description,
-        features: payload.features,
-        specifications: payload.specifications,
-        warranty: payload.warranty,
-        isActive: payload.isActive,
-        justArrived: payload.justArrived,
-        hotSelling: payload.hotSelling,
-        cardGlowColor: payload.cardGlowColor,
-        badge: payload.badge,
-      },
+      buildPersistedProductFields(payload, pricingFields, categoryCheck),
       { new: true, runValidators: true }
     );
 

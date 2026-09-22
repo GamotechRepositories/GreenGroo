@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 function buildCategoryUrl(categoryName, params = {}) {
   const search = new URLSearchParams();
   search.set("categoryName", categoryName);
+  if (params.store) search.set("store", params.store);
   if (params.subcategory) search.set("subcategory", params.subcategory);
   if (params.brand) search.set("brand", params.brand);
   if (params.sort) search.set("sort", params.sort);
@@ -108,6 +109,7 @@ function SubcategoryPillScroller({ categoryName, subcategories, activeSubcategor
 function CategoryHeaderSection({ categoryName, subcategories = [], activeSubcategory }) {
   const [searchParams] = useSearchParams();
   const preservedFilters = {
+    store: searchParams.get("store")?.trim() || "",
     brand: searchParams.get("brand")?.trim() || "",
     sort: searchParams.get("sort")?.trim() || "",
   };

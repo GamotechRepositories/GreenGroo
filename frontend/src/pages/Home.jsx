@@ -7,6 +7,8 @@ import HomeAllCategoryProducts from "../components/grocery/HomeAllCategoryProduc
 import BestDeals from "../components/mobile/BestDeals";
 import JustArrived from "../components/home/JustArrived";
 import HotSelling from "../components/home/HotSelling";
+import MostViewedProducts from "../components/home/MostViewedProducts";
+import MostVisitedCategoryProducts from "../components/home/MostVisitedCategoryProducts";
 import FestiveStoreSection from "../components/home/FestiveStoreSection";
 import FreshProduceStoreSection from "../components/home/FreshProduceStoreSection";
 
@@ -39,7 +41,10 @@ function StoreContent() {
       <ZeptoFestiveHeroSection />
       <HotSelling />
       <JustArrived />
-      
+      <MostViewedProducts />
+      <BestDeals title="Previously bought" viewAllTo="/orders" />
+      <MostVisitedCategoryProducts />
+
       <section className="px-4 py-2 sm:px-6 lg:px-0 lg:py-4">
         <img 
           src="/assets/payment/image.png" 
@@ -48,7 +53,6 @@ function StoreContent() {
         />
       </section>
 
-      <BestDeals title="Previously bought" viewAllTo="/product" />
       <SuggestedForYouSection />
       <TopPaymentOffersSection />
       <HomeAllCategoryProducts limitPerCategory={20} />

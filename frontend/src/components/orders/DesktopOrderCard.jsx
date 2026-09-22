@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { createReturnClaim } from "../../api/api";
 import OrderItemImage from "./OrderItemImage";
+import ReturnOrderSection from "./ReturnOrderSection";
 import { getOrderNumber } from "../../utils/orderNumber";
 import {
   formatOrderDateTime,
@@ -94,6 +96,8 @@ function MiniTracker({ activeIndex, isCancelled, isReturn }) {
 
 function DesktopOrderCard({ order }) {
   const navigate = useNavigate();
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState("");
   const items = order.items || [];
   const primaryItem = items[0];
   const orderId = getOrderNumber(order);
@@ -104,9 +108,30 @@ function DesktopOrderCard({ order }) {
   const activeIndex = getMiniTrackerIndex(order.status);
   const isCancelled = order.status === "cancelled";
   const isReturn = order.status === "return";
+  const isDelivered = order.status === "delivered";
   const statusColor = getOrderStatusColor(order.status);
 
   const previewItems = useMemo(() => items.slice(0, 4), [items]);
+
+  const handleReturnOrder = async ({ reason, imageUrl }) => {
+    if (returning || order.status !== "delivered") {
+      throw new Error("Invalid return");
+    }
+    setReturning(true);
+    setReturnError("");
+    try {
+      await createReturnClaim(order._id, {
+        reason,
+        imageUrl,
+        type: "refund",
+      });
+    } catch (err) {
+      setReturnError(err.response?.data?.message || "Failed to submit return request");
+      throw err;
+    } finally {
+      setReturning(false);
+    }
+  };
 
   return (
     <article className="overflow-hidden rounded-xl border border-border-light bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
@@ -207,6 +232,18 @@ function DesktopOrderCard({ order }) {
           <MiniTracker activeIndex={activeIndex} isCancelled={isCancelled} isReturn={isReturn} />
         </div>
       </div>
+
+      {isDelivered ? (
+        <div className="border-t border-border-light px-5 py-4">
+          <ReturnOrderSection
+            order={order}
+            onSubmit={handleReturnOrder}
+            returning={returning}
+            returnError={returnError}
+            variant="desktop"
+          />
+        </div>
+      ) : null}
 
       {/* Actions */}
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-light bg-[#FAFAFA] px-5 py-3">

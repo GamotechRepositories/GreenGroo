@@ -3,7 +3,6 @@ import { getSimilarProducts, getProducts } from "../../api/api";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import HorizontalScrollRow from "../home/HorizontalScrollRow";
 import SectionHeader from "../mobile/SectionHeader";
-import DealProductCard from "./DealProductCard";
 import QuickCommerceProductCard from "./QuickCommerceProductCard";
 import { useDeliveryLocationKey } from "../../context/LocationContext";
 
@@ -31,27 +30,31 @@ function SimilarProducts({ productId, categoryName = "" }) {
           if (!cancelled) {
             const list = data?.data || data?.products || data || [];
             if (Array.isArray(list) && list.length > 0) {
-              setProducts(list.slice(0, 10));
+              setProducts(
+                list
+                  .filter((p) => String(p._id) !== String(productId))
+                  .slice(0, 12)
+              );
               return;
             }
           }
         }
 
         if (categoryName) {
-          const { data } = await getProducts({ categoryName, limit: 10 });
+          const { data } = await getProducts({ categoryName, limit: 12 });
           if (!cancelled) {
             const list = data?.data || data?.products || data || [];
             if (Array.isArray(list)) {
-              setProducts(list.filter((p) => String(p._id) !== String(productId)).slice(0, 10));
+              setProducts(
+                list.filter((p) => String(p._id) !== String(productId)).slice(0, 12)
+              );
             }
           }
         }
       } catch {
         if (!cancelled) setProducts([]);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -70,47 +73,67 @@ function SimilarProducts({ productId, categoryName = "" }) {
     return null;
   }
 
-  const useQuickCard = products.some((p) => String(p._id).startsWith("dummy-"));
+  const cardProps = (product) => ({
+    product,
+    onAdd: handleAdd,
+    onIncrease: handleIncrease,
+    onDecrease: handleDecrease,
+    cartQuantity: getCartQuantity(product),
+  });
 
   return (
-    <section className="col-span-6 mt-8 border-t border-[#F0F0F0] pt-6">
-      <SectionHeader title="Similar products" viewAllTo={viewAllTo} className="mb-4" />
+    <section className="w-full">
+      <div className="px-4 sm:px-0">
+        <SectionHeader title="Similar products" viewAllTo={viewAllTo} className="mb-4" />
+      </div>
 
       {loading ? (
-        <HorizontalScrollRow>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div
-              key={`similar-skeleton-${index}`}
-              className="h-[258px] w-[150px] shrink-0 animate-pulse rounded-xl border border-border-light bg-mobile-surface sm:w-[165px]"
-            />
-          ))}
-        </HorizontalScrollRow>
+        <>
+          <div className="px-4 lg:hidden sm:px-0">
+            <HorizontalScrollRow>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={`similar-skeleton-m-${index}`}
+                  className="h-[258px] w-[150px] shrink-0 animate-pulse rounded-xl border border-slate-100 bg-slate-100"
+                />
+              ))}
+            </HorizontalScrollRow>
+          </div>
+          <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div
+                key={`similar-skeleton-d-${index}`}
+                className="h-[280px] animate-pulse rounded-xl border border-slate-100 bg-slate-100"
+              />
+            ))}
+          </div>
+        </>
       ) : (
-        <HorizontalScrollRow>
-          {products.map((product) =>
-            useQuickCard ? (
+        <>
+          {/* Mobile / tablet — horizontal scroll */}
+          <div className="px-4 lg:hidden sm:px-0">
+            <HorizontalScrollRow>
+              {products.map((product) => (
+                <QuickCommerceProductCard
+                  key={product._id}
+                  {...cardProps(product)}
+                  layout="scroll"
+                />
+              ))}
+            </HorizontalScrollRow>
+          </div>
+
+          {/* Desktop — responsive grid */}
+          <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
+            {products.slice(0, 10).map((product) => (
               <QuickCommerceProductCard
                 key={product._id}
-                product={product}
-                onAdd={handleAdd}
-                onIncrease={handleIncrease}
-                onDecrease={handleDecrease}
-                cartQuantity={getCartQuantity(product)}
-                layout="scroll"
+                {...cardProps(product)}
+                layout="grid"
               />
-            ) : (
-              <DealProductCard
-                key={product._id}
-                product={product}
-                onAdd={handleAdd}
-                onIncrease={handleIncrease}
-                onDecrease={handleDecrease}
-                cartQuantity={getCartQuantity(product)}
-                layout="scroll"
-              />
-            )
-          )}
-        </HorizontalScrollRow>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );

@@ -8,6 +8,7 @@ const validateName = (value) => {
   return words.every((word) => /^[A-Za-z]{2,30}$/.test(word));
 };
 const PHONE_PATTERN = /^[6789]\d{9}$/;
+const GST_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 function UserIcon({ className = "h-4 w-4" }) {
   return (
@@ -41,6 +42,14 @@ function LockIcon({ className = "h-3.5 w-3.5" }) {
   );
 }
 
+function BuildingIcon({ className = "h-3.5 w-3.5" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+    </svg>
+  );
+}
+
 function EyeIcon({ open, className = "h-4 w-4" }) {
   if (open) {
     return (
@@ -60,7 +69,7 @@ function EyeIcon({ open, className = "h-4 w-4" }) {
 function getAuthUi(isSignup) {
   if (isSignup) {
     return {
-      modal: "max-w-[440px]",
+      modal: "max-w-[480px]",
       panel: "px-5 pb-5 pt-5 max-h-[90vh] overflow-y-auto",
       form: "space-y-3",
       label: "mb-1 block text-xs font-semibold text-gray-800",
@@ -128,7 +137,7 @@ function IconField({ label, htmlFor, optional = false, icon, labelClassName, chi
   );
 }
 
-function AuthModalHeader({ isSignup, ui }) {
+function AuthModalHeader({ isSignup, isBulk, ui }) {
   const headerWrap = `${ui.headerMb} flex items-start ${ui.headerGap}`;
   const iconWrap = `flex ${ui.headerIcon} shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary`;
   const titleClass = `${ui.headerTitle} font-bold leading-tight text-gray-900`;
@@ -138,13 +147,17 @@ function AuthModalHeader({ isSignup, ui }) {
     return (
       <div className={headerWrap}>
         <div className={iconWrap}>
-          <UserIcon />
+          {isBulk ? <BuildingIcon className="h-4 w-4" /> : <UserIcon />}
         </div>
         <div>
           <h2 id="auth-modal-title" className={titleClass}>
             Create Your <span className="text-primary">Account</span>
           </h2>
-          <p className={subtitleClass}>Fill your details and set a password to sign up</p>
+          <p className={subtitleClass}>
+            {isBulk
+              ? "Register your business for bulk ordering"
+              : "Fill your details and set a password to sign up"}
+          </p>
         </div>
       </div>
     );
@@ -167,7 +180,12 @@ function AuthModalHeader({ isSignup, ui }) {
 
 function AuthModal({ mode, onClose, onSwitchMode }) {
   const { login, signup } = useAuth();
+  const [accountType, setAccountType] = useState("retail");
   const [name, setName] = useState("");
+  const [shopName, setShopName] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [ownerContact, setOwnerContact] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -176,10 +194,16 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
   const [submitting, setSubmitting] = useState(false);
 
   const isSignup = mode === "signup";
+  const isBulk = accountType === "bulk";
   const ui = getAuthUi(isSignup);
 
   const resetForm = () => {
+    setAccountType("retail");
     setName("");
+    setShopName("");
+    setShopAddress("");
+    setOwnerContact("");
+    setGstNumber("");
     setPhone("");
     setPassword("");
     setConfirmPassword("");
@@ -210,8 +234,27 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
 
   const validateForm = () => {
     if (isSignup && !validateName(name)) {
-      return "Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)";
+      return isBulk
+        ? "Owner name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)"
+        : "Name must be 1 or 2 words, letters only (e.g. Rahul or John Smith)";
     }
+
+    if (isSignup && isBulk) {
+      if (!shopName.trim() || shopName.trim().length < 2) {
+        return "Business name is required (at least 2 characters)";
+      }
+      if (!shopAddress.trim() || shopAddress.trim().length < 5) {
+        return "Please enter a complete business location";
+      }
+      if (!PHONE_PATTERN.test(ownerContact.trim())) {
+        return "Owner contact must be 10 digits starting with 6, 7, 8, or 9";
+      }
+      const gst = gstNumber.trim().toUpperCase();
+      if (gst && !GST_PATTERN.test(gst)) {
+        return "Please provide a valid GST number";
+      }
+    }
+
     if (!PHONE_PATTERN.test(phone.trim())) {
       return "Phone must be 10 digits starting with 6, 7, 8, or 9";
     }
@@ -237,11 +280,23 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
 
     try {
       if (isSignup) {
-        await signup({
+        const payload = {
           name: name.trim(),
           phone: phone.trim(),
           password,
-        });
+          accountType,
+        };
+
+        if (isBulk) {
+          payload.shopName = shopName.trim();
+          payload.shopAddress = shopAddress.trim();
+          payload.ownerContact = ownerContact.trim();
+          if (gstNumber.trim()) {
+            payload.gstNumber = gstNumber.trim().toUpperCase();
+          }
+        }
+
+        await signup(payload);
       } else {
         await login({
           phone: phone.trim(),
@@ -284,12 +339,54 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
         </button>
 
         <div className={ui.panel}>
-          <AuthModalHeader isSignup={isSignup} ui={ui} />
+          <AuthModalHeader isSignup={isSignup} isBulk={isBulk} ui={ui} />
 
           <form onSubmit={handleSubmit} className={ui.form}>
             {isSignup ? (
+              <div>
+                <p className={ui.label}>I want to shop as</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountType("retail");
+                      setError("");
+                    }}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                      accountType === "retail"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <span className="block text-xs font-bold text-gray-900">Normal (B2C)</span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-gray-500">
+                      Everyday grocery shopping
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountType("bulk");
+                      setError("");
+                    }}
+                    className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                      accountType === "bulk"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <span className="block text-xs font-bold text-gray-900">Bulk Order</span>
+                    <span className="mt-0.5 block text-[10px] leading-snug text-gray-500">
+                      Business / wholesale grades
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {isSignup ? (
               <IconField
-                label="Name"
+                label={isBulk ? "Owner Name" : "Name"}
                 htmlFor="auth-name"
                 labelClassName={ui.label}
                 icon={<UserIcon className="h-3.5 w-3.5" />}
@@ -302,16 +399,116 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
                     setName(event.target.value);
                     setError("");
                   }}
-                  placeholder="Enter your full name"
+                  placeholder={isBulk ? "Enter owner full name" : "Enter your full name"}
                   className={`${ui.field} ${ui.fieldPad}`}
                   required
                 />
               </IconField>
             ) : null}
 
+            {isSignup && isBulk ? (
+              <>
+                <IconField
+                  label="Business Name"
+                  htmlFor="auth-business-name"
+                  labelClassName={ui.label}
+                  icon={<BuildingIcon />}
+                >
+                  <input
+                    id="auth-business-name"
+                    type="text"
+                    value={shopName}
+                    onChange={(event) => {
+                      setShopName(event.target.value);
+                      setError("");
+                    }}
+                    placeholder="Enter your business name"
+                    className={`${ui.field} ${ui.fieldPad}`}
+                    required
+                  />
+                </IconField>
+
+                <div>
+                  <label htmlFor="auth-business-location" className={ui.label}>
+                    Business Location
+                  </label>
+                  <textarea
+                    id="auth-business-location"
+                    value={shopAddress}
+                    onChange={(event) => {
+                      setShopAddress(event.target.value);
+                      setError("");
+                    }}
+                    placeholder="Shop / warehouse address, city, pincode"
+                    rows={2}
+                    className={`${ui.field} px-2.5`}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="auth-owner-contact" className={ui.label}>
+                    Owner Contact Number
+                  </label>
+                  <div
+                    className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/10 ${ui.phoneWrap}`}
+                  >
+                    <div
+                      className={`flex items-center border-r border-gray-200 bg-gray-50 font-medium text-gray-600 ${ui.phonePrefix}`}
+                    >
+                      <PhoneIcon className={ui.phoneIcon} />
+                      <span>+91</span>
+                    </div>
+                    <input
+                      id="auth-owner-contact"
+                      type="tel"
+                      value={ownerContact}
+                      onChange={(event) => {
+                        setOwnerContact(event.target.value.replace(/\D/g, "").slice(0, 10));
+                        setError("");
+                      }}
+                      placeholder="Owner contact number"
+                      maxLength={10}
+                      className={`min-w-0 flex-1 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none ${ui.phoneInput}`}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <IconField
+                  label="GST Number"
+                  htmlFor="auth-gst"
+                  optional
+                  labelClassName={ui.label}
+                >
+                  <input
+                    id="auth-gst"
+                    type="text"
+                    value={gstNumber}
+                    onChange={(event) => {
+                      setGstNumber(event.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 15));
+                      setError("");
+                    }}
+                    placeholder="e.g. 22AAAAA0000A1Z5"
+                    className={`${ui.field} px-2.5`}
+                    maxLength={15}
+                  />
+                </IconField>
+
+                <div className="rounded-lg border border-dashed border-primary/25 bg-primary/5 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    Login credentials
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-gray-500">
+                    Use the phone and password below to sign in after registration.
+                  </p>
+                </div>
+              </>
+            ) : null}
+
             <div>
               <label htmlFor="auth-phone" className={ui.label}>
-                {isSignup ? "Mobile Number" : "Phone Number"}
+                {isSignup ? (isBulk ? "Login Mobile Number" : "Mobile Number") : "Phone Number"}
               </label>
               <div
                 className={`flex overflow-hidden border border-gray-200 bg-white focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/10 ${ui.phoneWrap}`}
@@ -404,7 +601,9 @@ function AuthModal({ mode, onClose, onSwitchMode }) {
               {submitting
                 ? "Please wait..."
                 : isSignup
-                  ? "Sign Up"
+                  ? isBulk
+                    ? "Register Bulk Account"
+                    : "Sign Up"
                   : "Sign In"}
               {!submitting ? <ArrowRightIcon className={ui.arrow} /> : null}
             </button>

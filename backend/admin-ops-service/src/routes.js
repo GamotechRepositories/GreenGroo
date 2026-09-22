@@ -100,6 +100,20 @@ import {
   listInventoryFarmers,
   listInventoryVendors,
 } from "./inventoryHubControllers.js";
+import {
+  listUserMgmtZones,
+  listUserMgmtStores,
+  listUserMgmtStoreUsers,
+} from "./userManagementControllers.js";
+import {
+  listAssetZones,
+  listAssetStores,
+  listAssetRolePeople,
+  listAssets,
+  createAsset,
+  updateAsset,
+  deleteAsset,
+} from "./assetManagementControllers.js";
 
 const router = express.Router();
 
@@ -207,5 +221,17 @@ router.post("/refunds", createRefund);
 router.put("/refunds/:id", updateRefund);
 
 router.get("/reports", getReports);
+
+router.get("/user-management/zones", listUserMgmtZones);
+router.get("/user-management/zones/:zoneKey/stores", listUserMgmtStores);
+router.get("/user-management/stores/:storeId/users", listUserMgmtStoreUsers);
+
+router.get("/assets-management/zones", listAssetZones);
+router.get("/assets-management/zones/:zoneKey/stores", listAssetStores);
+router.get("/assets-management/stores/:storeId/people", listAssetRolePeople);
+router.get("/assets-management/stores/:storeId/assets", listAssets);
+router.post("/assets-management/stores/:storeId/assets", createAsset);
+router.put("/assets-management/assets/:id", updateAsset);
+router.delete("/assets-management/assets/:id", deleteAsset);
 
 export default [{ path: "/api/admin-ops", router }];

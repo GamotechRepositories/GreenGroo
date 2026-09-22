@@ -5,6 +5,8 @@ import Layout from "../components/layout/Layout";
 
 // Main & Core Pages
 import Home from "../pages/Home";
+import Login from "../pages/Login";
+import Signup from "../pages/Signup";
 import Orders from "../pages/Orders";
 import OrderDetail from "../pages/OrderDetail";
 import OrderInvoice from "../pages/OrderInvoice";
@@ -59,6 +61,11 @@ import {
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/signin" element={<Navigate to="/login" replace />} />
+      <Route path="/register" element={<Navigate to="/signup" replace />} />
+
       {/* Core Root & Parameterized Routes */}
       <Route
         path="/"

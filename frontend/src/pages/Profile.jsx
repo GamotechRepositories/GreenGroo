@@ -17,6 +17,7 @@ import {
   getAddressFullName,
   mapAddressToForm,
 } from "../utils/addressDisplay";
+import { extractRecentOrderItems } from "../utils/orderItems";
 
 function profileFirstName(name) {
   const parts = String(name || "")
@@ -34,31 +35,6 @@ function profileInitials(name) {
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function extractRecentOrderItems(orders, maxItems = 12) {
-  const eligible = orders
-    .filter((order) => order.status !== "cancelled" && order.status !== "attempted" && order.status !== "return")
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-  const seen = new Set();
-  const items = [];
-
-  for (const order of eligible) {
-    for (const item of order.items || []) {
-      const productId = item.product?._id || item.product;
-      if (!productId || seen.has(String(productId))) continue;
-      seen.add(String(productId));
-      items.push({
-        ...item,
-        productId: String(productId),
-        image: item.image || item.productImage || item.product?.productImages?.[0] || "",
-      });
-      if (items.length >= maxItems) return items;
-    }
-  }
-
-  return items;
 }
 
 function ProfileInfoRow({ icon, label, value, onEdit, showDivider }) {

@@ -13,5 +13,7 @@ export const queryKeys = {
     infiniteList: (params) => ["products", "infinite", params],
     hotSelling: ["products", "hot-selling"],
     recentlyViewed: (ids) => ["products", "recently-viewed", ids],
+    mostViewed: (ids) => ["products", "most-viewed", ids],
+    purchased: (ids) => ["products", "purchased", ids],
   },
 };
