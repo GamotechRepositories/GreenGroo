@@ -257,25 +257,30 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
         child: Padding(
           padding: EdgeInsets.only(top: topInset),
           child: ClipRect(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (progress < 1.0)
-                  SizedBox(
-                    height: deliveryBarHeight,
-                    child: OverflowBox(
-                      minHeight: 68.0,
-                      maxHeight: 68.0,
-                      alignment: Alignment.bottomCenter,
-                      child: Opacity(
-                        opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
-                        child: const HomeDeliveryBar(),
+            child: OverflowBox(
+              minHeight: 0,
+              maxHeight: 300,
+              alignment: Alignment.topCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (progress < 1.0)
+                    SizedBox(
+                      height: deliveryBarHeight,
+                      child: OverflowBox(
+                        minHeight: 68.0,
+                        maxHeight: 68.0,
+                        alignment: Alignment.bottomCenter,
+                        child: Opacity(
+                          opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                          child: const HomeDeliveryBar(),
+                        ),
                       ),
                     ),
-                  ),
-                const HomeSearchBar(isLightBg: true),
-                const HomeHeaderCategoryStrip(isLightBg: true),
-              ],
+                  const HomeSearchBar(isLightBg: true),
+                  const HomeHeaderCategoryStrip(isLightBg: true),
+                ],
+              ),
             ),
           ),
         ),
