@@ -1,204 +1,440 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../services/farmer_state.dart';
+import '../crops/add_crop_screen.dart';
+import '../crops/crop_planning_screen.dart';
+import '../products/add_product_screen.dart';
+import '../schemes/schemes_screen.dart';
+import '../main_shell.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.agriculture, color: AppColors.primary, size: 24),
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final state = FarmerState();
+        final profile = state.profile;
+        final crops = state.crops;
+        final products = state.products;
+        final harvestOrders = state.harvestOrders;
+        final pendingHarvest = harvestOrders.where((h) => h.status != 'Completed').length;
+        final totalEarned = state.totalEarnings;
+        final pendingEarned = state.pendingEarnings;
+        final totalStock = state.totalStockKg;
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.menu, color: AppColors.primary),
+              tooltip: 'मेनू उघडा (Menu)',
+              onPressed: () => MainShell.openDrawer(context),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'GreenGroo Farmer',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.agriculture, color: AppColors.primary, size: 24),
                 ),
-                Text(
-                  'Welcome, Ramesh Shinde',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none, color: AppColors.textPrimary),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Farmer Weather & Quick Action Banner
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF062C1C), Color(0xFF10893E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Pune Region • Sunny 28°C',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        'GreenGroo Farmer',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'KYC Verified ✓',
-                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
+                      Text(
+                        'स्वागत आहे, ${profile.fullName.split(' ')[0]}',
+                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Shree Ganesh Farm (4.5 Acres)',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    '3 Crops currently in cultivation • Next harvest in 12 days',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen()));
+                },
+                icon: const Icon(Icons.account_balance, color: AppColors.primary),
+                tooltip: 'शासकीय योजना',
               ),
-            ),
-            const SizedBox(height: 20),
+            ],
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Farm Banner with Weather & KYC
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${profile.district} • सनी २९°C',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'KYC Verified ✓',
+                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${profile.farmName} (${profile.totalAcres} Acres)',
+                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${crops.length} पिके लागवडीखाली • ${profile.soilType} • ${profile.irrigationType}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
 
-            // Quick Stats Metrics
-            const Text(
-              'Farm Overview (थेट आढावा)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _MetricCard(
-                    title: 'Active Crops',
-                    value: '3',
-                    subtitle: 'Brinjal, Tomato, Onion',
-                    icon: Icons.eco,
-                    color: AppColors.primary,
+                // Live Backend Status Strip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: state.isConnectedToBackend ? Colors.green.shade50 : Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: state.isConnectedToBackend ? Colors.green.shade300 : Colors.amber.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        state.isConnectedToBackend ? Icons.check_circle : Icons.cloud_queue,
+                        size: 15,
+                        color: state.isConnectedToBackend ? Colors.green.shade800 : Colors.amber.shade900,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          state.isConnectedToBackend
+                              ? 'Live Backend Connected (${state.backendUrl.replaceAll("https://", "").replaceAll("http://", "")})'
+                              : 'Connecting to Backend / Offline Mode',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: state.isConnectedToBackend ? Colors.green.shade800 : Colors.amber.shade900,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => state.fetchFromBackend(),
+                        child: state.isLoadingFromBackend
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                            : Row(
+                                children: [
+                                  Icon(Icons.refresh, size: 14, color: state.isConnectedToBackend ? Colors.green.shade800 : Colors.amber.shade900),
+                                  const SizedBox(width: 2),
+                                  Text('Sync', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: state.isConnectedToBackend ? Colors.green.shade800 : Colors.amber.shade900)),
+                                ],
+                              ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _MetricCard(
-                    title: 'Active Orders',
-                    value: '4',
-                    subtitle: 'Ready for pickup',
-                    icon: Icons.local_shipping,
-                    color: Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _MetricCard(
-                    title: 'Total Earnings',
-                    value: '₹84,500',
-                    subtitle: 'This season',
-                    icon: Icons.account_balance_wallet,
-                    color: Colors.amber.shade800,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _MetricCard(
-                    title: 'Harvest Expected',
-                    value: '1,450 Kg',
-                    subtitle: 'Next 30 days',
-                    icon: Icons.inventory_2,
-                    color: Colors.purple,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                const SizedBox(height: 14),
 
-            // Active Crop Planning Preview
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+                // Quick Action Bar
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickBtn(
+                        icon: Icons.add_circle_outline,
+                        label: 'Add Crop',
+                        color: AppColors.primary,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen())),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _QuickBtn(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Add Product',
+                        color: Colors.blue.shade700,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen())),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _QuickBtn(
+                        icon: Icons.timeline,
+                        label: 'Planning',
+                        color: Colors.amber.shade800,
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CropPlanningScreen())),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Requirements Stat Cards matching DashboardPage.jsx
                 const Text(
-                  'Ongoing Crop Plans',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  'Dashboard Overview (थेट आढावा)',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('View All', style: TextStyle(color: AppColors.primary)),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Total Products',
+                        value: '${products.length}',
+                        icon: Icons.inventory_2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Harvest Orders',
+                        value: '${harvestOrders.length}',
+                        icon: Icons.assignment,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Pending Harvest',
+                        value: '$pendingHarvest',
+                        icon: Icons.hourglass_top,
+                        color: Colors.purple.shade700,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Total Stock',
+                        value: '${totalStock.toStringAsFixed(0)} Kg',
+                        icon: Icons.scale,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Total Earnings',
+                        value: '₹ ${totalEarned.toStringAsFixed(0)}',
+                        icon: Icons.account_balance_wallet,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Pending Payout',
+                        value: '₹ ${pendingEarned.toStringAsFixed(0)}',
+                        icon: Icons.pending_actions,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+
+                // Ongoing Crop Plans with Lifecycle Progress
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Ongoing Crop Plans (पीक नियोजन)',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const CropPlanningScreen()));
+                      },
+                      child: const Text('View All →', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                ...crops.take(2).map((crop) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${crop.cropName} (${crop.variety})',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'टप्पा ${crop.stageIndex + 1}/26',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'सध्याचा टप्पा: ${crop.status}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: crop.progress,
+                              backgroundColor: AppColors.borderLight,
+                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                              minHeight: 6,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('अपेक्षित काढणी: ${crop.estHarvestDate}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                              InkWell(
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CropPlanningScreen())),
+                                child: const Text('प्रगती बदला →', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 20),
+
+                // Product Grade Summary Box matching web ProductGradeChart
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'All Products Quality Grade Summary',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _GradeMetric(
+                              title: 'Grade A',
+                              qty: '730 Kg',
+                              bgColor: AppColors.gradeAHead,
+                              textColor: AppColors.gradeAText,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _GradeMetric(
+                              title: 'Grade B',
+                              qty: '15 Quintal',
+                              bgColor: AppColors.gradeBHead,
+                              textColor: AppColors.gradeBText,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _GradeMetric(
+                              title: 'Grade C',
+                              qty: '35 Kg',
+                              bgColor: AppColors.gradeCHead,
+                              textColor: AppColors.gradeCText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
               ],
             ),
-            const SizedBox(height: 8),
-            _CropPlanCard(
-              cropName: 'Brinjal (Pusa Purple Long)',
-              stage: 'Harvest Readiness',
-              progress: 0.85,
-              stageIndex: 'Stage 21 of 26',
-              estHarvestDate: '14 Oct 2026',
-            ),
-            const SizedBox(height: 12),
-            _CropPlanCard(
-              cropName: 'Tomato (Hybrid Abhinav)',
-              stage: 'Crop Growth Monitoring',
-              progress: 0.65,
-              stageIndex: 'Stage 19 of 26',
-              estHarvestDate: '02 Nov 2026',
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _MetricCard extends StatelessWidget {
+class _StatCard extends StatelessWidget {
   final String title;
   final String value;
-  final String subtitle;
   final IconData icon;
   final Color color;
 
-  const _MetricCard({
+  const _StatCard({
     required this.title,
     required this.value,
-    required this.subtitle,
     required this.icon,
     required this.color,
   });
@@ -206,10 +442,10 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -218,99 +454,83 @@ class _MetricCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              Icon(icon, size: 20, color: color),
+              Text(title, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+              Icon(icon, size: 18, color: color),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
           ),
-          const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
         ],
       ),
     );
   }
 }
 
-class _CropPlanCard extends StatelessWidget {
-  final String cropName;
-  final String stage;
-  final double progress;
-  final String stageIndex;
-  final String estHarvestDate;
+class _QuickBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 
-  const _CropPlanCard({
-    required this.cropName,
-    required this.stage,
-    required this.progress,
-    required this.stageIndex,
-    required this.estHarvestDate,
+  const _QuickBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GradeMetric extends StatelessWidget {
+  final String title;
+  final String qty;
+  final Color bgColor;
+  final Color textColor;
+
+  const _GradeMetric({
+    required this.title,
+    required this.qty,
+    required this.bgColor,
+    required this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                cropName,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  stageIndex,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Current Stage: $stage',
-            style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: AppColors.borderLight,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-              minHeight: 6,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Expected Harvest: $estHarvestDate',
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-              const Text(
-                'View Timeline →',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ],
-          ),
+          Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textColor)),
+          const SizedBox(height: 4),
+          Text(qty, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
         ],
       ),
     );

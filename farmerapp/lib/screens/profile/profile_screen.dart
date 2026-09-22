@@ -1,145 +1,284 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/farmer_constants.dart';
+import '../../services/farmer_state.dart';
+import '../../models/farmer_models.dart';
+import '../auth/login_screen.dart';
+import '../main_shell.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Farmer Profile & KYC'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Profile Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: AppColors.primaryLight,
-                    child: Icon(Icons.person, size: 36, color: AppColors.primary),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Ramesh Shinde',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          '+91 98220 12345',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'ID: GGC-FRM-0082',
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-            // Farm Details
-            _SectionTile(
-              icon: Icons.landscape_outlined,
-              title: 'Farm Profile & Land Records',
-              subtitle: '4.5 Acres • Gut No. 142/2, Pune',
-              onTap: () {},
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final profile = FarmerState().profile;
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.menu, color: AppColors.primary),
+              tooltip: 'मेनू उघडा (Menu)',
+              onPressed: () => MainShell.openDrawer(context),
             ),
-            const SizedBox(height: 8),
-            _SectionTile(
-              icon: Icons.verified_user_outlined,
-              title: 'KYC & Document Verification',
-              subtitle: 'Aadhaar, 7/12 Utara, Bank Passbook',
-              badge: 'Approved',
-              onTap: () {},
+            title: const Text('Farmer & Farm Profile (प्रोफाईल)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Farmer Avatar Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryLight,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            profile.fullName.isNotEmpty ? profile.fullName.split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join().toUpperCase() : 'F',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.fullName,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                            ),
+                            const SizedBox(height: 2),
+                            Text('+91 ${profile.mobile}', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.successLight,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'KYC Verified (प्रमाणित) ✓',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.success),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Farm Profile Details Card
+                _SectionCard(
+                  title: 'Farm Profile (शेतीचा तपशील)',
+                  icon: Icons.agriculture,
+                  children: [
+                    _InfoTile(label: 'Farm Name (शेताचे नाव)', value: profile.farmName),
+                    _InfoTile(label: 'Total Land (एकूण क्षेत्र)', value: '${profile.totalAcres} Acres'),
+                    _InfoTile(label: 'Soil Type (मातीचा प्रकार)', value: profile.soilType),
+                    _InfoTile(label: 'Irrigation (सिंचन पद्धत)', value: profile.irrigationType),
+                    _InfoTile(label: 'Water Source (पाणी स्त्रोत)', value: profile.waterSource),
+                    _InfoTile(label: 'Farming Method (शेती पद्धत)', value: profile.farmingMethod),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Farm Location Card
+                _SectionCard(
+                  title: 'Farm Location (पत्ता व स्थान)',
+                  icon: Icons.location_on_outlined,
+                  children: [
+                    _InfoTile(label: 'Village (गाव)', value: profile.village),
+                    _InfoTile(label: 'Taluka (तालुका)', value: profile.taluka),
+                    _InfoTile(label: 'District (जिल्हा)', value: profile.district),
+                    _InfoTile(label: 'State (राज्य)', value: profile.state),
+                    _InfoTile(label: 'Pincode (पिनकोड)', value: profile.pincode),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Language & Preferences
+                _SectionCard(
+                  title: 'Preferences (भाषा व प्राधान्ये)',
+                  icon: Icons.translate,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('निवडलेली भाषा (Language)', style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                          DropdownButton<String>(
+                            value: FarmerConstants.preferredLanguages.contains(profile.preferredLanguage)
+                                ? profile.preferredLanguage
+                                : FarmerConstants.preferredLanguages.first,
+                            underline: const SizedBox(),
+                            items: FarmerConstants.preferredLanguages.map((l) {
+                              return DropdownMenuItem(value: l, child: Text(l, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)));
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                final updated = FarmerProfile(
+                                  id: profile.id,
+                                  fullName: profile.fullName,
+                                  mobile: profile.mobile,
+                                  farmName: profile.farmName,
+                                  totalAcres: profile.totalAcres,
+                                  preferredLanguage: val,
+                                );
+                                FarmerState().updateProfile(updated);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('भाषा बदलून $val केली!')),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Support & Logout
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('Sign Out (लॉग आउट करा)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => _confirmLogout(context),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
-            const SizedBox(height: 8),
-            _SectionTile(
-              icon: Icons.account_balance_wallet_outlined,
-              title: 'Bank Account & Settlement',
-              subtitle: 'HDFC Bank • A/C ending 4402',
-              onTap: () {},
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('लॉग आउट (Sign Out)'),
+          content: const Text('तुम्हाला नक्की GreenGroo Farmer App वरून लॉग आउट करायचे आहे का?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('रद्द करा (Cancel)'),
             ),
-            const SizedBox(height: 8),
-            _SectionTile(
-              icon: Icons.policy_outlined,
-              title: 'Government Schemes & Subsidies',
-              subtitle: 'PM-KISAN, Drip Irrigation Subsidies',
-              onTap: () {},
-            ),
-            const SizedBox(height: 8),
-            _SectionTile(
-              icon: Icons.help_outline,
-              title: 'Support & Farmer Manager',
-              subtitle: 'Manager: Nitin Patil (+91 99231 00812)',
-              onTap: () {},
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                FarmerState().logout();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              },
+              child: const Text('लॉग आउट करा'),
             ),
           ],
-        ),
+        );
+      },
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  const _SectionCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+              ),
+            ],
+          ),
+          const Divider(height: 18),
+          ...children,
+        ],
       ),
     );
   }
 }
 
-class _SectionTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String? badge;
-  final VoidCallback onTap;
+class _InfoTile extends StatelessWidget {
+  final String label;
+  final String value;
 
-  const _SectionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.badge,
-    required this.onTap,
-  });
+  const _InfoTile({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.border),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.primary),
-        title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-        trailing: badge != null
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.successLight,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  badge!,
-                  style: const TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              )
-            : const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
-        onTap: onTap,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.text)),
+        ],
       ),
     );
   }

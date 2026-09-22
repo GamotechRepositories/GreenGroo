@@ -12,6 +12,12 @@ const REJECT_KEYS = {
   "Grade C": "gradeCRejected",
 };
 
+const ORDERED_KEYS = {
+  "Grade A": "gradeAQuantity",
+  "Grade B": "gradeBQuantity",
+  "Grade C": "gradeCQuantity",
+};
+
 export function num(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -44,7 +50,7 @@ export function gradeStatementRows(order = {}) {
     .filter((label) => label && !STATEMENT_GRADES.includes(label));
   const labels = [...STATEMENT_GRADES, ...Array.from(new Set(extras)).sort()];
 
-  return labels.map((label) => {
+  const result = labels.map((label) => {
     const g = findGrade(finalRows, label) || {};
     const og = findGrade(orderedRows, label) || {};
     const rejected = roundQty(
@@ -54,22 +60,63 @@ export function gradeStatementRows(order = {}) {
         num(order[REJECT_KEYS[label]])
       )
     );
-    const ordered = roundQty(g.orderedQuantity ?? og.orderedQuantity ?? og.quantity ?? og.qty);
-    const assigned = roundQty(g.assignedQuantity ?? order[ASSIGNED_KEYS[label]]);
-    const rate = num(g.price ?? g.rate ?? og.price ?? og.rate ?? (ordered > 0 || assigned > 0 ? order.price : 0));
-    
+    const assigned = roundQty(
+      g.assignedQuantity ??
+      og.assignedQuantity ??
+      gq[label]?.assignedQuantity ??
+      order[ASSIGNED_KEYS[label]] ??
+      0
+    );
+    const rawOrdered = roundQty(
+      g.orderedQuantity ??
+      og.orderedQuantity ??
+      og.quantity ??
+      og.qty ??
+      order[ORDERED_KEYS?.[label]] ??
+      0
+    );
+
     let finalQty = 0;
-    if (g.quantity != null && Number.isFinite(Number(g.quantity)) && (assigned > 0 || num(g.quantity) > 0 || ordered > 0)) {
+    if (g.quantity != null && Number.isFinite(Number(g.quantity)) && (assigned > 0 || num(g.quantity) > 0 || rawOrdered > 0)) {
       finalQty = roundQty(g.quantity);
     } else {
-      const base = assigned > 0 ? assigned : ordered;
+      const base = assigned > 0 ? assigned : rawOrdered;
       finalQty = roundQty(Math.max(0, base - rejected));
     }
 
+    // Determine the pre-rejection Ordered / Received Quantity for this grade
+    let gradeOrdered = 0;
+    if (assigned > 0) {
+      gradeOrdered = assigned;
+    } else if (rawOrdered > 0 && rawOrdered >= finalQty + rejected) {
+      gradeOrdered = rawOrdered;
+    } else if (finalQty > 0 || rejected > 0) {
+      gradeOrdered = roundQty(finalQty + rejected);
+    }
+
+    // Ensure Ordered - Rejected = Final Qty strictly holds
+    if (gradeOrdered > 0) {
+      if (assigned > 0) {
+        finalQty = roundQty(Math.max(0, gradeOrdered - rejected));
+      } else if (finalQty === 0 && rejected < gradeOrdered) {
+        finalQty = roundQty(Math.max(0, gradeOrdered - rejected));
+      } else if (gradeOrdered - rejected !== finalQty) {
+        gradeOrdered = roundQty(finalQty + rejected);
+      }
+    }
+
+    const defaultRate =
+      label === "Grade A"
+        ? num(order.gradeAPrice ?? order.price ?? 30)
+        : label === "Grade B"
+          ? num(order.gradeBPrice ?? (order.price ? Math.round(order.price * 0.4) : 12))
+          : num(order.gradeCPrice ?? 0);
+    const rate = num(g.price ?? g.rate ?? og.price ?? og.rate ?? (gradeOrdered > 0 || assigned > 0 ? defaultRate : 0));
     const amount = num(g.amount) > 0 ? roundQty(g.amount) : roundQty(finalQty * rate);
+
     return {
       label,
-      ordered,
+      ordered: gradeOrdered,
       assigned,
       rejected,
       finalQty,
@@ -79,6 +126,24 @@ export function gradeStatementRows(order = {}) {
       unit,
     };
   });
+
+  const totalRejectedFromGrades = result.reduce((sum, r) => sum + r.rejected, 0);
+  const unassignedRej = roundQty(Math.max(0, num(order.rejectedQuantity) - totalRejectedFromGrades));
+  if (unassignedRej > 0) {
+    result.push({
+      label: "Rejected",
+      ordered: unassignedRej,
+      assigned: 0,
+      rejected: unassignedRej,
+      finalQty: 0,
+      qty: 0,
+      rate: 0,
+      amount: 0,
+      unit,
+    });
+  }
+
+  return result;
 }
 
 export function gradeStatementMap(order) {

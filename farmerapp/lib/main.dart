@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/main_shell.dart';
+import 'screens/auth/login_screen.dart';
+import 'services/farmer_state.dart';
+import 'services/api_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+  await ApiService().init();
   runApp(const FarmerApp());
 }
 
@@ -12,11 +26,16 @@ class FarmerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'GreenGroo Farmer',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const MainShell(),
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'GreenGroo Farmer',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          home: FarmerState().isLoggedIn ? const MainShell() : const LoginScreen(),
+        );
+      },
     );
   }
 }

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../models/crop_plan.dart';
+import '../../models/farmer_models.dart';
+import '../../services/farmer_state.dart';
+import 'add_crop_screen.dart';
+import 'crop_detail_screen.dart';
+import '../products/add_product_screen.dart';
+import '../main_shell.dart';
 
 class CropsScreen extends StatefulWidget {
   const CropsScreen({super.key});
@@ -10,298 +15,498 @@ class CropsScreen extends StatefulWidget {
 }
 
 class _CropsScreenState extends State<CropsScreen> {
-  int _selectedTabIndex = 0; // 0: Active Crops, 1: Crop Planning Lifecycle
+  String _search = '';
 
-  final List<CropPlan> _mockCrops = [
-    CropPlan(
-      id: 'GGC-CRP-001',
-      cropName: 'Brinjal',
-      variety: 'Pusa Purple Long',
-      farmLocation: 'Shree Ganesh Farm, Plot A',
-      farmAreaAcres: 1.5,
-      sowingDate: DateTime(2026, 6, 15),
-      expectedHarvestDate: DateTime(2026, 10, 14),
-      currentStage: 'Harvest Readiness',
-      estimatedProductionKg: 850,
-      status: 'Active',
-    ),
-    CropPlan(
-      id: 'GGC-CRP-002',
-      cropName: 'Tomato',
-      variety: 'Hybrid Abhinav',
-      farmLocation: 'Shree Ganesh Farm, Plot B',
-      farmAreaAcres: 2.0,
-      sowingDate: DateTime(2026, 7, 1),
-      expectedHarvestDate: DateTime(2026, 11, 2),
-      currentStage: 'Crop Growth Monitoring',
-      estimatedProductionKg: 1200,
-      status: 'Active',
-    ),
-    CropPlan(
-      id: 'GGC-CRP-003',
-      cropName: 'Onion',
-      variety: 'Nashik Red',
-      farmLocation: 'Shree Ganesh Farm, Plot C',
-      farmAreaAcres: 1.0,
-      sowingDate: DateTime(2026, 8, 10),
-      expectedHarvestDate: DateTime(2026, 12, 1),
-      currentStage: 'Sowing/Plantation Completed',
-      estimatedProductionKg: 2000,
-      status: 'Active',
-    ),
-  ];
+  Widget _buildStatusBadge(String status) {
+    Color bg;
+    Color fg;
+    final s = status.toLowerCase();
+    if (s.contains('progress') || s.contains('वाढ') || s.contains('सुरू')) {
+      bg = const Color(0xFFEFF6FF); // blue-50
+      fg = const Color(0xFF1D4ED8); // blue-700
+    } else if (s.contains('harvest') || s.contains('काढणी')) {
+      bg = const Color(0xFFFEF3C7); // amber-100
+      fg = const Color(0xFFB45309); // amber-700
+    } else if (s.contains('sold') || s.contains('विक्री') || s.contains('completed')) {
+      bg = const Color(0xFFF1F5F9); // slate-100
+      fg = const Color(0xFF475569); // slate-600
+    } else {
+      bg = const Color(0xFFECFDF5); // emerald-50
+      fg = const Color(0xFF047857); // emerald-700
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Crops & Planning'),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: fg.withValues(alpha: 0.2)),
       ),
-      body: Column(
-        children: [
-          // Tab Toggle Header
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('Active Crops'),
-                    selected: _selectedTabIndex == 0,
-                    selectedColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: _selectedTabIndex == 0 ? Colors.white : AppColors.textSecondary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (selected) {
-                      if (selected) setState(() => _selectedTabIndex = 0);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Text('26 Stages Lifecycle'),
-                    selected: _selectedTabIndex == 1,
-                    selectedColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: _selectedTabIndex == 1 ? Colors.white : AppColors.textSecondary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (selected) {
-                      if (selected) setState(() => _selectedTabIndex = 1);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-
-          // Tab Content
-          Expanded(
-            child: _selectedTabIndex == 0 ? _buildActiveCropsList() : _buildLifecycleStagesList(),
-          ),
-        ],
+      child: Text(
+        status,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }
 
-  Widget _buildActiveCropsList() {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _mockCrops.length,
-      separatorBuilder: (_, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final crop = _mockCrops[index];
-        final currentStageIdx = CropPlan.allStages.indexOf(crop.currentStage);
-        final progress = currentStageIdx >= 0 ? (currentStageIdx + 1) / CropPlan.allStages.length : 0.5;
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+  void _confirmDelete(CropItem crop) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Text(
+            'Delete crop?',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${crop.cropName} (${crop.variety})',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                      ),
-                      Text(
-                        crop.farmLocation,
-                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${crop.farmAreaAcres} Acres',
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Current Stage Badge
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.borderLight),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Current Agricultural Stage', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
-                          Text(
-                            crop.currentStage,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      'Stage ${currentStageIdx + 1}/26',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Stage progress bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: AppColors.borderLight,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  minHeight: 6,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Est. Production: ${crop.estimatedProductionKg} Kg',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() => _selectedTabIndex = 1);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    ),
-                    child: const Text('Update Stage', style: TextStyle(fontSize: 11, color: AppColors.primary)),
-                  ),
-                ],
-              ),
-            ],
+          content: const Text(
+            'This will also remove the crop plan. This cannot be undone.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
           ),
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          actions: [
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF334155),
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await FarmerState().deleteCrop(crop.id);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Crop "${crop.cropName}" deleted'),
+                      backgroundColor: Colors.red[700],
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
         );
       },
     );
   }
 
-  Widget _buildLifecycleStagesList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: CropPlan.allStages.length,
-      itemBuilder: (context, index) {
-        final stageName = CropPlan.allStages[index];
-        final isCompleted = index < 20;
-        final isCurrent = index == 20;
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final allCrops = FarmerState().crops;
+        final crops = allCrops.where((c) {
+          final q = _search.trim().toLowerCase();
+          if (q.isEmpty) return true;
+          return c.cropName.toLowerCase().contains(q) ||
+              c.variety.toLowerCase().contains(q) ||
+              c.businessId.toLowerCase().contains(q);
+        }).toList();
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isCurrent ? AppColors.primaryLight : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isCurrent ? AppColors.primary : AppColors.border,
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0.5,
+            leading: IconButton(
+              icon: const Icon(Icons.menu, color: AppColors.primaryDark),
+              tooltip: 'मेनू उघडा (Menu)',
+              onPressed: () => MainShell.openDrawer(context),
+            ),
+            title: const Text(
+              'My Crops',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? AppColors.primary
-                      : isCurrent
-                          ? AppColors.primary
-                          : Colors.grey.shade200,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: isCompleted
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
-                      : Text(
-                          '${index + 1}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isCurrent ? Colors.white : AppColors.textSecondary,
+          body: RefreshIndicator(
+            onRefresh: () => FarmerState().refresh(),
+            color: AppColors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search Bar & Add Crop Button in 1 Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 42,
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search crop or variety (उदा. Tomato)...',
+                              hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                              prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
+                              suffixIcon: _search.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 16, color: Color(0xFF64748B)),
+                                      onPressed: () => setState(() => _search = ''),
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppColors.primary),
+                              ),
+                            ),
+                            onChanged: (val) => setState(() => _search = val),
                           ),
                         ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  stageName,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                    color: isCurrent ? AppColors.primary : AppColors.textPrimary,
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Add Crop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen()));
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 14),
+
+                  // Crop List / Empty State
+                  if (crops.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.eco_outlined, size: 28, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No crops yet',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Add your first crop to start crop planning.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add Crop', style: TextStyle(fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen()));
+                            },
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: crops.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final crop = crops[index];
+                        final hasPhoto = crop.photos.isNotEmpty && crop.photos.first.isNotEmpty;
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x05000000),
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Top row: CropPhoto, Name, Variety, Status, BusinessId, Dates
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // CropPhoto
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      width: 52,
+                                      height: 52,
+                                      color: const Color(0xFFECFDF5),
+                                      child: hasPhoto
+                                          ? Image.network(
+                                              crop.photos.first,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, _, _) => Center(
+                                                child: Text(
+                                                  crop.cropName.isNotEmpty ? crop.cropName[0].toUpperCase() : 'C',
+                                                  style: const TextStyle(
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF047857),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                crop.cropName.isNotEmpty ? crop.cropName[0].toUpperCase() : 'C',
+                                                style: const TextStyle(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF047857),
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+
+                                  // Details
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Name & Status
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: RichText(
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                text: TextSpan(
+                                                  text: crop.cropName,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF0F172A),
+                                                  ),
+                                                  children: [
+                                                    if (crop.variety.isNotEmpty)
+                                                      TextSpan(
+                                                        text: ' · ${crop.variety}',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.normal,
+                                                          color: Color(0xFF64748B),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            _buildStatusBadge(crop.status),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+
+                                        // Monospace Business ID Label
+                                        Text(
+                                          crop.businessId,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF047857),
+                                            letterSpacing: 0.5,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+
+                                        // Sowing → Harvest dates
+                                        Text(
+                                          '${crop.sowingDate.isNotEmpty ? crop.sowingDate : "—"} → ${crop.estHarvestDate.isNotEmpty ? crop.estHarvestDate : "—"}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Progress bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: crop.progress,
+                                  backgroundColor: const Color(0xFFF1F5F9),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                                  minHeight: 5,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // 4 Action Buttons Grid (View, Edit, Product, Delete)
+                              Row(
+                                children: [
+                                  // View
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 30,
+                                      child: OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(0xFF334155),
+                                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                          backgroundColor: Colors.white,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => CropDetailScreen(crop: crop)),
+                                          );
+                                        },
+                                        child: const Text('View', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+
+                                  // Edit
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 30,
+                                      child: OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(0xFF334155),
+                                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                          backgroundColor: Colors.white,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => AddCropScreen(editCrop: crop)),
+                                          );
+                                        },
+                                        child: const Text('Edit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+
+                                  // Product (Primary emerald button)
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 30,
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF047857),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => AddProductScreen(prefilledCrop: crop.cropName),
+                                            ),
+                                          );
+                                        },
+                                        child: const Text('Product', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+
+                                  // Delete (Danger button)
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 30,
+                                      child: OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(0xFFDC2626),
+                                          side: const BorderSide(color: Color(0xFFFEE2E2)),
+                                          backgroundColor: Colors.white,
+                                          padding: EdgeInsets.zero,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        onPressed: () => _confirmDelete(crop),
+                                        child: const Text('Delete', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 32),
+                ],
               ),
-              if (isCurrent)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text('In Progress', style: TextStyle(color: Colors.white, fontSize: 10)),
-                ),
-            ],
+            ),
           ),
         );
       },
