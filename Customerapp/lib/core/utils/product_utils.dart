@@ -221,13 +221,49 @@ enum ProductSortOption {
 
 List<Product> filterAndSortProducts({
   required List<Product> products,
+  String? searchQuery,
   String? subcategory,
   String? brand,
   String? minPrice,
   String? maxPrice,
   ProductSortOption sort = ProductSortOption.listingDefault,
 }) {
+  final query = searchQuery?.trim().toLowerCase() ?? '';
+
   var list = products.where((product) {
+    if (query.isNotEmpty) {
+      final nameMatch = product.name.toLowerCase().contains(query);
+      final catMatch = product.categories
+          .any((c) => c.toLowerCase().contains(query));
+      final subMatch = product.subcategory.toLowerCase().contains(query);
+      final brandMatch = product.brandName.toLowerCase().contains(query);
+      final descMatch = product.description.toLowerCase().contains(query);
+      final featureMatch = product.features
+          .any((f) => f.toLowerCase().contains(query));
+
+      bool deptMatch = false;
+      if (query.contains('ready') || query.contains('cook')) {
+        deptMatch = product.categories.any((c) =>
+            c.toLowerCase().contains('ready') ||
+            c.toLowerCase().contains('cook'));
+      } else if (query.contains('instant')) {
+        deptMatch = product.categories.any((c) =>
+            c.toLowerCase().contains('instant'));
+      } else if (query.contains('preorder') || query.contains('pre order')) {
+        deptMatch = true;
+      }
+
+      if (!nameMatch &&
+          !catMatch &&
+          !subMatch &&
+          !brandMatch &&
+          !descMatch &&
+          !featureMatch &&
+          !deptMatch) {
+        return false;
+      }
+    }
+
     if (subcategory != null &&
         subcategory.isNotEmpty &&
         product.subcategory.toLowerCase() != subcategory.toLowerCase()) {

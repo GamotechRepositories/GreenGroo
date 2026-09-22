@@ -23,7 +23,7 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
 
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<RemoteMessage>? _foregroundSubscription;
@@ -70,6 +70,10 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+
+    if (Firebase.apps.isEmpty) {
+      return;
+    }
 
     final settings = await _messaging.requestPermission(
       alert: true,
@@ -194,6 +198,7 @@ class NotificationService {
   }
 
   Future<void> _configureForegroundPresentation() async {
+    if (Firebase.apps.isEmpty) return;
     await _messaging.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
@@ -202,6 +207,7 @@ class NotificationService {
   }
 
   void _registerForegroundListener() {
+    if (Firebase.apps.isEmpty) return;
     _foregroundSubscription =
         FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint(
@@ -214,11 +220,13 @@ class NotificationService {
   }
 
   void _registerOpenedAppListener() {
+    if (Firebase.apps.isEmpty) return;
     _openedAppSubscription =
         FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationOpened);
   }
 
   Future<void> _registerInitialMessage() async {
+    if (Firebase.apps.isEmpty) return;
     final initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
       NotificationPendingNavigation.store(
@@ -228,6 +236,7 @@ class NotificationService {
   }
 
   Future<void> _registerTokenListeners() async {
+    if (Firebase.apps.isEmpty) return;
     final token = await getToken();
     if (kDebugMode && token != null) {
       debugPrint('NotificationService: initial FCM token $token');

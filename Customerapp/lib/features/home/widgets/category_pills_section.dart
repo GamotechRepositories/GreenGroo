@@ -18,6 +18,25 @@ class CategoryPillsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final currentStore = ref.watch(selectedStoreTabProvider);
+
+    final sectionTitle = currentStore == 'festive'
+        ? 'READY TO COOK CATEGORIES'
+        : currentStore == 'mall'
+            ? 'INSTANT ORDER CATEGORIES'
+            : 'Explore GG Category';
+
+    final sectionIcon = currentStore == 'festive'
+        ? Icons.restaurant_menu_rounded
+        : currentStore == 'mall'
+            ? Icons.bolt_rounded
+            : Icons.eco_rounded;
+
+    final iconColor = currentStore == 'festive'
+        ? const Color(0xFFC2410C)
+        : currentStore == 'mall'
+            ? const Color(0xFF1E40AF)
+            : const Color(0xFF16A34A);
 
     return Container(
       width: double.infinity,
@@ -26,7 +45,7 @@ class CategoryPillsSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ----------------------------------------------------
-          // SECTION 1: Explore GG Category (2 Rows)
+          // SECTION 1: Department Category Grid (2 Rows)
           // ----------------------------------------------------
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
@@ -36,7 +55,7 @@ class CategoryPillsSection extends ConsumerWidget {
                 Row(
                   children: [
                     Text(
-                      'Explore GG Category',
+                      sectionTitle,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 20.5,
                         fontWeight: FontWeight.w900,
@@ -44,9 +63,9 @@ class CategoryPillsSection extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(
-                      Icons.eco_rounded,
-                      color: Color(0xFF16A34A),
+                    Icon(
+                      sectionIcon,
+                      color: iconColor,
                       size: 22,
                     ),
                   ],
@@ -112,26 +131,18 @@ class CategoryPillsSection extends ConsumerWidget {
             ),
           ),
 
-          // ----------------------------------------------------
-          // SECTION 2: Ready2Cook Categories (2 Rows)
-          // ----------------------------------------------------
-          const Padding(
-            padding: EdgeInsets.fromLTRB(14, 6, 14, 18),
-            child: _ReadyToCookCategoriesSection(),
-          ),
-
-          // ----------------------------------------------------
-          // SECTION 3: Your Instant Order Products (Image 1 UI)
-          // ----------------------------------------------------
-          const Padding(
-            padding: EdgeInsets.fromLTRB(14, 6, 14, 18),
-            child: _InstantOrderProductsSection(),
-          ),
-
-          // ----------------------------------------------------
-          // SECTION 4: Book Your Order Products (Full-Width Theme BG)
-          // ----------------------------------------------------
-          const _BookYourOrderSection(),
+          // Featured sub-sections only on main / preorder tab
+          if (currentStore == 'main') ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(14, 6, 14, 18),
+              child: _ReadyToCookCategoriesSection(),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(14, 6, 14, 18),
+              child: _InstantOrderProductsSection(),
+            ),
+            const _BookYourOrderSection(),
+          ],
         ],
       ),
     );

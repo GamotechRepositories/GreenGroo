@@ -10,6 +10,7 @@ class RoutePaths {
   static const justArrived = '/just-arrived';
   static const hotSelling = '/hot-selling';
   static const checkout = '/checkout';
+  static const payment = '/payment';
   static const coupons = '/coupons';
   static const orders = '/orders';
   static const orderDetail = '/orders/:id';

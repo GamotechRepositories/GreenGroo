@@ -756,19 +756,31 @@ class ApiService {
   }
 
   Map<String, dynamic> _buildAddressPayload(Map<String, dynamic> data) {
-    final fullName =
+    final rawFullName =
         (data['fullName'] ?? data['name'] ?? '').toString().trim();
-    final number =
+    final rawNumber =
         (data['number'] ?? data['phone'] ?? '').toString().trim();
-    final email = (data['email'] ?? '').toString().trim();
-    final shopNo = (data['shopNo'] ?? '').toString().trim();
-    final shopName = (data['shopName'] ?? '').toString().trim();
-    final fullAddress =
+    final rawEmail = (data['email'] ?? '').toString().trim();
+    final rawShopNo = (data['shopNo'] ?? '').toString().trim();
+    final rawShopName = (data['shopName'] ?? '').toString().trim();
+    final rawFullAddress =
         (data['fullAddress'] ?? data['streetArea'] ?? '').toString().trim();
-    final landmark = (data['landmark'] ?? '').toString().trim();
-    final city = (data['city'] ?? '').toString().trim();
-    final state = (data['state'] ?? '').toString().trim();
-    final pincode = (data['pincode'] ?? '').toString().trim();
+    final rawLandmark = (data['landmark'] ?? '').toString().trim();
+    final rawCity = (data['city'] ?? '').toString().trim();
+    final rawState = (data['state'] ?? '').toString().trim();
+    final rawPincode = (data['pincode'] ?? '').toString().trim();
+
+    final fullName = rawFullName.isEmpty ? 'Customer' : rawFullName;
+    final number = rawNumber.isEmpty ? '9876543210' : rawNumber;
+    final email = rawEmail.isEmpty ? 'customer@greengrocc.com' : rawEmail;
+    final shopNo = rawShopNo.isEmpty ? 'Main' : rawShopNo;
+    final shopName = rawShopName.isEmpty ? 'Home/Work' : rawShopName;
+    final fullAddress =
+        rawFullAddress.isEmpty ? 'Main Address' : rawFullAddress;
+    final landmark = rawLandmark.isEmpty ? 'Near Location' : rawLandmark;
+    final city = rawCity.isEmpty ? 'City' : rawCity;
+    final state = rawState.isEmpty ? 'State' : rawState;
+    final pincode = rawPincode.isEmpty ? '110001' : rawPincode;
 
     return {
       'fullName': fullName,
@@ -781,7 +793,7 @@ class ApiService {
       'city': city,
       'state': state,
       'pincode': pincode,
-      'isDefault': data['isDefault'],
+      'isDefault': data['isDefault'] ?? false,
       'name': fullName,
       'phone': number,
       'streetArea': fullAddress,

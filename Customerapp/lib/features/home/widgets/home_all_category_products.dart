@@ -142,7 +142,7 @@ class __CategoryProductSectionState
               crossAxisCount: 3,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 0.54,
+              childAspectRatio: 0.48,
             ),
             itemCount: _products.length,
             itemBuilder: (context, index) {
@@ -206,7 +206,7 @@ class _Image2ProductTile extends ConsumerWidget {
               Stack(
                 children: [
                   Container(
-                    height: 85,
+                    height: 74,
                     width: double.infinity,
                     alignment: Alignment.center,
                     child: AppNetworkImage(

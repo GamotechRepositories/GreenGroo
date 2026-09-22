@@ -39,6 +39,11 @@ class HomeHeaderCategoryStrip extends ConsumerWidget {
     final lower = name.toLowerCase().trim();
 
     if (lower == 'all') return Icons.grid_view_rounded;
+    if (lower.contains('preorder') ||
+        lower.contains('pre-order') ||
+        lower.contains('pre order')) {
+      return Icons.calendar_today_rounded;
+    }
 
     // Oils, Ghee, Refined, Mustard
     if (lower.contains('oil') ||
@@ -222,73 +227,85 @@ class HomeHeaderCategoryStrip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final currentStore = ref.watch(selectedStoreTabProvider);
     final selectedCategory = ref.watch(selectedCategoryHeaderTabProvider);
 
     final categoryList = categoriesAsync.maybeWhen(
       data: (cats) {
-        if (cats.isEmpty) return _defaultCategories;
         final names = ['All', ...cats.map((c) => c.categoryName)];
-        return names;
+        final uniqueNames = <String>[];
+        for (final name in names) {
+          if (!uniqueNames.any((n) => n.toLowerCase() == name.toLowerCase())) {
+            uniqueNames.add(name);
+          }
+        }
+        return uniqueNames;
       },
-      orElse: () => _defaultCategories,
+      orElse: () => currentStore == 'main' ? _defaultCategories : const ['All'],
     );
 
     return Container(
       color: Colors.transparent,
-      height: 56,
+      height: 52,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.only(left: 10, right: 10, top: 2, bottom: 0),
         itemCount: categoryList.length,
         itemBuilder: (context, index) {
           final catName = categoryList[index];
           final isSelected = selectedCategory == catName;
 
-          final activeColor = isLightBg
-              ? const Color(0xFF16A34A)
-              : Colors.white;
-          final inactiveColor = isLightBg
-              ? const Color(0xFF475569)
-              : const Color(0xFFCBD5E1);
-
-          return InkWell(
+          return GestureDetector(
             onTap: () {
               ref
                   .read(selectedCategoryHeaderTabProvider.notifier)
                   .setCategory(catName);
-              if (catName != 'All') {
-                context.push(
+
+              final lower = catName.toLowerCase().trim();
+
+              if (lower == 'all') {
+                context.go(RoutePaths.home);
+              } else if (lower.contains('preorder') ||
+                  lower.contains('pre-order') ||
+                  lower.contains('pre order')) {
+                ref.read(selectedStoreTabProvider.notifier).setStore('main');
+                context.go(RoutePaths.home);
+              } else {
+                context.go(
                   '${RoutePaths.product}?categoryName=${Uri.encodeComponent(catName)}',
                 );
               }
             },
-            borderRadius: BorderRadius.circular(10),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.only(left: 18, right: 18, top: 6, bottom: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.35),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     _getCategoryIcon(catName),
-                    size: 22,
-                    color: isSelected ? activeColor : inactiveColor,
+                    size: 20,
+                    color: isSelected ? Colors.black : const Color(0xFF0F291E),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     catName,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11.5,
-                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected ? activeColor : inactiveColor,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Container(
-                    height: 2.5,
-                    width: isSelected ? 18 : 0,
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      borderRadius: BorderRadius.circular(2),
+                      fontWeight:
+                          isSelected ? FontWeight.w800 : FontWeight.w700,
+                      color:
+                          isSelected ? Colors.black : const Color(0xFF0F291E),
                     ),
                   ),
                 ],

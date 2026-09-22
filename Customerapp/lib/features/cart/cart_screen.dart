@@ -21,10 +21,12 @@ import '../../models/address.dart';
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/cart/important_message_cards.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import '../../widgets/layout/shell_bottom_insets.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -144,23 +146,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     setState(() => _clearing = false);
   }
 
-  void _openPaymentSelectionSheet(
-    BuildContext context,
-    CartSummary summary,
-    Address? activeAddress,
-    List<CartItem> items,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _SelectPaymentMethodSheet(
-        summary: summary,
-        activeAddress: activeAddress,
-        cartItems: items,
-      ),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -221,11 +207,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             child: ListView(
               controller: _scrollController,
               physics: AppScrollConfig.listPhysics,
-              padding: const EdgeInsets.only(
+              padding: EdgeInsets.only(
                 left: 14,
                 right: 14,
                 top: 10,
-                bottom: 150, // Space for sticky bottom bar
+                bottom: ShellBottomInsets.of(context) + 140, // Space for sticky bottom bar
               ),
               children: [
                 // 1. Delivery Speed Banner
@@ -331,8 +317,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               addressText: activeAddress != null
                   ? activeAddress.fullAddress
                   : 'Add or choose a delivery address',
-              onChangeAddress: () => context.push(RoutePaths.checkout),
-              onProceed: () => _openPaymentSelectionSheet(context, summary, activeAddress, items),
+              onChangeAddress: () => showSelectDeliveryLocationBottomSheet(context, ref),
+              onProceed: () {
+                final query = <String, String>{
+                  if (activeAddress != null) 'addressId': activeAddress.id,
+                };
+                context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
+              },
               buttonText: 'Select Payment Method',
             ),
           ),
@@ -1548,7 +1539,7 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
         left: 14,
         right: 14,
         top: 10,
-        bottom: MediaQuery.paddingOf(context).bottom + 10,
+        bottom: ShellBottomInsets.of(context),
       ),
       decoration: BoxDecoration(
         color: Colors.white,

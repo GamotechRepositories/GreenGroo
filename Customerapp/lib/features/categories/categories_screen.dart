@@ -15,6 +15,7 @@ import '../../widgets/category/triangular_category_card.dart';
 import '../../widgets/common/app_loading.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../home/home_providers.dart';
+import '../home/widgets/home_header_category_strip.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -69,7 +70,15 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     super.dispose();
   }
 
-  void _onCategoryTapped(BuildContext context, String categoryName) {
+  void _onCategoryTapped(
+    BuildContext context,
+    String categoryName,
+    String storeType,
+  ) {
+    ref.read(selectedStoreTabProvider.notifier).setStore(storeType);
+    ref
+        .read(selectedCategoryHeaderTabProvider.notifier)
+        .setCategory(categoryName);
     context.push(
       '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
     );
@@ -149,7 +158,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       physics: AppScrollConfig.listPhysics,
       cacheExtent: AppScrollConfig.cacheExtent,
       slivers: [
-        // 1. Pinned Sticky Header with Full Gradient (#A8DEE0 to #F9EAD2): Location Bar (collapsible) + Search Bar (sticky)
+        // 1. Pinned Sticky Header: Location Bar + Search Bar
         SliverPersistentHeader(
           pinned: true,
           delegate: _StickyCategoryHeaderDelegate(
@@ -161,7 +170,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           ),
         ),
 
-        // 2. Department Section 1: Preorder Store Categories (Whitish Grey Background)
+        // 2. Department Section 1: Preorder Store Categories
         _buildDepartmentHeaderSliver(
           title: 'Preorder Categories',
           subtitle: 'Book in advance for fresh produce & farm items',
@@ -169,9 +178,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           iconColor: const Color(0xFF047857),
           badgeColor: Colors.white,
         ),
-        _buildCategoryGridSliver(context, preorderList),
+        _buildCategoryGridSliver(context, preorderList, 'main'),
 
-        // 3. Department Section 2: Ready to Cook Store Categories (Whitish Grey Background)
+        // 3. Department Section 2: Ready to Cook Store Categories
         _buildDepartmentHeaderSliver(
           title: 'Ready to Cook Categories',
           subtitle: 'Pre-cut vegetables, meal kits & instant cooking',
@@ -179,9 +188,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           iconColor: const Color(0xFFEA580C),
           badgeColor: Colors.white,
         ),
-        _buildCategoryGridSliver(context, readyList),
+        _buildCategoryGridSliver(context, readyList, 'festive'),
 
-        // 4. Department Section 3: Instant Order Store Categories (Whitish Grey Background)
+        // 4. Department Section 3: Instant Order Store Categories
         _buildDepartmentHeaderSliver(
           title: 'Instant Order Categories',
           subtitle: 'Express delivery items & quick snacks',
@@ -189,7 +198,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           iconColor: const Color(0xFF2563EB),
           badgeColor: Colors.white,
         ),
-        _buildCategoryGridSliver(context, instantList),
+        _buildCategoryGridSliver(context, instantList, 'mall'),
 
         SliverToBoxAdapter(
           child: SizedBox(height: ShellBottomInsets.of(context) + 24),
@@ -259,6 +268,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   Widget _buildCategoryGridSliver(
     BuildContext context,
     List<Category> categoryList,
+    String storeType,
   ) {
     if (categoryList.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
@@ -282,7 +292,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               categoryName: cat.categoryName,
               imageUrl: imageUrl,
               index: index,
-              onTap: () => _onCategoryTapped(context, cat.categoryName),
+              onTap: () => _onCategoryTapped(context, cat.categoryName, storeType),
             );
           },
           childCount: categoryList.length,
@@ -324,7 +334,15 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Container(
       width: double.infinity,
       height: currentHeight,
-      color: const Color(0xFFFFF6EE),
+      decoration: const BoxDecoration(
+        color: Color(0xFFB0DAC6),
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFCBD5E1),
+            width: 1.0,
+          ),
+        ),
+      ),
       child: ClipRect(
         child: SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/cart/cart_screen.dart';
 import '../features/categories/categories_screen.dart';
 import '../features/checkout/checkout_screen.dart';
+import '../features/checkout/payment_screen.dart';
 import '../features/coupons/coupons_screen.dart';
 import '../features/home/home_providers.dart';
 import '../features/home/home_screen.dart';
@@ -118,6 +119,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => CheckoutScreen(
           initialCouponCode: state.uri.queryParameters['coupon'],
         ),
+      ),
+      GoRoute(
+        path: RoutePaths.payment,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final params = state.uri.queryParameters;
+          return PaymentScreen(
+            selectedAddressId: params['addressId'],
+            appliedCouponCode: params['coupon'],
+            customerMessage: params['note'],
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.coupons,

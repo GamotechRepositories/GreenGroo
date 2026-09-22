@@ -302,10 +302,9 @@ class ZeptoHeroOfferCardsSection extends StatelessWidget {
       padding: const EdgeInsets.only(top: 10, bottom: 6),
       child: Column(
         children: [
-          // Banner Image Carousel (1.png, 2.png, 3.png)
-          const BannerSliderCarousel(),
-
-          const SizedBox(height: 12),
+          // Banner Image Carousel (1.png, 2.png, 3.png) - Temporarily hidden
+          // const BannerSliderCarousel(),
+          // const SizedBox(height: 12),
 
           // SBI Card Instant Discount Pill
           Padding(

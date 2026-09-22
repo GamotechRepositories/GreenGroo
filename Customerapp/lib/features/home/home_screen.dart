@@ -2,18 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/refresh/app_refresh.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
-import '../../routes/route_paths.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import 'home_load_gate.dart';
+import 'home_providers.dart';
+import 'widgets/banner1_hero_widget.dart';
 import 'widgets/best_deals_section.dart';
 import 'widgets/category_pills_section.dart';
+import 'widgets/department_hero_widget.dart';
 import 'widgets/home_all_category_products.dart';
 import 'widgets/home_delivery_bar.dart';
 import 'widgets/home_header_category_strip.dart';
@@ -100,6 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
     final bottomContentSpacer = ShellBottomInsets.of(context) + 56;
+    final currentStore = ref.watch(selectedStoreTabProvider);
 
     return VerticalScrollPauseScope(
       isScrolling: _verticalScrolling,
@@ -113,96 +115,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             physics: AppScrollConfig.listPhysics,
             cacheExtent: AppScrollConfig.cacheExtent,
             slivers: [
-              // 1. Pinned Sticky White Header containing Department cards, Location bar, Search bar + Super Offers badge & Category icons strip
+              // 1. Pinned Sticky Header
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _StickyHeaderDelegate(
                   topInset: topInset,
                   isLightNotifier: _isHeaderLightNotifier,
+                  currentStore: currentStore,
                 ),
               ),
 
-              // 2. Banner 1 Hero Image Card (Fresh FRUITS Nature's Goodness in Every Bite)
+              // 2. Department Hero / Banner
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                  child: InkWell(
-                    onTap: () => context.push(RoutePaths.product),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          'assets/images/banner1.png',
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: currentStore == 'main'
+                    ? const Banner1HeroWidget()
+                    : DepartmentHeroWidget(storeType: currentStore),
               ),
 
-              // 3. Continuous Full-Width Marquee Offer Ticker Animation (Right-to-Left)
+              // 3. Marquee Ticker
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 4, bottom: 8),
                   child: TickerMarqueeStrip(
-                    backgroundColor: Color(0xFF047857),
+                    backgroundColor: currentStore == 'festive'
+                        ? const Color(0xFFC2410C)
+                        : currentStore == 'mall'
+                            ? const Color(0xFF1E40AF)
+                            : const Color(0xFF047857),
                   ),
                 ),
               ),
 
-              // 4. Offer Banner Carousel (1.png, 2.png, 3.png) + SBI Card Instant Discount Pill
-              const SliverToBoxAdapter(
-                child: ZeptoHeroOfferCardsSection(),
-              ),
+              // 4. Offer Banner / Discount Pill (Only for Preorder store)
+              if (currentStore == 'main')
+                const SliverToBoxAdapter(
+                  child: ZeptoHeroOfferCardsSection(),
+                ),
 
-              // 5. Explore GG Category (2 Rows Grid with Leaf/Wheat Watermark Shades + Ready to Cook + Instant Order + Book Order)
+              // 5. Department Category Pills Section
               const SliverToBoxAdapter(child: CategoryPillsSection()),
 
               // 6. Category-wise Products Grid
               const SliverToBoxAdapter(child: HomeAllCategoryProducts()),
 
-              // 7. Featured Deal Sections
-              const SliverToBoxAdapter(
-                child: GatedHomeSection(
-                  minPhase: HomeLoadPhase.scrolled,
-                  placeholderHeight: 280,
-                  child: RepaintBoundary(child: BestDealsSection()),
+              // 7. Featured Deal Sections (Only on Preorder / Main tab)
+              if (currentStore == 'main') ...[
+                const SliverToBoxAdapter(
+                  child: GatedHomeSection(
+                    minPhase: HomeLoadPhase.scrolled,
+                    placeholderHeight: 280,
+                    child: RepaintBoundary(child: BestDealsSection()),
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: GatedHomeSection(
-                  minPhase: HomeLoadPhase.scrolled,
-                  placeholderHeight: 280,
-                  child: RepaintBoundary(child: JustArrivedSection()),
+                const SliverToBoxAdapter(
+                  child: GatedHomeSection(
+                    minPhase: HomeLoadPhase.scrolled,
+                    placeholderHeight: 280,
+                    child: RepaintBoundary(child: JustArrivedSection()),
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: GatedHomeSection(
-                  minPhase: HomeLoadPhase.scrolled,
-                  placeholderHeight: 280,
-                  child: RepaintBoundary(child: HotSellingSection()),
+                const SliverToBoxAdapter(
+                  child: GatedHomeSection(
+                    minPhase: HomeLoadPhase.scrolled,
+                    placeholderHeight: 280,
+                    child: RepaintBoundary(child: HotSellingSection()),
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: GatedHomeSection(
-                  minPhase: HomeLoadPhase.scrolled,
-                  placeholderHeight: 280,
-                  child: RepaintBoundary(child: RecentlyViewedSection()),
+                const SliverToBoxAdapter(
+                  child: GatedHomeSection(
+                    minPhase: HomeLoadPhase.scrolled,
+                    placeholderHeight: 280,
+                    child: RepaintBoundary(child: RecentlyViewedSection()),
+                  ),
                 ),
-              ),
+              ],
 
               // 8. Footer
               SliverToBoxAdapter(
@@ -231,17 +217,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double topInset;
   final ValueNotifier<bool> isLightNotifier;
+  final String currentStore;
 
   _StickyHeaderDelegate({
     required this.topInset,
     required this.isLightNotifier,
+    required this.currentStore,
   });
 
   @override
-  double get minExtent => topInset + 100.0;
+  double get minExtent => topInset + 104.0;
 
   @override
-  double get maxExtent => topInset + 174.0;
+  double get maxExtent => topInset + 172.0;
 
   @override
   Widget build(
@@ -249,35 +237,46 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final currentExtent =
+        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
     final maxShrink = maxExtent - minExtent;
     final progress =
         maxShrink > 0 ? (shrinkOffset / maxShrink).clamp(0.0, 1.0) : 1.0;
-    final deliveryBarHeight = (74.0 * (1.0 - progress)).clamp(0.0, 74.0);
+    final deliveryBarHeight = (68.0 * (1.0 - progress)).clamp(0.0, 68.0);
 
-    return ColoredBox(
-      color: Colors.white,
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset),
-        child: ClipRect(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (progress < 1.0)
-                SizedBox(
-                  height: deliveryBarHeight,
-                  child: OverflowBox(
-                    minHeight: 74.0,
-                    maxHeight: 74.0,
-                    alignment: Alignment.bottomCenter,
-                    child: Opacity(
-                      opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
-                      child: const HomeDeliveryBar(),
+    final headerBgColor = currentStore == 'festive'
+        ? const Color(0xFFFDE8CD)
+        : currentStore == 'mall'
+            ? const Color(0xFFDCE9FF)
+            : const Color(0xFFB0DAC6);
+
+    return SizedBox(
+      height: currentExtent,
+      child: ColoredBox(
+        color: headerBgColor,
+        child: Padding(
+          padding: EdgeInsets.only(top: topInset),
+          child: ClipRect(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (progress < 1.0)
+                  SizedBox(
+                    height: deliveryBarHeight,
+                    child: OverflowBox(
+                      minHeight: 68.0,
+                      maxHeight: 68.0,
+                      alignment: Alignment.bottomCenter,
+                      child: Opacity(
+                        opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                        child: const HomeDeliveryBar(),
+                      ),
                     ),
                   ),
-                ),
-              const HomeSearchBar(isLightBg: true),
-              const HomeHeaderCategoryStrip(isLightBg: true),
-            ],
+                const HomeSearchBar(isLightBg: true),
+                const HomeHeaderCategoryStrip(isLightBg: true),
+              ],
+            ),
           ),
         ),
       ),
@@ -287,6 +286,7 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
     return oldDelegate.isLightNotifier != isLightNotifier ||
-        oldDelegate.topInset != topInset;
+        oldDelegate.topInset != topInset ||
+        oldDelegate.currentStore != currentStore;
   }
 }

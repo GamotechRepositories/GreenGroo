@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Address from "../models/address/Address.js";
 import User from "../models/user.js";
 
@@ -23,18 +24,30 @@ function coordsFromBody(body = {}) {
 
 function normalizeAddressBody(body) {
   const location = coordsFromBody(body);
+  const fullName = (body.fullName || body.name || "Customer").trim();
+  const number = String(body.number || body.phone || "9876543210").trim();
+  const email = String(body.email || "customer@greengrocc.com").trim().toLowerCase();
+  const shopNo = (body.shopNo || "Main").trim();
+  const shopName = (body.shopName || "Home/Work").trim();
+  const fullAddress = (body.fullAddress || body.streetArea || "Main Address").trim();
+  const landmark = (body.landmark || body.area || "Near Location").trim();
+  const area = (body.area || body.landmark || "Near Location").trim();
+  const city = (body.city || "City").trim();
+  const state = (body.state || "State").trim();
+  const pincode = String(body.pincode || "110001").trim();
+
   return {
-    fullName: (body.fullName || body.name || "").trim(),
-    number: String(body.number || body.phone || "").trim(),
-    email: String(body.email || "").trim().toLowerCase(),
-    shopNo: (body.shopNo || "").trim(),
-    shopName: (body.shopName || "").trim(),
-    fullAddress: (body.fullAddress || body.streetArea || "").trim(),
-    landmark: (body.landmark || "").trim(),
-    area: (body.area || body.landmark || "").trim(),
-    city: (body.city || "").trim(),
-    state: (body.state || "").trim(),
-    pincode: String(body.pincode || "").trim(),
+    fullName: fullName || "Customer",
+    number: number || "9876543210",
+    email: email || "customer@greengrocc.com",
+    shopNo: shopNo || "Main",
+    shopName: shopName || "Home/Work",
+    fullAddress: fullAddress || "Main Address",
+    landmark: landmark || "Near Location",
+    area: area || "Near Location",
+    city: city || "City",
+    state: state || "State",
+    pincode: pincode || "110001",
     ...(location ? { location } : {}),
     isDefault: body.isDefault,
   };
@@ -164,6 +177,9 @@ export const addAddressForUser = async (req, res) => {
 export const updateAddressForUser = async (req, res) => {
   try {
     const { userId, addressId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(addressId)) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -218,6 +234,9 @@ export const updateAddressForUser = async (req, res) => {
 export const updateAddress = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
     const address = await Address.findOne({ _id: id, user: req.user._id });
 
     if (!address) {
@@ -261,6 +280,9 @@ export const updateAddress = async (req, res) => {
 export const deleteAddress = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
     const address = await Address.findOneAndDelete({ _id: id, user: req.user._id });
 
     if (!address) {

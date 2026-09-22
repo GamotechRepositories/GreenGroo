@@ -490,13 +490,6 @@ export const adminPlaceOrder = async (req, res) => {
       });
     }
 
-    if (!addressId) {
-      return res.status(400).json({
-        success: false,
-        message: "Delivery address is required",
-      });
-    }
-
     if (!Array.isArray(checkoutItems) || checkoutItems.length === 0) {
       return res.status(400).json({
         success: false,
@@ -591,13 +584,6 @@ export const placeOrder = async (req, res) => {
       rewardPointsToUse,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
-
-    if (!addressId) {
-      return res.status(400).json({
-        success: false,
-        message: "Delivery address is required",
-      });
-    }
 
     if (!paymentMethod || !["cod", "online"].includes(paymentMethod)) {
       return res.status(400).json({

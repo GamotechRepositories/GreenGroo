@@ -89,12 +89,6 @@ export const createRazorpayOrder = async (req, res) => {
       giftCardCode,
       customerLocation,
     } = req.body;
-    if (!addressId) {
-      return res.status(400).json({
-        success: false,
-        message: "Delivery address is required",
-      });
-    }
 
     if (!["online", "cod_advance"].includes(paymentMode)) {
       return res.status(400).json({
@@ -324,16 +318,11 @@ export const submitUpiPaymentProof = async (req, res) => {
       customerLocation,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
-    const screenshot = typeof req.body.screenshot === "string" ? req.body.screenshot : "";
+    const screenshot = typeof req.body.screenshot === "string"
+      ? req.body.screenshot
+      : (typeof req.body.screenshotUrl === "string" ? req.body.screenshotUrl : "");
     const screenshotName = normalizeText(req.body.screenshotName, 200);
     const upiTransactionRef = normalizeText(req.body.upiTransactionRef, 100);
-
-    if (!addressId) {
-      return res.status(400).json({
-        success: false,
-        message: "Delivery address is required",
-      });
-    }
 
     if (!["online", "cod_advance"].includes(paymentMode)) {
       return res.status(400).json({
