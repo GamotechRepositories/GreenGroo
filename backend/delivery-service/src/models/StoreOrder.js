@@ -187,7 +187,6 @@ const storeOrderSchema = new mongoose.Schema(
     sourceOrderId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
-      index: true,
     },
 
     // ── Payment fields (extended for delivery workflow) ─────────────────────

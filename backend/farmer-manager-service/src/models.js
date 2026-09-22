@@ -82,7 +82,7 @@ const farmerSchema = new mongoose.Schema(
     dateOfBirth: { type: String, default: "" },
     gender: { type: String, enum: ["", "Male", "Female", "Other"], default: "" },
     referralCode: { type: String, default: "", trim: true },
-    farmerId: { type: String, index: true },
+    farmerId: { type: String, default: "" },
     companyId: { type: String, default: "GGC" },
     stateId: { type: String, default: "" },
     districtId: { type: String, default: "" },
@@ -667,7 +667,7 @@ const pickupSchema = new mongoose.Schema(
     confirmedQuantity: { type: Number, default: 0 },
     confirmedPackageCount: { type: Number, default: 0 },
     confirmationPhotos: [{ type: String }],
-    collectionBatchId: { type: String, default: "", index: true },
+    collectionBatchId: { type: String, default: "" },
     collectionBatchAssignedAt: { type: Date, default: null },
     status: { type: String, default: "READY_FOR_PICKUP" },
     receiving: {

@@ -2031,7 +2031,7 @@ export async function confirmDriverPickup(req, res) {
         },
         $push: { timeline: { status: "PICKED_UP", at: now, note: "Driver confirmed pickup from farmer." } },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!updated) {
       const latest = await Pickup.findOne({ id: pickup.id, driverId });

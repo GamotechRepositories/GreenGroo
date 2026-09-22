@@ -1446,7 +1446,7 @@ export async function confirmQualityGrading(req, res) {
           actions: { action: "CONFIRM_GRADING", userId: actor.id, role: actor.role, at: now },
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!updated) {
       return res.status(409).json({ message: "Duplicate grading confirmation is not allowed" });

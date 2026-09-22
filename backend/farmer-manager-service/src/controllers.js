@@ -2982,7 +2982,7 @@ export async function acceptMyOrder(req, res) {
         },
       },
       { $inc: { reservedQuantity: qty } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updated) {

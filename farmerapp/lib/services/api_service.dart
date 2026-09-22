@@ -203,6 +203,38 @@ class ApiService {
     return post('/api/farmers/$farmerId/products', body);
   }
 
+  Future<dynamic> updateProduct(String productId, Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmer/products/$productId', body);
+    } catch (_) {
+      return await put('/api/farmers/products/$productId', body);
+    }
+  }
+
+  Future<dynamic> deleteProduct(String productId) async {
+    try {
+      return await delete('/api/farmer/products/$productId');
+    } catch (_) {
+      return await delete('/api/farmers/products/$productId');
+    }
+  }
+
+  Future<dynamic> updateProductPrice(String productId, Map<String, dynamic> body) async {
+    try {
+      return await patch('/api/farmer/products/$productId/price', body);
+    } catch (_) {
+      return await patch('/api/farmers/products/$productId/price', body);
+    }
+  }
+
+  Future<dynamic> updateProductStock(String productId, Map<String, dynamic> body) async {
+    try {
+      return await patch('/api/farmer/products/$productId/stock', body);
+    } catch (_) {
+      return await patch('/api/farmers/products/$productId/stock', body);
+    }
+  }
+
   Future<dynamic> createCrop(Map<String, dynamic> body) async {
     return post('/api/farmer/crops', body);
   }
@@ -243,3 +275,4 @@ class ApiService {
     return _handleResponse(response);
   }
 }
+

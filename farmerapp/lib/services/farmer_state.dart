@@ -168,25 +168,66 @@ class FarmerState extends ChangeNotifier {
 
     products = [
       ProductItem(
+        id: 'PRD-102',
+        productId: 'GGC-ART-VEG-TOM-BAJ-00002',
+        productName: 'Tomato',
+        variety: 'Bajeerao',
+        category: 'Vegetables (भाजीपाला)',
+        cropLinked: 'Tomato (टोमॅटो)',
+        grade: 'Grade A',
+        unit: 'Kg',
+        pricePerUnit: 25.0,
+        stockQuantity: 3000.0,
+        minimumOrderQuantity: 50.0,
+        farmingType: 'Organic (सेंद्रिय)',
+        farmName: 'My Krushi Farm',
+        farmLocation: 'Sawargaon Tal, Baramati',
+        sowingDate: '01 Jun 2026',
+        harvestDate: '01 Sept 2026',
+        availableFrom: '01 Sept 2026',
+        availableUntil: '30 Oct 2026',
+        status: 'Active',
+      ),
+      ProductItem(
+        id: 'PRD-103',
+        productId: 'GGC-ART-VEG-ONI-HYB-00002',
+        productName: 'Onion',
+        variety: 'Hybrid',
+        category: 'Vegetables (भाजीपाला)',
+        cropLinked: 'Onion (कांदा)',
+        grade: 'Grade A',
+        unit: 'Kg',
+        pricePerUnit: 35.0,
+        stockQuantity: 500.0,
+        minimumOrderQuantity: 50.0,
+        farmingType: 'Organic (सेंद्रिय)',
+        farmName: 'My Krushi Farm',
+        farmLocation: 'Sawargaon Tal, Baramati',
+        sowingDate: '10 Jun 2026',
+        harvestDate: '02 Sept 2026',
+        availableFrom: '02 Sept 2026',
+        availableUntil: '30 Nov 2026',
+        status: 'Out of Stock',
+      ),
+      ProductItem(
         id: 'PRD-101',
-        productName: 'Fresh Organic Brinjal (ताजी वांगी)',
+        productId: 'GGC-ART-VEG-BRJ-PUS-00001',
+        productName: 'Brinjal',
+        variety: 'Pusa Purple Long',
         category: 'Vegetables (भाजीपाला)',
         cropLinked: 'Brinjal (वांगी)',
         grade: 'Grade A',
         unit: 'Kg',
         pricePerUnit: 30.0,
         stockQuantity: 500.0,
-        status: 'Active',
-      ),
-      ProductItem(
-        id: 'PRD-102',
-        productName: 'Fresh Hybrid Tomatoes (ताजे टोमॅटो)',
-        category: 'Vegetables (भाजीपाला)',
-        cropLinked: 'Tomato (टोमॅटो)',
-        grade: 'Grade A',
-        unit: 'Kg',
-        pricePerUnit: 25.0,
-        stockQuantity: 450.0,
+        minimumOrderQuantity: 20.0,
+        farmingType: 'Organic (सेंद्रिय)',
+        farmName: 'My Krushi Farm',
+        farmLocation: 'Sawargaon Tal, Baramati',
+        sowingDate: '15 Aug 2026',
+        harvestDate: '14 Oct 2026',
+        availableFrom: '15 Oct 2026',
+        availableUntil: '30 Nov 2026',
         status: 'Active',
       ),
     ];
@@ -528,6 +569,7 @@ class FarmerState extends ChangeNotifier {
     notifyListeners();
     ApiService().createProduct(profile.id, {
       'name': product.productName,
+      'variety': product.variety,
       'category': product.category,
       'sellingPrice': product.pricePerUnit,
       'stock': product.stockQuantity,
@@ -539,8 +581,32 @@ class FarmerState extends ChangeNotifier {
     }).catchError((_) {});
   }
 
+  void updateProduct(ProductItem updated) {
+    final idx = products.indexWhere((p) => p.id == updated.id || p.productId == updated.productId);
+    if (idx != -1) {
+      products[idx] = updated;
+      notifyListeners();
+    }
+  }
+
+  void updateProductStatus(String productId, String newStatus) {
+    final idx = products.indexWhere((p) => p.id == productId || p.productId == productId);
+    if (idx != -1) {
+      products[idx].status = newStatus;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    products.removeWhere((p) => p.id == productId || p.productId == productId);
+    notifyListeners();
+    try {
+      await ApiService().deleteProduct(productId);
+    } catch (_) {}
+  }
+
   void updateProductStock(String productId, double newStock) {
-    final idx = products.indexWhere((p) => p.id == productId);
+    final idx = products.indexWhere((p) => p.id == productId || p.productId == productId);
     if (idx != -1) {
       products[idx].stockQuantity = newStock;
       notifyListeners();
