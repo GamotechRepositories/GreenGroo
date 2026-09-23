@@ -30,7 +30,7 @@ class FarmerApp extends StatelessWidget {
       listenable: FarmerState(),
       builder: (context, _) {
         return MaterialApp(
-          title: 'GreenGroo Farmer',
+          title: 'GreenGrocc Farmer',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           home: FarmerState().isLoggedIn ? const MainShell() : const LoginScreen(),

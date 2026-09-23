@@ -162,7 +162,7 @@ class _MainShellState extends State<MainShell> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('GreenGroo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        const Text('GreenGrocc', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                         const Text('Farmer Panel (शेतकरी पॅनेल)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
                         Text(profile.farmName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: AppColors.muted)),
                       ],
@@ -369,7 +369,7 @@ class _MainShellState extends State<MainShell> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('लॉग आउट (Sign Out)'),
-        content: const Text('तुम्हाला नक्की GreenGroo Farmer App वरून लॉग आउट करायचे आहे का?'),
+        content: const Text('तुम्हाला नक्की GreenGrocc Farmer App वरून लॉग आउट करायचे आहे का?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('रद्द करा (Cancel)')),
           ElevatedButton(

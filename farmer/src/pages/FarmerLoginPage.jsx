@@ -69,7 +69,7 @@ function FarmerLoginPage() {
   return (
     <div className="farmer-panel farmer-auth-shell flex min-h-dvh items-center justify-center px-4 py-8">
       <div className={`w-full max-w-md ${EXCEL_PANEL} p-5 sm:p-7`}>
-        <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">GreenGroo Farmer</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-[#217346]">GreenGrocc Farmer</p>
         <h1 className={`mt-1 ${EXCEL_PAGE_TITLE}`}>Sign in to Farmer Panel</h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-3">

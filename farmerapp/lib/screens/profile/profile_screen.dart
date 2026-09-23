@@ -260,7 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('लॉग आउट (Sign Out)'),
-          content: const Text('तुम्हाला नक्की GreenGroo Farmer App वरून लॉग आउट करायचे आहे का?'),
+          content: const Text('तुम्हाला नक्की GreenGrocc Farmer App वरून लॉग आउट करायचे आहे का?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

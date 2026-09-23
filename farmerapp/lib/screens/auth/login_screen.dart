@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'GREENGROO FARMER',
+                  'GREENGROCC FARMER',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary, letterSpacing: 1.2),
                 ),
                 const SizedBox(height: 6),

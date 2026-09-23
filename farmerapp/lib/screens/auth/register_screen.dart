@@ -59,7 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('शेतकरी नोंदणी यशस्वी झाली! GreenGroo मध्ये स्वागत आहे.'),
+              content: Text('शेतकरी नोंदणी यशस्वी झाली! GreenGrocc मध्ये स्वागत आहे.'),
               backgroundColor: AppColors.primary,
             ),
           );

@@ -282,6 +282,16 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }
 
+  String _formatCropDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    final dt = _parseAnyDate(raw);
+    if (dt == null) return raw.isNotEmpty ? raw : '—';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+    final mName = months[(dt.month - 1) % 12];
+    final dayStr = dt.day.toString().padLeft(2, '0');
+    return '$dayStr $mName ${dt.year}';
+  }
+
   String _formatWeekday(String? raw) {
     if (raw == null || raw.isEmpty) return '';
     final dt = _parseAnyDate(raw);
@@ -719,23 +729,41 @@ class _EarningsScreenState extends State<EarningsScreen> {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0FDF4),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: const Color(0xFFBBF7D0)),
-                              ),
-                              child: Text(
-                                product.status.isNotEmpty ? product.status : 'Active',
-                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(right: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD1FAE5),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                                  ),
+                                  child: const Text(
+                                    '1 Sheet',
+                                    style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                                  ),
+                                  child: Text(
+                                    product.status.isNotEmpty ? product.status : 'Active',
+                                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${product.cropLinked.isNotEmpty ? product.cropLinked : product.productName} • ${product.farmName}',
+                          '${product.cropLinked.isNotEmpty ? product.cropLinked.split('(')[0].trim() : product.productName} • ${product.farmName.isNotEmpty ? product.farmName : 'Krushna'}',
                           style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -747,7 +775,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
               ),
               const SizedBox(height: 8),
 
-              // 2. Details Grid (2 Rows of Facts)
+              // 2. Details Grid (2 Rows of Facts matching Web statement)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
@@ -793,19 +821,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
                           ),
                         ),
                         Expanded(flex: 2, child: _buildDetailItem('CROP', product.cropLinked.split('(')[0].trim())),
-                        Expanded(flex: 2, child: _buildDetailItem('VARIETY', product.variety.isNotEmpty ? product.variety : 'Hybrid')),
-                        Expanded(flex: 2, child: _buildDetailItem('FARM', product.farmName.isNotEmpty ? product.farmName : 'Krushi Farm')),
+                        Expanded(flex: 2, child: _buildDetailItem('VARIETY', product.variety.isNotEmpty ? product.variety : 'Bajeerao')),
+                        Expanded(flex: 2, child: _buildDetailItem('FARM', product.farmName.isNotEmpty ? product.farmName : 'Krushna')),
+                        Expanded(flex: 2, child: _buildDetailItem('LOCATION', product.farmLocation.isNotEmpty ? product.farmLocation : 'sawargaon tal')),
                       ],
                     ),
                     const SizedBox(height: 6),
                     const Divider(height: 1, thickness: 0.5, color: Color(0xFFE2E8F0)),
                     const SizedBox(height: 6),
-                    // Row 2: Location | Harvest Date | Available From | Orders
+                    // Row 2: Harvest Date | Available From | Available Until | Orders
                     Row(
                       children: [
-                        Expanded(flex: 3, child: _buildDetailItem('LOCATION', product.farmLocation.isNotEmpty ? product.farmLocation : 'Maharashtra')),
-                        Expanded(flex: 2, child: _buildDetailItem('HARVEST', _formatShortDate(product.harvestDate))),
-                        Expanded(flex: 2, child: _buildDetailItem('AVAILABLE', _formatShortDate(product.availableFrom))),
+                        Expanded(flex: 3, child: _buildDetailItem('HARVEST DATE', _formatCropDate(product.harvestDate))),
+                        Expanded(flex: 3, child: _buildDetailItem('AVAILABLE FROM', _formatCropDate(product.availableFrom))),
+                        Expanded(flex: 3, child: _buildDetailItem('AVAILABLE UNTIL', _formatCropDate(product.availableUntil))),
                         Expanded(flex: 2, child: _buildDetailItem('ORDERS', '${matchedOrders.length}')),
                       ],
                     ),
@@ -840,9 +869,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     // Grade A
                     _buildGradeTableRow(
                       'Grade A',
-                      gradeAQty > 0 ? '${gradeAQty.toStringAsFixed(0)} ${product.unit}' : '—',
-                      gradeAQty > 0 ? '₹${gradeARate.toStringAsFixed(0)}' : '—',
-                      gradeAQty > 0 ? '${gradeARejected.toStringAsFixed(0)} ${product.unit}' : '0 ${product.unit}',
+                      '${gradeAQty.toInt()} ${product.unit}',
+                      '₹${gradeARate.toInt()}/${product.unit}',
+                      '${gradeARejected.toInt()} ${product.unit}',
                       const Color(0xFFECFDF5),
                       const Color(0xFF065F46),
                     ),
@@ -850,9 +879,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     // Grade B
                     _buildGradeTableRow(
                       'Grade B',
-                      gradeBQty > 0 ? '${gradeBQty.toStringAsFixed(0)} ${product.unit}' : '—',
-                      gradeBQty > 0 ? '₹${gradeBRate.toStringAsFixed(0)}' : '—',
-                      gradeBQty > 0 ? '${gradeBRejected.toStringAsFixed(0)} ${product.unit}' : '0 ${product.unit}',
+                      '${gradeBQty.toInt()} ${product.unit}',
+                      '₹${gradeBRate.toInt()}/${product.unit}',
+                      '${gradeBRejected.toInt()} ${product.unit}',
                       const Color(0xFFEFF6FF),
                       const Color(0xFF1E40AF),
                     ),
@@ -860,9 +889,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     // Grade C
                     _buildGradeTableRow(
                       'Grade C',
-                      gradeCQty > 0 ? '${gradeCQty.toStringAsFixed(0)} ${product.unit}' : '—',
-                      gradeCRate > 0 ? '₹${gradeCRate.toStringAsFixed(0)}' : '—',
-                      gradeCQty > 0 ? '${gradeCRejected.toStringAsFixed(0)} ${product.unit}' : '0 ${product.unit}',
+                      '${gradeCQty.toInt()} ${product.unit}',
+                      '₹${gradeCRate.toInt()}/${product.unit}',
+                      '${gradeCRejected.toInt()} ${product.unit}',
                       const Color(0xFFFFFBEB),
                       const Color(0xFF92400E),
                     ),
@@ -952,7 +981,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     icon: const Icon(Icons.add, size: 14),
-                    label: const Text('+ New Sheet', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: const Text('+ + Sheet 2', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     onPressed: () => _openNewSheetModal(products, prefilledProduct: product),
                   ),
                 ],

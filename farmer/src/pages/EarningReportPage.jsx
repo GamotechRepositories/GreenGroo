@@ -292,7 +292,7 @@ export default function EarningReportPage() {
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 leading-tight">
-                GreenGroo Agri Network
+                GreenGrocc Agri Network
               </h1>
               <p className="text-[11px] font-bold text-emerald-800 tracking-wide uppercase">
                 Farmer Produce Procurement & Settlement Invoice
@@ -612,14 +612,14 @@ export default function EarningReportPage() {
             <div>
               <div className="h-6"></div>
               <div className="border-t border-slate-300 pt-1">
-                <p className="font-bold text-slate-900">GreenGroo Sourcing Manager</p>
+                <p className="font-bold text-slate-900">GreenGrocc Sourcing Manager</p>
                 <p className="text-[9px] font-semibold text-slate-500">Authorized Signatory & Stamp</p>
               </div>
             </div>
           </div>
 
           <p className="mt-2 text-center text-[9px] text-slate-400">
-            This is a computer-generated tax invoice & quality settlement slip from GreenGroo Logistics. For any inquiries, please contact your designated Collection Centre.
+            This is a computer-generated tax invoice & quality settlement slip from GreenGrocc Logistics. For any inquiries, please contact your designated Collection Centre.
           </p>
         </div>
       </div>

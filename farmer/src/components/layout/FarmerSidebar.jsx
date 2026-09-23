@@ -113,7 +113,7 @@ function FarmerSidebar({ mobileOpen, onCloseMobile }) {
 
   const items = SIDEBAR_ITEMS;
   const panelLabel = "Farmer Panel";
-  const vendorName = "GreenGroo";
+  const vendorName = "GreenGrocc";
   const compact = collapsed && !mobileOpen;
 
   const onNavigate = () => {

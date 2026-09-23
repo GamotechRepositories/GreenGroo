@@ -1,5 +1,5 @@
 name: farmerapp
-description: "GreenGroo Farmer Mobile App - Crop Planning, Products, Orders, Harvest & Earnings."
+description: "GreenGrocc Farmer Mobile App - Crop Planning, Products, Orders, Harvest & Earnings."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -16,6 +16,10 @@ dependencies:
   shared_preferences: ^2.5.3
   intl: any
   image_picker: ^1.2.3
+  pdf: ^3.13.1
+  printing: ^5.15.1
+  share_plus: ^13.3.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -26,3 +30,4 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/images/
