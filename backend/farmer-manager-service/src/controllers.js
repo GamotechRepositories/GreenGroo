@@ -4145,102 +4145,75 @@ const DEFAULT_FARMER_DOCS = [
   {
     type: "aadhaar",
     name: "Aadhaar Card (आधार कार्ड)",
-    fileName: "Aadhaar_Card_Sunil_Nehe.jpg",
-    fileUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600",
-    status: "Approved",
+    fileName: "",
+    fileUrl: "",
+    status: "Pending",
   },
   {
     type: "farmer_id",
     name: "Farmer ID (शेतकरी ओळखपत्र)",
-    fileName: "Farmer_ID_GGC_00001.pdf",
-    fileUrl: "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDM2L0ZpbHRlci9GbGF0ZURlY29kZT4+c3RyZWFtCnicU8jJTVFwzs8rSc3Ry8lP10jUS84v10jOz8nMSwEAmO8JcwplbmRzdHJlYW0KZW5kb2JqCg==",
+    fileName: "",
+    fileUrl: "",
     status: "Pending",
   },
   {
     type: "land_712",
     name: "7/12 Extract (७/१२ उतारा)",
-    fileName: "7_12_Extract_Sawargaon.pdf",
-    fileUrl: "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDM2L0ZpbHRlci9GbGF0ZURlY29kZT4+c3RyZWFtCnicU8jJTVFwzs8rSc3Ry8lP10jUS84v10jOz8nMSwEAmO8JcwplbmRzdHJlYW0KZW5kb2JqCg==",
-    status: "Approved",
+    fileName: "",
+    fileUrl: "",
+    status: "Pending",
   },
   {
     type: "land_8a",
     name: "8A Extract (८-अ उतारा)",
-    fileName: "8A_Extract_Sangamner.pdf",
-    fileUrl: "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDM2L0ZpbHRlci9GbGF0ZURlY29kZT4+c3RyZWFtCnicU8jJTVFwzs8rSc3Ry8lP10jUS84v10jOz8nMSwEAmO8JcwplbmRzdHJlYW0KZW5kb2JqCg==",
+    fileName: "",
+    fileUrl: "",
     status: "Pending",
   },
   {
     type: "bank",
     name: "Bank Passbook (बँक पासबुक)",
-    fileName: "SBI_Passbook_Sunil_Nehe.jpg",
-    fileUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600",
-    status: "Approved",
+    fileName: "",
+    fileUrl: "",
+    status: "Pending",
   },
   {
     type: "farmer_photo",
     name: "Farmer Photo (शेतकरी फोटो)",
-    fileName: "Farmer_Photo.jpg",
-    fileUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
-    status: "Approved",
+    fileName: "",
+    fileUrl: "",
+    status: "Pending",
   },
   {
     type: "address_proof",
     name: "Address Proof (रहिवासी दाखला)",
-    fileName: "Ration_Card_Proof.jpg",
-    fileUrl: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600",
+    fileName: "",
+    fileUrl: "",
     status: "Pending",
   },
   {
     type: "pan",
     name: "PAN Card (पॅन कार्ड)",
-    fileName: "PAN_Card_Sunil_Nehe.jpg",
-    fileUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600",
+    fileName: "",
+    fileUrl: "",
     status: "Pending",
   },
 ];
 
-async function ensureDefaultFarmerDocuments(farmerId, vendorId = "vendor-1", managerId = "") {
-  try {
-    for (const d of DEFAULT_FARMER_DOCS) {
-      let doc = await FarmerDocument.findOne({ farmerId, type: d.type });
-      if (!doc) {
-        doc = new FarmerDocument({
-          id: `doc-${farmerId}-${d.type}`,
-          vendorId,
-          managerId,
-          farmerId,
-          name: d.name,
-          type: d.type,
-          fileName: d.fileName,
-          fileUrl: d.fileUrl,
-          uploadedAt: new Date(),
-          uploadedBy: "FARMER",
-          status: d.status || "Pending",
-          rejectionReason: "",
-        });
-        await doc.save();
-      } else if (!doc.fileUrl && d.fileUrl) {
-        doc.fileName = d.fileName;
-        doc.fileUrl = d.fileUrl;
-        doc.uploadedAt = doc.uploadedAt || new Date();
-        if (doc.status === "Not Uploaded") {
-          doc.status = d.status || "Pending";
-        }
-        doc.name = d.name;
-        await doc.save();
-      }
-    }
-  } catch (e) {
-    console.warn("[FarmerDocs] Auto-seed warning:", e.message);
-  }
-}
-
 export async function getFarmerDocuments(req, res) {
   try {
     const { farmerId } = req.params;
-    await ensureDefaultFarmerDocuments(farmerId);
-    const docs = await FarmerDocument.find({ farmerId }).lean();
+    const docs = await FarmerDocument.find({
+      $or: [{ farmerId }, { farmerId: farmerId }],
+      $and: [
+        {
+          $or: [
+            { fileUrl: { $exists: true, $ne: "" } },
+            { fileName: { $exists: true, $ne: "" } },
+          ],
+        },
+      ],
+    }).lean();
     res.json(docs);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch documents" });
@@ -4346,21 +4319,46 @@ export async function updateFarmerDocumentStatus(req, res) {
     const { farmerId, documentId } = req.params;
     const { status, rejectionReason } = req.body;
 
-    const doc = await FarmerDocument.findOne({ id: documentId, farmerId });
-    if (!doc) return res.status(404).json({ message: "Document not found" });
+    let doc = await FarmerDocument.findOne({
+      $or: [
+        { id: documentId, farmerId },
+        { type: documentId, farmerId },
+        { id: `doc-${farmerId}-${documentId}`, farmerId },
+      ],
+    });
 
-    doc.status = status;
-    if (rejectionReason !== undefined) doc.rejectionReason = rejectionReason;
+    if (!doc && mongoose.isValidObjectId(documentId)) {
+      doc = await FarmerDocument.findOne({ _id: documentId, farmerId });
+    }
+
+    if (!doc) {
+      // If document record didn't exist yet, create it with new status
+      doc = new FarmerDocument({
+        id: String(documentId).startsWith("doc-") ? documentId : `doc-${farmerId}-${documentId}`,
+        vendorId: req.user?.vendorId || "vendor-1",
+        managerId: req.user?.managerId || "",
+        farmerId,
+        name: documentId.toUpperCase(),
+        type: documentId,
+        status: status || "Pending",
+        rejectionReason: rejectionReason || "",
+      });
+    }
+
+    doc.status = status || doc.status;
+    if (rejectionReason !== undefined) {
+      doc.rejectionReason = rejectionReason;
+    }
     await doc.save();
 
     // Check farmer verification status
     const farmerDocs = await FarmerDocument.find({ farmerId });
-    const reqTypes = ["aadhaar", "pan", "address", "bank"];
+    const reqTypes = ["aadhaar", "pan", "address_proof", "bank"];
     const reqDocs = farmerDocs.filter((d) => reqTypes.includes(d.type));
 
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] });
     if (farmer) {
-      if (reqDocs.every((d) => d.status === "Approved")) {
+      if (reqDocs.length > 0 && reqDocs.every((d) => d.status === "Approved")) {
         farmer.verificationStatus = "Approved";
         farmer.status = "Active";
       } else if (reqDocs.some((d) => d.status === "Rejected")) {
@@ -5360,14 +5358,15 @@ export async function getManagerAllDocuments(req, res) {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
     const farmerIds = farmers.map((f) => f.id);
     if (!farmerIds.length) return res.json({ farmers, documents: [] });
-    
-    // Ensure default documents for farmers that don't have any yet
-    for (const f of farmers) {
-      await ensureDefaultFarmerDocuments(f.id, f.vendorId, f.managerId);
-    }
 
     const allIds = [...new Set([...farmerIds, ...farmers.map((f) => f.farmerId).filter(Boolean)])];
-    const documents = await FarmerDocument.find({ farmerId: { $in: allIds } }).lean();
+    const documents = await FarmerDocument.find({
+      farmerId: { $in: allIds },
+      $or: [
+        { fileUrl: { $exists: true, $ne: "" } },
+        { fileName: { $exists: true, $ne: "" } },
+      ],
+    }).lean();
     res.json({ farmers, documents });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch documents" });

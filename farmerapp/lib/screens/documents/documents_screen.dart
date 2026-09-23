@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -8,8 +9,34 @@ import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 
-class DocumentsScreen extends StatelessWidget {
+class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
+
+  @override
+  State<DocumentsScreen> createState() => _DocumentsScreenState();
+}
+
+class _DocumentsScreenState extends State<DocumentsScreen> {
+  Timer? _liveSyncTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Immediate fetch
+    FarmerState().fetchFromBackend();
+    // Live auto-polling every 3 seconds to reflect vendor Approve / Reject updates immediately
+    _liveSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        FarmerState().fetchFromBackend();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _liveSyncTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,103 +65,128 @@ class DocumentsScreen extends StatelessWidget {
                 Text('KYC & Vendor Verification', style: TextStyle(fontSize: 11, color: AppColors.muted)),
               ],
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.sync_rounded, color: Color(0xFF217346), size: 22),
+                tooltip: 'ताजे करा (Refresh)',
+                onPressed: () async {
+                  await FarmerState().fetchFromBackend();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('कागदपत्र स्थिती ताजी केली! (Status Updated) ✓'),
+                        backgroundColor: Color(0xFF217346),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
           ),
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Verification Summary Banner
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isAllVerified
-                            ? const [Color(0xFF166534), Color(0xFF15803D)]
-                            : (pendingCount > 0
-                                ? const [Color(0xFFB45309), Color(0xFFD97706)]
-                                : const [Color(0xFF9A3412), Color(0xFFC2410C)]),
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isAllVerified ? Icons.verified : (pendingCount > 0 ? Icons.hourglass_top_rounded : Icons.pending_actions),
-                            color: Colors.white,
-                            size: 28,
-                          ),
+            child: RefreshIndicator(
+              color: const Color(0xFF217346),
+              onRefresh: () async {
+                await FarmerState().fetchFromBackend();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Verification Summary Banner
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isAllVerified
+                              ? const [Color(0xFF166534), Color(0xFF15803D)]
+                              : (pendingCount > 0
+                                  ? const [Color(0xFFB45309), Color(0xFFD97706)]
+                                  : const [Color(0xFF9A3412), Color(0xFFC2410C)]),
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isAllVerified
-                                    ? 'शेतकरी केवायसी प्रमाणित (100% Verified)'
-                                    : (pendingCount > 0
-                                        ? 'व्हेंडर पडताळणी चालू (Vendor Review Pending)'
-                                        : 'केवायसी कागदपत्रे प्रलंबित (Upload Required)'),
-                                style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                isAllVerified
-                                    ? 'सर्व ${docs.length} आवश्यक कागदपत्रे व्हेंडरद्वारे मंजूर आहेत.'
-                                    : '$approvedCount मंजूर • $pendingCount व्हेंडर पडताळणी प्रलंबित • $notUploadedCount अपलोड करणे बाकी',
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Documents Checklist (${docs.length})',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.picture_as_pdf_outlined, size: 14, color: Color(0xFFDC2626)),
-                          SizedBox(width: 3),
-                          Text(
-                            'PDF, कॅमेरा व गॅलरी',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isAllVerified ? Icons.verified : (pendingCount > 0 ? Icons.hourglass_top_rounded : Icons.pending_actions),
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isAllVerified
+                                      ? 'शेतकरी केवायसी प्रमाणित (100% Verified)'
+                                      : (pendingCount > 0
+                                          ? 'व्हेंडर पडताळणी चालू (Vendor Review Pending)'
+                                          : 'केवायसी कागदपत्रे प्रलंबित (Upload Required)'),
+                                  style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isAllVerified
+                                      ? 'सर्व ${docs.length} आवश्यक कागदपत्रे व्हेंडरद्वारे मंजूर आहेत.'
+                                      : '$approvedCount मंजूर • $pendingCount व्हेंडर पडताळणी प्रलंबित • $notUploadedCount अपलोड करणे बाकी',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                    ),
+                    const SizedBox(height: 18),
 
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: docs.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      return _DocumentCard(doc: doc);
-                    },
-                  ),
-                  const SizedBox(height: 40),
-                ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Documents Checklist (${docs.length})',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
+                        ),
+                        const Row(
+                          children: [
+                            Icon(Icons.sync, size: 12, color: Color(0xFF059669)),
+                            SizedBox(width: 3),
+                            Text(
+                              'Live Sync ⚡',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: docs.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        return _DocumentCard(doc: doc);
+                      },
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),

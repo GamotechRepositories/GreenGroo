@@ -29,18 +29,8 @@ const REJECTION_PRESETS = [
   "चुकीच्या प्रकारात अपलोड केले आहे (Uploaded under wrong document category)",
 ];
 
-function mergeFarmerDocs(docs = []) {
-  const map = Object.fromEntries((docs || []).map((d) => [d.type, d]));
-  return DOCUMENT_TYPES.map((t) => ({
-    id: map[t.id]?.id || `missing-${t.id}`,
-    type: t.id,
-    name: t.name,
-    fileName: map[t.id]?.fileName || "",
-    fileUrl: map[t.id]?.fileUrl || "",
-    uploadedAt: map[t.id]?.uploadedAt || null,
-    status: map[t.id]?.status || "Not Uploaded",
-    rejectionReason: map[t.id]?.rejectionReason || "",
-  }));
+function getUploadedFarmerDocs(docs = []) {
+  return (docs || []).filter((d) => Boolean(d.fileUrl || d.fileName));
 }
 
 export default function ManagerDocumentsPage() {
@@ -178,7 +168,6 @@ export default function ManagerDocumentsPage() {
           <option value="Pending">Pending Review ⏳</option>
           <option value="Approved">Approved ✓</option>
           <option value="Rejected">Rejected ❌</option>
-          <option value="Not Uploaded">Not Uploaded ⚠️</option>
         </select>
       </div>
 
@@ -189,7 +178,7 @@ export default function ManagerDocumentsPage() {
       ) : null}
 
       {displayFarmers.map((f) => {
-        let docs = mergeFarmerDocs(docsByFarmer[f.id] || []);
+        let docs = getUploadedFarmerDocs(docsByFarmer[f.id] || []);
         if (statusFilter) {
           docs = docs.filter((d) => d.status === statusFilter);
         }
@@ -207,7 +196,7 @@ export default function ManagerDocumentsPage() {
                 <div>
                   <p className="text-xs font-bold text-[#1F2937]">{f.name}</p>
                   <p className="text-[10px] text-[#64748B]">
-                    Farmer ID: {f.id} • {approvedCount} Approved • {pendingCount} Pending • {rejectedCount} Rejected
+                    Farmer ID: {f.id} • {docs.length} Uploaded • {approvedCount} Approved • {pendingCount} Pending • {rejectedCount} Rejected
                   </p>
                 </div>
               </div>
@@ -227,7 +216,20 @@ export default function ManagerDocumentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {docs.map((doc) => {
+                  {docs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-6 text-center text-slate-500 bg-[#FBFBFB]">
+                        <span className="text-lg">📭</span>
+                        <p className="mt-1 font-semibold text-xs text-slate-700">
+                          शेतकऱ्याने अद्याप कोणतेही कागदपत्र अपलोड केलेले नाही
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          (No documents uploaded yet by this farmer)
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    docs.map((doc) => {
                     const busy = submittingAction;
                     const isPdf = doc.fileName?.toLowerCase().endsWith(".pdf") || doc.fileUrl?.startsWith("data:application/pdf");
 
@@ -310,7 +312,7 @@ export default function ManagerDocumentsPage() {
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>

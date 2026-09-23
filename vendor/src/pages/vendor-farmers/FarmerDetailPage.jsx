@@ -74,18 +74,8 @@ function asList(res) {
   return [];
 }
 
-function mergeFarmerDocs(docs = []) {
-  const map = Object.fromEntries(docs.map((d) => [d.type, d]));
-  return DOCUMENT_TYPES.map((t) => ({
-    id: map[t.id]?.id || `missing-${t.id}`,
-    type: t.id,
-    name: t.name,
-    fileName: map[t.id]?.fileName || "",
-    fileUrl: map[t.id]?.fileUrl || "",
-    uploadedAt: map[t.id]?.uploadedAt || null,
-    status: map[t.id]?.status || "Not Uploaded",
-    rejectionReason: map[t.id]?.rejectionReason || "",
-  }));
+function getUploadedFarmerDocs(docs = []) {
+  return (docs || []).filter((d) => Boolean(d.fileUrl || d.fileName));
 }
 
 export default function FarmerDetailPage() {
@@ -653,65 +643,76 @@ export default function FarmerDetailPage() {
           </div>
         )}
 
-        {tab === "Documents" && (
-          <div className="space-y-4 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#1F2937]">Farmer Documents & KYC Checklist ({mergeFarmerDocs(documents).length})</p>
-                <p className="text-[11px] text-[#6B7280]">Review farmer documents, approve KYC, or reject with specific reason.</p>
+        {tab === "Documents" && (() => {
+          const uploadedDocs = getUploadedFarmerDocs(documents);
+          return (
+            <div className="space-y-4 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-[#1F2937]">Farmer Uploaded Documents ({uploadedDocs.length})</p>
+                  <p className="text-[11px] text-[#6B7280]">Review farmer documents, approve KYC, or reject with specific reason.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadDocuments}
+                  className="text-xs font-semibold text-[#217346] hover:underline"
+                >
+                  🔄 Refresh Docs
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={loadDocuments}
-                className="text-xs font-semibold text-[#217346] hover:underline"
-              >
-                🔄 Refresh Docs
-              </button>
-            </div>
 
-            <div className="grid gap-3.5 sm:grid-cols-2">
-              {mergeFarmerDocs(documents).map((d) => {
-                const isPdf = d.fileName?.toLowerCase().endsWith(".pdf") || d.fileUrl?.startsWith("data:application/pdf");
-                const hasFile = Boolean(d.fileUrl);
+              {uploadedDocs.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-[#D4D4D4] bg-[#FBFBFB] p-8 text-center">
+                  <span className="text-3xl">📭</span>
+                  <p className="mt-2 text-xs font-bold text-slate-700">
+                    शेतकऱ्याने अद्याप कोणतेही कागदपत्र अपलोड केलेले नाही
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    (No documents uploaded yet by this farmer. Once uploaded from the farmer app, they will appear here for verification.)
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-3.5 sm:grid-cols-2">
+                  {uploadedDocs.map((d) => {
+                    const isPdf = d.fileName?.toLowerCase().endsWith(".pdf") || d.fileUrl?.startsWith("data:application/pdf");
+                    const hasFile = Boolean(d.fileUrl);
 
-                return (
-                  <div key={d.type} className="space-y-2.5 rounded-lg border border-[#D4D4D4] bg-white p-3.5 shadow-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2">
-                        <span className="text-xl mt-0.5">{isPdf ? "📄" : "🪪"}</span>
-                        <div>
-                          <p className="text-xs font-bold text-[#1F2937]">{d.name}</p>
-                          <p className="mt-0.5 text-[11px] text-[#6B7280]">
-                            {hasFile ? (
-                              <button
-                                type="button"
-                                onClick={() => setViewDoc({ ...d, farmerName: farmer.name })}
-                                className="font-medium text-[#217346] underline hover:text-[#165030] text-left"
-                              >
-                                {d.fileName || "View Document"}
-                              </button>
-                            ) : (
-                              <span className="text-slate-400">Not uploaded yet</span>
-                            )}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-[#94A3B8]">
-                            {d.uploadedAt ? `Uploaded ${new Date(d.uploadedAt).toLocaleDateString("en-IN")}` : "—"}
-                          </p>
+                    return (
+                      <div key={d.type || d.id} className="space-y-2.5 rounded-lg border border-[#D4D4D4] bg-white p-3.5 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-xl mt-0.5">{isPdf ? "📄" : "🪪"}</span>
+                            <div>
+                              <p className="text-xs font-bold text-[#1F2937]">{d.name}</p>
+                              <p className="mt-0.5 text-[11px] text-[#6B7280]">
+                                {hasFile ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewDoc({ ...d, farmerName: farmer.name })}
+                                    className="font-medium text-[#217346] underline hover:text-[#165030] text-left truncate max-w-[200px]"
+                                  >
+                                    {d.fileName || "View Document"}
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-400">{d.fileName || "Uploaded Document"}</span>
+                                )}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-[#94A3B8]">
+                                {d.uploadedAt ? `Uploaded ${new Date(d.uploadedAt).toLocaleDateString("en-IN")}` : "—"}
+                              </p>
+                            </div>
+                          </div>
+                          {STATUS_BADGE(d.status)}
                         </div>
-                      </div>
-                      {STATUS_BADGE(d.status)}
-                    </div>
 
-                    {d.status === "Rejected" && d.rejectionReason && (
-                      <div className="rounded bg-red-50 p-2 text-[11px] text-red-700 border border-red-200">
-                        <p className="font-bold">⚠️ Rejection Reason (अमान्य कारण):</p>
-                        <p className="mt-0.5 text-[10.5px]">{d.rejectionReason}</p>
-                      </div>
-                    )}
+                        {d.status === "Rejected" && d.rejectionReason && (
+                          <div className="rounded bg-red-50 p-2 text-[11px] text-red-700 border border-red-200">
+                            <p className="font-bold">⚠️ Rejection Reason (अमान्य कारण):</p>
+                            <p className="mt-0.5 text-[10.5px]">{d.rejectionReason}</p>
+                          </div>
+                        )}
 
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
-                      {hasFile ? (
-                        <>
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
                           <button
                             type="button"
                             onClick={() => setViewDoc({ ...d, farmerId: farmer.id, farmerName: farmer.name })}
@@ -724,7 +725,7 @@ export default function FarmerDetailPage() {
                             <button
                               type="button"
                               disabled={docActionBusy}
-                              onClick={() => handleApproveDocument(d.id, d.name)}
+                              onClick={() => handleApproveDocument(d.id || d.type, d.name)}
                               className="rounded bg-green-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-green-700 shadow-sm disabled:opacity-50"
                             >
                               ✓ Approve
@@ -735,25 +736,21 @@ export default function FarmerDetailPage() {
                             <button
                               type="button"
                               disabled={docActionBusy}
-                              onClick={() => openRejectDocModal(d.id, d.name)}
+                              onClick={() => openRejectDocModal(d.id || d.type, d.name)}
                               className="rounded bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-red-700 shadow-sm disabled:opacity-50"
                             >
                               ✕ Reject
                             </button>
                           )}
-                        </>
-                      ) : (
-                        <span className="text-[10.5px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                          ⏳ शेतकरी अपलोड प्रलंबित (Pending Farmer Upload)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* View Document Modal */}
