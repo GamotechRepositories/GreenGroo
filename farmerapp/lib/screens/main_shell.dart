@@ -16,7 +16,8 @@ import 'auth/login_screen.dart';
 import '../services/farmer_state.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  final int initialTab;
+  const MainShell({super.key, this.initialTab = 0});
 
   static void openDrawer(BuildContext context) {
     context.findAncestorStateOfType<_MainShellState>()?.openDrawer();
@@ -32,7 +33,13 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialTab;
+  }
 
   void openDrawer() {
     _scaffoldKey.currentState?.openDrawer();

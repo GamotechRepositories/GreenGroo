@@ -6,18 +6,42 @@ class FarmerProfile {
   final String preferredLanguage;
   final String farmName;
   final double totalAcres;
+  final String? _totalFarmAreaUnit;
+  final double? _cultivatedArea;
+  final String? _cultivatedAreaUnit;
   final String soilType;
   final String irrigationType;
   final String waterSource;
   final String farmingMethod;
+  final String? _farmingType;
+  final String? _mainCrops;
   final String village;
   final String taluka;
   final String district;
   final String state;
   final String pincode;
-  final String kycStatus; // PENDING, SUBMITTED, APPROVED
+  final String? _farmAddress;
+  final double? latitude;
+  final double? longitude;
+  final bool? _locationConfirmed;
+  final String? _kycStatus;
+  final String? _bankVerificationStatus;
   final String profilePhoto;
   final String farmPhoto;
+  final List<String>? _farmPhotos;
+  final List<String>? _farmVideos;
+
+  String get totalFarmAreaUnit => _totalFarmAreaUnit ?? 'Acre';
+  double get cultivatedArea => _cultivatedArea ?? totalAcres;
+  String get cultivatedAreaUnit => _cultivatedAreaUnit ?? 'Acre';
+  String get farmingType => _farmingType ?? 'Individual (स्वतःची)';
+  String get mainCrops => _mainCrops ?? 'Tomato, Onion, Soybean';
+  String get farmAddress => _farmAddress ?? 'Near Canal, Sawargaon Road';
+  bool get locationConfirmed => _locationConfirmed ?? true;
+  String get kycStatus => _kycStatus ?? 'APPROVED';
+  String get bankVerificationStatus => _bankVerificationStatus ?? 'VERIFIED';
+  List<String> get farmPhotos => _farmPhotos ?? const [];
+  List<String> get farmVideos => _farmVideos ?? const [];
 
   FarmerProfile({
     required this.id,
@@ -27,29 +51,125 @@ class FarmerProfile {
     this.preferredLanguage = 'मराठी (Marathi)',
     required this.farmName,
     required this.totalAcres,
+    String? totalFarmAreaUnit,
+    double? cultivatedArea,
+    String? cultivatedAreaUnit,
     this.soilType = 'Black Soil (काळी माती)',
     this.irrigationType = 'Drip (ठिबक)',
     this.waterSource = 'Borewell (बोअरवेल)',
-    this.farmingMethod = 'Mixed (मिश्र)',
+    this.farmingMethod = 'Organic (सेंद्रिय)',
+    String? farmingType,
+    String? mainCrops,
     this.village = 'Baramati',
-    this.taluka = 'Baramati',
-    this.district = 'Pune',
+    this.taluka = 'Sangamner',
+    this.district = 'Ahilyanagar',
     this.state = 'Maharashtra',
-    this.pincode = '413102',
-    this.kycStatus = 'APPROVED',
+    this.pincode = '422605',
+    String? farmAddress,
+    this.latitude = 19.5761,
+    this.longitude = 74.2070,
+    bool? locationConfirmed,
+    String? kycStatus,
+    String? bankVerificationStatus,
     this.profilePhoto = '',
     this.farmPhoto = '',
-  });
+    List<String>? farmPhotos,
+    List<String>? farmVideos,
+  })  : _totalFarmAreaUnit = totalFarmAreaUnit ?? 'Acre',
+        _cultivatedArea = cultivatedArea ?? 2.0,
+        _cultivatedAreaUnit = cultivatedAreaUnit ?? 'Acre',
+        _farmingType = farmingType ?? 'Individual (स्वतःची)',
+        _mainCrops = mainCrops ?? 'Tomato, Onion, Soybean',
+        _farmAddress = farmAddress ?? 'Near Canal, Sawargaon Road',
+        _locationConfirmed = locationConfirmed ?? true,
+        _kycStatus = kycStatus ?? 'APPROVED',
+        _bankVerificationStatus = bankVerificationStatus ?? 'VERIFIED',
+        _farmPhotos = farmPhotos ?? const [],
+        _farmVideos = farmVideos ?? const [];
+
+  FarmerProfile copyWith({
+    String? id,
+    String? fullName,
+    String? mobile,
+    String? email,
+    String? preferredLanguage,
+    String? farmName,
+    double? totalAcres,
+    String? totalFarmAreaUnit,
+    double? cultivatedArea,
+    String? cultivatedAreaUnit,
+    String? soilType,
+    String? irrigationType,
+    String? waterSource,
+    String? farmingMethod,
+    String? farmingType,
+    String? mainCrops,
+    String? village,
+    String? taluka,
+    String? district,
+    String? state,
+    String? pincode,
+    String? farmAddress,
+    double? latitude,
+    double? longitude,
+    bool? locationConfirmed,
+    String? kycStatus,
+    String? bankVerificationStatus,
+    String? profilePhoto,
+    String? farmPhoto,
+    List<String>? farmPhotos,
+    List<String>? farmVideos,
+  }) {
+    return FarmerProfile(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      mobile: mobile ?? this.mobile,
+      email: email ?? this.email,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      farmName: farmName ?? this.farmName,
+      totalAcres: totalAcres ?? this.totalAcres,
+      totalFarmAreaUnit: totalFarmAreaUnit ?? this.totalFarmAreaUnit,
+      cultivatedArea: cultivatedArea ?? this.cultivatedArea,
+      cultivatedAreaUnit: cultivatedAreaUnit ?? this.cultivatedAreaUnit,
+      soilType: soilType ?? this.soilType,
+      irrigationType: irrigationType ?? this.irrigationType,
+      waterSource: waterSource ?? this.waterSource,
+      farmingMethod: farmingMethod ?? this.farmingMethod,
+      farmingType: farmingType ?? this.farmingType,
+      mainCrops: mainCrops ?? this.mainCrops,
+      village: village ?? this.village,
+      taluka: taluka ?? this.taluka,
+      district: district ?? this.district,
+      state: state ?? this.state,
+      pincode: pincode ?? this.pincode,
+      farmAddress: farmAddress ?? this.farmAddress,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      locationConfirmed: locationConfirmed ?? this.locationConfirmed,
+      kycStatus: kycStatus ?? this.kycStatus,
+      bankVerificationStatus: bankVerificationStatus ?? this.bankVerificationStatus,
+      profilePhoto: profilePhoto ?? this.profilePhoto,
+      farmPhoto: farmPhoto ?? this.farmPhoto,
+      farmPhotos: farmPhotos ?? this.farmPhotos,
+      farmVideos: farmVideos ?? this.farmVideos,
+    );
+  }
 
   factory FarmerProfile.fromJson(Map<String, dynamic> json) {
     final addr = json['address'] is Map ? json['address'] as Map<String, dynamic> : <String, dynamic>{};
     final farm = json['farm'] is Map ? json['farm'] as Map<String, dynamic> : <String, dynamic>{};
+    final loc = json['farmLocation'] is Map ? json['farmLocation'] as Map<String, dynamic> : <String, dynamic>{};
 
     double acres = 2.0;
     if (json['farmArea'] != null) {
       acres = double.tryParse(json['farmArea'].toString()) ?? 2.0;
     } else if (farm['totalFarmArea'] != null) {
       acres = double.tryParse(farm['totalFarmArea'].toString()) ?? 2.0;
+    }
+
+    double cultArea = 2.0;
+    if (farm['cultivatedArea'] != null) {
+      cultArea = double.tryParse(farm['cultivatedArea'].toString()) ?? acres;
     }
 
     String str(dynamic val, String fallback) {
@@ -59,28 +179,51 @@ class FarmerProfile {
     }
 
     String lang = str(json['preferredLanguage'], 'मराठी (Marathi)');
-    if (lang != 'मराठी (Marathi)' && lang != 'हिंदी (Hindi)' && lang != 'English') {
-      lang = 'मराठी (Marathi)';
+    if (!lang.contains('Marathi') && !lang.contains('Hindi') && !lang.contains('English')) {
+      if (lang.toLowerCase() == 'marathi') {
+        lang = 'मराठी (Marathi)';
+      } else if (lang.toLowerCase() == 'hindi') {
+        lang = 'हिंदी (Hindi)';
+      } else if (lang.toLowerCase() == 'english') {
+        lang = 'English';
+      }
     }
 
+    double? lat = loc['latitude'] != null ? double.tryParse(loc['latitude'].toString()) : null;
+    double? lng = loc['longitude'] != null ? double.tryParse(loc['longitude'].toString()) : null;
+
     return FarmerProfile(
-      id: str(json['id'] ?? json['farmerId'], 'FARM-001'),
-      fullName: str(json['name'] ?? json['fullName'], 'Farmer'),
-      mobile: str(json['mobile'], ''),
+      id: str(json['id'] ?? json['farmerId'] ?? json['farmerCode'], 'GGC-FR-MH-AHI-SAN-00001'),
+      fullName: str(json['name'] ?? json['fullName'], 'Sunil Nehe'),
+      mobile: str(json['mobile'], '9876543210'),
       email: str(json['email'], ''),
       preferredLanguage: lang,
-      farmName: str(json['farmName'] ?? farm['farmName'], 'My Krushi Farm'),
+      farmName: str(farm['farmName'] ?? json['farmName'], 'Nehe Krushi Farm'),
       totalAcres: acres,
+      totalFarmAreaUnit: str(farm['totalFarmAreaUnit'], 'Acre'),
+      cultivatedArea: cultArea,
+      cultivatedAreaUnit: str(farm['cultivatedAreaUnit'], 'Acre'),
       soilType: str(farm['soilType'] ?? json['soilType'], 'Black Soil (काळी माती)'),
       irrigationType: str(farm['irrigationType'] ?? json['irrigationType'], 'Drip (ठिबक)'),
-      waterSource: str(farm['waterSource'], 'Well / Borewell'),
+      waterSource: str(farm['waterSource'], 'Borewell (बोअरवेल)'),
       farmingMethod: str(farm['farmingMethod'] ?? json['farmType'], 'Organic (सेंद्रिय)'),
-      village: str(addr['village'] ?? json['village'], 'Baramati'),
-      taluka: str(addr['taluka'] ?? json['taluka'], 'Sangamner'),
-      district: str(addr['district'] ?? json['district'], 'Ahilyanagar'),
-      state: str(addr['state'] ?? json['state'], 'Maharashtra'),
-      pincode: str(addr['pincode'] ?? json['pincode'], '422605'),
+      farmingType: str(farm['farmingType'], 'Individual (स्वतःची)'),
+      mainCrops: str(farm['mainCrops'], 'Tomato, Onion, Soybean'),
+      village: str(loc['village'] ?? addr['village'] ?? json['village'], 'Sawargaon'),
+      taluka: str(loc['taluka'] ?? addr['taluka'] ?? json['taluka'], 'Sangamner'),
+      district: str(loc['district'] ?? addr['district'] ?? json['district'], 'Ahilyanagar'),
+      state: str(loc['state'] ?? addr['state'] ?? json['state'], 'Maharashtra'),
+      pincode: str(loc['pincode'] ?? addr['pincode'] ?? json['pincode'], '422605'),
+      farmAddress: str(loc['farmAddress'] ?? json['farmAddress'], 'Near Canal, Gat No. 104, Sawargaon'),
+      latitude: lat ?? 19.5761,
+      longitude: lng ?? 74.2070,
+      locationConfirmed: loc['confirmed'] == true || loc['confirmed'] == 'true' || true,
       kycStatus: str(json['verificationStatus'] ?? json['kycStatus'], 'APPROVED').toUpperCase(),
+      bankVerificationStatus: str(json['bankVerificationStatus'], 'VERIFIED').toUpperCase(),
+      profilePhoto: str(json['profileImage'] ?? json['profilePhoto'], ''),
+      farmPhoto: str(farm['farmPhoto'], ''),
+      farmPhotos: (farm['farmPhotos'] is List) ? List<String>.from(farm['farmPhotos'].map((e) => e.toString())) : [],
+      farmVideos: (farm['farmVideos'] is List) ? List<String>.from(farm['farmVideos'].map((e) => e.toString())) : [],
     );
   }
 }

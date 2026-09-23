@@ -14,9 +14,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _mobileController = TextEditingController(text: '9822345678');
-  final _passwordController = TextEditingController(text: '123456');
+  final _mobileController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -90,14 +91,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _demoLogin() {
-    FarmerState().login();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShell()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,26 +126,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _mobileController,
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.text),
                   decoration: InputDecoration(
                     prefixText: '+91 ',
+                    hintText: 'मोबाईल क्रमांक प्रविष्ट करा',
+                    hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), fontWeight: FontWeight.normal),
+                    prefixStyle: const TextStyle(fontSize: 13, color: AppColors.text, fontWeight: FontWeight.w500),
+                    counterText: '',
                     filled: true,
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
 
                 const Text('Password (पासवर्ड)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
+                  style: const TextStyle(fontSize: 13.5, color: AppColors.text),
                   decoration: InputDecoration(
+                    hintText: 'पासवर्ड प्रविष्ट करा',
+                    hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), fontWeight: FontWeight.normal),
                     filled: true,
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey.shade600,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -182,43 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text(
                       'New Farmer? Register here (नवीन शेतकरी नोंदणी)',
                       style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                Center(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.grey.shade400),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: _demoLogin,
-                    icon: const Icon(Icons.arrow_forward, size: 14, color: AppColors.muted),
-                    label: const Text('ऑफलाइन / डेमो मोड (Demo Mode)', style: TextStyle(fontSize: 12, color: AppColors.muted)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_done, size: 12, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Backend: ${ApiService().baseUrl.replaceAll("https://", "").replaceAll("http://", "")}',
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
-                        ),
-                      ],
                     ),
                   ),
                 ),
