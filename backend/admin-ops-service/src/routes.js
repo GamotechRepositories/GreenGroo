@@ -124,6 +124,14 @@ import {
   updateRolePolicy,
   deleteRolePolicy,
 } from "./policyControllers.js";
+import {
+  listGovtSchemes,
+  listLiveGovtSchemes,
+  getGovtScheme,
+  createGovtScheme,
+  updateGovtScheme,
+  deleteGovtScheme,
+} from "./govtSchemeControllers.js";
 
 const router = express.Router();
 
@@ -136,6 +144,7 @@ router.get("/hr/leaves/mine", protect, listMyHrLeaves);
 router.get("/hr/vacancies/open", listOpenHrVacancies);
 router.post("/hr/candidates/apply", applyHrCandidate);
 router.get("/policies/live", optionalAuth, listLiveRolePolicies);
+router.get("/govt-schemes/live", optionalAuth, listLiveGovtSchemes);
 
 router.use(protect, requireAdmin);
 
@@ -143,6 +152,12 @@ router.get("/gift-cards", listGiftCards);
 router.post("/gift-cards", createGiftCard);
 router.put("/gift-cards/:id", updateGiftCard);
 router.delete("/gift-cards/:id", deleteGiftCard);
+
+router.get("/govt-schemes", listGovtSchemes);
+router.get("/govt-schemes/:id", getGovtScheme);
+router.post("/govt-schemes", createGovtScheme);
+router.put("/govt-schemes/:id", updateGovtScheme);
+router.delete("/govt-schemes/:id", deleteGovtScheme);
 
 router.get("/policies/roles", listPolicyRoles);
 router.get("/policies", listRolePolicies);

@@ -511,4 +511,33 @@ export const RolePolicy =
   mongoose.models.AdminRolePolicy || mongoose.model("AdminRolePolicy", rolePolicySchema);
 export { POLICY_ROLE_KEYS };
 
+const governmentSchemeSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    shortName: { type: String, default: "", trim: true },
+    description: { type: String, default: "", trim: true },
+    category: { type: String, default: "Financial Benefit", trim: true, index: true },
+    govtLevel: { type: String, default: "Central", trim: true },
+    status: {
+      type: String,
+      enum: ["active", "closing_soon", "upcoming", "closed"],
+      default: "active",
+      index: true,
+    },
+    subsidyAmount: { type: String, default: "", trim: true },
+    maxBenefit: { type: String, default: "", trim: true },
+    deadline: { type: String, default: "", trim: true },
+    image: { type: String, default: "", trim: true },
+    applyUrl: { type: String, default: "", trim: true },
+    eligibility: { type: String, default: "", trim: true },
+    documents: { type: String, default: "", trim: true },
+    isActive: { type: Boolean, default: true, index: true },
+  },
+  { timestamps: true }
+);
+
+export const GovernmentScheme =
+  mongoose.models.AdminGovernmentScheme ||
+  mongoose.model("AdminGovernmentScheme", governmentSchemeSchema);
+
 export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };

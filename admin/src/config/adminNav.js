@@ -36,6 +36,7 @@ import {
   Wallet,
   UserPlus,
   Clock3,
+  PlusCircle,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -322,6 +323,27 @@ export const NAV_GROUPS = [
           'Publish so the matching role panel / site shows them instantly',
           'Keep drafts hidden until ready',
         ],
+      },
+    ],
+  },
+  {
+    id: 'government',
+    label: 'Government',
+    items: [
+      {
+        name: 'All Govt Schemes',
+        href: '/government/schemes',
+        icon: Landmark,
+        end: true,
+        implemented: true,
+        description: 'Browse and manage all government agricultural schemes.',
+      },
+      {
+        name: 'Create Govt Schemes',
+        href: '/government/schemes/create',
+        icon: PlusCircle,
+        implemented: true,
+        description: 'Add a new government scheme for farmers.',
       },
     ],
   },

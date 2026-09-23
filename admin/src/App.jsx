@@ -58,6 +58,8 @@ import {
   AssetsRolesPage,
   AssetsListPage,
 } from './pages/ops/AssetsManagementPage';
+import AllGovtSchemesPage from './pages/government/AllGovtSchemesPage';
+import CreateGovtSchemePage from './pages/government/CreateGovtSchemePage';
 
 export default function App() {
   return (
@@ -127,6 +129,9 @@ export default function App() {
               <Route path="refund-warranty" element={<RefundWarrantyTypePage />} />
               <Route path="refund-warranty/:accountType" element={<RefundWarrantyListPage />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="government/schemes" element={<AllGovtSchemesPage />} />
+              <Route path="government/schemes/create" element={<CreateGovtSchemePage />} />
+              <Route path="government/schemes/:id/edit" element={<CreateGovtSchemePage />} />
               <Route path="sections" element={<Navigate to="/categories" replace />} />
             </Route>
 
