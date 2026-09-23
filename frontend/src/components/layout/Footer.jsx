@@ -15,6 +15,7 @@ const essentialLinks = [
 ];
 
 const legalLinks = [
+  { to: "/policies", label: "Policies" },
   { to: "/privacy-policy", label: "Privacy Policy" },
   { to: "/terms-and-conditions", label: "Terms & Conditions" },
   { to: "/shipping-details", label: "Shipping Details" },

@@ -33,6 +33,7 @@ import adminDarkStoreRoutes from "./delivery-service/src/routes/adminDarkStoreRo
 import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes.js";
 import adminOpsRoutes from "./admin-ops-service/src/routes.js";
 import { seedDefaultPricingRule } from "./admin-ops-service/src/pricingAttach.js";
+import { seedDefaultRolePoliciesIfEmpty } from "./admin-ops-service/src/policyControllers.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -132,6 +133,7 @@ connectDB("server").then(async () => {
   await seedDefaultCouponsIfEmpty();
   await seedDefaultRewardSettingsIfEmpty();
   await seedDefaultPricingRule();
+  await seedDefaultRolePoliciesIfEmpty();
   initIncentiveCron();
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();

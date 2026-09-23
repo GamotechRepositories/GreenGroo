@@ -30,7 +30,6 @@ function CategoryPills() {
         emoji: c.emoji,
         bg: c.bg,
         bgClass: c.bgClass,
-        subcategories: c.subcategories,
       }));
     }
 

@@ -29,29 +29,13 @@ function ProductMegaMenu({ categories, onNavigate }) {
                 {category.categoryName}
               </Link>
 
-              {category.subcategories?.length > 0 ? (
-                <ul className="space-y-2">
-                  {category.subcategories.map((sub) => (
-                    <li key={sub}>
-                      <Link
-                        to={buildProductLink(category.categoryName, sub)}
-                        onClick={onNavigate}
-                        className="text-sm text-gray-700 hover:text-accent transition leading-snug"
-                      >
-                        {sub}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <Link
-                  to={buildProductLink(category.categoryName)}
-                  onClick={onNavigate}
-                  className="text-sm text-gray-600 hover:text-accent transition"
-                >
-                  View all
-                </Link>
-              )}
+              <Link
+                to={buildProductLink(category.categoryName)}
+                onClick={onNavigate}
+                className="text-sm text-gray-600 hover:text-accent transition"
+              >
+                View all
+              </Link>
             </div>
           ))}
         </div>

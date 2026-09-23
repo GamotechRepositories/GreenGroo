@@ -31,6 +31,7 @@ import ManagerEarningsPage from "../pages/manager/ManagerEarningsPage";
 import ManagerEarningReportPage from "../pages/manager/ManagerEarningReportPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerLeavePage from "../pages/manager/ManagerLeavePage";
+import ManagerPoliciesPage from "../pages/manager/ManagerPoliciesPage";
 import ManagerFarmerOrdersSpreadsheetPage from "../pages/manager/ManagerFarmerOrdersSpreadsheetPage";
 import ManagerPickupsPage from "../pages/manager/ManagerPickupsPage";
 import ManagerDriversPage from "../pages/manager/ManagerDriversPage";
@@ -108,6 +109,7 @@ function ManagerRoutes() {
           <Route path="quality/completed" element={<ManagerQualityListPage mode="completed" />} />
           <Route path="quality/:orderId" element={<ManagerQualityInspectionPage />} />
           <Route path="documents" element={<ManagerDocumentsPage />} />
+          <Route path="policies" element={<ManagerPoliciesPage />} />
           <Route path="leave" element={<ManagerLeavePage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="scan/:code" element={<OrderScanPage />} />

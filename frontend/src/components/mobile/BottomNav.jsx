@@ -32,15 +32,15 @@ export function BottomNav() {
   let accountUrl = "/profile";
 
   if (activeStore === "festive") {
-    activeColor = "text-orange-600";
-    activeBg = "bg-orange-600/15";
+    activeColor = "text-amber-700";
+    activeBg = "bg-amber-500/15";
     homeUrl = "/?store=festive";
     orderUrl = "/orders?store=festive";
     categoriesUrl = "/categories?store=festive";
     shopUrl = "/product?store=festive";
   } else if (activeStore === "mall") {
-    activeColor = "text-indigo-600";
-    activeBg = "bg-indigo-600/15";
+    activeColor = "text-blue-600";
+    activeBg = "bg-blue-600/15";
     homeUrl = "/?store=mall";
     orderUrl = "/orders?store=mall";
     categoriesUrl = "/categories?store=mall";

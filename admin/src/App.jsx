@@ -17,6 +17,7 @@ import Coupons from './pages/Coupons';
 import RewardPoints from './pages/RewardPoints';
 import Login from './pages/Login';
 import GiftCards from './pages/ops/GiftCards';
+import PolicyManagement from './pages/ops/PolicyManagement';
 import DynamicPricing from './pages/ops/DynamicPricing';
 import BulkImportExport from './pages/ops/BulkImportExport';
 import CsvImportExport from './pages/ops/CsvImportExport';
@@ -82,6 +83,8 @@ export default function App() {
               <Route path="coupons" element={<Coupons />} />
               <Route path="rewards" element={<RewardPoints />} />
               <Route path="gift-cards" element={<GiftCards />} />
+              <Route path="policy-management" element={<PolicyManagement />} />
+              <Route path="policy-management/:roleKey" element={<PolicyManagement />} />
               <Route path="dynamic-pricing" element={<DynamicPricing />} />
               <Route path="bulk-import-export" element={<BulkImportExport />} />
               <Route path="csv-import-export" element={<CsvImportExport />} />
@@ -119,6 +122,7 @@ export default function App() {
                 element={<AssetsListPage />}
               />
               <Route path="store-support" element={<StoreSupport />} />
+              <Route path="store-support/:roleKey" element={<StoreSupport />} />
               <Route path="finance" element={<FinanceManagement />} />
               <Route path="refund-warranty" element={<RefundWarrantyTypePage />} />
               <Route path="refund-warranty/:accountType" element={<RefundWarrantyListPage />} />

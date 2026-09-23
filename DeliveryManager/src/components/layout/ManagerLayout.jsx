@@ -33,6 +33,8 @@ const navItems = [
   { to: "/drivers", label: "Approved Drivers", icon: "truck", end: true },
   { to: "/drivers/pending", label: "Driver Verification", icon: "user" },
   { to: "/alerts", label: "Operational Alerts", icon: "bell" },
+  { to: "/policies", label: "Policies", icon: "clipboard" },
+  { to: "/support", label: "Support", icon: "support" },
   { to: "/leave", label: "Apply Leave", icon: "calendar" },
 ];
 

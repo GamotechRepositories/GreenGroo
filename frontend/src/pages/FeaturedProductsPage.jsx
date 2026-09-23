@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCategories, getProducts } from "../api/api";
+import { getProducts } from "../api/api";
 import { useProductCartActions } from "../hooks/useProductCartActions";
 import { useDeliveryLocationKey } from "../context/LocationContext";
 import {
-  DesktopCategorySidebar,
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
 
@@ -65,7 +64,6 @@ function FeaturedProductsPage({
   emptyMessage,
   backTo = "/",
 }) {
-  const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("newest");
@@ -83,15 +81,9 @@ function FeaturedProductsPage({
             ? { justArrived: true }
             : { hotSelling: true };
 
-        const [categoriesRes, productsRes] = await Promise.all([
-          getCategories(),
-          getProducts(fetchParams),
-        ]);
-
-        setCategories(categoriesRes.data.data || []);
+        const productsRes = await getProducts(fetchParams);
         setProducts(productsRes?.data?.data || []);
       } catch {
-        setCategories([]);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -160,9 +152,8 @@ function FeaturedProductsPage({
       </div>
 
       <div className="hidden lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col">
-        <div className="mx-auto grid h-full min-h-0 w-full max-w-[1600px] grid-cols-[240px_1fr] bg-mobile-bg xl:grid-cols-[260px_1fr]">
-          <DesktopCategorySidebar categories={categories} activeCategory="" />
-          <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto border-l border-border-light bg-white px-3 py-4 lg:px-6 lg:py-5">
+        <div className="mx-auto w-full max-w-[1600px] bg-white">
+          <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto bg-white px-3 py-4 lg:px-6 lg:py-5">
             <h1 className="mb-4 text-xl font-bold text-text-primary">{title}</h1>
             <ProductResultsGrid
               products={sortedProducts}

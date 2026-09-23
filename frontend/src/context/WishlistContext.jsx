@@ -27,6 +27,8 @@ const TOAST_DURATION_MS = 2600;
 
 const toProductId = (value) => String(value ?? "");
 
+const isMongoProductId = (value) => /^[a-f\d]{24}$/i.test(toProductId(value));
+
 const mapWishlistItems = (wishlist) => {
   if (!wishlist?.items?.length) return [];
 
@@ -149,7 +151,14 @@ export function WishlistProvider({ children }) {
     if (!guestItems.length) return;
 
     for (const item of guestItems) {
-      await toggleWishlistItem(toProductId(item._id));
+      const productId = toProductId(item._id);
+      // Skip mock / non-catalog IDs so merge does not 404 the toggle route
+      if (!isMongoProductId(productId)) continue;
+      try {
+        await toggleWishlistItem(productId);
+      } catch {
+        // Skip products that no longer exist on the server
+      }
     }
 
     clearGuestWishlist();
@@ -210,7 +219,7 @@ export function WishlistProvider({ children }) {
   const toggleWishlist = useCallback(
     async (product, options = {}) => {
       const productId = toProductId(product?._id);
-      if (!productId || productId.length < 10) return { success: false };
+      if (!isMongoProductId(productId)) return { success: false };
 
       if (!user) {
         const normalized = mapToggleProduct(product);

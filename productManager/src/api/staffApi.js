@@ -46,6 +46,11 @@ export const staffApi = {
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role } })
       .then((res) => res.data?.data || []),
+  livePolicies: (role) =>
+    api
+      .get("/api/admin-ops/policies/live", { params: { role } })
+      .then((res) => res.data?.data || []),
+  submitSupport: (data) => api.post("/api/support", data).then((res) => res.data),
   liveCalendar: (role) =>
     api
       .get("/api/admin-ops/hr/calendar/live", { params: { role } })

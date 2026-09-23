@@ -11,6 +11,7 @@ import MostViewedProducts from "../components/home/MostViewedProducts";
 import MostVisitedCategoryProducts from "../components/home/MostVisitedCategoryProducts";
 import FestiveStoreSection from "../components/home/FestiveStoreSection";
 import FreshProduceStoreSection from "../components/home/FreshProduceStoreSection";
+import { sectionToStoreKey } from "../components/grocery/HomeMobileHeader";
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
 import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
@@ -21,7 +22,7 @@ import TopPaymentOffersSection from "../components/home/TopPaymentOffersSection"
 function StoreContent() {
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
-  const store = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const store = sectionToStoreKey(searchParams.get("store"));
 
   if (store === "festive" || store === "mall") {
     return <FestiveStoreSection />;
@@ -62,7 +63,7 @@ function StoreContent() {
 
 function Home() {
   const [searchParams] = useSearchParams();
-  const store = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const store = sectionToStoreKey(searchParams.get("store"));
 
   return (
     <div className="bg-white lg:bg-gradient-to-b lg:from-primary-light/30 lg:to-mobile-bg">

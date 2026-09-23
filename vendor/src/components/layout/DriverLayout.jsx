@@ -9,6 +9,7 @@ const NAV = [
   { to: "/driver/progress", label: "In Progress", short: "Progress" },
   { to: "/driver/completed", label: "Completed Pickups", short: "Done" },
   { to: "/driver/history", label: "Pickup History", short: "History" },
+  { to: "/driver/policies", label: "Policies", short: "Policies" },
   { to: "/driver/leave", label: "Apply Leave", short: "Leave" },
 ];
 

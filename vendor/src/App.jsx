@@ -39,6 +39,10 @@ import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsP
 import VendorSearchPage from './pages/search/VendorSearchPage'
 import ApplyLeavePage from './pages/leave/ApplyLeavePage'
 import DriverLeavePage from './pages/drivers/DriverLeavePage'
+import RolePoliciesPage from './pages/policies/PoliciesPage'
+import SupportPage from './pages/policies/SupportPage'
+import { vendorApi } from './api/vendorApi'
+import { driverApi } from './api/driverApi'
 import ManagerInventoryPage from './pages/manager/ManagerInventoryPage'
 import ManagerInventoryHistoryPage from './pages/manager/ManagerInventoryHistoryPage'
 import ManagerOrdersPage from './pages/manager/ManagerOrdersPage'
@@ -67,6 +71,15 @@ function App() {
                 <Route path="/driver/history" element={<DriverDashboardPage mode="history" />} />
                 <Route path="/driver/today" element={<Navigate to="/driver/assigned" replace />} />
                 <Route path="/driver/leave" element={<DriverLeavePage />} />
+                <Route
+                  path="/driver/policies"
+                  element={
+                    <RolePoliciesPage
+                      title="Policies"
+                      loadPolicies={() => driverApi.livePolicies()}
+                    />
+                  }
+                />
                 <Route path="/driver/batches/:batchId" element={<DriverBatchPage />} />
                 <Route path="/driver/pickups/:pickupId" element={<DriverPickupPage />} />
               </Route>
@@ -133,6 +146,16 @@ function App() {
                 <Route path="/vendor/documents" element={<ManagerDocumentsPage />} />
                 <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />
+                <Route
+                  path="/policies"
+                  element={
+                    <RolePoliciesPage
+                      title="Policies"
+                      loadPolicies={() => vendorApi.livePolicies()}
+                    />
+                  }
+                />
+                <Route path="/support" element={<SupportPage />} />
                 <Route path="/settings" element={<PlaceholderPage title="Settings" subtitle="Panel configuration" />} />
                 <Route path="/profile" element={<PlaceholderPage title="My Profile" subtitle="Your account details" />} />
               </Route>

@@ -87,7 +87,6 @@ function Categories() {
         emoji: c.emoji,
         bg: c.bg,
         bgClass: c.bgClass,
-        subcategories: c.subcategories,
         section: c.section,
       }));
     }

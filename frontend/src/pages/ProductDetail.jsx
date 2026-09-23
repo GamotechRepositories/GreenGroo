@@ -134,13 +134,14 @@ function buildImageFilename(productName, imageUrl, imageIndex) {
 
 function getResolvedSpecifications(product) {
   if (Array.isArray(product?.specifications) && product.specifications.length > 0) {
-    return product.specifications.filter((spec) => spec?.name && spec?.value);
+    return product.specifications.filter(
+      (spec) => spec?.name && spec?.value && !/subcategor/i.test(spec.name)
+    );
   }
 
   const fallback = [];
   if (product?.brandName) fallback.push({ name: "Brand", value: product.brandName });
   if (product?.categories?.[0]) fallback.push({ name: "Category", value: product.categories[0] });
-  if (product?.subcategory) fallback.push({ name: "Subcategory", value: product.subcategory });
   if (product?.warranty) fallback.push({ name: "Warranty", value: product.warranty });
   if (Array.isArray(product?.features)) {
     product.features.forEach((feature, index) => {
@@ -1224,17 +1225,16 @@ function ProductDetail() {
       ];
 
   const productType =
-    specifications.find((s) => /type|category/i.test(s.name))?.value ||
-    product.subcategory ||
+    specifications.find((s) => /type|category/i.test(s.name) && !/subcategor/i.test(s.name))?.value ||
     category;
 
   return (
     <div className="min-h-screen bg-white pb-24 text-[#1a1a1a] lg:pb-10">
-      {/* lg:pt accounts for TopNav (72) */}
+      {/* lg sticky offset accounts for sticky upper TopNav bar */}
       <div className="mx-auto w-full max-w-6xl px-0 pt-0 sm:px-5 lg:px-6 lg:pt-6">
         <div className="grid min-w-0 gap-5 lg:grid-cols-2 lg:items-start lg:gap-10">
           {/* Left — sticky product image on desktop */}
-          <div className="min-w-0 lg:sticky lg:top-[88px] lg:self-start">
+          <div className="min-w-0 lg:sticky lg:top-[52px] lg:self-start">
             <div className="relative overflow-hidden rounded-none sm:rounded-2xl bg-white border-b border-slate-100 sm:border-none">
               <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2">
                 <button

@@ -8,7 +8,6 @@ export function useProductListParams(searchParams) {
     const searchQuery = searchParams.get("q")?.trim() || "";
     const brandName = searchParams.get("brandName")?.trim() || "";
     const brand = searchParams.get("brand")?.trim() || "";
-    const subcategory = searchParams.get("subcategory")?.trim() || "";
     const minPrice = searchParams.get("minPrice")?.trim() || "";
     const maxPrice = searchParams.get("maxPrice")?.trim() || "";
     const sort = searchParams.get("sort")?.trim() || "newest";
@@ -17,7 +16,7 @@ export function useProductListParams(searchParams) {
     if (searchQuery) params.q = searchQuery;
     if (brandName) params.brandName = brandName;
     else if (brand) params.brandName = brand;
-    if (subcategory) params.subcategory = subcategory;
+    // subcategory navigation is disabled on the customer site
     if (minPrice) params.minPrice = minPrice;
     if (maxPrice) params.maxPrice = maxPrice;
     if (sort && sort !== "default") params.sort = sort;

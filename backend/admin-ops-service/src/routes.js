@@ -47,6 +47,8 @@ import {
   getDeliveryManagerAdmin,
   getDeliveryBoyAdmin,
   listStoreSupport,
+  listSupportRoles,
+  listSupportUserHistory,
   updateStoreSupport,
 } from "./opsControllers.js";
 import {
@@ -114,6 +116,14 @@ import {
   updateAsset,
   deleteAsset,
 } from "./assetManagementControllers.js";
+import {
+  listLiveRolePolicies,
+  listPolicyRoles,
+  listRolePolicies,
+  createRolePolicy,
+  updateRolePolicy,
+  deleteRolePolicy,
+} from "./policyControllers.js";
 
 const router = express.Router();
 
@@ -125,6 +135,7 @@ router.post("/hr/leaves/apply", protect, applyHrLeave);
 router.get("/hr/leaves/mine", protect, listMyHrLeaves);
 router.get("/hr/vacancies/open", listOpenHrVacancies);
 router.post("/hr/candidates/apply", applyHrCandidate);
+router.get("/policies/live", optionalAuth, listLiveRolePolicies);
 
 router.use(protect, requireAdmin);
 
@@ -132,6 +143,17 @@ router.get("/gift-cards", listGiftCards);
 router.post("/gift-cards", createGiftCard);
 router.put("/gift-cards/:id", updateGiftCard);
 router.delete("/gift-cards/:id", deleteGiftCard);
+
+router.get("/policies/roles", listPolicyRoles);
+router.get("/policies", listRolePolicies);
+router.post("/policies", createRolePolicy);
+router.put("/policies/:id", updateRolePolicy);
+router.delete("/policies/:id", deleteRolePolicy);
+
+router.get("/support/roles", listSupportRoles);
+router.get("/support/history", listSupportUserHistory);
+router.get("/support", listStoreSupport);
+router.patch("/support/:id", updateStoreSupport);
 
 router.get("/pricing", listPricingRules);
 router.post("/pricing", createPricingRule);
@@ -207,9 +229,6 @@ router.get("/delivery/boys/:id", getDeliveryBoyAdmin);
 router.patch("/delivery/orders/:id/assign", assignDeliveryOrder);
 router.patch("/delivery/orders/:id/status", updateDeliveryOrderStatus);
 router.get("/tracking", listDeliveryTracking);
-
-router.get("/support", listStoreSupport);
-router.patch("/support/:id", updateStoreSupport);
 
 router.get("/finance", listFinance);
 router.post("/finance", createFinanceEntry);

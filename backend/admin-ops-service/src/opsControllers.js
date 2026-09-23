@@ -5,7 +5,7 @@ import { ROLE_LABELS, STAFF_ROLES } from "../../staff-service/src/constants/role
 import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.js";
 import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
-import SupportMessage from "../../legacy/models/support/SupportMessage.js";
+import SupportMessage, { SUPPORT_ROLE_KEYS } from "../../legacy/models/support/SupportMessage.js";
 import { FarmerManager, PickupDriver, Vendor } from "../../farmer-manager-service/src/models.js";
 import { createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
@@ -14,6 +14,12 @@ import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
+
+function supportRoleLabel(value) {
+  if (value === "admin") return "Admin";
+  if (value === "customer") return "Users (Frontend)";
+  return ROLE_LABELS[value] || String(value || "").replaceAll("_", " ");
+}
 
 export async function listVendorsAdmin(_req, res, next) {
   try {
@@ -1000,17 +1006,119 @@ export async function getDeliveryBoyAdmin(req, res, next) {
   }
 }
 
+export async function listSupportRoles(req, res, next) {
+  try {
+    // Treat legacy tickets (no roleKey) as customer
+    await SupportMessage.updateMany(
+      { $or: [{ roleKey: { $exists: false } }, { roleKey: null }, { roleKey: "" }] },
+      { $set: { roleKey: "customer" } }
+    );
+
+    const grouped = await SupportMessage.aggregate([
+      { $match: { roleKey: { $in: SUPPORT_ROLE_KEYS } } },
+      {
+        $group: {
+          _id: "$roleKey",
+          total: { $sum: 1 },
+          open: { $sum: { $cond: [{ $eq: ["$status", "open"] }, 1, 0] } },
+          resolved: { $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] } },
+          updatedAt: { $max: "$updatedAt" },
+        },
+      },
+    ]);
+
+    const byRole = Object.fromEntries(grouped.map((g) => [g._id, g]));
+    const data = SUPPORT_ROLE_KEYS.map((roleKey) => {
+      const stats = byRole[roleKey] || {};
+      return {
+        roleKey,
+        label: supportRoleLabel(roleKey),
+        total: stats.total || 0,
+        open: stats.open || 0,
+        resolved: stats.resolved || 0,
+        updatedAt: stats.updatedAt || null,
+      };
+    });
+
+    return ok(res, data, { count: data.length });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listStoreSupport(req, res, next) {
   try {
+    // Roles overview via existing /support path (avoids stale-route 404s)
+    if (String(req.query.overview || "").trim().toLowerCase() === "roles") {
+      return listSupportRoles(req, res, next);
+    }
+
     const filter = {};
-    if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
+    const status = String(req.query.status || "all").trim().toLowerCase();
+    const roleRaw = String(req.query.roleKey || req.query.role || "all").trim().toLowerCase();
+
+    if (status && status !== "all") {
+      if (!["open", "resolved"].includes(status)) return fail(res, 400, "Invalid status");
+      filter.status = status;
+    }
+
+    let roleMeta = null;
+    if (roleRaw && roleRaw !== "all") {
+      const roleKey = SUPPORT_ROLE_KEYS.includes(roleRaw) ? roleRaw : null;
+      if (!roleKey) return fail(res, 400, "Invalid role");
+      filter.roleKey = roleKey;
+      roleMeta = { roleKey, label: supportRoleLabel(roleKey) };
+    }
+
     const tickets = await SupportMessage.find(filter).sort({ createdAt: -1 }).limit(200).lean();
     return ok(res, tickets, {
+      role: roleMeta,
       stats: {
         total: tickets.length,
         open: tickets.filter((t) => t.status === "open").length,
         resolved: tickets.filter((t) => t.status === "resolved").length,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listSupportUserHistory(req, res, next) {
+  try {
+    const email = String(req.query.email || "").trim().toLowerCase();
+    const phone = String(req.query.phone || "").trim().replace(/\D/g, "");
+    const userId = String(req.query.userId || req.query.user || "").trim();
+    const excludeId = String(req.query.excludeId || "").trim();
+
+    const or = [];
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      or.push({ user: new mongoose.Types.ObjectId(userId) });
+    }
+    if (email) or.push({ email });
+    if (phone.length >= 10) {
+      const last10 = phone.slice(-10);
+      or.push({ phone: { $regex: `${last10}$` } });
+    }
+
+    if (!or.length) {
+      return fail(res, 400, "Provide email, phone, or userId to load history");
+    }
+
+    const filter = { $or: or };
+    if (excludeId && mongoose.Types.ObjectId.isValid(excludeId)) {
+      filter._id = { $ne: new mongoose.Types.ObjectId(excludeId) };
+    }
+
+    const tickets = await SupportMessage.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return ok(res, tickets, {
+      count: tickets.length,
+      open: tickets.filter((t) => t.status === "open").length,
+      resolved: tickets.filter((t) => t.status === "resolved").length,
     });
   } catch (error) {
     next(error);

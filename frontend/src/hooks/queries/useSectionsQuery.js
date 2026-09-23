@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getSections } from "../../api/api";
 import { queryKeys } from "./queryKeys";
 
+/** Offline / error fallback — mirrors seeded admin defaults */
 export const DEFAULT_FALLBACK_SECTIONS = [
   {
-    sectionName: "GreenGrocc",
-    slug: "greengrocc",
+    sectionName: "PreOrder",
+    slug: "preorder",
     storeType: "main",
     description: "Fresh Farm Produce, Fruits, Daily Veggies & Essentials",
     emoji: "🥦",
@@ -21,16 +22,16 @@ export const DEFAULT_FALLBACK_SECTIONS = [
     description: "Pre-cut, peeled & sliced vegetables & meal kits for 10-min cooking",
     emoji: "🍳",
     badge: "Fast Cooking",
-    color: "#EA580C",
+    color: "#EAB308",
     order: 2,
     isActive: true,
   },
   {
-    sectionName: "SuperMall",
-    slug: "supermall",
+    sectionName: "InstantOrder",
+    slug: "instantorder",
     storeType: "mall",
     description: "Top brand groceries, dry fruits, snacks & packaged foods",
-    emoji: "🏬",
+    emoji: "⚡",
     badge: "Mega Deals",
     color: "#2563EB",
     order: 3,
@@ -52,16 +53,26 @@ export function useSectionsQuery(paramsOrOptions = {}, maybeOptions = {}) {
     queryFn: async () => {
       try {
         const { data } = await getSections(params);
-        if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
-          return data.data;
+        const list = data?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          return list
+            .filter((sec) => sec.isActive !== false)
+            .map((sec) => ({
+              ...sec,
+              sectionName: String(sec.sectionName || "").trim(),
+              slug: String(sec.slug || "").trim().toLowerCase(),
+            }))
+            .filter((sec) => sec.sectionName && sec.slug)
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         }
+        console.warn("[sections] Empty API payload — using fallback names");
         return DEFAULT_FALLBACK_SECTIONS;
       } catch (err) {
-        console.warn("Failed to fetch sections, using fallback:", err.message);
+        console.warn("[sections] Fetch failed — using fallback names:", err.message);
         return DEFAULT_FALLBACK_SECTIONS;
       }
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
     placeholderData: DEFAULT_FALLBACK_SECTIONS,
     ...options,
   });

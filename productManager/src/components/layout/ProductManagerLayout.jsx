@@ -9,6 +9,8 @@ import RoleAnnouncements from "../RoleAnnouncements";
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
   { to: "/inventory-requests", label: "Inventory Requests", icon: "box" },
+  { to: "/policies", label: "Policies", icon: "box" },
+  { to: "/support", label: "Support", icon: "box" },
   { to: "/leave", label: "Apply Leave", icon: "calendar" },
 ];
 

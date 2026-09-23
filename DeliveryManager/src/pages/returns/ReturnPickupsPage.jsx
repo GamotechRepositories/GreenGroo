@@ -27,11 +27,14 @@ export default function ReturnPickupsPage() {
         managerApi.returnPickups(),
         managerApi.riders(),
       ]);
-      setRows(pickups.data || []);
-      setRiders(ridersRes.data?.riders || ridersRes.data || []);
+      const list = pickups.data?.data;
+      setRows(Array.isArray(list) ? list : []);
+      const riderList = ridersRes.data?.riders ?? ridersRes.data?.data?.riders ?? ridersRes.data?.data;
+      setRiders(Array.isArray(riderList) ? riderList : []);
       setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load return pickups");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -69,7 +72,7 @@ export default function ReturnPickupsPage() {
     setBusyId(id);
     try {
       const res = await managerApi.getReturnPickupQr(id);
-      setQrModal(res.data || null);
+      setQrModal(res.data?.data || null);
     } catch (err) {
       setError(err.response?.data?.message || "Could not load QR");
     } finally {

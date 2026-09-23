@@ -134,9 +134,13 @@ export const signup = async (req, res) => {
 
     const existingPhoneUser = await Model.findOne({ phone });
     if (existingPhoneUser) {
+      const isAdmin = existingPhoneUser.role === "admin";
       return res.status(409).json({
         success: false,
-        message: "An account with this phone number already exists. Please sign in instead.",
+        message: isAdmin
+          ? "This phone number is reserved for an admin account. Please use a different number to sign up."
+          : "An account with this phone number already exists. Please sign in instead.",
+        code: isAdmin ? "PHONE_TAKEN_ADMIN" : "PHONE_TAKEN",
       });
     }
 

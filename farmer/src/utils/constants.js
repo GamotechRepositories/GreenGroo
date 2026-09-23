@@ -300,6 +300,7 @@ export const SIDEBAR_ITEMS = [
   },
   { to: "/farmer/earnings", label: "Earning", icon: "earnings" },
   { to: "/farmer/documents", label: "Document", icon: "documents" },
+  { to: "/farmer/policies", label: "Policies", icon: "documents" },
   {
     id: "profile",
     label: "Profile",

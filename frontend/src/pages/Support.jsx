@@ -235,6 +235,7 @@ function Support() {
       setSubmitting(true);
       const { data } = await submitSupportMessage({
         ...form,
+        roleKey: "customer",
         attachment: attachment?.url || "",
         attachmentName: attachment?.name || "",
       });

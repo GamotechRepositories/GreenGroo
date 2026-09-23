@@ -5,14 +5,13 @@ import QuickCommerceProductCard from "../product/QuickCommerceProductCard";
 import { useProductCartActions } from "../../hooks/useProductCartActions";
 import SectionHeader from "../mobile/SectionHeader";
 import TwoRowHorizontalProducts from "../grocery/TwoRowHorizontalProducts";
-import HomeSlidingBanners from "./HomeSlidingBanners";
-import FestiveSaleGridSection from "./FestiveSaleGridSection";
 import ZeptoFestiveHeroSection from "./ZeptoFestiveHeroSection";
 import SuggestedForYouSection from "./SuggestedForYouSection";
 import TopPaymentOffersSection from "./TopPaymentOffersSection";
 import Ready2CookHotPickBanners from "./Ready2CookHotPickBanners";
 import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 import { SUPERMALL_PRODUCTS } from "../../sections/SuperMall/data/products";
+import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
 
 export const READY2COOK_SHOP_CATEGORIES = [
   {
@@ -266,7 +265,7 @@ function FestiveStoreSection() {
 
   const categoryFromUrl = searchParams.get("categoryName")?.trim() || "";
   const currentFilter = categoryFromUrl || "All";
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
 
   const buildProductCategoryUrl = (catName) => {
     const params = new URLSearchParams();
@@ -300,6 +299,7 @@ function FestiveStoreSection() {
   }, [dbCategories, currentStore]);
 
   const productPool = currentStore === "mall" ? SUPERMALL_PRODUCTS : READY2COOK_PRODUCTS;
+  const isInstant = currentStore === "mall";
 
   const filteredProducts =
     currentFilter === "All" || !currentFilter
@@ -319,67 +319,94 @@ function FestiveStoreSection() {
   });
 
   return (
-    <div className="space-y-1.5 pt-0 pb-1">
-      {/* Zepto Festive Freedom Sale Banner Structure (Matching Photos 1 & 2) */}
+    <div className="space-y-2 pb-2 pt-0">
       <ZeptoFestiveHeroSection />
 
-      {/* Ready2Cook 2 Hot Pick Banners Section (Matching User Reference Photo) */}
+      {/* Store intro strip */}
+      <section className="px-4 pt-2 sm:px-6 lg:px-6">
+        <div
+          className={`relative overflow-hidden rounded-2xl px-4 py-3.5 sm:rounded-[1.35rem] sm:px-5 sm:py-4 ${
+            isInstant
+              ? "bg-[linear-gradient(120deg,#1E3A8A_0%,#2563EB_55%,#60A5FA_100%)] text-white"
+              : "bg-[linear-gradient(120deg,#713F12_0%,#CA8A04_50%,#EAB308_100%)] text-white"
+          }`}
+        >
+          <div className="pointer-events-none absolute -right-2 top-1/2 -translate-y-1/2 text-6xl opacity-20 sm:text-7xl">
+            {isInstant ? "⚡" : "🍳"}
+          </div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">
+            {isInstant ? "Instant delivery" : "Kitchen-ready"}
+          </p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">
+            {isInstant ? "Get essentials in minutes" : "Chopped. Cleaned. Cook-ready."}
+          </h2>
+          <p className="mt-1 max-w-[85%] text-xs font-medium text-white/85 sm:text-sm">
+            {isInstant
+              ? "Snacks, pantry staples & daily needs — delivered instantly."
+              : "Skip the prep. Fresh cut veggies & meal mixes for faster cooking."}
+          </p>
+        </div>
+      </section>
+
       <Ready2CookHotPickBanners />
 
-      {/* Shop by Category Section */}
-      <section className="px-4 sm:px-6 py-3">
-        <div className="mb-4 flex items-center justify-between">
+      {/* Shop by Category */}
+      <section className="px-4 py-3 sm:px-6">
+        <div className="mb-3.5 flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
+            <h2 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">
               Shop by Category
             </h2>
-            <p className="mt-0.5 text-xs font-semibold text-slate-500 sm:text-sm">
-              {currentStore === "mall"
-                ? "Top brand groceries, essentials & packaged foods"
+            <p className="mt-0.5 text-xs font-medium text-gray-500 sm:text-sm">
+              {isInstant
+                ? "Top groceries, essentials & packaged foods"
                 : "Fresh picks for every kitchen need"}
             </p>
           </div>
           <Link
             to={buildProductCategoryUrl("All")}
-            className="text-xs sm:text-sm font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
+            className={`shrink-0 text-xs font-bold hover:underline sm:text-sm ${
+              isInstant ? "text-blue-700" : "text-amber-800"
+            }`}
           >
-            View All
+            View all
           </Link>
         </div>
 
-        <div className={`grid gap-2.5 sm:gap-4 ${
-          currentStore === "mall"
-            ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4"
-            : "grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
-        }`}>
+        <div
+          className={`grid gap-2.5 sm:gap-3 ${
+            isInstant
+              ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4"
+              : "grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+          }`}
+        >
           {displayCategories.map((cat) => {
             const isSelected = currentFilter === cat.name || currentFilter === cat.slug;
             return (
               <Link
                 key={cat.name}
                 to={buildProductCategoryUrl(cat.name)}
-                className={`group relative overflow-hidden rounded-[22px] p-3 sm:p-4 min-h-[96px] sm:min-h-[118px] cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-md border ${
+                className={`group relative min-h-[100px] overflow-hidden rounded-2xl border p-3 transition duration-200 hover:-translate-y-0.5 sm:min-h-[112px] sm:rounded-[1.25rem] sm:p-3.5 ${
                   isSelected
-                    ? "border-indigo-600 ring-2 ring-indigo-500/30"
-                    : "border-slate-200/60"
-                } ${cat.bgClass || "bg-[#F3F4F6]"}`}
+                    ? isInstant
+                      ? "border-blue-600 bg-blue-50 ring-2 ring-blue-500/25"
+                      : "border-amber-600 bg-amber-50 ring-2 ring-amber-500/30"
+                    : `border-gray-100 ${cat.bgClass || "bg-gray-50"}`
+                }`}
               >
-                {/* Left Text Column: Name & Item Count */}
-                <div className="relative z-10 max-w-[60%] sm:max-w-[62%] pr-0.5">
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900 leading-tight line-clamp-2">
+                <div className="relative z-10 max-w-[62%] pr-1">
+                  <h3 className="line-clamp-2 text-[11px] font-bold leading-tight text-gray-900 sm:text-[13px]">
                     {cat.name}
                   </h3>
-                  <p className="mt-1 text-[9.5px] sm:text-xs font-bold text-slate-500 truncate">
+                  <p className="mt-1 truncate text-[9px] font-semibold text-gray-500 sm:text-[11px]">
                     {cat.itemCount}
                   </p>
                 </div>
-
-                {/* Right Image */}
-                <div className="absolute right-1 bottom-1 sm:right-2 sm:bottom-2 h-12 w-12 sm:h-18 sm:w-18 overflow-hidden flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                <div className="absolute bottom-1.5 right-1.5 h-11 w-11 overflow-hidden rounded-xl sm:bottom-2 sm:right-2 sm:h-14 sm:w-14">
                   <img
                     src={cat.image}
-                    alt={cat.name}
-                    className="h-full w-full object-cover rounded-xl shadow-2xs"
+                    alt=""
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
                     }}
@@ -391,30 +418,35 @@ function FestiveStoreSection() {
         </div>
       </section>
 
-      {/* Suggested for You Section */}
       <SuggestedForYouSection
-        title={currentStore === "mall" ? "Super Mall Best Deals" : "Suggested for You"}
-        subtitle={currentStore === "mall" ? "Top brand groceries, essentials & packaged foods" : "Handpicked fresh items just for you"}
+        title={isInstant ? "Instant bestsellers" : "Suggested for you"}
+        subtitle={
+          isInstant
+            ? "Fast-moving grocery & essentials"
+            : "Handpicked prep-ready picks"
+        }
         customProducts={filteredProducts}
       />
 
-      {/* Top Payment Offers Section matching reference UI */}
       <TopPaymentOffersSection />
 
-      {/* Category Products Section */}
-      <section className="px-4 sm:px-6 py-2">
+      <section className="px-4 py-2 sm:px-6">
         <SectionHeader
-          title={!currentFilter || currentFilter === "All" ? (currentStore === "mall" ? "All Super Mall Marketplace Deals" : "All Ready-to-Cook Products") : currentFilter}
+          title={
+            !currentFilter || currentFilter === "All"
+              ? isInstant
+                ? "All Instant products"
+                : "All Ready2Cook products"
+              : currentFilter
+          }
           viewAllTo={buildProductCategoryUrl("All")}
           className="mb-3"
         />
 
-        {/* Mobile View: 2-Row Horizontal Scroll */}
         <div className="lg:hidden">
           <TwoRowHorizontalProducts products={filteredProducts} cardProps={cardProps} />
         </div>
 
-        {/* Desktop View: Grid */}
         <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
           {filteredProducts.map((product) => (
             <QuickCommerceProductCard

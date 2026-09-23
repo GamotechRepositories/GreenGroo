@@ -19,6 +19,8 @@ import IncentivesPage from "./pages/incentives/IncentivesPage";
 import CreateGigPage from "./pages/incentives/CreateGigPage";
 import AlertsPage from "./pages/alerts/AlertsPage";
 import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
+import PoliciesPage from "./pages/policies/PoliciesPage";
+import SupportPage from "./pages/support/SupportPage";
 
 function App() {
   return (
@@ -43,6 +45,8 @@ function App() {
               <Route path="/incentives" element={<IncentivesPage />} />
               <Route path="/incentives/create" element={<CreateGigPage />} />
               <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/policies" element={<PoliciesPage />} />
+              <Route path="/support" element={<SupportPage />} />
               <Route path="/leave" element={<ApplyLeavePage />} />
             </Route>
           </Route>

@@ -1,9 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { HomeDeliveryBar, HomeSearchBar } from "./HomeMobileHeader";
+import { HomeDeliveryBar, HomeSearchBar, sectionToStoreKey } from "./HomeMobileHeader";
 import { resolveStoreTheme } from "./homeHeaderThemes";
 import HomeCategoryStrip from "./HomeCategoryStrip";
-import HomeSlidingBanners from "../home/HomeSlidingBanners";
 
 function HomeStickyCategories() {
   const deliveryRef = useRef(null);
@@ -11,9 +10,8 @@ function HomeStickyCategories() {
   const [isFixed, setIsFixed] = useState(false);
   const [stickyHeight, setStickyHeight] = useState(0);
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
-  const containerBg = theme.contentBg;
 
   useLayoutEffect(() => {
     const sticky = stickyRef.current;
@@ -46,22 +44,22 @@ function HomeStickyCategories() {
   const stickyBg = theme.searchBg || theme.deliveryBg;
 
   return (
-    <div className={`${theme.deliveryBg} transition-colors duration-300 pb-0 pt-0 border-none`}>
-      <div ref={deliveryRef}>
+    <div className={`${theme.deliveryBg} border-none pb-0 pt-0 transition-colors duration-300`}>
+      <div ref={deliveryRef} className="bg-transparent">
         <HomeDeliveryBar />
       </div>
 
-      <div style={{ height: stickyHeight || undefined }} className={stickyHeight ? "" : "min-h-[100px]"}>
+      <div style={{ height: stickyHeight || undefined }} className={stickyHeight ? "" : "min-h-[72px]"}>
         <div
           ref={stickyRef}
           className={
             isFixed
-              ? `fixed left-0 right-0 top-0 z-50 ${stickyBg} pt-0 shadow-md border-b border-white/20 transition-all`
+              ? `fixed left-0 right-0 top-0 z-50 ${stickyBg} border-b border-black/5 pt-0 transition-all`
               : `relative ${stickyBg} pt-0`
           }
         >
           <HomeSearchBar />
-          <HomeCategoryStrip />
+          <HomeCategoryStrip hideIcons={isFixed} />
         </div>
       </div>
 

@@ -30,23 +30,16 @@ function MobileDrawerFilters({ categories }) {
   const { data: brandDocs = [], isLoading: loadingBrands } = useBrandsQuery();
 
   const categoryName = searchParams.get("categoryName")?.trim() || "";
-  const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "newest";
 
-  const activeCategory = categories.find(
-    (cat) => cat.categoryName.toLowerCase() === categoryName.toLowerCase()
-  );
-  const subcategories = activeCategory?.subcategories || [];
-  const pills = ["All", ...subcategories];
-
-  const preservedFilters = { brand: selectedBrand, sort: sortBy };
   const brands = brandDocs.map((brand) => brand.brandName).filter(Boolean);
 
   const updateParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value);
     else next.delete(key);
+    next.delete("subcategory");
     setSearchParams(next, { replace: true });
   };
 
@@ -64,35 +57,6 @@ function MobileDrawerFilters({ categories }) {
       <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
         Filters
       </p>
-
-      {categoryName && subcategories.length > 0 ? (
-        <div className="mb-3 px-2">
-          <p className="mb-1.5 text-[10px] lowercase text-text-secondary">subcategory</p>
-          <div className="flex flex-wrap gap-1.5">
-            {pills.map((pill) => {
-              const isAll = pill === "All";
-              const isActive = isAll ? !subcategory : subcategory === pill;
-              const to = isAll
-                ? categoryUrl(categoryName, preservedFilters)
-                : categoryUrl(categoryName, { ...preservedFilters, subcategory: pill });
-
-              return (
-                <Link
-                  key={pill}
-                  to={to}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                    isActive
-                      ? "border-primary bg-primary text-white"
-                      : "border-border-light bg-white text-text-primary"
-                  }`}
-                >
-                  {pill}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
 
       <div className="space-y-2 px-2">
         <div>

@@ -45,6 +45,7 @@ const navItems = [
 ]
 
 const footerItems = [
+  { to: '/policies', label: 'Policies', icon: 'clipboard' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
   { to: '/profile', label: 'My Profile', icon: 'user' },
   { to: '/leave', label: 'Apply Leave', icon: 'calendar' },

@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 
 function UserIcon() {
   return (
-    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -34,7 +34,7 @@ function DropdownItem({ to, onClick, children, danger }) {
   );
 }
 
-function UserAccountDropdown({ user }) {
+function UserAccountDropdown({ user, triggerClassName }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
   const { logout } = useAuth();
@@ -73,7 +73,10 @@ function UserAccountDropdown({ user }) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-10 w-10 items-center justify-center rounded-lg text-text-primary transition hover:text-primary"
+        className={
+          triggerClassName ||
+          "flex h-10 w-10 items-center justify-center rounded-lg text-text-primary transition hover:text-primary"
+        }
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={`My account, ${firstName}`}
@@ -82,10 +85,10 @@ function UserAccountDropdown({ user }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border-light bg-white py-1 shadow-lg">
-          <div className="border-b border-border-light px-4 py-3">
-            <p className="truncate text-sm font-semibold text-text-primary">{user.name}</p>
-            <p className="truncate text-xs text-text-secondary">{user.email || user.phone}</p>
+        <div className="absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-100 bg-white py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.1)]">
+          <div className="border-b border-gray-100 px-4 py-3">
+            <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
+            <p className="truncate text-xs text-gray-500">{user.email || user.phone}</p>
           </div>
 
           <DropdownItem to="/orders" onClick={close}>
@@ -103,7 +106,7 @@ function UserAccountDropdown({ user }) {
             Account Settings
           </DropdownItem>
 
-          <div className="my-1 border-t border-border-light" />
+          <div className="my-1 border-t border-gray-100" />
 
           <DropdownItem onClick={handleLogout} danger>
             <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>

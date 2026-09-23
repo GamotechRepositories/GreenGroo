@@ -1,11 +1,10 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { useLocation } from "../../context/LocationContext";
 import { useAuth } from "../../context/AuthContext";
 import { buildProductSearchUrl } from "../../utils/productSearch";
-import { formatDeliveryLine } from "../../utils/detectCurrentLocation";
-import { useNearestStore } from "../../hooks/useNearestStore";
 import { resolveStoreTheme } from "./homeHeaderThemes";
+import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../../hooks/queries/useSectionsQuery";
+import { LOGO_URL } from "../layout/Header";
 
 function SearchIcon({ className = "h-4 w-4" }) {
   return (
@@ -15,20 +14,12 @@ function SearchIcon({ className = "h-4 w-4" }) {
   );
 }
 
-function LightningIcon({ className = "h-5 w-5" }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />
-    </svg>
-  );
-}
-
 function ProfileButton({ theme }) {
   const { user, openAuthModal } = useAuth();
-  const className = `flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${theme.profileClass} shadow-sm transition active:scale-95`;
+  const className = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${theme.profileClass} shadow-sm transition active:scale-95`;
 
   const icon = (
-    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
       <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
     </svg>
   );
@@ -48,174 +39,105 @@ function ProfileButton({ theme }) {
   );
 }
 
-import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../../hooks/queries/useSectionsQuery";
+/** Map any section slug / store param to canonical store key. */
+export function sectionToStoreKey(slugOrStore) {
+  const key = String(slugOrStore || "").toLowerCase().trim();
+  if (!key || key === "main" || key === "greengrocc" || key === "preorder") return "main";
+  if (key === "festive" || key === "ready2cook") return "festive";
+  if (
+    key === "mall" ||
+    key === "supermall" ||
+    key === "instant" ||
+    key === "instantorder" ||
+    key === "instantorders"
+  ) {
+    return "mall";
+  }
+  return key;
+}
 
-function StoreTab({ storeKey, isCurrentActive, activeColor, onSelect, children }) {
-  const activeBgHex = activeColor || "#059669";
+function storeTabLabel(storeKey) {
+  if (storeKey === "festive") return "Ready2Cook";
+  if (storeKey === "mall") return "InstantOrder";
+  return "PreOrder";
+}
+
+/**
+ * Compact store pills — brand color when active, soft tint when idle.
+ */
+function StoreTab({ storeKey, isCurrentActive, onSelect, children }) {
+  let idleClass = "bg-white/70 text-emerald-900/75";
+  let activeClass = "bg-white text-[#0C831F] shadow-[0_1px_4px_rgba(12,131,31,0.18)] ring-1 ring-white";
+
+  if (storeKey === "festive") {
+    idleClass = "bg-[#FDE68A]/70 text-[#92400E]/85";
+    activeClass =
+      "bg-[#FACC15] text-[#422006] shadow-[0_1px_4px_rgba(202,138,4,0.28)] ring-1 ring-white";
+  } else if (storeKey === "mall") {
+    idleClass = "bg-[#93C5FD]/65 text-[#1E3A8A]/90";
+    activeClass =
+      "bg-[#3B82F6] text-white shadow-[0_1px_4px_rgba(37,99,235,0.3)] ring-1 ring-white";
+  }
 
   return (
-    <div className="relative flex-1 min-w-0">
-      <button
-        type="button"
-        onClick={() => onSelect(storeKey)}
-        className={`relative w-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
-          isCurrentActive
-            ? "h-[44px] rounded-t-[16px] rounded-b-none px-2 z-10 text-white font-black"
-            : "bg-white h-[40px] rounded-[14px] px-3 border border-black/10 mb-1 hover:bg-gray-50 z-0 text-slate-800 font-bold"
-        }`}
-        style={{
-          backgroundColor: isCurrentActive ? activeBgHex : undefined,
-        }}
-      >
-        {children}
-      </button>
-
-      {isCurrentActive && (
-        <>
-          {/* Bottom-left concave fillet curve */}
-          <span
-            className="absolute -left-[10px] bottom-0 h-[10px] w-[10px] z-10 pointer-events-none"
-            style={{
-              background: `radial-gradient(circle at 0 0, transparent 10px, ${activeBgHex} 10.5px)`,
-            }}
-          />
-          {/* Bottom-right concave fillet curve */}
-          <span
-            className="absolute -right-[10px] bottom-0 h-[10px] w-[10px] z-10 pointer-events-none"
-            style={{
-              background: `radial-gradient(circle at 100% 0, transparent 10px, ${activeBgHex} 10.5px)`,
-            }}
-          />
-        </>
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={() => onSelect(storeKey)}
+      className={`relative flex h-8 min-w-0 flex-1 items-center justify-center rounded-full px-1.5 text-center transition-all duration-200 active:scale-[0.97] ${
+        isCurrentActive ? `${activeClass} font-bold` : `${idleClass} font-semibold`
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
-/** Delivery row + store tabs — scrolls away */
+/** Logo + profile + compact store tabs */
 export function HomeDeliveryBar() {
-  const { location, hasLocation } = useLocation();
-  const { data: nearest } = useNearestStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: sections = DEFAULT_FALLBACK_SECTIONS } = useSectionsQuery();
 
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
 
   const setStore = (storeKey) => {
     const nextParams = new URLSearchParams(searchParams);
-    if (storeKey === "main" || storeKey === "greengrocc") {
-      nextParams.delete("store");
-    } else {
-      nextParams.set("store", storeKey);
-    }
-    // Also reset active category if switching store
+    const key = sectionToStoreKey(storeKey);
+    if (key === "main") nextParams.delete("store");
+    else nextParams.set("store", key);
     nextParams.delete("categoryName");
     setSearchParams(nextParams);
   };
 
-  const addressText = hasLocation
-    ? formatDeliveryLine(location) || location.label
-    : "Select location to see nearby stock";
-  const storeName = nearest?.store?.storeName;
-
-  const displaySections = sections && sections.length > 0 ? sections : DEFAULT_FALLBACK_SECTIONS;
+  const displaySections = sections?.length ? sections : DEFAULT_FALLBACK_SECTIONS;
 
   return (
-    <div className={`${theme.deliveryBg} px-3 pb-0 pt-1.5 sm:pt-2 transition-colors duration-300`}>
-      <div className="flex items-center justify-between gap-3">
-        <Link to="/location" className="min-w-0 flex-1">
-          <div className={`flex items-center gap-1 ${theme.textColor}`}>
-            <LightningIcon className="h-4 w-4 shrink-0" />
-            <span className="text-[16px] font-black leading-none tracking-tight">
-              {theme.time || "15 minutes"}
-            </span>
-          </div>
-          <div className="mt-0.5 flex items-center gap-1">
-            <span className={`max-w-[230px] sm:max-w-[320px] truncate text-[10px] font-semibold leading-tight ${theme.subTextColor}`}>
-              {addressText}
-            </span>
-            <svg className={`h-2.5 w-2.5 shrink-0 ${theme.subTextColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-          {storeName ? (
-            <p className={`max-w-[280px] truncate text-[9px] font-medium ${theme.subTextColor}`}>
-              From {storeName}
-            </p>
-          ) : null}
+    <div className={`${theme.deliveryBg} px-3 pb-0.5 pt-0.5 transition-colors duration-300`}>
+      <div className="flex items-center justify-between gap-2">
+        <Link to="/" className="min-w-0 shrink leading-none">
+          <img
+            src={LOGO_URL}
+            alt="GreenGroo"
+            className="-mb-1 h-14 w-auto max-w-[220px] object-contain object-left"
+          />
         </Link>
         <ProfileButton theme={theme} />
       </div>
 
-      <div className="mt-1.5 flex items-end gap-2 w-full pb-0 overflow-x-auto hide-scrollbar">
+      <div className="mt-0 flex w-full items-center gap-1 rounded-full bg-black/[0.05] p-1">
         {displaySections.map((sec) => {
-          const secSlug = (sec.slug || "").toLowerCase();
-          const storeKey =
-            secSlug === "greengrocc" ? "main" :
-            secSlug === "ready2cook" ? "festive" :
-            secSlug === "supermall" ? "mall" : secSlug;
-
-          const isCurrentActive =
-            currentStore === storeKey ||
-            (currentStore === "main" && (secSlug === "greengrocc" || storeKey === "main")) ||
-            (currentStore === "festive" && (secSlug === "ready2cook" || storeKey === "festive")) ||
-            (currentStore === "mall" && (secSlug === "supermall" || storeKey === "mall")) ||
-            currentStore === secSlug;
-
-          const activeColor =
-            sec.color ||
-            (storeKey === "festive" ? "#C2410C" : storeKey === "mall" ? "#312E81" : "#059669");
+          const storeKey = sectionToStoreKey(sec.slug || sec.storeType);
+          const isCurrentActive = currentStore === storeKey;
+          const label = String(sec.sectionName || "").trim() || storeTabLabel(storeKey);
 
           return (
             <StoreTab
               key={sec._id || sec.slug || storeKey}
               storeKey={storeKey}
               isCurrentActive={isCurrentActive}
-              activeColor={activeColor}
               onSelect={setStore}
             >
-              {secSlug === "greengrocc" || storeKey === "main" ? (
-                <img
-                  src="/greengrocc-logo.png"
-                  alt="GreenGrocc"
-                  className="h-7 w-auto max-w-[110px] object-contain mx-auto"
-                />
-              ) : secSlug === "ready2cook" || storeKey === "festive" ? (
-                <div className="text-center leading-none">
-                  <span
-                    className={`text-[13px] sm:text-[14px] font-black tracking-tight ${
-                      isCurrentActive ? "text-white" : "text-[#EA580C]"
-                    }`}
-                  >
-                    Ready2Cook
-                  </span>
-                </div>
-              ) : secSlug === "supermall" || storeKey === "mall" ? (
-                <div className="text-left leading-[1.1]">
-                  <span
-                    className={`block text-[12px] sm:text-[13px] font-black ${
-                      isCurrentActive ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    Super
-                  </span>
-                  <span
-                    className={`block text-[12px] sm:text-[13px] font-black ${
-                      isCurrentActive ? "text-white" : "text-[#2563EB]"
-                    }`}
-                  >
-                    Mall.
-                  </span>
-                </div>
-              ) : (
-                <div className="text-center leading-tight truncate px-1">
-                  {sec.emoji && <span className="mr-1 text-sm">{sec.emoji}</span>}
-                  <span className="text-xs sm:text-sm font-black truncate">
-                    {sec.sectionName}
-                  </span>
-                </div>
-              )}
+              <span className="truncate px-0.5 text-[11px] tracking-tight">{label}</span>
             </StoreTab>
           );
         })}
@@ -229,7 +151,7 @@ export function HomeSearchBar() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
 
   const handleSearch = (e) => {
@@ -243,32 +165,32 @@ export function HomeSearchBar() {
   };
 
   return (
-    <div className={`${theme.searchBg || theme.contentBg} px-3 py-1.5 transition-colors duration-300`}>
-      <div className="flex items-center gap-2">
+    <div className={`${theme.searchBg || theme.contentBg} px-3 pb-1 pt-0.5 transition-colors duration-300`}>
+      <div className="flex items-center gap-1.5">
         <form onSubmit={handleSearch} className="min-w-0 flex-1">
-          <div className="flex h-10 items-center rounded-[14px] bg-white px-3 border border-transparent">
-            <SearchIcon className="mr-2.5 h-4 w-4 shrink-0 text-slate-700" />
+          <div className="flex h-9 items-center rounded-full border border-black/5 bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <SearchIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-500" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={theme.placeholder}
-              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-slate-900 placeholder:text-slate-500 focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
             />
           </div>
         </form>
 
         <Link
           to="/coupons"
-          className="flex h-10 shrink-0 items-center justify-between gap-1 overflow-hidden rounded-[12px] bg-gradient-to-r from-amber-50 to-emerald-50 px-2 py-0.5 border border-emerald-200/80 transition hover:scale-[1.02] active:scale-95 max-w-[120px] cursor-pointer"
+          className="flex h-9 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border border-emerald-200/70 bg-white px-2 pl-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-95"
         >
-          <div className="leading-tight text-left">
-            <p className="text-[11px] font-black text-[#047857]">Super</p>
-            <p className="text-[11px] font-black text-amber-600">Offers 🎁</p>
-          </div>
-          <div className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-emerald-700 text-amber-300 p-0.5 overflow-hidden shadow-2xs">
-            <span className="text-[11px] font-black">50%</span>
-          </div>
+          <span className="text-[10px] font-black leading-tight text-[#047857]">
+            Offers
+            <span className="ml-0.5 text-amber-500">🎁</span>
+          </span>
+          <span className="flex h-6 min-w-[28px] items-center justify-center rounded-full bg-[#0C831F] px-1.5 text-[10px] font-black text-amber-300">
+            50%
+          </span>
         </Link>
       </div>
     </div>
@@ -294,71 +216,65 @@ const STORE_PROMO_DATA = {
   festive: {
     card1: {
       icon: "🍳",
-      iconBg: "bg-orange-100 text-orange-900",
+      iconBg: "bg-amber-100 text-amber-900",
       title: "READY 2 COOK",
-      subtitle: "Pre-Washed & Cut",
+      subtitle: "Pre-washed & cut",
     },
     card2: {
       icon: "⏱️",
-      iconBg: "bg-amber-100 text-amber-900",
+      iconBg: "bg-yellow-100 text-yellow-900",
       title: "10 MIN PREP",
-      subtitle: "Save Cooking Time",
+      subtitle: "Save cooking time",
     },
-    badges: ["100% Pre-Washed", "Zero Preservatives", "Farm Fresh Daily"],
+    badges: ["100% Pre-washed", "Zero Preservatives", "Farm Fresh Daily"],
   },
   mall: {
     card1: {
-      icon: "🛍️",
-      iconBg: "bg-violet-100 text-violet-900",
-      title: "SUPER MALL",
-      subtitle: "Top Brand Offers",
+      icon: "⚡",
+      iconBg: "bg-blue-100 text-blue-900",
+      title: "INSTANT",
+      subtitle: "Delivered in minutes",
     },
     card2: {
-      icon: "⚡",
-      iconBg: "bg-purple-100 text-purple-900",
-      title: "EXPRESS DELIVERY",
-      subtitle: "Fastest Shipping",
+      icon: "🛒",
+      iconBg: "bg-sky-100 text-sky-900",
+      title: "ESSENTIALS",
+      subtitle: "Pantry & snacks",
     },
-    badges: ["100% Genuine", "Easy Returns", "Best Brand Deals"],
+    badges: ["Fast delivery", "Everyday prices", "Trusted brands"],
   },
 };
 
 export function ZeptoPromoSection() {
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
   const promo = STORE_PROMO_DATA[currentStore] || STORE_PROMO_DATA.main;
 
   return (
     <div className={`${theme.contentBg} px-4 pb-2.5 pt-1.5 transition-colors duration-300`}>
       <div className="grid grid-cols-2 gap-2.5">
-        {/* Banner 1 */}
         <div className="flex items-center gap-2.5 rounded-2xl border border-white/40 bg-white p-2.5 shadow-xs transition hover:scale-[1.01]">
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-black text-sm ${promo.card1.iconBg}`}>
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black ${promo.card1.iconBg}`}
+          >
             {promo.card1.icon}
           </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
-              {promo.card1.title}
-            </p>
-            <p className="text-[10px] font-bold text-emerald-700 leading-none mt-0.5">
-              {promo.card1.subtitle}
-            </p>
+            <p className="text-xs font-black leading-tight text-slate-900 sm:text-sm">{promo.card1.title}</p>
+            <p className="mt-0.5 text-[10px] font-bold leading-none text-emerald-700">{promo.card1.subtitle}</p>
           </div>
         </div>
 
-        {/* Banner 2 */}
         <div className="flex items-center gap-2.5 rounded-2xl border border-white/40 bg-white p-2.5 shadow-xs transition hover:scale-[1.01]">
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-black text-sm ${promo.card2.iconBg}`}>
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-black ${promo.card2.iconBg}`}
+          >
             {promo.card2.icon}
           </div>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
-              {promo.card2.title}
-            </p>
-            <p className="text-[10px] font-bold text-amber-800 leading-none mt-0.5">
-              {promo.card2.subtitle}
-            </p>
+            <p className="text-xs font-black leading-tight text-slate-900 sm:text-sm">{promo.card2.title}</p>
+            <p className="mt-0.5 text-[10px] font-bold leading-none text-amber-800">{promo.card2.subtitle}</p>
           </div>
         </div>
       </div>
@@ -366,7 +282,9 @@ export function ZeptoPromoSection() {
       <div className={`mt-2 flex items-center justify-between px-1 text-[10px] font-bold ${theme.textColor}`}>
         {promo.badges.map((label) => (
           <div key={label} className="flex items-center gap-1">
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-[8px] font-black text-white">✓</span>
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-[8px] font-black text-white">
+              ✓
+            </span>
             <span>{label}</span>
           </div>
         ))}

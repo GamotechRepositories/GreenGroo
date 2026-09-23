@@ -34,6 +34,7 @@ import CropFormPage from "../pages/CropFormPage";
 import CropDetailPage from "../pages/CropDetailPage";
 import CropPlanPage from "../pages/CropPlanPage";
 import CropPlanningPage from "../pages/CropPlanningPage";
+import PoliciesPage from "../pages/PoliciesPage";
 
 function FarmerRoutes() {
   return (
@@ -46,6 +47,7 @@ function FarmerRoutes() {
           <Route index element={<Navigate to="/farmer/dashboard" replace />} />
           <Route path="kyc" element={<FarmerKycPage />} />
           <Route path="documents" element={<DocumentsPage />} />
+          <Route path="policies" element={<PoliciesPage roleKey="farmer" />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="market-prices" element={<Navigate to="/farmer/dashboard" replace />} />
           <Route path="community" element={<Navigate to="/farmer/dashboard" replace />} />

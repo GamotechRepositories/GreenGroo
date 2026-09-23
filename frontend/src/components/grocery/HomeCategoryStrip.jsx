@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import CategoryIcon from "./CategoryIcon";
 import { resolveStoreTheme } from "./homeHeaderThemes";
+import { sectionToStoreKey } from "./HomeMobileHeader";
 import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
 
 function isFruitsCategory(name) {
@@ -30,7 +31,47 @@ function isDairyCategory(name) {
   return key === "dairy" || key === "milk" || key.includes("dairy") || key.includes("milk");
 }
 
-function BasketFilledIcon({ className = "h-5 w-5" }) {
+/** Compact label for the strip — keeps full name for routing/title. */
+function shortCategoryLabel(name) {
+  let label = String(name || "").trim();
+  if (!label || /^all$/i.test(label)) return "All";
+
+  label = label
+    .replace(
+      /^(super\s*mall|supermall|ready\s*2\s*cook|ready2cook|ready-to-cook|instant\s*order|instant|green\s*grocc|greengrocc)\s*[-:]?\s*/i,
+      ""
+    )
+    .trim();
+
+  const key = label.toLowerCase();
+  if (/packaged/.test(key)) return "Packaged";
+  if (/grain|pulse/.test(key)) return "Grains";
+  if (/snack|namkeen/.test(key)) return "Snacks";
+  if (/beverage|drink/.test(key)) return "Drinks";
+  if (/chopped/.test(key)) return "Chopped";
+  if (/cut.*sliced|sliced/.test(key)) return "Sliced";
+  if (/peeled/.test(key)) return "Peeled";
+  if (/cleaned\s*bhaji|bhaji.*leafy|leafy/.test(key)) return "Bhaji";
+  if (/veggie.*bhaji|bhaji\s*mix/.test(key)) return "Mix";
+  if (/dry\s*fruit/.test(key)) return "Dry Fruits";
+  if (/vegetable|veggies/.test(key)) return "Veggies";
+
+  if (label.length <= 11) return label;
+
+  const beforeJoin = label.split(/\s*[&/|]\s*/)[0].trim();
+  if (beforeJoin.length >= 3 && beforeJoin.length <= 11) return beforeJoin;
+
+  const words = label.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    const two = `${words[0]} ${words[1]}`;
+    if (two.length <= 11) return two;
+    return words[0].length <= 11 ? words[0] : `${words[0].slice(0, 10)}…`;
+  }
+
+  return `${label.slice(0, 10)}…`;
+}
+
+function BasketFilledIcon({ className = "h-[18px] w-[18px]" }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M5.25 6.75h13.5l-.9 9.45a2.25 2.25 0 01-2.24 2.05H8.39a2.25 2.25 0 01-2.24-2.05L5.25 6.75z" />
@@ -45,7 +86,7 @@ function BasketFilledIcon({ className = "h-5 w-5" }) {
   );
 }
 
-function BasketOutlineIcon({ className = "h-5 w-5" }) {
+function BasketOutlineIcon({ className = "h-[18px] w-[18px]" }) {
   return (
     <svg
       className={className}
@@ -68,13 +109,19 @@ function BasketOutlineIcon({ className = "h-5 w-5" }) {
 function CategoryTabIcon({ cat, index, isActive, isAll }) {
   if (isAll) {
     return isActive ? (
-      <BasketFilledIcon className="h-5 w-5 text-current" />
+      <BasketFilledIcon className="h-[18px] w-[18px] text-current" />
     ) : (
-      <BasketOutlineIcon className="h-5 w-5 text-current" />
+      <BasketOutlineIcon className="h-[18px] w-[18px] text-current" />
     );
   }
 
-  return <CategoryIcon name={cat.name} index={index} className="h-5 w-5 text-current" />;
+  return (
+    <CategoryIcon
+      name={cat.label || cat.name}
+      index={index}
+      className="h-[18px] w-[18px] text-current"
+    />
+  );
 }
 
 function resolveActiveCategory(categories, categoryFromUrl) {
@@ -103,9 +150,9 @@ function resolveActiveCategory(categories, categoryFromUrl) {
   return categoryFromUrl;
 }
 
-function HomeCategoryStrip() {
+function HomeCategoryStrip({ hideIcons = false }) {
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
 
   const targetSection =
@@ -120,46 +167,46 @@ function HomeCategoryStrip() {
   const { data: apiCategories = [] } = useCategoriesQuery({ section: targetSection });
 
   const categories = useMemo(() => {
-    const list = [{ name: "All", slug: "" }];
+    const toItem = (name, slug = name) => ({
+      name,
+      slug,
+      label: shortCategoryLabel(name),
+    });
+
+    const list = [toItem("All", "")];
 
     if (Array.isArray(apiCategories) && apiCategories.length > 0) {
       const fromApi = apiCategories
         .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
-        .slice(0, 6)
-        .map((cat) => ({
-          name: cat.categoryName,
-          slug: cat.slug || cat.categoryName,
-        }));
+        .slice(0, 12)
+        .map((cat) => toItem(cat.categoryName, cat.slug || cat.categoryName));
       list.push(...fromApi);
       return list;
     }
 
     if (currentStore === "mall") {
       return [
-        { name: "All", slug: "" },
-        ...SUPER_MALL_CATEGORIES.slice(0, 5).map((cat) => ({
-          name: cat.name,
-          slug: cat.slug,
-        })),
+        toItem("All", ""),
+        ...SUPER_MALL_CATEGORIES.slice(0, 5).map((cat) => toItem(cat.name, cat.slug)),
       ];
     }
 
     if (currentStore === "festive") {
       return [
-        { name: "All", slug: "" },
-        { name: "Chopped", slug: "Chopped" },
-        { name: "Cut & Sliced", slug: "Cut & Sliced" },
-        { name: "Peeled & Cleaned", slug: "Peeled & Cleaned" },
-        { name: "Cleaned Bhaji", slug: "Cleaned Bhaji" },
+        toItem("All", ""),
+        toItem("Chopped", "Chopped"),
+        toItem("Cut & Sliced", "Cut & Sliced"),
+        toItem("Peeled & Cleaned", "Peeled & Cleaned"),
+        toItem("Cleaned Bhaji", "Cleaned Bhaji"),
       ];
     }
 
     return [
-      { name: "All", slug: "" },
-      { name: "Vegetables", slug: "Vegetables" },
-      { name: "Fruits", slug: "Fruits" },
-      { name: "Dairy", slug: "Dairy" },
-      { name: "Organic", slug: "Organic" },
+      toItem("All", ""),
+      toItem("Vegetables", "Vegetables"),
+      toItem("Fruits", "Fruits"),
+      toItem("Dairy", "Dairy"),
+      toItem("Organic", "Organic"),
     ];
   }, [apiCategories, currentStore]);
 
@@ -170,8 +217,15 @@ function HomeCategoryStrip() {
   );
 
   return (
-    <nav className={`${theme.categoryBg || theme.contentBg} px-4 pb-0 pt-2 transition-colors duration-300`}>
-      <div className={`flex items-center justify-between border-b ${theme.categoryBorder}`}>
+    <nav
+      className={`${theme.categoryBg || theme.contentBg} transition-colors duration-300 ${
+        hideIcons ? "pb-0 pt-1" : "pb-0 pt-1.5"
+      }`}
+      aria-label="Product categories"
+    >
+      <div
+        className={`hide-scrollbar flex snap-x snap-mandatory items-end gap-1 overflow-x-auto overscroll-x-contain scroll-smooth border-b px-2.5 ${theme.categoryBorder}`}
+      >
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
 
@@ -187,20 +241,32 @@ function HomeCategoryStrip() {
 
           return (
             <Link
-              key={cat.name}
+              key={`${cat.slug || "all"}-${cat.name}`}
               to={to}
-              className={`flex min-w-0 flex-1 flex-col items-center justify-between px-1 text-center transition ${
+              title={cat.name}
+              className={`flex w-[3.4rem] shrink-0 snap-start flex-col items-center overflow-hidden px-0.5 text-center transition ${
                 isActive ? theme.categoryText : theme.categoryInactive
               }`}
             >
-              <div className="flex h-6 w-6 items-center justify-center">
-                <CategoryTabIcon cat={cat} index={index} isActive={isActive} isAll={cat.name === "All"} />
-              </div>
-              <span className={`mt-1 text-[11px] leading-tight ${isActive ? "font-black" : "font-semibold"}`}>
-                {cat.name}
+              {!hideIcons ? (
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                  <CategoryTabIcon
+                    cat={cat}
+                    index={index}
+                    isActive={isActive}
+                    isAll={cat.name === "All"}
+                  />
+                </div>
+              ) : null}
+              <span
+                className={`${hideIcons ? "mt-0" : "mt-0.5"} w-full truncate text-[10px] leading-tight ${
+                  isActive ? "font-bold" : "font-semibold"
+                }`}
+              >
+                {cat.label}
               </span>
               <div
-                className={`mt-1.5 h-[3px] w-full rounded-full transition-all ${
+                className={`mt-1 h-[2.5px] w-7 shrink-0 rounded-full transition-all ${
                   isActive ? theme.categoryIndicator : "bg-transparent"
                 }`}
               />

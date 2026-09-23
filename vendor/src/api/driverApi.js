@@ -40,6 +40,10 @@ export const driverApi = {
     driverHttp
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "pickup_driver" } })
       .then((res) => res.data?.data || []),
+  livePolicies: () =>
+    driverHttp
+      .get("/api/admin-ops/policies/live", { params: { role: "pickup_driver" } })
+      .then((res) => res.data?.data || []),
   liveCalendar: () =>
     driverHttp
       .get("/api/admin-ops/hr/calendar/live", { params: { role: "pickup_driver" } })

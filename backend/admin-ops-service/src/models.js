@@ -471,4 +471,44 @@ export const OpsAsset =
   mongoose.models.AdminOpsAsset || mongoose.model("AdminOpsAsset", opsAssetSchema);
 export { ASSET_ROLES, ASSET_TYPES, ASSET_STATUSES, ASSET_CONDITIONS };
 
+/** Roles that can receive policies (Users/frontend first, then staff panels). */
+const POLICY_ROLE_KEYS = ["customer", ...HR_ROLE_KEYS];
+
+const rolePolicySchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true },
+    body: { type: String, default: "", trim: true },
+    /** Stable key for frontend pages (privacy/terms) so admins can freely rename titles. */
+    pageKey: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+      enum: ["", "privacy", "terms", "refund", "general"],
+    },
+    roleKey: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+      enum: [...POLICY_ROLE_KEYS, "all"],
+    },
+    status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "published",
+      index: true,
+    },
+    sortOrder: { type: Number, default: 0 },
+    createdBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+rolePolicySchema.index({ roleKey: 1, status: 1, sortOrder: 1 });
+
+export const RolePolicy =
+  mongoose.models.AdminRolePolicy || mongoose.model("AdminRolePolicy", rolePolicySchema);
+export { POLICY_ROLE_KEYS };
+
 export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };

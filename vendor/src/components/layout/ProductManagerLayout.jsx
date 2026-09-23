@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
+  Headset,
   IdCard,
   LayoutDashboard,
   LogOut,
@@ -125,6 +126,8 @@ const navItems = [
 ]
 
 const footerItems = [
+  { to: '/policies', label: 'Policies', icon: FileText },
+  { to: '/support', label: 'Support', icon: Headset },
   { to: '/leave', label: 'Apply Leave', icon: CalendarDays },
   { to: '/settings', label: 'Settings', icon: Settings },
   { to: '/profile', label: 'My Profile', icon: UserRound },

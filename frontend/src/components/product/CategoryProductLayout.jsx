@@ -18,7 +18,6 @@ function buildCategoryUrl(categoryName, params = {}, storeParam = "") {
 function useCategoryFilters(products, categoryName) {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const subcategory = searchParams.get("subcategory")?.trim() || "";
   const selectedBrand = searchParams.get("brand")?.trim() || "";
   const sortBy = searchParams.get("sort")?.trim() || "newest";
   const maxPrice = searchParams.get("maxPrice")?.trim() || "";
@@ -26,18 +25,6 @@ function useCategoryFilters(products, categoryName) {
   const inStock = searchParams.get("inStock") === "true";
 
   const filteredProducts = products.filter((product) => {
-    if (subcategory) {
-      const target = subcategory.toLowerCase();
-      const productSubs = Array.isArray(product.subcategories)
-        ? product.subcategories
-        : product.subcategory
-          ? [product.subcategory]
-          : [];
-      const matchesSubcategory = productSubs.some(
-        (sub) => sub?.toLowerCase() === target
-      );
-      if (!matchesSubcategory) return false;
-    }
     if (selectedBrand && product.brandName?.toLowerCase() !== selectedBrand.toLowerCase()) {
       return false;
     }
@@ -84,13 +71,13 @@ function useCategoryFilters(products, categoryName) {
     const next = new URLSearchParams(searchParams);
     if (value && value !== "false") next.set(key, value);
     else next.delete(key);
+    next.delete("subcategory");
     setSearchParams(next, { replace: true });
   };
 
   const clearFilters = () => {
     const next = new URLSearchParams();
     next.set("categoryName", categoryName);
-    if (subcategory) next.set("subcategory", subcategory);
     setSearchParams(next, { replace: true });
   };
 
@@ -99,7 +86,7 @@ function useCategoryFilters(products, categoryName) {
   );
 
   return {
-    subcategory,
+    subcategory: "",
     selectedBrand,
     sortBy,
     maxPrice,
@@ -285,249 +272,116 @@ function ProductResultsGrid({
 function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
   const [searchParams] = useSearchParams();
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
-  const activeSubcategory = searchParams.get("subcategory")?.trim() || "";
   const allActive = !activeCategory;
   const allUrl = storeParam ? `/product?store=${storeParam}` : "/product";
 
-  const activeCategoryDoc = categories.find(
-    (cat) =>
-      cat.categoryName?.toLowerCase() === String(activeCategory || "").toLowerCase() ||
-      cat.slug?.toLowerCase() === String(activeCategory || "").toLowerCase()
-  );
-  const subcategories = Array.isArray(activeCategoryDoc?.subcategories)
-    ? activeCategoryDoc.subcategories.filter(Boolean)
-    : [];
-  const showSubcategories = Boolean(activeCategory && subcategories.length > 0);
-  const categoryHomeUrl = activeCategory
-    ? buildCategoryUrl(activeCategoryDoc?.categoryName || activeCategory, {}, storeParam)
-    : allUrl;
-
   if (variant === "mobile") {
     return (
-      <aside className="flex h-full min-h-0 w-[84px] shrink-0 flex-col overflow-hidden border-r border-slate-100 bg-slate-50/50">
+      <aside className="flex h-full min-h-0 w-[78px] shrink-0 flex-col overflow-hidden border-r border-gray-100 bg-white">
         <nav
-          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-y-contain px-1.5 py-3"
+          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain px-1.5 py-2.5"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {showSubcategories ? (
-            <>
+          <Link
+            to={allUrl}
+            className={`group flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] transition-all duration-200 ${
+              allActive
+                ? "bg-[#0C831F]/10 font-bold text-[#0C831F]"
+                : "font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+            }`}
+          >
+            <SidebarCategoryImage showGrid name="All Products" size="sm" active={allActive} />
+            <span className="text-center leading-tight tracking-tight">All</span>
+          </Link>
+          {categories.map((cat) => {
+            const isActive = activeCategory === cat.categoryName;
+            return (
               <Link
-                to={allUrl}
-                className="group flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[9px] font-semibold text-slate-400 hover:bg-white hover:text-slate-600"
-              >
-                ← Cats
-              </Link>
-              <Link
-                to={categoryHomeUrl}
-                className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
-                  !activeSubcategory
-                    ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
-                    : "text-slate-500 hover:bg-white hover:text-slate-700"
+                key={cat._id || cat.categoryName}
+                to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+                className={`group flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] transition-all duration-200 ${
+                  isActive
+                    ? "bg-[#0C831F]/10 font-bold text-[#0C831F]"
+                    : "font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                 }`}
               >
-                <div className={`transition-transform duration-200 ${!activeSubcategory ? "scale-110" : "group-hover:scale-105"}`}>
-                  <SidebarCategoryImage
-                    image={activeCategoryDoc?.categoryImage}
-                    name={activeCategoryDoc?.categoryName || activeCategory}
-                  />
-                </div>
-                <span className="text-center leading-[1.1] tracking-tight">All</span>
+                <SidebarCategoryImage
+                  image={cat.categoryImage}
+                  name={cat.categoryName}
+                  size="sm"
+                  active={isActive}
+                />
+                <span className="line-clamp-2 w-full text-center leading-tight tracking-tight">
+                  {cat.categoryName}
+                </span>
               </Link>
-              {subcategories.map((sub) => {
-                const isActive = activeSubcategory.toLowerCase() === String(sub).toLowerCase();
-                return (
-                  <Link
-                    key={sub}
-                    to={buildCategoryUrl(
-                      activeCategoryDoc?.categoryName || activeCategory,
-                      { subcategory: sub },
-                      storeParam
-                    )}
-                    className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
-                      isActive
-                        ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
-                        : "text-slate-500 hover:bg-white hover:text-slate-700"
-                    }`}
-                  >
-                    <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
-                      <SidebarCategoryImage name={sub} />
-                    </div>
-                    <span className="line-clamp-2 w-full text-center leading-[1.1] tracking-tight">
-                      {sub}
-                    </span>
-                  </Link>
-                );
-              })}
-            </>
-          ) : (
-            <>
-              <Link
-                to={allUrl}
-                className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
-                  allActive
-                    ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
-                    : "text-slate-500 hover:bg-white hover:text-slate-700"
-                }`}
-              >
-                <div className={`transition-transform duration-200 ${allActive ? "scale-110" : "group-hover:scale-105"}`}>
-                  <SidebarCategoryImage showGrid name="All Products" />
-                </div>
-                <span className="text-center leading-[1.1] tracking-tight">All</span>
-              </Link>
-              {categories.map((cat) => {
-                const isActive = activeCategory === cat.categoryName;
-                return (
-                  <Link
-                    key={cat._id || cat.categoryName}
-                    to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
-                    className={`group flex shrink-0 flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-[10px] transition-all duration-200 ${
-                      isActive
-                        ? "bg-white shadow-sm ring-1 ring-emerald-100/50 font-bold text-emerald-700"
-                        : "text-slate-500 hover:bg-white hover:text-slate-700"
-                    }`}
-                  >
-                    <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-105"}`}>
-                      <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
-                    </div>
-                    <span className="line-clamp-2 w-full text-center leading-[1.1] tracking-tight">
-                      {cat.categoryName}
-                    </span>
-                  </Link>
-                );
-              })}
-            </>
-          )}
+            );
+          })}
         </nav>
       </aside>
     );
   }
 
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-slate-100 bg-slate-50/30">
-      <div className="shrink-0 px-5 py-4 pb-2">
-        <h2 className="text-[12px] font-bold tracking-widest text-slate-400 uppercase">
-          {showSubcategories ? "Subcategories" : "Categories"}
-        </h2>
-        {showSubcategories ? (
-          <Link
-            to={allUrl}
-            className="mt-2 inline-flex text-[11px] font-semibold text-emerald-700 hover:underline"
-          >
-            ← All categories
-          </Link>
-        ) : null}
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+      <div className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-3.5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">Browse</p>
+        <h2 className="mt-0.5 text-[15px] font-bold tracking-tight text-gray-900">Categories</h2>
       </div>
-      <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
-        {showSubcategories ? (
-          <>
+
+      <nav className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 py-2.5">
+        <Link
+          to={allUrl}
+          className={`group relative flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors duration-200 ${
+            allActive
+              ? "bg-[#0C831F]/10 text-[#0C831F]"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          {allActive ? (
+            <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#0C831F]" />
+          ) : null}
+          <SidebarCategoryImage showGrid name="All Products" size="md" active={allActive} />
+          <span
+            className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${
+              allActive ? "font-bold" : "font-semibold"
+            }`}
+          >
+            All Products
+          </span>
+        </Link>
+
+        {categories.map((cat) => {
+          const isActive = activeCategory === cat.categoryName;
+          return (
             <Link
-              to={categoryHomeUrl}
-              className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
-                !activeSubcategory
-                  ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
-                  : "hover:bg-slate-100/80"
+              key={cat._id || cat.categoryName}
+              to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
+              className={`group relative flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors duration-200 ${
+                isActive
+                  ? "bg-[#0C831F]/10 text-[#0C831F]"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
-              {!activeSubcategory && (
-                <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-              )}
-              <div className={`transition-transform duration-300 ${!activeSubcategory ? "scale-105" : "group-hover:scale-105"}`}>
-                <SidebarCategoryImage
-                  image={activeCategoryDoc?.categoryImage}
-                  name={activeCategoryDoc?.categoryName || activeCategory}
-                />
-              </div>
+              {isActive ? (
+                <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#0C831F]" />
+              ) : null}
+              <SidebarCategoryImage
+                image={cat.categoryImage}
+                name={cat.categoryName}
+                size="md"
+                active={isActive}
+              />
               <span
-                className={`text-[13px] leading-tight ${
-                  !activeSubcategory
-                    ? "font-bold text-emerald-700"
-                    : "font-semibold text-slate-600 group-hover:text-slate-900"
+                className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${
+                  isActive ? "font-bold" : "font-semibold"
                 }`}
               >
-                All {activeCategoryDoc?.categoryName || activeCategory}
+                {cat.categoryName}
               </span>
             </Link>
-            {subcategories.map((sub) => {
-              const isActive = activeSubcategory.toLowerCase() === String(sub).toLowerCase();
-              return (
-                <Link
-                  key={sub}
-                  to={buildCategoryUrl(
-                    activeCategoryDoc?.categoryName || activeCategory,
-                    { subcategory: sub },
-                    storeParam
-                  )}
-                  className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
-                    isActive
-                      ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
-                      : "hover:bg-slate-100/80"
-                  }`}
-                >
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-                  )}
-                  <div className={`transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-105"}`}>
-                    <SidebarCategoryImage name={sub} />
-                  </div>
-                  <span
-                    className={`text-[13px] leading-tight ${
-                      isActive
-                        ? "font-bold text-emerald-700"
-                        : "font-semibold text-slate-600 group-hover:text-slate-900"
-                    }`}
-                  >
-                    {sub}
-                  </span>
-                </Link>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            <Link
-              to={allUrl}
-              className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
-                allActive
-                  ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
-                  : "hover:bg-slate-100/80"
-              }`}
-            >
-              {allActive && (
-                <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-              )}
-              <div className={`transition-transform duration-300 ${allActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
-                <SidebarCategoryImage showGrid name="All Products" />
-              </div>
-              <span className={`text-[13px] leading-tight ${allActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
-                All Products
-              </span>
-            </Link>
-            {categories.map((cat) => {
-              const isActive = activeCategory === cat.categoryName;
-              return (
-                <Link
-                  key={cat._id || cat.categoryName}
-                  to={buildCategoryUrl(cat.categoryName, {}, storeParam)}
-                  className={`group relative flex items-center gap-3.5 rounded-2xl px-2 py-2 transition-all duration-200 ${
-                    isActive
-                      ? "bg-white shadow-[0_2px_12px_-4px_rgba(16,185,129,0.15)] ring-1 ring-emerald-100/50"
-                      : "hover:bg-slate-100/80"
-                  }`}
-                >
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500" />
-                  )}
-                  <div className={`transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-105 group-hover:rotate-2"}`}>
-                    <SidebarCategoryImage image={cat.categoryImage} name={cat.categoryName} />
-                  </div>
-                  <span className={`text-[13px] leading-tight ${isActive ? "font-bold text-emerald-700" : "font-semibold text-slate-600 group-hover:text-slate-900"}`}>
-                    {cat.categoryName}
-                  </span>
-                </Link>
-              );
-            })}
-          </>
-        )}
+          );
+        })}
       </nav>
     </aside>
   );
@@ -614,8 +468,8 @@ function CategoryProductMain({
           <CategoryHeaderSection
             category={activeCategoryDoc}
             categoryName={categoryName}
-            subcategories={activeCategoryDoc?.subcategories || []}
-            activeSubcategory={filters.subcategory}
+            subcategories={[]}
+            activeSubcategory=""
           />
         </div>
         <ProductResultsGrid
@@ -685,11 +539,17 @@ export {
 
 function ProductPageTwoBoxLayout({ categories, activeCategory, children }) {
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[260px_1fr] bg-white xl:grid-cols-[280px_1fr] items-start">
-      <div className="sticky top-[120px] h-[calc(100vh-120px)] overflow-hidden">
+    <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[232px_1fr] items-start bg-white xl:grid-cols-[248px_1fr]">
+      <div
+        className="sticky z-30 overflow-hidden rounded-br-2xl border-r border-gray-100 bg-white transition-[top,height] duration-300 ease-out"
+        style={{
+          top: "var(--gg-nav-offset, 96px)",
+          height: "calc(100vh - var(--gg-nav-offset, 96px))",
+        }}
+      >
         <CategoryListBox categories={categories} activeCategory={activeCategory} variant="desktop" />
       </div>
-      <div className="flex flex-col bg-white min-w-0">{children}</div>
+      <div className="flex min-w-0 flex-col bg-white">{children}</div>
     </div>
   );
 }

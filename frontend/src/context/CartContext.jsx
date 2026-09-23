@@ -92,9 +92,9 @@ export function CartProvider({ children }) {
     saveGuestCart(nextItems);
   }, []);
 
-  const mergeLocalCatalogLines = useCallback((baseItems) => {
+  const mergeLocalCatalogLines = useCallback((baseItems, memoryItems = itemsRef.current) => {
     const remote = (baseItems || []).filter((item) => !isLocalProductId(item._id));
-    const localFromMemory = itemsRef.current.filter((item) =>
+    const localFromMemory = (memoryItems || []).filter((item) =>
       isLocalProductId(item._id)
     );
     const localFromStorage = loadGuestCart().filter((item) =>
@@ -146,12 +146,16 @@ export function CartProvider({ children }) {
     const localGuest = guestItems.filter((item) => isLocalProductId(item._id));
 
     for (const item of remoteGuest) {
-      await addToCartItem({
-        productId: item._id,
-        quantity: item.quantity,
-        variantName: item.variantName || "",
-        colorName: item.colorName || "",
-      });
+      try {
+        await addToCartItem({
+          productId: item._id,
+          quantity: item.quantity,
+          variantName: item.variantName || "",
+          colorName: item.colorName || "",
+        });
+      } catch {
+        // Skip products that no longer exist / are out of stock
+      }
     }
 
     saveGuestCart(localGuest);
@@ -213,7 +217,7 @@ export function CartProvider({ children }) {
 
       try {
         const response = await apiCall();
-        setItems(mapCartItems(response.data.data));
+        setItems(mergeLocalCatalogLines(mapCartItems(response.data.data), optimisticItems));
         return { success: true };
       } catch (error) {
         setItems(snapshot);
@@ -236,7 +240,7 @@ export function CartProvider({ children }) {
       () => undefined
     );
     return task;
-  }, [syncCartFromServer]);
+  }, [syncCartFromServer, mergeLocalCatalogLines]);
 
   const persistLocalCart = useCallback(
     (nextItems) => {

@@ -6,6 +6,8 @@ import LoginPage from "./pages/auth/LoginPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import InventoryRequestsPage from "./pages/inventory-requests/InventoryRequestsPage";
 import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
+import PoliciesPage from "./pages/policies/PoliciesPage";
+import SupportPage from "./pages/support/SupportPage";
 
 function App() {
   return (
@@ -17,6 +19,14 @@ function App() {
             <Route element={<ProductManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
+              <Route
+                path="/policies"
+                element={<PoliciesPage roleKey="product_manager" title="Policies" />}
+              />
+              <Route
+                path="/support"
+                element={<SupportPage roleKey="product_manager" title="Support" />}
+              />
               <Route path="/leave" element={<ApplyLeavePage />} />
             </Route>
           </Route>

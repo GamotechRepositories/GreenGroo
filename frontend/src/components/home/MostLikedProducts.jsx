@@ -9,7 +9,7 @@ const MAX_DISPLAY = 15;
 const GRID_COLS = 5;
 
 function ProductCard({ product }) {
-  const categoryLabel = product.subcategory || product.categories?.[0] || "";
+  const categoryLabel = product.categories?.[0] || "";
   const image = product.productImages?.[0];
 
   return (

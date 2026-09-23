@@ -8,6 +8,7 @@ import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsP
 import ProductManagersPage from './pages/team/ProductManagersPage'
 import LoginPage from './pages/auth/LoginPage'
 import ApplyLeavePage from './pages/leave/ApplyLeavePage'
+import PoliciesPage from './pages/policies/PoliciesPage'
 
 function App() {
   return (
@@ -186,6 +187,10 @@ function App() {
                 }
               />
               <Route path="/leave" element={<ApplyLeavePage />} />
+              <Route
+                path="/policies"
+                element={<PoliciesPage roleKey="segregation_manager" title="Policies" />}
+              />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

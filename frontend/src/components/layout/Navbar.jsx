@@ -143,21 +143,6 @@ function Navbar() {
                       >
                         {category.categoryName}
                       </Link>
-                      {category.subcategories?.length > 0 && (
-                        <ul className="space-y-1.5 pl-2">
-                          {category.subcategories.map((sub) => (
-                            <li key={sub}>
-                              <Link
-                                to={buildProductLink(category.categoryName, sub)}
-                                onClick={closeMenu}
-                                className="block text-sm text-neutral-400 hover:text-accent transition"
-                              >
-                                {sub}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
                     </li>
                   ))}
                 </ul>

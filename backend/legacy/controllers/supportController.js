@@ -1,4 +1,7 @@
-import SupportMessage, { SUPPORT_ISSUE_TYPES } from "../models/support/SupportMessage.js";
+import SupportMessage, {
+  SUPPORT_ISSUE_TYPES,
+  SUPPORT_ROLE_KEYS,
+} from "../models/support/SupportMessage.js";
 import { resolveImageForStorage } from "../utils/imageValidation.js";
 import { UPLOAD_FOLDERS } from "../utils/uploadFolders.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
@@ -11,6 +14,16 @@ function normalizeText(value, maxLength) {
   return value.trim().slice(0, maxLength);
 }
 
+function normalizeSupportRoleKey(raw, fallback = "customer") {
+  const value = String(raw || "").trim().toLowerCase();
+  if (value === "user" || value === "users" || value === "frontend" || value === "retail" || value === "bulk") {
+    return "customer";
+  }
+  if (value === "driver") return "pickup_driver";
+  if (SUPPORT_ROLE_KEYS.includes(value)) return value;
+  return fallback;
+}
+
 export const submitSupportMessage = async (req, res) => {
   try {
     const name = normalizeText(req.body.name, 100);
@@ -21,6 +34,10 @@ export const submitSupportMessage = async (req, res) => {
     const message = normalizeText(req.body.message, 2000);
     const attachment = typeof req.body.attachment === "string" ? req.body.attachment : "";
     const attachmentName = normalizeText(req.body.attachmentName, 200);
+    const roleKey = normalizeSupportRoleKey(
+      req.body.roleKey || req.body.role || req.user?.role,
+      "customer"
+    );
 
     if (!name) {
       return res.status(400).json({ success: false, message: "Name is required" });
@@ -55,13 +72,14 @@ export const submitSupportMessage = async (req, res) => {
       message,
       attachment: storedAttachment,
       attachmentName,
+      roleKey,
       user: req.user?._id || null,
     });
 
     return res.status(201).json({
       success: true,
       message: "Your support request has been submitted. We will get back to you soon.",
-      data: { id: supportMessage._id },
+      data: { id: supportMessage._id, roleKey },
     });
   } catch (error) {
     return res.status(500).json({

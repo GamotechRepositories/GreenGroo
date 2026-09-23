@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
 import { PRODUCT_PRICING_SELECT } from "../utils/productPricing.js";
@@ -43,8 +44,15 @@ export const toggleWishlistItem = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(String(productId))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
+      });
+    }
+
     const product = await Product.findById(productId);
-    if (!product || !product.isActive) {
+    if (!product || product.isActive === false) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
@@ -64,7 +72,7 @@ export const toggleWishlistItem = async (req, res) => {
     } else {
       wishlist.email = getUserContactEmail(req.user);
       const existingIndex = wishlist.items.findIndex(
-        (item) => item.product.toString() === productId
+        (item) => item.product.toString() === String(productId)
       );
 
       if (existingIndex >= 0) {
@@ -95,6 +103,13 @@ export const removeFromWishlist = async (req, res) => {
   try {
     const { productId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(String(productId))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
+      });
+    }
+
     const wishlist = await Wishlist.findOne({ user: req.user._id });
     if (!wishlist) {
       return res.status(404).json({
@@ -104,7 +119,7 @@ export const removeFromWishlist = async (req, res) => {
     }
 
     wishlist.items = wishlist.items.filter(
-      (item) => item.product.toString() !== productId
+      (item) => item.product.toString() !== String(productId)
     );
     await wishlist.save();
 
