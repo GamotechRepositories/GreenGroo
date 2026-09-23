@@ -193,8 +193,36 @@ class ApiService {
     }
   }
   Future<dynamic> fetchCropPlans() async => get('/api/farmer/crop-plans');
-  Future<dynamic> fetchProducts(String farmerId) async => get('/api/farmers/$farmerId/products');
-  Future<dynamic> fetchOrders(String farmerId) async => get('/api/farmers/$farmerId/orders');
+  Future<dynamic> fetchProducts(String farmerId) async {
+    try {
+      final res = await get('/api/farmer/products');
+      if (res is List && res.isNotEmpty) return res;
+      if (res is Map && res['products'] is List && (res['products'] as List).isNotEmpty) return res['products'];
+      if (res is Map && res['data'] is List && (res['data'] as List).isNotEmpty) return res['data'];
+    } catch (_) {}
+    try {
+      final res2 = await get('/api/farmers/$farmerId/products');
+      if (res2 is List && res2.isNotEmpty) return res2;
+      if (res2 is Map && res2['products'] is List && (res2['products'] as List).isNotEmpty) return res2['products'];
+      if (res2 is Map && res2['data'] is List && (res2['data'] as List).isNotEmpty) return res2['data'];
+    } catch (_) {}
+    return [];
+  }
+  Future<dynamic> fetchOrders(String farmerId) async {
+    try {
+      final res = await get('/api/farmer/orders');
+      if (res is List && res.isNotEmpty) return res;
+      if (res is Map && res['orders'] is List && (res['orders'] as List).isNotEmpty) return res['orders'];
+      if (res is Map && res['data'] is List && (res['data'] as List).isNotEmpty) return res['data'];
+    } catch (_) {}
+    try {
+      final res2 = await get('/api/farmers/$farmerId/orders');
+      if (res2 is List && res2.isNotEmpty) return res2;
+      if (res2 is Map && res2['orders'] is List && (res2['orders'] as List).isNotEmpty) return res2['orders'];
+      if (res2 is Map && res2['data'] is List && (res2['data'] as List).isNotEmpty) return res2['data'];
+    } catch (_) {}
+    return [];
+  }
   Future<dynamic> fetchHarvestOrders() async => get('/api/farmers/harvest-orders');
   Future<dynamic> fetchEarnings(String farmerId) async => get('/api/farmers/$farmerId/earnings');
   Future<dynamic> fetchDocuments(String farmerId) async => get('/api/farmers/$farmerId/documents');
@@ -241,6 +269,46 @@ class ApiService {
 
   Future<dynamic> updateOrderStatus(String farmerId, String orderId, String status) async {
     return patch('/api/farmers/$farmerId/orders/$orderId/status', {'status': status});
+  }
+
+  Future<dynamic> acceptOrder(String orderId) async {
+    try {
+      return await patch('/api/farmer/orders/$orderId/accept', {});
+    } catch (_) {
+      return await patch('/api/farmers/orders/$orderId/accept', {});
+    }
+  }
+
+  Future<dynamic> rejectOrder(String orderId, Map<String, dynamic> body) async {
+    try {
+      return await patch('/api/farmer/orders/$orderId/reject', body);
+    } catch (_) {
+      return await patch('/api/farmers/orders/$orderId/reject', body);
+    }
+  }
+
+  Future<dynamic> prepareOrder(String orderId, Map<String, dynamic> body) async {
+    try {
+      return await patch('/api/farmer/orders/$orderId/prepare', body);
+    } catch (_) {
+      return await patch('/api/farmers/orders/$orderId/prepare', body);
+    }
+  }
+
+  Future<dynamic> packOrder(String orderId, Map<String, dynamic> body) async {
+    try {
+      return await patch('/api/farmer/orders/$orderId/packing', body);
+    } catch (_) {
+      return await patch('/api/farmers/orders/$orderId/packing', body);
+    }
+  }
+
+  Future<dynamic> readyOrder(String orderId) async {
+    try {
+      return await patch('/api/farmer/orders/$orderId/ready-for-pickup', {});
+    } catch (_) {
+      return await patch('/api/farmers/orders/$orderId/ready-for-pickup', {});
+    }
   }
 
   Future<dynamic> updateCrop(String cropId, Map<String, dynamic> body) async {

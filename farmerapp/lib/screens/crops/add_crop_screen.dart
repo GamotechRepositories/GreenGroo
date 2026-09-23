@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../../services/api_service.dart';
+import '../../core/utils/photo_picker_sheet.dart';
 
 class AddCropScreen extends StatefulWidget {
   final CropItem? editCrop;
@@ -292,65 +293,18 @@ class _AddCropScreenState extends State<AddCropScreen> {
       return;
     }
 
-    final urlController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Crop Photo', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Enter image URL or choose preset:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-            const SizedBox(height: 6),
-            TextField(
-              controller: urlController,
-              decoration: InputDecoration(
-                hintText: 'https://example.com/crop.jpg',
-                hintStyle: const TextStyle(fontSize: 11),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              children: [
-                ActionChip(
-                  label: const Text('Sample Crop', style: TextStyle(fontSize: 10)),
-                  onPressed: () {
-                    urlController.text = 'https://images.unsplash.com/photo-1592841200221-a6898f307baa?w=400';
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Farm Field', style: TextStyle(fontSize: 10)),
-                  onPressed: () {
-                    urlController.text = 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=400';
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(fontSize: 12)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-            onPressed: () {
-              final url = urlController.text.trim();
-              if (url.isNotEmpty) {
-                setState(() => _photos.add(url));
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Add', style: TextStyle(fontSize: 12)),
-          ),
-        ],
-      ),
+    showAppPhotoPicker(
+      context,
+      title: 'Add Crop Photo (पिकाचा फोटो)',
+      subtitle: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा',
+      presetCategory: 'Crop',
+      onPhotoSelected: (photoStr) {
+        setState(() {
+          if (!_photos.contains(photoStr)) {
+            _photos.add(photoStr);
+          }
+        });
+      },
     );
   }
 
@@ -930,12 +884,11 @@ class _AddCropScreenState extends State<AddCropScreen> {
                                 width: 48,
                                 height: 48,
                                 color: const Color(0xFFE2E8F0),
-                                child: Image.network(
-                                  url,
+                                child: AppImageWidget(
+                                  imageStr: url,
+                                  width: 48,
+                                  height: 48,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => const Center(
-                                    child: Icon(Icons.image, size: 18, color: Color(0xFF94A3B8)),
-                                  ),
                                 ),
                               ),
                             ),

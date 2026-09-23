@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
+import '../../core/utils/photo_picker_sheet.dart';
 import 'add_crop_screen.dart';
 import 'crop_detail_screen.dart';
 import '../products/add_product_screen.dart';
@@ -291,10 +292,12 @@ class _CropsScreenState extends State<CropsScreen> {
                                       height: 52,
                                       color: const Color(0xFFECFDF5),
                                       child: hasPhoto
-                                          ? Image.network(
-                                              crop.photos.first,
+                                          ? AppImageWidget(
+                                              imageStr: crop.photos.first,
+                                              width: 52,
+                                              height: 52,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (_, _, _) => Center(
+                                              fallback: Center(
                                                 child: Text(
                                                   crop.cropName.isNotEmpty ? crop.cropName[0].toUpperCase() : 'C',
                                                   style: const TextStyle(

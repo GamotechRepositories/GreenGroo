@@ -20,11 +20,11 @@ class EarningReportScreen extends StatelessWidget {
     final intVal = val.round();
     final str = intVal.toString();
     final reg = RegExp(r'(\d+?)(?=(\d{3})+(?!\d))');
-    return str.replaceAllMapped(reg, (Match m) => '${m[1]},');
+    return str.replaceAllMapped(reg, (Match m) => '${m[1] ?? ''},');
   }
 
-  String _formatShortDate(String raw) {
-    if (raw.isEmpty) return '07/09/2026';
+  String _formatShortDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '07/09/2026';
     if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
       try {
         final dt = DateTime.parse(raw);
@@ -315,7 +315,7 @@ class EarningReportScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  step['label'] as String,
+                  step['label']?.toString() ?? '',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 8.5,
@@ -887,8 +887,8 @@ class EarningReportScreen extends StatelessWidget {
                 text: TextSpan(
                   style: const TextStyle(fontSize: 9, color: Color(0xFF475569)),
                   children: [
-                    TextSpan(text: '${p['label']}: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                    TextSpan(text: p['val']!, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    TextSpan(text: '${p['label'] ?? ''}: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                    TextSpan(text: p['val'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
                   ],
                 ),
               ),

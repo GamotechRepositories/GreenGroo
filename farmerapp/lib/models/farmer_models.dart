@@ -16,6 +16,8 @@ class FarmerProfile {
   final String state;
   final String pincode;
   final String kycStatus; // PENDING, SUBMITTED, APPROVED
+  final String profilePhoto;
+  final String farmPhoto;
 
   FarmerProfile({
     required this.id,
@@ -35,6 +37,8 @@ class FarmerProfile {
     this.state = 'Maharashtra',
     this.pincode = '413102',
     this.kycStatus = 'APPROVED',
+    this.profilePhoto = '',
+    this.farmPhoto = '',
   });
 
   factory FarmerProfile.fromJson(Map<String, dynamic> json) {
@@ -125,14 +129,18 @@ class CropItem {
   });
 
   String get businessId {
-    if (id.startsWith('GGC-CRP')) return id;
-    final cleanName = cropName.split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
-    final code = cleanName.length >= 3 ? cleanName.substring(0, 3) : 'CRP';
-    final cleanVar = variety.split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
-    final varCode = cleanVar.length >= 3 ? cleanVar.substring(0, 3) : 'HYB';
-    final numDigits = id.replaceAll(RegExp(r'[^0-9]'), '');
-    final serial = numDigits.isNotEmpty ? numDigits.padLeft(5, '0') : '00001';
-    return 'GGC-CRP-VEG-$code-$varCode-${serial.length > 5 ? serial.substring(serial.length - 5) : serial}';
+    try {
+      if (id.startsWith('GGC-CRP')) return id;
+      final cleanName = (cropName.isNotEmpty ? cropName : 'Crop').split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+      final code = cleanName.length >= 3 ? cleanName.substring(0, 3) : 'CRP';
+      final cleanVar = (variety.isNotEmpty ? variety : 'Hybrid').split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+      final varCode = cleanVar.length >= 3 ? cleanVar.substring(0, 3) : 'HYB';
+      final numDigits = id.replaceAll(RegExp(r'[^0-9]'), '');
+      final serial = numDigits.isNotEmpty ? numDigits.padLeft(5, '0') : '00001';
+      return 'GGC-CRP-VEG-$code-$varCode-${serial.length > 5 ? serial.substring(serial.length - 5) : serial}';
+    } catch (_) {
+      return 'GGC-CRP-VEG-CRP-HYB-00001';
+    }
   }
 
   factory CropItem.fromJson(Map<String, dynamic> json) {
@@ -207,44 +215,74 @@ class ProductItem {
   final double gradeCQty;
 
   ProductItem({
-    required this.id,
+    String? id,
     String? productId,
-    required this.productName,
-    this.variety = '',
-    required this.category,
-    required this.cropLinked,
-    required this.grade,
-    required this.unit,
-    required this.pricePerUnit,
-    required this.stockQuantity,
-    this.minimumOrderQuantity = 10.0,
-    this.farmingType = 'Organic (सेंद्रिय)',
-    this.farmName = 'My Krushi Farm',
-    this.farmLocation = 'Baramati, Pune',
-    this.sowingDate = '15 Aug 2026',
-    this.harvestDate = '14 Oct 2026',
-    this.availableFrom = '15 Oct 2026',
-    this.availableUntil = '30 Nov 2026',
-    required this.status,
-    this.imageUrl = '',
-    this.photos = const [],
+    String? productName,
+    String? variety,
+    String? category,
+    String? cropLinked,
+    String? grade,
+    String? unit,
+    double? pricePerUnit,
+    double? stockQuantity,
+    double? minimumOrderQuantity,
+    String? farmingType,
+    String? farmName,
+    String? farmLocation,
+    String? sowingDate,
+    String? harvestDate,
+    String? availableFrom,
+    String? availableUntil,
+    String? status,
+    String? imageUrl,
+    List<String>? photos,
     double? gradeAPrice,
     double? gradeAQty,
     double? gradeBPrice,
     double? gradeBQty,
-    this.gradeCPrice = 0.0,
-    this.gradeCQty = 0.0,
-  })  : productId = productId ?? (id.startsWith('GGC-PRD') ? id : 'GGC-PRD-20260908-000${id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(2, '1')}'),
-        gradeAPrice = gradeAPrice ?? pricePerUnit,
-        gradeAQty = gradeAQty ?? (stockQuantity * 0.70).roundToDouble(),
-        gradeBPrice = gradeBPrice ?? (pricePerUnit * 0.4).roundToDouble(),
-        gradeBQty = gradeBQty ?? (stockQuantity * 0.25).roundToDouble();
+    double? gradeCPrice,
+    double? gradeCQty,
+  })  : id = (id != null && id.isNotEmpty) ? id : 'PRD-001',
+        productId = (productId != null && productId.isNotEmpty)
+            ? productId
+            : ((id != null && id.startsWith('GGC-PRD'))
+                ? id
+                : 'GGC-PRD-20260908-00001'),
+        productName = (productName != null && productName.isNotEmpty) ? productName : 'Farm Product',
+        variety = variety ?? '',
+        category = (category != null && category.isNotEmpty) ? category : 'Vegetables (भाजीपाला)',
+        cropLinked = cropLinked ?? '',
+        grade = (grade != null && grade.isNotEmpty) ? grade : 'Grade A',
+        unit = (unit != null && unit.isNotEmpty) ? unit : 'Kg',
+        pricePerUnit = pricePerUnit ?? 30.0,
+        stockQuantity = stockQuantity ?? 500.0,
+        minimumOrderQuantity = minimumOrderQuantity ?? 10.0,
+        farmingType = (farmingType != null && farmingType.isNotEmpty) ? farmingType : 'Organic (सेंद्रिय)',
+        farmName = (farmName != null && farmName.isNotEmpty) ? farmName : 'My Krushi Farm',
+        farmLocation = (farmLocation != null && farmLocation.isNotEmpty) ? farmLocation : 'Baramati, Pune',
+        sowingDate = (sowingDate != null && sowingDate.isNotEmpty) ? sowingDate : '15 Aug 2026',
+        harvestDate = (harvestDate != null && harvestDate.isNotEmpty) ? harvestDate : '14 Oct 2026',
+        availableFrom = (availableFrom != null && availableFrom.isNotEmpty) ? availableFrom : '15 Oct 2026',
+        availableUntil = (availableUntil != null && availableUntil.isNotEmpty) ? availableUntil : '30 Nov 2026',
+        status = (status != null && status.isNotEmpty) ? status : 'Active',
+        imageUrl = imageUrl ?? '',
+        photos = photos ?? const [],
+        gradeAPrice = gradeAPrice ?? (pricePerUnit ?? 30.0),
+        gradeAQty = gradeAQty ?? ((stockQuantity ?? 500.0) * 0.70).roundToDouble(),
+        gradeBPrice = gradeBPrice ?? ((pricePerUnit ?? 30.0) * 0.4).roundToDouble(),
+        gradeBQty = gradeBQty ?? ((stockQuantity ?? 500.0) * 0.25).roundToDouble(),
+        gradeCPrice = gradeCPrice ?? 0.0,
+        gradeCQty = gradeCQty ?? 0.0;
 
   String get displayBusinessId {
-    if (productId.isNotEmpty) return productId;
-    if (id.startsWith('GGC-PRD')) return id;
-    final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
-    return 'GGC-PRD-20260908-${cleanId.isNotEmpty ? cleanId.padLeft(5, '0') : '00001'}';
+    try {
+      if (productId.isNotEmpty) return productId;
+      if (id.startsWith('GGC-PRD')) return id;
+      final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
+      return 'GGC-PRD-20260908-${cleanId.isNotEmpty ? cleanId.padLeft(5, '0') : '00001'}';
+    } catch (_) {
+      return 'GGC-PRD-20260908-00001';
+    }
   }
 
   factory ProductItem.fromJson(Map<String, dynamic> json) {
@@ -266,26 +304,68 @@ class ProductItem {
     }
 
     double stock = 0.0;
-    if (json['stock'] != null) {
+    if (json['totalQuantity'] != null) {
+      stock = (json['totalQuantity'] is num) ? (json['totalQuantity'] as num).toDouble() : (double.tryParse(json['totalQuantity'].toString()) ?? 0.0);
+    } else if (json['stock'] != null) {
       stock = (json['stock'] is num) ? (json['stock'] as num).toDouble() : (double.tryParse(json['stock'].toString()) ?? 0.0);
+    } else if (json['stockQuantity'] != null) {
+      stock = (json['stockQuantity'] is num) ? (json['stockQuantity'] as num).toDouble() : (double.tryParse(json['stockQuantity'].toString()) ?? 0.0);
     } else if (json['availableQuantity'] != null) {
       stock = (json['availableQuantity'] is num) ? (json['availableQuantity'] as num).toDouble() : (double.tryParse(json['availableQuantity'].toString()) ?? 0.0);
     }
 
     List<String> photoList = [];
+    String mainImg = '';
+    if (json['media'] is Map) {
+      final mediaMap = json['media'] as Map;
+      if (mediaMap['mainPhoto'] != null && mediaMap['mainPhoto'].toString().isNotEmpty) {
+        mainImg = mediaMap['mainPhoto'].toString();
+        photoList.add(mainImg);
+      }
+      if (mediaMap['photos'] is List) {
+        for (final p in mediaMap['photos']) {
+          if (p != null && p.toString().isNotEmpty) photoList.add(p.toString());
+        }
+      }
+    }
     if (json['photos'] is List) {
-      photoList = (json['photos'] as List).map((p) => p.toString()).where((p) => p.isNotEmpty).toList();
-    } else if (json['media'] is Map && (json['media'] as Map)['mainPhoto'] != null) {
-      photoList.add((json['media'] as Map)['mainPhoto'].toString());
+      for (final p in json['photos']) {
+        if (p != null && p.toString().isNotEmpty && !photoList.contains(p.toString())) {
+          photoList.add(p.toString());
+        }
+      }
+    }
+    if (mainImg.isEmpty) {
+      if (json['profileImage'] != null && json['profileImage'].toString().isNotEmpty) {
+        mainImg = json['profileImage'].toString();
+      } else if (json['image'] != null && json['image'].toString().isNotEmpty) {
+        mainImg = json['image'].toString();
+      } else if (photoList.isNotEmpty) {
+        mainImg = photoList.first;
+      }
     }
 
     final rawId = json['id']?.toString() ?? json['_id']?.toString() ?? json['productId']?.toString() ?? 'PRD-001';
-    final pId = json['productId']?.toString() ?? json['businessId']?.toString() ?? (rawId.startsWith('GGC-PRD') ? rawId : 'GGC-PRD-20260908-00001');
+    final pId = json['productId']?.toString() ?? json['businessId']?.toString() ?? (rawId.startsWith('GGC-PRD') || rawId.startsWith('GGC-ART') ? rawId : 'GGC-PRD-20260908-00001');
+
+    String rawHarvest = json['harvestDate']?.toString() ?? (json['crop'] is Map ? json['crop']['expectedHarvestDate']?.toString() ?? '01 Sept 2026' : '01 Sept 2026');
+    String formattedHarvest = rawHarvest;
+    try {
+      if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(rawHarvest)) {
+        final parts = rawHarvest.split('-');
+        final year = parts[0];
+        final monthNum = int.tryParse(parts[1]) ?? 9;
+        final day = parts[2].substring(0, 2);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+        final monthName = (monthNum >= 1 && monthNum <= 12) ? months[monthNum - 1] : 'Sept';
+        formattedHarvest = '$day $monthName $year';
+      }
+    } catch (_) {}
 
     return ProductItem(
       id: rawId,
       productId: pId,
-      productName: json['name']?.toString() ?? json['productName']?.toString() ?? 'Farm Product',
+      productName: json['productName']?.toString() ?? json['name']?.toString() ?? 'Farm Product',
       variety: json['variety']?.toString() ?? '',
       category: json['category']?.toString() ?? 'Vegetables',
       cropLinked: json['cropName']?.toString() ?? json['cropLinked']?.toString() ?? '',
@@ -295,14 +375,14 @@ class ProductItem {
       stockQuantity: stock,
       minimumOrderQuantity: (json['minimumOrderQuantity'] is num) ? (json['minimumOrderQuantity'] as num).toDouble() : (double.tryParse(json['minimumOrderQuantity']?.toString() ?? '') ?? 10.0),
       farmingType: json['farmingType']?.toString() ?? 'Organic (सेंद्रिय)',
-      farmName: json['farmName']?.toString() ?? 'My Krushi Farm',
-      farmLocation: json['farmLocation']?.toString() ?? 'Baramati, Pune',
-      sowingDate: json['sowingDate']?.toString() ?? (json['crop'] is Map ? json['crop']['sowingDate']?.toString() ?? '15 Aug 2026' : '15 Aug 2026'),
-      harvestDate: json['harvestDate']?.toString() ?? (json['crop'] is Map ? json['crop']['expectedHarvestDate']?.toString() ?? '14 Oct 2026' : '14 Oct 2026'),
-      availableFrom: json['availableFrom']?.toString() ?? '15 Oct 2026',
-      availableUntil: json['availableUntil']?.toString() ?? '30 Nov 2026',
+      farmName: json['farmName']?.toString() ?? 'Nehe Mala',
+      farmLocation: json['farmLocation']?.toString() ?? 'Sawargaon Tal, Sangamner',
+      sowingDate: json['sowingDate']?.toString() ?? (json['crop'] is Map ? json['crop']['sowingDate']?.toString() ?? '01 Jun 2026' : '01 Jun 2026'),
+      harvestDate: formattedHarvest,
+      availableFrom: json['availableFrom']?.toString() ?? '01 Sept 2026',
+      availableUntil: json['availableUntil']?.toString() ?? '30 Oct 2026',
       status: json['status']?.toString() ?? json['stockStatus']?.toString() ?? 'Active',
-      imageUrl: json['profileImage']?.toString() ?? json['image']?.toString() ?? '',
+      imageUrl: mainImg,
       photos: photoList,
     );
   }
@@ -310,6 +390,8 @@ class ProductItem {
 
 class FarmerOrderItem {
   final String id;
+  final String? _productId;
+  String get productId => _productId ?? '';
   final String orderCode;
   final String buyerName;
   final String buyerPhone;
@@ -343,6 +425,7 @@ class FarmerOrderItem {
 
   FarmerOrderItem({
     required this.id,
+    String? productId,
     required this.orderCode,
     required this.buyerName,
     required this.buyerPhone,
@@ -373,7 +456,8 @@ class FarmerOrderItem {
     required this.createdAt,
     this.rejectionReason = '',
     this.transactionId = '',
-  })  : orderedQuantity = orderedQuantity ?? quantity,
+  })  : _productId = productId ?? '',
+        orderedQuantity = orderedQuantity ?? quantity,
         receivedQuantity = receivedQuantity ?? quantity,
         rate = rate ?? (quantity > 0 ? (totalAmount / quantity).roundToDouble() : 30.0),
         gradeAQty = gradeAQty ?? (quantity >= 290.0 ? 200.0 : (quantity * 0.70).roundToDouble()),
@@ -395,74 +479,104 @@ class FarmerOrderItem {
       return double.tryParse(v.toString()) ?? fallback;
     }
 
-    final q = parseDbl(json['quantity'] ?? json['orderedQuantity'] ?? json['qty'], 290.0);
-    final totAmt = parseDbl(json['totalAmount'] ?? json['orderValue'] ?? json['finalAmount'] ?? json['amount'], 6960.0);
-    final r = parseDbl(json['price'] ?? json['rate'] ?? json['sellingPrice'] ?? json['pricePerUnit'], 30.0);
+    final q = parseDbl(json['quantity'] ?? json['orderedQuantity'] ?? json['totalQuantity'] ?? json['qty'], 0.0);
+    final r = parseDbl(json['price'] ?? json['rate'] ?? json['sellingPrice'] ?? json['pricePerUnit'], 0.0);
 
-    // Extract grade particulars if present
-    double gA = parseDbl(json['gradeAAssigned'] ?? json['gradeAQuantity'] ?? json['gradeAQty'], q >= 290 ? 200.0 : (q * 0.70).roundToDouble());
-    double gAR = parseDbl(json['gradeAPrice'] ?? json['gradeARate'], r);
-    double gB = parseDbl(json['gradeBAssigned'] ?? json['gradeBQuantity'] ?? json['gradeBQty'], q >= 290 ? 80.0 : (q * 0.25).roundToDouble());
-    double gBR = parseDbl(json['gradeBPrice'] ?? json['gradeBRate'], (r * 0.4).roundToDouble());
-    double gC = parseDbl(json['gradeCAssigned'] ?? json['gradeCQuantity'] ?? json['gradeCQty'], 0.0);
-    double gCR = parseDbl(json['gradeCPrice'] ?? json['gradeCRate'], 0.0);
-    double rej = parseDbl(json['rejectedQuantity'] ?? json['rejectedQty'], q >= 290 ? 10.0 : (q * 0.05).roundToDouble());
+    double gA = 0.0;
+    double gAR = r > 0 ? r : 0.0;
+    double gARej = 0.0;
+    double gB = 0.0;
+    double gBR = 0.0;
+    double gBRej = 0.0;
+    double gC = 0.0;
+    double gCR = 0.0;
+    double gCRej = 0.0;
+    double totalRejFromGrades = 0.0;
 
-    if (json['finalStatement'] is List && (json['finalStatement'] as List).isNotEmpty) {
-      for (final item in (json['finalStatement'] as List)) {
+    final dynamic gradeListRaw = json['finalStatement'] ?? json['grades'] ?? json['orderedGrades'];
+    if (gradeListRaw is List && gradeListRaw.isNotEmpty) {
+      for (final item in gradeListRaw) {
         if (item is Map) {
-          final lbl = item['label']?.toString() ?? item['grade']?.toString() ?? '';
-          final qty = parseDbl(item['quantity'] ?? item['finalQty'] ?? item['assignedQuantity'], 0.0);
+          final lbl = (item['label']?.toString() ?? item['name']?.toString() ?? item['grade']?.toString() ?? '').toUpperCase();
+          final qty = parseDbl(item['quantity'] ?? item['finalQty'] ?? item['assignedQuantity'] ?? item['qty'], 0.0);
           final prc = parseDbl(item['price'] ?? item['rate'], 0.0);
-          final rj = parseDbl(item['rejectedQuantity'], 0.0);
+          final rj = parseDbl(item['rejectedQuantity'] ?? item['rejectedQty'] ?? item['rejected'], 0.0);
+
           if (lbl.contains('A')) {
             gA = qty;
-            gAR = prc > 0 ? prc : gAR;
+            if (prc > 0) gAR = prc;
+            gARej = rj;
           } else if (lbl.contains('B')) {
             gB = qty;
-            gBR = prc > 0 ? prc : gBR;
+            if (prc > 0) gBR = prc;
+            gBRej = rj;
           } else if (lbl.contains('C')) {
             gC = qty;
-            gCR = prc > 0 ? prc : gCR;
+            if (prc > 0) gCR = prc;
+            gCRej = rj;
           }
-          if (rj > 0) rej += rj;
+          totalRejFromGrades += rj;
         }
       }
+    } else {
+      gA = parseDbl(json['gradeAQuantity'] ?? json['gradeAQty'] ?? json['gradeAAssigned'], 0.0);
+      gAR = parseDbl(json['gradeAPrice'] ?? json['gradeARate'], r);
+      gARej = parseDbl(json['gradeARejected'], 0.0);
+      gB = parseDbl(json['gradeBQuantity'] ?? json['gradeBQty'] ?? json['gradeBAssigned'], 0.0);
+      gBR = parseDbl(json['gradeBPrice'] ?? json['gradeBRate'], 0.0);
+      gBRej = parseDbl(json['gradeBRejected'], 0.0);
+      gC = parseDbl(json['gradeCQuantity'] ?? json['gradeCQty'] ?? json['gradeCAssigned'], 0.0);
+      gCR = parseDbl(json['gradeCPrice'] ?? json['gradeCRate'], 0.0);
+      gCRej = parseDbl(json['gradeCRejected'], 0.0);
+      totalRejFromGrades = gARej + gBRej + gCRej;
     }
 
-    final pStatus = json['paymentStatus']?.toString() ?? 'PAID';
-    final st = json['status']?.toString() ?? 'Completed';
+    double finalRej = parseDbl(json['rejectedQuantity'] ?? json['rejectionQty'] ?? json['rejectedQty'], totalRejFromGrades);
+    if (finalRej <= 0 && totalRejFromGrades > 0) {
+      finalRej = totalRejFromGrades;
+    }
+
+    double calculatedAmount = (gA * gAR) + (gB * gBR) + (gC * gCR);
+    double totAmt = parseDbl(json['totalAmount'] ?? json['orderValue'] ?? json['finalAmount'] ?? json['amount'], calculatedAmount > 0 ? calculatedAmount : (q * r));
+    if (totAmt <= 0 && calculatedAmount > 0) {
+      totAmt = calculatedAmount;
+    }
+
+    final pStatus = json['paymentStatus']?.toString() ?? 'Pending';
+    final st = json['status']?.toString() ?? 'NEW';
+    final qStatus = json['qualityStatus']?.toString() ?? '';
 
     return FarmerOrderItem(
       id: json['id']?.toString() ?? json['_id']?.toString() ?? 'ORD-001',
-      orderCode: json['orderDisplayId']?.toString() ?? json['orderCode']?.toString() ?? json['id']?.toString() ?? 'GGC-ORD-20260907-00001',
+      productId: json['productId']?.toString() ?? json['product_id']?.toString() ?? '',
+      orderCode: json['orderDisplayId']?.toString() ?? json['orderCode']?.toString() ?? json['id']?.toString() ?? 'GGC-ORD-00001',
       buyerName: json['buyerName']?.toString() ?? json['customerName']?.toString() ?? 'Swastik Supermarket Pune',
       buyerPhone: json['buyerPhone']?.toString() ?? json['customerPhone']?.toString() ?? '+91 98501 23456',
-      productName: json['productName']?.toString() ?? json['name']?.toString() ?? 'Brinjal (वांगी)',
-      cropName: json['cropName']?.toString() ?? json['cropLinked']?.toString() ?? 'Brinjal (वांगी)',
-      variety: json['variety']?.toString() ?? 'Pusa Purple Long',
+      productName: json['productName']?.toString() ?? json['cropName']?.toString() ?? json['name']?.toString() ?? 'Produce',
+      cropName: json['cropName']?.toString() ?? json['cropLinked']?.toString() ?? json['productName']?.toString() ?? '',
+      variety: json['variety']?.toString() ?? '',
       quantity: q,
-      orderedQuantity: parseDbl(json['orderedQuantity'], q),
+      orderedQuantity: parseDbl(json['orderedQuantity'] ?? json['totalQuantity'], q),
       receivedQuantity: parseDbl(json['receivedQuantity'], q),
       unit: json['unit']?.toString() ?? 'Kg',
-      rate: r,
+      rate: r > 0 ? r : gAR,
       gradeAQty: gA,
       gradeARate: gAR,
-      gradeARejected: parseDbl(json['gradeARejected'], 0.0),
+      gradeARejected: gARej,
       gradeBQty: gB,
       gradeBRate: gBR,
-      gradeBRejected: parseDbl(json['gradeBRejected'], 0.0),
+      gradeBRejected: gBRej,
       gradeCQty: gC,
       gradeCRate: gCR,
-      gradeCRejected: parseDbl(json['gradeCRejected'], 0.0),
-      rejectedQuantity: rej,
+      gradeCRejected: gCRej,
+      rejectedQuantity: finalRej,
       totalAmount: totAmt,
       status: st,
-      qualityStatus: json['qualityStatus']?.toString() ?? 'GRADE_CONFIRMED',
+      qualityStatus: qStatus,
       paymentStatus: pStatus,
-      pickupDate: json['pickupDate']?.toString() ?? '08/09/2026, Tuesday',
-      pickupSlot: json['pickupSlot']?.toString() ?? json['pickupTime']?.toString() ?? '7:00 AM',
-      createdAt: json['createdAt']?.toString() ?? json['orderDate']?.toString() ?? '07/09/2026, Monday',
+      pickupDate: json['pickupDate']?.toString() ?? '',
+      pickupSlot: json['pickupTime']?.toString() ?? json['pickupSlot']?.toString() ?? '',
+      createdAt: json['createdAt']?.toString() ?? json['orderDate']?.toString() ?? '',
       rejectionReason: json['rejectionReason']?.toString() ?? '',
       transactionId: json['transactionId']?.toString() ?? (json['paymentDetails'] is Map ? json['paymentDetails']['transactionId']?.toString() ?? '' : ''),
     );

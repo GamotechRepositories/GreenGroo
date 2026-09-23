@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import 'earning_report_screen.dart';
@@ -27,27 +28,14 @@ class _EarningsScreenState extends State<EarningsScreen> {
       listenable: FarmerState(),
       builder: (context, _) {
         final products = FarmerState().products;
-        final orders = FarmerState().orders;
-
-        // Compute total financials across all orders
-        double totalRevenue = 0;
-        double depositedAmount = 0;
-        double pendingAmount = 0;
-
-        for (final o in orders) {
-          final amt = o.effectiveTotalAmount;
-          totalRevenue += amt;
-          if (o.paymentStatus.toUpperCase() == 'PAID' || o.status == 'Completed') {
-            depositedAmount += amt;
-          } else if (o.status != 'Cancelled') {
-            pendingAmount += amt;
-          }
-        }
+        final rawOrders = FarmerState().orders;
+        final orders = rawOrders.where(_isStatementOrder).toList();
 
         // Build list of workbook sheets
         final List<Map<String, dynamic>> allSheets = [
           {
             'id': 'overview',
+            'sheetId': 'overview',
             'title': 'Summary Overview',
             'icon': '📊',
             'badge': products.length,
@@ -56,12 +44,19 @@ class _EarningsScreenState extends State<EarningsScreen> {
         ];
 
         for (final p in products) {
-          final count = orders.where((o) => _orderMatchesProduct(o, p)).length;
-          final cleanCrop = p.cropLinked.split('(')[0].trim();
-          final cleanProd = p.productName.split('(')[0].trim();
-          final shortTitle = cleanCrop.isNotEmpty ? '$cleanCrop (Batch 1)' : '$cleanProd (Batch 1)';
+          int count = 0;
+          try {
+            count = orders.where((o) => _orderMatchesProduct(o, p)).length;
+          } catch (_) {}
+          final cleanProd = (p.productName).split('(')[0].trim();
+          final shortTitle = p.variety.isNotEmpty
+              ? '$cleanProd (${p.variety})'
+              : cleanProd;
+          final pKey = p.productId.isNotEmpty ? p.productId : p.id;
           allSheets.add({
-            'id': 'product_${p.id}',
+            'id': 'product_$pKey',
+            'sheetId': 'sheet-$pKey',
+            'productId': pKey,
             'title': shortTitle,
             'product': p,
             'icon': '📄',
@@ -82,6 +77,26 @@ class _EarningsScreenState extends State<EarningsScreen> {
           (s) => s['id'] == _activeSheetId,
           orElse: () => allSheets.first,
         );
+
+        final ProductItem? activeProduct = currentSheet['product'] as ProductItem?;
+        final List<FarmerOrderItem> activeOrders = (currentSheet['isOverview'] == true || activeProduct == null)
+            ? orders
+            : orders.where((o) => _orderMatchesProduct(o, activeProduct)).toList();
+
+        // Compute total financials for active sheet view
+        double totalRevenue = 0;
+        double depositedAmount = 0;
+        double pendingAmount = 0;
+
+        for (final o in activeOrders) {
+          final amt = o.effectiveTotalAmount;
+          totalRevenue += amt;
+          if (_isOrderPaid(o)) {
+            depositedAmount += amt;
+          } else {
+            pendingAmount += amt;
+          }
+        }
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -136,7 +151,13 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // 3. Active Sheet Body
+                  // 3. Excel Sheet Tab Bar (Workbook Navigation)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: _buildWorkbookTabBar(allSheets, products),
+                  ),
+
+                  // 4. Active Sheet Body
                   if (currentSheet['isOverview'] == true)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -145,13 +166,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildProductSheetTabBar(allSheets, currentSheet['product'] as ProductItem?, products),
-                          _buildProductSheetContent(currentSheet, orders),
-                        ],
-                      ),
+                      child: _buildProductSheetContent(currentSheet, orders),
                     ),
                 ],
               ),
@@ -162,25 +177,85 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
+  bool _isOrderDeleted(FarmerOrderItem o) {
+    final s = o.status.trim().toUpperCase();
+    return s == 'DELETED' || s == 'CANCELLED' || s == 'CANCELED' || s == 'DELETED_ORDER';
+  }
+
+  bool _isOrderPaid(FarmerOrderItem order) {
+    final s = order.paymentStatus.trim().toUpperCase();
+    return s == 'PAID' || s == 'PAYMENT_COMPLETED' || s == 'COMPLETED' || s == 'PAYMENT RECEIVED';
+  }
+
+  bool _isStatementOrder(FarmerOrderItem order) {
+    if (_isOrderDeleted(order)) return false;
+    final status = order.status.trim().toUpperCase();
+    final quality = order.qualityStatus.trim().toUpperCase();
+
+    // Must be explicitly graded / completed statement order
+    final bool isGraded = status == 'GRADE_CONFIRMED' ||
+        status == 'ORDER_COMPLETED' ||
+        quality == 'GRADE_CONFIRMED' ||
+        quality == 'ORDER_COMPLETED';
+
+    if (!isGraded) return false;
+
+    // Must not be in preparing/in-transit/inspection stage
+    if (status == 'PREPARING' ||
+        status == 'NEW' ||
+        status == 'ACCEPTED' ||
+        status == 'READY_FOR_PICKUP' ||
+        status == 'IN_TRANSIT' ||
+        status == 'INSPECTION' ||
+        status == 'REJECTED') {
+      return false;
+    }
+
+    return true;
+  }
+
   bool _orderMatchesProduct(FarmerOrderItem order, ProductItem product) {
-    final oName = order.productName.toLowerCase();
-    final pName = product.productName.toLowerCase();
-    final cleanO = oName.split('(')[0].trim();
-    final cleanP = pName.split('(')[0].trim();
-    return oName.contains(cleanP) || pName.contains(cleanO);
+    if (!_isStatementOrder(order)) return false;
+    try {
+      final oId = order.productId.trim();
+      final pId = product.productId.trim();
+      final pAltId = product.id.trim();
+      if (oId.isNotEmpty) {
+        if (pId.isNotEmpty && oId == pId) return true;
+        if (pAltId.isNotEmpty && oId == pAltId) return true;
+        if (pId.isNotEmpty || pAltId.isNotEmpty) return false;
+      }
+    } catch (_) {}
+
+    try {
+      final oName = order.productName.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      final pName = product.productName.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      final oVar = order.variety.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      final pVar = product.variety.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      if (oName.isNotEmpty && pName.isNotEmpty && oName == pName) {
+        return oVar.isEmpty || pVar.isEmpty || oVar == pVar;
+      }
+      final oCrop = order.cropName.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      final pCrop = product.cropLinked.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      if (oCrop.isNotEmpty && pCrop.isNotEmpty && oCrop == pCrop) {
+        return oVar.isEmpty || pVar.isEmpty || oVar == pVar;
+      }
+    } catch (_) {}
+
+    return false;
   }
 
   String _formatCurrency(double val) {
     final intVal = val.round();
     final str = intVal.toString();
     final reg = RegExp(r'(\d+?)(?=(\d{3})+(?!\d))');
-    return str.replaceAllMapped(reg, (Match m) => '${m[1]},');
+    return str.replaceAllMapped(reg, (Match m) => '${m[1] ?? ''},');
   }
 
   // --- Robust Date Parsing Helpers (handles ISO 8601, dd/mm/yyyy, etc) ---
 
-  DateTime? _parseAnyDate(String raw) {
-    if (raw.isEmpty) return null;
+  DateTime? _parseAnyDate(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
     raw = raw.trim();
     // ISO 8601: 2026-09-07T14:19:13.588Z or 2026-09-07
     if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
@@ -200,21 +275,23 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return null;
   }
 
-  String _formatShortDate(String raw) {
+  String _formatShortDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
     final dt = _parseAnyDate(raw);
     if (dt == null) return raw.isNotEmpty ? raw : '—';
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }
 
-  String _formatWeekday(String raw) {
+  String _formatWeekday(String? raw) {
+    if (raw == null || raw.isEmpty) return '';
     final dt = _parseAnyDate(raw);
     if (dt == null) return '';
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return dayNames[(dt.weekday - 1) % 7];
   }
 
-  String _parsePickupTime(String raw) {
-    if (raw.isEmpty) return '7:00 AM';
+  String _parsePickupTime(String? raw) {
+    if (raw == null || raw.isEmpty) return '7:00 AM';
     // If already like "7:00 AM" just return
     if (RegExp(r'\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false).hasMatch(raw)) {
       return raw.split('-').first.trim();
@@ -397,38 +474,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
-  // 3. Product-Specific Excel Sheet Tab Bar (Only sheets of the selected product)
-  Widget _buildProductSheetTabBar(
+  // 3. Excel Workbook Sheet Tab Bar (All Produce Sheets + Overview + Custom Sheets)
+  Widget _buildWorkbookTabBar(
     List<Map<String, dynamic>> allSheets,
-    ProductItem? activeProduct,
     List<ProductItem> products,
   ) {
-    if (activeProduct == null) return const SizedBox.shrink();
-
-    // Only include sheets that belong specifically to this active product
-    final List<Map<String, dynamic>> productSheets = allSheets.where((s) {
-      if (s['isOverview'] == true) return false;
-      final p = s['product'] as ProductItem?;
-      return p != null && p.id == activeProduct.id;
-    }).toList();
-
-    if (productSheets.isEmpty) {
-      final cleanCrop = activeProduct.cropLinked.split('(')[0].trim();
-      final cleanProd = activeProduct.productName.split('(')[0].trim();
-      final shortTitle = cleanCrop.isNotEmpty ? '$cleanCrop (Batch 1)' : '$cleanProd (Batch 1)';
-      productSheets.add({
-        'id': 'product_${activeProduct.id}',
-        'title': shortTitle,
-        'product': activeProduct,
-        'icon': '📄',
-        'badge': 0,
-        'isOverview': false,
-      });
-    }
-
-    final hasActive = productSheets.any((s) => s['id'] == _activeSheetId);
-    final String currentTabId = hasActive ? _activeSheetId! : productSheets.first['id'] as String;
-
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFFE8F0EA),
@@ -442,56 +492,22 @@ class _EarningsScreenState extends State<EarningsScreen> {
       padding: const EdgeInsets.only(left: 6, right: 6, top: 6),
       child: Row(
         children: [
-          // Back to Overview Button
-          GestureDetector(
-            onTap: () {
-              setState(() => _activeSheetId = 'overview');
-              if (_tabScrollController.hasClients) {
-                _tabScrollController.jumpTo(0.0);
-              }
-            },
-            child: Container(
-              margin: const EdgeInsets.only(right: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD8E6DB),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
-                border: Border.all(color: const Color(0xFFBACCC0), width: 1),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_back, size: 12, color: Color(0xFF15803D)),
-                  SizedBox(width: 3),
-                  Text(
-                    'Overview',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF15803D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Scrollable Tabs for this product only
+          // Scrollable Tabs
           Expanded(
             child: SingleChildScrollView(
               controller: _tabScrollController,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               child: Row(
-                children: productSheets.map((sheet) {
-                  final isActive = sheet['id'] == currentTabId;
+                children: allSheets.map((sheet) {
+                  final isActive = sheet['id'] == _activeSheetId;
                   final String rawTitle = sheet['title']?.toString() ?? '';
-                  final String title = rawTitle.isNotEmpty ? rawTitle : 'Batch 1';
-                  final String iconEmoji = sheet['icon']?.toString() ?? '📄';
+                  final String title = rawTitle.isNotEmpty ? rawTitle : 'Produce';
+                  final String iconEmoji = sheet['icon']?.toString() ?? (sheet['isOverview'] == true ? '📊' : '📄');
 
                   return GestureDetector(
                     onTap: () {
-                      setState(() => _activeSheetId = sheet['id'] as String);
+                      setState(() => _activeSheetId = sheet['id']?.toString() ?? 'overview');
                     },
                     child: Container(
                       margin: const EdgeInsets.only(right: 6),
@@ -561,9 +577,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
             ),
           ),
 
-          // Green + button on right (Creates a new sheet specifically for THIS product)
+          // Green + button on right (Creates a new sheet)
           GestureDetector(
-            onTap: () => _openNewSheetModal(products, prefilledProduct: activeProduct),
+            onTap: () => _openNewSheetModal(products),
             child: Container(
               margin: const EdgeInsets.only(left: 4, bottom: 2),
               padding: const EdgeInsets.all(5),
@@ -602,7 +618,6 @@ class _EarningsScreenState extends State<EarningsScreen> {
         double prodTotal = 0;
         double prodDeposited = 0;
         double prodPending = 0;
-        double totalSoldQty = 0;
         double gradeAQty = 0;
         double gradeARate = 0;
         double gradeARejected = 0;
@@ -612,12 +627,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
         double gradeCQty = 0;
         double gradeCRate = 0;
         double gradeCRejected = 0;
-        double gradeRejQty = 0;
 
         for (final o in matchedOrders) {
           final amt = o.effectiveTotalAmount;
           prodTotal += amt;
-          totalSoldQty += (o.gradeAQty + o.gradeBQty + o.gradeCQty);
           gradeAQty += o.gradeAQty;
           if (o.gradeARate > 0) gradeARate = o.gradeARate;
           gradeARejected += o.gradeARejected;
@@ -630,242 +643,334 @@ class _EarningsScreenState extends State<EarningsScreen> {
           if (o.gradeCRate > 0) gradeCRate = o.gradeCRate;
           gradeCRejected += o.gradeCRejected;
 
-          gradeRejQty += o.rejectedQuantity;
-
-          if (o.paymentStatus.toUpperCase() == 'PAID' || o.status == 'Completed') {
+          if (_isOrderPaid(o)) {
             prodDeposited += amt;
-          } else if (o.status != 'Cancelled') {
+          } else {
             prodPending += amt;
           }
         }
 
         final rate = product.pricePerUnit > 0 ? product.pricePerUnit : 30.0;
+        if (gradeARate <= 0) gradeARate = rate;
+        if (gradeBRate <= 0) gradeBRate = ((rate * 0.4).roundToDouble() > 0 ? (rate * 0.4).roundToDouble() : 12.0);
 
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _activeSheetId = 'product_${product.id}';
-            });
-            if (_tabScrollController.hasClients) {
-              _tabScrollController.animateTo(
-                100.0,
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
-              );
-            }
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Product Header
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFD1FAE5)),
-                      ),
-                      child: Center(
-                        child: Text(
-                          product.productName.isNotEmpty ? product.productName.substring(0, 1).toUpperCase() : 'P',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
-                        ),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF9CA3AF), width: 0.8),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 5,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Product Header (Photo, Name, Variety, Status Badge)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFD1FAE5)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        product.productName.isNotEmpty ? product.productName.substring(0, 1).toUpperCase() : 'P',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: product.productName,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    ),
+                                    if (product.variety.isNotEmpty)
+                                      TextSpan(
+                                        text: ' · ${product.variety}',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                      ),
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFBBF7D0)),
+                              ),
+                              child: Text(
+                                product.status.isNotEmpty ? product.status : 'Active',
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${product.cropLinked.isNotEmpty ? product.cropLinked : product.productName} • ${product.farmName}',
+                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // 2. Details Grid (2 Rows of Facts)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    // Row 1: Product ID | Crop | Variety | Farm | Location
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: InkWell(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: product.productId));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Product ID copied'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF217346)),
+                              );
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('PRODUCT ID', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                                const SizedBox(height: 1),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        product.productId,
+                                        style: const TextStyle(fontFamily: 'monospace', fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.copy_rounded, size: 9, color: Color(0xFF065F46)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Expanded(flex: 2, child: _buildDetailItem('CROP', product.cropLinked.split('(')[0].trim())),
+                        Expanded(flex: 2, child: _buildDetailItem('VARIETY', product.variety.isNotEmpty ? product.variety : 'Hybrid')),
+                        Expanded(flex: 2, child: _buildDetailItem('FARM', product.farmName.isNotEmpty ? product.farmName : 'Krushi Farm')),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Divider(height: 1, thickness: 0.5, color: Color(0xFFE2E8F0)),
+                    const SizedBox(height: 6),
+                    // Row 2: Location | Harvest Date | Available From | Orders
+                    Row(
+                      children: [
+                        Expanded(flex: 3, child: _buildDetailItem('LOCATION', product.farmLocation.isNotEmpty ? product.farmLocation : 'Maharashtra')),
+                        Expanded(flex: 2, child: _buildDetailItem('HARVEST', _formatShortDate(product.harvestDate))),
+                        Expanded(flex: 2, child: _buildDetailItem('AVAILABLE', _formatShortDate(product.availableFrom))),
+                        Expanded(flex: 2, child: _buildDetailItem('ORDERS', '${matchedOrders.length}')),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // 3. Mini Excel Grade Statement Table
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF9CA3AF), width: 0.8),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    // Header
+                    Container(
+                      color: const Color(0xFFE8F0EA),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      child: const Row(
+                        children: [
+                          Expanded(flex: 2, child: Text('Grade', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151)))),
+                          Expanded(flex: 2, child: Center(child: Text('Qty', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
+                          Expanded(flex: 2, child: Center(child: Text('Rate', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
+                          Expanded(flex: 2, child: Center(child: Text('Rejected', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))))),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, thickness: 1, color: Color(0xFF9CA3AF)),
+                    // Grade A
+                    _buildGradeTableRow(
+                      'Grade A',
+                      gradeAQty > 0 ? '${gradeAQty.toStringAsFixed(0)} ${product.unit}' : '—',
+                      gradeAQty > 0 ? '₹${gradeARate.toStringAsFixed(0)}' : '—',
+                      gradeAQty > 0 ? '${gradeARejected.toStringAsFixed(0)} ${product.unit}' : '0 ${product.unit}',
+                      const Color(0xFFECFDF5),
+                      const Color(0xFF065F46),
+                    ),
+                    const Divider(height: 1, thickness: 0.5, color: Color(0xFF9CA3AF)),
+                    // Grade B
+                    _buildGradeTableRow(
+                      'Grade B',
+                      gradeBQty > 0 ? '${gradeBQty.toStringAsFixed(0)} ${product.unit}' : '—',
+                      gradeBQty > 0 ? '₹${gradeBRate.toStringAsFixed(0)}' : '—',
+                      gradeBQty > 0 ? '${gradeBRejected.toStringAsFixed(0)} ${product.unit}' : '0 ${product.unit}',
+                      const Color(0xFFEFF6FF),
+                      const Color(0xFF1E40AF),
+                    ),
+                    const Divider(height: 1, thickness: 0.5, color: Color(0xFF9CA3AF)),
+                    // Grade C
+                    _buildGradeTableRow(
+                      'Grade C',
+                      gradeCQty > 0 ? '${gradeCQty.toStringAsFixed(0)} ${product.unit}' : '—',
+                      gradeCRate > 0 ? '₹${gradeCRate.toStringAsFixed(0)}' : '—',
+                      gradeCQty > 0 ? '${gradeCRejected.toStringAsFixed(0)} ${product.unit}' : '0 ${product.unit}',
+                      const Color(0xFFFFFBEB),
+                      const Color(0xFF92400E),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // 4. Earnings Summary (Total / Deposited / Pending)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAF8),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
                     Expanded(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  product.productName,
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDF4),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                                ),
-                                child: Text(
-                                  product.status,
-                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
-                                ),
-                              ),
-                            ],
-                          ),
+                          const Text('Total', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                           const SizedBox(height: 2),
-                          Text(
-                            '${product.cropLinked} • ${product.category}',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                          ),
+                          Text('₹${_formatCurrency(prodTotal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 22, color: const Color(0xFFE2E8F0)),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Deposited', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                          const SizedBox(height: 2),
+                          Text('₹${_formatCurrency(prodDeposited)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 22, color: const Color(0xFFE2E8F0)),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Pending', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                          const SizedBox(height: 2),
+                          Text('₹${_formatCurrency(prodPending)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+              ),
+              const SizedBox(height: 10),
 
-                // Detail Items Grid
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(child: _buildDetailItem('ORDERS', '${matchedOrders.length}')),
-                      Expanded(child: _buildDetailItem('SOLD QTY', '${totalSoldQty.toStringAsFixed(0)} ${product.unit}')),
-                      Expanded(child: _buildDetailItem('REVENUE', '₹ ${prodTotal.toStringAsFixed(0)}')),
-                      Expanded(child: _buildDetailItem('DEPOSITED', '₹ ${prodDeposited.toStringAsFixed(0)}')),
-                      Expanded(child: _buildDetailItem('BALANCE', '₹ ${prodPending.toStringAsFixed(0)}')),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Mini Excel Grade Statement Table
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF9CA3AF)),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Column(
-                    children: [
-                      // Header
-                      Container(
-                        color: const Color(0xFFE8F0EA),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                        child: Row(
-                          children: const [
-                            Expanded(flex: 2, child: Text('Grade', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151)))),
-                            Expanded(flex: 2, child: Center(child: Text('Qty', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
-                            Expanded(flex: 2, child: Center(child: Text('Rate', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
-                            Expanded(flex: 2, child: Center(child: Text('Rejected', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))))),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, color: Color(0xFF9CA3AF)),
-                      // Grade A
-                      _buildGradeTableRow(
-                        'Grade A',
-                        '${gradeAQty.toStringAsFixed(0)} ${product.unit}',
-                        '₹ ${gradeARate > 0 ? gradeARate.toStringAsFixed(0) : rate.toStringAsFixed(0)}',
-                        '${gradeARejected.toStringAsFixed(0)} ${product.unit}',
-                        const Color(0xFFECFDF5),
-                        const Color(0xFF065F46),
-                      ),
-                      const Divider(height: 1, color: Color(0xFF9CA3AF)),
-                      // Grade B
-                      _buildGradeTableRow(
-                        'Grade B',
-                        '${gradeBQty.toStringAsFixed(0)} ${product.unit}',
-                        '₹ ${gradeBRate > 0 ? gradeBRate.toStringAsFixed(0) : ((rate * 0.4).roundToDouble() > 0 ? (rate * 0.4).roundToDouble() : 12.0).toStringAsFixed(0)}',
-                        '${gradeBRejected.toStringAsFixed(0)} ${product.unit}',
-                        const Color(0xFFEFF6FF),
-                        const Color(0xFF1E40AF),
-                      ),
-                      const Divider(height: 1, color: Color(0xFF9CA3AF)),
-                      // Grade C
-                      _buildGradeTableRow(
-                        'Grade C',
-                        '${gradeCQty > 0 ? gradeCQty.toStringAsFixed(0) : '0'} ${product.unit}',
-                        gradeCRate > 0 ? '₹ ${gradeCRate.toStringAsFixed(0)}' : '—',
-                        '${(gradeCRejected > 0 ? gradeCRejected : (gradeRejQty - (gradeARejected + gradeBRejected))).clamp(0, 99999).toStringAsFixed(0)} ${product.unit}',
-                        const Color(0xFFFFFBEB),
-                        const Color(0xFF92400E),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Action Buttons matching web portal
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF217346),
-                        side: const BorderSide(color: Color(0xFF217346)),
-                        backgroundColor: const Color(0xFFF0FDF4),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: const Icon(Icons.table_chart_outlined, size: 14),
-                      label: const Text('View Sheet', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        setState(() {
-                          _activeSheetId = 'product_${product.id}';
-                        });
-                        if (_tabScrollController.hasClients) {
-                          _tabScrollController.animateTo(
-                            100.0,
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOut,
-                          );
-                        }
-                      },
+              // 5. Action Buttons (View Sheet | + New Sheet)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF217346),
+                      side: const BorderSide(color: Color(0xFF217346)),
+                      backgroundColor: const Color(0xFFECFDF5),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF217346),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      ),
-                      icon: const Icon(Icons.add, size: 14),
-                      label: const Text('Sheet', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () => _openNewSheetModal(products, prefilledProduct: product),
+                    icon: const Icon(Icons.table_chart_outlined, size: 14),
+                    label: const Text('View Sheet', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      final pKey = product.productId.isNotEmpty ? product.productId : product.id;
+                      setState(() {
+                        _activeSheetId = 'product_$pKey';
+                      });
+                      if (_tabScrollController.hasClients) {
+                        _tabScrollController.animateTo(
+                          100.0,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    },
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF217346),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                    icon: const Icon(Icons.add, size: 14),
+                    label: const Text('+ New Sheet', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    onPressed: () => _openNewSheetModal(products, prefilledProduct: product),
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       }).toList(),
     );
   }
 
-  Widget _buildDetailItem(String label, String val) {
+  Widget _buildDetailItem(String label, String? val) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
         const SizedBox(height: 1),
-        Text(val, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        Text(val != null && val.isNotEmpty ? val : '—', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
       ],
     );
   }
@@ -1325,7 +1430,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final double gCRate = order.gradeCRate;
     final double rejQty = order.rejectedQuantity;
     final double amt = order.effectiveTotalAmount;
-    final isPaid = order.paymentStatus.toUpperCase() == 'PAID' || order.status == 'Completed';
+    final isPaid = _isOrderPaid(order);
 
     Widget cell(Widget child, double width, {Color? cellBg}) {
       return Container(
@@ -1767,137 +1872,6 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
-  void _showOrderReceiptModal(FarmerOrderItem order, int idx, double rate, String unit) {
-    final gA = (order.quantity * 0.65);
-    final gB = (order.quantity * 0.25);
-    final gC = (order.quantity * 0.10);
-    final isPaid = order.status == 'Completed';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(14))),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Text('🧾', style: TextStyle(fontSize: 18)),
-                      const SizedBox(width: 8),
-                      Text('Order #$idx Receipt', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 6),
-              Text('Order Code: ${order.orderCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 3),
-              Text('Buyer: ${order.buyerName}', style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
-              const SizedBox(height: 3),
-              Text('Pickup: ${order.pickupDate}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-              const SizedBox(height: 12),
-
-              // Grade Statement Breakdown
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFCBD5E1)),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      color: const Color(0xFFE8F0EA),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Grade', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          Text('Qty', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          Text('Rate', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          Text('Subtotal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                    _buildReceiptGradeRow('Grade A', '${gA.toStringAsFixed(1)} $unit', '₹ ${rate.toStringAsFixed(0)}', '₹ ${(gA * rate).toStringAsFixed(0)}', const Color(0xFF065F46)),
-                    const Divider(height: 1),
-                    _buildReceiptGradeRow('Grade B', '${gB.toStringAsFixed(1)} $unit', '₹ ${(rate * 0.8).toStringAsFixed(0)}', '₹ ${(gB * rate * 0.8).toStringAsFixed(0)}', const Color(0xFF1E40AF)),
-                    const Divider(height: 1),
-                    _buildReceiptGradeRow('Grade C', '${gC.toStringAsFixed(1)} $unit', '₹ ${(rate * 0.6).toStringAsFixed(0)}', '₹ ${(gC * rate * 0.6).toStringAsFixed(0)}', const Color(0xFF92400E)),
-                    const Divider(height: 1),
-                    _buildReceiptGradeRow('Rejected', '0 $unit', '—', '—', const Color(0xFFDC2626)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Total & Payment Status
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Total Net Amount', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
-                      Text(
-                        '₹ ${order.totalAmount.toStringAsFixed(0)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isPaid ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isPaid ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A)),
-                    ),
-                    child: Text(
-                      isPaid ? 'Payment Paid' : 'Payment Pending',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isPaid ? const Color(0xFF166534) : const Color(0xFFB45309),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildReceiptGradeRow(String grade, String qty, String rate, String subtotal, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(grade, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
-          Text(qty, style: const TextStyle(fontSize: 11)),
-          Text(rate, style: const TextStyle(fontSize: 11)),
-          Text(subtotal, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
   // 5. New Sheet Modal (matching web NewSheetModal)
   void _openNewSheetModal(List<ProductItem> products, {ProductItem? prefilledProduct}) {
     ProductItem? selected = prefilledProduct ?? (products.isNotEmpty ? products.first : null);
@@ -1951,7 +1925,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     const Text('Select Product / Crop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<ProductItem>(
-                      initialValue: selected,
+                      initialValue: products.any((p) => p.id == selected?.id)
+                          ? products.firstWhere((p) => p.id == selected?.id)
+                          : (products.isNotEmpty ? products.first : null),
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

@@ -4,6 +4,7 @@ import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
+import '../../core/utils/photo_picker_sheet.dart';
 import '../main_shell.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -81,23 +82,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allProducts = FarmerState().products;
-        final products = allProducts.where((p) {
-          final pStatus = p.status.isNotEmpty ? p.status : 'Active';
-          final matchesStatus = _selectedStatusFilter == 'All' ||
-              pStatus.toLowerCase() == _selectedStatusFilter.toLowerCase();
-          final q = _searchQuery.toLowerCase().trim();
-          final pName = p.productName.isNotEmpty ? p.productName : '';
-          final pVar = p.variety.isNotEmpty ? p.variety : '';
-          final pCrop = p.cropLinked.isNotEmpty ? p.cropLinked : '';
-          final pBid = p.displayBusinessId;
-          final matchesSearch = q.isEmpty ||
-              pName.toLowerCase().contains(q) ||
-              pVar.toLowerCase().contains(q) ||
-              pCrop.toLowerCase().contains(q) ||
-              pBid.toLowerCase().contains(q);
-          return matchesStatus && matchesSearch;
-        }).toList();
+        List<ProductItem> products = [];
+        try {
+          final allProducts = FarmerState().products;
+          products = allProducts.where((p) {
+            final pStatus = (p.status.isNotEmpty ? p.status : 'Active').toLowerCase();
+            final isOos = pStatus.contains('out of stock') || p.stockQuantity <= 0;
+
+            bool matchesStatus = false;
+            if (_selectedStatusFilter == 'All') {
+              matchesStatus = true;
+            } else if (_selectedStatusFilter == 'Out of Stock') {
+              matchesStatus = isOos;
+            } else if (_selectedStatusFilter == 'Active') {
+              matchesStatus = !isOos && (pStatus == 'active' || pStatus == 'published');
+            } else {
+              matchesStatus = pStatus == _selectedStatusFilter.toLowerCase();
+            }
+
+            final q = _searchQuery.toLowerCase().trim();
+            final pName = (p.productName.isNotEmpty ? p.productName : '').toLowerCase();
+            final pVar = (p.variety.isNotEmpty ? p.variety : '').toLowerCase();
+            final pCrop = (p.cropLinked.isNotEmpty ? p.cropLinked : '').toLowerCase();
+            final pBid = (p.displayBusinessId).toLowerCase();
+            final matchesSearch = q.isEmpty ||
+                pName.contains(q) ||
+                pVar.contains(q) ||
+                pCrop.contains(q) ||
+                pBid.contains(q);
+            return matchesStatus && matchesSearch;
+          }).toList();
+        } catch (_) {
+          products = FarmerState().products;
+        }
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -123,91 +140,62 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            heroTag: null,
-            backgroundColor: const Color(0xFF217346),
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.add),
-            label: const Text('Add Product', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-            },
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. Header Banner matching Web Portal
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // 1. Search Input + Add Product Button in 1 Row
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'My Products',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.3,
-                            ),
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: TextField(
+                          decoration: const InputDecoration(
+                            hintText: 'Search crop, variety, or product ID...',
+                            hintStyle: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                            prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 9, horizontal: 8),
                           ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Products linked to your crops. Publish for manager or vendor approval before they go live.',
-                            style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.25),
-                          ),
-                        ],
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF217346),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    SizedBox(
+                      height: 40,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF217346),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
+                        },
                       ),
-                      icon: const Icon(Icons.add, size: 14),
-                      label: const Text('Add Product', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
-                      },
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-
-                // 2. Search Input
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                  ),
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search crop, variety, or product ID...',
-                      hintStyle: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
-                      prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                    ),
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
                 // 3. Status Filter Chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: ['All', 'Active', 'Published', 'Draft', 'Paused'].map((status) {
+                    children: ['All', 'Active', 'Out of Stock', 'Published', 'Draft', 'Paused'].map((status) {
                       final isSelected = _selectedStatusFilter == status;
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
@@ -303,164 +291,160 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildProductCard(BuildContext context, ProductItem product) {
-    final statusStr = product.status.isNotEmpty ? product.status : 'Active';
-    final isOutOfStock = statusStr.toLowerCase().contains('out of stock') || product.stockQuantity <= 0;
-    final statusText = isOutOfStock
-        ? 'Out of Stock'
-        : (statusStr.toLowerCase() == 'published' ? 'Active' : statusStr);
+    try {
+      final statusStr = product.status.isNotEmpty ? product.status : 'Active';
+      final isOutOfStock = statusStr.toLowerCase().contains('out of stock') || product.stockQuantity <= 0;
+      final statusText = isOutOfStock
+          ? 'Out of Stock'
+          : (statusStr.toLowerCase() == 'published' ? 'Active' : statusStr);
 
-    Color statusColor;
-    if (isOutOfStock || statusStr.toLowerCase() == 'rejected') {
-      statusColor = const Color(0xFFDC2626);
-    } else if (statusStr.toLowerCase() == 'active' || statusStr.toLowerCase() == 'published') {
-      statusColor = const Color(0xFF059669);
-    } else if (statusStr.toLowerCase() == 'paused') {
-      statusColor = const Color(0xFFD97706);
-    } else {
-      statusColor = const Color(0xFF64748B);
-    }
+      Color statusColor;
+      if (isOutOfStock || statusStr.toLowerCase() == 'rejected') {
+        statusColor = const Color(0xFFDC2626);
+      } else if (statusStr.toLowerCase() == 'active' || statusStr.toLowerCase() == 'published') {
+        statusColor = const Color(0xFF059669);
+      } else if (statusStr.toLowerCase() == 'paused') {
+        statusColor = const Color(0xFFD97706);
+      } else {
+        statusColor = const Color(0xFF64748B);
+      }
 
-    final pName = product.productName.isNotEmpty ? product.productName : 'Product';
-    final pVariety = product.variety;
-    final pBid = product.displayBusinessId;
-    final pStock = product.stockQuantity;
-    final pUnit = product.unit.isNotEmpty ? product.unit : 'Kg';
-    final pHarvest = product.harvestDate.isNotEmpty ? product.harvestDate : 'Available';
+      final pName = product.productName.isNotEmpty ? product.productName : 'Product';
+      final pVariety = product.variety;
+      final pBid = product.displayBusinessId;
+      final pStock = product.stockQuantity;
+      final pUnit = product.unit.isNotEmpty ? product.unit : 'Kg';
+      final pHarvest = product.harvestDate.isNotEmpty ? product.harvestDate : 'Available';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Row: Avatar/Image + Details + Status
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Photo / Thumbnail
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Row: Avatar/Image + Details + Status
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Photo / Thumbnail
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildProductThumbnail(product, pName),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: product.imageUrl.isNotEmpty
-                    ? Image.network(
-                        product.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholderIcon(pName),
-                      )
-                    : _buildPlaceholderIcon(pName),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
 
-              // Title, Variety, ID, Subtitle
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title and Status
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: RichText(
-                            text: TextSpan(
-                              text: pName,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
-                              ),
-                              children: [
-                                if (pVariety.isNotEmpty)
-                                  TextSpan(
-                                    text: ' · $pVariety',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xFF64748B),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          statusText,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-
-                    // Product Business ID with Copy Icon
-                    InkWell(
-                      onTap: () => _copyId(pBid),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                // Title, Variety, ID, Subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title and Status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            pBid,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF059669),
-                              letterSpacing: 0.2,
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                text: pName,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                                children: [
+                                  if (pVariety.isNotEmpty)
+                                    TextSpan(
+                                      text: ' · $pVariety',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF64748B),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.copy_outlined, size: 13, color: Color(0xFF059669)),
+                          const SizedBox(width: 6),
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 3),
+                      const SizedBox(height: 3),
 
-                    // Subtitle: Quantity · Harvest Date
-                    Text(
-                      '${pStock.toStringAsFixed(0)} $pUnit · $pHarvest',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xFF64748B),
+                      // Product Business ID with Copy Icon
+                      InkWell(
+                        onTap: () => _copyId(pBid),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              pBid,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF059669),
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.copy_outlined, size: 13, color: Color(0xFF059669)),
+                          ],
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+
+                      // Subtitle: Quantity · Harvest Date
+                      Text(
+                        '${pStock.toStringAsFixed(0)} $pUnit · $pHarvest',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFF64748B),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 12),
 
           // Action Buttons: View, Edit, Delete (3 columns)
@@ -506,6 +490,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ],
       ),
+    );
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildProductThumbnail(ProductItem product, String pName) {
+    final img = product.imageUrl.isNotEmpty
+        ? product.imageUrl
+        : (product.photos.isNotEmpty ? product.photos.first : '');
+
+    return AppImageWidget(
+      imageStr: img,
+      fit: BoxFit.cover,
+      fallback: _buildPlaceholderIcon(pName),
     );
   }
 

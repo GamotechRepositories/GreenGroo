@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
+import '../../core/utils/photo_picker_sheet.dart';
 import 'add_product_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -131,11 +131,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // 1. Header Card with Photo, Title, ID, Status
             // 1. Header Card with Photo, Title, ID, Status
             Container(
@@ -165,12 +166,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: const Color(0xFFD1FAE5)),
                         ),
-                        child: Center(
-                          child: Text(
-                            p.productName.isNotEmpty ? p.productName.substring(0, 1).toUpperCase() : 'P',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
-                          ),
-                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _buildHeaderPhoto(p),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -416,12 +413,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 onPressed: _deleteProduct,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 50),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPanel({required String title, required IconData icon, required Widget child}) {
     return Container(
@@ -771,114 +769,236 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  // --- Photos & Media Quick Sheet (Matching ProductMediaPage.jsx) ---
+  // --- Photos & Media Quick Sheet (Live Camera & Gallery Enabled) ---
   void _openMediaSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.65,
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final allPhotos = <String>[];
+          if (_product.imageUrl.isNotEmpty) allPhotos.add(_product.imageUrl);
+          for (final ph in _product.photos) {
+            if (ph.isNotEmpty && !allPhotos.contains(ph)) allPhotos.add(ph);
+          }
+
+          void pickAndAddPhoto() {
+            showAppPhotoPicker(
+              context,
+              title: 'Add Product Photo (फोटो निवडा)',
+              subtitle: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा',
+              presetCategory: 'Vegetables',
+              onPhotoSelected: (newPhoto) {
+                final updatedPhotos = List<String>.from(_product.photos);
+                if (!updatedPhotos.contains(newPhoto)) {
+                  updatedPhotos.add(newPhoto);
+                }
+                final updatedMain = _product.imageUrl.isEmpty ? newPhoto : _product.imageUrl;
+
+                final updated = ProductItem(
+                  id: _product.id,
+                  productId: _product.productId,
+                  productName: _product.productName,
+                  variety: _product.variety,
+                  category: _product.category,
+                  cropLinked: _product.cropLinked,
+                  grade: _product.grade,
+                  unit: _product.unit,
+                  pricePerUnit: _product.pricePerUnit,
+                  stockQuantity: _product.stockQuantity,
+                  minimumOrderQuantity: _product.minimumOrderQuantity,
+                  farmingType: _product.farmingType,
+                  farmName: _product.farmName,
+                  farmLocation: _product.farmLocation,
+                  sowingDate: _product.sowingDate,
+                  harvestDate: _product.harvestDate,
+                  availableFrom: _product.availableFrom,
+                  availableUntil: _product.availableUntil,
+                  status: _product.status,
+                  imageUrl: updatedMain,
+                  photos: updatedPhotos,
+                  gradeAPrice: _product.gradeAPrice,
+                  gradeAQty: _product.gradeAQty,
+                  gradeBPrice: _product.gradeBPrice,
+                  gradeBQty: _product.gradeBQty,
+                  gradeCPrice: _product.gradeCPrice,
+                  gradeCQty: _product.gradeCQty,
+                );
+
+                FarmerState().updateProduct(updated);
+                setState(() => _product = updated);
+                setSheetState(() {});
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Photo added to product gallery!'),
+                    backgroundColor: Color(0xFF217346),
+                  ),
+                );
+              },
+            );
+          }
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.70,
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Product Photos (उत्पादन फोटो)',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Product Photos (उत्पादन फोटो)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        ),
+                        Text(
+                          '${_product.productName} • ${_product.displayBusinessId}',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${_product.productName} • ${_product.cropLinked}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.pop(ctx),
+                const Divider(height: 16),
+                Expanded(
+                  child: allPhotos.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFECFDF5),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.add_a_photo_outlined, size: 36, color: Color(0xFF065F46)),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text('No photos uploaded yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const SizedBox(height: 4),
+                              const Text('Tap below to take live photo or select from gallery', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                            ],
+                          ),
+                        )
+                      : GridView.builder(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 1.1,
+                          ),
+                          itemCount: allPhotos.length + 1,
+                          itemBuilder: (context, idx) {
+                            if (idx == allPhotos.length) {
+                              return InkWell(
+                                onTap: pickAndAddPhoto,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_photo_alternate_outlined, size: 32, color: Color(0xFF065F46)),
+                                      SizedBox(height: 6),
+                                      Text('+ Add Photo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final photoUrl = allPhotos[idx];
+                            final isPrimary = idx == 0;
+
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: AppImageWidget(
+                                    imageStr: photoUrl,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                if (isPrimary)
+                                  Positioned(
+                                    bottom: 6,
+                                    left: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF217346),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text('Main Photo', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF217346),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                    label: const Text('Take Live Photo / Upload (फोटो जोडा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    onPressed: pickAndAddPhoto,
+                  ),
                 ),
               ],
             ),
-            const Divider(height: 16),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                children: [
-                  _buildPhotoTile('Main Product Photo', Icons.image_outlined, true),
-                  _buildPhotoTile('Farm Photo', Icons.landscape_outlined, false),
-                  _buildPhotoTile('Crop Growth Photo', Icons.eco_outlined, false),
-                  _buildPhotoTile('Harvest Batch Photo', Icons.inventory_outlined, false),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              height: 42,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF217346),
-                  side: const BorderSide(color: Color(0xFF217346)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                icon: const Icon(Icons.add_a_photo_outlined, size: 16),
-                label: const Text('Add / Update Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Photo uploaded to product gallery!'),
-                      backgroundColor: Color(0xFF217346),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildPhotoTile(String label, IconData icon, bool hasSample) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 36, color: const Color(0xFF64748B)),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            hasSample ? 'Uploaded' : 'Optional',
-            style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.bold,
-              color: hasSample ? const Color(0xFF059669) : const Color(0xFF94A3B8),
-            ),
-          ),
-        ],
+  Widget _buildHeaderPhoto(ProductItem p) {
+    final img = p.imageUrl.isNotEmpty
+        ? p.imageUrl
+        : (p.photos.isNotEmpty ? p.photos.first : '');
+
+    return AppImageWidget(
+      imageStr: img,
+      fit: BoxFit.cover,
+      fallback: _buildFallbackInitial(p),
+    );
+  }
+
+  Widget _buildFallbackInitial(ProductItem p) {
+    return Center(
+      child: Text(
+        p.productName.isNotEmpty ? p.productName.substring(0, 1).toUpperCase() : 'P',
+        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
       ),
     );
   }

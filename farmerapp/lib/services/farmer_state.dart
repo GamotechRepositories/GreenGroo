@@ -54,7 +54,19 @@ class FarmerState extends ChangeNotifier {
         try {
           final prodRes = await ApiService().fetchProducts(profile.id);
           if (prodRes is List && prodRes.isNotEmpty) {
-            products = prodRes.map((p) => ProductItem.fromJson(p as Map<String, dynamic>)).toList();
+            final fetched = prodRes
+                .map((p) {
+                  try {
+                    return ProductItem.fromJson(p as Map<String, dynamic>);
+                  } catch (_) {
+                    return null;
+                  }
+                })
+                .whereType<ProductItem>()
+                .toList();
+            if (fetched.isNotEmpty) {
+              products = fetched;
+            }
           }
         } catch (_) {}
 
@@ -87,20 +99,20 @@ class FarmerState extends ChangeNotifier {
 
   // Farmer Profile
   FarmerProfile profile = FarmerProfile(
-    id: 'FARM-8942',
-    fullName: 'Ramesh Shinde (रमेश शिंदे)',
-    mobile: '9822345678',
-    email: 'ramesh.shinde@greengroo.in',
-    farmName: 'Shree Ganesh Krushi Farm (श्री गणेश कृषी फार्म)',
-    totalAcres: 4.5,
-    village: 'Malegaon Budruk',
-    taluka: 'Baramati',
-    district: 'Pune',
+    id: 'GGC-FR-MH-AHI-SAN-00001',
+    fullName: 'Sunil Nehe (सुनील नेहे)',
+    mobile: '9420179190',
+    email: 'sunil.nehe@greengroo.in',
+    farmName: 'Nehe Mala (नेहे मळा)',
+    totalAcres: 5.0,
+    village: 'Sawargaon Tal',
+    taluka: 'Sangamner',
+    district: 'Ahilyanagar',
     state: 'Maharashtra',
-    pincode: '413115',
-    soilType: 'Black Soil (काळी माती)',
+    pincode: '422605',
+    soilType: 'Medium Black (मध्यम काळी)',
     irrigationType: 'Drip (ठिबक सिंचन)',
-    waterSource: 'Well + Canal (विहीर व कालवा)',
+    waterSource: 'Well (विहीर)',
     farmingMethod: 'Mixed Natural (नैसर्गिक व सेंद्रिय)',
     kycStatus: 'APPROVED',
   );
@@ -127,48 +139,48 @@ class FarmerState extends ChangeNotifier {
     crops = [
       CropItem(
         id: 'CRP-001',
-        cropName: 'Brinjal (वांगी)',
-        variety: 'Pusa Purple Long',
-        acreage: 1.5,
-        sowingDate: '15 Aug 2026',
-        estHarvestDate: '14 Oct 2026',
-        soilType: 'Black Soil (काळी माती)',
+        cropName: 'Tomato (टोमॅटो)',
+        variety: 'Bajeerao',
+        acreage: 2.0,
+        sowingDate: '01 Jun 2026',
+        estHarvestDate: '01 Sept 2026',
+        soilType: 'Medium Black (मध्यम काळी)',
         irrigationType: 'Drip (ठिबक)',
         status: 'Harvest Readiness',
-        progress: 0.85,
+        progress: 0.95,
         stageIndex: 20,
       ),
       CropItem(
         id: 'CRP-002',
-        cropName: 'Tomato (टोमॅटो)',
-        variety: 'Abhinav Hybrid',
-        acreage: 2.0,
-        sowingDate: '01 Sep 2026',
-        estHarvestDate: '02 Nov 2026',
-        soilType: 'Loamy Soil (गाळाची माती)',
+        cropName: 'Onion (कांदा)',
+        variety: 'Hybrid',
+        acreage: 1.5,
+        sowingDate: '10 Jun 2026',
+        estHarvestDate: '02 Sept 2026',
+        soilType: 'Medium Black (मध्यम काळी)',
         irrigationType: 'Drip (ठिबक)',
-        status: 'Crop Growth Monitoring',
-        progress: 0.68,
-        stageIndex: 18,
+        status: 'Harvest Readiness',
+        progress: 0.90,
+        stageIndex: 20,
       ),
       CropItem(
         id: 'CRP-003',
-        cropName: 'Onion (कांदा)',
-        variety: 'Nashik Red',
+        cropName: 'Brinjal (वांगी)',
+        variety: 'Pusa Purple Long',
         acreage: 1.0,
-        sowingDate: '10 Sep 2026',
-        estHarvestDate: '15 Dec 2026',
+        sowingDate: '15 May 2026',
+        estHarvestDate: '05 Sept 2026',
         soilType: 'Medium Black (मध्यम काळी)',
-        irrigationType: 'Sprinkler (तुषार)',
-        status: 'Sowing/Plantation Completed',
-        progress: 0.38,
-        stageIndex: 10,
+        irrigationType: 'Drip (ठिबक)',
+        status: 'Harvest Readiness',
+        progress: 0.92,
+        stageIndex: 20,
       ),
     ];
 
     products = [
       ProductItem(
-        id: 'PRD-102',
+        id: 'GGC-ART-VEG-TOM-BAJ-00002',
         productId: 'GGC-ART-VEG-TOM-BAJ-00002',
         productName: 'Tomato',
         variety: 'Bajeerao',
@@ -180,8 +192,8 @@ class FarmerState extends ChangeNotifier {
         stockQuantity: 3000.0,
         minimumOrderQuantity: 50.0,
         farmingType: 'Organic (सेंद्रिय)',
-        farmName: 'My Krushi Farm',
-        farmLocation: 'Sawargaon Tal, Baramati',
+        farmName: 'Nehe Mala',
+        farmLocation: 'Sawargaon Tal, Sangamner',
         sowingDate: '01 Jun 2026',
         harvestDate: '01 Sept 2026',
         availableFrom: '01 Sept 2026',
@@ -189,7 +201,7 @@ class FarmerState extends ChangeNotifier {
         status: 'Active',
       ),
       ProductItem(
-        id: 'PRD-103',
+        id: 'GGC-ART-VEG-ONI-HYB-00002',
         productId: 'GGC-ART-VEG-ONI-HYB-00002',
         productName: 'Onion',
         variety: 'Hybrid',
@@ -201,8 +213,8 @@ class FarmerState extends ChangeNotifier {
         stockQuantity: 500.0,
         minimumOrderQuantity: 50.0,
         farmingType: 'Organic (सेंद्रिय)',
-        farmName: 'My Krushi Farm',
-        farmLocation: 'Sawargaon Tal, Baramati',
+        farmName: 'Nehe Mala',
+        farmLocation: 'Sawargaon Tal, Sangamner',
         sowingDate: '10 Jun 2026',
         harvestDate: '02 Sept 2026',
         availableFrom: '02 Sept 2026',
@@ -210,7 +222,7 @@ class FarmerState extends ChangeNotifier {
         status: 'Out of Stock',
       ),
       ProductItem(
-        id: 'PRD-101',
+        id: 'GGC-ART-VEG-BRJ-PUS-00001',
         productId: 'GGC-ART-VEG-BRJ-PUS-00001',
         productName: 'Brinjal',
         variety: 'Pusa Purple Long',
@@ -219,14 +231,14 @@ class FarmerState extends ChangeNotifier {
         grade: 'Grade A',
         unit: 'Kg',
         pricePerUnit: 30.0,
-        stockQuantity: 500.0,
-        minimumOrderQuantity: 20.0,
+        stockQuantity: 1500.0,
+        minimumOrderQuantity: 50.0,
         farmingType: 'Organic (सेंद्रिय)',
-        farmName: 'My Krushi Farm',
-        farmLocation: 'Sawargaon Tal, Baramati',
-        sowingDate: '15 Aug 2026',
-        harvestDate: '14 Oct 2026',
-        availableFrom: '15 Oct 2026',
+        farmName: 'Nehe Mala',
+        farmLocation: 'Sawargaon Tal, Sangamner',
+        sowingDate: '15 May 2026',
+        harvestDate: '05 Sept 2026',
+        availableFrom: '05 Sept 2026',
         availableUntil: '30 Nov 2026',
         status: 'Active',
       ),
@@ -234,68 +246,103 @@ class FarmerState extends ChangeNotifier {
 
     orders = [
       FarmerOrderItem(
-        id: 'ORD-501',
-        orderCode: 'GGC-ORD-20260907-00001',
+        id: 'GGC-ORD-20260903-00002',
+        orderCode: 'GGC-ORD-20260903-00002',
+        productId: 'GGC-ART-VEG-ONI-HYB-00002',
         buyerName: 'Swastik Supermarket Pune',
         buyerPhone: '+91 98501 23456',
-        productName: 'Fresh Organic Brinjal',
-        cropName: 'Brinjal (वांगी)',
-        variety: 'Pusa Purple Long',
-        quantity: 290.0,
-        orderedQuantity: 290.0,
-        receivedQuantity: 290.0,
+        productName: 'Onion',
+        cropName: 'Onion (कांदा)',
+        variety: 'Hybrid',
+        quantity: 123.0,
+        orderedQuantity: 150.0,
+        receivedQuantity: 150.0,
         unit: 'Kg',
-        rate: 30.0,
-        gradeAQty: 200.0,
-        gradeARate: 30.0,
-        gradeARejected: 0.0,
-        gradeBQty: 80.0,
-        gradeBRate: 12.0,
-        gradeBRejected: 0.0,
+        rate: 10.0,
+        gradeAQty: 80.0,
+        gradeARate: 10.0,
+        gradeARejected: 20.0,
+        gradeBQty: 43.0,
+        gradeBRate: 3.0,
+        gradeBRejected: 7.0,
         gradeCQty: 0.0,
         gradeCRate: 0.0,
         gradeCRejected: 0.0,
-        rejectedQuantity: 10.0,
-        totalAmount: 6960.0,
-        status: 'Completed',
-        qualityStatus: 'ORDER_COMPLETED',
-        paymentStatus: 'PAID',
-        pickupDate: '08/09/2026, Tuesday',
-        pickupSlot: '7:00 AM',
-        createdAt: '07/09/2026, Monday',
-        transactionId: 'TXN-GGC-20260907-9921',
+        rejectedQuantity: 27.0,
+        totalAmount: 929.0,
+        status: 'ORDER_COMPLETED',
+        qualityStatus: 'GRADE_CONFIRMED',
+        paymentStatus: 'Paid',
+        pickupDate: '05/09/2026, Saturday',
+        pickupSlot: '5:23 PM',
+        createdAt: '03/09/2026, Thursday',
+        transactionId: 'TXN-GGC-20260903-9291',
       ),
       FarmerOrderItem(
-        id: 'ORD-502',
-        orderCode: 'GGC-ORD-20260910-00002',
+        id: 'GGC-ORD-20260903-00001',
+        orderCode: 'GGC-ORD-20260903-00001',
+        productId: 'GGC-ART-VEG-ONI-HYB-00002',
         buyerName: 'Nature Fresh Mart Mumbai',
         buyerPhone: '+91 98220 54321',
-        productName: 'Fresh Hybrid Tomatoes',
-        cropName: 'Tomato (टोमॅटो)',
-        variety: 'Abhinav Hybrid',
-        quantity: 435.0,
-        orderedQuantity: 435.0,
-        receivedQuantity: 435.0,
+        productName: 'Onion',
+        cropName: 'Onion (कांदा)',
+        variety: 'Hybrid',
+        quantity: 500.0,
+        orderedQuantity: 500.0,
+        receivedQuantity: 500.0,
         unit: 'Kg',
-        rate: 25.0,
-        gradeAQty: 300.0,
-        gradeARate: 25.0,
+        rate: 20.0,
+        gradeAQty: 500.0,
+        gradeARate: 20.0,
         gradeARejected: 0.0,
-        gradeBQty: 120.0,
-        gradeBRate: 10.0,
+        gradeBQty: 0.0,
+        gradeBRate: 0.0,
         gradeBRejected: 0.0,
         gradeCQty: 0.0,
         gradeCRate: 0.0,
         gradeCRejected: 0.0,
-        rejectedQuantity: 15.0,
-        totalAmount: 8700.0,
-        status: 'Completed',
-        qualityStatus: 'ORDER_COMPLETED',
-        paymentStatus: 'PAID',
-        pickupDate: '11/09/2026, Friday',
-        pickupSlot: '7:30 AM',
-        createdAt: '10/09/2026, Thursday',
-        transactionId: 'TXN-GGC-20260910-4412',
+        rejectedQuantity: 0.0,
+        totalAmount: 10000.0,
+        status: 'PREPARING',
+        qualityStatus: 'PREPARING',
+        paymentStatus: 'Pending',
+        pickupDate: '05/09/2026, Saturday',
+        pickupSlot: '5:00 AM',
+        createdAt: '03/09/2026, Thursday',
+        transactionId: '',
+      ),
+      FarmerOrderItem(
+        id: 'GGC-ORD-20260916-00001',
+        orderCode: 'GGC-ORD-20260916-00001',
+        productId: 'GGC-ART-VEG-TOM-BAJ-00002',
+        buyerName: 'Kisan Mandi Nashik',
+        buyerPhone: '+91 98221 88990',
+        productName: 'Tomato',
+        cropName: 'Tomato (टोमॅटो)',
+        variety: 'Bajeerao',
+        quantity: 175.0,
+        orderedQuantity: 175.0,
+        receivedQuantity: 175.0,
+        unit: 'Kg',
+        rate: 12.0,
+        gradeAQty: 110.0,
+        gradeARate: 12.0,
+        gradeARejected: 0.0,
+        gradeBQty: 55.0,
+        gradeBRate: 5.0,
+        gradeBRejected: 0.0,
+        gradeCQty: 10.0,
+        gradeCRate: 2.0,
+        gradeCRejected: 0.0,
+        rejectedQuantity: 0.0,
+        totalAmount: 1615.0,
+        status: 'PREPARING',
+        qualityStatus: 'PREPARING',
+        paymentStatus: 'Pending',
+        pickupDate: '17/09/2026, Thursday',
+        pickupSlot: '2:33 PM',
+        createdAt: '16/09/2026, Wednesday',
+        transactionId: '',
       ),
     ];
 
@@ -568,13 +615,32 @@ class FarmerState extends ChangeNotifier {
     products.insert(0, product);
     notifyListeners();
     ApiService().createProduct(profile.id, {
+      'productName': product.productName,
       'name': product.productName,
       'variety': product.variety,
       'category': product.category,
       'sellingPrice': product.pricePerUnit,
+      'pricePerKg': product.pricePerUnit,
       'stock': product.stockQuantity,
+      'stockQuantity': product.stockQuantity,
+      'totalQuantity': product.stockQuantity,
+      'availableQuantity': product.stockQuantity,
+      'minimumOrderQuantity': product.minimumOrderQuantity,
       'unit': product.unit,
       'cropName': product.cropLinked,
+      'farmingType': product.farmingType,
+      'farmName': product.farmName,
+      'farmLocation': product.farmLocation,
+      'sowingDate': product.sowingDate,
+      'harvestDate': product.harvestDate,
+      'availableFrom': product.availableFrom,
+      'availableUntil': product.availableUntil,
+      'status': product.status,
+      'image': product.imageUrl,
+      'media': {
+        'mainPhoto': product.imageUrl,
+        'photos': product.photos,
+      },
       'grades': [
         {'grade': product.grade.replaceAll('Grade ', '').trim(), 'quantity': product.stockQuantity}
       ]
@@ -587,6 +653,37 @@ class FarmerState extends ChangeNotifier {
       products[idx] = updated;
       notifyListeners();
     }
+    ApiService().updateProduct(updated.id, {
+      'productName': updated.productName,
+      'name': updated.productName,
+      'variety': updated.variety,
+      'category': updated.category,
+      'sellingPrice': updated.pricePerUnit,
+      'pricePerKg': updated.pricePerUnit,
+      'stock': updated.stockQuantity,
+      'stockQuantity': updated.stockQuantity,
+      'totalQuantity': updated.stockQuantity,
+      'availableQuantity': updated.stockQuantity,
+      'minimumOrderQuantity': updated.minimumOrderQuantity,
+      'unit': updated.unit,
+      'cropName': updated.cropLinked,
+      'farmingType': updated.farmingType,
+      'farmName': updated.farmName,
+      'farmLocation': updated.farmLocation,
+      'sowingDate': updated.sowingDate,
+      'harvestDate': updated.harvestDate,
+      'availableFrom': updated.availableFrom,
+      'availableUntil': updated.availableUntil,
+      'status': updated.status,
+      'image': updated.imageUrl,
+      'media': {
+        'mainPhoto': updated.imageUrl,
+        'photos': updated.photos,
+      },
+      'grades': [
+        {'grade': updated.grade.replaceAll('Grade ', '').trim(), 'quantity': updated.stockQuantity}
+      ]
+    }).catchError((_) {});
   }
 
   void updateProductStatus(String productId, String newStatus) {
@@ -614,12 +711,75 @@ class FarmerState extends ChangeNotifier {
   }
 
   void updateOrderStatus(String orderId, String newStatus) {
-    final idx = orders.indexWhere((o) => o.id == orderId);
+    final idx = orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
     if (idx != -1) {
       orders[idx].status = newStatus;
       notifyListeners();
-      ApiService().updateOrderStatus(profile.id, orderId, newStatus).catchError((_) {});
+      ApiService().updateOrderStatus(profile.id, orders[idx].id, newStatus).catchError((_) {});
     }
+  }
+
+  Future<void> acceptOrder(String orderId) async {
+    final idx = orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
+    if (idx != -1) {
+      orders[idx].status = 'ACCEPTED';
+      notifyListeners();
+    }
+    try {
+      await ApiService().acceptOrder(orderId);
+    } catch (_) {}
+  }
+
+  Future<void> rejectOrder(String orderId, {required String reason, String note = ''}) async {
+    final idx = orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
+    if (idx != -1) {
+      orders[idx].status = 'REJECTED';
+      notifyListeners();
+    }
+    try {
+      await ApiService().rejectOrder(orderId, {
+        'rejectionReason': reason,
+        'rejectionNote': note,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> packOrder(String orderId, {
+    required double packedQuantity,
+    required int packageCount,
+    required String packageType,
+    required double packageWeight,
+    required String packingDate,
+    String notes = '',
+  }) async {
+    final idx = orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
+    if (idx != -1) {
+      orders[idx].status = 'PREPARING';
+      notifyListeners();
+    }
+    try {
+      await ApiService().packOrder(orderId, {
+        'packedQuantity': packedQuantity,
+        'packingDetails': {
+          'packageCount': packageCount,
+          'packageType': packageType,
+          'packageWeight': packageWeight,
+          'packingDate': packingDate,
+          'notes': notes,
+        },
+      });
+    } catch (_) {}
+  }
+
+  Future<void> readyOrder(String orderId) async {
+    final idx = orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
+    if (idx != -1) {
+      orders[idx].status = 'READY_FOR_PICKUP';
+      notifyListeners();
+    }
+    try {
+      await ApiService().readyOrder(orderId);
+    } catch (_) {}
   }
 
   void updateProfile(FarmerProfile newProfile) {
@@ -627,7 +787,7 @@ class FarmerState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void uploadDocument(String docId) {
+  void uploadDocument(String docId, {String? fileUrl, String status = 'pending'}) {
     final idx = documents.indexWhere((d) => d.id == docId);
     if (idx != -1) {
       documents[idx] = DocumentItem(
@@ -636,8 +796,9 @@ class FarmerState extends ChangeNotifier {
         title: documents[idx].title,
         marathiTitle: documents[idx].marathiTitle,
         isUploaded: true,
-        status: 'pending',
+        status: status,
         uploadDate: 'Today',
+        fileUrl: fileUrl ?? documents[idx].fileUrl,
       );
       notifyListeners();
     }

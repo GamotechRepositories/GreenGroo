@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/farmer_constants.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
+import '../../core/utils/photo_picker_sheet.dart';
 import '../auth/login_screen.dart';
 import '../main_shell.dart';
 
@@ -14,12 +15,51 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  void _changeProfilePhoto(BuildContext context, FarmerProfile profile) {
+    showAppPhotoPicker(
+      context,
+      title: 'Farmer Profile Photo (प्रोफाईल फोटो)',
+      subtitle: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा',
+      onPhotoSelected: (photoStr) {
+        final updated = FarmerProfile(
+          id: profile.id,
+          fullName: profile.fullName,
+          mobile: profile.mobile,
+          email: profile.email,
+          preferredLanguage: profile.preferredLanguage,
+          farmName: profile.farmName,
+          totalAcres: profile.totalAcres,
+          soilType: profile.soilType,
+          irrigationType: profile.irrigationType,
+          waterSource: profile.waterSource,
+          farmingMethod: profile.farmingMethod,
+          village: profile.village,
+          taluka: profile.taluka,
+          district: profile.district,
+          state: profile.state,
+          pincode: profile.pincode,
+          kycStatus: profile.kycStatus,
+          profilePhoto: photoStr,
+          farmPhoto: profile.farmPhoto,
+        );
+        FarmerState().updateProfile(updated);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('प्रोफाईल फोटो अपडेट झाला! (Profile photo updated)'),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
         final profile = FarmerState().profile;
+        final hasAvatar = profile.profilePhoto.isNotEmpty;
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -46,18 +86,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primaryLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            profile.fullName.isNotEmpty ? profile.fullName.split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join().toUpperCase() : 'F',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
-                          ),
+                      InkWell(
+                        onTap: () => _changeProfilePhoto(context, profile),
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 58,
+                              height: 58,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryLight,
+                                shape: BoxShape.circle,
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: hasAvatar
+                                  ? AppImageWidget(
+                                      imageStr: profile.profilePhoto,
+                                      width: 58,
+                                      height: 58,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        profile.fullName.isNotEmpty ? profile.fullName.split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join().toUpperCase() : 'F',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                      ),
+                                    ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 14),
