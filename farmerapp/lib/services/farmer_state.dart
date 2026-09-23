@@ -127,6 +127,26 @@ class FarmerState extends ChangeNotifier {
             }).toList();
           }
         } catch (_) {}
+
+        // 6. Fetch live government schemes (all farmers)
+        try {
+          final schemeRes = await ApiService().fetchLiveGovtSchemes();
+          if (schemeRes is List) {
+            final fetched = schemeRes
+                .whereType<Map>()
+                .map((row) {
+                  try {
+                    return GovtScheme.fromApiJson(Map<String, dynamic>.from(row));
+                  } catch (_) {
+                    return null;
+                  }
+                })
+                .whereType<GovtScheme>()
+                .where((scheme) => scheme.id.isNotEmpty)
+                .toList();
+            schemes = fetched;
+          }
+        } catch (_) {}
       } else {
         connectionMessage = 'Disconnected (Using Offline Cache)';
       }
@@ -464,97 +484,7 @@ class FarmerState extends ChangeNotifier {
       ),
     ];
 
-    schemes = [
-      GovtScheme(
-        id: 'SCH-001',
-        title: 'Pradhan Mantri Krishi Sinchayee Yojana (PMKSY) - Drip & Sprinkler Subsidy',
-        shortName: 'PMKSY ठिबक व तुषार सिंचन योजना',
-        category: 'Irrigation & Drip',
-        status: 'Active (अर्जासाठी खुले)',
-        statusBadge: 'active',
-        subsidyPercent: 'Up to 55% - 80%',
-        maxAmount: '₹55,000 / Acre',
-        description: 'Under MahaDBT, farmers get 80% subsidy for small & marginal landholders and 75% for other farmers for installing micro-irrigation systems.',
-        eligibility: [
-          'Must possess 7/12 & 8-A in applicant name',
-          'Aadhaar card linked with bank account',
-          'Permanent water source (Well / Borewell / Canal) mandatory',
-          'Electricity connection or solar pump receipt',
-        ],
-        documents: ['7/12 & 8-A Extract', 'Aadhaar Card', 'Electricity Bill / Solar connection', 'Bank Passbook', 'Quotation from authorized dealer'],
-        deadline: '31 Dec 2026',
-      ),
-      GovtScheme(
-        id: 'SCH-002',
-        title: 'PM-Kusum Solar Pump Scheme (कुसुम सोलर कृषी पंप योजना)',
-        shortName: 'KUSUM Solar Pump (सोलर पंप)',
-        category: 'Solar & Energy',
-        status: 'Closing Soon (अंतिम तारीख जवळ)',
-        statusBadge: 'closing',
-        subsidyPercent: '90% Subsidy (१०% शेतकरी हिस्सा)',
-        maxAmount: '3 HP to 7.5 HP Solar DC Pump',
-        description: 'Off-grid solar agricultural pumps with 90% subsidy for farmers without traditional electricity connection. Apply via MahaDBT / MSEDCL portal.',
-        eligibility: [
-          'Landholder farmer with no active electric pump connection',
-          'Available surface water or functional borewell with water testing',
-          'Only 10% farmer share payment required',
-        ],
-        documents: ['7/12 land extract', 'Aadhaar Card', 'Caste Certificate (if applicable)', 'Water source self-declaration'],
-        deadline: '15 Oct 2026',
-      ),
-      GovtScheme(
-        id: 'SCH-003',
-        title: 'Pradhan Mantri Fasal Bima Yojana (PMFBY - १ रुपयात पीक विमा)',
-        shortName: 'PMFBY Crop Insurance (१ रु. पीक विमा)',
-        category: 'Crop Insurance',
-        status: 'Active (अर्जासाठी खुले)',
-        statusBadge: 'active',
-        subsidyPercent: '100% Premium Paid by Govt (Farmer pays ₹1 only)',
-        maxAmount: 'Sum insured up to ₹45,000 / Acre',
-        description: 'Comprehensive risk insurance against drought, floods, pest attack, and unseasonal rains for Kharif & Rabi crops at just ₹1 token fee.',
-        eligibility: [
-          'All crop growing farmers in notified revenue circles',
-          'Sowing self-declaration or E-Pik Pahani entry on 7/12',
-        ],
-        documents: ['E-Pik Pahani receipt', '7/12 Extract', 'Aadhaar linked Bank passbook'],
-        deadline: '30 Nov 2026',
-      ),
-      GovtScheme(
-        id: 'SCH-004',
-        title: 'Dr. Babasaheb Ambedkar Krushi Swavalamban Yojana',
-        shortName: 'Ambedkar Swavalamban (नवीन विहीर व ठिबक)',
-        category: 'Financial Benefit',
-        status: 'Active (अर्जासाठी खुले)',
-        statusBadge: 'active',
-        subsidyPercent: '100% Financial Grant',
-        maxAmount: '₹2,50,000 for New Well',
-        description: 'Financial assistance for new well digging, in-well boring, electric pump, and micro-irrigation for eligible scheduled caste farmers.',
-        eligibility: [
-          'Annual family income up to ₹1,50,000',
-          'Land holding between 0.40 Hectare to 6 Hectare',
-          'No prior well subsidy received',
-        ],
-        documents: ['Caste certificate', 'Income certificate from Tehsildar', '7/12 & 8-A', 'Groundwater survey report'],
-        deadline: '31 Jan 2027',
-      ),
-      GovtScheme(
-        id: 'SCH-005',
-        title: 'Agricultural Mechanization Promotion (कृषी यांत्रिकीकरण औजारे योजना)',
-        shortName: 'Farm Machinery (ट्रॅक्टर व अवजारे अनुदान)',
-        category: 'Machinery & Equipment',
-        status: 'Upcoming (लवकरच सुरू)',
-        statusBadge: 'upcoming',
-        subsidyPercent: '40% - 50% Subsidy',
-        maxAmount: 'Up to ₹1,25,000 for Tractor / Rotavator',
-        description: 'Subsidy on purchase of Tractors, Power Tillers, Rotavators, Harvesters, and Multi-crop threshers via MahaDBT lottery system.',
-        eligibility: [
-          'One equipment per family over 10 years',
-          'Must have driving license for tractor subsidy',
-        ],
-        documents: ['7/12 Extract', 'Aadhaar Card', 'Bank Passbook', 'Quotation from authorized dealer'],
-        deadline: '15 Nov 2026',
-      ),
-    ];
+    schemes = [];
 
     documents = [
       DocumentItem(

@@ -806,7 +806,7 @@ class GovtScheme {
   final String shortName;
   final String category;
   final String status;
-  final String statusBadge; // active, closing, upcoming
+  final String statusBadge; // active, closing_soon, upcoming
   final String subsidyPercent;
   final String maxAmount;
   final String description;
@@ -830,6 +830,47 @@ class GovtScheme {
     this.portalUrl = 'https://mahadbt.maharashtra.gov.in',
     required this.deadline,
   });
+
+  static List<String> _splitTextLines(dynamic value) {
+    if (value is List) {
+      return value.map((item) => item.toString().trim()).where((item) => item.isNotEmpty).toList();
+    }
+    if (value == null) return [];
+    return value
+        .toString()
+        .split(RegExp(r'\r?\n|[•;|]'))
+        .map((item) => item.replaceAll(RegExp(r'^[-*\d.)\s]+'), '').trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  factory GovtScheme.fromApiJson(Map<String, dynamic> json) {
+    const statusLabels = {
+      'active': 'Active (अर्जासाठी खुले)',
+      'closing_soon': 'Closing Soon (अंतिम तारीख जवळ)',
+      'upcoming': 'Upcoming (लवकरच सुरू)',
+    };
+
+    final statusBadge = (json['statusBadge'] ?? json['status'] ?? 'active').toString();
+    final applyUrl = (json['applyUrl'] ?? '').toString().trim();
+    final deadline = (json['deadline'] ?? '').toString().trim();
+
+    return GovtScheme(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      shortName: (json['shortName'] ?? json['title'] ?? '').toString(),
+      category: (json['category'] ?? 'Financial Benefit').toString(),
+      status: (json['statusLabel'] ?? statusLabels[statusBadge] ?? statusBadge).toString(),
+      statusBadge: statusBadge,
+      subsidyPercent: (json['subsidyAmount'] ?? '—').toString(),
+      maxAmount: (json['maxBenefit'] ?? '—').toString(),
+      description: (json['description'] ?? '').toString(),
+      eligibility: _splitTextLines(json['eligibility']),
+      documents: _splitTextLines(json['documents']),
+      portalUrl: applyUrl.isNotEmpty ? applyUrl : 'https://mahadbt.maharashtra.gov.in',
+      deadline: deadline.isNotEmpty ? deadline : '—',
+    );
+  }
 }
 
 class DocumentItem {

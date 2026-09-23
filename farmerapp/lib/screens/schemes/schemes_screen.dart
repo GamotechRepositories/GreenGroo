@@ -22,6 +22,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
     'Solar & Energy',
     'Crop Insurance',
     'Machinery & Equipment',
+    'Dairy & Livestock',
   ];
 
   final List<String> _statuses = [
@@ -31,195 +32,231 @@ class _SchemesScreenState extends State<SchemesScreen> {
     'Upcoming (लवकरच सुरू)',
   ];
 
-  @override
-  Widget build(BuildContext context) {
-    final schemes = FarmerState().schemes.where((s) {
+  List<GovtScheme> _filterSchemes(List<GovtScheme> allSchemes) {
+    return allSchemes.where((s) {
       final matchesCat = _selectedCategory == 'All Schemes' || s.category == _selectedCategory;
-      final matchesStat = _selectedStatus == 'All Status' || s.status.contains(_selectedStatus.split(' ')[0]);
+      final matchesStat = _selectedStatus == 'All Status' || s.status == _selectedStatus;
       final matchesSearch = _searchQuery.isEmpty ||
           s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          s.shortName.toLowerCase().contains(_searchQuery.toLowerCase());
+          s.shortName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.description.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCat && matchesStat && matchesSearch;
     }).toList();
+  }
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Govt Schemes (शासकीय योजना)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('MahaDBT & Central Agriculture Schemes', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // MahaDBT Official Portal Card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.account_balance, color: Colors.white, size: 24),
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final state = FarmerState();
+        final allSchemes = state.schemes;
+        final schemes = _filterSchemes(allSchemes);
+        final loading = state.isLoadingFromBackend && allSchemes.isEmpty;
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            title: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Govt Schemes (शासकीय योजना)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('MahaDBT & Central Agriculture Schemes', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              ],
+            ),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'MahaDBT शेतकरी योजना पोर्टल',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        SizedBox(height: 2),
+                        child: const Icon(Icons.account_balance, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'MahaDBT शेतकरी योजना पोर्टल',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'शासकीय अनुदानाचा थेट लाभ बँक खात्यात मिळवा.',
+                              style: TextStyle(fontSize: 11, color: AppColors.text),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Opening MahaDBT Portal (mahadbt.maharashtra.gov.in)...')),
+                          );
+                        },
+                        child: const Text('Open Portal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search scheme (उदा. ठिबक, कुसुम, पीक विमा)...',
+                    prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                ),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _categories.map((cat) {
+                      final isSelected = _selectedCategory == cat;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : AppColors.text)),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          backgroundColor: Colors.white,
+                          side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+                          onSelected: (selected) {
+                            if (selected) setState(() => _selectedCategory = cat);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _statuses.map((st) {
+                      final isSelected = _selectedStatus == st;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(st, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.muted)),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          backgroundColor: Colors.white,
+                          side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
+                          onSelected: (selected) {
+                            if (selected) setState(() => _selectedStatus = st);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Available Schemes (${schemes.length})',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
+                ),
+                const SizedBox(height: 10),
+                if (loading)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: const [
+                        SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary),
+                        ),
+                        SizedBox(height: 12),
+                        Text('Loading government schemes…', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                      ],
+                    ),
+                  )
+                else if (schemes.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          allSchemes.isEmpty ? Icons.info_outline : Icons.search_off,
+                          size: 40,
+                          color: AppColors.muted,
+                        ),
+                        const SizedBox(height: 8),
                         Text(
-                          'शासकीय अनुदानाचा थेट लाभ बँक खात्यात मिळवा.',
-                          style: TextStyle(fontSize: 11, color: AppColors.text),
+                          allSchemes.isEmpty ? 'No government schemes available yet.' : 'कोणतीही योजना सापडली नाही',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.text),
+                        ),
+                        Text(
+                          allSchemes.isEmpty
+                              ? 'Admin-published schemes will appear here.'
+                              : 'कृपया वेगळा शब्द किंवा कॅटेगरी निवडा',
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
                         ),
                       ],
                     ),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Opening MahaDBT Portal (mahadbt.maharashtra.gov.in)...')),
-                      );
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: schemes.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final scheme = schemes[index];
+                      return _SchemeCard(scheme: scheme);
                     },
-                    child: const Text('Open Portal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
-                ],
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-
-            // Search Bar
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Search scheme (उदा. ठिबक, कुसुम, पीक विमा)...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.muted),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-              ),
-              onChanged: (val) => setState(() => _searchQuery = val),
-            ),
-            const SizedBox(height: 12),
-
-            // Category Filter Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _categories.map((cat) {
-                  final isSelected = _selectedCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : AppColors.text)),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: Colors.white,
-                      side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
-                      onSelected: (selected) {
-                        if (selected) setState(() => _selectedCategory = cat);
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Status Filter Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _statuses.map((st) {
-                  final isSelected = _selectedStatus == st;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(st, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.muted)),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: Colors.white,
-                      side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
-                      onSelected: (selected) {
-                        if (selected) setState(() => _selectedStatus = st);
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Schemes List
-            Text(
-              'Available Schemes (${schemes.length})',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
-            ),
-            const SizedBox(height: 10),
-
-            if (schemes.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: const [
-                    Icon(Icons.search_off, size: 40, color: AppColors.muted),
-                    SizedBox(height: 8),
-                    Text('कोणतीही योजना सापडली नाही', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.text)),
-                    Text('कृपया वेगळा शब्द किंवा कॅटेगरी निवडा', style: TextStyle(fontSize: 12, color: AppColors.muted)),
-                  ],
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: schemes.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final scheme = schemes[index];
-                  return _SchemeCard(scheme: scheme);
-                },
-              ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -235,7 +272,7 @@ class _SchemeCard extends StatelessWidget {
     if (scheme.statusBadge == 'active') {
       badgeColor = AppColors.successLight;
       badgeText = AppColors.success;
-    } else if (scheme.statusBadge == 'closing') {
+    } else if (scheme.statusBadge == 'closing_soon') {
       badgeColor = AppColors.warningLight;
       badgeText = AppColors.warning;
     } else {
@@ -283,8 +320,6 @@ class _SchemeCard extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 12),
-
-            // Subsidy & Benefits Box
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -305,13 +340,11 @@ class _SchemeCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-
             Text(
               scheme.description,
               style: const TextStyle(fontSize: 12, color: AppColors.text),
             ),
             const SizedBox(height: 12),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -346,91 +379,93 @@ class _SchemeCard extends StatelessWidget {
         return SafeArea(
           top: false,
           child: DraggableScrollableSheet(
-          initialChildSize: 0.75,
-          maxChildSize: 0.95,
-          minChildSize: 0.5,
-          expand: false,
-          builder: (context, scrollController) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: ListView(
-                controller: scrollController,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          scheme.shortName,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+            initialChildSize: 0.75,
+            maxChildSize: 0.95,
+            minChildSize: 0.5,
+            expand: false,
+            builder: (context, scrollController) {
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: ListView(
+                  controller: scrollController,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            scheme.shortName,
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                          ),
                         ),
-                      ),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                    ],
-                  ),
-                  const Divider(),
-                  const SizedBox(height: 8),
-
-                  const Text('योजनेचे स्वरूप (Overview)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(scheme.description, style: const TextStyle(fontSize: 13, color: AppColors.text)),
-                  const SizedBox(height: 16),
-
-                  const Text('पात्रता निकष (Eligibility Criteria)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  ...scheme.eligibility.map((e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.check_circle, size: 16, color: AppColors.primary),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(e, style: const TextStyle(fontSize: 12))),
-                          ],
-                        ),
-                      )),
-                  const SizedBox(height: 16),
-
-                  const Text('आवश्यक कागदपत्रे (Required Documents)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  ...scheme.documents.map((d) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.description_outlined, size: 16, color: AppColors.muted),
-                            const SizedBox(width: 8),
-                            Text(d, style: const TextStyle(fontSize: 12)),
-                          ],
-                        ),
-                      )),
-                  const SizedBox(height: 24),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      label: const Text('MahaDBT वर अर्ज करा (Apply Now)', style: TextStyle(fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('MahaDBT अधिकृत संकेतस्थळाकडे पाठवत आहे...')),
-                        );
-                      },
+                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
-    },
-  );
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    const Text('योजनेचे स्वरूप (Overview)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(scheme.description, style: const TextStyle(fontSize: 13, color: AppColors.text)),
+                    const SizedBox(height: 16),
+                    const Text('पात्रता निकष (Eligibility Criteria)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    if (scheme.eligibility.isEmpty)
+                      const Text('Eligibility details not provided yet.', style: TextStyle(fontSize: 12, color: AppColors.muted))
+                    else
+                      ...scheme.eligibility.map((e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.check_circle, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(e, style: const TextStyle(fontSize: 12))),
+                              ],
+                            ),
+                          )),
+                    const SizedBox(height: 16),
+                    const Text('आवश्यक कागदपत्रे (Required Documents)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    if (scheme.documents.isEmpty)
+                      const Text('Required documents not listed yet.', style: TextStyle(fontSize: 12, color: AppColors.muted))
+                    else
+                      ...scheme.documents.map((d) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.description_outlined, size: 16, color: AppColors.muted),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(d, style: const TextStyle(fontSize: 12))),
+                              ],
+                            ),
+                          )),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        label: const Text('Apply on Govt Portal', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Opening ${scheme.portalUrl}...')),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 }

@@ -107,6 +107,13 @@ export async function getLiveCalendar(roleKey) {
   return Array.isArray(data?.data) ? data.data : [];
 }
 
+export async function getLiveGovtSchemes() {
+  const data = await apiFetch("/api/admin-ops/govt-schemes/live", {
+    headers: authHeaders(),
+  });
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
 export async function applyLeave(payload) {
   const data = await apiFetch(`/api/admin-ops/hr/leaves/apply`, {
     method: "POST",

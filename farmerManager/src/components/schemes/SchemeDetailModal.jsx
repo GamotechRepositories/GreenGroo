@@ -1,8 +1,44 @@
 import { Calendar, CheckCircle2, ExternalLink, FileCheck, HelpCircle, Info, Landmark, X } from "lucide-react";
 import { EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 
+function asStringList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  if (!value) return [];
+  return String(value)
+    .split(/\r?\n|[•]|;|\|/)
+    .map((item) => item.replace(/^[-*\d.)\s]+/, "").trim())
+    .filter(Boolean);
+}
+
+function asDocumentList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((doc) => {
+        if (typeof doc === "string") {
+          const name = doc.trim();
+          return name ? { name, required: !/optional/i.test(name) } : null;
+        }
+        const name = String(doc?.name || "").trim();
+        return name ? { name, required: doc?.required !== false } : null;
+      })
+      .filter(Boolean);
+  }
+  return asStringList(value).map((name) => ({
+    name,
+    required: !/optional/i.test(name),
+  }));
+}
+
 export default function SchemeDetailModal({ scheme, isOpen, onClose }) {
   if (!isOpen || !scheme) return null;
+
+  const eligibility = asStringList(scheme.eligibility);
+  const documents = asDocumentList(scheme.documents);
+  const applicationInfo = scheme.applicationInfo || {};
+  const steps = Array.isArray(applicationInfo.steps) ? applicationInfo.steps : [];
+  const importantDates = Array.isArray(scheme.importantDates) ? scheme.importantDates : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-xs">
@@ -55,12 +91,16 @@ export default function SchemeDetailModal({ scheme, isOpen, onClose }) {
               <span>1. Eligibility Criteria (पात्रता व अटी)</span>
             </div>
             <ul className="space-y-1.5 pl-1 text-xs text-slate-700">
-              {scheme.eligibility.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
+              {eligibility.length === 0 ? (
+                <li className="text-slate-500">Eligibility details not provided yet.</li>
+              ) : (
+                eligibility.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-emerald-600 font-bold">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))
+              )}
             </ul>
           </div>
 
@@ -71,7 +111,10 @@ export default function SchemeDetailModal({ scheme, isOpen, onClose }) {
               <span>2. Required Documents Checklist (आवश्यक कागदपत्रे सूची)</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {scheme.documents.map((doc, idx) => (
+              {documents.length === 0 ? (
+                <p className="text-slate-500">Required documents not listed yet.</p>
+              ) : null}
+              {documents.map((doc, idx) => (
                 <div
                   key={idx}
                   className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 p-2"
@@ -99,19 +142,21 @@ export default function SchemeDetailModal({ scheme, isOpen, onClose }) {
             </div>
 
             <div className="space-y-1.5 text-xs text-slate-700">
-              <p className="font-bold text-slate-900">Mode of Application: <span className="text-emerald-700">{scheme.applicationInfo.mode}</span></p>
-              <p className="font-semibold text-slate-800">Official Portal: {scheme.applicationInfo.portalName}</p>
+              <p className="font-bold text-slate-900">Mode of Application: <span className="text-emerald-700">{applicationInfo.mode || "—"}</span></p>
+              <p className="font-semibold text-slate-800">Official Portal: {applicationInfo.portalName || "—"}</p>
 
-              <div className="rounded bg-slate-50 p-2.5 space-y-1 border border-slate-200">
-                <span className="font-bold text-slate-900 block">Step-by-Step Online Steps:</span>
-                {scheme.applicationInfo.steps.map((step, idx) => (
-                  <p key={idx} className="text-xs text-slate-700 pl-2">{step}</p>
-                ))}
-              </div>
+              {steps.length > 0 ? (
+                <div className="rounded bg-slate-50 p-2.5 space-y-1 border border-slate-200">
+                  <span className="font-bold text-slate-900 block">Step-by-Step Online Steps:</span>
+                  {steps.map((step, idx) => (
+                    <p key={idx} className="text-xs text-slate-700 pl-2">{step}</p>
+                  ))}
+                </div>
+              ) : null}
 
-              {scheme.applicationInfo.offlineContact ? (
+              {applicationInfo.offlineContact ? (
                 <p className="text-[11.5px] text-slate-600 pt-1">
-                  <strong>Offline Application Helpline:</strong> {scheme.applicationInfo.offlineContact}
+                  <strong>Offline Application Helpline:</strong> {applicationInfo.offlineContact}
                 </p>
               ) : null}
             </div>
@@ -125,12 +170,16 @@ export default function SchemeDetailModal({ scheme, isOpen, onClose }) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              {scheme.importantDates.map((d, idx) => (
-                <div key={idx} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 p-2">
-                  <span className="font-medium text-slate-700">{d.label}</span>
-                  <span className="font-bold text-emerald-800">{d.date}</span>
-                </div>
-              ))}
+              {importantDates.length === 0 ? (
+                <p className="text-slate-500">Important dates not listed yet.</p>
+              ) : (
+                importantDates.map((d, idx) => (
+                  <div key={idx} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 p-2">
+                    <span className="font-medium text-slate-700">{d.label}</span>
+                    <span className="font-bold text-emerald-800">{d.date}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -146,9 +195,9 @@ export default function SchemeDetailModal({ scheme, isOpen, onClose }) {
               Close
             </button>
 
-            {scheme.applicationInfo?.portalUrl ? (
+            {(applicationInfo.portalUrl || scheme.applyUrl) ? (
               <a
-                href={scheme.applicationInfo.portalUrl}
+                href={applicationInfo.portalUrl || scheme.applyUrl}
                 target="_blank"
                 rel="noreferrer"
                 className={`${EXCEL_BTN_PRIMARY} inline-flex items-center gap-1.5 font-bold`}

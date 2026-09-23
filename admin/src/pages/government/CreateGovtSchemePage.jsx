@@ -31,6 +31,19 @@ const DEFAULT_FORM = {
   isActive: true,
 };
 
+/** Normalize stored deadline values to YYYY-MM-DD for <input type="date">. */
+function toDateInputValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
+}
+
 export default function CreateGovtSchemePage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -64,7 +77,7 @@ export default function CreateGovtSchemePage() {
             status: row.status || 'active',
             subsidyAmount: row.subsidyAmount || '',
             maxBenefit: row.maxBenefit || '',
-            deadline: row.deadline || '',
+            deadline: toDateInputValue(row.deadline),
             image: row.image || '',
             applyUrl: row.applyUrl || '',
             eligibility: row.eligibility || '',
@@ -295,10 +308,10 @@ export default function CreateGovtSchemePage() {
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Deadline</span>
             <input
+              type="date"
               value={form.deadline}
               onChange={(e) => setField('deadline', e.target.value)}
               className={INPUT}
-              placeholder="e.g. 31 Mar 2027"
             />
           </label>
 

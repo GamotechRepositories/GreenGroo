@@ -225,6 +225,15 @@ class ApiService {
   }
   Future<dynamic> fetchDocuments(String farmerId) async => get('/api/farmers/$farmerId/documents');
 
+  Future<dynamic> fetchLiveGovtSchemes() async {
+    try {
+      final res = await get('/api/admin-ops/govt-schemes/live');
+      if (res is Map && res['data'] is List) return res['data'];
+      if (res is List) return res;
+    } catch (_) {}
+    return [];
+  }
+
   Future<dynamic> uploadDocument(String farmerId, Map<String, dynamic> body) async {
     try {
       return await post('/api/farmers/$farmerId/documents', body);

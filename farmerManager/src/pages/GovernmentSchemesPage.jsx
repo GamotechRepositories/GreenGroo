@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
-import { Calendar, Filter, HelpCircle, Landmark, Search, ShieldCheck } from "lucide-react";
-import { GOVERNMENT_SCHEMES, SCHEME_CATEGORIES, SCHEME_STATUS } from "../data/governmentSchemesData";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Filter, Landmark, Search } from "lucide-react";
+import { getLiveGovtSchemes } from "../api/farmerApi";
+import { SCHEME_CATEGORIES, SCHEME_STATUS } from "../data/governmentSchemesData";
 import SchemeCard from "../components/schemes/SchemeCard";
 import SchemeDetailModal from "../components/schemes/SchemeDetailModal";
 import StatCard from "../components/ui/StatCard";
+import { mapApiGovtSchemes } from "../utils/govtSchemeMapper";
 import {
   EXCEL_INPUT,
   EXCEL_PAGE_SUB,
@@ -14,15 +16,35 @@ import {
 } from "../utils/excelStyles";
 
 export default function GovernmentSchemesPage() {
+  const [schemes, setSchemes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Schemes");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeScheme, setActiveScheme] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Filter schemes
+  const loadSchemes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await getLiveGovtSchemes();
+      setSchemes(mapApiGovtSchemes(rows));
+      setError("");
+    } catch (err) {
+      setSchemes([]);
+      setError(err?.message || "Failed to load government schemes");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSchemes();
+  }, [loadSchemes]);
+
   const filteredSchemes = useMemo(() => {
-    return GOVERNMENT_SCHEMES.filter((scheme) => {
+    return schemes.filter((scheme) => {
       const matchesCategory =
         selectedCategory === "All Schemes" || scheme.category === selectedCategory;
       const matchesStatus =
@@ -34,7 +56,7 @@ export default function GovernmentSchemesPage() {
 
       return matchesCategory && matchesStatus && matchesSearch;
     });
-  }, [selectedCategory, selectedStatus, searchQuery]);
+  }, [schemes, selectedCategory, selectedStatus, searchQuery]);
 
   const handleOpenDetails = (scheme) => {
     setActiveScheme(scheme);
@@ -43,7 +65,6 @@ export default function GovernmentSchemesPage() {
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className={EXCEL_PAGE_TITLE}>Government Agricultural Schemes (शासकीय शेतकरी योजना)</h1>
@@ -63,24 +84,22 @@ export default function GovernmentSchemesPage() {
         </a>
       </div>
 
-      {/* Overview Stat Cards */}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Schemes Available" value={GOVERNMENT_SCHEMES.length} />
+        <StatCard title="Total Schemes Available" value={schemes.length} />
         <StatCard
           title="Active for Application"
-          value={GOVERNMENT_SCHEMES.filter((s) => s.statusBadge === "active").length}
+          value={schemes.filter((s) => s.statusBadge === "active").length}
         />
         <StatCard
           title="Closing Soon"
-          value={GOVERNMENT_SCHEMES.filter((s) => s.statusBadge === "closing").length}
+          value={schemes.filter((s) => s.statusBadge === "closing_soon").length}
         />
         <StatCard
           title="Upcoming"
-          value={GOVERNMENT_SCHEMES.filter((s) => s.statusBadge === "upcoming").length}
+          value={schemes.filter((s) => s.statusBadge === "upcoming").length}
         />
       </div>
 
-      {/* Search & Filter Bar */}
       <section className={EXCEL_PANEL}>
         <div className={`${EXCEL_PANEL_HEAD} flex flex-wrap items-center justify-between gap-2`}>
           <div className="flex items-center gap-2">
@@ -89,7 +108,6 @@ export default function GovernmentSchemesPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Search Input */}
             <div className="relative">
               <input
                 type="text"
@@ -101,7 +119,6 @@ export default function GovernmentSchemesPage() {
               <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
             </div>
 
-            {/* Category Filter */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -114,7 +131,6 @@ export default function GovernmentSchemesPage() {
               ))}
             </select>
 
-            {/* Status Filter */}
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -129,11 +145,18 @@ export default function GovernmentSchemesPage() {
           </div>
         </div>
 
-        {/* Schemes Grid */}
         <div className="p-3.5">
-          {filteredSchemes.length === 0 ? (
+          {error ? (
+            <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {error}
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="py-12 text-center text-xs text-slate-500">Loading government schemes…</div>
+          ) : filteredSchemes.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-500">
-              {GOVERNMENT_SCHEMES.length === 0
+              {schemes.length === 0
                 ? "No government schemes available yet."
                 : "No government schemes match your search filter."}
             </div>
@@ -151,7 +174,6 @@ export default function GovernmentSchemesPage() {
         </div>
       </section>
 
-      {/* Scheme Detail & Application Modal */}
       <SchemeDetailModal
         scheme={activeScheme}
         isOpen={isModalOpen}
