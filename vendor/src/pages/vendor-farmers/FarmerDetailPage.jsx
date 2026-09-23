@@ -84,16 +84,8 @@ function mergeFarmerDocs(docs = []) {
     fileUrl: map[t.id]?.fileUrl || "",
     uploadedAt: map[t.id]?.uploadedAt || null,
     status: map[t.id]?.status || "Not Uploaded",
+    rejectionReason: map[t.id]?.rejectionReason || "",
   }));
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function FarmerDetailPage() {
@@ -107,15 +99,71 @@ export default function FarmerDetailPage() {
   const [earnings, setEarnings] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [uploadingType, setUploadingType] = useState("");
   const [busyProductId, setBusyProductId] = useState("");
   const [productToast, setProductToast] = useState("");
+
+  // Document Review & Modals State
+  const [viewDoc, setViewDoc] = useState(null);
+  const [rejectDocModal, setRejectDocModal] = useState(null);
+  const [docRejectReason, setDocRejectReason] = useState("");
+  const [docActionBusy, setDocActionBusy] = useState(false);
 
   const loadDocuments = () =>
     vendorApi
       .getFarmerDocuments(farmerId)
       .then((res) => setDocuments(asList(res)))
       .catch(() => setDocuments([]));
+
+  const handleApproveDocument = async (docId, docName) => {
+    if (!docId || String(docId).startsWith("missing-")) {
+      window.alert("Please upload a file before approving");
+      return;
+    }
+    setDocActionBusy(true);
+    try {
+      await vendorApi.updateFarmerDocumentStatus(farmerId, docId, "Approved", "");
+      setProductToast(`${docName} approved successfully ✓`);
+      await loadDocuments();
+    } catch (err) {
+      window.alert(err?.response?.data?.message || "Failed to approve document");
+    } finally {
+      setDocActionBusy(false);
+    }
+  };
+
+  const openRejectDocModal = (docId, docName) => {
+    if (!docId || String(docId).startsWith("missing-")) {
+      window.alert("Cannot reject a document that is not uploaded");
+      return;
+    }
+    setRejectDocModal({ docId, docName });
+    setDocRejectReason("");
+  };
+
+  const handleConfirmRejectDoc = async (e) => {
+    e?.preventDefault();
+    if (!rejectDocModal || !docRejectReason.trim()) {
+      window.alert("Please provide a rejection reason");
+      return;
+    }
+    setDocActionBusy(true);
+    try {
+      await vendorApi.updateFarmerDocumentStatus(
+        farmerId,
+        rejectDocModal.docId,
+        "Rejected",
+        docRejectReason.trim()
+      );
+      setProductToast(`${rejectDocModal.docName} rejected with reason`);
+      setRejectDocModal(null);
+      setDocRejectReason("");
+      await loadDocuments();
+    } catch (err) {
+      window.alert(err?.response?.data?.message || "Failed to reject document");
+    } finally {
+      setDocActionBusy(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -172,24 +220,6 @@ export default function FarmerDetailPage() {
     } finally {
       setBusyProductId("");
       window.setTimeout(() => setProductToast(""), 4000);
-    }
-  };
-
-  const handleUploadDocument = async (type, file) => {
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      window.alert("File must be 5MB or smaller");
-      return;
-    }
-    setUploadingType(type);
-    try {
-      const url = await fileToDataUrl(file);
-      await vendorApi.uploadFarmerDocument(farmerId, { type, fileName: file.name, fileUrl: url });
-      await loadDocuments();
-    } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to upload document");
-    } finally {
-      setUploadingType("");
     }
   };
 
@@ -624,45 +654,291 @@ export default function FarmerDetailPage() {
         )}
 
         {tab === "Documents" && (
-          <div className="space-y-3 p-4">
-            <p className="text-xs text-[#6B7280]">KYC documents for this farmer. Files can also be replaced later.</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {mergeFarmerDocs(documents).map((d) => (
-                <div key={d.type} className="space-y-2 border border-[#D4D4D4] p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-bold text-[#1F2937]">{d.name}</p>
-                      <p className="mt-0.5 text-[10px] text-[#6B7280]">
-                        {d.fileUrl ? (
-                          <a href={d.fileUrl} target="_blank" rel="noreferrer" className="text-[#217346] underline">
-                            {d.fileName}
-                          </a>
-                        ) : (
-                          "Not uploaded yet"
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-[#6B7280]">
-                        {d.uploadedAt ? `Uploaded ${new Date(d.uploadedAt).toLocaleDateString("en-IN")}` : "—"}
-                      </p>
+          <div className="space-y-4 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-[#1F2937]">Farmer Documents & KYC Checklist ({mergeFarmerDocs(documents).length})</p>
+                <p className="text-[11px] text-[#6B7280]">Review farmer documents, approve KYC, or reject with specific reason.</p>
+              </div>
+              <button
+                type="button"
+                onClick={loadDocuments}
+                className="text-xs font-semibold text-[#217346] hover:underline"
+              >
+                🔄 Refresh Docs
+              </button>
+            </div>
+
+            <div className="grid gap-3.5 sm:grid-cols-2">
+              {mergeFarmerDocs(documents).map((d) => {
+                const isPdf = d.fileName?.toLowerCase().endsWith(".pdf") || d.fileUrl?.startsWith("data:application/pdf");
+                const hasFile = Boolean(d.fileUrl);
+
+                return (
+                  <div key={d.type} className="space-y-2.5 rounded-lg border border-[#D4D4D4] bg-white p-3.5 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xl mt-0.5">{isPdf ? "📄" : "🪪"}</span>
+                        <div>
+                          <p className="text-xs font-bold text-[#1F2937]">{d.name}</p>
+                          <p className="mt-0.5 text-[11px] text-[#6B7280]">
+                            {hasFile ? (
+                              <button
+                                type="button"
+                                onClick={() => setViewDoc({ ...d, farmerName: farmer.name })}
+                                className="font-medium text-[#217346] underline hover:text-[#165030] text-left"
+                              >
+                                {d.fileName || "View Document"}
+                              </button>
+                            ) : (
+                              <span className="text-slate-400">Not uploaded yet</span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-[#94A3B8]">
+                            {d.uploadedAt ? `Uploaded ${new Date(d.uploadedAt).toLocaleDateString("en-IN")}` : "—"}
+                          </p>
+                        </div>
+                      </div>
+                      {STATUS_BADGE(d.status)}
                     </div>
-                    {STATUS_BADGE(d.status)}
+
+                    {d.status === "Rejected" && d.rejectionReason && (
+                      <div className="rounded bg-red-50 p-2 text-[11px] text-red-700 border border-red-200">
+                        <p className="font-bold">⚠️ Rejection Reason (अमान्य कारण):</p>
+                        <p className="mt-0.5 text-[10.5px]">{d.rejectionReason}</p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+                      {hasFile ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setViewDoc({ ...d, farmerId: farmer.id, farmerName: farmer.name })}
+                            className="rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 border border-slate-300"
+                          >
+                            👁️ View
+                          </button>
+
+                          {d.status !== "Approved" && (
+                            <button
+                              type="button"
+                              disabled={docActionBusy}
+                              onClick={() => handleApproveDocument(d.id, d.name)}
+                              className="rounded bg-green-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-green-700 shadow-sm disabled:opacity-50"
+                            >
+                              ✓ Approve
+                            </button>
+                          )}
+
+                          {d.status !== "Rejected" && (
+                            <button
+                              type="button"
+                              disabled={docActionBusy}
+                              onClick={() => openRejectDocModal(d.id, d.name)}
+                              className="rounded bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-red-700 shadow-sm disabled:opacity-50"
+                            >
+                              ✕ Reject
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[10.5px] text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          ⏳ शेतकरी अपलोड प्रलंबित (Pending Farmer Upload)
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <label className="inline-flex cursor-pointer border border-[#D4D4D4] bg-white px-2.5 py-1 text-[11px] font-semibold hover:bg-[#F2F2F2]">
-                    {uploadingType === d.type ? "Uploading…" : d.fileName ? "Replace file" : "Choose file"}
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="hidden"
-                      disabled={uploadingType === d.type}
-                      onChange={(e) => handleUploadDocument(d.type, e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
       </div>
+
+      {/* View Document Modal */}
+      {viewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 bg-[#F8FAFC]">
+              <div>
+                <h3 className="text-sm font-bold text-[#0F172A]">{viewDoc.name}</h3>
+                <p className="text-[11px] text-[#64748B]">Farmer: {viewDoc.farmerName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewDoc(null)}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex items-center justify-center min-h-[300px]">
+              {viewDoc.fileUrl?.startsWith("data:application/pdf") || viewDoc.fileName?.toLowerCase().endsWith(".pdf") ? (
+                <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-red-200 max-w-md">
+                  <span className="text-5xl">📄</span>
+                  <h4 className="mt-3 text-sm font-bold text-slate-800">{viewDoc.fileName || "PDF Document"}</h4>
+                  <p className="mt-1 text-xs text-slate-500">PDF File Document</p>
+                  <a
+                    href={viewDoc.fileUrl}
+                    download={viewDoc.fileName || `${viewDoc.type}.pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#217346] px-4 py-2 text-xs font-bold text-white hover:bg-[#165030]"
+                  >
+                    ⬇️ Download / Open PDF
+                  </a>
+                </div>
+              ) : (
+                <img
+                  src={viewDoc.fileUrl}
+                  alt={viewDoc.name}
+                  className="max-h-[60vh] max-w-full rounded-lg object-contain shadow-sm border border-slate-200"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700">
+                  Status: {viewDoc.status}
+                </span>
+                {viewDoc.status === "Rejected" && viewDoc.rejectionReason && (
+                  <span className="text-xs text-red-600">Reason: {viewDoc.rejectionReason}</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {viewDoc.status !== "Approved" && (
+                  <button
+                    type="button"
+                    disabled={docActionBusy}
+                    onClick={() => {
+                      handleApproveDocument(viewDoc.id, viewDoc.name);
+                      setViewDoc(null);
+                    }}
+                    className="rounded bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 shadow-sm disabled:opacity-50"
+                  >
+                    ✓ Approve
+                  </button>
+                )}
+                {viewDoc.status !== "Rejected" && (
+                  <button
+                    type="button"
+                    disabled={docActionBusy}
+                    onClick={() => {
+                      const dId = viewDoc.id;
+                      const dName = viewDoc.name;
+                      setViewDoc(null);
+                      openRejectDocModal(dId, dName);
+                    }}
+                    className="rounded bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 shadow-sm disabled:opacity-50"
+                  >
+                    ✕ Reject
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setViewDoc(null)}
+                  className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Document Modal */}
+      {rejectDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <h3 className="text-sm font-bold text-red-800">
+                    Reject Document (कागदपत्र अमान्य करा)
+                  </h3>
+                  <p className="text-[11px] text-red-600">
+                    {rejectDocModal.docName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectDocModal(null)}
+                className="rounded p-1 text-red-400 hover:bg-red-100 hover:text-red-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmRejectDoc} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  1. Quick Reason Presets (नमुना कारण निवडा):
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "अस्पष्ट किंवा वाचता न येणारा फोटो (Unclear or blurry document photo)",
+                    "कागदपत्रावरील नाव प्रोफाईलशी जुळत नाही (Name does not match farmer profile)",
+                    "कालबाह्य किंवा चुकीचे कागदपत्र (Invalid or expired document)",
+                    "कागदपत्राचा पूर्ण भाग दिसत नाही (Incomplete page or edges cut off)",
+                    "चुकीच्या प्रकारात अपलोड केले आहे (Uploaded under wrong document category)",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setDocRejectReason(preset)}
+                      className={`text-left text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                        docRejectReason === preset
+                          ? "bg-red-600 text-white border-red-600 font-bold"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  2. Rejection Reason Details (अमान्य करण्याचे कारण) *:
+                </label>
+                <textarea
+                  rows={3}
+                  value={docRejectReason}
+                  onChange={(e) => setDocRejectReason(e.target.value)}
+                  placeholder="उदा. आधार कार्डवरील फोटो स्पष्ट दिसत नाही, कृपया स्पष्ट फोटो अपलोड करा..."
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRejectDocModal(null)}
+                  className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={docActionBusy || !docRejectReason.trim()}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 shadow-sm"
+                >
+                  {docActionBusy ? "Rejecting…" : "Confirm Reject (अमान्य करा ❌)"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

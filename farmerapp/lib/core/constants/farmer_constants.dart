@@ -102,16 +102,16 @@ class FarmerConstants {
     'Completed',
   ];
 
-  // Document types matching web
+  // Document types matching user requirements
   static const List<Map<String, dynamic>> documentTypes = [
-    {'id': 'aadhaar', 'name': 'Aadhaar / ID Proof', 'marathi': 'आधार कार्ड', 'icon': 'badge', 'required': true},
+    {'id': 'aadhaar', 'name': 'Aadhaar Card', 'marathi': 'आधार कार्ड', 'icon': 'badge', 'required': true},
+    {'id': 'farmer_id', 'name': 'Farmer ID', 'marathi': 'शेतकरी ओळखपत्र', 'icon': 'card_membership', 'required': true},
+    {'id': 'land_712', 'name': '7/12 Extract', 'marathi': '७/१२ उतारा', 'icon': 'assignment', 'required': true},
+    {'id': 'land_8a', 'name': '8A Extract', 'marathi': '८-अ उतारा', 'icon': 'description', 'required': true},
+    {'id': 'bank', 'name': 'Bank Passbook', 'marathi': 'बँक पासबुक', 'icon': 'account_balance', 'required': true},
+    {'id': 'farmer_photo', 'name': 'Farmer Photo', 'marathi': 'शेतकरी फोटो', 'icon': 'face', 'required': true},
+    {'id': 'address_proof', 'name': 'Address Proof', 'marathi': 'रहिवासी दाखला', 'icon': 'home', 'required': true},
     {'id': 'pan', 'name': 'PAN Card', 'marathi': 'पॅन कार्ड', 'icon': 'credit_card', 'required': true},
-    {'id': 'bank', 'name': 'Bank Passbook / Cheque', 'marathi': 'बँक पासबुक / धनादेश', 'icon': 'account_balance', 'required': true},
-    {'id': 'land_712', 'name': '7/12 & 8-A Extract', 'marathi': '७/१२ व ८-अ उतारा', 'icon': 'description', 'required': true},
-    {'id': 'soil_report', 'name': 'Soil Testing Report', 'marathi': 'मृदा परीक्षण अहवाल', 'icon': 'science', 'required': false},
-    {'id': 'organic_cert', 'name': 'Organic Farming Certificate', 'marathi': 'सेंद्रिय शेती प्रमाणपत्र', 'icon': 'eco', 'required': false},
-    {'id': 'water_testing', 'name': 'Water Testing Report', 'marathi': 'पाणी चाचणी अहवाल', 'icon': 'water_drop', 'required': false},
-    {'id': 'crop_insurance', 'name': 'Crop Insurance Receipt', 'marathi': 'पीक विमा पावती', 'icon': 'shield', 'required': false},
   ];
 
   // Certificate Types for Crop Planning

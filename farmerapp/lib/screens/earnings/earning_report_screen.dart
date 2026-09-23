@@ -485,23 +485,26 @@ class EarningReportScreen extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/images/greengrocc_logo.png',
-                height: 38,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF065F46),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Center(
-                    child: Text('GreenGrocc', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Image.asset(
+                  'assets/images/greengrocc_logo.png',
+                  height: 40,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF065F46),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: Text('GreenGrocc', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,12 +517,16 @@ class EarningReportScreen extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'INV-${order.orderCode}',
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, fontFamily: 'monospace', color: Color(0xFF0F172A)),
+                            Flexible(
+                              child: Text(
+                                'INV-${order.orderCode}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, fontFamily: 'monospace', color: Color(0xFF0F172A)),
+                              ),
                             ),
                             const SizedBox(width: 3),
-                            const Icon(Icons.copy_rounded, size: 11, color: Color(0xFF217346)),
+                            const Icon(Icons.copy_rounded, size: 10, color: Color(0xFF217346)),
                           ],
                         ),
                       ),
@@ -534,21 +541,25 @@ class EarningReportScreen extends StatelessWidget {
                           children: [
                             const Text(
                               'Order ID: ',
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
                             ),
-                            Text(
-                              order.orderCode,
-                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, fontFamily: 'monospace', color: Color(0xFF217346)),
+                            Flexible(
+                              child: Text(
+                                order.orderCode,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, fontFamily: 'monospace', color: Color(0xFF217346)),
+                              ),
                             ),
                             const SizedBox(width: 3),
-                            const Icon(Icons.copy_rounded, size: 9.5, color: Color(0xFF217346)),
+                            const Icon(Icons.copy_rounded, size: 9, color: Color(0xFF217346)),
                           ],
                         ),
                       ),
                     ),
                     Text(
                       'Date: ${_formatShortDate(order.pickupDate)}',
-                      style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
                     ),
                   ],
                 ),
@@ -1334,7 +1345,7 @@ class EarningReportScreen extends StatelessWidget {
             Icon(Icons.verified, size: 14, color: Color(0xFF166534)),
             SizedBox(width: 4),
             Text(
-              'Verified Quality Seal · GreenGrocc Agri',
+              'Verified Quality Seal · GreenGrocc',
               style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
             ),
           ],
@@ -1408,7 +1419,7 @@ class InvoicePdfPreviewScreen extends StatelessWidget {
         canChangeOrientation: false,
         canChangePageFormat: false,
         canDebug: false,
-        previewPageMargin: const EdgeInsets.all(8),
+        previewPageMargin: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
         loadingWidget: const Center(
           child: CircularProgressIndicator(color: Color(0xFF217346)),
         ),

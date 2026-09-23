@@ -698,6 +698,7 @@ class DocumentItem {
   final String status; // approved, pending, rejected, not_uploaded
   final String uploadDate;
   final String fileUrl;
+  final String rejectionReason;
 
   DocumentItem({
     required this.id,
@@ -708,5 +709,6 @@ class DocumentItem {
     required this.status,
     this.uploadDate = '',
     this.fileUrl = '',
+    this.rejectionReason = '',
   });
 }

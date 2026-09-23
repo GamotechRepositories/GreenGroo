@@ -223,9 +223,19 @@ class ApiService {
     } catch (_) {}
     return [];
   }
-  Future<dynamic> fetchHarvestOrders() async => get('/api/farmers/harvest-orders');
-  Future<dynamic> fetchEarnings(String farmerId) async => get('/api/farmers/$farmerId/earnings');
   Future<dynamic> fetchDocuments(String farmerId) async => get('/api/farmers/$farmerId/documents');
+
+  Future<dynamic> uploadDocument(String farmerId, Map<String, dynamic> body) async {
+    try {
+      return await post('/api/farmers/$farmerId/documents', body);
+    } catch (_) {
+      try {
+        return await post('/api/farmer/documents', body);
+      } catch (_) {
+        return await post('/api/vendor/farmers/$farmerId/documents', body);
+      }
+    }
+  }
 
   Future<dynamic> createProduct(String farmerId, Map<String, dynamic> body) async {
     return post('/api/farmers/$farmerId/products', body);

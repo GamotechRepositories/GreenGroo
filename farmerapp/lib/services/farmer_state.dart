@@ -85,6 +85,48 @@ class FarmerState extends ChangeNotifier {
             crops = cropRes.map((c) => CropItem.fromJson(c as Map<String, dynamic>)).toList();
           }
         } catch (_) {}
+
+        // 5. Fetch Documents from Backend
+        try {
+          final docRes = await ApiService().fetchDocuments(profile.id);
+          if (docRes is List && docRes.isNotEmpty) {
+            final Map<String, dynamic> docMap = {};
+            for (final d in docRes) {
+              if (d is Map) {
+                final type = (d['type'] ?? '').toString().toLowerCase();
+                if (type.isNotEmpty) docMap[type] = d;
+              }
+            }
+
+            if (documents.isEmpty) {
+              _initDefaultData();
+            }
+
+            documents = documents.map((localDoc) {
+              final backendDoc = docMap[localDoc.type.toLowerCase()];
+              if (backendDoc != null) {
+                final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
+                final fUrl = (backendDoc['fileUrl'] ?? '').toString();
+                final rReason = (backendDoc['rejectionReason'] ?? '').toString();
+                final hasFile = fUrl.isNotEmpty && (backendDoc['fileName'] ?? '').toString().isNotEmpty;
+                return DocumentItem(
+                  id: localDoc.id,
+                  type: localDoc.type,
+                  title: localDoc.title,
+                  marathiTitle: localDoc.marathiTitle,
+                  isUploaded: hasFile,
+                  status: st == 'Approved'
+                      ? 'approved'
+                      : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded')),
+                  uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
+                  fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+                  rejectionReason: rReason,
+                );
+              }
+              return localDoc;
+            }).toList();
+          }
+        } catch (_) {}
       } else {
         connectionMessage = 'Disconnected (Using Offline Cache)';
       }
@@ -518,7 +560,7 @@ class FarmerState extends ChangeNotifier {
       DocumentItem(
         id: 'DOC-1',
         type: 'aadhaar',
-        title: 'Aadhaar / ID Proof',
+        title: 'Aadhaar Card',
         marathiTitle: 'आधार कार्ड',
         isUploaded: true,
         status: 'approved',
@@ -526,56 +568,62 @@ class FarmerState extends ChangeNotifier {
       ),
       DocumentItem(
         id: 'DOC-2',
-        type: 'pan',
-        title: 'PAN Card',
-        marathiTitle: 'पॅन कार्ड',
-        isUploaded: true,
-        status: 'approved',
-        uploadDate: '12 Aug 2026',
+        type: 'farmer_id',
+        title: 'Farmer ID',
+        marathiTitle: 'शेतकरी ओळखपत्र',
+        isUploaded: false,
+        status: 'not_uploaded',
       ),
       DocumentItem(
         id: 'DOC-3',
-        type: 'bank',
-        title: 'Bank Passbook / Cheque',
-        marathiTitle: 'बँक पासबुक / धनादेश',
-        isUploaded: true,
-        status: 'approved',
-        uploadDate: '14 Aug 2026',
-      ),
-      DocumentItem(
-        id: 'DOC-4',
         type: 'land_712',
-        title: '7/12 & 8-A Extract',
-        marathiTitle: '७/१२ व ८-अ उतारा',
+        title: '7/12 Extract',
+        marathiTitle: '७/१२ उतारा',
         isUploaded: true,
         status: 'approved',
         uploadDate: '15 Aug 2026',
       ),
       DocumentItem(
-        id: 'DOC-5',
-        type: 'soil_report',
-        title: 'Soil Testing Report',
-        marathiTitle: 'मृदा परीक्षण अहवाल',
-        isUploaded: true,
-        status: 'approved',
-        uploadDate: '18 Aug 2026',
-      ),
-      DocumentItem(
-        id: 'DOC-6',
-        type: 'organic_cert',
-        title: 'Organic Farming Certificate',
-        marathiTitle: 'सेंद्रिय शेती प्रमाणपत्र',
+        id: 'DOC-4',
+        type: 'land_8a',
+        title: '8A Extract',
+        marathiTitle: '८-अ उतारा',
         isUploaded: false,
         status: 'not_uploaded',
       ),
       DocumentItem(
-        id: 'DOC-7',
-        type: 'crop_insurance',
-        title: 'Crop Insurance Receipt',
-        marathiTitle: 'पीक विमा पावती',
+        id: 'DOC-5',
+        type: 'bank',
+        title: 'Bank Passbook',
+        marathiTitle: 'बँक पासबुक',
         isUploaded: true,
         status: 'approved',
-        uploadDate: '25 Aug 2026',
+        uploadDate: '14 Aug 2026',
+      ),
+      DocumentItem(
+        id: 'DOC-6',
+        type: 'farmer_photo',
+        title: 'Farmer Photo',
+        marathiTitle: 'शेतकरी फोटो',
+        isUploaded: true,
+        status: 'approved',
+        uploadDate: '16 Aug 2026',
+      ),
+      DocumentItem(
+        id: 'DOC-7',
+        type: 'address_proof',
+        title: 'Address Proof',
+        marathiTitle: 'रहिवासी दाखला',
+        isUploaded: false,
+        status: 'not_uploaded',
+      ),
+      DocumentItem(
+        id: 'DOC-8',
+        type: 'pan',
+        title: 'PAN Card',
+        marathiTitle: 'पॅन कार्ड',
+        isUploaded: false,
+        status: 'not_uploaded',
       ),
     ];
   }
@@ -824,20 +872,40 @@ class FarmerState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void uploadDocument(String docId, {String? fileUrl, String status = 'pending'}) {
+  void uploadDocument(String docId, {String? fileUrl, String status = 'pending', String rejectionReason = ''}) {
     final idx = documents.indexWhere((d) => d.id == docId);
     if (idx != -1) {
+      final doc = documents[idx];
       documents[idx] = DocumentItem(
-        id: documents[idx].id,
-        type: documents[idx].type,
-        title: documents[idx].title,
-        marathiTitle: documents[idx].marathiTitle,
+        id: doc.id,
+        type: doc.type,
+        title: doc.title,
+        marathiTitle: doc.marathiTitle,
         isUploaded: true,
         status: status,
         uploadDate: 'Today',
-        fileUrl: fileUrl ?? documents[idx].fileUrl,
+        fileUrl: fileUrl ?? doc.fileUrl,
+        rejectionReason: rejectionReason,
       );
       notifyListeners();
+
+      // Persist to backend database so it shows in vendor portal immediately
+      if (fileUrl != null && fileUrl.isNotEmpty) {
+        final isPdf = fileUrl.startsWith('data:application/pdf') || fileUrl.toLowerCase().endsWith('.pdf');
+        final ext = isPdf ? 'pdf' : 'jpg';
+        final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
+        final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+        ApiService().uploadDocument(profile.id, {
+          'type': doc.type,
+          'name': '${doc.title} (${doc.marathiTitle})',
+          'fileName': fileName,
+          'fileUrl': fileUrl,
+          'status': status == 'approved' ? 'Approved' : 'Pending',
+        }).catchError((err) {
+          debugPrint('Failed to sync document to backend: $err');
+        });
+      }
     }
   }
 

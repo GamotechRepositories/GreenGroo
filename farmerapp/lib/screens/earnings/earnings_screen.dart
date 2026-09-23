@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import 'earning_report_screen.dart';
@@ -44,28 +48,39 @@ class _EarningsScreenState extends State<EarningsScreen> {
         ];
 
         for (final p in products) {
-          int count = 0;
-          try {
-            count = orders.where((o) => _orderMatchesProduct(o, p)).length;
-          } catch (_) {}
+          final pKey = p.productId.isNotEmpty ? p.productId : p.id;
           final cleanProd = (p.productName).split('(')[0].trim();
           final shortTitle = p.variety.isNotEmpty
               ? '$cleanProd (${p.variety})'
               : cleanProd;
-          final pKey = p.productId.isNotEmpty ? p.productId : p.id;
-          allSheets.add({
+          final sheetMap = {
             'id': 'product_$pKey',
             'sheetId': 'sheet-$pKey',
             'productId': pKey,
             'title': shortTitle,
             'product': p,
             'icon': '📄',
-            'badge': count,
             'isOverview': false,
-          });
+            'filterMode': 'all',
+            'sinceTimestamp': 0,
+          };
+          int count = 0;
+          try {
+            count = orders.where((o) => _orderMatchesProduct(o, p) && _isOrderInSheet(o, sheetMap)).length;
+          } catch (_) {}
+          sheetMap['badge'] = count;
+          allSheets.add(sheetMap);
         }
 
         for (final cs in _customSheets) {
+          final ProductItem? p = cs['product'] as ProductItem?;
+          int count = 0;
+          if (p != null) {
+            try {
+              count = orders.where((o) => _orderMatchesProduct(o, p) && _isOrderInSheet(o, cs)).length;
+            } catch (_) {}
+          }
+          cs['badge'] = count;
           allSheets.add(cs);
         }
 
@@ -81,7 +96,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         final ProductItem? activeProduct = currentSheet['product'] as ProductItem?;
         final List<FarmerOrderItem> activeOrders = (currentSheet['isOverview'] == true || activeProduct == null)
             ? orders
-            : orders.where((o) => _orderMatchesProduct(o, activeProduct)).toList();
+            : orders.where((o) => _orderMatchesProduct(o, activeProduct) && _isOrderInSheet(o, currentSheet)).toList();
 
         // Compute total financials for active sheet view
         double totalRevenue = 0;
@@ -136,7 +151,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   // 1. Title, Subtitle and Action Buttons matching photo
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: _buildHeaderAndActionButtons(allSheets, currentSheet, products),
+                    child: _buildHeaderAndActionButtons(allSheets, currentSheet, products, orders),
                   ),
                   const SizedBox(height: 12),
 
@@ -161,7 +176,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   if (currentSheet['isOverview'] == true)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: _buildSummaryOverviewContent(products, orders),
+                      child: _buildSummaryOverviewContent(products, orders, allSheets),
                     )
                   else
                     Padding(
@@ -245,6 +260,24 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return false;
   }
 
+  int _getOrderTimestamp(FarmerOrderItem order) {
+    final dt = _parseAnyDate(order.createdAt) ?? _parseAnyDate(order.pickupDate);
+    return dt?.millisecondsSinceEpoch ?? 0;
+  }
+
+  bool _isOrderInSheet(FarmerOrderItem order, Map<String, dynamic> sheet) {
+    final filterMode = sheet['filterMode']?.toString() ?? 'all';
+    final sinceTimestamp = sheet['sinceTimestamp'] as int?;
+    if (filterMode == 'all' || sinceTimestamp == null || sinceTimestamp <= 0) {
+      return true;
+    }
+    if (filterMode == 'new_only') {
+      final oTime = _getOrderTimestamp(order);
+      return oTime >= sinceTimestamp;
+    }
+    return true;
+  }
+
   String _formatCurrency(double val) {
     final intVal = val.round();
     final str = intVal.toString();
@@ -321,6 +354,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
     List<Map<String, dynamic>> allSheets,
     Map<String, dynamic> currentSheet,
     List<ProductItem> products,
+    List<FarmerOrderItem> orders,
   ) {
     return Row(
       children: [
@@ -355,27 +389,27 @@ class _EarningsScreenState extends State<EarningsScreen> {
         ),
         const SizedBox(width: 6),
 
-        // 2. Export Sheet (CSV)
+        // 2. Export Sheet (CSV / Excel)
         Expanded(
           child: OutlinedButton(
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF374151),
+              foregroundColor: const Color(0xFF217346),
               backgroundColor: Colors.white,
-              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              side: const BorderSide(color: Color(0xFF217346)),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () => _exportSheetCSV(currentSheet['title']?.toString() ?? 'Sheet'),
+            onPressed: () => _exportSheetCSV(currentSheet, products, orders),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(Icons.download_outlined, size: 13, color: Color(0xFF475569)),
+                Icon(Icons.download_outlined, size: 13, color: Color(0xFF217346)),
                 SizedBox(width: 4),
                 Flexible(
                   child: Text(
                     'Export Sheet',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -396,7 +430,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () => _openNewSheetModal(products),
+            onPressed: () => _openNewSheetModal(products, allSheets: allSheets),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -513,7 +547,6 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   final isActive = sheet['id'] == _activeSheetId;
                   final String rawTitle = sheet['title']?.toString() ?? '';
                   final String title = rawTitle.isNotEmpty ? rawTitle : 'Produce';
-                  final String iconEmoji = sheet['icon']?.toString() ?? (sheet['isOverview'] == true ? '📊' : '📄');
 
                   return GestureDetector(
                     onTap: () {
@@ -525,31 +558,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       decoration: BoxDecoration(
                         color: isActive ? Colors.white : const Color(0xFFD8E6DB),
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
-                        border: Border(
-                          top: BorderSide(
-                            color: isActive ? const Color(0xFF217346) : const Color(0xFFBACCC0),
-                            width: isActive ? 2.5 : 1,
-                          ),
-                          left: BorderSide(
-                            color: isActive ? const Color(0xFF217346) : const Color(0xFFBACCC0),
-                            width: 1,
-                          ),
-                          right: BorderSide(
-                            color: isActive ? const Color(0xFF217346) : const Color(0xFFBACCC0),
-                            width: 1,
-                          ),
-                          bottom: BorderSide(
-                            color: isActive ? Colors.white : const Color(0xFFBACCC0),
-                            width: 1,
-                          ),
+                        border: Border.all(
+                          color: isActive ? const Color(0xFF217346) : const Color(0xFFBACCC0),
+                          width: 1.0,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            iconEmoji,
-                            style: const TextStyle(fontSize: 12),
+                          Icon(
+                            sheet['isOverview'] == true
+                                ? Icons.bar_chart_outlined
+                                : Icons.table_chart_outlined,
+                            size: 13,
+                            color: isActive ? const Color(0xFF217346) : const Color(0xFF475569),
                           ),
                           const SizedBox(width: 5),
                           Text(
@@ -557,7 +579,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                              color: isActive ? const Color(0xFF15803D) : const Color(0xFF1F2937),
+                              color: isActive ? const Color(0xFF217346) : const Color(0xFF1F2937),
                             ),
                           ),
                           if (sheet['badge'] != null && (sheet['badge'] as int) > 0) ...[
@@ -589,7 +611,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
           // Green + button on right (Creates a new sheet)
           GestureDetector(
-            onTap: () => _openNewSheetModal(products),
+            onTap: () => _openNewSheetModal(products, allSheets: allSheets),
             child: Container(
               margin: const EdgeInsets.only(left: 4, bottom: 2),
               padding: const EdgeInsets.all(5),
@@ -606,7 +628,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
   }
 
   // 3. Summary Overview Sheet (All Produce Cards)
-  Widget _buildSummaryOverviewContent(List<ProductItem> products, List<FarmerOrderItem> orders) {
+  Widget _buildSummaryOverviewContent(
+    List<ProductItem> products,
+    List<FarmerOrderItem> orders, [
+    List<Map<String, dynamic>>? allSheets,
+  ]) {
     if (products.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -624,6 +650,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
     return Column(
       children: products.map((product) {
         final matchedOrders = orders.where((o) => _orderMatchesProduct(o, product)).toList();
+        final openCount = (allSheets ?? []).where((s) {
+          final p = s['product'] as ProductItem?;
+          return p != null && (p.id == product.id || p.productId == product.productId || p.productName == product.productName);
+        }).length;
 
         double prodTotal = 0;
         double prodDeposited = 0;
@@ -732,19 +762,20 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Container(
-                                  margin: const EdgeInsets.only(right: 4),
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFD1FAE5),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                                if (openCount > 0)
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFD1FAE5),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                                    ),
+                                    child: Text(
+                                      '📄 $openCount Sheet${openCount == 1 ? '' : 's'}',
+                                      style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
+                                    ),
                                   ),
-                                  child: const Text(
-                                    '1 Sheet',
-                                    style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
-                                  ),
-                                ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -957,7 +988,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     icon: const Icon(Icons.table_chart_outlined, size: 14),
-                    label: const Text('View Sheet', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: Text(openCount > 0 ? 'View Sheet' : 'Open Sheet', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       final pKey = product.productId.isNotEmpty ? product.productId : product.id;
                       setState(() {
@@ -981,8 +1012,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     icon: const Icon(Icons.add, size: 14),
-                    label: const Text('+ + Sheet 2', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                    onPressed: () => _openNewSheetModal(products, prefilledProduct: product),
+                    label: Text(openCount > 0 ? '+ Sheet ${openCount + 1}' : '+ New Sheet', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    onPressed: () => _openNewSheetModal(products, prefilledProduct: product, allSheets: allSheets),
                   ),
                 ],
               ),
@@ -1025,8 +1056,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final String sheetTitle = sheet['title']?.toString() ?? 'Product Sheet';
 
     final matchedOrders = product != null
-        ? allOrders.where((o) => _orderMatchesProduct(o, product)).toList()
-        : allOrders;
+        ? allOrders.where((o) => _orderMatchesProduct(o, product) && _isOrderInSheet(o, sheet)).toList()
+        : allOrders.where((o) => _isOrderInSheet(o, sheet)).toList();
 
     if (matchedOrders.isEmpty) {
       return Container(
@@ -1039,7 +1070,67 @@ class _EarningsScreenState extends State<EarningsScreen> {
           ),
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(10)),
         ),
-        child: _buildEmptySheetState(sheetTitle, product?.productName),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF0FDF4),
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFBACCC0), width: 0.8),
+                ),
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _activeSheetId = 'overview');
+                      if (_tabScrollController.hasClients) {
+                        _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFBACCC0)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_back, size: 10, color: Color(0xFF15803D)),
+                          SizedBox(width: 2),
+                          Text('Overview', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.table_chart_outlined, size: 13, color: Color(0xFF15803D)),
+                  const SizedBox(width: 5),
+                  Text(
+                    sheetTitle,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                  if (product != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '• ${product.cropLinked.isNotEmpty ? product.cropLinked : product.category}',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _buildEmptySheetState(sheetTitle, product?.productName),
+          ],
+        ),
       );
     }
 
@@ -1891,22 +1982,319 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
-  void _exportSheetCSV(String title) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Exported "$title" to CSV successfully'),
-        backgroundColor: const Color(0xFF217346),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  Future<void> _exportSheetCSV(
+    Map<String, dynamic> sheet,
+    List<ProductItem> products,
+    List<FarmerOrderItem> allOrders,
+  ) async {
+    try {
+      final isOverview = sheet['isOverview'] == true;
+      final ProductItem? product = sheet['product'] as ProductItem?;
+      final String sheetTitle = sheet['title']?.toString() ?? 'Sheet';
+      final now = DateTime.now();
+      final dateStr = '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}_${now.hour}${now.minute}';
+
+      final StringBuffer csv = StringBuffer();
+
+      String escape(dynamic val) {
+        if (val == null) return '""';
+        final s = val.toString().replaceAll('"', '""');
+        return '"$s"';
+      }
+
+      final profile = FarmerState().profile;
+      final farmerName = profile.fullName.isNotEmpty ? profile.fullName : 'Farmer';
+      final farmerPhone = profile.mobile;
+
+      String fileName = '';
+
+      if (isOverview) {
+        fileName = 'GreenGrocc_Summary_Overview_$dateStr.csv';
+        csv.writeln(escape('GreenGrocc Farmer Statement - Summary Overview'));
+        csv.writeln(escape('Generated on: ${now.toLocal()}'));
+        csv.writeln(escape('Farmer: $farmerName | Phone: $farmerPhone'));
+        csv.writeln('');
+        csv.writeln([
+          escape('Sr No'),
+          escape('Product Name'),
+          escape('Variety'),
+          escape('Category'),
+          escape('Total Orders'),
+          escape('Grade A Qty (Kg)'),
+          escape('Grade A Rate (₹)'),
+          escape('Grade A Rejected (Kg)'),
+          escape('Grade B Qty (Kg)'),
+          escape('Grade B Rate (₹)'),
+          escape('Grade B Rejected (Kg)'),
+          escape('Grade C Qty (Kg)'),
+          escape('Grade C Rate (₹)'),
+          escape('Grade C Rejected (Kg)'),
+          escape('Total Rejected (Kg)'),
+          escape('Total Revenue (₹)'),
+          escape('Deposited Amount (₹)'),
+          escape('Pending Amount (₹)'),
+          escape('Status'),
+        ].join(','));
+
+        int idx = 1;
+        double grandTotal = 0;
+        double grandDeposited = 0;
+        double grandPending = 0;
+        double grandGAQty = 0;
+        double grandGBQty = 0;
+        double grandGCQty = 0;
+        double grandRej = 0;
+
+        for (final p in products) {
+          final matchedOrders = allOrders.where((o) => _orderMatchesProduct(o, p)).toList();
+          double pTotal = 0;
+          double pDeposited = 0;
+          double pPending = 0;
+          double gaQty = 0;
+          double gaRate = p.pricePerUnit > 0 ? p.pricePerUnit : 30.0;
+          double gaRej = 0;
+          double gbQty = 0;
+          double gbRate = gaRate * 0.4;
+          double gbRej = 0;
+          double gcQty = 0;
+          double gcRate = gaRate * 0.2;
+          double gcRej = 0;
+
+          for (final o in matchedOrders) {
+            final amt = o.effectiveTotalAmount;
+            pTotal += amt;
+            if (_isOrderPaid(o)) {
+              pDeposited += amt;
+            } else {
+              pPending += amt;
+            }
+            gaQty += o.gradeAQty;
+            if (o.gradeARate > 0) gaRate = o.gradeARate;
+            gaRej += o.gradeARejected;
+
+            gbQty += o.gradeBQty;
+            if (o.gradeBRate > 0) gbRate = o.gradeBRate;
+            gbRej += o.gradeBRejected;
+
+            gcQty += o.gradeCQty;
+            if (o.gradeCRate > 0) gcRate = o.gradeCRate;
+            gcRej += o.gradeCRejected;
+          }
+
+          final totalRej = gaRej + gbRej + gcRej;
+          grandTotal += pTotal;
+          grandDeposited += pDeposited;
+          grandPending += pPending;
+          grandGAQty += gaQty;
+          grandGBQty += gbQty;
+          grandGCQty += gcQty;
+          grandRej += totalRej;
+
+          csv.writeln([
+            escape(idx++),
+            escape(p.productName),
+            escape(p.variety),
+            escape(p.category),
+            escape(matchedOrders.length),
+            escape(gaQty.toStringAsFixed(1)),
+            escape(gaRate.toStringAsFixed(2)),
+            escape(gaRej.toStringAsFixed(1)),
+            escape(gbQty.toStringAsFixed(1)),
+            escape(gbRate.toStringAsFixed(2)),
+            escape(gbRej.toStringAsFixed(1)),
+            escape(gcQty.toStringAsFixed(1)),
+            escape(gcRate.toStringAsFixed(2)),
+            escape(gcRej.toStringAsFixed(1)),
+            escape(totalRej.toStringAsFixed(1)),
+            escape(pTotal.toStringAsFixed(2)),
+            escape(pDeposited.toStringAsFixed(2)),
+            escape(pPending.toStringAsFixed(2)),
+            escape(p.status.isNotEmpty ? p.status : 'Active'),
+          ].join(','));
+        }
+
+        csv.writeln([
+          escape('TOTAL'),
+          escape(''),
+          escape(''),
+          escape(''),
+          escape(''),
+          escape(grandGAQty.toStringAsFixed(1)),
+          escape(''),
+          escape(''),
+          escape(grandGBQty.toStringAsFixed(1)),
+          escape(''),
+          escape(''),
+          escape(grandGCQty.toStringAsFixed(1)),
+          escape(''),
+          escape(''),
+          escape(grandRej.toStringAsFixed(1)),
+          escape(grandTotal.toStringAsFixed(2)),
+          escape(grandDeposited.toStringAsFixed(2)),
+          escape(grandPending.toStringAsFixed(2)),
+          escape(''),
+        ].join(','));
+
+      } else {
+        final cleanTitle = sheetTitle.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+        fileName = 'GreenGrocc_${cleanTitle}_$dateStr.csv';
+        final unit = product?.unit ?? 'Kg';
+        final matchedOrders = product != null
+            ? allOrders.where((o) => _orderMatchesProduct(o, product) && _isOrderInSheet(o, sheet)).toList()
+            : allOrders.where((o) => _isOrderInSheet(o, sheet)).toList();
+
+        csv.writeln(escape('GreenGrocc Produce Statement - $sheetTitle'));
+        if (product != null) {
+          csv.writeln(escape('Product: ${product.productName} | Variety: ${product.variety} | Base Rate: ₹${product.pricePerUnit}/$unit'));
+        }
+        csv.writeln(escape('Generated on: ${now.toLocal()}'));
+        csv.writeln(escape('Farmer: $farmerName | Phone: $farmerPhone'));
+        csv.writeln('');
+
+        csv.writeln([
+          escape('#'),
+          escape('Order ID'),
+          escape('Order Date'),
+          escape('Day'),
+          escape('Pickup Date'),
+          escape('Pickup Time'),
+          escape('Product Name'),
+          escape('Grade A Qty ($unit)'),
+          escape('Grade A Rate (₹)'),
+          escape('Grade B Qty ($unit)'),
+          escape('Grade B Rate (₹)'),
+          escape('Grade C Qty ($unit)'),
+          escape('Grade C Rate (₹)'),
+          escape('Rejected Qty ($unit)'),
+          escape('Total Amount (₹)'),
+          escape('Payment Status'),
+        ].join(','));
+
+        int idx = 1;
+        double totGA = 0;
+        double totGB = 0;
+        double totGC = 0;
+        double totRej = 0;
+        double totAmt = 0;
+
+        for (final o in matchedOrders) {
+          totGA += o.gradeAQty;
+          totGB += o.gradeBQty;
+          totGC += o.gradeCQty;
+          totRej += o.rejectedQuantity;
+          final amt = o.effectiveTotalAmount;
+          totAmt += amt;
+
+          final oDate = _formatShortDate(o.createdAt);
+          final oDay = _formatWeekday(o.createdAt);
+          final pDate = _formatShortDate(o.pickupDate);
+          final pTime = _parsePickupTime(o.pickupSlot);
+
+          csv.writeln([
+            escape(idx++),
+            escape(o.orderCode.isNotEmpty ? o.orderCode : (o.id.length > 8 ? o.id.substring(o.id.length - 8) : o.id)),
+            escape(oDate),
+            escape(oDay),
+            escape(pDate),
+            escape(pTime),
+            escape(o.productName),
+            escape(o.gradeAQty > 0 ? o.gradeAQty.toStringAsFixed(0) : '0'),
+            escape(o.gradeARate > 0 ? o.gradeARate.toStringAsFixed(0) : '0'),
+            escape(o.gradeBQty > 0 ? o.gradeBQty.toStringAsFixed(0) : '0'),
+            escape(o.gradeBRate > 0 ? o.gradeBRate.toStringAsFixed(0) : '0'),
+            escape(o.gradeCQty > 0 ? o.gradeCQty.toStringAsFixed(0) : '0'),
+            escape(o.gradeCRate > 0 ? o.gradeCRate.toStringAsFixed(0) : '0'),
+            escape(o.rejectedQuantity > 0 ? o.rejectedQuantity.toStringAsFixed(0) : '0'),
+            escape(amt.toStringAsFixed(2)),
+            escape(o.paymentStatus.isNotEmpty ? o.paymentStatus : 'Pending'),
+          ].join(','));
+        }
+
+        csv.writeln([
+          escape('TOTAL'),
+          escape(''),
+          escape(''),
+          escape(''),
+          escape(''),
+          escape(''),
+          escape(''),
+          escape(totGA.toStringAsFixed(0)),
+          escape(''),
+          escape(totGB.toStringAsFixed(0)),
+          escape(''),
+          escape(totGC.toStringAsFixed(0)),
+          escape(''),
+          escape(totRej.toStringAsFixed(0)),
+          escape(totAmt.toStringAsFixed(2)),
+          escape(''),
+        ].join(','));
+      }
+
+      final bytes = utf8.encode('\uFEFF${csv.toString()}');
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(bytes);
+
+      // ignore: deprecated_member_use
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        text: 'GreenGrocc Sheet Export - $sheetTitle',
+        subject: fileName,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Excel / CSV Exported: $fileName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF217346),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to export sheet: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
   }
 
   // 5. New Sheet Modal (matching web NewSheetModal)
-  void _openNewSheetModal(List<ProductItem> products, {ProductItem? prefilledProduct}) {
+  void _openNewSheetModal(
+    List<ProductItem> products, {
+    ProductItem? prefilledProduct,
+    List<Map<String, dynamic>>? allSheets,
+  }) {
     ProductItem? selected = prefilledProduct ?? (products.isNotEmpty ? products.first : null);
-    final titleController = TextEditingController(
-      text: selected != null ? '${selected.productName.split('(')[0].trim()} - Batch 1' : '',
-    );
+
+    int getExistingCount(ProductItem? prod) {
+      if (prod == null || allSheets == null) return 0;
+      return allSheets.where((s) {
+        final p = s['product'] as ProductItem?;
+        return p != null && (p.id == prod.id || p.productId == prod.productId || p.productName == prod.productName);
+      }).length;
+    }
+
+    String computeTitle(ProductItem? prod) {
+      if (prod == null) return '';
+      final count = getExistingCount(prod);
+      final clean = prod.productName.split('(')[0].trim();
+      return count == 0 ? clean : '$clean (Sheet ${count + 1})';
+    }
+
+    final titleController = TextEditingController(text: computeTitle(selected));
 
     showModalBottomSheet(
       context: context,
@@ -1968,9 +2356,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       onChanged: (val) {
                         setModalState(() {
                           selected = val;
-                          if (val != null) {
-                            titleController.text = '${val.productName.split('(')[0].trim()} - Batch 2';
-                          }
+                          titleController.text = computeTitle(val);
                         });
                       },
                     ),
@@ -2000,7 +2386,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                           padding: EdgeInsets.zero,
                           onPressed: () {
                             if (selected != null) {
-                              titleController.text = '${selected!.productName.split('(')[0].trim()} - $sug';
+                              final cleanName = selected!.productName.split('(')[0].trim();
+                              titleController.text = '$cleanName - $sug';
                             } else {
                               titleController.text = sug;
                             }
@@ -2021,7 +2408,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         ),
                         onPressed: () {
                           if (titleController.text.trim().isNotEmpty && selected != null) {
-                            final newId = 'custom_${DateTime.now().millisecondsSinceEpoch}';
+                            final now = DateTime.now();
+                            final newId = 'custom_${now.millisecondsSinceEpoch}';
                             setState(() {
                               _customSheets.add({
                                 'id': newId,
@@ -2030,6 +2418,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 'icon': '📄',
                                 'badge': 0,
                                 'isOverview': false,
+                                'filterMode': 'new_only',
+                                'sinceTimestamp': now.millisecondsSinceEpoch,
                               });
                               _activeSheetId = newId;
                             });

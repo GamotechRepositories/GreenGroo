@@ -139,17 +139,14 @@ export const CROP_STATUS_FLOW = Object.fromEntries(
 );
 
 export const DOCUMENT_TYPES = [
-  { id: "aadhaar", name: "Aadhaar / ID Proof", required: false },
-  { id: "pan", name: "PAN Card", required: false },
-  { id: "bank", name: "Bank Details", required: false },
-  { id: "address", name: "Address Proof", required: false },
-  { id: "soil_report", name: "Soil Testing Report (मृदा परीक्षण अहवाल)", required: false },
-  { id: "organic_cert", name: "Organic Farming Certificate (सेंद्रिय शेती प्रमाणपत्र)", required: false },
-  { id: "land_712", name: "7/12 & 8-A Extract (७/१२ व ८-अ उतारा)", required: false },
-  { id: "crop_insurance", name: "Crop Insurance Certificate (पीक विमा पावती)", required: false },
-  { id: "water_testing", name: "Water Testing Report (पाणी चाचणी अहवाल)", required: false },
-  { id: "gap_cert", name: "GAP / APEDA Quality Certificate (जीएपी / गुणवत्ता प्रमाणपत्र)", required: false },
-  { id: "other", name: "Other Documents", required: false },
+  { id: "aadhaar", name: "Aadhaar Card", marathi: "आधार कार्ड", icon: "🪪", required: true },
+  { id: "farmer_id", name: "Farmer ID", marathi: "शेतकरी ओळखपत्र", icon: "🌾", required: true },
+  { id: "land_712", name: "7/12 Extract", marathi: "७/१२ उतारा", icon: "📜", required: true },
+  { id: "land_8a", name: "8A Extract", marathi: "८-अ उतारा", icon: "📄", required: true },
+  { id: "bank", name: "Bank Passbook", marathi: "बँक पासबुक", icon: "🏦", required: true },
+  { id: "farmer_photo", name: "Farmer Photo", marathi: "शेतकरी फोटो", icon: "👤", required: true },
+  { id: "address_proof", name: "Address Proof", marathi: "रहिवासी दाखला", icon: "🏠", required: true },
+  { id: "pan", name: "PAN Card", marathi: "पॅन कार्ड", icon: "💳", required: true },
 ];
 
 export const CERTIFICATE_TYPES = [

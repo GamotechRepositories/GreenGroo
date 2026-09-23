@@ -335,22 +335,24 @@ class _MainShellState extends State<MainShell> {
   Widget _drawerItem({required IconData icon, required String label, bool isSelected = false, required VoidCallback onTap}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
+      child: Material(
         color: isSelected ? AppColors.primaryLight : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
-      ),
-      child: ListTile(
-        dense: true,
-        leading: Icon(icon, size: 20, color: isSelected ? AppColors.primary : AppColors.primaryDark),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            color: isSelected ? AppColors.primary : AppColors.textPrimary,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          dense: true,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          leading: Icon(icon, size: 20, color: isSelected ? AppColors.primary : AppColors.primaryDark),
+          title: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+            ),
           ),
+          onTap: onTap,
         ),
-        onTap: onTap,
       ),
     );
   }

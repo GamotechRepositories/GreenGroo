@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../constants/app_colors.dart';
 
-/// Helper widget to render images whether they are Base64 strings or Network URLs.
+/// Helper widget to render images whether they are Base64 strings, Network URLs, or PDF documents.
 class AppImageWidget extends StatelessWidget {
   final String imageStr;
   final double? width;
@@ -29,6 +32,30 @@ class AppImageWidget extends StatelessWidget {
 
     if (clean.isEmpty) {
       content = fallback ?? _buildDefaultFallback();
+    } else if (clean.startsWith('data:application/pdf') || clean.toLowerCase().endsWith('.pdf')) {
+      content = Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: borderRadius ?? BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFFECACA)),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
+              SizedBox(height: 2),
+              Text(
+                'PDF DOC',
+                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+              ),
+            ],
+          ),
+        ),
+      );
     } else if (clean.startsWith('data:image')) {
       try {
         final commaIdx = clean.indexOf(',');
@@ -67,11 +94,37 @@ class AppImageWidget extends StatelessWidget {
           );
         },
       );
+    } else if (clean.startsWith('/') || clean.startsWith('file://') || File(clean).existsSync()) {
+      try {
+        final filePath = clean.startsWith('file://') ? clean.replaceFirst('file://', '') : clean;
+        content = Image.file(
+          File(filePath),
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (_, _, _) => fallback ?? _buildDefaultFallback(),
+        );
+      } catch (_) {
+        content = fallback ?? _buildDefaultFallback();
+      }
+    } else if (clean.length > 100 && !clean.contains(' ') && RegExp(r'^[A-Za-z0-9+/=\s]+$').hasMatch(clean)) {
+      try {
+        final bytes = base64Decode(clean.replaceAll('\n', '').replaceAll('\r', '').replaceAll(' ', ''));
+        content = Image.memory(
+          bytes,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (_, _, _) => fallback ?? _buildDefaultFallback(),
+        );
+      } catch (_) {
+        content = fallback ?? _buildDefaultFallback();
+      }
     } else {
       content = fallback ?? _buildDefaultFallback();
     }
 
-    if (borderRadius != null) {
+    if (borderRadius != null && !(clean.startsWith('data:application/pdf') || clean.toLowerCase().endsWith('.pdf'))) {
       return ClipRRect(borderRadius: borderRadius!, child: content);
     }
     return content;
@@ -89,16 +142,18 @@ class AppImageWidget extends StatelessWidget {
   }
 }
 
-/// Universal Photo Picker bottom sheet offering:
+/// Universal Photo/Document Picker bottom sheet offering:
 /// 1. Live Camera capture (कॅमेरा वापरा)
 /// 2. Gallery picker (गॅलरी मधून निवडा)
-/// 3. Presets & URL input (नमुना फोटो / URL)
+/// 3. PDF Document picker (PDF फाईल अपलोड करा)
+/// 4. Presets & URL input (नमुना फोटो / URL)
 Future<void> showAppPhotoPicker(
   BuildContext context, {
   required ValueChanged<String> onPhotoSelected,
-  String title = 'फोटो निवडा (Upload Photo)',
-  String subtitle = 'कॅमेऱ्याने लाईव्ह फोटो काढा किंवा गॅलरी मधून निवडा',
+  String title = 'फोटो / डॉक्युमेंट निवडा (Upload)',
+  String subtitle = 'कॅमेऱ्याने फोटो काढा, गॅलरी किंवा PDF फाईल निवडा',
   String? presetCategory,
+  bool allowPdf = true,
 }) async {
   final ImagePicker picker = ImagePicker();
 
@@ -118,6 +173,45 @@ Future<void> showAppPhotoPicker(
     } catch (e) {
       if (context.mounted) {
         _showFallbackDialog(context, onPhotoSelected, presetCategory);
+      }
+    }
+  }
+
+  Future<void> pickPdfFile() async {
+    try {
+      final files = await FilePickerPlatform.instance.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (files.isNotEmpty) {
+        final file = files.first;
+        Uint8List? bytes;
+        if (file.path != null && file.path!.isNotEmpty) {
+          final f = File(file.path!);
+          if (await f.exists()) {
+            bytes = await f.readAsBytes();
+          }
+        }
+
+        if (bytes != null) {
+          final isPdf = file.name.toLowerCase().endsWith('.pdf');
+          final mime = isPdf ? 'application/pdf' : 'image/jpeg';
+          final base64Str = 'data:$mime;name=${Uri.encodeComponent(file.name)};base64,${base64Encode(bytes)}';
+          onPhotoSelected(base64Str);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        // If native plugin requires fresh build, offer fallback options
+        _showFallbackDialog(context, onPhotoSelected, presetCategory);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('नवीन प्लगइनसाठी ॲप पुन्हा सुरु (Re-run) करा किंवा खालील पर्यायांमधून निवडा.'),
+            backgroundColor: Color(0xFFC2410C),
+            duration: Duration(seconds: 4),
+          ),
+        );
       }
     }
   }
@@ -200,7 +294,7 @@ Future<void> showAppPhotoPicker(
                 child: const Icon(Icons.photo_library_rounded, color: Color(0xFF2563EB), size: 22),
               ),
               title: const Text('Choose from Gallery (गॅलरी निवडा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-              subtitle: const Text('मोबाईलमधील सेव्ह असलेला फोटो अपलोड करा', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              subtitle: const Text('मोबाईलमधील सेव्ह असलेला फोटो अपलोड करा (JPG, PNG)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -208,7 +302,29 @@ Future<void> showAppPhotoPicker(
               },
             ),
 
-            // Option 3: Presets & Image URL
+            // Option 3: PDF Document
+            if (allowPdf)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
+                ),
+                title: const Text('Upload PDF File (PDF फाईल अपलोड करा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF991B1B))),
+                subtitle: const Text('मोबाईलमधील ७/१२, ८-अ, केवायसी PDF कागदपत्र निवडा', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  pickPdfFile();
+                },
+              ),
+
+            // Option 4: Presets & Image URL
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               leading: Container(
@@ -220,8 +336,8 @@ Future<void> showAppPhotoPicker(
                 ),
                 child: const Icon(Icons.collections_rounded, color: Color(0xFF7E22CE), size: 22),
               ),
-              title: const Text('Sample Presets / Web URL (नमुना फोटो किंवा URL)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-              subtitle: const Text('टोमॅटो, कांदा, शेती नमुना फोटो किंवा डायरेक्ट URL द्या', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              title: const Text('Sample Presets / Web URL (नमुना किंवा URL)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              subtitle: const Text('नमुना कागदपत्र किंवा डायरेक्ट URL द्वारे जोडा', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
               onTap: () {
                 Navigator.pop(ctx);

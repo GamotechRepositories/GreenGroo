@@ -80,6 +80,8 @@ export const vendorApi = {
   getFarmerEarnings: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/earnings`),
   getFarmerDocuments: (id) => api.get(`/api/vendor/farmers/${encodeURIComponent(id)}/documents`),
   uploadFarmerDocument: (id, data) => api.post(`/api/vendor/farmers/${encodeURIComponent(id)}/documents`, data),
+  updateFarmerDocumentStatus: (id, docId, status, rejectionReason = "") =>
+    api.patch(`/api/vendor/farmers/${encodeURIComponent(id)}/documents/${encodeURIComponent(docId)}/status`, { status, rejectionReason }),
   createFarmer: (data) => api.post("/api/vendor/farmers", data),
   updateFarmer: (id, data) => api.put(`/api/vendor/farmers/${id}`, data),
   deleteFarmer: (id) => api.delete(`/api/vendor/farmers/${id}`),
