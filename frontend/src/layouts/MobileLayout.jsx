@@ -36,7 +36,7 @@ function MobileLayout({ children }) {
         {children}
       </main>
 
-      {isHome || isShop || pathname === "/categories" ? <FloatingCartBar /> : null}
+      {isHome || pathname === "/categories" ? <FloatingCartBar /> : null}
 
       <div className={isHome || isShop ? "hidden lg:block" : ""}>
         <Footer />

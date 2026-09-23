@@ -1,41 +1,28 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
-import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../hooks/queries/useSectionsQuery";
-import { GROCERY_CATEGORIES } from "../data/groceryCategories";
-import { SUPER_MALL_CATEGORIES } from "../data/superMallCategories";
-import { READY2COOK_SHOP_CATEGORIES } from "../components/home/FestiveStoreSection";
+import { useSectionsQuery } from "../hooks/queries/useSectionsQuery";
 import CategoryCard from "../components/grocery/CategoryCard";
+import { sectionToStoreKey, storeToSection } from "../utils/storeSection";
 
 function Categories() {
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
+  const targetSection = storeToSection(currentStore);
 
-  const targetSection =
-    currentStore === "mall"
-      ? "supermall"
-      : currentStore === "festive"
-      ? "ready2cook"
-      : currentStore === "main"
-      ? "greengrocc"
-      : currentStore;
-
-  // Fetch dynamic categories from MongoDB for this department
   const { data: dbCategories = [], isLoading: loadingCats } = useCategoriesQuery({
     section: targetSection,
   });
-  const { data: sections = DEFAULT_FALLBACK_SECTIONS } = useSectionsQuery();
+  const { data: sections = [] } = useSectionsQuery();
 
   const currentSecObj = useMemo(() => {
-    const s = sections.find(
-      (sec) =>
-        sec.slug?.toLowerCase() === targetSection.toLowerCase() ||
-        (targetSection === "greengrocc" && sec.slug === "greengrocc") ||
-        (targetSection === "ready2cook" && sec.slug === "ready2cook") ||
-        (targetSection === "supermall" && sec.slug === "supermall")
-    );
+    const s = sections.find((sec) => {
+      const slug = String(sec.slug || "").toLowerCase();
+      const storeKey = sectionToStoreKey(slug || sec.storeType);
+      return storeKey === currentStore || slug === targetSection;
+    });
     return s || null;
-  }, [sections, targetSection]);
+  }, [sections, currentStore, targetSection]);
 
   const headerMeta = useMemo(() => {
     if (currentSecObj) {
@@ -46,78 +33,32 @@ function Categories() {
         color: currentSecObj.color || "#0C831F",
       };
     }
-    if (currentStore === "mall") {
-      return {
-        badge: "Super Mall Marketplace",
-        title: "Super Mall Categories",
-        subtitle: "Top brand groceries, essentials & packaged foods",
-        color: "#2563EB",
-      };
-    }
-    if (currentStore === "festive") {
-      return {
-        badge: "Ready2Cook Kitchen",
-        title: "Ready2Cook Categories",
-        subtitle: "Pre-washed, peeled & chopped ingredients for fast cooking",
-        color: "#EA580C",
-      };
-    }
     return {
-      badge: "GreenGrocc Fresh",
+      badge: "Categories",
       title: "All Categories",
-      subtitle: "Fresh picks for every kitchen need",
+      subtitle: "Browse products by category",
       color: "#0C831F",
     };
-  }, [currentSecObj, currentStore]);
+  }, [currentSecObj]);
 
   const categoriesList = useMemo(() => {
-    // 1. Dynamic database categories
-    if (Array.isArray(dbCategories) && dbCategories.length > 0) {
-      return dbCategories.map((c) => ({
-        _id: c._id,
-        slug: c.slug || c.categoryName,
-        categoryName: c.categoryName,
-        name: c.categoryName,
-        categoryImage: c.categoryImage,
-        image: c.categoryImage,
-        itemCount:
-          c.itemCount || (c.productCount ? `${c.productCount}+ items` : "50+ items"),
-        items:
-          c.itemCount || (c.productCount ? `${c.productCount}+ items` : "50+ items"),
-        emoji: c.emoji,
-        bg: c.bg,
-        bgClass: c.bgClass,
-        section: c.section,
-      }));
-    }
-
-    // 2. Fallbacks if database is loading or empty
-    if (currentStore === "mall") {
-      return SUPER_MALL_CATEGORIES.map((c) => ({
-        slug: c.slug,
-        categoryName: c.name,
-        name: c.name,
-        itemCount: c.itemCount,
-        bgClass: c.bgClass,
-        categoryImage: c.image,
-        image: c.image,
-      }));
-    }
-
-    if (currentStore === "festive") {
-      return READY2COOK_SHOP_CATEGORIES.map((c) => ({
-        slug: c.slug,
-        categoryName: c.name,
-        name: c.name,
-        itemCount: c.itemCount,
-        bgClass: c.bgClass,
-        categoryImage: c.image,
-        image: c.image,
-      }));
-    }
-
-    return GROCERY_CATEGORIES;
-  }, [currentStore, dbCategories]);
+    if (!Array.isArray(dbCategories) || dbCategories.length === 0) return [];
+    return dbCategories.map((c) => ({
+      _id: c._id,
+      slug: c.categoryName,
+      categoryName: c.categoryName,
+      name: c.categoryName,
+      categoryImage: c.categoryImage,
+      image: c.categoryImage,
+      itemCount:
+        c.itemCount || (c.productCount ? `${c.productCount}+ items` : "Shop now"),
+      items: c.itemCount || (c.productCount ? `${c.productCount}+ items` : "Shop now"),
+      emoji: c.emoji,
+      bg: c.bg,
+      bgClass: c.bgClass,
+      section: c.section,
+    }));
+  }, [dbCategories]);
 
   return (
     <div className="min-h-screen bg-white pb-24 lg:pb-8">
@@ -139,15 +80,24 @@ function Categories() {
       </div>
 
       <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4">
-          {categoriesList.map((cat) => (
-            <CategoryCard
-              key={cat._id || cat.slug || cat.categoryName || cat.name}
-              cat={cat}
-              size="lg"
-            />
-          ))}
-        </div>
+        {loadingCats && categoriesList.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-500">Loading categories…</p>
+        ) : categoriesList.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-500">
+            No categories yet. Add them in Product Management.
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4">
+            {categoriesList.map((cat) => (
+              <CategoryCard
+                key={cat._id || cat.slug || cat.categoryName || cat.name}
+                cat={cat}
+                size="lg"
+                store={currentStore}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import FreshProduceStoreSection from "../components/home/FreshProduceStoreSectio
 import { sectionToStoreKey } from "../components/grocery/HomeMobileHeader";
 
 import ZeptoFestiveHeroSection from "../components/home/ZeptoFestiveHeroSection";
+import Ready2CookHotPickBanners from "../components/home/Ready2CookHotPickBanners";
 import HomeSlidingBanners from "../components/home/HomeSlidingBanners";
 import MovingOfferMarquee from "../components/home/MovingOfferMarquee";
 import SuggestedForYouSection from "../components/home/SuggestedForYouSection";
@@ -38,8 +39,9 @@ function StoreContent() {
 
   return (
     <>
-      <CategoryPills />
       <ZeptoFestiveHeroSection />
+      <Ready2CookHotPickBanners />
+      <CategoryPills />
       <HotSelling />
       <JustArrived />
       <MostViewedProducts />

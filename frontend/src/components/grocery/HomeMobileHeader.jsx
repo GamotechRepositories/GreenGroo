@@ -3,8 +3,15 @@ import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { buildProductSearchUrl } from "../../utils/productSearch";
 import { resolveStoreTheme } from "./homeHeaderThemes";
-import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../../hooks/queries/useSectionsQuery";
+import { useSectionsQuery } from "../../hooks/queries/useSectionsQuery";
 import { LOGO_URL } from "../layout/Header";
+import {
+  sectionToStoreKey,
+  storeToSection,
+  buildStoreProductUrl,
+} from "../../utils/storeSection";
+
+export { sectionToStoreKey, storeToSection, buildStoreProductUrl };
 
 function SearchIcon({ className = "h-4 w-4" }) {
   return (
@@ -39,23 +46,6 @@ function ProfileButton({ theme }) {
   );
 }
 
-/** Map any section slug / store param to canonical store key. */
-export function sectionToStoreKey(slugOrStore) {
-  const key = String(slugOrStore || "").toLowerCase().trim();
-  if (!key || key === "main" || key === "greengrocc" || key === "preorder") return "main";
-  if (key === "festive" || key === "ready2cook") return "festive";
-  if (
-    key === "mall" ||
-    key === "supermall" ||
-    key === "instant" ||
-    key === "instantorder" ||
-    key === "instantorders"
-  ) {
-    return "mall";
-  }
-  return key;
-}
-
 function storeTabLabel(storeKey) {
   if (storeKey === "festive") return "Ready2Cook";
   if (storeKey === "mall") return "InstantOrder";
@@ -83,7 +73,7 @@ function StoreTab({ storeKey, isCurrentActive, onSelect, children }) {
     <button
       type="button"
       onClick={() => onSelect(storeKey)}
-      className={`relative flex h-8 min-w-0 flex-1 items-center justify-center rounded-full px-1.5 text-center transition-all duration-200 active:scale-[0.97] ${
+      className={`relative flex h-8 min-w-0 flex-1 items-center justify-center rounded-full px-2 text-center transition-all duration-200 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10 ${
         isCurrentActive ? `${activeClass} font-bold` : `${idleClass} font-semibold`
       }`}
     >
@@ -95,7 +85,7 @@ function StoreTab({ storeKey, isCurrentActive, onSelect, children }) {
 /** Logo + profile + compact store tabs */
 export function HomeDeliveryBar() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: sections = DEFAULT_FALLBACK_SECTIONS } = useSectionsQuery();
+  const { data: sections = [] } = useSectionsQuery();
 
   const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
@@ -109,22 +99,22 @@ export function HomeDeliveryBar() {
     setSearchParams(nextParams);
   };
 
-  const displaySections = sections?.length ? sections : DEFAULT_FALLBACK_SECTIONS;
+  const displaySections = sections;
 
   return (
-    <div className={`${theme.deliveryBg} px-3 pb-0.5 pt-0.5 transition-colors duration-300`}>
+    <div className={`${theme.deliveryBg} px-3 pb-0 pt-1 transition-colors duration-300`}>
       <div className="flex items-center justify-between gap-2">
         <Link to="/" className="min-w-0 shrink leading-none">
           <img
             src={LOGO_URL}
             alt="GreenGroo"
-            className="-mb-1 h-14 w-auto max-w-[220px] object-contain object-left"
+            className="h-12 w-auto max-w-[200px] object-contain object-left"
           />
         </Link>
         <ProfileButton theme={theme} />
       </div>
 
-      <div className="mt-0 flex w-full items-center gap-1 rounded-full bg-black/[0.05] p-1">
+      <div className="mt-2.5 flex w-full items-center gap-2">
         {displaySections.map((sec) => {
           const storeKey = sectionToStoreKey(sec.slug || sec.storeType);
           const isCurrentActive = currentStore === storeKey;
@@ -165,8 +155,8 @@ export function HomeSearchBar() {
   };
 
   return (
-    <div className={`${theme.searchBg || theme.contentBg} px-3 pb-1 pt-0.5 transition-colors duration-300`}>
-      <div className="flex items-center gap-1.5">
+    <div className={`${theme.searchBg || theme.contentBg} px-3 pb-1.5 pt-2.5 transition-colors duration-300`}>
+      <div className="flex items-center gap-2">
         <form onSubmit={handleSearch} className="min-w-0 flex-1">
           <div className="flex h-9 items-center rounded-full border border-black/5 bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <SearchIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-slate-500" />
@@ -182,7 +172,7 @@ export function HomeSearchBar() {
 
         <Link
           to="/coupons"
-          className="flex h-9 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border border-emerald-200/70 bg-white px-2 pl-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-95"
+          className="flex h-9 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border border-emerald-200/70 bg-white px-2.5 pl-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-95"
         >
           <span className="text-[10px] font-black leading-tight text-[#047857]">
             Offers

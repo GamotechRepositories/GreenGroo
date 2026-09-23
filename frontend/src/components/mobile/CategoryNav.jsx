@@ -27,21 +27,6 @@ function useItemsPerSlide() {
   return itemsPerSlide;
 }
 
-const DEFAULT_CATEGORIES = [
-  { name: "Vegetables", image: "/categories/vegetables.webp" },
-  { name: "Fruits", image: "/categories/fruits.webp" },
-  { name: "Dairy", image: "/categories/dairy.webp" },
-  { name: "Grains", image: "/categories/grains.webp" },
-  { name: "Pulses", image: "/categories/pulses.webp" },
-  { name: "Grocery", image: "/categories/grocery.webp" },
-  { name: "Oils", image: "/categories/oils.webp" },
-  { name: "Spices", image: "/categories/spices.webp" },
-  { name: "Dry Fruits", image: "/categories/dry_fruits.webp" },
-  { name: "Organic", image: "/categories/organic.webp" },
-  { name: "Beverages", image: "/categories/beverages.webp" },
-  { name: "Bakery", image: "/categories/bakery.webp" },
-];
-
 const ICON_TYPES = [
   "charger",
   "earphone",
@@ -249,20 +234,14 @@ function CategoryNav() {
   const { data: apiCategories = [] } = useCategoriesQuery();
 
   const categories = useMemo(() => {
-    const filtered = apiCategories.filter(
-      (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-    );
-
-    if (filtered.length === 0) {
-      return DEFAULT_CATEGORIES;
-    }
-
-    return filtered.map((cat, index) => ({
-      name: cat.categoryName,
-      image: isUsableCategoryImage(cat.categoryImage) ? cat.categoryImage : undefined,
-      icon: ICON_TYPES[index % ICON_TYPES.length],
-      productCount: Number(cat.productCount) || 0,
-    }));
+    return apiCategories
+      .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
+      .map((cat, index) => ({
+        name: cat.categoryName,
+        image: isUsableCategoryImage(cat.categoryImage) ? cat.categoryImage : undefined,
+        icon: ICON_TYPES[index % ICON_TYPES.length],
+        productCount: Number(cat.productCount) || 0,
+      }));
   }, [apiCategories]);
 
   const categoriesAZ = useMemo(() => sortCategories(categories, "asc"), [categories]);

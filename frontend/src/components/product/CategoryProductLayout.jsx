@@ -279,7 +279,7 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
     return (
       <aside className="flex h-full min-h-0 w-[78px] shrink-0 flex-col overflow-hidden border-r border-gray-100 bg-white">
         <nav
-          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain px-1.5 py-2.5"
+          className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-y-contain px-1.5 py-2.5 pb-3"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <Link
@@ -294,7 +294,8 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
             <span className="text-center leading-tight tracking-tight">All</span>
           </Link>
           {categories.map((cat) => {
-            const isActive = activeCategory === cat.categoryName;
+            const isActive =
+              activeCategory.toLowerCase() === String(cat.categoryName || "").toLowerCase();
             return (
               <Link
                 key={cat._id || cat.categoryName}
@@ -352,7 +353,8 @@ function CategoryListBox({ categories, activeCategory, variant = "desktop" }) {
         </Link>
 
         {categories.map((cat) => {
-          const isActive = activeCategory === cat.categoryName;
+          const isActive =
+            activeCategory.toLowerCase() === String(cat.categoryName || "").toLowerCase();
           return (
             <Link
               key={cat._id || cat.categoryName}
@@ -624,7 +626,7 @@ export function AllProductsLayout({
         </ProductPageTwoBoxLayout>
       </div>
       <div className="lg:hidden flex items-start">
-        <div className="sticky top-[70px] h-[calc(100vh-70px)] shrink-0 overflow-hidden">
+        <div className="sticky top-[70px] h-[calc(100vh-70px-var(--gg-bottom-nav-h,65px)-env(safe-area-inset-bottom,0px))] shrink-0 overflow-hidden">
           <CategoryListBox categories={categories} activeCategory="" variant="mobile" />
         </div>
         <div className="flex-1 flex flex-col bg-white px-1 pb-1 pt-0 min-w-0">
@@ -662,7 +664,7 @@ export function MobileCategoryProductLayout({
 }) {
   return (
     <div className="lg:hidden flex items-start">
-      <div className="sticky top-[70px] h-[calc(100vh-70px)] shrink-0 overflow-hidden">
+      <div className="sticky top-[70px] h-[calc(100vh-70px-var(--gg-bottom-nav-h,65px)-env(safe-area-inset-bottom,0px))] shrink-0 overflow-hidden">
         <CategoryListBox categories={categories} activeCategory={categoryName} variant="mobile" />
       </div>
       <div className="flex-1 flex flex-col bg-white px-1 pb-1 pt-0 min-w-0">

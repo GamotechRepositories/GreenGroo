@@ -3,8 +3,11 @@ import { useMemo } from "react";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
 import CategoryIcon from "./CategoryIcon";
 import { resolveStoreTheme } from "./homeHeaderThemes";
-import { sectionToStoreKey } from "./HomeMobileHeader";
-import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
+import {
+  sectionToStoreKey,
+  storeToSection,
+  buildStoreProductUrl,
+} from "../../utils/storeSection";
 
 function isFruitsCategory(name) {
   const key = String(name || "").trim().toLowerCase();
@@ -155,60 +158,26 @@ function HomeCategoryStrip({ hideIcons = false }) {
   const currentStore = sectionToStoreKey(searchParams.get("store"));
   const theme = resolveStoreTheme(currentStore);
 
-  const targetSection =
-    currentStore === "mall"
-      ? "supermall"
-      : currentStore === "festive"
-        ? "ready2cook"
-        : currentStore === "main"
-          ? "greengrocc"
-          : currentStore;
+  const targetSection = storeToSection(currentStore);
 
   const { data: apiCategories = [] } = useCategoriesQuery({ section: targetSection });
 
   const categories = useMemo(() => {
-    const toItem = (name, slug = name) => ({
+    const toItem = (name) => ({
       name,
-      slug,
       label: shortCategoryLabel(name),
     });
 
-    const list = [toItem("All", "")];
+    const list = [toItem("All")];
+    if (!Array.isArray(apiCategories) || apiCategories.length === 0) return list;
 
-    if (Array.isArray(apiCategories) && apiCategories.length > 0) {
-      const fromApi = apiCategories
-        .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
-        .slice(0, 12)
-        .map((cat) => toItem(cat.categoryName, cat.slug || cat.categoryName));
-      list.push(...fromApi);
-      return list;
-    }
-
-    if (currentStore === "mall") {
-      return [
-        toItem("All", ""),
-        ...SUPER_MALL_CATEGORIES.slice(0, 5).map((cat) => toItem(cat.name, cat.slug)),
-      ];
-    }
-
-    if (currentStore === "festive") {
-      return [
-        toItem("All", ""),
-        toItem("Chopped", "Chopped"),
-        toItem("Cut & Sliced", "Cut & Sliced"),
-        toItem("Peeled & Cleaned", "Peeled & Cleaned"),
-        toItem("Cleaned Bhaji", "Cleaned Bhaji"),
-      ];
-    }
-
-    return [
-      toItem("All", ""),
-      toItem("Vegetables", "Vegetables"),
-      toItem("Fruits", "Fruits"),
-      toItem("Dairy", "Dairy"),
-      toItem("Organic", "Organic"),
-    ];
-  }, [apiCategories, currentStore]);
+    const fromApi = apiCategories
+      .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
+      .slice(0, 12)
+      .map((cat) => toItem(cat.categoryName));
+    list.push(...fromApi);
+    return list;
+  }, [apiCategories]);
 
   const categoryFromUrl = searchParams.get("categoryName")?.trim() || "";
   const activeCategory = useMemo(
@@ -228,20 +197,14 @@ function HomeCategoryStrip({ hideIcons = false }) {
       >
         {categories.map((cat, index) => {
           const isActive = activeCategory === cat.name;
-
-          const params = new URLSearchParams();
-          if (currentStore && currentStore !== "main") {
-            params.set("store", currentStore);
-          }
-          if (cat.slug) {
-            params.set("categoryName", cat.slug);
-          }
-          const queryString = params.toString();
-          const to = queryString ? `/product?${queryString}` : "/product";
+          const to = buildStoreProductUrl({
+            categoryName: cat.name === "All" ? "" : cat.name,
+            store: currentStore,
+          });
 
           return (
             <Link
-              key={`${cat.slug || "all"}-${cat.name}`}
+              key={`${cat.name}-${index}`}
               to={to}
               title={cat.name}
               className={`flex w-[3.4rem] shrink-0 snap-start flex-col items-center overflow-hidden px-0.5 text-center transition ${

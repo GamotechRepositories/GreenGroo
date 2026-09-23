@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../hooks/queries/useCategoriesQuery";
 import { useInfiniteProductsQuery } from "../hooks/queries/useProductsQuery";
 import { useProductListParams } from "../hooks/useProductListParams";
@@ -11,10 +11,8 @@ import CategoryProductLayout, {
   ProductResultsGrid,
 } from "../components/product/CategoryProductLayout";
 import ProductFiltersBar, { PRODUCT_SORT_OPTIONS } from "../components/product/ProductFiltersBar";
-import { DUMMY_SHOP_CATEGORIES } from "../data/dummyCategoryProducts";
-import { SUPER_MALL_CATEGORIES } from "../data/superMallCategories";
-import { READY2COOK_SHOP_CATEGORIES } from "../components/home/FestiveStoreSection";
 import { addCategoryVisit } from "../utils/categoryVisits";
+import { sectionToStoreKey, storeToSection } from "../utils/storeSection";
 
 function FilterIcon() {
   return (
@@ -357,12 +355,13 @@ function SearchResultsView(props) {
 }
 
 function Product() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryName = searchParams.get("categoryName")?.trim() || "";
   const searchQuery = searchParams.get("q")?.trim() || "";
   const brandName = searchParams.get("brandName")?.trim() || "";
   const storeParam = searchParams.get("store")?.trim()?.toLowerCase() || "";
+  const storeKey = sectionToStoreKey(storeParam);
+  const targetSection = storeParam ? storeToSection(storeKey) : null;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -372,7 +371,9 @@ function Product() {
   const { getCartQuantity, handleIncrease, handleDecrease } = useProductCartActions();
   const productParams = useProductListParams(searchParams);
 
-  const { data: apiCategories = [], isLoading: categoriesLoading } = useCategoriesQuery();
+  const { data: apiCategories = [], isLoading: categoriesLoading } = useCategoriesQuery(
+    targetSection ? { section: targetSection } : {}
+  );
   const {
     data,
     isLoading: productsLoading,
@@ -386,70 +387,20 @@ function Product() {
     [data]
   );
 
-  // Section-aware category list for left scroll bar (categories only — no subcategories)
-  const categories = useMemo(() => {
-    if (storeParam === "mall") {
-      return SUPER_MALL_CATEGORIES.map((cat) => ({
-        _id: cat.id,
-        categoryName: cat.name,
-        categoryImage: cat.image,
-        slug: cat.slug,
-      }));
-    }
-
-    if (storeParam === "festive") {
-      const byName = new Map(
-        (apiCategories || []).map((cat) => [String(cat.categoryName).toLowerCase(), cat])
-      );
-      return READY2COOK_SHOP_CATEGORIES.map((cat) => {
-        const apiCat = byName.get(cat.name.toLowerCase());
-        return {
-          _id: apiCat?._id || cat.name,
-          categoryName: cat.name,
-          categoryImage: apiCat?.categoryImage || cat.image,
-          slug: cat.name,
-        };
-      });
-    }
-
-    const apiList = (apiCategories || []).filter(
-      (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
-    );
-    const byName = new Map(
-      apiList.map((cat) => [String(cat.categoryName).toLowerCase(), cat])
-    );
-
-    const fromDummy = DUMMY_SHOP_CATEGORIES.map((shopCat) => {
-      const apiCat = byName.get(shopCat.categoryName.toLowerCase());
-      if (!apiCat) {
-        return {
-          _id: shopCat._id,
-          categoryName: shopCat.categoryName,
-          categoryImage: shopCat.categoryImage,
-          slug: shopCat.slug || shopCat.categoryName,
-        };
-      }
-      return {
-        _id: apiCat._id || shopCat._id,
-        categoryName: shopCat.categoryName,
-        categoryImage: shopCat.categoryImage || apiCat.categoryImage,
-        slug: shopCat.slug || shopCat.categoryName,
-      };
-    });
-
-    // Append any API categories not already in the dummy shop list
-    const known = new Set(fromDummy.map((c) => c.categoryName.toLowerCase()));
-    const extras = apiList
-      .filter((cat) => !known.has(String(cat.categoryName).toLowerCase()))
-      .map((cat) => ({
-        _id: cat._id,
-        categoryName: cat.categoryName,
-        categoryImage: cat.categoryImage,
-        slug: cat.slug || cat.categoryName,
-      }));
-
-    return [...fromDummy, ...extras];
-  }, [apiCategories, storeParam]);
+  // Section-aware category list from Product Management (API only)
+  const categories = useMemo(
+    () =>
+      (apiCategories || [])
+        .filter((cat) => cat.categoryName?.toLowerCase() !== "most purchase")
+        .map((cat) => ({
+          _id: cat._id,
+          categoryName: cat.categoryName,
+          categoryImage: cat.categoryImage,
+          // Always route by categoryName so filters match product.categories
+          slug: cat.categoryName,
+        })),
+    [apiCategories]
+  );
 
   // Product list for right product grid
   const products = useMemo(() => {

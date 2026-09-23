@@ -1,26 +1,29 @@
 import { useState, useEffect } from "react";
 import { ready2CookService } from "../services/ready2CookService";
-import { READY2COOK_CATEGORIES } from "../data/categories";
 
 export function useReady2Cook() {
-  const [categories, setCategories] = useState(READY2COOK_CATEGORIES);
+  const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
       setLoading(true);
-      const cats = await ready2CookService.getCategories();
-      const prods = await ready2CookService.getProducts();
+      const [cats, prods] = await Promise.all([
+        ready2CookService.getCategories(),
+        ready2CookService.getProducts(),
+      ]);
       if (isMounted) {
-        if (cats?.length) setCategories(cats);
-        if (prods?.length) setProducts(prods);
+        setCategories(Array.isArray(cats) ? cats : []);
+        setProducts(Array.isArray(prods) ? prods : []);
         setLoading(false);
       }
     }
     loadData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return { categories, products, loading };

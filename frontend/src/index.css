@@ -26,6 +26,14 @@ html {
   overflow-x: clip;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  /* Bottom nav content row (64px) + top border. Safe area stays in the nav padding. */
+  --gg-bottom-nav-h: 65px;
+}
+
+/* Cart bar and bottom nav share this so they ease together. */
+.gg-bar-slide {
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 html::-webkit-scrollbar {

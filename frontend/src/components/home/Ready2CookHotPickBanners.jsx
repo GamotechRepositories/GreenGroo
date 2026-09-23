@@ -1,9 +1,32 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
 
+const PREORDER_PROMOS = [
+  {
+    to: "/product?categoryName=Vegetables",
+    eyebrow: "Farm fresh",
+    title: "Fresh vegetables",
+    subtitle: "From farm to your kitchen",
+    className:
+      "bg-[linear-gradient(145deg,#064E3B_0%,#047857_45%,#0C831F_100%)] text-white",
+    chipClass: "bg-[#A7F3D0] text-[#064E3B]",
+    art: "🥦",
+  },
+  {
+    to: "/product?categoryName=Fruits",
+    eyebrow: "Seasonal picks",
+    title: "Juicy fruits",
+    subtitle: "Picked at peak ripeness",
+    className:
+      "bg-[linear-gradient(145deg,#ECFDF5_0%,#D1FAE5_50%,#A7F3D0_100%)] text-[#064E3B]",
+    chipClass: "bg-[#0C831F] text-[#ECFDF5]",
+    art: "🍎",
+  },
+];
+
 const READY2COOK_PROMOS = [
   {
-    to: "/product?store=festive&categoryName=Chopped",
+    to: "/product?store=festive&categoryName=Chopped%20Vegies",
     eyebrow: "Prep-free",
     title: "Chopped & ready",
     subtitle: "Start cooking in minutes",
@@ -13,7 +36,7 @@ const READY2COOK_PROMOS = [
     art: "🥗",
   },
   {
-    to: "/product?store=festive&categoryName=Combo%20Packs",
+    to: "/product?store=festive&categoryName=Veggie%20%26%20Bhaji%20Mix",
     eyebrow: "Kitchen kits",
     title: "Combo packs",
     subtitle: "Save on daily sabzi prep",
@@ -26,7 +49,7 @@ const READY2COOK_PROMOS = [
 
 const INSTANT_PROMOS = [
   {
-    to: "/product?store=mall&categoryName=Grocery",
+    to: "/product?store=mall&categoryName=SuperMall%20Packaged%20Grocery",
     eyebrow: "Delivered fast",
     title: "Instant essentials",
     subtitle: "Pantry staples in minutes",
@@ -36,7 +59,7 @@ const INSTANT_PROMOS = [
     art: "⚡",
   },
   {
-    to: "/product?store=mall&categoryName=Snacks%20%26%20Munchies",
+    to: "/product?store=mall&categoryName=SuperMall%20Snacks%20%26%20Munchies",
     eyebrow: "Tonight",
     title: "Snacks & munchies",
     subtitle: "Cravings, sorted instantly",
@@ -47,10 +70,16 @@ const INSTANT_PROMOS = [
   },
 ];
 
+function promosForStore(store) {
+  if (store === "mall") return INSTANT_PROMOS;
+  if (store === "festive") return READY2COOK_PROMOS;
+  return PREORDER_PROMOS;
+}
+
 export default function Ready2CookHotPickBanners() {
   const [searchParams] = useSearchParams();
   const store = sectionToStoreKey(searchParams.get("store"));
-  const promos = store === "mall" ? INSTANT_PROMOS : READY2COOK_PROMOS;
+  const promos = promosForStore(store);
 
   return (
     <section className="px-4 pb-1 pt-1 sm:px-6 lg:px-6">

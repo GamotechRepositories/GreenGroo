@@ -4,7 +4,7 @@ import { LOGO_URL } from "../layout/Header";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
 import { useLocation as useDeliveryLocation } from "../../context/LocationContext";
-import { useSectionsQuery, DEFAULT_FALLBACK_SECTIONS } from "../../hooks/queries/useSectionsQuery";
+import { useSectionsQuery } from "../../hooks/queries/useSectionsQuery";
 import { useScrollDirection } from "../../hooks/useScrollDirection";
 import { sectionToStoreKey } from "../grocery/HomeMobileHeader";
 import UserAccountDropdown from "../account/UserAccountDropdown";
@@ -63,7 +63,7 @@ function TopNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { data: sections = DEFAULT_FALLBACK_SECTIONS } = useSectionsQuery();
+  const { data: sections = [] } = useSectionsQuery();
   const chromeHidden = useScrollDirection();
   const [scrolled, setScrolled] = useState(false);
 
@@ -71,7 +71,7 @@ function TopNav() {
   const showNavCategories = !isProductListing;
 
   const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
-  const displaySections = sections?.length ? sections : DEFAULT_FALLBACK_SECTIONS;
+  const displaySections = sections;
 
   const addressLine = hasLocation
     ? [location.area || location.label, location.city, location.pincode].filter(Boolean).join(", ")

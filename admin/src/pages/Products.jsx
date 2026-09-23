@@ -55,10 +55,12 @@ import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } fro
 
 const API_BASE = 'http://localhost:5001';
 
-const DEPARTMENT_OPTIONS = [
+const SECTION_THEMES = [
   { slug: 'greengrocc', name: 'GreenGrocc', color: 'emerald', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  { slug: 'preorder', name: 'PreOrder', color: 'emerald', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
   { slug: 'ready2cook', name: 'Ready2Cook', color: 'amber', dot: 'bg-amber-500', bg: 'bg-amber-50 text-amber-700 ring-amber-200' },
   { slug: 'supermall', name: 'SuperMall', color: 'sky', dot: 'bg-sky-500', bg: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  { slug: 'instantorder', name: 'InstantOrder', color: 'sky', dot: 'bg-sky-500', bg: 'bg-sky-50 text-sky-700 ring-sky-200' },
 ];
 
 const SECTION_SLUG_ALIASES = {
@@ -87,11 +89,8 @@ const sectionMatches = (productSection, selectedSlug) => {
 
 const getSectionTheme = (slug, name) => {
   const s = String(slug || '').toLowerCase();
-  const known =
-    DEPARTMENT_OPTIONS.find((d) => d.slug === s) ||
-    (s === 'preorder' ? DEPARTMENT_OPTIONS[0] : null) ||
-    (s === 'instantorder' ? DEPARTMENT_OPTIONS[2] : null);
-  if (known) return known;
+  const known = SECTION_THEMES.find((d) => d.slug === s);
+  if (known) return { ...known, name: name || known.name, slug: s || known.slug };
   return {
     slug: s,
     name: name || slug || 'Section',
@@ -479,13 +478,10 @@ export default function Products() {
   }, [categories, formData.department]);
 
   const formDepartmentOptions = useMemo(() => {
-    if (sections.length > 0) {
-      return sections.map((s) => {
-        const theme = getSectionTheme(s.slug, s.sectionName);
-        return { ...theme, slug: s.slug, name: s.sectionName || theme.name };
-      });
-    }
-    return DEPARTMENT_OPTIONS;
+    return sections.map((s) => {
+      const theme = getSectionTheme(s.slug, s.sectionName);
+      return { ...theme, slug: s.slug, name: s.sectionName || theme.name };
+    });
   }, [sections]);
 
   // Available subcategories for the selected category
@@ -3510,15 +3506,7 @@ export default function Products() {
     getSectionTheme(selectedDepartment).name ||
     selectedDepartment;
   const isBulkAudience = listAudience === 'bulk';
-  const displaySections =
-    sections.length > 0
-      ? sections
-      : DEPARTMENT_OPTIONS.map((d) => ({
-          _id: d.slug,
-          slug: d.slug,
-          sectionName: d.name,
-          description: '',
-        }));
+  const displaySections = sections;
 
   return (
     <div className="space-y-5 pb-10">
@@ -3656,6 +3644,21 @@ export default function Products() {
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {displaySections.length === 0 ? (
+                <div className={`${PANEL} col-span-full px-6 py-12 text-center`}>
+                  <p className="text-sm text-slate-500">
+                    No sections yet. Create one to organize categories and products.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openTaxModal('section', 'create')}
+                    className={`${BTN_PRIMARY} mt-4`}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add section
+                  </button>
+                </div>
+              ) : null}
               {displaySections.map((sec) => {
                 const theme = getSectionTheme(sec.slug, sec.sectionName);
                 const count = countInPath({

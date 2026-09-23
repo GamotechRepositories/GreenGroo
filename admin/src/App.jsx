@@ -10,7 +10,6 @@ import FarmersPage from './pages/erp/FarmersPage';
 import Farmer360Page from './pages/erp/Farmer360Page';
 import LocationMastersPage from './pages/erp/LocationMastersPage';
 import ErpListPage from './pages/erp/ErpListPage';
-import Categories from './pages/Categories';
 import Products from './pages/Products';
 import DarkStores from './pages/DarkStores';
 import Coupons from './pages/Coupons';
@@ -81,7 +80,8 @@ export default function App() {
               <Route path="inventory" element={<InventoryHubPage />} />
               <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />
-              <Route path="categories" element={<Categories />} />
+              <Route path="categories" element={<Navigate to="/products" replace />} />
+              <Route path="sections" element={<Navigate to="/products" replace />} />
               <Route path="coupons" element={<Coupons />} />
               <Route path="rewards" element={<RewardPoints />} />
               <Route path="gift-cards" element={<GiftCards />} />
@@ -132,7 +132,6 @@ export default function App() {
               <Route path="government/schemes" element={<AllGovtSchemesPage />} />
               <Route path="government/schemes/create" element={<CreateGovtSchemePage />} />
               <Route path="government/schemes/:id/edit" element={<CreateGovtSchemePage />} />
-              <Route path="sections" element={<Navigate to="/categories" replace />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { getCategories } from "../../api/api";
 import { queryKeys } from "./queryKeys";
 
@@ -13,16 +13,12 @@ export function useCategoriesQuery(paramsOrOptions = {}, maybeOptions = {}) {
   return useQuery({
     queryKey: [...queryKeys.categories.all, sectionKey],
     queryFn: async () => {
-      try {
-        const res = await getCategories(params);
-        const list = res.data?.data || res.data;
-        return Array.isArray(list) ? list : [];
-      } catch (err) {
-        console.warn("Failed to fetch categories:", err.message);
-        return [];
-      }
+      const res = await getCategories(params);
+      const list = res.data?.data || res.data;
+      return Array.isArray(list) ? list : [];
     },
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
     ...options,
   });
 }

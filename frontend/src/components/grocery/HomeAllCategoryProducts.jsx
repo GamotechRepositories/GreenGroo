@@ -8,8 +8,8 @@ import TwoRowHorizontalProducts from "./TwoRowHorizontalProducts";
 import { useDeliveryLocationKey, useLocation } from "../../context/LocationContext";
 import { useNearestStore } from "../../hooks/useNearestStore";
 import { getMostVisitedCategories } from "../../utils/categoryVisits";
-
-export const HOME_PRODUCT_CATEGORIES = ["Vegetables", "Fruits", "Dairy", "Staples"];
+import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
+import { storeToSection } from "../../utils/storeSection";
 
 function CategoryProductSection({ categoryName, limit = 20 }) {
   const { getCartQuantity, handleAdd, handleIncrease, handleDecrease } =
@@ -52,11 +52,9 @@ function CategoryProductSection({ categoryName, limit = 20 }) {
         viewAllTo={`/product?categoryName=${encodeURIComponent(categoryName)}`}
         className="mb-3 lg:mb-4"
       />
-      {/* Mobile: 2-row horizontal scroll */}
       <div className="lg:hidden">
         <TwoRowHorizontalProducts products={products} cardProps={cardProps} />
       </div>
-      {/* Desktop: category-wise product grid */}
       <div className="hidden grid-cols-4 gap-4 lg:grid xl:grid-cols-5">
         {products.slice(0, 10).map((product) => (
           <QuickCommerceProductCard
@@ -70,13 +68,14 @@ function CategoryProductSection({ categoryName, limit = 20 }) {
   );
 }
 
-function rankHomeCategories() {
-  const visited = getMostVisitedCategories(HOME_PRODUCT_CATEGORIES.length);
+function rankHomeCategories(availableNames) {
+  if (!availableNames.length) return [];
+  const visited = getMostVisitedCategories(availableNames.length);
   const visitedLower = new Set(visited.map((name) => name.toLowerCase()));
   const preferred = visited.filter((name) =>
-    HOME_PRODUCT_CATEGORIES.some((cat) => cat.toLowerCase() === name.toLowerCase())
+    availableNames.some((cat) => cat.toLowerCase() === name.toLowerCase())
   );
-  const rest = HOME_PRODUCT_CATEGORIES.filter(
+  const rest = availableNames.filter(
     (cat) => !visitedLower.has(cat.toLowerCase())
   );
   return [...preferred, ...rest];
@@ -85,13 +84,22 @@ function rankHomeCategories() {
 function HomeAllCategoryProducts({ limitPerCategory = 20 }) {
   const { hasLocation } = useLocation();
   const { data: nearest } = useNearestStore();
-  const locationKey = useDeliveryLocationKey();
   const storeName = nearest?.store?.storeName;
   const needsLocation = nearest?.needsLocation || !hasLocation;
   const noStore =
     hasLocation && !nearest?.store && nearest?.reason && nearest.reason !== "no_store";
 
-  const categories = useMemo(() => rankHomeCategories(), [locationKey]);
+  const { data: apiCategories = [] } = useCategoriesQuery({
+    section: storeToSection("main"),
+  });
+
+  const categories = useMemo(() => {
+    const names = (apiCategories || [])
+      .map((c) => c.categoryName)
+      .filter(Boolean)
+      .filter((name) => name.toLowerCase() !== "most purchase");
+    return rankHomeCategories(names);
+  }, [apiCategories]);
 
   return (
     <div className="space-y-1 lg:space-y-5">

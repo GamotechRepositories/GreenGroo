@@ -1,19 +1,18 @@
 import React from "react";
 import { useSuperMall } from "../hooks/useSuperMall";
-import { SUPER_MALL_CATEGORIES } from "../../../data/superMallCategories";
 import SuperMallCategoryCard from "./SuperMallCategoryCard";
 
 export function SuperMallCategories({ categories: propCategories, onSelectCategory, selectedCategory }) {
-  const { categories: hookCategories } = useSuperMall();
-  const rawList = propCategories?.length ? propCategories : hookCategories?.length ? hookCategories : SUPER_MALL_CATEGORIES;
+  const { categories: hookCategories, loading } = useSuperMall();
+  const rawList = propCategories?.length ? propCategories : hookCategories || [];
 
   const displayList = rawList.map((cat, idx) => ({
     id: cat._id || cat.id || `sm-${idx}`,
     name: cat.categoryName || cat.name,
     slug: cat.slug || cat.categoryName || cat.name,
-    itemCount: cat.itemCount || (cat.productCount ? `${cat.productCount}+ items` : "50+ items"),
+    itemCount: cat.itemCount || (cat.productCount ? `${cat.productCount}+ items` : "Shop now"),
     bgClass: cat.bgClass || "bg-[#E8F8EE]",
-    image: cat.categoryImage || cat.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&h=400&q=80",
+    image: cat.categoryImage || cat.image || "/categories/grocery.webp",
     emoji: cat.emoji,
   }));
 
@@ -30,16 +29,24 @@ export function SuperMallCategories({ categories: propCategories, onSelectCatego
         </div>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {displayList.map((cat) => (
-          <SuperMallCategoryCard
-            key={cat.id || cat.slug}
-            cat={cat}
-            isSelected={selectedCategory === cat.slug || selectedCategory === cat.name}
-            onClick={() => onSelectCategory && onSelectCategory(cat.name)}
-          />
-        ))}
-      </div>
+      {loading && displayList.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-500">Loading categories…</p>
+      ) : displayList.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-500">
+          No categories yet. Add them in Product Management.
+        </p>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          {displayList.map((cat) => (
+            <SuperMallCategoryCard
+              key={cat.id || cat.slug}
+              cat={cat}
+              isSelected={selectedCategory === cat.slug || selectedCategory === cat.name}
+              onClick={() => onSelectCategory && onSelectCategory(cat.name)}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

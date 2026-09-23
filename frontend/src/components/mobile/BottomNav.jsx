@@ -129,8 +129,10 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.06)] transition-transform duration-300 ease-in-out lg:hidden"
-      style={{ transform: hidden ? "translateY(100%)" : "translateY(0)" }}
+      className="gg-bar-slide fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md shadow-[0_-2px_10px_rgba(0,0,0,0.06)] lg:hidden"
+      style={{
+        transform: hidden ? "translate3d(0, 100%, 0)" : "translate3d(0, 0, 0)",
+      }}
     >
       <div className="mx-auto flex h-[64px] max-w-7xl items-center justify-around px-1">
         {NAV_ITEMS.map((item) => (

@@ -1,21 +1,16 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
-import { SUPER_MALL_CATEGORIES } from "../../data/superMallCategories";
+import { sectionToStoreKey, storeToSection, buildStoreProductUrl } from "../../utils/storeSection";
 
 function ShopByCategory() {
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
-  const { data: apiCategories = [], isLoading: loading } = useCategoriesQuery();
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
+  const targetSection = storeToSection(currentStore);
+  const { data: apiCategories = [], isLoading: loading } = useCategoriesQuery({
+    section: targetSection,
+  });
 
-  const displayList =
-    currentStore === "mall"
-      ? SUPER_MALL_CATEGORIES.map((c) => ({
-          _id: c.id,
-          categoryName: c.name,
-          categoryImage: c.image,
-          productCount: c.itemCount,
-        }))
-      : apiCategories;
+  const displayList = apiCategories;
 
   return (
     <section className="bg-black text-white px-5 sm:px-6 md:px-8 lg:px-12 py-8 md:py-10">
@@ -26,7 +21,7 @@ function ShopByCategory() {
             <span className="text-accent">Category</span>
           </h2>
           <Link
-            to="/product"
+            to={buildStoreProductUrl({ store: currentStore })}
             className="inline-flex items-center gap-1 text-sm sm:text-base font-semibold uppercase text-accent hover:underline"
           >
             View All Categories
@@ -54,8 +49,11 @@ function ShopByCategory() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
             {displayList.map((item) => (
               <Link
-                key={item._id}
-                to="/product"
+                key={item._id || item.categoryName}
+                to={buildStoreProductUrl({
+                  categoryName: item.categoryName,
+                  store: currentStore,
+                })}
                 className="group flex flex-col items-center rounded-lg border border-neutral-700 bg-black px-2 py-3 sm:px-3 sm:py-4 hover:border-accent/50 hover:shadow-md transition-all"
               >
                 <div className="flex h-20 sm:h-24 md:h-28 w-full items-center justify-center mb-2 sm:mb-3 overflow-hidden rounded-md bg-neutral-900">

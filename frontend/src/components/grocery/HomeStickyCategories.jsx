@@ -54,7 +54,7 @@ function HomeStickyCategories() {
           ref={stickyRef}
           className={
             isFixed
-              ? `fixed left-0 right-0 top-0 z-50 ${stickyBg} border-b border-black/5 pt-0 transition-all`
+              ? `fixed left-0 right-0 top-0 z-50 ${stickyBg} border-b border-black/5 pt-2.5 transition-all`
               : `relative ${stickyBg} pt-0`
           }
         >

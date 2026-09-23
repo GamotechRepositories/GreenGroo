@@ -1,34 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useCategoriesQuery } from "../../hooks/queries/useCategoriesQuery";
-
-function storeToSection(store) {
-  const key = String(store || "main").toLowerCase();
-  if (key === "mall") return "supermall";
-  if (key === "festive") return "ready2cook";
-  if (key === "main" || key === "greengrocc") return "greengrocc";
-  return key;
-}
-
-function buildCategoryLink(name, store) {
-  const params = new URLSearchParams();
-  if (name) params.set("categoryName", name);
-  if (store && store !== "main") params.set("store", store);
-  const qs = params.toString();
-  return qs ? `/product?${qs}` : "/product";
-}
+import {
+  sectionToStoreKey,
+  storeToSection,
+  buildStoreProductUrl,
+} from "../../utils/storeSection";
 
 /** Compact category strip for the sticky main navbar center. */
 function CategoryNavbar({ className = "", compact = false }) {
   const [searchParams] = useSearchParams();
-  const currentStore = searchParams.get("store")?.trim()?.toLowerCase() || "main";
+  const currentStore = sectionToStoreKey(searchParams.get("store"));
   const section = storeToSection(currentStore);
   const activeCategory = searchParams.get("categoryName")?.trim() || "";
   const { data: allCategories = [] } = useCategoriesQuery({ section });
 
   const categories = useMemo(
     () =>
-      allCategories.filter(
+      (allCategories || []).filter(
         (cat) => cat.categoryName?.toLowerCase() !== "most purchase"
       ),
     [allCategories]
@@ -92,7 +81,7 @@ function CategoryNavbar({ className = "", compact = false }) {
         } ${canScrollRight ? "pr-8" : ""} ${compact ? "" : ""}`}
       >
         <Link
-          to={buildCategoryLink("", currentStore)}
+          to={buildStoreProductUrl({ store: currentStore })}
           className={`${pillBase} ${
             !activeCategory
               ? "bg-[#0C831F] text-white shadow-[0_1px_4px_rgba(12,131,31,0.28)]"
@@ -109,7 +98,7 @@ function CategoryNavbar({ className = "", compact = false }) {
           return (
             <Link
               key={category._id || name}
-              to={buildCategoryLink(name, currentStore)}
+              to={buildStoreProductUrl({ categoryName: name, store: currentStore })}
               className={`${pillBase} ${
                 isActive
                   ? "bg-[#0C831F] text-white shadow-[0_1px_4px_rgba(12,131,31,0.28)]"

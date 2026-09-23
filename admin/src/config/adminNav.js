@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Package,
-  FolderTree,
   Store,
   ArrowUpDown,
   FileSpreadsheet,
@@ -100,13 +99,6 @@ export const NAV_GROUPS = [
           'Edit stock quantities quickly',
           'Track low-stock and out-of-stock items',
         ],
-      },
-      {
-        name: 'Sections & Categories',
-        href: '/categories',
-        icon: FolderTree,
-        implemented: true,
-        description: 'Organize store sections, categories, and how they appear on the app.',
       },
       {
         name: 'Dark Stores',

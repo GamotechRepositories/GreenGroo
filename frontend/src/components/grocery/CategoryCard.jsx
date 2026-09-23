@@ -1,16 +1,19 @@
 import { Link } from "react-router-dom";
 import { addCategoryVisit } from "../../utils/categoryVisits";
+import { buildStoreProductUrl } from "../../utils/storeSection";
 
-function CategoryCard({ cat, size = "default" }) {
+function CategoryCard({ cat, size = "default", store = "" }) {
+  // Prefer display name for routing — API `slug` can drift from `categoryName`
+  // and break product filters (e.g. slug "Chopped" vs name "Chopped Vegies").
   const name = cat.name || cat.categoryName || "";
-  const slug = cat.slug || cat.categoryName || cat.name || "";
+  const routeName = name || cat.slug || "";
   const image = cat.image || cat.categoryImage;
   const bg = cat.bg || cat.bgColor || "#E2F0D9";
-  const visitName = name || slug;
+  const visitName = name || routeName;
 
   return (
     <Link
-      to={`/product?categoryName=${encodeURIComponent(slug)}`}
+      to={buildStoreProductUrl({ categoryName: routeName, store })}
       onClick={() => addCategoryVisit(visitName)}
       className="group relative flex cursor-pointer overflow-hidden rounded-[14px] sm:rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow border border-black/5"
       style={{
