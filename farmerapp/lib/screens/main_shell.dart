@@ -53,9 +53,9 @@ class _MainShellState extends State<MainShell> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    CropsScreen(),
     ProductsScreen(),
     OrdersScreen(),
+    EarningsScreen(),
     ProfileScreen(),
   ];
 
@@ -66,67 +66,78 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: _buildFarmerSidebar(),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
-          ],
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          setState(() {
+            _currentIndex = 0;
+          });
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: _buildFarmerSidebar(),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
         ),
-        child: SafeArea(
-          top: false,
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.muted,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-            unselectedLabelStyle: const TextStyle(fontSize: 11),
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard_outlined),
-                activeIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.eco_outlined),
-                activeIcon: Icon(Icons.eco),
-                label: 'My Crops',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.inventory_2_outlined),
-                activeIcon: Icon(Icons.inventory_2),
-                label: 'Products',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_bag_outlined),
-                activeIcon: Icon(Icons.shopping_bag),
-                label: 'Orders',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
-                label: 'Profile',
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 8,
+                offset: Offset(0, -2),
               ),
             ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.muted,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              unselectedLabelStyle: const TextStyle(fontSize: 11),
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.dashboard_outlined),
+                  activeIcon: Icon(Icons.dashboard),
+                  label: 'Dashboard',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.inventory_2_outlined),
+                  activeIcon: Icon(Icons.inventory_2),
+                  label: 'Products',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  activeIcon: Icon(Icons.shopping_bag),
+                  label: 'Orders',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  activeIcon: Icon(Icons.account_balance_wallet),
+                  label: 'Earnings',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -201,17 +212,13 @@ class _MainShellState extends State<MainShell> {
 
                   // Crops Group
                   ExpansionTile(
-                    initiallyExpanded: _currentIndex == 1,
                     leading: const Icon(Icons.eco_outlined, size: 20, color: AppColors.primary),
                     title: const Text('Crops (पिके व नियोजन)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     childrenPadding: const EdgeInsets.only(left: 48),
                     children: [
                       _subItem(
                         label: 'My Crops (माझी पिके)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 1);
-                        },
+                        onTap: () => _onDrawerNavigate(const CropsScreen()),
                       ),
                       _subItem(
                         label: 'Add Crop (नवीन पीक जोडा)',
@@ -226,7 +233,7 @@ class _MainShellState extends State<MainShell> {
 
                   // Products Group
                   ExpansionTile(
-                    initiallyExpanded: _currentIndex == 2,
+                    initiallyExpanded: _currentIndex == 1,
                     leading: const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.primary),
                     title: const Text('Products (उत्पादने)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     childrenPadding: const EdgeInsets.only(left: 48),
@@ -235,7 +242,7 @@ class _MainShellState extends State<MainShell> {
                         label: 'My Products (माझी उत्पादने)',
                         onTap: () {
                           Navigator.pop(context);
-                          setState(() => _currentIndex = 2);
+                          setState(() => _currentIndex = 1);
                         },
                       ),
                       _subItem(
@@ -246,7 +253,7 @@ class _MainShellState extends State<MainShell> {
                         label: 'Product Details (उत्पादन तपशील)',
                         onTap: () {
                           Navigator.pop(context);
-                          setState(() => _currentIndex = 2);
+                          setState(() => _currentIndex = 1);
                         },
                       ),
                     ],
@@ -254,7 +261,7 @@ class _MainShellState extends State<MainShell> {
 
                   // Orders Group
                   ExpansionTile(
-                    initiallyExpanded: _currentIndex == 3,
+                    initiallyExpanded: _currentIndex == 2,
                     leading: const Icon(Icons.shopping_bag_outlined, size: 20, color: AppColors.primary),
                     title: const Text('Orders (ऑर्डर्स)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     childrenPadding: const EdgeInsets.only(left: 48),
@@ -263,7 +270,7 @@ class _MainShellState extends State<MainShell> {
                         label: 'All Orders (सर्व ऑर्डर्स)',
                         onTap: () {
                           Navigator.pop(context);
-                          setState(() => _currentIndex = 3);
+                          setState(() => _currentIndex = 2);
                         },
                       ),
                       _subItem(
@@ -276,7 +283,11 @@ class _MainShellState extends State<MainShell> {
                   _drawerItem(
                     icon: Icons.account_balance_wallet_outlined,
                     label: 'Earnings (उत्पन्न व हिशोब)',
-                    onTap: () => _onDrawerNavigate(const EarningsScreen()),
+                    isSelected: _currentIndex == 3,
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() => _currentIndex = 3);
+                    },
                   ),
                   _drawerItem(
                     icon: Icons.description_outlined,

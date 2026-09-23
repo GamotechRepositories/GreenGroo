@@ -4,7 +4,7 @@ import '../../services/farmer_state.dart';
 import '../crops/add_crop_screen.dart';
 import '../crops/crop_planning_screen.dart';
 import '../products/add_product_screen.dart';
-import '../schemes/schemes_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../main_shell.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -62,13 +62,42 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
             actions: [
-              IconButton(
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen()));
-                },
-                icon: const Icon(Icons.account_balance, color: AppColors.primary),
-                tooltip: 'शासकीय योजना',
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                    },
+                    icon: const Icon(Icons.notifications_outlined, color: AppColors.primary, size: 26),
+                    tooltip: 'सर्व सूचना (All Notifications)',
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: const Center(
+                        child: Text(
+                          '3',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(width: 4),
             ],
           ),
           body: SingleChildScrollView(

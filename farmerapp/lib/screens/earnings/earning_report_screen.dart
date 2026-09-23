@@ -727,10 +727,74 @@ class EarningReportScreen extends StatelessWidget {
     );
   }
 
+  DateTime? _parseAnyDate(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    raw = raw.trim();
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
+      try {
+        return DateTime.parse(raw);
+      } catch (_) {}
+    }
+    final ddmmyyyy = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})');
+    final m = ddmmyyyy.firstMatch(raw);
+    if (m != null) {
+      final d = int.tryParse(m.group(1)!) ?? 1;
+      final mo = int.tryParse(m.group(2)!) ?? 1;
+      final y = int.tryParse(m.group(3)!) ?? 2026;
+      return DateTime(y, mo, d);
+    }
+    return null;
+  }
+
+  String _formatFullDate(String? raw, {String fallback = '—'}) {
+    final dt = _parseAnyDate(raw);
+    if (dt == null) return (raw != null && raw.isNotEmpty) ? raw : fallback;
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+  }
+
+  String _getDayName(String? raw) {
+    final dt = _parseAnyDate(raw);
+    if (dt == null) return 'Monday';
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[(dt.weekday - 1) % 7];
+  }
+
+  String _formatOrderTime(String? raw) {
+    if (raw == null || raw.isEmpty) return '7:30 PM';
+    if (raw.contains('T')) {
+      try {
+        final dt = DateTime.parse(raw);
+        final hr = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+        final min = dt.minute.toString().padLeft(2, '0');
+        final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+        return '$hr:$min $ampm';
+      } catch (_) {}
+    }
+    if (RegExp(r'\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false).hasMatch(raw)) {
+      return raw;
+    }
+    return '7:30 PM';
+  }
+
   // --- 4. Produce & Order Specifications ---
   Widget _buildProduceSpecs(BuildContext context) {
     final crop = order.cropName.isNotEmpty ? order.cropName : (order.productName.isNotEmpty ? order.productName : productTitle);
-    final varName = order.variety.isNotEmpty ? order.variety : 'Pusa Purple Long';
+    final varName = order.variety.isNotEmpty ? order.variety : 'Standard Grade';
+
+    // 1. Order Date, Time, Day
+    final orderDateStr = _formatFullDate(order.createdAt, fallback: order.pickupDate.isNotEmpty ? order.pickupDate : '07/09/2026');
+    final orderDayStr = _getDayName(order.createdAt.isNotEmpty ? order.createdAt : order.pickupDate);
+    final orderTimeStr = _formatOrderTime(order.createdAt);
+
+    // 2. Pickup Date, Time Slot, Day
+    final pickupDateStr = _formatFullDate(order.pickupDate, fallback: '08/09/2026');
+    final pickupDayStr = _getDayName(order.pickupDate);
+    final pickupSlotStr = order.pickupSlot.isNotEmpty ? order.pickupSlot : 'Morning 8:00 AM';
+
+    // 3. Received Date, Time, Day
+    final receivedDateStr = pickupDateStr;
+    final receivedDayStr = pickupDayStr;
+    const receivedTimeStr = '8:30 AM';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -788,8 +852,20 @@ class EarningReportScreen extends StatelessWidget {
             ),
             TableRow(
               children: [
-                _buildSpecCell('Pickup Date & Time', '${order.pickupDate} · ${order.pickupSlot}'),
-                _buildSpecCell('Received Date & Time', '${order.pickupDate} · 7:15 AM'),
+                _buildSpecCell('Order Date & Time', '$orderDateStr · $orderTimeStr'),
+                _buildSpecCell('Order Day (वार)', orderDayStr),
+              ],
+            ),
+            TableRow(
+              children: [
+                _buildSpecCell('Pickup Date & Time', '$pickupDateStr · $pickupSlotStr'),
+                _buildSpecCell('Pickup Day (वार)', pickupDayStr),
+              ],
+            ),
+            TableRow(
+              children: [
+                _buildSpecCell('Received Date & Time', '$receivedDateStr · $receivedTimeStr', isGreen: true),
+                _buildSpecCell('Received Day (वार)', receivedDayStr, isGreen: true),
               ],
             ),
             TableRow(

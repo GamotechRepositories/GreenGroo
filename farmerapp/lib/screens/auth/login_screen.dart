@@ -59,13 +59,13 @@ class _LoginScreenState extends State<LoginScreen> {
         FarmerState().updateProfile(profile);
       }
       FarmerState().login();
-      await FarmerState().fetchFromBackend();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('लॉगिन यशस्वी! स्वागत आहे ${FarmerState().profile.fullName}'),
             backgroundColor: AppColors.primary,
+            duration: const Duration(seconds: 2),
           ),
         );
         Navigator.pushReplacement(

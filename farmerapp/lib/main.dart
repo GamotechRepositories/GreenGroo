@@ -26,16 +26,16 @@ class FarmerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: FarmerState(),
-      builder: (context, _) {
-        return MaterialApp(
-          title: 'GreenGrocc Farmer',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          home: FarmerState().isLoggedIn ? const MainShell() : const LoginScreen(),
-        );
-      },
+    return MaterialApp(
+      title: 'GreenGrocc Farmer',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: ListenableBuilder(
+        listenable: FarmerState(),
+        builder: (context, _) {
+          return FarmerState().isLoggedIn ? const MainShell() : const LoginScreen();
+        },
+      ),
     );
   }
 }

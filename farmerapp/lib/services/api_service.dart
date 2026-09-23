@@ -75,7 +75,7 @@ class ApiService {
 
   Future<dynamic> get(String endpoint) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 10));
+    final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 5));
     return _handleResponse(response);
   }
 
@@ -83,7 +83,7 @@ class ApiService {
     final uri = Uri.parse('$_baseUrl$endpoint');
     final response = await http
         .post(uri, headers: _headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 5));
     return _handleResponse(response);
   }
 
@@ -91,7 +91,7 @@ class ApiService {
     final uri = Uri.parse('$_baseUrl$endpoint');
     final response = await http
         .put(uri, headers: _headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 5));
     return _handleResponse(response);
   }
 
@@ -117,13 +117,13 @@ class ApiService {
 
   Future<bool> checkHealth() async {
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/health')).timeout(const Duration(seconds: 4));
+      final res = await http.get(Uri.parse('$_baseUrl/health')).timeout(const Duration(milliseconds: 1500));
       if (res.statusCode == 200) return true;
     } catch (_) {}
 
     // Fallback attempt: if on USB with adb reverse
     try {
-      final localRes = await http.get(Uri.parse('http://localhost:5001/health')).timeout(const Duration(seconds: 3));
+      final localRes = await http.get(Uri.parse('http://localhost:5001/health')).timeout(const Duration(milliseconds: 1200));
       if (localRes.statusCode == 200) {
         _baseUrl = 'http://localhost:5001';
         return true;

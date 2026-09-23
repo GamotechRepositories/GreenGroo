@@ -122,10 +122,21 @@ class InvoicePdfService {
         : 'Sawargaon Tal, Ahilyanagar';
 
     final crop = order.cropName.isNotEmpty ? order.cropName : (order.productName.isNotEmpty ? order.productName : productTitle);
-    final varName = order.variety.isNotEmpty ? order.variety : 'Bajeerao';
-    final dateStr = _formatDateFormatted(order.pickupDate);
-    final pickupTimeStr = '$dateStr, ${order.pickupSlot.isNotEmpty ? order.pickupSlot : "07:00 AM"}';
-    final receivedTimeStr = '$dateStr, 07:15 AM';
+    final varName = order.variety.isNotEmpty ? order.variety : 'Standard';
+
+    final orderDateStr = _formatDateFormatted(order.createdAt.isNotEmpty ? order.createdAt : order.pickupDate);
+    final orderDayStr = _getDayName(order.createdAt.isNotEmpty ? order.createdAt : order.pickupDate);
+    final orderTimeStr = _formatOrderTime(order.createdAt);
+
+    final pickupDateStr = _formatDateFormatted(order.pickupDate);
+    final pickupDayStr = _getDayName(order.pickupDate);
+    final pickupSlotStr = order.pickupSlot.isNotEmpty ? order.pickupSlot : 'Morning 08:00 AM';
+
+    final receivedDateStr = pickupDateStr;
+    final receivedDayStr = pickupDayStr;
+    const receivedTimeStr = '08:30 AM';
+
+    final dateStr = pickupDateStr;
     final txnId = order.transactionId.isNotEmpty ? order.transactionId : 'TXN-GGC-${order.orderCode}';
     final amountWords = 'Rupees ${_numberToWords(totalNetAmt.round())} Only';
 
@@ -308,8 +319,9 @@ class InvoicePdfService {
                           children: [
                             _buildAlignedRow('Produce / Crop', crop, isBold: true, labelWidth: 95),
                             _buildAlignedRow('Variety', varName, isBold: true, labelWidth: 95),
-                            _buildAlignedRow('Pickup Date & Time', pickupTimeStr, labelWidth: 95),
-                            _buildAlignedRow('Received Date & Time', receivedTimeStr, labelWidth: 95),
+                            _buildAlignedRow('Order Date & Time', '$orderDateStr, $orderTimeStr ($orderDayStr)', labelWidth: 95),
+                            _buildAlignedRow('Pickup Date & Slot', '$pickupDateStr, $pickupSlotStr ($pickupDayStr)', labelWidth: 95),
+                            _buildAlignedRow('Received Date & Time', '$receivedDateStr, $receivedTimeStr ($receivedDayStr)', labelWidth: 95),
                           ],
                         ),
                       ),
@@ -635,6 +647,49 @@ class InvoicePdfService {
         ),
       ),
     );
+  }
+
+  static DateTime? _parseAnyDate(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    raw = raw.trim();
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
+      try {
+        return DateTime.parse(raw);
+      } catch (_) {}
+    }
+    final ddmmyyyy = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})');
+    final m = ddmmyyyy.firstMatch(raw);
+    if (m != null) {
+      final d = int.tryParse(m.group(1)!) ?? 1;
+      final mo = int.tryParse(m.group(2)!) ?? 1;
+      final y = int.tryParse(m.group(3)!) ?? 2026;
+      return DateTime(y, mo, d);
+    }
+    return null;
+  }
+
+  static String _getDayName(String? raw) {
+    final dt = _parseAnyDate(raw);
+    if (dt == null) return 'Monday';
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[(dt.weekday - 1) % 7];
+  }
+
+  static String _formatOrderTime(String? raw) {
+    if (raw == null || raw.isEmpty) return '07:30 PM';
+    if (raw.contains('T')) {
+      try {
+        final dt = DateTime.parse(raw);
+        final hr = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+        final min = dt.minute.toString().padLeft(2, '0');
+        final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+        return '$hr:$min $ampm';
+      } catch (_) {}
+    }
+    if (RegExp(r'\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false).hasMatch(raw)) {
+      return raw;
+    }
+    return '07:30 PM';
   }
 
   static Future<void> shareReceipt({

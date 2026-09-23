@@ -41,112 +41,14 @@ class FarmerState extends ChangeNotifier {
       if (healthy) {
         connectionMessage = 'Connected: $backendUrl';
 
-        // 1. Fetch Profile
-        try {
-          final pRes = await ApiService().fetchFarmerProfile(profile.id);
-          if (pRes is Map<String, dynamic>) {
-            final fMap = (pRes['farmer'] is Map) ? pRes['farmer'] as Map<String, dynamic> : pRes;
-            profile = FarmerProfile.fromJson(fMap);
-          }
-        } catch (_) {}
-
-        // 2. Fetch Products
-        try {
-          final prodRes = await ApiService().fetchProducts(profile.id);
-          if (prodRes is List && prodRes.isNotEmpty) {
-            final fetched = prodRes
-                .map((p) {
-                  try {
-                    return ProductItem.fromJson(p as Map<String, dynamic>);
-                  } catch (_) {
-                    return null;
-                  }
-                })
-                .whereType<ProductItem>()
-                .toList();
-            if (fetched.isNotEmpty) {
-              products = fetched;
-            }
-          }
-        } catch (_) {}
-
-        // 3. Fetch Orders
-        try {
-          final ordRes = await ApiService().fetchOrders(profile.id);
-          if (ordRes is List && ordRes.isNotEmpty) {
-            orders = ordRes.map((o) => FarmerOrderItem.fromJson(o as Map<String, dynamic>)).toList();
-          }
-        } catch (_) {}
-
-        // 4. Fetch Crops
-        try {
-          final cropRes = await ApiService().fetchCrops();
-          if (cropRes is List && cropRes.isNotEmpty) {
-            crops = cropRes.map((c) => CropItem.fromJson(c as Map<String, dynamic>)).toList();
-          }
-        } catch (_) {}
-
-        // 5. Fetch Documents from Backend
-        try {
-          final docRes = await ApiService().fetchDocuments(profile.id);
-          if (docRes is List && docRes.isNotEmpty) {
-            final Map<String, dynamic> docMap = {};
-            for (final d in docRes) {
-              if (d is Map) {
-                final type = (d['type'] ?? '').toString().toLowerCase();
-                if (type.isNotEmpty) docMap[type] = d;
-              }
-            }
-
-            if (documents.isEmpty) {
-              _initDefaultData();
-            }
-
-            documents = documents.map((localDoc) {
-              final backendDoc = docMap[localDoc.type.toLowerCase()];
-              if (backendDoc != null) {
-                final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
-                final fUrl = (backendDoc['fileUrl'] ?? '').toString();
-                final rReason = (backendDoc['rejectionReason'] ?? '').toString();
-                final hasFile = fUrl.isNotEmpty && (backendDoc['fileName'] ?? '').toString().isNotEmpty;
-                return DocumentItem(
-                  id: localDoc.id,
-                  type: localDoc.type,
-                  title: localDoc.title,
-                  marathiTitle: localDoc.marathiTitle,
-                  isUploaded: hasFile,
-                  status: st == 'Approved'
-                      ? 'approved'
-                      : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded')),
-                  uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
-                  fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
-                  rejectionReason: rReason,
-                );
-              }
-              return localDoc;
-            }).toList();
-          }
-        } catch (_) {}
-
-        // 6. Fetch live government schemes (all farmers)
-        try {
-          final schemeRes = await ApiService().fetchLiveGovtSchemes();
-          if (schemeRes is List) {
-            final fetched = schemeRes
-                .whereType<Map>()
-                .map((row) {
-                  try {
-                    return GovtScheme.fromApiJson(Map<String, dynamic>.from(row));
-                  } catch (_) {
-                    return null;
-                  }
-                })
-                .whereType<GovtScheme>()
-                .where((scheme) => scheme.id.isNotEmpty)
-                .toList();
-            schemes = fetched;
-          }
-        } catch (_) {}
+        await Future.wait([
+          _fetchProfileSafe(),
+          _fetchProductsSafe(),
+          _fetchOrdersSafe(),
+          _fetchCropsSafe(),
+          _fetchDocumentsSafe(),
+          _fetchSchemesSafe(),
+        ]);
       } else {
         connectionMessage = 'Disconnected (Using Offline Cache)';
       }
@@ -157,6 +59,119 @@ class FarmerState extends ChangeNotifier {
       isLoadingFromBackend = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _fetchProfileSafe() async {
+    try {
+      final pRes = await ApiService().fetchFarmerProfile(profile.id);
+      if (pRes is Map<String, dynamic>) {
+        final fMap = (pRes['farmer'] is Map) ? pRes['farmer'] as Map<String, dynamic> : pRes;
+        profile = FarmerProfile.fromJson(fMap);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchProductsSafe() async {
+    try {
+      final prodRes = await ApiService().fetchProducts(profile.id);
+      if (prodRes is List && prodRes.isNotEmpty) {
+        final fetched = prodRes
+            .map((p) {
+              try {
+                return ProductItem.fromJson(p as Map<String, dynamic>);
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<ProductItem>()
+            .toList();
+        if (fetched.isNotEmpty) {
+          products = fetched;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchOrdersSafe() async {
+    try {
+      final ordRes = await ApiService().fetchOrders(profile.id);
+      if (ordRes is List && ordRes.isNotEmpty) {
+        orders = ordRes.map((o) => FarmerOrderItem.fromJson(o as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchCropsSafe() async {
+    try {
+      final cropRes = await ApiService().fetchCrops();
+      if (cropRes is List && cropRes.isNotEmpty) {
+        crops = cropRes.map((c) => CropItem.fromJson(c as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchDocumentsSafe() async {
+    try {
+      final docRes = await ApiService().fetchDocuments(profile.id);
+      if (docRes is List && docRes.isNotEmpty) {
+        final Map<String, dynamic> docMap = {};
+        for (final d in docRes) {
+          if (d is Map) {
+            final type = (d['type'] ?? '').toString().toLowerCase();
+            if (type.isNotEmpty) docMap[type] = d;
+          }
+        }
+
+        if (documents.isEmpty) {
+          _initDefaultData();
+        }
+
+        documents = documents.map((localDoc) {
+          final backendDoc = docMap[localDoc.type.toLowerCase()];
+          if (backendDoc != null) {
+            final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
+            final fUrl = (backendDoc['fileUrl'] ?? '').toString();
+            final rReason = (backendDoc['rejectionReason'] ?? '').toString();
+            final hasFile = fUrl.isNotEmpty && (backendDoc['fileName'] ?? '').toString().isNotEmpty;
+            return DocumentItem(
+              id: localDoc.id,
+              type: localDoc.type,
+              title: localDoc.title,
+              marathiTitle: localDoc.marathiTitle,
+              isUploaded: hasFile,
+              status: st == 'Approved'
+                  ? 'approved'
+                  : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded')),
+              uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
+              fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+              rejectionReason: rReason,
+            );
+          }
+          return localDoc;
+        }).toList();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchSchemesSafe() async {
+    try {
+      final schemeRes = await ApiService().fetchLiveGovtSchemes();
+      if (schemeRes is List) {
+        final fetched = schemeRes
+            .whereType<Map>()
+            .map((row) {
+              try {
+                return GovtScheme.fromApiJson(Map<String, dynamic>.from(row));
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<GovtScheme>()
+            .where((scheme) => scheme.id.isNotEmpty)
+            .toList();
+        schemes = fetched;
+      }
+    } catch (_) {}
   }
 
   // Farmer Profile

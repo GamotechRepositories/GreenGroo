@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import 'earning_report_screen.dart';
+import '../main_shell.dart';
 
 class EarningsScreen extends StatefulWidget {
   const EarningsScreen({super.key});
@@ -95,10 +96,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
 
         final ProductItem? activeProduct = currentSheet['product'] as ProductItem?;
         final List<FarmerOrderItem> activeOrders = (currentSheet['isOverview'] == true || activeProduct == null)
-            ? orders
+            ? orders.where((o) => _isStatementOrder(o)).toList()
             : orders.where((o) => _orderMatchesProduct(o, activeProduct) && _isOrderInSheet(o, currentSheet)).toList();
 
-        // Compute total financials for active sheet view
+        // Compute total financials for active sheet view (Only completed orders)
         double totalRevenue = 0;
         double depositedAmount = 0;
         double pendingAmount = 0;
@@ -113,33 +114,60 @@ class _EarningsScreenState extends State<EarningsScreen> {
           }
         }
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0.5,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
-              onPressed: () {
-                if (_activeSheetId != null && _activeSheetId != 'overview') {
-                  setState(() => _activeSheetId = 'overview');
-                  if (_tabScrollController.hasClients) {
-                    _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                  }
-                } else {
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            title: Text(
-              currentSheet['isOverview'] == true ? 'Earning Statement' : 'Sheet · ${currentSheet['title'] ?? 'Produce'}',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
+        final bool canPopNavigator = Navigator.canPop(context);
+        final bool isSubSheet = _activeSheetId != null && _activeSheetId != 'overview';
+
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (isSubSheet) {
+              setState(() => _activeSheetId = 'overview');
+              if (_tabScrollController.hasClients) {
+                _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+              }
+            } else if (canPopNavigator) {
+              Navigator.pop(context);
+            } else {
+              MainShell.setTab(context, 0);
+            }
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8FAFC),
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              leading: isSubSheet
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
+                      tooltip: 'Back to Overview',
+                      onPressed: () {
+                        setState(() => _activeSheetId = 'overview');
+                        if (_tabScrollController.hasClients) {
+                          _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+                        }
+                      },
+                    )
+                  : (canPopNavigator
+                      ? IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
+                          tooltip: 'Back',
+                          onPressed: () => Navigator.pop(context),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.menu, color: Color(0xFF217346)),
+                          tooltip: 'मेनू उघडा (Menu)',
+                          onPressed: () => MainShell.openDrawer(context),
+                        )),
+              title: Text(
+                currentSheet['isOverview'] == true ? 'Earning Statement (उत्पन्न हिशोब)' : 'Sheet · ${currentSheet['title'] ?? 'Produce'}',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ),
-          ),
           body: SafeArea(
             top: false,
             bottom: true,
@@ -187,10 +215,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   bool _isOrderDeleted(FarmerOrderItem o) {
     final s = o.status.trim().toUpperCase();
@@ -207,17 +236,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final status = order.status.trim().toUpperCase();
     final quality = order.qualityStatus.trim().toUpperCase();
 
-    // Must be explicitly graded / completed statement order
-    final bool isGraded = status == 'GRADE_CONFIRMED' ||
-        status == 'ORDER_COMPLETED' ||
-        quality == 'GRADE_CONFIRMED' ||
-        quality == 'ORDER_COMPLETED';
-
-    if (!isGraded) return false;
-
-    // Must not be in preparing/in-transit/inspection stage
+    // Must not be in unfinished / pending / in-transit / preparing stages
     if (status == 'PREPARING' ||
         status == 'NEW' ||
+        status == 'PENDING' ||
         status == 'ACCEPTED' ||
         status == 'READY_FOR_PICKUP' ||
         status == 'IN_TRANSIT' ||
@@ -226,7 +248,17 @@ class _EarningsScreenState extends State<EarningsScreen> {
       return false;
     }
 
-    return true;
+    // Must be explicitly completed / graded
+    final bool isCompleted = status == 'GRADE_CONFIRMED' ||
+        status == 'ORDER_COMPLETED' ||
+        status == 'COMPLETED' ||
+        status == 'DELIVERED' ||
+        status == 'RECEIVED' ||
+        quality == 'GRADE_CONFIRMED' ||
+        quality == 'ORDER_COMPLETED' ||
+        quality == 'COMPLETED';
+
+    return isCompleted;
   }
 
   bool _orderMatchesProduct(FarmerOrderItem order, ProductItem product) {
@@ -627,28 +659,49 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
-  // 3. Summary Overview Sheet (All Produce Cards)
+  // 3. Summary Overview Sheet (All Produce Cards with Completed Orders)
   Widget _buildSummaryOverviewContent(
     List<ProductItem> products,
     List<FarmerOrderItem> orders, [
     List<Map<String, dynamic>>? allSheets,
   ]) {
-    if (products.isEmpty) {
+    // Only display products that have completed statement orders
+    final completedProducts = products.where((product) {
+      final matchedOrders = orders.where((o) => _orderMatchesProduct(o, product)).toList();
+      return matchedOrders.isNotEmpty;
+    }).toList();
+
+    if (completedProducts.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(24),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
-        child: const Center(
-          child: Text('No produce registered yet.', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+        child: Column(
+          children: [
+            Icon(Icons.assignment_turned_in_outlined, size: 46, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text(
+              'कोणतीही पूर्ण झालेली ऑर्डर (Completed Order) नाही',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'ऑर्डर पूर्ण (Delivered / Graded) झाल्यानंतरच तिचा उत्पन्न हिशोब येथे दिसेल.',
+              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       );
     }
 
     return Column(
-      children: products.map((product) {
+      children: completedProducts.map((product) {
         final matchedOrders = orders.where((o) => _orderMatchesProduct(o, product)).toList();
         final openCount = (allSheets ?? []).where((s) {
           final p = s['product'] as ProductItem?;

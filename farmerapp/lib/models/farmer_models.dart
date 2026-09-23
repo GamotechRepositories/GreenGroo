@@ -805,31 +805,48 @@ class GovtScheme {
   final String title;
   final String shortName;
   final String category;
+  final String? _govtLevel;
   final String status;
   final String statusBadge; // active, closing_soon, upcoming
   final String subsidyPercent;
   final String maxAmount;
   final String description;
-  final List<String> eligibility;
-  final List<String> documents;
-  final String portalUrl;
+  final String? _image;
+  final List<String>? _eligibility;
+  final List<String>? _documents;
+  final String? _portalUrl;
   final String deadline;
+
+  String get image => _image ?? '';
+  String get govtLevel => _govtLevel ?? 'Central';
+  List<String> get eligibility => _eligibility ?? const [];
+  List<String> get documents => _documents ?? const [];
+  String get portalUrl {
+    final p = _portalUrl;
+    return (p != null && p.isNotEmpty) ? p : 'https://mahadbt.maharashtra.gov.in/Farmer/AgriLogin/AgriLogin';
+  }
 
   GovtScheme({
     required this.id,
     required this.title,
     required this.shortName,
     required this.category,
+    String? govtLevel,
     required this.status,
     required this.statusBadge,
     required this.subsidyPercent,
     required this.maxAmount,
     required this.description,
-    required this.eligibility,
-    required this.documents,
-    this.portalUrl = 'https://mahadbt.maharashtra.gov.in',
+    String? image,
+    List<String>? eligibility,
+    List<String>? documents,
+    String? portalUrl,
     required this.deadline,
-  });
+  })  : _govtLevel = govtLevel ?? 'Central',
+        _image = image ?? '',
+        _eligibility = eligibility ?? const [],
+        _documents = documents ?? const [],
+        _portalUrl = portalUrl ?? 'https://mahadbt.maharashtra.gov.in/Farmer/AgriLogin/AgriLogin';
 
   static List<String> _splitTextLines(dynamic value) {
     if (value is List) {
@@ -849,25 +866,30 @@ class GovtScheme {
       'active': 'Active (अर्जासाठी खुले)',
       'closing_soon': 'Closing Soon (अंतिम तारीख जवळ)',
       'upcoming': 'Upcoming (लवकरच सुरू)',
+      'closed': 'Closed',
     };
 
     final statusBadge = (json['statusBadge'] ?? json['status'] ?? 'active').toString();
     final applyUrl = (json['applyUrl'] ?? '').toString().trim();
     final deadline = (json['deadline'] ?? '').toString().trim();
+    final image = (json['image'] ?? '').toString().trim();
+    final govtLevel = (json['govtLevel'] ?? 'Central').toString().trim();
 
     return GovtScheme(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       shortName: (json['shortName'] ?? json['title'] ?? '').toString(),
       category: (json['category'] ?? 'Financial Benefit').toString(),
+      govtLevel: govtLevel,
       status: (json['statusLabel'] ?? statusLabels[statusBadge] ?? statusBadge).toString(),
       statusBadge: statusBadge,
       subsidyPercent: (json['subsidyAmount'] ?? '—').toString(),
       maxAmount: (json['maxBenefit'] ?? '—').toString(),
       description: (json['description'] ?? '').toString(),
+      image: image,
       eligibility: _splitTextLines(json['eligibility']),
       documents: _splitTextLines(json['documents']),
-      portalUrl: applyUrl.isNotEmpty ? applyUrl : 'https://mahadbt.maharashtra.gov.in',
+      portalUrl: applyUrl.isNotEmpty ? applyUrl : 'https://mahadbt.maharashtra.gov.in/Farmer/AgriLogin/AgriLogin',
       deadline: deadline.isNotEmpty ? deadline : '—',
     );
   }
