@@ -18,6 +18,7 @@ void main() async {
     ),
   );
   await ApiService().init();
+  await FarmerState().initPreferences();
   runApp(const FarmerApp());
 }
 

@@ -1,3 +1,6 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'sound_service.dart';
 import 'package:flutter/material.dart';
 import '../models/farmer_models.dart';
 import '../core/constants/farmer_constants.dart';
@@ -8,7 +11,31 @@ class FarmerState extends ChangeNotifier {
   factory FarmerState() => _instance;
   FarmerState._internal() {
     _initDefaultData();
+    _loadNotificationPreferences();
     fetchFromBackend();
+    _startPeriodicNotificationPolling();
+  }
+
+  Timer? _notificationPollingTimer;
+  final Set<String> _knownOrderIds = {};
+  final Map<String, String> _knownOrderStatusMap = {};
+  bool _isInitialSyncDone = false;
+  bool isPreferencesLoaded = false;
+
+  void _startPeriodicNotificationPolling() {
+    _notificationPollingTimer?.cancel();
+    // Poll quietly in background every 30 seconds without sound spam
+    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (isLoggedIn && isConnectedToBackend) {
+        _pollLiveNotifications();
+      }
+    });
+  }
+
+  Future<void> _pollLiveNotifications() async {
+    try {
+      await _fetchOrdersSafe();
+    } catch (_) {}
   }
 
   bool isLoggedIn = true;
@@ -96,7 +123,43 @@ class FarmerState extends ChangeNotifier {
     try {
       final ordRes = await ApiService().fetchOrders(profile.id);
       if (ordRes is List && ordRes.isNotEmpty) {
-        orders = ordRes.map((o) => FarmerOrderItem.fromJson(o as Map<String, dynamic>)).toList();
+        final fetchedOrders = ordRes.map((o) => FarmerOrderItem.fromJson(o as Map<String, dynamic>)).toList();
+        
+        bool hasBrandNewUnannouncedOrder = false;
+        
+        for (final order in fetchedOrders) {
+          final soundKey = 'order_${order.id}_${order.status.toLowerCase()}';
+          
+          if (_isInitialSyncDone) {
+            // Only trigger sound if this exact order status has NEVER played sound before
+            if (!_knownOrderIds.contains(order.id) && !playedSoundNotificationIds.contains(soundKey)) {
+              hasBrandNewUnannouncedOrder = true;
+              playedSoundNotificationIds.add(soundKey);
+            } else if (_knownOrderStatusMap[order.id] != null &&
+                       _knownOrderStatusMap[order.id]!.toLowerCase() != order.status.toLowerCase() &&
+                       !playedSoundNotificationIds.contains(soundKey)) {
+              hasBrandNewUnannouncedOrder = true;
+              playedSoundNotificationIds.add(soundKey);
+            }
+          } else {
+            // First time sync at startup: register all without playing sound
+            playedSoundNotificationIds.add(soundKey);
+          }
+          
+          _knownOrderIds.add(order.id);
+          _knownOrderStatusMap[order.id] = order.status;
+        }
+        
+        orders = fetchedOrders;
+        _persistNotificationPreferences();
+        
+        // Play notification sound ONLY once for genuinely new incoming orders
+        if (hasBrandNewUnannouncedOrder) {
+          debugPrint('🔔 Genuinely NEW incoming order arrived! Playing notification sound once.');
+          NotificationSoundService().playNotificationSound();
+        }
+        
+        _isInitialSyncDone = true;
       }
     } catch (_) {}
   }
@@ -212,6 +275,121 @@ class FarmerState extends ChangeNotifier {
   // Documents
   List<DocumentItem> documents = [];
 
+  // Notifications Tracking with Persistent Storage
+  final Set<String> readNotificationIds = {};
+  final Set<String> deletedNotificationIds = {};
+  final Set<String> playedSoundNotificationIds = {};
+
+  Future<void> initPreferences() async {
+    await _loadNotificationPreferences();
+  }
+
+  Future<void> _loadNotificationPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final del = prefs.getStringList('farmer_deleted_notifications');
+      if (del != null && del.isNotEmpty) {
+        deletedNotificationIds.addAll(del);
+      }
+      // Ensure initial demo/mock orders stay suppressed from notification tray
+      deletedNotificationIds.addAll([
+        'order_GGC-ORD-20260907-00001',
+        'payment_GGC-ORD-20260907-00001',
+        'order_GGC-ORD-20260903-00002',
+        'payment_GGC-ORD-20260903-00002',
+        'order_GGC-ORD-20260903-00001',
+        'payment_GGC-ORD-20260903-00001',
+        'order_GGC-ORD-20260901-00003',
+        'payment_GGC-ORD-20260901-00003',
+      ]);
+      final read = prefs.getStringList('farmer_read_notifications');
+      if (read != null && read.isNotEmpty) {
+        readNotificationIds.addAll(read);
+      }
+      final played = prefs.getStringList('farmer_played_sound_notifications');
+      if (played != null && played.isNotEmpty) {
+        playedSoundNotificationIds.addAll(played);
+      }
+      final known = prefs.getStringList('farmer_known_orders');
+      if (known != null && known.isNotEmpty) {
+        _knownOrderIds.addAll(known);
+      }
+      isPreferencesLoaded = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading notification preferences: $e');
+    }
+  }
+
+  Future<void> _persistNotificationPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('farmer_deleted_notifications', deletedNotificationIds.toList());
+      await prefs.setStringList('farmer_read_notifications', readNotificationIds.toList());
+      await prefs.setStringList('farmer_played_sound_notifications', playedSoundNotificationIds.toList());
+      await prefs.setStringList('farmer_known_orders', _knownOrderIds.toList());
+    } catch (e) {
+      debugPrint('Error saving notification preferences: $e');
+    }
+  }
+
+  void markNotificationAsRead(String id) {
+    if (!readNotificationIds.contains(id)) {
+      readNotificationIds.add(id);
+      _persistNotificationPreferences();
+      notifyListeners();
+    }
+  }
+
+  void markAllNotificationsAsRead(Iterable<String> ids) {
+    readNotificationIds.addAll(ids);
+    _persistNotificationPreferences();
+    notifyListeners();
+  }
+
+  void deleteNotification(String id) {
+    deletedNotificationIds.add(id);
+    readNotificationIds.remove(id);
+    _persistNotificationPreferences();
+    notifyListeners();
+  }
+
+  void clearAllNotifications(Iterable<String> ids) {
+    deletedNotificationIds.addAll(ids);
+    _persistNotificationPreferences();
+    notifyListeners();
+  }
+
+  int get unreadNotificationCount {
+    int count = 0;
+    for (final order in orders) {
+      final notifId = 'order_${order.id}';
+      final paymentNotifId = 'payment_${order.id}';
+
+      final st = order.status.toLowerCase();
+      final isCompleted = st == 'completed' || st == 'order_completed';
+      final isReady = st.contains('ready');
+      final isNew = st == 'new' || st == 'pending';
+
+      if (isNew) {
+        if (!deletedNotificationIds.contains(notifId) && !readNotificationIds.contains(notifId)) {
+          count++;
+        }
+      } else if (isReady) {
+        if (!deletedNotificationIds.contains(notifId) && !readNotificationIds.contains(notifId)) {
+          count++;
+        }
+      } else if (isCompleted) {
+        if (!deletedNotificationIds.contains(paymentNotifId) && !readNotificationIds.contains(paymentNotifId)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+
+
   void _initDefaultData() {
     crops = [
       CropItem(
@@ -223,9 +401,9 @@ class FarmerState extends ChangeNotifier {
         estHarvestDate: '01 Sept 2026',
         soilType: 'Medium Black (मध्यम काळी)',
         irrigationType: 'Drip (ठिबक)',
-        status: 'Harvest Readiness',
-        progress: 0.95,
-        stageIndex: 20,
+        status: 'Flowering / Fruiting',
+        progress: 19 / 22,
+        stageIndex: 18,
       ),
       CropItem(
         id: 'CRP-002',
@@ -236,9 +414,9 @@ class FarmerState extends ChangeNotifier {
         estHarvestDate: '02 Sept 2026',
         soilType: 'Medium Black (मध्यम काळी)',
         irrigationType: 'Drip (ठिबक)',
-        status: 'Harvest Readiness',
-        progress: 0.90,
-        stageIndex: 20,
+        status: 'Spray / Pest Control',
+        progress: 12 / 22,
+        stageIndex: 11,
       ),
       CropItem(
         id: 'CRP-003',
@@ -249,8 +427,8 @@ class FarmerState extends ChangeNotifier {
         estHarvestDate: '05 Sept 2026',
         soilType: 'Medium Black (मध्यम काळी)',
         irrigationType: 'Drip (ठिबक)',
-        status: 'Harvest Readiness',
-        progress: 0.92,
+        status: 'Pre-Harvest Stage',
+        progress: 21 / 22,
         stageIndex: 20,
       ),
     ];
@@ -320,6 +498,24 @@ class FarmerState extends ChangeNotifier {
         status: 'Active',
       ),
     ];
+
+    // All default mock orders from the past are suppressed from notifications tray
+    final initialMockNotifIds = [
+      'order_GGC-ORD-20260907-00001',
+      'payment_GGC-ORD-20260907-00001',
+      'order_GGC-ORD-20260903-00002',
+      'payment_GGC-ORD-20260903-00002',
+      'order_GGC-ORD-20260903-00001',
+      'payment_GGC-ORD-20260903-00001',
+      'order_GGC-ORD-20260901-00003',
+      'payment_GGC-ORD-20260901-00003',
+    ];
+    deletedNotificationIds.addAll(initialMockNotifIds);
+    readNotificationIds.addAll(initialMockNotifIds);
+    _knownOrderIds.addAll(['GGC-ORD-20260907-00001', 'GGC-ORD-20260903-00002', 'GGC-ORD-20260903-00001', 'GGC-ORD-20260901-00003']);
+    for (final id in initialMockNotifIds) {
+      playedSoundNotificationIds.add(id);
+    }
 
     orders = [
       FarmerOrderItem(
@@ -860,4 +1056,5 @@ class FarmerState extends ChangeNotifier {
       .fold(0.0, (sum, o) => sum + o.totalAmount);
 
   double get totalStockKg => products.fold(0.0, (sum, p) => sum + (p.unit == 'Quintal' ? p.stockQuantity * 100 : p.stockQuantity));
+
 }

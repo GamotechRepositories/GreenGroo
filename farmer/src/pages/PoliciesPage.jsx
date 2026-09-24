@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getLivePolicies } from "../../api/farmerApi";
+import { getLivePolicies } from "../api/farmerApi";
 
 export default function PoliciesPage({ roleKey = "farmer" }) {
   const [rows, setRows] = useState([]);

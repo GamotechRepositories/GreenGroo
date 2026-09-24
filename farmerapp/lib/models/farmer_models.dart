@@ -732,7 +732,7 @@ class FarmerOrderItem {
     final qStatus = json['qualityStatus']?.toString() ?? '';
 
     return FarmerOrderItem(
-      id: json['id']?.toString() ?? json['_id']?.toString() ?? 'ORD-001',
+      id: json['id']?.toString() ?? json['_id']?.toString() ?? json['orderCode']?.toString() ?? json['orderDisplayId']?.toString() ?? 'ORD-001',
       productId: json['productId']?.toString() ?? json['product_id']?.toString() ?? '',
       orderCode: json['orderDisplayId']?.toString() ?? json['orderCode']?.toString() ?? json['id']?.toString() ?? 'GGC-ORD-00001',
       buyerName: json['buyerName']?.toString() ?? json['customerName']?.toString() ?? 'Swastik Supermarket Pune',
