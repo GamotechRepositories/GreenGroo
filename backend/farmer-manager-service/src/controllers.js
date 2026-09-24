@@ -4198,6 +4198,13 @@ const DEFAULT_FARMER_DOCS = [
     fileUrl: "",
     status: "Pending",
   },
+  {
+    type: "video_kyc",
+    name: "Live Video KYC Verification (थेट व्हिडिओ केवायसी)",
+    fileName: "",
+    fileUrl: "",
+    status: "Pending",
+  },
 ];
 
 export async function getFarmerDocuments(req, res) {
@@ -4240,6 +4247,7 @@ export async function uploadFarmerDocument(req, res) {
       farmer_photo: "Farmer Photo (शेतकरी फोटो)",
       address_proof: "Address Proof (रहिवासी दाखला)",
       pan: "PAN Card (पॅन कार्ड)",
+      video_kyc: "Live Video KYC Verification (थेट व्हिडिओ केवायसी)",
       soil_report: "Soil Testing Report (मृदा परीक्षण अहवाल)",
       organic_cert: "Organic Farming Certificate (सेंद्रिय शेती प्रमाणपत्र)",
       crop_insurance: "Crop Insurance Certificate (पीक विमा पावती)",

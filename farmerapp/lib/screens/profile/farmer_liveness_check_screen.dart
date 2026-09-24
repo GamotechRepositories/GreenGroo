@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -51,11 +52,11 @@ class FarmerLivenessCheckScreen extends StatefulWidget {
   const FarmerLivenessCheckScreen({
     super.key,
     required this.farmerName,
-    required this.onCompleted,
+    this.onCompleted,
   });
 
   final String farmerName;
-  final VoidCallback onCompleted;
+  final Function? onCompleted;
 
   @override
   State<FarmerLivenessCheckScreen> createState() => _FarmerLivenessCheckScreenState();
@@ -72,6 +73,8 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
 
   int _currentStep = 0;
   bool _allComplete = false;
+  bool _isRecordingVideo = false;
+  String? _recordedVideoBase64;
   bool _blinkPrimed = false;
   bool _blinkDetected = false;
   DateTime? _holdStartedAt;
@@ -79,6 +82,18 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
   DateTime? _lastPassingAt;
 
   bool _isTransitioningStep = false;
+
+  void _triggerCompletion() {
+    if (widget.onCompleted != null) {
+      try {
+        (widget.onCompleted as dynamic)(_recordedVideoBase64);
+      } catch (_) {
+        try {
+          (widget.onCompleted as dynamic)();
+        } catch (_) {}
+      }
+    }
+  }
 
   // Real-time detection feedback state
   bool _faceInFrame = false;
@@ -300,6 +315,54 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
     };
   }
 
+  Future<void> _completeLivenessAndRecordVideo() async {
+    if (!mounted) return;
+    setState(() {
+      _actionHoldProgress = 1.0;
+      _isRecordingVideo = true;
+      _currentChallengePassing = true;
+    });
+
+    final camera = _camera;
+    if (camera != null && camera.value.isStreamingImages) {
+      try {
+        await camera.stopImageStream();
+      } catch (e) {
+        debugPrint('stopImageStream error: $e');
+      }
+    }
+
+    // Brief delay to let camera image pipeline clear
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    if (mounted && camera != null && camera.value.isInitialized) {
+      try {
+        await camera.startVideoRecording();
+        // Record ~2.5 seconds verified video KYC clip
+        await Future.delayed(const Duration(milliseconds: 2500));
+        if (camera.value.isRecordingVideo) {
+          final XFile file = await camera.stopVideoRecording();
+          final bytes = await file.readAsBytes();
+          if (bytes.isNotEmpty) {
+            _recordedVideoBase64 = 'data:video/mp4;base64,${base64Encode(bytes)}';
+          }
+        }
+      } catch (e) {
+        debugPrint('KYC video recording error: $e');
+      }
+    }
+
+    await _stopCamera();
+
+    if (mounted) {
+      setState(() {
+        _isRecordingVideo = false;
+        _allComplete = true;
+        _isTransitioningStep = false;
+      });
+    }
+  }
+
   void _advanceStep() {
     if (_isTransitioningStep) return;
     _isTransitioningStep = true;
@@ -307,12 +370,7 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
     _lastPassingAt = null;
 
     if (_currentStep >= _challenges.length - 1) {
-      setState(() {
-        _allComplete = true;
-        _actionHoldProgress = 1.0;
-        _isTransitioningStep = false;
-      });
-      _stopCamera();
+      _completeLivenessAndRecordVideo();
       return;
     }
 
@@ -404,7 +462,9 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
                 child: Text(
                   _allComplete
                       ? 'सर्व स्टेप्स अचूक ओळखल्या गेल्या आणि केवायसी यशस्वी झाली!'
-                      : 'खालील ॲनिमेटेड फेस पाहून तशी कृती करा, कॅमेरा आपोआप ओळखेल.',
+                      : (_isRecordingVideo
+                          ? 'चेहरा स्थिर ठेवा, पडताळणी व्हिडिओ रेकॉर्ड होत आहे...'
+                          : 'खालील ॲनिमेटेड फेस पाहून तशी कृती करा, कॅमेरा आपोआप ओळखेल.'),
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -416,8 +476,8 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
               // Segmented step indicator matching deliveryapp
               _StepIndicator(
                 total: _challenges.length,
-                current: _allComplete ? _challenges.length : _currentStep,
-                complete: _allComplete,
+                current: _allComplete || _isRecordingVideo ? _challenges.length : _currentStep,
+                complete: _allComplete || _isRecordingVideo,
               ),
 
               const Spacer(),
@@ -432,6 +492,7 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
                 faceInFrame: _faceInFrame,
                 challengePassing: _currentChallengePassing,
                 actionHoldProgress: _actionHoldProgress,
+                isRecordingVideo: _isRecordingVideo,
               ),
 
               const SizedBox(height: 14),
@@ -490,6 +551,17 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          const Text('Video KYC Clip:', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                          Text(
+                            _recordedVideoBase64 != null ? 'Captured & Ready 🎥✓' : 'Completed ✓',
+                            style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                           const Text('Time Elapsed:', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                           Text('${_secondsRecorded}s', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ],
@@ -497,7 +569,46 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
                     ],
                   ),
                 ),
-              ] else if (challenge != null)
+              ] else if (_isRecordingVideo)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
+                  ),
+                  child: const Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'REC • केवायसी व्हिडिओ रेकॉर्ड होत आहे...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF991B1B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'कॅमेऱ्याकडे पाहत राहा (Recording verified video KYC for vendor)',
+                        style: TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D)),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 10),
+                      LinearProgressIndicator(
+                        color: Colors.red,
+                        backgroundColor: Color(0xFFFEE2E2),
+                      ),
+                    ],
+                  ),
+                )
+              else if (challenge != null)
                 // Enhanced instruction card with ANIMATED DEMO FACE
                 _ChallengeHintWithAnimatedFace(
                   challenge: challenge,
@@ -526,9 +637,37 @@ class _FarmerLivenessCheckScreenState extends State<FarmerLivenessCheckScreen> {
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () {
-                      widget.onCompleted();
+                      _triggerCompletion();
                       Navigator.pop(context);
                     },
+                  ),
+                )
+              else if (_isRecordingVideo)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'व्हिडिओ तयार होत आहे... (Finalizing KYC Video...)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF991B1B),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               else if (_cameraError != null)
@@ -663,6 +802,7 @@ class _CameraPreview extends StatelessWidget {
     required this.faceInFrame,
     required this.challengePassing,
     required this.actionHoldProgress,
+    this.isRecordingVideo = false,
   });
 
   final double size;
@@ -673,14 +813,17 @@ class _CameraPreview extends StatelessWidget {
   final bool faceInFrame;
   final bool challengePassing;
   final double actionHoldProgress;
+  final bool isRecordingVideo;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = complete
-        ? AppColors.success
-        : (challengePassing
-            ? const Color(0xFF16A34A)
-            : (faceInFrame ? AppColors.primary : const Color(0xFFF59E0B)));
+    final borderColor = isRecordingVideo
+        ? const Color(0xFFDC2626)
+        : (complete
+            ? AppColors.success
+            : (challengePassing
+                ? const Color(0xFF16A34A)
+                : (faceInFrame ? AppColors.primary : const Color(0xFFF59E0B))));
 
     final isCameraValid = ready && camera != null && camera!.value.isInitialized;
 
@@ -757,7 +900,9 @@ class _CameraPreview extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.65),
+                                    color: isRecordingVideo
+                                        ? const Color(0xFFDC2626).withValues(alpha: 0.9)
+                                        : Colors.black.withValues(alpha: 0.65),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
@@ -767,13 +912,17 @@ class _CameraPreview extends StatelessWidget {
                                         width: 8,
                                         height: 8,
                                         decoration: BoxDecoration(
-                                          color: faceInFrame ? const Color(0xFF10B981) : Colors.amber,
+                                          color: isRecordingVideo
+                                              ? Colors.white
+                                              : (faceInFrame ? const Color(0xFF10B981) : Colors.amber),
                                           shape: BoxShape.circle,
                                         ),
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        faceInFrame ? 'AI TRACKING ACTIVE' : 'ALIGN FACE',
+                                        isRecordingVideo
+                                            ? 'REC • VIDEO KYC'
+                                            : (faceInFrame ? 'AI TRACKING ACTIVE' : 'ALIGN FACE'),
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 10,

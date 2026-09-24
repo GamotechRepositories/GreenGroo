@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../services/farmer_state.dart';
 import '../orders/order_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
+import '../documents/documents_screen.dart';
 
 class NotificationItemModel {
   final String id;
@@ -127,8 +128,45 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     }
 
-    return list;
+    // 2. Document Verification Status Notifications (कागदपत्र पडताळणी सूचना)
+    for (final doc in state.documents) {
+      final st = doc.status.toLowerCase();
+      if (st != 'approved' && st != 'rejected') continue;
 
+      final notifId = 'doc_${doc.id}_$st';
+      if (state.deletedNotificationIds.contains(notifId)) continue;
+      final isRead = state.readNotificationIds.contains(notifId);
+      final isApproved = st == 'approved';
+
+      list.add(
+        NotificationItemModel(
+          id: notifId,
+          title: isApproved
+              ? 'कागदपत्र मंजूर ✓: ${doc.title}'
+              : 'कागदपत्र अमान्य ⚠️: ${doc.title}',
+          orderCode: doc.type.toUpperCase(),
+          body: isApproved
+              ? 'व्हेंडरने तुमचे ${doc.marathiTitle} तपासले असून ते यशस्वीरीत्या मंजूर (Approved) केले आहे.'
+              : 'व्हेंडरने तुमचे ${doc.marathiTitle} अमान्य केले आहे.${doc.rejectionReason.isNotEmpty ? ' अमान्य कारण: ${doc.rejectionReason}.' : ''} कृपया स्पष्ट प्रत पुन्हा अपलोड करा.',
+          time: doc.uploadDate.isNotEmpty ? doc.uploadDate : 'आज',
+          category: 'documents',
+          icon: isApproved ? Icons.verified_rounded : Icons.warning_amber_rounded,
+          iconColor: isApproved ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          iconBg: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+          actionLabel: isApproved ? 'कागदपत्रे पहा (View)' : 'पुन्हा अपलोड करा (Re-upload)',
+          isRead: isRead,
+          onAction: () {
+            state.markNotificationAsRead(notifId);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DocumentsScreen()),
+            );
+          },
+        ),
+      );
+    }
+
+    return list;
   }
 
   @override
@@ -275,6 +313,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         _filterChip(id: 'all', label: 'सर्व (${allLiveNotifications.length})'),
                         const SizedBox(width: 4),
                         _filterChip(id: 'unread', label: 'नवीन ($unreadCount)'),
+                        const SizedBox(width: 4),
+                        _filterChip(id: 'documents', label: '📑 कागदपत्रे'),
                         const SizedBox(width: 4),
                         _filterChip(id: 'orders', label: '📦 ऑर्डर्स'),
                         const SizedBox(width: 4),

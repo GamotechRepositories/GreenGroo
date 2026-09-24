@@ -232,6 +232,7 @@ export default function ManagerDocumentsPage() {
                     docs.map((doc) => {
                     const busy = submittingAction;
                     const isPdf = doc.fileName?.toLowerCase().endsWith(".pdf") || doc.fileUrl?.startsWith("data:application/pdf");
+                    const isVideo = doc.type === "video_kyc" || doc.fileName?.toLowerCase().endsWith(".mp4") || doc.fileUrl?.startsWith("data:video") || doc.fileName?.toLowerCase().endsWith(".webm") || doc.fileName?.toLowerCase().endsWith(".mov");
 
                     return (
                       <tr key={doc.type} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
@@ -240,14 +241,14 @@ export default function ManagerDocumentsPage() {
                         <td className="px-3 py-2.5">
                           {doc.fileUrl ? (
                             <div className="flex items-center gap-1.5">
-                              <span className="text-sm">{isPdf ? "📄" : "🖼️"}</span>
+                              <span className="text-sm">{isVideo ? "🎥" : isPdf ? "📄" : "🖼️"}</span>
                               <button
                                 type="button"
                                 onClick={() => setViewDoc({ ...doc, farmerId: f.id, farmerName: f.name })}
                                 className="text-xs font-medium text-[#217346] underline hover:text-[#165030] text-left truncate max-w-[150px]"
-                                title={doc.fileName || "View Document"}
+                                title={doc.fileName || (isVideo ? "Play Video KYC" : "View Document")}
                               >
-                                {doc.fileName || "View File"}
+                                {doc.fileName || (isVideo ? "Play Video KYC" : "View File")}
                               </button>
                             </div>
                           ) : (
@@ -278,7 +279,7 @@ export default function ManagerDocumentsPage() {
                                   onClick={() => setViewDoc({ ...doc, farmerId: f.id, farmerName: f.name })}
                                   className="rounded bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 border border-slate-300"
                                 >
-                                  👁️ View
+                                  {isVideo ? "🎥 Watch Video" : "👁️ View"}
                                 </button>
 
                                 {doc.status !== "Approved" && (
@@ -339,7 +340,21 @@ export default function ManagerDocumentsPage() {
             </div>
 
             <div className="flex-1 overflow-auto p-4 bg-slate-50 flex items-center justify-center min-h-[300px]">
-              {viewDoc.fileUrl?.startsWith("data:application/pdf") || viewDoc.fileName?.toLowerCase().endsWith(".pdf") ? (
+              {viewDoc.type === "video_kyc" || viewDoc.fileUrl?.startsWith("data:video") || /\.(mp4|webm|mov|mkv)$/i.test(viewDoc.fileName || "") ? (
+                <div className="w-full flex flex-col items-center justify-center p-2">
+                  <video
+                    src={viewDoc.fileUrl}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="max-h-[60vh] max-w-full rounded-lg shadow-sm border border-slate-300 bg-black"
+                  />
+                  <div className="mt-3 text-center">
+                    <p className="text-xs font-bold text-slate-700">Live Video KYC Recording (थेट चेहरा व व्हिडिओ केवायसी)</p>
+                    <p className="text-[11px] text-slate-500">{viewDoc.fileName || "kyc_video.mp4"}</p>
+                  </div>
+                </div>
+              ) : viewDoc.fileUrl?.startsWith("data:application/pdf") || viewDoc.fileName?.toLowerCase().endsWith(".pdf") ? (
                 <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-red-200 max-w-md">
                   <span className="text-5xl">📄</span>
                   <h4 className="mt-3 text-sm font-bold text-slate-800">{viewDoc.fileName || "PDF Document"}</h4>

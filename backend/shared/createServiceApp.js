@@ -13,7 +13,8 @@ export const createServiceApp = ({ serviceName, routes = [] }) => {
       credentials: true,
     })
   );
-  app.use(express.json());
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", service: serviceName });

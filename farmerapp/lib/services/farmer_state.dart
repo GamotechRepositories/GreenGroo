@@ -19,13 +19,15 @@ class FarmerState extends ChangeNotifier {
   Timer? _notificationPollingTimer;
   final Set<String> _knownOrderIds = {};
   final Map<String, String> _knownOrderStatusMap = {};
+  final Map<String, String> _knownDocumentStatusMap = {};
+  void Function(DocumentItem doc)? onDocumentStatusChanged;
   bool _isInitialSyncDone = false;
   bool isPreferencesLoaded = false;
 
   void _startPeriodicNotificationPolling() {
     _notificationPollingTimer?.cancel();
-    // Poll quietly in background every 30 seconds without sound spam
-    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Poll quietly in background every 4 seconds for live order & document notifications
+    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (isLoggedIn && isConnectedToBackend) {
         _pollLiveNotifications();
       }
@@ -34,7 +36,10 @@ class FarmerState extends ChangeNotifier {
 
   Future<void> _pollLiveNotifications() async {
     try {
-      await _fetchOrdersSafe();
+      await Future.wait([
+        _fetchOrdersSafe(),
+        _fetchDocumentsSafe(),
+      ]);
     } catch (_) {}
   }
 
@@ -189,6 +194,9 @@ class FarmerState extends ChangeNotifier {
           _initDefaultData();
         }
 
+        bool hasBrandNewDocUpdate = false;
+        DocumentItem? latestUpdatedDoc;
+
         documents = documents.map((localDoc) {
           final backendDoc = docMap[localDoc.type.toLowerCase()];
           if (backendDoc != null) {
@@ -196,15 +204,46 @@ class FarmerState extends ChangeNotifier {
             final fUrl = (backendDoc['fileUrl'] ?? '').toString();
             final rReason = (backendDoc['rejectionReason'] ?? '').toString();
             final hasFile = fUrl.isNotEmpty && (backendDoc['fileName'] ?? '').toString().isNotEmpty;
+            final normalizedStatus = st == 'Approved'
+                ? 'approved'
+                : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded'));
+
+            final soundKey = 'doc_${localDoc.id}_$normalizedStatus';
+
+            if (_isInitialSyncDone) {
+              final prevStatus = _knownDocumentStatusMap[localDoc.id];
+              if (prevStatus != null &&
+                  prevStatus != normalizedStatus &&
+                  (normalizedStatus == 'approved' || normalizedStatus == 'rejected')) {
+                if (!playedSoundNotificationIds.contains(soundKey)) {
+                  hasBrandNewDocUpdate = true;
+                  playedSoundNotificationIds.add(soundKey);
+                  latestUpdatedDoc = DocumentItem(
+                    id: localDoc.id,
+                    type: localDoc.type,
+                    title: localDoc.title,
+                    marathiTitle: localDoc.marathiTitle,
+                    isUploaded: hasFile,
+                    status: normalizedStatus,
+                    uploadDate: 'Just now',
+                    fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+                    rejectionReason: rReason,
+                  );
+                }
+              }
+            } else {
+              playedSoundNotificationIds.add(soundKey);
+            }
+
+            _knownDocumentStatusMap[localDoc.id] = normalizedStatus;
+
             return DocumentItem(
               id: localDoc.id,
               type: localDoc.type,
               title: localDoc.title,
               marathiTitle: localDoc.marathiTitle,
               isUploaded: hasFile,
-              status: st == 'Approved'
-                  ? 'approved'
-                  : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded')),
+              status: normalizedStatus,
               uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
               fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
               rejectionReason: rReason,
@@ -212,6 +251,15 @@ class FarmerState extends ChangeNotifier {
           }
           return localDoc;
         }).toList();
+
+        if (hasBrandNewDocUpdate) {
+          _persistNotificationPreferences();
+          NotificationSoundService().playNotificationSound();
+          if (latestUpdatedDoc != null) {
+            onDocumentStatusChanged?.call(latestUpdatedDoc!);
+          }
+          notifyListeners();
+        }
       }
     } catch (_) {}
   }
@@ -381,6 +429,16 @@ class FarmerState extends ChangeNotifier {
         }
       } else if (isCompleted) {
         if (!deletedNotificationIds.contains(paymentNotifId) && !readNotificationIds.contains(paymentNotifId)) {
+          count++;
+        }
+      }
+    }
+
+    for (final doc in documents) {
+      final st = doc.status.toLowerCase();
+      if (st == 'approved' || st == 'rejected') {
+        final notifId = 'doc_${doc.id}_$st';
+        if (!deletedNotificationIds.contains(notifId) && !readNotificationIds.contains(notifId)) {
           count++;
         }
       }
@@ -762,6 +820,14 @@ class FarmerState extends ChangeNotifier {
         isUploaded: false,
         status: 'pending',
       ),
+      DocumentItem(
+        id: 'DOC-9',
+        type: 'video_kyc',
+        title: 'Live Video KYC',
+        marathiTitle: 'थेट व्हिडिओ केवायसी',
+        isUploaded: false,
+        status: 'pending',
+      ),
     ];
   }
 
@@ -1029,7 +1095,8 @@ class FarmerState extends ChangeNotifier {
       // Persist to backend database so it shows in vendor portal immediately
       if (fileUrl != null && fileUrl.isNotEmpty) {
         final isPdf = fileUrl.startsWith('data:application/pdf') || fileUrl.toLowerCase().endsWith('.pdf');
-        final ext = isPdf ? 'pdf' : 'jpg';
+        final isVideo = fileUrl.startsWith('data:video') || fileUrl.toLowerCase().endsWith('.mp4');
+        final ext = isPdf ? 'pdf' : (isVideo ? 'mp4' : 'jpg');
         final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
         final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 

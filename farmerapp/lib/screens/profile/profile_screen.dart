@@ -181,9 +181,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           farmerName: _nameController.text.trim().isNotEmpty
               ? _nameController.text.trim()
               : FarmerState().profile.fullName,
-          onCompleted: () {
+          onCompleted: (String? videoUrl) {
             setState(() => _videoKycCompleted = true);
-            _showToast('थेट चेहरा केवायसी पडताळणी यशस्वी! (Live KYC Verified ✓)');
+            if (videoUrl != null && videoUrl.isNotEmpty) {
+              FarmerState().uploadDocument('DOC-9', fileUrl: videoUrl, status: 'pending');
+            }
+            _showToast('थेट चेहरा केवायसी पडताळणी यशस्वी! व्हिडिओ व्हेंडरकडे पाठवला ✓');
           },
         ),
       ),

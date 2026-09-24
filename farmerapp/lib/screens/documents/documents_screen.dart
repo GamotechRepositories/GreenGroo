@@ -8,6 +8,7 @@ import '../../core/constants/app_colors.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import '../../core/utils/photo_picker_sheet.dart';
+import '../profile/farmer_liveness_check_screen.dart';
 
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
@@ -201,6 +202,30 @@ class _DocumentCard extends StatelessWidget {
   const _DocumentCard({required this.doc});
 
   void _uploadDocumentPhoto(BuildContext context) {
+    if (doc.type == 'video_kyc') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FarmerLivenessCheckScreen(
+            farmerName: FarmerState().profile.fullName,
+            onCompleted: (String? videoUrl) {
+              if (videoUrl != null && videoUrl.isNotEmpty) {
+                FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('व्हिडिओ केवायसी यशस्वीपणे रेकॉर्ड झाली! व्हेंडर पडताळणी प्रलंबित आहे. (Video KYC Submitted ⏳)'),
+                  backgroundColor: Color(0xFFC2410C),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
     showAppPhotoPicker(
       context,
       title: 'Upload ${doc.title} (${doc.marathiTitle})',
@@ -235,8 +260,9 @@ class _DocumentCard extends StatelessWidget {
       }
 
       final isPdf = doc.fileUrl.startsWith('data:application/pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
-      final ext = isPdf ? 'pdf' : 'jpg';
-      final mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+      final isVideo = doc.type == 'video_kyc' || doc.fileUrl.startsWith('data:video') || doc.fileUrl.toLowerCase().endsWith('.mp4');
+      final ext = isPdf ? 'pdf' : (isVideo ? 'mp4' : 'jpg');
+      final mimeType = isPdf ? 'application/pdf' : (isVideo ? 'video/mp4' : 'image/jpeg');
       final tempDir = await getTemporaryDirectory();
       final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
       final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
@@ -280,6 +306,7 @@ class _DocumentCard extends StatelessWidget {
 
   void _openFullScreenView(BuildContext context) {
     final isPdf = doc.fileUrl.startsWith('data:application/pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
+    final isVideo = doc.type == 'video_kyc' || doc.fileUrl.startsWith('data:video') || doc.fileUrl.toLowerCase().endsWith('.mp4');
     final hasFile = doc.fileUrl.isNotEmpty;
 
     if (!hasFile) {
@@ -291,7 +318,7 @@ class _DocumentCard extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (ctx) => Scaffold(
-          backgroundColor: isPdf ? const Color(0xFF0F172A) : Colors.black,
+          backgroundColor: isPdf || isVideo ? const Color(0xFF0F172A) : Colors.black,
           appBar: AppBar(
             backgroundColor: const Color(0xFF1E293B),
             elevation: 0,
@@ -329,7 +356,7 @@ class _DocumentCard extends StatelessWidget {
             ],
           ),
           body: Center(
-            child: isPdf
+            child: isVideo
                 ? Container(
                     margin: const EdgeInsets.all(24),
                     padding: const EdgeInsets.all(28),
@@ -346,14 +373,14 @@ class _DocumentCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: const BoxDecoration(
-                            color: Color(0xFFFEF2F2),
+                            color: Color(0xFFEFF6FF),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 56),
+                          child: const Icon(Icons.videocam_rounded, color: Color(0xFF2563EB), size: 56),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '${doc.title}.pdf',
+                          '${doc.title}.mp4',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                           textAlign: TextAlign.center,
                         ),
@@ -390,7 +417,7 @@ class _DocumentCard extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               icon: const Icon(Icons.download_rounded, size: 16),
-                              label: const Text('Download / Share PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+                              label: const Text('Download / Share Video', style: TextStyle(fontWeight: FontWeight.bold)),
                               onPressed: () => _downloadDocument(context),
                             ),
                           ],
@@ -398,15 +425,84 @@ class _DocumentCard extends StatelessWidget {
                       ],
                     ),
                   )
-                : InteractiveViewer(
-                    panEnabled: true,
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: AppImageWidget(
-                      imageStr: doc.fileUrl,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+                : isPdf
+                    ? Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFEF2F2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 56),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '${doc.title}.pdf',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              doc.marathiTitle,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: doc.status == 'approved' ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                doc.status == 'approved' ? 'Approved (व्हेंडर मंजूर ✓)' : 'Under Review (व्हेंडर पडताळणी चालू ⏳)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: doc.status == 'approved' ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF217346),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  icon: const Icon(Icons.download_rounded, size: 16),
+                                  label: const Text('Download / Share PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  onPressed: () => _downloadDocument(context),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : InteractiveViewer(
+                        panEnabled: true,
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: AppImageWidget(
+                          imageStr: doc.fileUrl,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
           ),
         ),
       ),
@@ -415,6 +511,7 @@ class _DocumentCard extends StatelessWidget {
 
   void _showDocumentPreview(BuildContext context) {
     final isPdf = doc.fileUrl.startsWith('data:application/pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf');
+    final isVideo = doc.type == 'video_kyc' || doc.fileUrl.startsWith('data:video') || doc.fileUrl.toLowerCase().endsWith('.mp4');
     final hasFile = doc.fileUrl.isNotEmpty;
 
     showDialog(
@@ -428,12 +525,18 @@ class _DocumentCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isPdf ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                color: isPdf
+                    ? const Color(0xFFFEF2F2)
+                    : (isVideo ? const Color(0xFFEFF6FF) : const Color(0xFFECFDF5)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                isPdf ? Icons.picture_as_pdf_rounded : _getDocumentIcon(doc.type),
-                color: isPdf ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                isPdf
+                    ? Icons.picture_as_pdf_rounded
+                    : (isVideo ? Icons.videocam_rounded : _getDocumentIcon(doc.type)),
+                color: isPdf
+                    ? const Color(0xFFDC2626)
+                    : (isVideo ? const Color(0xFF2563EB) : const Color(0xFF059669)),
                 size: 22,
               ),
             ),
@@ -454,7 +557,39 @@ class _DocumentCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Divider(height: 16),
-            if (hasFile && !isPdf)
+            if (hasFile && isVideo)
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openFullScreenView(context);
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.videocam_rounded, color: Color(0xFF2563EB), size: 50),
+                      SizedBox(height: 8),
+                      Text(
+                        'Live Video KYC Recording 🎥',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E40AF)),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'व्हिडिओ पाहण्यासाठी टॅप करा (Tap to view video)',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (hasFile && !isPdf)
               GestureDetector(
                 onTap: () {
                   Navigator.pop(ctx);
@@ -656,6 +791,8 @@ class _DocumentCard extends StatelessWidget {
         return Icons.home_outlined;
       case 'pan':
         return Icons.credit_card_outlined;
+      case 'video_kyc':
+        return Icons.videocam_rounded;
       default:
         return Icons.description_outlined;
     }
@@ -853,11 +990,15 @@ class _DocumentCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: Icon(
-                isNotUploaded ? Icons.cloud_upload_outlined : (isApproved ? Icons.change_circle_outlined : Icons.upload_file),
+                doc.type == 'video_kyc'
+                    ? Icons.videocam_rounded
+                    : (isNotUploaded ? Icons.cloud_upload_outlined : (isApproved ? Icons.change_circle_outlined : Icons.upload_file)),
                 size: 13,
               ),
               label: Text(
-                isNotUploaded ? 'अपलोड' : (isApproved ? 'बदला' : 'अपडेट'),
+                doc.type == 'video_kyc'
+                    ? (isNotUploaded ? 'व्हिडिओ केवायसी' : (isApproved ? 'पुन्हा केवायसी' : 'अपडेट केवायसी'))
+                    : (isNotUploaded ? 'अपलोड' : (isApproved ? 'बदला' : 'अपडेट')),
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
               ),
               onPressed: () => _uploadDocumentPhoto(context),
