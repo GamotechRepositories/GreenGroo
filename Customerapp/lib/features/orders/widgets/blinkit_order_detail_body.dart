@@ -47,10 +47,10 @@ class _DeliveryOtpBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
         decoration: BoxDecoration(
           color: const Color(0xFFECFDF5),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFA7F3D0)),
         ),
         child: Column(
@@ -59,32 +59,32 @@ class _DeliveryOtpBanner extends StatelessWidget {
             const Text(
               'DELIVERY OTP',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 0.8,
+                letterSpacing: 0.6,
                 color: Color(0xFF065F46),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             const Text(
               'Share this code with the delivery partner to complete your order.',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 color: Color(0xFF047857),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             SelectableText(
               otp,
               style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 8,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 4,
                 color: Color(0xFF064E3B),
                 fontFamily: 'monospace',
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 2),
             TextButton.icon(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: otp));
@@ -189,6 +189,10 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   shipmentNumber: _selectedShipment + 1,
                   statusLabel: statusLabel,
                   isDelivered: order.status == 'delivered',
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  child: _OrderStatusTracker(status: order.status),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -491,6 +495,130 @@ class _RatingBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Schema path: confirm → processing (packed) → shipping → delivered.
+/// Cancelled and return are terminal and are not marked done in green.
+int _trackerStepIndex(String status) {
+  switch (status) {
+    case 'confirm':
+    case 'pending':
+    case 'confirmed':
+      return 0;
+    case 'processing':
+      return 1;
+    case 'shipping':
+    case 'shipped':
+      return 2;
+    case 'delivered':
+      return 3;
+    default:
+      return -1;
+  }
+}
+
+class _OrderStatusTracker extends StatelessWidget {
+  const _OrderStatusTracker({required this.status});
+
+  final String status;
+
+  static const _steps = ['Confirm', 'Packed', 'Shipped', 'Delivery'];
+  static const _done = Color(0xFF16A34A);
+  static const _idle = Color(0xFFE5E5E5);
+  static const _muted = Color(0xFF999999);
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == 'cancelled') {
+      return const Text(
+        'This order was cancelled',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFDC2626),
+        ),
+      );
+    }
+    if (status == 'return') {
+      return const Text(
+        'This order was returned',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFD97706),
+        ),
+      );
+    }
+
+    final active = _trackerStepIndex(status);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var step = 0; step < _steps.length; step++)
+          Expanded(
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: step == 0
+                            ? Colors.transparent
+                            : (step <= active ? _done : _idle),
+                      ),
+                    ),
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: step <= active ? _done : Colors.white,
+                        border: Border.all(
+                          color: step <= active ? _done : _idle,
+                          width: 2,
+                        ),
+                      ),
+                      child: step <= active
+                          ? const Icon(Icons.check, size: 14, color: Colors.white)
+                          : Center(
+                              child: Text(
+                                '${step + 1}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: _muted,
+                                ),
+                              ),
+                            ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color: step == _steps.length - 1
+                            ? Colors.transparent
+                            : (step < active ? _done : _idle),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _steps[step],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: step <= active ? _done : _muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

@@ -190,28 +190,39 @@ class CartController extends Notifier<CartState> {
     }
 
     try {
-      await ref.read(apiServiceProvider).addToCartItem({
-        'productId': product.id,
-        'quantity': quantity,
-        'variantName': effectiveVariant,
-        'colorName': effectiveColor,
-      });
+      final previousItems = state.items;
       _mergeCartLineLocally(
         product,
         quantity,
         variantName: effectiveVariant,
         colorName: effectiveColor,
       );
+
+      if (!buyNow && flySourceContext != null && flySourceContext.mounted) {
+        triggerFlyToCart(
+          sourceContext: flySourceContext,
+          imageUrl: product.primaryImage,
+        );
+      }
+
+      try {
+        await ref.read(apiServiceProvider).addToCartItem({
+          'productId': product.id,
+          'quantity': quantity,
+          'variantName': effectiveVariant,
+          'colorName': effectiveColor,
+        });
+      } catch (error) {
+        state = state.copyWith(items: previousItems);
+        state = state.copyWith(errorMessage: authErrorMessage(error));
+        return AddToCartResult.failed;
+      }
+
       unawaited(loadCart(silent: true));
 
       if (!buyNow) {
         unawaited(UiSoundEffects.playCartAdd());
-        if (flySourceContext != null && flySourceContext.mounted) {
-          triggerFlyToCart(
-            sourceContext: flySourceContext,
-            imageUrl: product.primaryImage,
-          );
-        } else {
+        if (flySourceContext == null) {
           state = state.copyWith(toastImage: product.primaryImage, clearError: true);
           _toastClearTimer?.cancel();
           _toastClearTimer = Timer(const Duration(milliseconds: 2600), () {

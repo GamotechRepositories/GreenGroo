@@ -66,6 +66,7 @@ class DeliveryLocation {
         'latitude': latitude,
         'longitude': longitude,
         'city': city,
+        'state': state,
         'area': area,
         'pincode': pincode,
         'address': address,
@@ -81,6 +82,7 @@ class DeliveryLocation {
           ? double.tryParse((json['longitude'] ?? json['lng']).toString())
           : null,
       city: json['city']?.toString(),
+      state: json['state']?.toString(),
       area: json['area']?.toString(),
       pincode: json['pincode']?.toString(),
       address: json['address']?.toString(),

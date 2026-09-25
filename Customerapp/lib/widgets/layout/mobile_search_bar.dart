@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/theme.dart';
+import '../../core/theme/store_chrome.dart';
 import '../../core/utils/product_search.dart';
+import '../../features/home/home_providers.dart';
+import '../common/voice_mic_button.dart';
 
 /// Matches frontend `MobileSearchBar.jsx` — pill shape, search icon, "Go" CTA.
-class MobileSearchBar extends StatefulWidget {
+class MobileSearchBar extends ConsumerStatefulWidget {
   const MobileSearchBar({
     super.key,
     this.autoFocus = false,
@@ -20,10 +24,10 @@ class MobileSearchBar extends StatefulWidget {
   final String? initialQuery;
 
   @override
-  State<MobileSearchBar> createState() => _MobileSearchBarState();
+  ConsumerState<MobileSearchBar> createState() => _MobileSearchBarState();
 }
 
-class _MobileSearchBarState extends State<MobileSearchBar> {
+class _MobileSearchBarState extends ConsumerState<MobileSearchBar> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
   late final bool _ownsFocusNode;
@@ -63,8 +67,17 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
     widget.onSubmitted?.call();
   }
 
+  void _applyTranscript(String text, bool isFinal) {
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    if (isFinal) _submit();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hint = StoreChrome.forStore(ref.watch(selectedStoreTabProvider)).searchHint;
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -100,9 +113,9 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
                   fontSize: 14,
                   color: AppColors.textPrimary,
                 ),
-                decoration: const InputDecoration(
-                  hintText: 'Search for "Fruits", "Vegetables"...',
-                  hintStyle: TextStyle(
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 14,
                   ),
@@ -119,26 +132,7 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Material(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(999),
-              child: InkWell(
-                onTap: _submit,
-                borderRadius: BorderRadius.circular(999),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Text(
-                    'Go',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            VoiceMicButton(onTranscript: _applyTranscript),
           ],
         ),
       ),

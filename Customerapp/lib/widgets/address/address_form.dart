@@ -6,6 +6,9 @@ import '../../config/theme.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
 import '../../core/utils/address_utils.dart';
+import '../../core/utils/detect_current_location.dart';
+import '../../features/address/address_controller.dart';
+import '../../features/auth/auth_controller.dart';
 import 'location_autocomplete_field.dart';
 import 'map_location_picker_sheet.dart';
 
@@ -58,6 +61,11 @@ class _AddressFormState extends ConsumerState<AddressForm> {
         key: TextEditingController(text: initial[key] ?? ''),
     };
     _controllers['pincode']!.addListener(_onPincodeChanged);
+    final lat = double.tryParse(initial['lat'] ?? '');
+    final lng = double.tryParse(initial['lng'] ?? '');
+    if (lat != null && lng != null) {
+      _detectedLocation = {'lat': lat, 'lng': lng};
+    }
   }
 
   void _onPincodeChanged() {
@@ -118,52 +126,58 @@ class _AddressFormState extends ConsumerState<AddressForm> {
 
   Future<void> _handleDetectLocation() async {
     setState(() => _isDetecting = true);
-
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    final currentLoc = ref.read(deliveryLocationProvider);
-    final city = currentLoc?.city ?? 'Pune';
-    final state = currentLoc?.state ?? 'Maharashtra';
-    final pincode = currentLoc?.pincode ?? '411057';
-    final area = currentLoc?.area ?? 'Hinjawadi Phase 2';
-    final fullAddr = currentLoc?.address ??
-        '$area, $city, $state $pincode';
-
-    setState(() {
-      _controllers['city']!.text = city;
-      _controllers['state']!.text = state;
-      _controllers['pincode']!.text = pincode;
-      _controllers['area']!.text = area;
-      if (_controllers['landmark']!.text.isEmpty) {
-        _controllers['landmark']!.text = area;
-      }
-      if (_controllers['fullAddress']!.text.isEmpty) {
-        _controllers['fullAddress']!.text = fullAddr;
-      }
-      _detectedLocation = {
-        'lat': currentLoc?.latitude ?? 18.5912,
-        'lng': currentLoc?.longitude ?? 73.7389,
-      };
-      _isDetecting = false;
-      _validationError = null;
-    });
-
-    if (mounted) {
+    try {
+      final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
+      if (!mounted) return;
+      await ref.read(deliveryLocationProvider.notifier).setLocation(
+            detected.toDeliveryLocation(),
+          );
+      if (!mounted) return;
+      setState(() {
+        _applyDetected(detected);
+        _isDetecting = false;
+        _validationError = null;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text('Location detected successfully!'),
-            ],
-          ),
+          content: Text('Location detected: ${detected.displayLine}'),
           backgroundColor: const Color(0xFF047857),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
         ),
       );
+    } on PhoneLocationException catch (error) {
+      if (!mounted) return;
+      setState(() => _isDetecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDetecting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not detect your phone location.')),
+      );
     }
+  }
+
+  void _applyDetected(PhoneLocation detected) {
+    if (detected.city.isNotEmpty) _controllers['city']!.text = detected.city;
+    if (detected.state.isNotEmpty) _controllers['state']!.text = detected.state;
+    if (detected.pincode.isNotEmpty) {
+      _controllers['pincode']!.text = detected.pincode;
+    }
+    if (detected.area.isNotEmpty) _controllers['area']!.text = detected.area;
+    if (detected.area.isNotEmpty && _controllers['landmark']!.text.isEmpty) {
+      _controllers['landmark']!.text = detected.area;
+    }
+    if (detected.address.isNotEmpty) {
+      _controllers['fullAddress']!.text = detected.address;
+    }
+    _detectedLocation = {
+      'lat': detected.latitude,
+      'lng': detected.longitude,
+    };
   }
 
   Future<void> _handleChooseOnMap() async {
@@ -235,6 +249,10 @@ class _AddressFormState extends ConsumerState<AddressForm> {
       'city': form['city']!.trim(),
       'state': form['state']!.trim(),
       'pincode': form['pincode']!.trim(),
+      if (_detectedLocation?['lat'] != null)
+        'lat': _detectedLocation!['lat'].toString(),
+      if (_detectedLocation?['lng'] != null)
+        'lng': _detectedLocation!['lng'].toString(),
     };
 
     widget.onSubmit(submission);
@@ -245,15 +263,6 @@ class _AddressFormState extends ConsumerState<AddressForm> {
     final api = ref.read(apiServiceProvider);
     final stateValue = _controllers['state']!.text.trim();
     final cityValue = _controllers['city']!.text.trim();
-    final areaValue = _controllers['area']!.text.trim();
-
-    final locationSummaryParts = [
-      if (areaValue.isNotEmpty) areaValue,
-      if (cityValue.isNotEmpty) cityValue,
-      if (stateValue.isNotEmpty) stateValue,
-      if (_controllers['pincode']!.text.trim().isNotEmpty)
-        _controllers['pincode']!.text.trim(),
-    ];
 
     final formContent = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -346,10 +355,6 @@ class _AddressFormState extends ConsumerState<AddressForm> {
         ),
         const SizedBox(height: 12),
 
-        // Email ID
-        _field('email', 'Email ID', keyboardType: TextInputType.emailAddress),
-        const SizedBox(height: 12),
-
         // House / flat no. & Building / society
         Row(
           children: [
@@ -364,113 +369,58 @@ class _AddressFormState extends ConsumerState<AddressForm> {
         _field('fullAddress', 'Street address', maxLines: 2),
         const SizedBox(height: 12),
 
-        // Location Detected Card OR Manual Area/Landmark & State/City/Pincode
-        if (_detectedLocation != null) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF047857), size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Location Detected',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF065F46),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        locationSummaryParts.isNotEmpty
-                            ? locationSummaryParts.join(', ')
-                            : 'Detected Coordinates',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF047857)),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () => setState(() => _detectedLocation = null),
-                        child: const Text(
-                          'Enter manually instead',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF047857),
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ] else ...[
-          Row(
-            children: [
-              Expanded(child: _field('area', 'Area / locality')),
-              const SizedBox(width: 12),
-              Expanded(child: _field('landmark', 'Landmark (optional)')),
-            ],
-          ),
-          const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _field('area', 'Area / locality')),
+            const SizedBox(width: 12),
+            Expanded(child: _field('landmark', 'Landmark (optional)')),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-          Row(
-            children: [
-              Expanded(
-                child: LocationAutocompleteField(
-                  controller: _controllers['state']!,
-                  hint: 'State',
-                  fetchSuggestions: (query) => api.fetchLocationStates(q: query),
-                  onSelected: (_) => setState(_clearCityAndPincode),
-                ),
+        Row(
+          children: [
+            Expanded(
+              child: LocationAutocompleteField(
+                controller: _controllers['state']!,
+                hint: 'State',
+                fetchSuggestions: (query) => api.fetchLocationStates(q: query),
+                onSelected: (_) => setState(_clearCityAndPincode),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: LocationAutocompleteField(
-                  controller: _controllers['city']!,
-                  hint: stateValue.isEmpty ? 'Select state first' : 'City',
-                  enabled: stateValue.isNotEmpty,
-                  fetchSuggestions: (query) => api.fetchLocationCities(
-                    state: _controllers['state']!.text.trim(),
-                    q: query,
-                  ),
-                  onSelected: (_) => setState(_clearPincode),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: LocationAutocompleteField(
+                controller: _controllers['city']!,
+                hint: stateValue.isEmpty ? 'Select state first' : 'City',
+                enabled: stateValue.isNotEmpty,
+                fetchSuggestions: (query) => api.fetchLocationCities(
+                  state: _controllers['state']!.text.trim(),
+                  q: query,
                 ),
+                onSelected: (_) => setState(_clearPincode),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: LocationAutocompleteField(
-                  controller: _controllers['pincode']!,
-                  hint: cityValue.isEmpty ? 'Select city first' : 'Pincode',
-                  enabled: stateValue.isNotEmpty && cityValue.isNotEmpty,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  fetchSuggestions: (query) => api.fetchLocationPincodes(
-                    state: _controllers['state']!.text.trim(),
-                    city: _controllers['city']!.text.trim(),
-                    q: query,
-                  ),
-                  onSelected: _handlePincodeSelected,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: LocationAutocompleteField(
+                controller: _controllers['pincode']!,
+                hint: cityValue.isEmpty ? 'Select city first' : 'Pincode',
+                enabled: stateValue.isNotEmpty && cityValue.isNotEmpty,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                fetchSuggestions: (query) => api.fetchLocationPincodes(
+                  state: _controllers['state']!.text.trim(),
+                  city: _controllers['city']!.text.trim(),
+                  q: query,
                 ),
+                onSelected: _handlePincodeSelected,
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -547,4 +497,149 @@ class _AddressFormState extends ConsumerState<AddressForm> {
       },
     );
   }
+}
+
+Future<String?> showDeliveryAddressFormSheet(
+  BuildContext context, {
+  Map<String, String>? initial,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (sheetContext) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.92,
+          child: _DeliveryAddressFormSheet(initial: initial),
+        ),
+      );
+    },
+  );
+}
+
+class _DeliveryAddressFormSheet extends ConsumerStatefulWidget {
+  const _DeliveryAddressFormSheet({this.initial});
+
+  final Map<String, String>? initial;
+
+  @override
+  ConsumerState<_DeliveryAddressFormSheet> createState() =>
+      _DeliveryAddressFormSheetState();
+}
+
+class _DeliveryAddressFormSheetState extends ConsumerState<_DeliveryAddressFormSheet> {
+  bool _saving = false;
+  String _error = '';
+
+  Map<String, String> _initialValues() {
+    if (widget.initial != null) return widget.initial!;
+    final user = ref.read(authControllerProvider).user;
+    return {
+      ...addressFormDefaults,
+      'fullName': user?.name ?? '',
+      'number': _tenDigitPhone(user?.phone) ?? '',
+      'email': user?.email ?? '',
+    };
+  }
+
+  Future<void> _save(Map<String, String> form) async {
+    setState(() {
+      _saving = true;
+      _error = '';
+    });
+    final error = await ref.read(addressControllerProvider.notifier).saveAddress(
+          form,
+          makeDefault: true,
+        );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _saving = false;
+        _error = error;
+      });
+      return;
+    }
+    final addresses = ref.read(addressControllerProvider).addresses;
+    Navigator.of(context).pop(addresses.isNotEmpty ? addresses.first.id : null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Delivery Address',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              if (_error.isNotEmpty) ...[
+                Text(_error, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                const SizedBox(height: 8),
+              ],
+              AddressForm(
+                plain: true,
+                initial: _initialValues(),
+                submitting: _saving,
+                onCancel: () => Navigator.of(context).pop(),
+                onSubmit: _save,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String? _tenDigitPhone(String? raw) {
+  final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 10) return null;
+  final last = digits.substring(digits.length - 10);
+  if (RegExp(r'^[6789]\d{9}$').hasMatch(last)) return last;
+  return null;
+}
+
+Map<String, String> addressFormFromPhoneLocation(
+  PhoneLocation location, {
+  String name = '',
+  String phone = '',
+  String email = '',
+}) {
+  return {
+    'fullName': name,
+    'number': _tenDigitPhone(phone) ?? '',
+    'email': email,
+    'shopNo': '',
+    'shopName': '',
+    'fullAddress': location.address,
+    'landmark': location.area,
+    'area': location.area,
+    'city': location.city,
+    'state': location.state,
+    'pincode': location.pincode,
+    'lat': location.latitude.toString(),
+    'lng': location.longitude.toString(),
+  };
 }

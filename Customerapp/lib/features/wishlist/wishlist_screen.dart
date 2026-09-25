@@ -63,6 +63,7 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen> {
             defaults.quantity,
             variantName: defaults.variantName,
             colorName: defaults.colorName,
+            flySourceContext: context,
           );
       if (result == AddToCartResult.requiresLogin && mounted) {
         ref.read(authControllerProvider.notifier).openAuthModal();

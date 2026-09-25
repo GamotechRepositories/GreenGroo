@@ -27,6 +27,7 @@ import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
+import '../../widgets/product/cart_add_button.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -900,28 +901,7 @@ class _RecommendationProductCard extends ConsumerWidget {
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    InkWell(
-                      onTap: () => ref
-                          .read(cartControllerProvider.notifier)
-                          .addToCart(product, 1),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFFDF5),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF16A34A), width: 1.2),
-                        ),
-                        child: Text(
-                          'ADD',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF16A34A),
-                          ),
-                        ),
-                      ),
-                    ),
+                    CartAddButton(product: product),
                   ],
                 ),
                 const SizedBox(height: 6),

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/store_chrome.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/offers_badge_button.dart';
+import '../../../widgets/common/voice_mic_button.dart';
+import '../home_providers.dart';
 
-class HomeSearchBar extends StatefulWidget {
+class HomeSearchBar extends ConsumerStatefulWidget {
   final bool isLightBg;
   final String? hintText;
 
@@ -16,15 +20,26 @@ class HomeSearchBar extends StatefulWidget {
   });
 
   @override
-  State<HomeSearchBar> createState() => _HomeSearchBarState();
+  ConsumerState<HomeSearchBar> createState() => _HomeSearchBarState();
 }
 
-class _HomeSearchBarState extends State<HomeSearchBar> {
+class _HomeSearchBarState extends ConsumerState<HomeSearchBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -39,8 +54,19 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     context.push('${RoutePaths.product}?q=${Uri.encodeComponent(trimmed)}');
   }
 
+  void _applyTranscript(String text, bool isFinal) {
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    if (isFinal) _submitSearch(text);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final store = ref.watch(selectedStoreTabProvider);
+    final hint = widget.hintText ?? StoreChrome.forStore(store).searchHint;
+
     return Container(
       color: Colors.transparent,
       padding: const EdgeInsets.fromLTRB(14, 1, 14, 4),
@@ -68,7 +94,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                     ),
                   ],
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.only(left: 12, right: 4),
                 child: Row(
                   children: [
                     const Icon(
@@ -89,13 +115,20 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                           color: const Color(0xFF111827),
                         ),
                         decoration: InputDecoration(
-                          hintText: widget.hintText ?? 'Search for "Fruits", "Vegetables"...',
+                          hintText: hint,
                           hintStyle: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             fontWeight: FontWeight.w400,
                             color: const Color(0xFF64748B),
                           ),
+                          filled: false,
+                          isCollapsed: true,
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
@@ -103,13 +136,9 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                     ),
                     if (_controller.text.isNotEmpty)
                       GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _controller.clear();
-                          });
-                        },
+                        onTap: _controller.clear,
                         child: const Padding(
-                          padding: EdgeInsets.only(left: 6),
+                          padding: EdgeInsets.only(left: 4),
                           child: Icon(
                             Icons.cancel_rounded,
                             color: Color(0xFF64748B),
@@ -117,6 +146,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                           ),
                         ),
                       ),
+                    VoiceMicButton(onTranscript: _applyTranscript),
                   ],
                 ),
               ),

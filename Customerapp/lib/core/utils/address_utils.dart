@@ -85,7 +85,6 @@ Map<String, String> mapAddressToForm(Address address) {
 String? validateAddressForm(Map<String, String> form) {
   final fullName = form['fullName']?.trim() ?? '';
   final number = form['number']?.trim() ?? '';
-  final email = form['email']?.trim() ?? '';
   final shopNo = form['shopNo']?.trim() ?? '';
   final shopName = form['shopName']?.trim() ?? '';
   final fullAddress = form['fullAddress']?.trim() ?? '';
@@ -99,10 +98,6 @@ String? validateAddressForm(Map<String, String> form) {
   if (number.isEmpty) return 'Phone number is required';
   if (!RegExp(r'^[6789]\d{9}$').hasMatch(number)) {
     return 'Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9';
-  }
-  if (email.isEmpty) return 'Email is required';
-  if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-    return 'Enter a valid email address';
   }
   if (shopNo.isEmpty) return 'House / flat number is required';
   if (shopName.isEmpty) return 'Building / society name is required';

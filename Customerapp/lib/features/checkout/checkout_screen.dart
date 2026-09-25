@@ -44,13 +44,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   late final Razorpay _razorpay;
 
   String? _selectedAddressId;
-  bool _showAddressForm = false;
-  bool _showAddressPicker = false;
-  bool _savingAddress = false;
   String _paymentPlan = PaymentPlan.advance;
   String _message = '';
   int _messageLength = 0;
-  String _formError = '';
   String _orderError = '';
   bool _placingOrder = false;
   bool _orderPlaced = false;
@@ -215,51 +211,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return _attemptedOrderId;
   }
 
-  Future<void> _handleSaveAddress(Map<String, String> form) async {
-    setState(() {
-      _savingAddress = true;
-      _formError = '';
-    });
-
-    final error = await ref.read(addressControllerProvider.notifier).saveAddress(
-          form,
-          makeDefault: true,
-        );
-
-    if (!mounted) return;
-
-    if (error == null) {
-      final addresses = ref.read(addressControllerProvider).addresses;
-      final newest = addresses.isNotEmpty ? addresses.first : null;
-      setState(() {
-        _savingAddress = false;
-        _showAddressForm = false;
-        _showAddressPicker = false;
-        _selectedAddressId = newest?.id;
-      });
-    } else {
-      setState(() {
-        _savingAddress = false;
-        _formError = error;
-      });
-    }
+  Future<void> _openLocationSheet() async {
+    final id = await showSelectDeliveryLocationBottomSheet(context, ref);
+    if (!mounted || id == null || id.isEmpty) return;
+    setState(() => _selectedAddressId = id);
   }
 
-  Map<String, String> _addressInitialValues() {
-    final user = ref.read(authControllerProvider).user;
-    return {
-      'fullName': user?.name ?? '',
-      'number': user?.phone ?? '',
-      'email': user?.email ?? '',
-      'shopNo': '',
-      'shopName': '',
-      'fullAddress': '',
-      'landmark': '',
-      'area': '',
-      'city': '',
-      'state': '',
-      'pincode': '',
-    };
+  Future<void> _openAddressForm() async {
+    final id = await showDeliveryAddressFormSheet(context);
+    if (!mounted || id == null || id.isEmpty) return;
+    setState(() => _selectedAddressId = id);
   }
 
   String get _apiPaymentMode => _paymentPlan;
@@ -507,7 +468,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           : Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (addressList.isEmpty && !_showAddressForm) ...[
+                                if (addressList.isEmpty) ...[
                                   const Text(
                                     'No saved address yet. Add one to continue.',
                                     style: TextStyle(color: AppColors.textSecondary),
@@ -516,7 +477,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: FilledButton.icon(
-                                      onPressed: () => setState(() => _showAddressForm = true),
+                                      onPressed: _openAddressForm,
                                       icon: const Icon(Icons.add, size: 20),
                                       label: const Text('Add delivery address'),
                                       style: FilledButton.styleFrom(
@@ -528,61 +489,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                     ),
                                   ),
                                 ],
-                                if (selectedAddress != null &&
-                                    !_showAddressForm &&
-                                    !_showAddressPicker)
+                                if (selectedAddress != null)
                                   _SelectedAddressCard(
                                     address: selectedAddress,
                                     showChange: true,
-                                    onChange: () => setState(() => _showAddressPicker = true),
+                                    onChange: _openLocationSheet,
                                   ),
-                                if (_showAddressPicker && !_showAddressForm)
-                                  _AddressPicker(
-                                    addresses: addressList,
-                                    selectedId: _selectedAddressId,
-                                    onSelect: (id) => setState(() {
-                                      _selectedAddressId = id;
-                                      _showAddressPicker = false;
-                                    }),
-                                    onAddNew: () => setState(() {
-                                      _showAddressForm = true;
-                                      _showAddressPicker = false;
-                                    }),
-                                  ),
-                                if (_showAddressForm) ...[
-                                  AddressForm(
-                                    plain: true,
-                                    initial: _addressInitialValues(),
-                                    submitting: _savingAddress,
-                                    onCancel: () => setState(() {
-                                      _showAddressForm = false;
-                                      _formError = '';
-                                    }),
-                                    onSubmit: _handleSaveAddress,
-                                  ),
-                                  if (_formError.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _formError,
-                                      style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-                                    ),
-                                  ],
-                                ] else if (addressList.isNotEmpty &&
-                                    selectedAddress == null &&
-                                    !_showAddressPicker)
+                                if (addressList.isNotEmpty && selectedAddress == null)
                                   TextButton(
-                                    onPressed: () => setState(() => _showAddressForm = true),
+                                    onPressed: _openAddressForm,
                                     child: const Text('+ Add Address'),
-                                  ),
-                                if (selectedAddress != null &&
-                                    !_showAddressForm &&
-                                    !_showAddressPicker)
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton(
-                                      onPressed: () => setState(() => _showAddressForm = true),
-                                      child: const Text('+ Add new address'),
-                                    ),
                                   ),
                               ],
                             ),
@@ -896,6 +812,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               hasAddress: _selectedAddressId != null,
               selectedAddress: selectedAddress,
               placingOrder: _placingOrder,
+              onChangeAddress: _openLocationSheet,
               onSelectPaymentMode: () {
                 final query = <String, String>{
                   if (_selectedAddressId != null) 'addressId': _selectedAddressId!,
@@ -1055,6 +972,7 @@ class _CheckoutPayBar extends ConsumerWidget {
     required this.hasAddress,
     required this.selectedAddress,
     required this.placingOrder,
+    required this.onChangeAddress,
     required this.onSelectPaymentMode,
   });
 
@@ -1066,6 +984,7 @@ class _CheckoutPayBar extends ConsumerWidget {
   final bool hasAddress;
   final Address? selectedAddress;
   final bool placingOrder;
+  final VoidCallback onChangeAddress;
   final VoidCallback onSelectPaymentMode;
 
   @override
@@ -1171,7 +1090,7 @@ class _CheckoutPayBar extends ConsumerWidget {
               ),
               const SizedBox(width: 6),
               TextButton(
-                onPressed: () => showSelectDeliveryLocationBottomSheet(context, ref),
+                onPressed: onChangeAddress,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   minimumSize: Size.zero,
@@ -1396,84 +1315,6 @@ class _SelectedAddressCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text('+91 ${address.number}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddressPicker extends StatelessWidget {
-  const _AddressPicker({
-    required this.addresses,
-    required this.selectedId,
-    required this.onSelect,
-    required this.onAddNew,
-  });
-
-  final List<Address> addresses;
-  final String? selectedId;
-  final ValueChanged<String> onSelect;
-  final VoidCallback onAddNew;
-
-  @override
-  Widget build(BuildContext context) {
-    return RadioGroup<String>(
-      groupValue: selectedId,
-      onChanged: (value) {
-        if (value != null) onSelect(value);
-      },
-      child: Column(
-        children: [
-          ...addresses.map(
-            (addr) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => onSelect(addr.id),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: selectedId == addr.id ? AppColors.primary : AppColors.borderLight,
-                    ),
-                    color: selectedId == addr.id
-                        ? AppColors.primary.withValues(alpha: 0.05)
-                        : Colors.white,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Radio<String>(
-                        value: addr.id,
-                        activeColor: AppColors.primary,
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              getAddressFullName(addr),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              formatAddressLine(addr),
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(onPressed: onAddNew, child: const Text('+ Add new address')),
-          ),
         ],
       ),
     );

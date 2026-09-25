@@ -41,10 +41,26 @@ void triggerFlyToCart({
   required BuildContext sourceContext,
   required String? imageUrl,
 }) {
-  triggerFlyProduct(
-    sourceContext: sourceContext,
-    imageUrl: imageUrl,
-    targetBox: NavIconLocator.cartIconBox,
+  if (imageUrl == null || imageUrl.isEmpty || _flyProductTrigger == null) {
+    return;
+  }
+  final sourceBox = sourceContext.findRenderObject() as RenderBox?;
+  if (sourceBox == null || !sourceBox.attached) return;
+
+  final start = sourceBox.localToGlobal(sourceBox.size.center(Offset.zero));
+  final target = NavIconLocator.cartIconBox;
+  final Offset end;
+  if (target != null && target.attached && target.hasSize) {
+    end = target.localToGlobal(target.size.center(Offset.zero));
+  } else {
+    final size = MediaQuery.sizeOf(sourceContext);
+    final bottom = MediaQuery.paddingOf(sourceContext).bottom;
+    final tab = size.width / 5;
+    end = Offset(tab * 3 + tab / 2, size.height - bottom - 28);
+  }
+
+  _flyProductTrigger!(
+    FlyProductRequest(start: start, end: end, imageUrl: imageUrl),
   );
 }
 

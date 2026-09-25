@@ -7,9 +7,10 @@ import 'package:go_router/go_router.dart';
 
 import 'package:customer_app/core/bootstrap/app_bootstrap.dart';
 import 'package:customer_app/core/scroll/tab_scroll_registry.dart';
+import 'package:customer_app/core/theme/store_chrome.dart';
 import 'package:customer_app/features/auth/auth_controller.dart';
 import 'package:customer_app/features/cart/cart_controller.dart';
-import 'package:customer_app/routes/route_paths.dart';
+import 'package:customer_app/features/home/home_providers.dart';
 import 'app_back_binding.dart';
 import 'common/offline_banner.dart';
 import 'layout/flipkart_bottom_nav.dart';
@@ -34,21 +35,22 @@ class _AppShellState extends ConsumerState<AppShell> {
       assetIcon: 'assets/images/homeIcon.png',
     ),
     FlipkartNavItem(
+      label: 'Order Again',
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long_rounded,
+      assetIcon: 'assets/images/orderAgainIcon.png',
+    ),
+    FlipkartNavItem(
       label: 'Categories',
       icon: Icons.widgets_outlined,
       activeIcon: Icons.widgets_rounded,
       assetIcon: 'assets/images/categoriesIcon (1).png',
     ),
     FlipkartNavItem(
-      label: 'Orders',
-      icon: Icons.receipt_long_outlined,
-      activeIcon: Icons.receipt_long_rounded,
-      assetIcon: 'assets/images/orderAgainIcon.png',
-    ),
-    FlipkartNavItem(
-      label: 'Cart',
-      icon: Icons.shopping_cart_outlined,
-      activeIcon: Icons.shopping_cart_rounded,
+      label: 'Shop',
+      icon: Icons.shopping_bag_outlined,
+      activeIcon: Icons.shopping_bag_rounded,
+      assetIcon: 'assets/images/cart.png',
       showBadge: true,
     ),
     FlipkartNavItem(
@@ -59,7 +61,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     ),
   ];
 
-  static const _authRequiredIndices = {2};
+  /// Visual tab order maps onto the existing shell branches.
+  /// Shop keeps the cart screen so checkout stays on the bar.
+  static const _shellForVisual = [0, 2, 1, 3, 4];
 
   @override
   void initState() {
@@ -75,23 +79,45 @@ class _AppShellState extends ConsumerState<AppShell> {
     unawaited(bootstrapUserSession(ref));
   }
 
-  Future<void> _onTap(int index) async {
-    final auth = ref.read(authControllerProvider);
+  int _visualIndex(int shellIndex) {
+    switch (shellIndex) {
+      case 0:
+        return 0;
+      case 2:
+        return 1;
+      case 1:
+        return 2;
+      case 3:
+        return 3;
+      case 4:
+        return 4;
+      default:
+        return 0;
+    }
+  }
 
-    if (_authRequiredIndices.contains(index) && !auth.isLoggedIn) {
+  Future<void> _onTap(int visualIndex) async {
+    final auth = ref.read(authControllerProvider);
+    final needsAuth = visualIndex == 1 || visualIndex == 4;
+
+    if (needsAuth && !auth.isLoggedIn) {
       ref.read(authControllerProvider.notifier).openAuthModal();
       return;
     }
 
-    final isCurrentTab = index == widget.navigationShell.currentIndex;
+    final shellIndex = _shellForVisual[visualIndex];
+    final currentVisual = _visualIndex(widget.navigationShell.currentIndex);
+    final isCurrentTab = visualIndex == currentVisual;
 
     if (isCurrentTab) {
-      await ref.read(tabScrollRegistryProvider).scrollToTop(index);
-      widget.navigationShell.goBranch(index, initialLocation: true);
-      return;
+      await ref.read(tabScrollRegistryProvider).scrollToTop(shellIndex);
     }
+    if (!mounted) return;
 
-    widget.navigationShell.goBranch(index, initialLocation: false);
+    widget.navigationShell.goBranch(
+      shellIndex,
+      initialLocation: isCurrentTab,
+    );
   }
 
   @override
@@ -107,10 +133,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       }),
     );
 
-    final currentRoute = GoRouterState.of(context).uri.path;
     final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final isProductRoute = currentRoute == RoutePaths.product;
-    final hideBottomNav = isKeyboardOpen || isProductRoute;
+    final hideBottomNav = isKeyboardOpen;
+    final visualIndex = _visualIndex(widget.navigationShell.currentIndex);
+    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
 
     return PopScope(
       canPop: false,
@@ -147,10 +173,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                     right: 0,
                     bottom: 0,
                     child: FlipkartBottomNav(
-                      currentIndex: widget.navigationShell.currentIndex,
+                      currentIndex: visualIndex,
                       items: _tabs,
                       cartBadgeCount: cartCount,
                       accountInitial: accountInitial,
+                      activeColor: chrome.accent,
+                      activeBackground: chrome.activeNavBg,
                       onTap: _onTap,
                     ),
                   ),

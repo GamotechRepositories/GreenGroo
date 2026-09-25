@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
+import '../../core/utils/detect_current_location.dart';
 import '../../features/address/address_controller.dart';
+import '../../features/auth/auth_controller.dart';
 import '../../models/address.dart';
-import '../../routes/route_paths.dart';
+import 'address_form.dart';
 
-void showSelectDeliveryLocationBottomSheet(BuildContext context, WidgetRef ref) {
+Future<String?> showSelectDeliveryLocationBottomSheet(BuildContext context, WidgetRef ref) {
   ref.read(addressControllerProvider.notifier).loadAddresses();
 
-  showModalBottomSheet<void>(
+  return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -35,6 +36,15 @@ class _SelectDeliveryLocationSheetContentState
   bool _isDetectingLocation = false;
   String _searchQuery = '';
   List<String> _searchResults = [];
+  PhoneLocation? _detected;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _detectLiveLocation(closeAfterSave: false);
+    });
+  }
 
   @override
   void dispose() {
@@ -42,60 +52,113 @@ class _SelectDeliveryLocationSheetContentState
     super.dispose();
   }
 
-  Future<void> _handleDetectLiveLocation() async {
+  Future<void> _detectLiveLocation({required bool closeAfterSave}) async {
     setState(() => _isDetectingLocation = true);
+    try {
+      final detected = await detectPhoneLocation(ref.read(apiServiceProvider));
+      if (!mounted) return;
+      await ref.read(deliveryLocationProvider.notifier).setLocation(
+            detected.toDeliveryLocation(),
+          );
+      ref.invalidate(nearestStoreProvider);
+      if (!mounted) return;
+      setState(() {
+        _detected = detected;
+        _isDetectingLocation = false;
+      });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (!closeAfterSave) return;
 
-    final liveLoc = const DeliveryLocation(
-      latitude: 18.5912,
-      longitude: 73.7389,
-      state: 'Maharashtra',
-      city: 'Pune',
-      area: 'Hinjawadi Phase 2',
-      pincode: '411057',
-      address:
-          'Geras Imperium Rise Plaza, Rajiv Gandhi Infotech Park, Hinjawadi Phase 2, Pune, Maharashtra 411057',
-      label: 'Hinjawadi Phase 2, Pune',
-    );
+      final addressId = await _saveDetectedAddress(detected);
+      if (!mounted) return;
+      if (addressId != null) {
+        Navigator.of(context).pop(addressId);
+        return;
+      }
 
-    await ref.read(deliveryLocationProvider.notifier).setLocation(liveLoc);
-    ref.invalidate(nearestStoreProvider);
-
-    if (mounted) {
-      setState(() => _isDetectingLocation = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Live location detected: Hinjawadi Phase 2, Pune',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF047857),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
+      final user = ref.read(authControllerProvider).user;
+      final savedId = await showDeliveryAddressFormSheet(
+        context,
+        initial: addressFormFromPhoneLocation(
+          detected,
+          name: user?.name ?? '',
+          phone: user?.phone ?? '',
+          email: user?.email ?? '',
         ),
       );
-      Navigator.of(context).pop();
+      if (!mounted) return;
+      if (savedId != null) Navigator.of(context).pop(savedId);
+    } on PhoneLocationException catch (error) {
+      if (!mounted) return;
+      setState(() => _isDetectingLocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDetectingLocation = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not detect your phone location.')),
+      );
     }
   }
 
-  Future<void> _selectAddress(DeliveryLocation loc) async {
+  Future<String?> _saveDetectedAddress(PhoneLocation location) async {
+    final user = ref.read(authControllerProvider).user;
+    final phone = _tenDigitPhone(user?.phone);
+    final pin = location.pincode.replaceAll(RegExp(r'\D'), '');
+    if (phone == null || pin.length != 6 || location.city.isEmpty || location.state.isEmpty) {
+      return null;
+    }
+
+    final existing = ref.read(addressControllerProvider).addresses;
+    for (final addr in existing) {
+      final lat = addr.location?['lat'];
+      final lng = addr.location?['lng'];
+      if (lat is num && lng is num) {
+        if ((lat - location.latitude).abs() < 0.0008 &&
+            (lng - location.longitude).abs() < 0.0008) {
+          return addr.id;
+        }
+      }
+    }
+
+    final error = await ref.read(addressControllerProvider.notifier).saveAddress({
+      'fullName': (user?.name.trim().isNotEmpty ?? false) ? user!.name.trim() : 'Current location',
+      'number': phone,
+      'email': user?.email ?? '',
+      'shopNo': location.area.isNotEmpty ? location.area : 'Current',
+      'shopName': 'Current location',
+      'fullAddress': location.address.isNotEmpty ? location.address : location.displayLine,
+      'landmark': location.area.isNotEmpty ? location.area : location.label,
+      'area': location.area,
+      'city': location.city,
+      'state': location.state,
+      'pincode': pin,
+      'lat': location.latitude.toString(),
+      'lng': location.longitude.toString(),
+    });
+    if (error != null) return null;
+    final addresses = ref.read(addressControllerProvider).addresses;
+    return addresses.isNotEmpty ? addresses.first.id : null;
+  }
+
+  String? _tenDigitPhone(String? raw) {
+    final digits = (raw ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 10) return null;
+    final last = digits.substring(digits.length - 10);
+    if (RegExp(r'^[6789]\d{9}$').hasMatch(last)) return last;
+    return null;
+  }
+
+  Future<void> _selectAddress(DeliveryLocation loc, {String? addressId}) async {
     await ref.read(deliveryLocationProvider.notifier).setLocation(loc);
     ref.invalidate(nearestStoreProvider);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Delivery location updated to ${loc.area ?? loc.city}',
+            'Delivery location updated to ${loc.area ?? loc.city ?? 'current location'}',
             style: GoogleFonts.plusJakartaSans(fontSize: 13),
           ),
           backgroundColor: const Color(0xFF047857),
@@ -104,7 +167,7 @@ class _SelectDeliveryLocationSheetContentState
           duration: const Duration(seconds: 2),
         ),
       );
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(addressId);
     }
   }
 
@@ -299,7 +362,9 @@ class _SelectDeliveryLocationSheetContentState
                         children: [
                           // 1. Use Current Location
                           InkWell(
-                            onTap: _isDetectingLocation ? null : _handleDetectLiveLocation,
+                            onTap: _isDetectingLocation
+                                ? null
+                                : () => _detectLiveLocation(closeAfterSave: true),
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -333,9 +398,10 @@ class _SelectDeliveryLocationSheetContentState
                                         const SizedBox(height: 2),
                                         Text(
                                           _isDetectingLocation
-                                              ? 'Detecting live location...'
-                                              : (currentLocation?.displayAddress ??
-                                                  'Geras Imperium Rise Plaza, Rajiv Gandhi Infotech Park, Hinjawadi Phase 2, Pune, Maharashtra'),
+                                              ? 'Detecting your phone location...'
+                                              : (_detected?.displayLine ??
+                                                  currentLocation?.displayAddress ??
+                                                  'Tap to detect and save your current location'),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: GoogleFonts.plusJakartaSans(
@@ -371,9 +437,22 @@ class _SelectDeliveryLocationSheetContentState
 
                           // 2. Add New Address
                           InkWell(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              context.push(RoutePaths.location);
+                            onTap: () async {
+                              final user = ref.read(authControllerProvider).user;
+                              final detected = _detected;
+                              final savedId = await showDeliveryAddressFormSheet(
+                                context,
+                                initial: detected == null
+                                    ? null
+                                    : addressFormFromPhoneLocation(
+                                        detected,
+                                        name: user?.name ?? '',
+                                        phone: user?.phone ?? '',
+                                        email: user?.email ?? '',
+                                      ),
+                              );
+                              if (!context.mounted) return;
+                              if (savedId != null) Navigator.of(context).pop(savedId);
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -544,77 +623,33 @@ class _SelectDeliveryLocationSheetContentState
                             isCurrent: currentLocation?.pincode == addr.pincode || addr.isDefault,
                             onSelect: () => _selectAddress(
                               DeliveryLocation(
+                                latitude: addr.location?['lat'] is num
+                                    ? (addr.location!['lat'] as num).toDouble()
+                                    : null,
+                                longitude: addr.location?['lng'] is num
+                                    ? (addr.location!['lng'] as num).toDouble()
+                                    : null,
                                 pincode: addr.pincode,
                                 city: addr.city,
                                 state: addr.state,
-                                area: addr.fullAddress,
+                                area: addr.area.isNotEmpty ? addr.area : addr.fullAddress,
                                 address: '${addr.shopNo} ${addr.shopName}, ${addr.fullAddress}, ${addr.city}, ${addr.state} - ${addr.pincode}',
                                 label: '${addr.shopName.isNotEmpty ? addr.shopName : addr.fullAddress}, ${addr.city}',
                               ),
+                              addressId: addr.id,
                             ),
                           ))
-                    else ...[
-                      // Mock/Default Saved Address Card 1: Work
-                      _SavedAddressCardItem(
-                        address: const Address(
-                          id: 'mock_work',
-                          fullName: 'Work',
-                          number: '9579636287',
-                          email: '',
-                          shopNo: '618',
-                          shopName: 'Office number 618 floor 6 gerra imperium hinjewadi phase 2',
-                          fullAddress: "Gera's Imperium Rise, Hinjawadi Phase 2 Road, Hinjawadi Phase 2",
-                          landmark: '',
-                          city: 'Pune',
-                          state: 'Maharashtra',
-                          pincode: '411057',
-                          isDefault: true,
-                        ),
-                        isCurrent: true,
-                        onSelect: () => _selectAddress(
-                          const DeliveryLocation(
-                            pincode: '411057',
-                            city: 'Pune',
-                            state: 'Maharashtra',
-                            area: 'Hinjawadi Phase 2',
-                            address:
-                                "Office number 618 floor 6 gerra imperium hinjewadi phase 2, Gera's Imperium Rise, Hinjawadi Phase 2 Road, Pune - 411057",
-                            label: 'Work - Office number 618 floor 6',
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'No saved addresses yet. Use your current location or add a new address.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            color: const Color(0xFF64748B),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-
-                      // Mock/Default Saved Address Card 2: Other
-                      _SavedAddressCardItem(
-                        address: const Address(
-                          id: 'mock_other',
-                          fullName: 'Other',
-                          number: '9579636287',
-                          email: '',
-                          shopNo: '103',
-                          shopName: 'Room no 103 gate no 3 balewadi stadium mahlunge road',
-                          fullAddress: 'National Games Park, Balewadi',
-                          landmark: '',
-                          city: 'Pune',
-                          state: 'Maharashtra',
-                          pincode: '411045',
-                        ),
-                        distanceText: '5.53 km',
-                        isCurrent: false,
-                        onSelect: () => _selectAddress(
-                          const DeliveryLocation(
-                            pincode: '411045',
-                            city: 'Pune',
-                            state: 'Maharashtra',
-                            area: 'Balewadi',
-                            address:
-                                'Room no 103 gate no 3 balewadi stadium mahlunge road, National Games Park, Balewadi, Pune - 411045',
-                            label: 'Other - Balewadi Stadium',
-                          ),
-                        ),
-                      ),
-                    ],
 
                     const SizedBox(height: 24),
                   ],

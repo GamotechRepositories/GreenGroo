@@ -7,7 +7,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
-import '../../cart/cart_controller.dart';
+import '../../../widgets/product/cart_add_button.dart';
 import '../home_providers.dart';
 
 class HomeAllCategoryProducts extends ConsumerWidget {
@@ -178,7 +178,6 @@ class _Image2ProductTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cartQty = ref.watch(cartProductQuantityProvider(product.id));
     final sellingPrice = product.effectivePrice;
     final originalPrice = product.price;
 
@@ -338,52 +337,7 @@ class _Image2ProductTile extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  if (cartQty == 0)
-                    InkWell(
-                      onTap: () {
-                        ref
-                            .read(cartControllerProvider.notifier)
-                            .addToCart(product, 1);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF16A34A)),
-                        ),
-                        child: Text(
-                          'ADD',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF16A34A),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF16A34A),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '$cartQty in cart',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  CartAddButton(product: product),
                 ],
               ),
             ],

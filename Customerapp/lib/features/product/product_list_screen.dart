@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
+import '../../core/theme/store_chrome.dart';
 import '../../core/utils/product_pricing.dart';
 import '../../core/utils/product_search.dart';
 import '../../core/utils/product_utils.dart';
@@ -294,11 +295,7 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
         maxShrink > 0 ? (shrinkOffset / maxShrink).clamp(0.0, 1.0) : 1.0;
     final deliveryBarHeight = (68.0 * (1.0 - progress)).clamp(0.0, 68.0);
 
-    final headerBgColor = currentStore == 'festive'
-        ? const Color(0xFFFDE8CD)
-        : currentStore == 'mall'
-            ? const Color(0xFFDCE9FF)
-            : const Color(0xFFB0DAC6);
+    final headerBgColor = StoreChrome.forStore(currentStore).header;
 
     return SizedBox(
       height: currentExtent,
@@ -612,6 +609,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
             defaults.quantity,
             variantName: defaults.variantName,
             colorName: defaults.colorName,
+            flySourceContext: context,
           );
       if (result == AddToCartResult.requiresLogin && mounted) {
         ref.read(authControllerProvider.notifier).openAuthModal();

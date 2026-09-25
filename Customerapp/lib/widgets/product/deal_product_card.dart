@@ -620,6 +620,7 @@ class _VariantPickerSheet extends ConsumerWidget {
                                         minQty,
                                         variantName: variantName,
                                         colorName: colorName,
+                                        flySourceContext: context,
                                       );
                                     }
                                   : null,

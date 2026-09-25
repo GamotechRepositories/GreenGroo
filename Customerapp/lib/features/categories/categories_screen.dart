@@ -7,6 +7,7 @@ import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
+import '../../core/theme/store_chrome.dart';
 import '../../models/category.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
@@ -14,6 +15,7 @@ import '../../widgets/category/category_grid_tile.dart';
 import '../../widgets/category/triangular_category_card.dart';
 import '../../widgets/common/app_loading.dart';
 import '../../widgets/common/offers_badge_button.dart';
+import '../../widgets/common/voice_mic_button.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../home/home_providers.dart';
 import '../home/widgets/home_header_category_strip.dart';
@@ -154,6 +156,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         ? _instantCategories
         : allCategories;
 
+    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
+
     return CustomScrollView(
       controller: _scrollController,
       physics: AppScrollConfig.listPhysics,
@@ -168,6 +172,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             storeName: storeName,
             searchController: _searchController,
             onSubmitted: _submitSearch,
+            headerColor: chrome.header,
+            locationColor: chrome.locationColor,
+            searchHint: chrome.searchHint,
           ),
         ),
 
@@ -309,6 +316,9 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   final String? storeName;
   final TextEditingController searchController;
   final ValueChanged<String> onSubmitted;
+  final Color headerColor;
+  final Color locationColor;
+  final String searchHint;
 
   _StickyCategoryHeaderDelegate({
     required this.topInset,
@@ -316,6 +326,9 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.storeName,
     required this.searchController,
     required this.onSubmitted,
+    required this.headerColor,
+    required this.locationColor,
+    required this.searchHint,
   });
 
   @override
@@ -335,9 +348,9 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Container(
       width: double.infinity,
       height: currentHeight,
-      decoration: const BoxDecoration(
-        color: Color(0xFFB0DAC6),
-        border: Border(
+      decoration: BoxDecoration(
+        color: headerColor,
+        border: const Border(
           bottom: BorderSide(
             color: Color(0xFFCBD5E1),
             width: 1.0,
@@ -383,10 +396,10 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                             padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.location_on_rounded,
                                   size: 16,
-                                  color: Color(0xFF047857),
+                                  color: locationColor,
                                 ),
                                 const SizedBox(width: 4),
                                 Flexible(
@@ -401,10 +414,10 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                                     ),
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   size: 18,
-                                  color: Color(0xFF047857),
+                                  color: locationColor,
                                 ),
                                 if (storeName?.isNotEmpty == true) ...[
                                   const SizedBox(width: 4),
@@ -416,7 +429,7 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF047857),
+                                        color: locationColor,
                                       ),
                                     ),
                                   ),
@@ -451,7 +464,7 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                             ),
                           ],
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        padding: const EdgeInsets.only(left: 12, right: 4),
                         child: Row(
                           children: [
                             const Icon(
@@ -471,17 +484,35 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
                                   color: const Color(0xFF111827),
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Search for "Fruits", "Vegetables"...',
+                                  hintText: searchHint,
                                   hintStyle: GoogleFonts.plusJakartaSans(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w400,
                                     color: const Color(0xFF94A3B8),
                                   ),
+                                  filled: false,
+                                  isCollapsed: true,
                                   border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  errorBorder: InputBorder.none,
+                                  focusedErrorBorder: InputBorder.none,
                                   isDense: true,
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
+                            ),
+                            VoiceMicButton(
+                              onTranscript: (text, isFinal) {
+                                searchController.value = TextEditingValue(
+                                  text: text,
+                                  selection: TextSelection.collapsed(
+                                    offset: text.length,
+                                  ),
+                                );
+                                if (isFinal) onSubmitted(text);
+                              },
                             ),
                           ],
                         ),
@@ -503,6 +534,9 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _StickyCategoryHeaderDelegate oldDelegate) {
     return oldDelegate.topInset != topInset ||
         oldDelegate.addressText != addressText ||
-        oldDelegate.storeName != storeName;
+        oldDelegate.storeName != storeName ||
+        oldDelegate.headerColor != headerColor ||
+        oldDelegate.locationColor != locationColor ||
+        oldDelegate.searchHint != searchHint;
   }
 }

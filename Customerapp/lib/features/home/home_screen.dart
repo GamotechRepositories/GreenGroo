@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/refresh/app_refresh.dart';
+import '../../core/theme/store_chrome.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
 import '../../core/scroll/vertical_scroll_pause_scope.dart';
@@ -146,13 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
 
-              // 4. Offer Banner / Discount Pill (Only for Preorder store)
-              if (currentStore == 'main')
-                const SliverToBoxAdapter(
-                  child: ZeptoHeroOfferCardsSection(),
-                ),
-
-              // 5. Department Category Pills Section
+              // 4. Department Category Pills Section
               const SliverToBoxAdapter(child: CategoryPillsSection()),
 
               // 6. Category-wise Products Grid
@@ -244,11 +239,7 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
         maxShrink > 0 ? (shrinkOffset / maxShrink).clamp(0.0, 1.0) : 1.0;
     final deliveryBarHeight = (68.0 * (1.0 - progress)).clamp(0.0, 68.0);
 
-    final headerBgColor = currentStore == 'festive'
-        ? const Color(0xFFFDE8CD)
-        : currentStore == 'mall'
-            ? const Color(0xFFDCE9FF)
-            : const Color(0xFFB0DAC6);
+    final headerBgColor = StoreChrome.forStore(currentStore).header;
 
     return SizedBox(
       height: currentExtent,

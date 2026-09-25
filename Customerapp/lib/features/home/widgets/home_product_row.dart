@@ -51,7 +51,11 @@ class HomeProductRow extends ConsumerWidget {
     }
   }
 
-  Future<void> _handleIncrease(WidgetRef ref, Product product) async {
+  Future<void> _handleIncrease(
+    WidgetRef ref,
+    Product product,
+    BuildContext context,
+  ) async {
     if (product.id.length < 10) return;
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLine(cartItems, product);
@@ -62,6 +66,7 @@ class HomeProductRow extends ConsumerWidget {
             defaults.quantity,
             variantName: defaults.variantName,
             colorName: defaults.colorName,
+            flySourceContext: context,
           );
       if (result == AddToCartResult.requiresLogin) {
         ref.read(authControllerProvider.notifier).openAuthModal();
@@ -149,7 +154,7 @@ class HomeProductRow extends ConsumerWidget {
                       return _HomeDealProductCard(
                         product: product,
                         onAdd: (ctx) => _handleAdd(ref, product, ctx),
-                        onIncrease: () => _handleIncrease(ref, product),
+                        onIncrease: () => _handleIncrease(ref, product, context),
                         onDecrease: () => _handleDecrease(ref, product),
                       );
                     },

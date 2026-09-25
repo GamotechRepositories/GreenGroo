@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/location_provider.dart';
+import '../../../core/theme/store_chrome.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/address/select_delivery_location_sheet.dart';
 
@@ -24,12 +25,7 @@ class HomeDeliveryBar extends ConsumerWidget {
         : 'Select location to see nearby stock';
 
     final storeName = nearestAsync.value?.store?.storeName;
-
-    final departmentBoxBgColor = currentStore == 'festive'
-        ? const Color(0xFF7C2D12)
-        : currentStore == 'mall'
-            ? const Color(0xFF1E40AF)
-            : const Color(0xFF0F291E);
+    final chrome = StoreChrome.forStore(currentStore);
 
     return Container(
       color: Colors.transparent,
@@ -37,215 +33,40 @@ class HomeDeliveryBar extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Top Row: 3 Department Store Cards (PREORDER, READY TO COOK, INSTANT ORDER)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: SizedBox(
-              height: 34,
+              height: 32,
               child: Row(
                 children: [
-                  // Card 1: PREORDER
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 3),
-                      child: InkWell(
-                        onTap: () {
-                          ref
-                              .read(selectedStoreTabProvider.notifier)
-                              .setStore('main');
-                          ref
-                              .read(selectedCategoryHeaderTabProvider.notifier)
-                              .setCategory('All');
-                          context.go(RoutePaths.home);
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: departmentBoxBgColor,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: currentStore == 'main'
-                                  ? Colors.white
-                                  : Colors.white24,
-                              width: currentStore == 'main' ? 2 : 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 2, vertical: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.calendar_today_rounded,
-                                size: 11,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 2),
-                              Flexible(
-                                child: Text(
-                                  'PREORDER',
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 9.0,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: 0.1,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  _DepartmentPill(
+                    label: 'PreOrder',
+                    icon: Icons.calendar_today_rounded,
+                    selected: currentStore == 'main',
+                    chrome: _pillChrome(currentStore),
+                    onTap: () => _selectStore(context, ref, 'main'),
                   ),
-
-                  // Card 2: READY TO COOK
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: InkWell(
-                        onTap: () {
-                          ref
-                              .read(selectedStoreTabProvider.notifier)
-                              .setStore('festive');
-                          ref
-                              .read(selectedCategoryHeaderTabProvider.notifier)
-                              .setCategory('All');
-                          context.go(RoutePaths.home);
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: departmentBoxBgColor,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: currentStore == 'festive'
-                                  ? Colors.white
-                                  : Colors.white24,
-                              width: currentStore == 'festive' ? 2 : 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 2, vertical: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.restaurant_rounded,
-                                size: 11,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 2),
-                              Flexible(
-                                child: Text(
-                                  'READY TO COOK',
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 9.0,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: 0.1,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 6),
+                  _DepartmentPill(
+                    label: 'Ready2Cook',
+                    icon: Icons.restaurant_rounded,
+                    selected: currentStore == 'festive',
+                    chrome: _pillChrome(currentStore),
+                    onTap: () => _selectStore(context, ref, 'festive'),
                   ),
-
-                  // Card 3: INSTANT ORDER
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 3),
-                      child: InkWell(
-                        onTap: () {
-                          ref
-                              .read(selectedStoreTabProvider.notifier)
-                              .setStore('mall');
-                          ref
-                              .read(selectedCategoryHeaderTabProvider.notifier)
-                              .setCategory('All');
-                          context.go(RoutePaths.home);
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: departmentBoxBgColor,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: currentStore == 'mall'
-                                  ? Colors.white
-                                  : Colors.white24,
-                              width: currentStore == 'mall' ? 2 : 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 2, vertical: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.bolt_rounded,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 2),
-                              Flexible(
-                                child: Text(
-                                  'INSTANT ORDER',
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 9.0,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: 0.1,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 6),
+                  _DepartmentPill(
+                    label: 'InstantOrder',
+                    icon: Icons.bolt_rounded,
+                    selected: currentStore == 'mall',
+                    chrome: _pillChrome(currentStore),
+                    onTap: () => _selectStore(context, ref, 'mall'),
                   ),
                 ],
               ),
             ),
           ),
-
           const SizedBox(height: 4),
-
-          // 2. Below Department Cards: Full-width Location selector
           InkWell(
             onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
             borderRadius: BorderRadius.circular(8),
@@ -253,10 +74,10 @@ class HomeDeliveryBar extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.location_on_rounded,
                     size: 16,
-                    color: Color(0xFF047857),
+                    color: chrome.locationColor,
                   ),
                   const SizedBox(width: 4),
                   Flexible(
@@ -271,10 +92,10 @@ class HomeDeliveryBar extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     Icons.keyboard_arrow_down_rounded,
                     size: 18,
-                    color: Color(0xFF475569),
+                    color: chrome.locationColor,
                   ),
                   if (storeName != null && storeName.isNotEmpty) ...[
                     const SizedBox(width: 4),
@@ -286,7 +107,7 @@ class HomeDeliveryBar extends ConsumerWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B),
+                          color: chrome.locationColor,
                         ),
                       ),
                     ),
@@ -296,6 +117,132 @@ class HomeDeliveryBar extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static _PillChrome _pillChrome(String store) {
+    switch (store) {
+      case 'festive':
+        return const _PillChrome(
+          idleBg: Color(0xFFFDE68A),
+          idleText: Color(0xFF92400E),
+          activeBg: Color(0xFFFACC15),
+          activeText: Color(0xFF422006),
+          radius: 999,
+          showIcon: false,
+        );
+      case 'mall':
+        return const _PillChrome(
+          idleBg: Color(0xFF93C5FD),
+          idleText: Color(0xFF1E3A8A),
+          activeBg: Color(0xFF3B82F6),
+          activeText: Colors.white,
+          radius: 999,
+          showIcon: false,
+        );
+      default:
+        return const _PillChrome(
+          idleBg: Color(0xFF0F291E),
+          idleText: Colors.white,
+          activeBg: Color(0xFF0F291E),
+          activeText: Colors.white,
+          radius: 8,
+          showIcon: true,
+          activeBorder: Colors.white,
+        );
+    }
+  }
+
+  void _selectStore(BuildContext context, WidgetRef ref, String store) {
+    ref.read(selectedStoreTabProvider.notifier).setStore(store);
+    ref.read(selectedCategoryHeaderTabProvider.notifier).setCategory('All');
+    context.go(RoutePaths.home);
+  }
+}
+
+class _PillChrome {
+  const _PillChrome({
+    required this.idleBg,
+    required this.idleText,
+    required this.activeBg,
+    required this.activeText,
+    required this.radius,
+    required this.showIcon,
+    this.activeBorder = Colors.white,
+  });
+
+  final Color idleBg;
+  final Color idleText;
+  final Color activeBg;
+  final Color activeText;
+  final double radius;
+  final bool showIcon;
+  final Color activeBorder;
+}
+
+class _DepartmentPill extends StatelessWidget {
+  const _DepartmentPill({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.chrome,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final _PillChrome chrome;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? chrome.activeBg : chrome.idleBg;
+    final fg = selected ? chrome.activeText : chrome.idleText;
+    final radius = BorderRadius.circular(chrome.radius);
+
+    return Expanded(
+      child: Material(
+        color: bg,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: selected ? chrome.activeBorder : Colors.white24,
+                width: selected && chrome.showIcon ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (chrome.showIcon) ...[
+                  Icon(icon, size: 11, color: fg),
+                  const SizedBox(width: 3),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: chrome.showIcon ? 9 : 11,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                      color: fg,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

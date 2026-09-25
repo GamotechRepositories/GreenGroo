@@ -66,6 +66,7 @@ class _FeaturedProductsScreenState extends ConsumerState<FeaturedProductsScreen>
             defaults.quantity,
             variantName: defaults.variantName,
             colorName: defaults.colorName,
+            flySourceContext: context,
           );
       if (result == AddToCartResult.requiresLogin && mounted) {
         ref.read(authControllerProvider.notifier).openAuthModal();

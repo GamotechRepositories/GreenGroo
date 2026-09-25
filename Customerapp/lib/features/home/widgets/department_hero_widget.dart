@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/store_chrome.dart';
 import '../../../widgets/common/app_network_image.dart';
 
 class DepartmentHeroWidget extends ConsumerWidget {
@@ -104,9 +105,9 @@ class DepartmentHeroWidget extends ConsumerWidget {
             ),
           ];
 
-    final deptBgColor = isReadyToCook
-        ? const Color(0xFFFDE8CD)
-        : const Color(0xFFDCE9FF);
+    final deptBgColor = StoreChrome.forStore(
+      isReadyToCook ? 'festive' : 'mall',
+    ).header;
 
     return Container(
       width: double.infinity,

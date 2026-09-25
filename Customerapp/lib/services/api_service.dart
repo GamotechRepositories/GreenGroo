@@ -217,6 +217,21 @@ class ApiService {
     return _parseStringList(response.data);
   }
 
+  Future<Map<String, dynamic>?> reverseGeocode({
+    required double lat,
+    required double lng,
+  }) async {
+    final response = await _dio.get(
+      '/api/location/reverse',
+      queryParameters: {'lat': lat, 'lng': lng},
+    );
+    final data = response.data;
+    if (data is! Map) return null;
+    final payload = data['data'];
+    if (payload is! Map) return null;
+    return Map<String, dynamic>.from(payload);
+  }
+
   Future<Map<String, String>?> fetchLocationByPincode(String pincode) async {
     final response = await _dio.get('/api/location/pincode/$pincode');
     final data = response.data;
@@ -799,6 +814,15 @@ class ApiService {
     final rawCity = (data['city'] ?? '').toString().trim();
     final rawState = (data['state'] ?? '').toString().trim();
     final rawPincode = (data['pincode'] ?? '').toString().trim();
+    final rawArea = (data['area'] ?? '').toString().trim();
+    final lat = double.tryParse(
+      (data['lat'] ?? (data['location'] is Map ? data['location']['lat'] : null) ?? '')
+          .toString(),
+    );
+    final lng = double.tryParse(
+      (data['lng'] ?? (data['location'] is Map ? data['location']['lng'] : null) ?? '')
+          .toString(),
+    );
 
     final fullName = rawFullName.isEmpty ? 'Customer' : rawFullName;
     final number = rawNumber.isEmpty ? '9876543210' : rawNumber;
@@ -823,6 +847,8 @@ class ApiService {
       'city': city,
       'state': state,
       'pincode': pincode,
+      if (rawArea.isNotEmpty) 'area': rawArea,
+      if (lat != null && lng != null) 'location': {'lat': lat, 'lng': lng},
       'isDefault': data['isDefault'] ?? false,
       'name': fullName,
       'phone': number,

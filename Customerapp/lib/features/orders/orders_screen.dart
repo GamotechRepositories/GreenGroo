@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../config/theme.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
+import '../../core/theme/store_chrome.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/orders/orders_controller.dart';
 import '../../models/order.dart';
@@ -12,6 +13,8 @@ import '../../routes/route_paths.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import '../../widgets/common/voice_mic_button.dart';
+import '../home/home_providers.dart';
 import 'widgets/blinkit_order_card.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
@@ -62,11 +65,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       if (next) _loadOrders();
     });
 
+    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
+
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor: chrome.header,
+        surfaceTintColor: chrome.header,
         elevation: 0,
         leading: context.canPop()
             ? IconButton(
@@ -144,39 +149,65 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       return false;
     }).toList();
 
+    final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
+
     return Column(
       children: [
         Container(
-          color: Colors.white,
+          color: chrome.header,
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
           child: Container(
-            height: 46,
+            height: 44,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE0E0E0)),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: InputDecoration(
-                hintText: 'Search your orders',
-                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                prefixIcon: const Icon(Icons.search, color: AppColors.textPrimary, size: 22),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 11),
-              ),
+            padding: const EdgeInsets.only(left: 4, right: 4),
+            child: Row(
+              children: [
+                const SizedBox(width: 8),
+                const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    textInputAction: TextInputAction.search,
+                    decoration: const InputDecoration(
+                      hintText: 'Search your orders',
+                      hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      filled: false,
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  ),
+                VoiceMicButton(
+                  onTranscript: (text, isFinal) {
+                    _searchController.value = TextEditingValue(
+                      text: text,
+                      selection: TextSelection.collapsed(offset: text.length),
+                    );
+                    setState(() => _searchQuery = text);
+                  },
+                ),
+              ],
             ),
           ),
         ),

@@ -15,6 +15,8 @@ class FlipkartBottomNav extends StatefulWidget {
     required this.onTap,
     this.cartBadgeCount = 0,
     this.accountInitial,
+    this.activeColor = AppColors.primary,
+    this.activeBackground = const Color(0x260C831F),
   });
 
   final int currentIndex;
@@ -22,13 +24,18 @@ class FlipkartBottomNav extends StatefulWidget {
   final ValueChanged<int> onTap;
   final int cartBadgeCount;
   final String? accountInitial;
+  final Color activeColor;
+  final Color activeBackground;
 
   static const barHeight = 62.0;
+  static const iconInactive = Color(0xFF64748B);
 
-  static final barColor = const Color(0xF5FFFFFF);
-  static final activePillColor = Colors.black.withValues(alpha: 0.07);
-  static const iconActive = AppColors.primary;
-  static const iconInactive = AppColors.navUnselected;
+  static const inactiveIconFilter = ColorFilter.matrix(<double>[
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0.2126, 0.7152, 0.0722, 0, 0,
+    0, 0, 0, 0.6, 0,
+  ]);
 
   @override
   State<FlipkartBottomNav> createState() => _FlipkartBottomNavState();
@@ -167,6 +174,8 @@ class _FlipkartBottomNavState extends State<FlipkartBottomNav> {
                               selected: visualIndex == i,
                               isAccount: i == count - 1,
                               accountInitial: widget.accountInitial,
+                              activeColor: widget.activeColor,
+                              activeBackground: widget.activeBackground,
                               badgeCount: widget.items[i].showBadge
                                   ? widget.cartBadgeCount
                                   : 0,
@@ -205,6 +214,8 @@ class _FloatingNavTab extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.isAccount,
+    required this.activeColor,
+    required this.activeBackground,
     this.accountInitial,
     this.badgeCount = 0,
   });
@@ -212,6 +223,8 @@ class _FloatingNavTab extends StatelessWidget {
   final FlipkartNavItem item;
   final bool selected;
   final bool isAccount;
+  final Color activeColor;
+  final Color activeBackground;
   final String? accountInitial;
   final int badgeCount;
 
@@ -232,10 +245,8 @@ class _FloatingNavTab extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 10,
-                fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
-                color: selected
-                    ? FlipkartBottomNav.iconActive
-                    : FlipkartBottomNav.iconInactive,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? activeColor : FlipkartBottomNav.iconInactive,
               ),
             ),
           ],
@@ -247,30 +258,42 @@ class _FloatingNavTab extends StatelessWidget {
   Widget _buildIcon() {
     Widget iconWidget;
 
+    final iconSize = item.showBadge ? 26.0 : 22.0;
     if (item.assetIcon != null && item.assetIcon!.isNotEmpty) {
       iconWidget = Image.asset(
         item.assetIcon!,
-        width: 22,
-        height: 22,
+        width: iconSize,
+        height: iconSize,
         fit: BoxFit.contain,
-        color: selected
-            ? FlipkartBottomNav.iconActive
-            : FlipkartBottomNav.iconInactive,
       );
+      if (!selected) {
+        iconWidget = ColorFiltered(
+          colorFilter: FlipkartBottomNav.inactiveIconFilter,
+          child: iconWidget,
+        );
+      }
     } else if (isAccount && accountInitial != null) {
       iconWidget = _AccountAvatar(
         initial: accountInitial!,
         selected: selected,
+        activeColor: activeColor,
       );
     } else {
       iconWidget = Icon(
         selected ? item.activeIcon : item.icon,
-        size: 20,
-        color: selected
-            ? FlipkartBottomNav.iconActive
-            : FlipkartBottomNav.iconInactive,
+        size: iconSize,
+        color: selected ? activeColor : FlipkartBottomNav.iconInactive,
       );
     }
+
+    iconWidget = Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: selected ? activeBackground : Colors.transparent,
+        shape: BoxShape.circle,
+      ),
+      child: iconWidget,
+    );
 
     if (!item.showBadge) {
       return iconWidget;
@@ -300,10 +323,12 @@ class _AccountAvatar extends StatelessWidget {
   const _AccountAvatar({
     required this.initial,
     required this.selected,
+    required this.activeColor,
   });
 
   final String initial;
   final bool selected;
+  final Color activeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -314,12 +339,12 @@ class _AccountAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: selected
-            ? AppColors.primary.withValues(alpha: 0.12)
+            ? activeColor.withValues(alpha: 0.12)
             : Colors.transparent,
         border: Border.all(
           color: selected
-              ? AppColors.primary.withValues(alpha: 0.85)
-              : AppColors.navUnselected.withValues(alpha: 0.55),
+              ? activeColor.withValues(alpha: 0.85)
+              : FlipkartBottomNav.iconInactive.withValues(alpha: 0.55),
           width: selected ? 1.5 : 1,
         ),
       ),
@@ -329,9 +354,7 @@ class _AccountAvatar extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: selected
-              ? FlipkartBottomNav.iconActive
-              : FlipkartBottomNav.iconInactive,
+          color: selected ? activeColor : FlipkartBottomNav.iconInactive,
           height: 1,
         ),
       ),

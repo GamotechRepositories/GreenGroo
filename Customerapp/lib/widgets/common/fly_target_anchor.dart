@@ -40,6 +40,7 @@ class _FlyTargetAnchorState extends State<FlyTargetAnchor> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _report());
     return SizedBox(
       key: _key,
       child: widget.child,

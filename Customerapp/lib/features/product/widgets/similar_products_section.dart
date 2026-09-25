@@ -153,7 +153,7 @@ class _SimilarDealCard extends ConsumerWidget {
     }
   }
 
-  Future<void> _handleIncrease(WidgetRef ref) async {
+  Future<void> _handleIncrease(WidgetRef ref, BuildContext context) async {
     if (product.id.length < 10) return;
     final cartItems = ref.read(cartControllerProvider).items;
     final line = _cartLine(cartItems);
@@ -164,6 +164,7 @@ class _SimilarDealCard extends ConsumerWidget {
             defaults.quantity,
             variantName: defaults.variantName,
             colorName: defaults.colorName,
+            flySourceContext: context,
           );
       if (result == AddToCartResult.requiresLogin) {
         ref.read(authControllerProvider.notifier).openAuthModal();
@@ -214,7 +215,7 @@ class _SimilarDealCard extends ConsumerWidget {
       fillCell: true,
       cartQuantity: ref.watch(cartProductQuantityProvider(product.id)),
       onAdd: (context) => _handleAdd(ref, context),
-      onIncrease: () => _handleIncrease(ref),
+      onIncrease: () => _handleIncrease(ref, context),
       onDecrease: () => _handleDecrease(ref),
     );
   }
