@@ -34,6 +34,8 @@ import {
   ensureSharedCropBusinessId,
   upgradeFarmerProductId,
   productIdFromCropId,
+  cropIdHasVariety,
+  productIdHasVariety,
 } from "../../erp-service/src/services/farmerSync.js";
 import { overlayQualityOnOrder, presentInspection } from "./qualityControllers.js";
 
@@ -1064,7 +1066,7 @@ async function buildSelfFarmerPayload(farmer) {
 
 export async function getFarmerMe(req, res) {
   try {
-    const farmer = await Farmer.findOne({ id: authFarmerId(req) });
+    const farmer = await Farmer.findOne({ id: authFarmerId(req) }).select("-password").lean();
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     res.json(await buildSelfFarmerPayload(farmer));
   } catch (err) {
@@ -1463,16 +1465,71 @@ export async function getPublicCropsCatalog(req, res) {
   }
 }
 
+function cropAlreadyCanonical(crop) {
+  return cropIdHasVariety(String(crop?.cropId || crop?.id || ""));
+}
+
+function productAlreadyCanonical(product) {
+  const pid = String(product?.productId || "").trim();
+  const cid = String(product?.cropId || "").trim();
+  return productIdHasVariety(pid) && cid.startsWith("GGC-CRP-") && productIdFromCropId(cid) === pid;
+}
+
+async function normalizeCropList(crops) {
+  const groups = new Map();
+  for (const crop of crops) {
+    const key = `${String(crop.cropName || "").trim().toLowerCase()}|${String(crop.variety || "").trim().toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(crop);
+  }
+  const byId = new Map();
+  for (const group of groups.values()) {
+    if (group.every(cropAlreadyCanonical)) {
+      group.forEach((crop) => byId.set(String(crop._id), crop));
+      continue;
+    }
+    const first = await ensureSharedCropBusinessId(group[0]);
+    byId.set(String(first._id), first);
+    const rest = group.slice(1);
+    if (rest.length) {
+      const fresh = await FarmerCrop.find({ _id: { $in: rest.map((crop) => crop._id) } });
+      fresh.forEach((crop) => byId.set(String(crop._id), crop));
+    }
+  }
+  return crops.map((crop) => byId.get(String(crop._id)) || crop);
+}
+
+async function normalizeProductList(products) {
+  const groups = new Map();
+  for (const product of products) {
+    const key = `${String(product.cropName || product.productName || product.name || "").trim().toLowerCase()}|${String(product.variety || "").trim().toLowerCase()}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(product);
+  }
+  const byId = new Map();
+  for (const group of groups.values()) {
+    if (group.every(productAlreadyCanonical)) {
+      group.forEach((product) => byId.set(String(product._id), product));
+      continue;
+    }
+    const first = await upgradeFarmerProductId(group[0]);
+    byId.set(String(first._id), first);
+    const rest = group.slice(1);
+    if (rest.length) {
+      const fresh = await FarmerProduct.find({ _id: { $in: rest.map((product) => product._id) } });
+      fresh.forEach((product) => byId.set(String(product._id), product));
+    }
+  }
+  return products.map((product) => byId.get(String(product._id)) || product);
+}
+
 export async function listFarmerCrops(req, res) {
   try {
     const farmerId = authFarmerId(req);
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne({ id: farmerId }).lean();
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crops = await FarmerCrop.find({ farmerId }).sort({ createdAt: -1 });
-    const normalized = [];
-    for (const crop of crops) {
-      normalized.push(await ensureSharedCropBusinessId(crop));
-    }
+    const normalized = await normalizeCropList(crops);
     res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crops" });
@@ -1713,10 +1770,7 @@ export async function getManagedFarmerCrops(req, res) {
     const farmer = await Farmer.findOne(accessibleFarmerQuery(req, farmerId));
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const crops = await FarmerCrop.find({ farmerId: farmer.id }).sort({ createdAt: -1 });
-    const normalized = [];
-    for (const crop of crops) {
-      normalized.push(await ensureSharedCropBusinessId(crop));
-    }
+    const normalized = await normalizeCropList(crops);
     res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crops" });
@@ -2208,13 +2262,10 @@ function applyProductFields(product, parsed, farmer, crop) {
 export async function listMyProducts(req, res) {
   try {
     const farmerId = authFarmerId(req);
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await Farmer.findOne({ id: farmerId }).lean();
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
     const products = await FarmerProduct.find({ farmerId }).sort({ createdAt: -1 });
-    const upgraded = [];
-    for (const product of products) {
-      upgraded.push(await upgradeFarmerProductId(product));
-    }
+    const upgraded = await normalizeProductList(products);
     const cropIds = [...new Set(products.map((p) => p.cropId).filter(Boolean))];
     const crops = cropIds.length
       ? await FarmerCrop.find({ farmerId, $or: [{ id: { $in: cropIds } }, { cropId: { $in: cropIds } }] }).lean()
@@ -2718,23 +2769,37 @@ async function loadOrderProduct(order) {
   });
 }
 
-async function enrichOwnOrder(order, farmer, inspectionDoc = null) {
-  const product = await loadOrderProduct(order);
-  const sellable = productSellable(product);
-  const pickup = await Pickup.findOne({
-    $or: [{ orderId: order.id }, { orderId: order.orderId }],
-  }).lean();
-  const driver = pickup?.driverId
-    ? await PickupDriver.findOne({ id: pickup.driverId })
-        .select("name mobile vehicleNumber vehicleType licenseNumber assignedArea")
-        .lean()
-    : null;
+function cachedProduct(products, farmerId, productId) {
+  if (!productId || !products?.length) return null;
+  const fid = String(farmerId || "");
+  const pid = String(productId);
+  return products.find((p) => String(p.farmerId) === fid && (String(p.id) === pid || String(p.productId) === pid)) || null;
+}
+
+async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = null) {
+  const flat = flattenOrderFields(order);
+  const product = preloaded
+    ? cachedProduct(preloaded.products, order.farmerId, flat.productId)
+    : await loadOrderProduct(order);
+  const pickup = preloaded
+    ? preloaded.pickups.get(String(order.id)) || preloaded.pickups.get(String(order.orderId || "")) || null
+    : await Pickup.findOne({
+        $or: [{ orderId: order.id }, { orderId: order.orderId }],
+      }).lean();
+  const driver = preloaded
+    ? (pickup?.driverId ? preloaded.drivers.get(String(pickup.driverId)) || null : null)
+    : pickup?.driverId
+      ? await PickupDriver.findOne({ id: pickup.driverId })
+          .select("name mobile vehicleNumber vehicleType licenseNumber assignedArea")
+          .lean()
+      : null;
   let inspection = inspectionDoc;
-  if (!inspection) {
+  if (!inspection && !preloaded) {
     inspection = await QualityInspection.findOne({
       $or: [{ orderId: order.id }, { orderId: order.orderId }],
     }).lean();
   }
+  const sellable = productSellable(product);
   const qualityOverlay = overlayQualityOnOrder(toPlain(order), inspection);
   const qrPayload = qrPayloadFor(order, {
     farmer,
@@ -2858,33 +2923,66 @@ export async function listMyOrders(req, res) {
       ids = resolved.ids;
     }
 
-    const orders = await FarmerOrder.find({ farmerId: { $in: ids } }).sort({ createdAt: -1, orderDate: -1 });
+    const orders = await FarmerOrder.find({ farmerId: { $in: ids } }).sort({ createdAt: -1, orderDate: -1 }).lean();
     const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId].filter(Boolean)).map(String))];
-    const inspections = orderIds.length
-      ? await QualityInspection.find({ orderId: { $in: orderIds } }).lean()
-      : [];
+    const productIds = [...new Set(orders.map((o) => flattenOrderFields(o).productId).filter(Boolean))];
+    const [inspections, pickups, products] = await Promise.all([
+      orderIds.length ? QualityInspection.find({ orderId: { $in: orderIds } }).lean() : [],
+      orderIds.length ? Pickup.find({ orderId: { $in: orderIds } }).lean() : [],
+      productIds.length
+        ? FarmerProduct.find({
+            farmerId: { $in: ids },
+            $or: [{ id: { $in: productIds } }, { productId: { $in: productIds } }],
+          })
+            .select("id productId farmerId productName name availableQuantity stock reservedQuantity unit harvestDate")
+            .lean()
+        : [],
+    ]);
     const inspectionByOrder = new Map();
     inspections.forEach((item) => {
       if (item?.orderId) inspectionByOrder.set(String(item.orderId), item);
     });
+    const pickupByOrder = new Map();
+    pickups.forEach((item) => {
+      if (item?.orderId) pickupByOrder.set(String(item.orderId), item);
+    });
+    const driverIds = [...new Set(pickups.map((item) => item.driverId).filter(Boolean).map(String))];
+    const drivers = driverIds.length
+      ? await PickupDriver.find({ id: { $in: driverIds } })
+          .select("id name mobile vehicleNumber vehicleType licenseNumber assignedArea")
+          .lean()
+      : [];
+    const driverById = new Map(drivers.map((driver) => [String(driver.id), driver]));
 
     const farmerMap = new Map();
     farmers.forEach((f) => {
       if (f.id) farmerMap.set(String(f.id), f);
       if (f.farmerId) farmerMap.set(String(f.farmerId), f);
     });
+    const missingFarmerIds = [...new Set(orders.map((order) => String(order.farmerId || "")).filter((id) => id && !farmerMap.has(id)))];
+    if (missingFarmerIds.length) {
+      const extraFarmers = await Farmer.find({
+        $or: [{ id: { $in: missingFarmerIds } }, { farmerId: { $in: missingFarmerIds } }],
+      })
+        .select("-password")
+        .lean();
+      extraFarmers.forEach((f) => {
+        if (f.id) farmerMap.set(String(f.id), f);
+        if (f.farmerId) farmerMap.set(String(f.farmerId), f);
+      });
+    }
+    const preloaded = { products, pickups: pickupByOrder, drivers: driverById };
 
     let rows = [];
     for (const order of orders) {
       const status = normalizeOrderStatus(order.status);
       if (filter && ORDER_FILTERS[filter] && !ORDER_FILTERS[filter].includes(status)) continue;
       const inspection =
-        inspectionByOrder.get(String(order.id)) || inspectionByOrder.get(String(order.orderId || ""));
+        inspectionByOrder.get(String(order.id)) || inspectionByOrder.get(String(order.orderId || "")) || null;
       const farmer =
         farmerMap.get(String(order.farmerId)) ||
-        (order.farmerId ? await Farmer.findOne({ $or: [{ id: order.farmerId }, { farmerId: order.farmerId }] }) : null) ||
         farmers[0];
-      const row = await enrichOwnOrder(order, farmer, inspection);
+      const row = await enrichOwnOrder(order, farmer, inspection, preloaded);
       if (q) {
         const hay = `${row.orderId} ${row.productName} ${row.customerName} ${row.variety} ${farmer?.name || ""}`.toLowerCase();
         if (!hay.includes(q)) continue;
@@ -3262,10 +3360,7 @@ export async function getFarmerProducts(req, res) {
   try {
     const { farmerId } = req.params;
     const products = await FarmerProduct.find({ farmerId }).select("-images").sort({ createdAt: -1 });
-    const upgraded = [];
-    for (const product of products) {
-      upgraded.push(await upgradeFarmerProductId(product));
-    }
+    const upgraded = await normalizeProductList(products);
     res.json(upgraded.map((p) => enrichProductRow(toPlain(p))));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch products" });
@@ -4211,14 +4306,10 @@ export async function getFarmerDocuments(req, res) {
   try {
     const { farmerId } = req.params;
     const docs = await FarmerDocument.find({
-      $or: [{ farmerId }, { farmerId: farmerId }],
-      $and: [
-        {
-          $or: [
-            { fileUrl: { $exists: true, $ne: "" } },
-            { fileName: { $exists: true, $ne: "" } },
-          ],
-        },
+      farmerId,
+      $or: [
+        { fileUrl: { $exists: true, $ne: "" } },
+        { fileName: { $exists: true, $ne: "" } },
       ],
     }).lean();
     res.json(docs);

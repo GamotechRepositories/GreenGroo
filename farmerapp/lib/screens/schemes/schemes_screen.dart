@@ -122,13 +122,6 @@ class _SchemesScreenState extends State<SchemesScreen> {
                 Text('MahaDBT & Central Agriculture Schemes', style: TextStyle(fontSize: 11, color: AppColors.muted)),
               ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                tooltip: 'रिफ्रेश करा',
-                onPressed: () => FarmerState().fetchFromBackend(),
-              ),
-            ],
           ),
           body: RefreshIndicator(
             onRefresh: () => FarmerState().fetchFromBackend(),

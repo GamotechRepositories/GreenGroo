@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -18,27 +17,6 @@ class DocumentsScreen extends StatefulWidget {
 }
 
 class _DocumentsScreenState extends State<DocumentsScreen> {
-  Timer? _liveSyncTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    // Immediate fetch
-    FarmerState().fetchFromBackend();
-    // Live auto-polling every 3 seconds to reflect vendor Approve / Reject updates immediately
-    _liveSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) {
-        FarmerState().fetchFromBackend();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _liveSyncTimer?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -163,10 +141,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                         ),
                         const Row(
                           children: [
-                            Icon(Icons.sync, size: 12, color: Color(0xFF059669)),
-                            SizedBox(width: 3),
+                            Icon(Icons.circle, size: 8, color: Color(0xFF059669)),
+                            SizedBox(width: 4),
                             Text(
-                              'Live Sync ⚡',
+                              'Live',
                               style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
                             ),
                           ],

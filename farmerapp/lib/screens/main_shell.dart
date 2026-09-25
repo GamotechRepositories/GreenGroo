@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/constants/app_colors.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'crops/crops_screen.dart';
@@ -33,12 +34,15 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<EarningsScreenState> _earningsKey = GlobalKey<EarningsScreenState>();
   late int _currentIndex;
+  final Set<int> _builtTabs = <int>{};
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialTab;
+    _builtTabs.add(_currentIndex);
   }
 
   void openDrawer() {
@@ -46,42 +50,75 @@ class _MainShellState extends State<MainShell> {
   }
 
   void setTab(int index) {
+    _showTab(index);
+  }
+
+  void _showTab(int index) {
     setState(() {
+      _builtTabs.add(index);
       _currentIndex = index;
     });
   }
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    ProductsScreen(),
-    OrdersScreen(),
-    EarningsScreen(),
-    ProfileScreen(),
+  late final List<Widget> _screens = <Widget>[
+    const DashboardScreen(),
+    const ProductsScreen(),
+    const OrdersScreen(),
+    EarningsScreen(key: _earningsKey, embeddedInShell: true),
+    const ProfileScreen(),
   ];
 
+  /// Closes the sidebar without [Navigator.pop]. Popping here can remove the
+  /// home route when the drawer history entry is missing, which leaves a blank screen.
+  void _closeDrawer() {
+    final ScaffoldState? scaffold = _scaffoldKey.currentState;
+    if (scaffold != null && scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+    }
+  }
+
+  void _selectTab(int index) {
+    _closeDrawer();
+    _showTab(index);
+  }
+
   void _onDrawerNavigate(Widget targetScreen) {
-    Navigator.pop(context); // Close drawer
-    Navigator.push(context, MaterialPageRoute(builder: (_) => targetScreen));
+    _closeDrawer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => targetScreen));
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _currentIndex == 0,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_currentIndex != 0) {
-          setState(() {
-            _currentIndex = 0;
-          });
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _closeDrawer();
+          return;
         }
+        if (_currentIndex == 3 && (_earningsKey.currentState?.consumeSystemBack() ?? false)) {
+          return;
+        }
+        if (_currentIndex != 0) {
+          _showTab(0);
+          return;
+        }
+        SystemNavigator.pop();
       },
       child: Scaffold(
         key: _scaffoldKey,
         drawer: _buildFarmerSidebar(),
         body: IndexedStack(
           index: _currentIndex,
-          children: _screens,
+          sizing: StackFit.expand,
+          children: List<Widget>.generate(_screens.length, (index) {
+            if (!_builtTabs.contains(index)) return const SizedBox.shrink();
+            return _screens[index];
+          }),
         ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
@@ -105,11 +142,7 @@ class _MainShellState extends State<MainShell> {
               elevation: 0,
               selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
               unselectedLabelStyle: const TextStyle(fontSize: 11),
-              onTap: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
+              onTap: _showTab,
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_outlined),
@@ -145,11 +178,13 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildFarmerSidebar() {
-    final profile = FarmerState().profile;
-
     return Drawer(
       backgroundColor: Colors.white,
-      child: SafeArea(
+      child: ListenableBuilder(
+        listenable: FarmerState(),
+        builder: (context, _) {
+          final profile = FarmerState().profile;
+          return SafeArea(
         child: Column(
           children: [
             // Farmer Sidebar Header matching FarmerSidebar.jsx
@@ -199,10 +234,7 @@ class _MainShellState extends State<MainShell> {
                     icon: Icons.dashboard_outlined,
                     label: 'Dashboard (डॅशबोर्ड)',
                     isSelected: _currentIndex == 0,
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() => _currentIndex = 0);
-                    },
+                    onTap: () => _selectTab(0),
                   ),
                   _drawerItem(
                     icon: Icons.account_balance_outlined,
@@ -240,10 +272,7 @@ class _MainShellState extends State<MainShell> {
                     children: [
                       _subItem(
                         label: 'My Products (माझी उत्पादने)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 1);
-                        },
+                        onTap: () => _selectTab(1),
                       ),
                       _subItem(
                         label: 'Add Product (उत्पादन जोडा)',
@@ -251,10 +280,7 @@ class _MainShellState extends State<MainShell> {
                       ),
                       _subItem(
                         label: 'Product Details (उत्पादन तपशील)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 1);
-                        },
+                        onTap: () => _selectTab(1),
                       ),
                     ],
                   ),
@@ -268,10 +294,7 @@ class _MainShellState extends State<MainShell> {
                     children: [
                       _subItem(
                         label: 'All Orders (सर्व ऑर्डर्स)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 2);
-                        },
+                        onTap: () => _selectTab(2),
                       ),
                       _subItem(
                         label: 'Harvest Orders (काढणी ऑर्डर्स)',
@@ -284,10 +307,7 @@ class _MainShellState extends State<MainShell> {
                     icon: Icons.account_balance_wallet_outlined,
                     label: 'Earnings (उत्पन्न व हिशोब)',
                     isSelected: _currentIndex == 3,
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() => _currentIndex = 3);
-                    },
+                    onTap: () => _selectTab(3),
                   ),
                   _drawerItem(
                     icon: Icons.description_outlined,
@@ -304,24 +324,15 @@ class _MainShellState extends State<MainShell> {
                     children: [
                       _subItem(
                         label: 'Farmer Profile (शेतकरी माहिती)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 4);
-                        },
+                        onTap: () => _selectTab(4),
                       ),
                       _subItem(
                         label: 'Farm Profile (शेताचा तपशील)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 4);
-                        },
+                        onTap: () => _selectTab(4),
                       ),
                       _subItem(
                         label: 'Farm Location (शेताचा पत्ता)',
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() => _currentIndex = 4);
-                        },
+                        onTap: () => _selectTab(4),
                       ),
                     ],
                   ),
@@ -337,7 +348,7 @@ class _MainShellState extends State<MainShell> {
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.error),
                     ),
                     onTap: () {
-                      Navigator.pop(context);
+                      _closeDrawer();
                       _showSignOutDialog(context);
                     },
                   ),
@@ -346,6 +357,8 @@ class _MainShellState extends State<MainShell> {
             ),
           ],
         ),
+      );
+        },
       ),
     );
   }

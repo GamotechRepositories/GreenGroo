@@ -290,12 +290,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   String _formatProductBusinessCode(FarmerOrderItem order) {
-    final cleanName = (order.productName.isNotEmpty ? order.productName : 'TOM').split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
-    final nameCode = cleanName.length >= 3 ? cleanName.substring(0, 3) : 'TOM';
-    final cleanVar = (order.variety.isNotEmpty ? order.variety : 'BAJ').split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
-    final varCode = cleanVar.length >= 3 ? cleanVar.substring(0, 3) : 'BAJ';
+    if (order.productId.isNotEmpty) return order.productId;
+    final cleanName = order.productName.split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+    final cleanVar = order.variety.split(' ')[0].replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+    if (cleanName.isEmpty && cleanVar.isEmpty) return order.orderCode;
+    final nameCode = cleanName.length >= 3 ? cleanName.substring(0, 3) : (cleanName.isNotEmpty ? cleanName : 'PRD');
+    final varCode = cleanVar.length >= 3 ? cleanVar.substring(0, 3) : (cleanVar.isNotEmpty ? cleanVar : 'VAR');
     final numDigits = order.id.replaceAll(RegExp(r'[^0-9]'), '');
-    final serial = numDigits.isNotEmpty ? numDigits.padLeft(5, '0') : '00002';
+    final serial = numDigits.isNotEmpty ? numDigits.padLeft(5, '0') : '00000';
     final tail = serial.length > 5 ? serial.substring(serial.length - 5) : serial;
     return 'GGC-ART-VEG-$nameCode-$varCode-$tail';
   }
@@ -312,17 +314,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           orElse: () => FarmerOrderItem(
             id: widget.orderId,
             orderCode: widget.orderId,
-            buyerName: 'Direct Buyer',
+            buyerName: '',
             buyerPhone: '',
-            productName: 'Tomato',
-            variety: 'Bajeerao',
-            quantity: 175,
-            unit: 'Kg',
-            totalAmount: 1615,
-            status: 'NEW',
-            pickupDate: '17/09/2026',
-            pickupSlot: '2:33 PM',
-            createdAt: '16/09/2026',
+            productName: '',
+            variety: '',
+            quantity: 0,
+            unit: '',
+            totalAmount: 0,
+            status: '',
+            pickupDate: '',
+            pickupSlot: '',
+            createdAt: '',
           ),
         );
 
@@ -356,27 +358,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             },
         ];
 
-        if (grades.isEmpty) {
-          final gAQty = (order.quantity * 0.63).roundToDouble();
-          final gBQty = (order.quantity * 0.31).roundToDouble();
-          final gCQty = (order.quantity - gAQty - gBQty).roundToDouble();
-          final r = order.rate > 0 ? order.rate : 12.0;
-          final rB = (r * 0.42).roundToDouble() > 0 ? (r * 0.42).roundToDouble() : 5.0;
-          const rC = 2.0;
-
-          grades.addAll([
-            {'grade': 'Grade A', 'qty': gAQty > 0 ? gAQty : 110.0, 'rate': r, 'amount': (gAQty > 0 ? gAQty : 110.0) * r},
-            {'grade': 'Grade B', 'qty': gBQty > 0 ? gBQty : 55.0, 'rate': rB, 'amount': (gBQty > 0 ? gBQty : 55.0) * rB},
-            if (gCQty > 0 || order.quantity >= 100)
-              {'grade': 'Grade C', 'qty': gCQty > 0 ? gCQty : 10.0, 'rate': rC, 'amount': (gCQty > 0 ? gCQty : 10.0) * rC},
-          ]);
-        }
-
         final double calculatedTotal = grades.fold(0.0, (sum, g) => sum + (g['amount'] as double));
         final double finalOrderValue = order.totalAmount > 0 ? order.totalAmount : calculatedTotal;
         final productBizId = _formatProductBusinessCode(order);
         final qrPayload = 'greengroo:order:${order.orderCode}';
-        final farmerDisplayName = profile.fullName.isNotEmpty ? profile.fullName : 'Sunil Nehe';
+        final farmerDisplayName = profile.fullName;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF9FAFB),

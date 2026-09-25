@@ -112,14 +112,12 @@ class InvoicePdfService {
     final double totalOrdered = gAOrdered + gBOrdered + gCOrdered;
     final double totalRejected = gARej + gBRej + gCRej;
     final double totalFinal = gAFinal + gBFinal + gCFinal;
-    final double totalNetAmt = order.effectiveTotalAmount > 0 ? order.effectiveTotalAmount : 6960.0;
+    final double totalNetAmt = order.effectiveTotalAmount;
 
-    final farmerName = profile.fullName.isNotEmpty ? profile.fullName : 'Nitin Nehe';
-    final farmerId = profile.id.isNotEmpty ? profile.id : 'GGC-FR-MH-AHI-SAN-00002';
-    final mobile = profile.mobile.isNotEmpty ? profile.mobile : '9921182753';
-    final location = profile.village.isNotEmpty
-        ? '${profile.village} Tal, ${profile.district.isNotEmpty ? profile.district : "Ahilyanagar"}'
-        : 'Sawargaon Tal, Ahilyanagar';
+    final farmerName = profile.fullName;
+    final farmerId = profile.id;
+    final mobile = profile.mobile;
+    final location = [profile.village, profile.district].where((part) => part.isNotEmpty).join(', ');
 
     final crop = order.cropName.isNotEmpty ? order.cropName : (order.productName.isNotEmpty ? order.productName : productTitle);
     final varName = order.variety.isNotEmpty ? order.variety : 'Standard';
@@ -130,11 +128,11 @@ class InvoicePdfService {
 
     final pickupDateStr = _formatDateFormatted(order.pickupDate);
     final pickupDayStr = _getDayName(order.pickupDate);
-    final pickupSlotStr = order.pickupSlot.isNotEmpty ? order.pickupSlot : 'Morning 08:00 AM';
+    final pickupSlotStr = order.pickupSlot;
 
     final receivedDateStr = pickupDateStr;
     final receivedDayStr = pickupDayStr;
-    const receivedTimeStr = '08:30 AM';
+    final receivedTimeStr = '';
 
     final dateStr = pickupDateStr;
     final txnId = order.transactionId.isNotEmpty ? order.transactionId : 'TXN-GGC-${order.orderCode}';
@@ -272,22 +270,22 @@ class InvoicePdfService {
                         pw.SizedBox(height: 5),
                         _buildAlignedRow(
                           'Centre Name',
-                          order.collectionCentre.isNotEmpty ? order.collectionCentre : 'Main Collection Centre',
+                          order.collectionCentre,
                           labelWidth: 70,
                         ),
                         _buildAlignedRow(
                           'Centre ID',
-                          order.collectionCentreId.isNotEmpty ? order.collectionCentreId : 'GGC-CC-MH-NK-NAS-NAS-001',
+                          order.collectionCentreId,
                           labelWidth: 70,
                         ),
                         _buildAlignedRow(
                           'Inspected By',
-                          order.inspectorName.isNotEmpty ? order.inspectorName : 'Prajwal Nehe',
+                          order.inspectorName,
                           labelWidth: 70,
                         ),
                         _buildAlignedRow(
                           'Status',
-                          order.weighbridgeStatus.isNotEmpty ? order.weighbridgeStatus : 'Verified on Scale',
+                          order.weighbridgeStatus,
                           labelWidth: 70,
                         ),
                       ],

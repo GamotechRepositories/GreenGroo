@@ -73,9 +73,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _locDistrictController;
   late TextEditingController _locPincodeController;
   late TextEditingController _farmAddressController;
-  double _latitude = 19.5761;
-  double _longitude = 74.2070;
-  bool _locationConfirmed = true;
+  double _latitude = 0;
+  double _longitude = 0;
+  bool _locationConfirmed = false;
 
   @override
   void initState() {
@@ -91,14 +91,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Bank & Identity details
     _bankHolderController = TextEditingController(text: p.fullName);
-    _bankNameController = TextEditingController(text: 'State Bank of India (SBI)');
-    _bankAccountNoController = TextEditingController(text: '38549102845');
-    _bankIfscController = TextEditingController(text: 'SBIN0000412');
-    _bankBranchController = TextEditingController(text: 'Sangamner Main Branch');
+    _bankNameController = TextEditingController();
+    _bankAccountNoController = TextEditingController();
+    _bankIfscController = TextEditingController();
+    _bankBranchController = TextEditingController();
     _bankAccountType = 'Savings (बचत खाते)';
-    _aadhaarController = TextEditingController(text: '4829 1948 7842');
-    _panCardController = TextEditingController(text: 'ABCDE1234F');
-    _upiIdController = TextEditingController(text: '${p.mobile}@sbi');
+    _aadhaarController = TextEditingController();
+    _panCardController = TextEditingController();
+    _upiIdController = TextEditingController();
 
     _farmNameController = TextEditingController(text: p.farmName);
     _totalAreaController = TextEditingController(text: p.totalAcres.toStringAsFixed(1));
@@ -117,8 +117,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _locDistrictController = TextEditingController(text: p.district);
     _locPincodeController = TextEditingController(text: p.pincode);
     _farmAddressController = TextEditingController(text: p.farmAddress);
-    _latitude = p.latitude ?? 19.5761;
-    _longitude = p.longitude ?? 74.2070;
+    _latitude = p.latitude ?? 0;
+    _longitude = p.longitude ?? 0;
     _locationConfirmed = p.locationConfirmed;
   }
 
@@ -266,13 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _useCurrentGpsLocation() {
-    setState(() {
-      // Mock accurate GPS pin for Sangamner farm region
-      _latitude = 19.5761 + (DateTime.now().millisecond % 50) * 0.0001;
-      _longitude = 74.2070 + (DateTime.now().second % 50) * 0.0001;
-      _locationConfirmed = true;
-    });
-    _showToast('सध्याचे GPS स्थान निश्चित केले 📍 (Current GPS location fetched)');
+    _showToast('GPS स्थान उपलब्ध नाही');
   }
 
   void _changeProfilePhoto(BuildContext context, FarmerProfile profile) {
@@ -1700,11 +1694,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const Icon(Icons.pin_drop, size: 36, color: AppColors.primary),
                               const SizedBox(height: 4),
                               Text(
-                                'Lat: ${_latitude.toStringAsFixed(4)}°, Lng: ${_longitude.toStringAsFixed(4)}°',
+                                (_latitude == 0 && _longitude == 0)
+                                    ? 'GPS नोंदवलेले नाही'
+                                    : 'Lat: ${_latitude.toStringAsFixed(4)}°, Lng: ${_longitude.toStringAsFixed(4)}°',
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                               ),
                               Text(
-                                '${profile.village}, ${profile.taluka}, Maharashtra',
+                                [profile.village, profile.taluka, profile.state].where((part) => part.isNotEmpty).join(', '),
                                 style: const TextStyle(fontSize: 10.5, color: Color(0xFF0369A1)),
                               ),
                             ],

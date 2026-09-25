@@ -10,6 +10,7 @@ class ApiService {
 
   String _baseUrl = 'https://api.greengrocc.com';
   String? _token;
+  final http.Client _client = http.Client();
 
   String get baseUrl => _baseUrl;
   String? get token => _token;
@@ -75,13 +76,13 @@ class ApiService {
 
   Future<dynamic> get(String endpoint) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 5));
+    final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 5));
     return _handleResponse(response);
   }
 
   Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http
+    final response = await _client
         .post(uri, headers: _headers, body: jsonEncode(body))
         .timeout(const Duration(seconds: 5));
     return _handleResponse(response);
@@ -89,7 +90,7 @@ class ApiService {
 
   Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http
+    final response = await _client
         .put(uri, headers: _headers, body: jsonEncode(body))
         .timeout(const Duration(seconds: 5));
     return _handleResponse(response);
@@ -117,13 +118,13 @@ class ApiService {
 
   Future<bool> checkHealth() async {
     try {
-      final res = await http.get(Uri.parse('$_baseUrl/health')).timeout(const Duration(milliseconds: 1500));
+      final res = await _client.get(Uri.parse('$_baseUrl/health')).timeout(const Duration(milliseconds: 1500));
       if (res.statusCode == 200) return true;
     } catch (_) {}
 
     // Fallback attempt: if on USB with adb reverse
     try {
-      final localRes = await http.get(Uri.parse('http://localhost:5001/health')).timeout(const Duration(milliseconds: 1200));
+      final localRes = await _client.get(Uri.parse('http://localhost:5001/health')).timeout(const Duration(milliseconds: 1200));
       if (localRes.statusCode == 200) {
         _baseUrl = 'http://localhost:5001';
         return true;
@@ -171,10 +172,21 @@ class ApiService {
   // Data endpoints matching backend farmer-manager-service
   Future<dynamic> fetchFarmerProfile(String farmerId) async {
     try {
-      return await get('/api/farmers/$farmerId');
-    } catch (_) {
       return await get('/api/farmers/me');
+    } catch (_) {
+      return await get('/api/farmers/$farmerId');
     }
+  }
+
+  List<dynamic>? _coerceList(dynamic res, List<String> keys) {
+    if (res is List) return res;
+    if (res is Map) {
+      for (final key in keys) {
+        final value = res[key];
+        if (value is List) return value;
+      }
+    }
+    return null;
   }
 
   Future<dynamic> fetchDashboard(String farmerId) async => get('/api/farmers/$farmerId/dashboard');
@@ -195,31 +207,23 @@ class ApiService {
   Future<dynamic> fetchCropPlans() async => get('/api/farmer/crop-plans');
   Future<dynamic> fetchProducts(String farmerId) async {
     try {
-      final res = await get('/api/farmer/products');
-      if (res is List && res.isNotEmpty) return res;
-      if (res is Map && res['products'] is List && (res['products'] as List).isNotEmpty) return res['products'];
-      if (res is Map && res['data'] is List && (res['data'] as List).isNotEmpty) return res['data'];
+      final parsed = _coerceList(await get('/api/farmer/products'), const ['products', 'data']);
+      if (parsed != null) return parsed;
     } catch (_) {}
     try {
-      final res2 = await get('/api/farmers/$farmerId/products');
-      if (res2 is List && res2.isNotEmpty) return res2;
-      if (res2 is Map && res2['products'] is List && (res2['products'] as List).isNotEmpty) return res2['products'];
-      if (res2 is Map && res2['data'] is List && (res2['data'] as List).isNotEmpty) return res2['data'];
+      final parsed = _coerceList(await get('/api/farmers/$farmerId/products'), const ['products', 'data']);
+      if (parsed != null) return parsed;
     } catch (_) {}
     return [];
   }
   Future<dynamic> fetchOrders(String farmerId) async {
     try {
-      final res = await get('/api/farmer/orders');
-      if (res is List && res.isNotEmpty) return res;
-      if (res is Map && res['orders'] is List && (res['orders'] as List).isNotEmpty) return res['orders'];
-      if (res is Map && res['data'] is List && (res['data'] as List).isNotEmpty) return res['data'];
+      final parsed = _coerceList(await get('/api/farmer/orders'), const ['orders', 'data']);
+      if (parsed != null) return parsed;
     } catch (_) {}
     try {
-      final res2 = await get('/api/farmers/$farmerId/orders');
-      if (res2 is List && res2.isNotEmpty) return res2;
-      if (res2 is Map && res2['orders'] is List && (res2['orders'] as List).isNotEmpty) return res2['orders'];
-      if (res2 is Map && res2['data'] is List && (res2['data'] as List).isNotEmpty) return res2['data'];
+      final parsed = _coerceList(await get('/api/farmers/$farmerId/orders'), const ['orders', 'data']);
+      if (parsed != null) return parsed;
     } catch (_) {}
     return [];
   }
@@ -348,7 +352,7 @@ class ApiService {
 
   Future<dynamic> delete(String endpoint) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http
+    final response = await _client
         .delete(uri, headers: _headers)
         .timeout(const Duration(seconds: 10));
     return _handleResponse(response);
@@ -356,7 +360,7 @@ class ApiService {
 
   Future<dynamic> patch(String endpoint, Map<String, dynamic> body) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await http
+    final response = await _client
         .patch(uri, headers: _headers, body: jsonEncode(body))
         .timeout(const Duration(seconds: 10));
     return _handleResponse(response);

@@ -184,18 +184,8 @@ class DashboardScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      InkWell(
-                        onTap: () => state.fetchFromBackend(),
-                        child: state.isLoadingFromBackend
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                            : Row(
-                                children: [
-                                  Icon(Icons.refresh, size: 14, color: state.isConnectedToBackend ? Colors.green.shade800 : Colors.amber.shade900),
-                                  const SizedBox(width: 2),
-                                  Text('Sync', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: state.isConnectedToBackend ? Colors.green.shade800 : Colors.amber.shade900)),
-                                ],
-                              ),
-                      ),
+                      if (state.isLoadingFromBackend)
+                        const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                     ],
                   ),
                 ),

@@ -591,10 +591,10 @@ class EarningReportScreen extends StatelessWidget {
 
   // --- 3. Parties Info (Farmer & Collection Centre) ---
   Widget _buildPartiesInfo(BuildContext context, FarmerProfile profile) {
-    final farmerName = profile.fullName.isNotEmpty ? profile.fullName : 'Farmer Nitin';
-    final farmerId = profile.id.isNotEmpty ? profile.id : 'FARM-8942';
-    final mobile = profile.mobile.isNotEmpty ? profile.mobile : '+91 98223 45678';
-    final location = '${profile.village.isNotEmpty ? profile.village : "Baramati"}, ${profile.district.isNotEmpty ? profile.district : "Pune"}';
+    final farmerName = profile.fullName;
+    final farmerId = profile.id;
+    final mobile = profile.mobile;
+    final location = [profile.village, profile.district].where((part) => part.isNotEmpty).join(', ');
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -659,10 +659,10 @@ class EarningReportScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              _buildInfoRow('Centre Name', order.collectionCentre.isNotEmpty ? order.collectionCentre : 'Main Collection Centre'),
-              _buildCopyableInfoRow(context, 'Centre ID', order.collectionCentreId.isNotEmpty ? order.collectionCentreId : 'GGC-CC-MH-NK-NAS-NAS-001'),
-              _buildInfoRow('Inspected By', order.inspectorName.isNotEmpty ? order.inspectorName : 'Prajwal Nehe'),
-              _buildInfoRow('Weighbridge Status', order.weighbridgeStatus.isNotEmpty ? order.weighbridgeStatus : 'Verified on Scale'),
+              _buildInfoRow('Centre Name', order.collectionCentre),
+              _buildCopyableInfoRow(context, 'Centre ID', order.collectionCentreId),
+              _buildInfoRow('Inspected By', order.inspectorName),
+              _buildInfoRow('Weighbridge Status', order.weighbridgeStatus),
             ],
           ),
         ),

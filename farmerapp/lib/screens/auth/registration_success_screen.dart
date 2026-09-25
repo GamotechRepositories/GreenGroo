@@ -13,7 +13,7 @@ class RegistrationSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final farmerId = farmer.id.isNotEmpty ? farmer.id : 'GGC-FR-MH-AHI-SAN-00001';
+    final farmerId = farmer.id;
     final farmerCode = farmer.id;
 
     return Scaffold(

@@ -172,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         kycStatus: 'PENDING',
         bankVerificationStatus: 'PENDING',
         farmName: '${_nameController.text.trim()} Krushi Farm',
-        totalAcres: 2.0,
+        totalAcres: 0,
       );
     } finally {
       if (mounted) {
@@ -250,7 +250,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
                   style: const TextStyle(fontSize: 13.5, color: AppColors.text),
-                  decoration: _inputDecoration(hint: 'उदा. Prajwal Nehe'),
+                  decoration: _inputDecoration(hint: 'पूर्ण नाव'),
                   validator: (v) {
                     if (v == null || v.trim().length < 3) {
                       return 'Enter farmer full name (min 3 characters)';
@@ -425,7 +425,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _villageController,
                             style: const TextStyle(fontSize: 13.5, color: AppColors.text),
-                            decoration: _inputDecoration(hint: 'उदा. Sawargaon'),
+                            decoration: _inputDecoration(hint: 'गाव'),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Village is required' : null,
                           ),
                         ],
@@ -440,7 +440,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _talukaController,
                             style: const TextStyle(fontSize: 13.5, color: AppColors.text),
-                            decoration: _inputDecoration(hint: 'उदा. Sangamner'),
+                            decoration: _inputDecoration(hint: 'तालुका'),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Taluka is required' : null,
                           ),
                         ],

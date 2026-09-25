@@ -428,6 +428,8 @@ farmerManagerSchema.index({ createdAt: -1 });
 // Farmer Product Indexes
 farmerProductSchema.index({ farmerId: 1, createdAt: -1 });
 farmerProductSchema.index({ id: 1, farmerId: 1 });
+farmerProductSchema.index({ farmerId: 1, productId: 1 });
+farmerProductSchema.index({ productId: 1 });
 farmerProductSchema.index({ managerId: 1, status: 1 });
 farmerProductSchema.index({ vendorId: 1, status: 1 });
 farmerProductSchema.index({ category: 1 });
@@ -441,6 +443,8 @@ farmerStockHistorySchema.index({ at: -1 });
 farmerOrderSchema.index({ farmerId: 1, orderDate: -1 });
 farmerOrderSchema.index({ farmerId: 1, createdAt: -1 });
 farmerOrderSchema.index({ id: 1, farmerId: 1 });
+farmerOrderSchema.index({ orderId: 1 });
+farmerOrderSchema.index({ farmerId: 1, productId: 1 });
 farmerOrderSchema.index({ vendorId: 1, status: 1 });
 farmerOrderSchema.index({ status: 1 });
 

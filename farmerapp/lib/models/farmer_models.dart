@@ -35,11 +35,11 @@ class FarmerProfile {
   double get cultivatedArea => _cultivatedArea ?? totalAcres;
   String get cultivatedAreaUnit => _cultivatedAreaUnit ?? 'Acre';
   String get farmingType => _farmingType ?? 'Individual (स्वतःची)';
-  String get mainCrops => _mainCrops ?? 'Tomato, Onion, Soybean';
-  String get farmAddress => _farmAddress ?? 'Near Canal, Sawargaon Road';
-  bool get locationConfirmed => _locationConfirmed ?? true;
-  String get kycStatus => _kycStatus ?? 'APPROVED';
-  String get bankVerificationStatus => _bankVerificationStatus ?? 'VERIFIED';
+  String get mainCrops => _mainCrops ?? '';
+  String get farmAddress => _farmAddress ?? '';
+  bool get locationConfirmed => _locationConfirmed ?? false;
+  String get kycStatus => _kycStatus ?? 'PENDING';
+  String get bankVerificationStatus => _bankVerificationStatus ?? 'PENDING';
   List<String> get farmPhotos => _farmPhotos ?? const [];
   List<String> get farmVideos => _farmVideos ?? const [];
 
@@ -54,20 +54,20 @@ class FarmerProfile {
     String? totalFarmAreaUnit,
     double? cultivatedArea,
     String? cultivatedAreaUnit,
-    this.soilType = 'Black Soil (काळी माती)',
-    this.irrigationType = 'Drip (ठिबक)',
-    this.waterSource = 'Borewell (बोअरवेल)',
-    this.farmingMethod = 'Organic (सेंद्रिय)',
+    this.soilType = '',
+    this.irrigationType = '',
+    this.waterSource = '',
+    this.farmingMethod = '',
     String? farmingType,
     String? mainCrops,
-    this.village = 'Baramati',
-    this.taluka = 'Sangamner',
-    this.district = 'Ahilyanagar',
-    this.state = 'Maharashtra',
-    this.pincode = '422605',
+    this.village = '',
+    this.taluka = '',
+    this.district = '',
+    this.state = '',
+    this.pincode = '',
     String? farmAddress,
-    this.latitude = 19.5761,
-    this.longitude = 74.2070,
+    this.latitude,
+    this.longitude,
     bool? locationConfirmed,
     String? kycStatus,
     String? bankVerificationStatus,
@@ -76,14 +76,14 @@ class FarmerProfile {
     List<String>? farmPhotos,
     List<String>? farmVideos,
   })  : _totalFarmAreaUnit = totalFarmAreaUnit ?? 'Acre',
-        _cultivatedArea = cultivatedArea ?? 2.0,
+        _cultivatedArea = cultivatedArea,
         _cultivatedAreaUnit = cultivatedAreaUnit ?? 'Acre',
-        _farmingType = farmingType ?? 'Individual (स्वतःची)',
-        _mainCrops = mainCrops ?? 'Tomato, Onion, Soybean',
-        _farmAddress = farmAddress ?? 'Near Canal, Sawargaon Road',
-        _locationConfirmed = locationConfirmed ?? true,
-        _kycStatus = kycStatus ?? 'APPROVED',
-        _bankVerificationStatus = bankVerificationStatus ?? 'VERIFIED',
+        _farmingType = farmingType ?? '',
+        _mainCrops = mainCrops ?? '',
+        _farmAddress = farmAddress ?? '',
+        _locationConfirmed = locationConfirmed ?? false,
+        _kycStatus = kycStatus ?? 'PENDING',
+        _bankVerificationStatus = bankVerificationStatus ?? 'PENDING',
         _farmPhotos = farmPhotos ?? const [],
         _farmVideos = farmVideos ?? const [];
 
@@ -160,14 +160,14 @@ class FarmerProfile {
     final farm = json['farm'] is Map ? json['farm'] as Map<String, dynamic> : <String, dynamic>{};
     final loc = json['farmLocation'] is Map ? json['farmLocation'] as Map<String, dynamic> : <String, dynamic>{};
 
-    double acres = 2.0;
+    double acres = 0;
     if (json['farmArea'] != null) {
-      acres = double.tryParse(json['farmArea'].toString()) ?? 2.0;
+      acres = double.tryParse(json['farmArea'].toString()) ?? 0;
     } else if (farm['totalFarmArea'] != null) {
-      acres = double.tryParse(farm['totalFarmArea'].toString()) ?? 2.0;
+      acres = double.tryParse(farm['totalFarmArea'].toString()) ?? 0;
     }
 
-    double cultArea = 2.0;
+    double cultArea = acres;
     if (farm['cultivatedArea'] != null) {
       cultArea = double.tryParse(farm['cultivatedArea'].toString()) ?? acres;
     }
@@ -193,33 +193,33 @@ class FarmerProfile {
     double? lng = loc['longitude'] != null ? double.tryParse(loc['longitude'].toString()) : null;
 
     return FarmerProfile(
-      id: str(json['id'] ?? json['farmerId'] ?? json['farmerCode'], 'GGC-FR-MH-AHI-SAN-00001'),
-      fullName: str(json['name'] ?? json['fullName'], 'Sunil Nehe'),
-      mobile: str(json['mobile'], '9876543210'),
+      id: str(json['id'] ?? json['farmerId'] ?? json['farmerCode'], ''),
+      fullName: str(json['name'] ?? json['fullName'], ''),
+      mobile: str(json['mobile'], ''),
       email: str(json['email'], ''),
       preferredLanguage: lang,
-      farmName: str(farm['farmName'] ?? json['farmName'], 'Nehe Krushi Farm'),
+      farmName: str(farm['farmName'] ?? json['farmName'], ''),
       totalAcres: acres,
       totalFarmAreaUnit: str(farm['totalFarmAreaUnit'], 'Acre'),
       cultivatedArea: cultArea,
       cultivatedAreaUnit: str(farm['cultivatedAreaUnit'], 'Acre'),
-      soilType: str(farm['soilType'] ?? json['soilType'], 'Black Soil (काळी माती)'),
-      irrigationType: str(farm['irrigationType'] ?? json['irrigationType'], 'Drip (ठिबक)'),
-      waterSource: str(farm['waterSource'], 'Borewell (बोअरवेल)'),
-      farmingMethod: str(farm['farmingMethod'] ?? json['farmType'], 'Organic (सेंद्रिय)'),
-      farmingType: str(farm['farmingType'], 'Individual (स्वतःची)'),
-      mainCrops: str(farm['mainCrops'], 'Tomato, Onion, Soybean'),
-      village: str(loc['village'] ?? addr['village'] ?? json['village'], 'Sawargaon'),
-      taluka: str(loc['taluka'] ?? addr['taluka'] ?? json['taluka'], 'Sangamner'),
-      district: str(loc['district'] ?? addr['district'] ?? json['district'], 'Ahilyanagar'),
-      state: str(loc['state'] ?? addr['state'] ?? json['state'], 'Maharashtra'),
-      pincode: str(loc['pincode'] ?? addr['pincode'] ?? json['pincode'], '422605'),
-      farmAddress: str(loc['farmAddress'] ?? json['farmAddress'], 'Near Canal, Gat No. 104, Sawargaon'),
-      latitude: lat ?? 19.5761,
-      longitude: lng ?? 74.2070,
-      locationConfirmed: loc['confirmed'] == true || loc['confirmed'] == 'true' || true,
-      kycStatus: str(json['verificationStatus'] ?? json['kycStatus'], 'APPROVED').toUpperCase(),
-      bankVerificationStatus: str(json['bankVerificationStatus'], 'VERIFIED').toUpperCase(),
+      soilType: str(farm['soilType'] ?? json['soilType'], ''),
+      irrigationType: str(farm['irrigationType'] ?? json['irrigationType'], ''),
+      waterSource: str(farm['waterSource'], ''),
+      farmingMethod: str(farm['farmingMethod'] ?? json['farmType'], ''),
+      farmingType: str(farm['farmingType'], ''),
+      mainCrops: str(farm['mainCrops'], ''),
+      village: str(loc['village'] ?? addr['village'] ?? json['village'], ''),
+      taluka: str(loc['taluka'] ?? addr['taluka'] ?? json['taluka'], ''),
+      district: str(loc['district'] ?? addr['district'] ?? json['district'], ''),
+      state: str(loc['state'] ?? addr['state'] ?? json['state'], ''),
+      pincode: str(loc['pincode'] ?? addr['pincode'] ?? json['pincode'], ''),
+      farmAddress: str(loc['farmAddress'] ?? json['farmAddress'], ''),
+      latitude: lat,
+      longitude: lng,
+      locationConfirmed: loc['confirmed'] == true || loc['confirmed'] == 'true',
+      kycStatus: str(json['verificationStatus'] ?? json['kycStatus'], 'PENDING').toUpperCase(),
+      bankVerificationStatus: str(json['bankVerificationStatus'], 'PENDING').toUpperCase(),
       profilePhoto: str(json['profileImage'] ?? json['profilePhoto'], ''),
       farmPhoto: str(farm['farmPhoto'], ''),
       farmPhotos: (farm['farmPhotos'] is List) ? List<String>.from(farm['farmPhotos'].map((e) => e.toString())) : [],
@@ -257,14 +257,14 @@ class CropItem {
     this.areaUnit = 'Acre',
     required this.sowingDate,
     required this.estHarvestDate,
-    this.estimatedQuantity = 1000.0,
+    this.estimatedQuantity = 0,
     this.unit = 'Kg',
-    this.soilType = 'Black Soil (काळी माती)',
-    this.irrigationType = 'Drip (ठिबक)',
-    this.farmingMethod = 'Mixed (मिश्र)',
-    this.farmingType = 'Organic (सेंद्रिय)',
-    this.farmName = 'My Krushi Farm',
-    this.farmLocation = 'Sawargaon Tal',
+    this.soilType = '',
+    this.irrigationType = '',
+    this.farmingMethod = '',
+    this.farmingType = '',
+    this.farmName = '',
+    this.farmLocation = '',
     this.photos = const [],
     required this.status,
     required this.progress,
@@ -294,7 +294,7 @@ class CropItem {
       area = (json['acreage'] is num) ? (json['acreage'] as num).toDouble() : (double.tryParse(json['acreage'].toString()) ?? 1.0);
     }
 
-    double estQty = 1000.0;
+    double estQty = 0;
     if (json['estimatedQuantity'] != null) {
       estQty = (json['estimatedQuantity'] is num) ? (json['estimatedQuantity'] as num).toDouble() : (double.tryParse(json['estimatedQuantity'].toString()) ?? 1000.0);
     }
@@ -310,20 +310,20 @@ class CropItem {
       variety: json['variety']?.toString() ?? 'Hybrid',
       acreage: area,
       areaUnit: json['areaUnit']?.toString() ?? 'Acre',
-      sowingDate: json['sowingDate']?.toString() ?? '2026-08-01',
-      estHarvestDate: json['expectedHarvestDate']?.toString() ?? json['estHarvestDate']?.toString() ?? '2026-10-15',
+      sowingDate: json['sowingDate']?.toString() ?? '',
+      estHarvestDate: json['expectedHarvestDate']?.toString() ?? json['estHarvestDate']?.toString() ?? '',
       estimatedQuantity: estQty,
       unit: json['unit']?.toString() ?? 'Kg',
-      soilType: json['soilType']?.toString() ?? 'Black Soil (काळी माती)',
-      irrigationType: json['irrigationType']?.toString() ?? 'Drip (ठिबक)',
-      farmingMethod: json['farmingMethod']?.toString() ?? 'Mixed (मिश्र)',
-      farmingType: json['farmingType']?.toString() ?? 'Organic (सेंद्रिय)',
-      farmName: json['farmName']?.toString() ?? 'My Krushi Farm',
-      farmLocation: json['farmLocation']?.toString() ?? 'Sawargaon Tal',
+      soilType: json['soilType']?.toString() ?? '',
+      irrigationType: json['irrigationType']?.toString() ?? '',
+      farmingMethod: json['farmingMethod']?.toString() ?? '',
+      farmingType: json['farmingType']?.toString() ?? '',
+      farmName: json['farmName']?.toString() ?? '',
+      farmLocation: json['farmLocation']?.toString() ?? '',
       photos: photoList,
-      status: json['status']?.toString() ?? 'Crop Growing',
-      progress: (json['progress'] is num) ? (json['progress'] as num).toDouble() : 0.65,
-      stageIndex: (json['stageIndex'] is int) ? json['stageIndex'] as int : 16,
+      status: json['status']?.toString() ?? '',
+      progress: (json['progress'] is num) ? (json['progress'] as num).toDouble() : 0,
+      stageIndex: (json['stageIndex'] is int) ? json['stageIndex'] as int : 0,
     );
   }
 }
@@ -385,51 +385,41 @@ class ProductItem {
     double? gradeBQty,
     double? gradeCPrice,
     double? gradeCQty,
-  })  : id = (id != null && id.isNotEmpty) ? id : 'PRD-001',
-        productId = (productId != null && productId.isNotEmpty)
-            ? productId
-            : ((id != null && id.startsWith('GGC-PRD'))
-                ? id
-                : 'GGC-PRD-20260908-00001'),
-        productName = (productName != null && productName.isNotEmpty) ? productName : 'Farm Product',
+  })  : id = id ?? '',
+        productId = (productId != null && productId.isNotEmpty) ? productId : (id ?? ''),
+        productName = productName ?? '',
         variety = variety ?? '',
-        category = (category != null && category.isNotEmpty) ? category : 'Vegetables (भाजीपाला)',
+        category = category ?? '',
         cropLinked = cropLinked ?? '',
-        grade = (grade != null && grade.isNotEmpty) ? grade : 'Grade A',
+        grade = grade ?? '',
         unit = (unit != null && unit.isNotEmpty) ? unit : 'Kg',
-        pricePerUnit = pricePerUnit ?? 30.0,
-        stockQuantity = stockQuantity ?? 500.0,
-        minimumOrderQuantity = minimumOrderQuantity ?? 10.0,
-        farmingType = (farmingType != null && farmingType.isNotEmpty) ? farmingType : 'Organic (सेंद्रिय)',
-        farmName = (farmName != null && farmName.isNotEmpty) ? farmName : 'My Krushi Farm',
-        farmLocation = (farmLocation != null && farmLocation.isNotEmpty) ? farmLocation : 'Baramati, Pune',
-        sowingDate = (sowingDate != null && sowingDate.isNotEmpty) ? sowingDate : '15 Aug 2026',
-        harvestDate = (harvestDate != null && harvestDate.isNotEmpty) ? harvestDate : '14 Oct 2026',
-        availableFrom = (availableFrom != null && availableFrom.isNotEmpty) ? availableFrom : '15 Oct 2026',
-        availableUntil = (availableUntil != null && availableUntil.isNotEmpty) ? availableUntil : '30 Nov 2026',
-        status = (status != null && status.isNotEmpty) ? status : 'Active',
+        pricePerUnit = pricePerUnit ?? 0,
+        stockQuantity = stockQuantity ?? 0,
+        minimumOrderQuantity = minimumOrderQuantity ?? 0,
+        farmingType = farmingType ?? '',
+        farmName = farmName ?? '',
+        farmLocation = farmLocation ?? '',
+        sowingDate = sowingDate ?? '',
+        harvestDate = harvestDate ?? '',
+        availableFrom = availableFrom ?? '',
+        availableUntil = availableUntil ?? '',
+        status = status ?? '',
         imageUrl = imageUrl ?? '',
         photos = photos ?? const [],
-        gradeAPrice = gradeAPrice ?? (pricePerUnit ?? 30.0),
-        gradeAQty = gradeAQty ?? ((stockQuantity ?? 500.0) * 0.70).roundToDouble(),
-        gradeBPrice = gradeBPrice ?? ((pricePerUnit ?? 30.0) * 0.4).roundToDouble(),
-        gradeBQty = gradeBQty ?? ((stockQuantity ?? 500.0) * 0.25).roundToDouble(),
-        gradeCPrice = gradeCPrice ?? 0.0,
-        gradeCQty = gradeCQty ?? 0.0;
+        gradeAPrice = gradeAPrice ?? (pricePerUnit ?? 0),
+        gradeAQty = gradeAQty ?? 0,
+        gradeBPrice = gradeBPrice ?? 0,
+        gradeBQty = gradeBQty ?? 0,
+        gradeCPrice = gradeCPrice ?? 0,
+        gradeCQty = gradeCQty ?? 0;
 
   String get displayBusinessId {
-    try {
-      if (productId.isNotEmpty) return productId;
-      if (id.startsWith('GGC-PRD')) return id;
-      final cleanId = id.replaceAll(RegExp(r'[^0-9]'), '');
-      return 'GGC-PRD-20260908-${cleanId.isNotEmpty ? cleanId.padLeft(5, '0') : '00001'}';
-    } catch (_) {
-      return 'GGC-PRD-20260908-00001';
-    }
+    if (productId.isNotEmpty) return productId;
+    return id;
   }
 
   factory ProductItem.fromJson(Map<String, dynamic> json) {
-    String grade = 'Grade A';
+    String grade = '';
     if (json['grades'] is List && (json['grades'] as List).isNotEmpty) {
       final firstGrade = (json['grades'] as List)[0];
       if (firstGrade is Map && firstGrade['grade'] != null) {
@@ -488,10 +478,10 @@ class ProductItem {
       }
     }
 
-    final rawId = json['id']?.toString() ?? json['_id']?.toString() ?? json['productId']?.toString() ?? 'PRD-001';
-    final pId = json['productId']?.toString() ?? json['businessId']?.toString() ?? (rawId.startsWith('GGC-PRD') || rawId.startsWith('GGC-ART') ? rawId : 'GGC-PRD-20260908-00001');
+    final rawId = json['id']?.toString() ?? json['_id']?.toString() ?? json['productId']?.toString() ?? '';
+    final pId = json['productId']?.toString() ?? json['businessId']?.toString() ?? rawId;
 
-    String rawHarvest = json['harvestDate']?.toString() ?? (json['crop'] is Map ? json['crop']['expectedHarvestDate']?.toString() ?? '01 Sept 2026' : '01 Sept 2026');
+    String rawHarvest = json['harvestDate']?.toString() ?? (json['crop'] is Map ? json['crop']['expectedHarvestDate']?.toString() ?? '' : '');
     String formattedHarvest = rawHarvest;
     try {
       if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(rawHarvest)) {
@@ -508,23 +498,23 @@ class ProductItem {
     return ProductItem(
       id: rawId,
       productId: pId,
-      productName: json['productName']?.toString() ?? json['name']?.toString() ?? 'Farm Product',
+      productName: json['productName']?.toString() ?? json['name']?.toString() ?? '',
       variety: json['variety']?.toString() ?? '',
-      category: json['category']?.toString() ?? 'Vegetables',
+      category: json['category']?.toString() ?? '',
       cropLinked: json['cropName']?.toString() ?? json['cropLinked']?.toString() ?? '',
       grade: grade,
       unit: json['unit']?.toString() ?? 'Kg',
       pricePerUnit: price,
       stockQuantity: stock,
-      minimumOrderQuantity: (json['minimumOrderQuantity'] is num) ? (json['minimumOrderQuantity'] as num).toDouble() : (double.tryParse(json['minimumOrderQuantity']?.toString() ?? '') ?? 10.0),
-      farmingType: json['farmingType']?.toString() ?? 'Organic (सेंद्रिय)',
-      farmName: json['farmName']?.toString() ?? 'Nehe Mala',
-      farmLocation: json['farmLocation']?.toString() ?? 'Sawargaon Tal, Sangamner',
-      sowingDate: json['sowingDate']?.toString() ?? (json['crop'] is Map ? json['crop']['sowingDate']?.toString() ?? '01 Jun 2026' : '01 Jun 2026'),
+      minimumOrderQuantity: (json['minimumOrderQuantity'] is num) ? (json['minimumOrderQuantity'] as num).toDouble() : (double.tryParse(json['minimumOrderQuantity']?.toString() ?? '') ?? 0),
+      farmingType: json['farmingType']?.toString() ?? '',
+      farmName: json['farmName']?.toString() ?? '',
+      farmLocation: json['farmLocation']?.toString() ?? '',
+      sowingDate: json['sowingDate']?.toString() ?? (json['crop'] is Map ? json['crop']['sowingDate']?.toString() ?? '' : ''),
       harvestDate: formattedHarvest,
-      availableFrom: json['availableFrom']?.toString() ?? '01 Sept 2026',
-      availableUntil: json['availableUntil']?.toString() ?? '30 Oct 2026',
-      status: json['status']?.toString() ?? json['stockStatus']?.toString() ?? 'Active',
+      availableFrom: json['availableFrom']?.toString() ?? '',
+      availableUntil: json['availableUntil']?.toString() ?? '',
+      status: json['status']?.toString() ?? json['stockStatus']?.toString() ?? '',
       imageUrl: mainImg,
       photos: photoList,
     );
@@ -568,22 +558,22 @@ class FarmerOrderItem {
   final String? _collectionCentre;
   String get collectionCentre {
     final c = _collectionCentre;
-    return (c != null && c.isNotEmpty) ? c : 'Main Collection Centre';
+    return (c != null && c.isNotEmpty) ? c : '';
   }
   final String? _collectionCentreId;
   String get collectionCentreId {
     final c = _collectionCentreId;
-    return (c != null && c.isNotEmpty) ? c : 'GGC-CC-MH-NK-NAS-NAS-001';
+    return (c != null && c.isNotEmpty) ? c : '';
   }
   final String? _inspectorName;
   String get inspectorName {
     final n = _inspectorName;
-    return (n != null && n.isNotEmpty) ? n : 'Prajwal Nehe';
+    return (n != null && n.isNotEmpty) ? n : '';
   }
   final String? _weighbridgeStatus;
   String get weighbridgeStatus {
     final s = _weighbridgeStatus;
-    return (s != null && s.isNotEmpty) ? s : 'Verified on Scale';
+    return (s != null && s.isNotEmpty) ? s : '';
   }
 
   FarmerOrderItem({
@@ -612,8 +602,8 @@ class FarmerOrderItem {
     double? rejectedQuantity,
     required this.totalAmount,
     required this.status,
-    this.qualityStatus = 'GRADE_CONFIRMED',
-    this.paymentStatus = 'PAID',
+    this.qualityStatus = '',
+    this.paymentStatus = '',
     required this.pickupDate,
     required this.pickupSlot,
     required this.createdAt,
@@ -624,18 +614,18 @@ class FarmerOrderItem {
     String? inspectorName,
     String? weighbridgeStatus,
   })  : _productId = productId ?? '',
-        _collectionCentre = collectionCentre ?? 'Main Collection Centre',
-        _collectionCentreId = collectionCentreId ?? 'GGC-CC-MH-NK-NAS-NAS-001',
-        _inspectorName = inspectorName ?? 'Prajwal Nehe',
-        _weighbridgeStatus = weighbridgeStatus ?? 'Verified on Scale',
+        _collectionCentre = collectionCentre ?? '',
+        _collectionCentreId = collectionCentreId ?? '',
+        _inspectorName = inspectorName ?? '',
+        _weighbridgeStatus = weighbridgeStatus ?? '',
         orderedQuantity = orderedQuantity ?? quantity,
         receivedQuantity = receivedQuantity ?? quantity,
-        rate = rate ?? (quantity > 0 ? (totalAmount / quantity).roundToDouble() : 30.0),
-        gradeAQty = gradeAQty ?? (quantity >= 290.0 ? 200.0 : (quantity * 0.70).roundToDouble()),
-        gradeARate = gradeARate ?? (rate ?? 30.0),
-        gradeBQty = gradeBQty ?? (quantity >= 290.0 ? 80.0 : (quantity * 0.25).roundToDouble()),
-        gradeBRate = gradeBRate ?? ((rate ?? 30.0) * 0.4).roundToDouble(),
-        rejectedQuantity = rejectedQuantity ?? (quantity >= 290.0 ? 10.0 : (quantity * 0.05).roundToDouble());
+        rate = rate ?? (quantity > 0 && totalAmount > 0 ? (totalAmount / quantity) : 0),
+        gradeAQty = gradeAQty ?? 0,
+        gradeARate = gradeARate ?? (rate ?? 0),
+        gradeBQty = gradeBQty ?? 0,
+        gradeBRate = gradeBRate ?? 0,
+        rejectedQuantity = rejectedQuantity ?? 0;
 
   double get gradeAAmt => gradeAQty * (gradeARate > 0 ? gradeARate : rate);
   double get gradeBAmt => gradeBQty * (gradeBRate > 0 ? gradeBRate : (rate * 0.4).roundToDouble());
@@ -712,15 +702,7 @@ class FarmerOrderItem {
       finalRej = totalRejFromGrades;
     }
 
-    // If order total is 6960 with Grade A: 200 @ 30 (6000) and Grade B @ 12, adjust Grade B to 80 (and 10 rejected) to match exact statement
     double totAmt = parseDbl(json['totalAmount'] ?? json['orderValue'] ?? json['finalAmount'] ?? json['amount'], 0.0);
-    if (totAmt == 6960.0 && gA == 200.0 && (gAR == 30.0 || gAR == 0.0)) {
-      gAR = 30.0;
-      gB = 80.0;
-      gBR = 12.0;
-      gBRej = 10.0;
-      finalRej = 10.0;
-    }
 
     double calculatedAmount = (gA * gAR) + (gB * gBR) + (gC * gCR);
     if (totAmt <= 0) {
@@ -732,12 +714,12 @@ class FarmerOrderItem {
     final qStatus = json['qualityStatus']?.toString() ?? '';
 
     return FarmerOrderItem(
-      id: json['id']?.toString() ?? json['_id']?.toString() ?? json['orderCode']?.toString() ?? json['orderDisplayId']?.toString() ?? 'ORD-001',
+      id: json['id']?.toString() ?? json['_id']?.toString() ?? json['orderCode']?.toString() ?? json['orderDisplayId']?.toString() ?? '',
       productId: json['productId']?.toString() ?? json['product_id']?.toString() ?? '',
-      orderCode: json['orderDisplayId']?.toString() ?? json['orderCode']?.toString() ?? json['id']?.toString() ?? 'GGC-ORD-00001',
-      buyerName: json['buyerName']?.toString() ?? json['customerName']?.toString() ?? 'Swastik Supermarket Pune',
-      buyerPhone: json['buyerPhone']?.toString() ?? json['customerPhone']?.toString() ?? '+91 98501 23456',
-      productName: json['productName']?.toString() ?? json['cropName']?.toString() ?? json['name']?.toString() ?? 'Produce',
+      orderCode: json['orderDisplayId']?.toString() ?? json['orderCode']?.toString() ?? json['id']?.toString() ?? '',
+      buyerName: json['buyerName']?.toString() ?? json['customerName']?.toString() ?? '',
+      buyerPhone: json['buyerPhone']?.toString() ?? json['customerPhone']?.toString() ?? '',
+      productName: json['productName']?.toString() ?? json['cropName']?.toString() ?? json['name']?.toString() ?? '',
       cropName: json['cropName']?.toString() ?? json['cropLinked']?.toString() ?? json['productName']?.toString() ?? '',
       variety: json['variety']?.toString() ?? '',
       quantity: q,
@@ -764,10 +746,10 @@ class FarmerOrderItem {
       createdAt: json['createdAt']?.toString() ?? json['orderDate']?.toString() ?? '',
       rejectionReason: json['rejectionReason']?.toString() ?? '',
       transactionId: json['transactionId']?.toString() ?? (json['paymentDetails'] is Map ? json['paymentDetails']['transactionId']?.toString() ?? '' : ''),
-      collectionCentre: json['collectionCentre']?.toString() ?? (json['collection_centre']?.toString()) ?? 'Main Collection Centre',
-      collectionCentreId: json['collectionCentreId']?.toString() ?? (json['pickup'] is Map ? json['pickup']['collectionCentreId']?.toString() : null) ?? 'GGC-CC-MH-NK-NAS-NAS-001',
-      inspectorName: json['inspectorName']?.toString() ?? (json['inspection'] is Map ? json['inspection']['inspectorName']?.toString() : null) ?? json['receivedBy']?.toString() ?? 'Prajwal Nehe',
-      weighbridgeStatus: json['weighbridgeStatus']?.toString() ?? (json['weightVerified'] != false ? 'Verified on Scale' : 'Standard Scale'),
+      collectionCentre: json['collectionCentre']?.toString() ?? (json['collection_centre']?.toString()) ?? '',
+      collectionCentreId: json['collectionCentreId']?.toString() ?? (json['pickup'] is Map ? json['pickup']['collectionCentreId']?.toString() : null) ?? '',
+      inspectorName: json['inspectorName']?.toString() ?? (json['inspection'] is Map ? json['inspection']['inspectorName']?.toString() : null) ?? json['receivedBy']?.toString() ?? '',
+      weighbridgeStatus: json['weighbridgeStatus']?.toString() ?? '',
     );
   }
 }

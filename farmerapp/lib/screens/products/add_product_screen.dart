@@ -340,7 +340,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     try {
       final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + (double.tryParse(g.quantity) ?? 0.0));
-      final resolvedQty = totalQty > 0 ? totalQty : (double.tryParse(_availableQtyController.text) ?? 500.0);
+      final resolvedQty = totalQty > 0 ? totalQty : (double.tryParse(_availableQtyController.text) ?? 0);
       final resolvedFarmingType = _farmingType == 'Other' ? _customFarmingTypeController.text.trim() : _farmingType;
 
       final allPhotos = <String>[];
@@ -426,8 +426,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
           stockQuantity: resolvedQty,
           minimumOrderQuantity: 10.0,
           farmingType: resolvedFarmingType.isNotEmpty ? resolvedFarmingType : 'Conventional',
-          farmName: 'Nehe Mala',
-          farmLocation: 'Sawargaon Tal, Sangamner',
+          farmName: FarmerState().profile.farmName,
+          farmLocation: [
+            FarmerState().profile.village,
+            FarmerState().profile.taluka,
+            FarmerState().profile.district,
+          ].where((part) => part.isNotEmpty).join(', '),
           sowingDate: _formatDate(_sowingDate),
           harvestDate: _formatDate(_harvestDate),
           availableFrom: _formatDate(_availableFrom),

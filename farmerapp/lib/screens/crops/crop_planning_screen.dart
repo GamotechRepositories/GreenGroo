@@ -26,12 +26,6 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
   // Store custom logged entries & uploads per cropId & stageIndex
   final Map<String, Map<int, Map<String, dynamic>>> _stageLogs = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _initDefaultStageLogs();
-  }
-
   List<Map<String, dynamic>> _getStagesForCrop(String cropId) {
     if (!_cropStages.containsKey(cropId) || _cropStages[cropId]!.isEmpty) {
       _cropStages[cropId] = List<Map<String, dynamic>>.from(
@@ -39,83 +33,6 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
       );
     }
     return _cropStages[cropId]!;
-  }
-
-  void _initDefaultStageLogs() {
-    _stageLogs['CRP-001'] = {
-      0: {
-        'date': '01 Jun 2026',
-        'activity': 'नियोजन तयार केले',
-        'attachments': [
-          {'name': 'Crop_Plan_Summary.pdf', 'type': 'लॅब अहवाल / Report', 'date': '01/06/2026', 'size': '1.2 MB', 'isPdf': true, 'note': 'हंगाम २०२६ नियोजन पत्रक'}
-        ],
-      },
-      1: {'date': '03 Jun 2026', 'activity': 'नांगरणी व रोटाव्हेटर पूर्ण'},
-      2: {
-        'date': '05 Jun 2026',
-        'soilReport': 'pH: 7.2, NPK: मध्यम, अहवाल अपलोड केला',
-        'attachments': [
-          {'name': 'Mati_Parikshan_Report_2026.pdf', 'type': 'माती परीक्षण अहवाल', 'date': '05/06/2026', 'size': '2.4 MB', 'isPdf': true, 'note': 'शासकीय प्रयोगशाळा अहवाल'}
-        ],
-      },
-      3: {'date': '08 Jun 2026', 'activity': 'बेड तयार व मल्चिंग पेपर अंथरले'},
-      4: {'date': '10 Jun 2026', 'seedName': 'Bajeerao Tomato (बाजिराव)'},
-      5: {'date': '11 Jun 2026', 'treatment': 'ट्रायकोडर्मा + बाविस्टीन बीजप्रक्रिया'},
-      6: {'date': '12 Jun 2026', 'variety': 'Bajeerao (बाजिराव), 2 एकर'},
-      7: {'date': '17 Jun 2026', 'activity': '95% बी उगवण यशस्वी'},
-      8: {
-        'date': '22 Jun 2026',
-        'fertilizerName': '19:19:19',
-        'quantity': '25 Kg / एकर',
-        'attachments': [
-          {'name': 'Fertilizer_Bill_June.jpg', 'type': 'खत पावती', 'date': '22/06/2026', 'size': '850 KB', 'isPdf': false, 'note': 'खरेदी बिल क्र. ४५२'}
-        ],
-      },
-      9: {'date': '26 Jun 2026', 'irrigationType': 'ठिबक सिंचन (Drip) - 2 तास'},
-      10: {
-        'date': '05 Jul 2026',
-        'observation': 'रोपांची सशक्त वाढ, फुटवे छान',
-        'attachments': [
-          {'name': 'Field_Growth_Obs.jpg', 'type': 'पिकाचा थेट फोटो', 'date': '05/07/2026', 'size': '1.8 MB', 'isPdf': false, 'note': '२२ दिवसांचे रोप'}
-        ],
-      },
-      11: {
-        'sprayName': 'Confidor + Dithane M-45',
-        'date': '15 Jul 2026',
-        'dose': '1.5 ml/L + 2 gm/L',
-        'repeatCount': 2,
-        'repeats': [
-          {'date': '15 Jul 2026', 'spray': 'Confidor (1.5 ml/L)', 'dose': 'मावा-तुडतुडे'},
-          {'date': '25 Jul 2026', 'spray': 'Pegasus (1.2 gm/L)', 'dose': 'पांढरी माशी'},
-        ],
-        'attachments': [
-          {'name': 'Pesticide_Spray_Bill.pdf', 'type': 'औषध पावती', 'date': '15/07/2026', 'size': '1.1 MB', 'isPdf': true, 'note': 'फवारणी औषध बिल'}
-        ],
-      },
-      12: {'date': '01 Aug 2026', 'activity': 'पहिली खुरपणी व तण काढणी पूर्ण'},
-      13: {'date': '10 Aug 2026', 'fertilizerName': '12:61:00 + सूक्ष्म अन्नद्रव्य', 'quantity': '20 Kg / एकर'},
-      14: {
-        'sprayName': 'Score + Kavach',
-        'date': '20 Aug 2026',
-        'dose': '1 ml/L + 2 gm/L',
-        'repeatCount': 1,
-        'repeats': [
-          {'date': '20 Aug 2026', 'spray': 'Score (1 ml/L)', 'dose': 'करपा प्रतिबंधक'},
-        ],
-      },
-      15: {'date': '25 Aug 2026', 'irrigationType': 'ठिबक सिंचन (Drip) - 3 तास'},
-      16: {'date': '28 Aug 2026', 'height': '3.5 फूट', 'observation': 'झाडे निरोगी, कीडमुक्त'},
-      17: {
-        'sprayName': '0:52:34 + बोरॉन',
-        'date': '05 Sept 2026',
-        'dose': '5 gm/L + 1 gm/L',
-        'repeatCount': 1,
-        'repeats': [
-          {'date': '05 Sept 2026', 'spray': '0:52:34 + Boron', 'dose': 'फुलगळ रोखण्यासाठी'},
-        ],
-      },
-      18: {'date': '15 Sept 2026', 'observation': 'भरपूर फुले व फळधारणा सुरू'},
-    };
   }
 
   @override

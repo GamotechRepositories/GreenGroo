@@ -256,11 +256,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ],
                       ),
                     );
-                  } else if (val == 'refresh') {
-                    state.fetchFromBackend();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('माहिती रिफ्रेश करत आहे...')),
-                    );
                   }
                 },
                 itemBuilder: (ctx) => [
@@ -271,16 +266,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Icon(Icons.volume_up, size: 16, color: AppColors.primary),
                         SizedBox(width: 8),
                         Text('आवाज तपासा (Test Sound)', style: TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'refresh',
-                    child: Row(
-                      children: [
-                        Icon(Icons.refresh, size: 16, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Text('रिफ्रेश करा (Refresh)', style: TextStyle(fontSize: 12)),
                       ],
                     ),
                   ),
@@ -344,17 +329,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               const Text(
                                 'नवीन ऑर्डर, पीक नियोजन किंवा योजना आल्यावर येथे दिसेल.',
                                 style: TextStyle(fontSize: 11, color: AppColors.muted),
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.primary,
-                                  side: const BorderSide(color: AppColors.primary),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                ),
-                                icon: const Icon(Icons.refresh, size: 14),
-                                label: const Text('रिफ्रेश करा', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                onPressed: () => state.fetchFromBackend(),
                               ),
                             ],
                           ),

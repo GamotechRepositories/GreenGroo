@@ -94,12 +94,44 @@ class FarmerApp extends StatelessWidget {
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       navigatorKey: rootNavigatorKey,
       theme: AppTheme.lightTheme,
-      home: ListenableBuilder(
-        listenable: FarmerState(),
-        builder: (context, _) {
-          return FarmerState().isLoggedIn ? const MainShell() : const LoginScreen();
-        },
-      ),
+      home: const _SessionGate(),
     );
+  }
+}
+
+/// Switches login and home only when the session changes.
+/// Data refreshes must not rebuild the whole shell.
+class _SessionGate extends StatefulWidget {
+  const _SessionGate();
+
+  @override
+  State<_SessionGate> createState() => _SessionGateState();
+}
+
+class _SessionGateState extends State<_SessionGate> {
+  late bool _loggedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _loggedIn = FarmerState().isLoggedIn;
+    FarmerState().addListener(_onFarmerState);
+  }
+
+  @override
+  void dispose() {
+    FarmerState().removeListener(_onFarmerState);
+    super.dispose();
+  }
+
+  void _onFarmerState() {
+    final next = FarmerState().isLoggedIn;
+    if (next == _loggedIn || !mounted) return;
+    setState(() => _loggedIn = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _loggedIn ? const MainShell() : const LoginScreen();
   }
 }

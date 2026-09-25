@@ -10,16 +10,36 @@ import 'earning_report_screen.dart';
 import '../main_shell.dart';
 
 class EarningsScreen extends StatefulWidget {
-  const EarningsScreen({super.key});
+  const EarningsScreen({super.key, this.embeddedInShell = false});
+
+  /// True when this screen is a tab inside [MainShell]. Back is handled by the shell
+  /// so this screen never pops the navigator itself.
+  final bool embeddedInShell;
 
   @override
-  State<EarningsScreen> createState() => _EarningsScreenState();
+  State<EarningsScreen> createState() => EarningsScreenState();
 }
 
-class _EarningsScreenState extends State<EarningsScreen> {
+class EarningsScreenState extends State<EarningsScreen> {
   String? _activeSheetId;
   final List<Map<String, dynamic>> _customSheets = [];
   final ScrollController _tabScrollController = ScrollController();
+
+  void _showOverview() {
+    setState(() => _activeSheetId = 'overview');
+    if (_tabScrollController.hasClients) {
+      _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
+  }
+
+  /// Consumes system back when a workbook sheet is open, returning to the overview.
+  bool consumeSystemBack() {
+    if (_activeSheetId != null && _activeSheetId != 'overview') {
+      _showOverview();
+      return true;
+    }
+    return false;
+  }
 
   @override
   void dispose() {
@@ -114,23 +134,16 @@ class _EarningsScreenState extends State<EarningsScreen> {
           }
         }
 
-        final bool canPopNavigator = Navigator.canPop(context);
         final bool isSubSheet = _activeSheetId != null && _activeSheetId != 'overview';
+        final bool showRouteBack = !widget.embeddedInShell && Navigator.canPop(context);
 
         return PopScope(
-          canPop: false,
+          // Inside the shell, never veto or pop. A stale canPop check used to call
+          // Navigator.pop after the drawer closed and removed the home route.
+          canPop: widget.embeddedInShell || !isSubSheet,
           onPopInvokedWithResult: (didPop, result) {
-            if (didPop) return;
-            if (isSubSheet) {
-              setState(() => _activeSheetId = 'overview');
-              if (_tabScrollController.hasClients) {
-                _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-              }
-            } else if (canPopNavigator) {
-              Navigator.pop(context);
-            } else {
-              MainShell.setTab(context, 0);
-            }
+            if (didPop || widget.embeddedInShell || !isSubSheet) return;
+            _showOverview();
           },
           child: Scaffold(
             backgroundColor: const Color(0xFFF8FAFC),
@@ -141,14 +154,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   ? IconButton(
                       icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
                       tooltip: 'Back to Overview',
-                      onPressed: () {
-                        setState(() => _activeSheetId = 'overview');
-                        if (_tabScrollController.hasClients) {
-                          _tabScrollController.animateTo(0.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
-                        }
-                      },
+                      onPressed: _showOverview,
                     )
-                  : (canPopNavigator
+                  : (showRouteBack
                       ? IconButton(
                           icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
                           tooltip: 'Back',
@@ -847,7 +855,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${product.cropLinked.isNotEmpty ? product.cropLinked.split('(')[0].trim() : product.productName} • ${product.farmName.isNotEmpty ? product.farmName : 'Krushna'}',
+                          '${product.cropLinked.isNotEmpty ? product.cropLinked.split('(')[0].trim() : product.productName} • ${product.farmName.isNotEmpty ? product.farmName : '—'}',
                           style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -905,9 +913,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                           ),
                         ),
                         Expanded(flex: 2, child: _buildDetailItem('CROP', product.cropLinked.split('(')[0].trim())),
-                        Expanded(flex: 2, child: _buildDetailItem('VARIETY', product.variety.isNotEmpty ? product.variety : 'Bajeerao')),
-                        Expanded(flex: 2, child: _buildDetailItem('FARM', product.farmName.isNotEmpty ? product.farmName : 'Krushna')),
-                        Expanded(flex: 2, child: _buildDetailItem('LOCATION', product.farmLocation.isNotEmpty ? product.farmLocation : 'sawargaon tal')),
+                        Expanded(flex: 2, child: _buildDetailItem('VARIETY', product.variety.isNotEmpty ? product.variety : '—')),
+                        Expanded(flex: 2, child: _buildDetailItem('FARM', product.farmName.isNotEmpty ? product.farmName : '—')),
+                        Expanded(flex: 2, child: _buildDetailItem('LOCATION', product.farmLocation.isNotEmpty ? product.farmLocation : '—')),
                       ],
                     ),
                     const SizedBox(height: 6),

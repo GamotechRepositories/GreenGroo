@@ -10,37 +10,72 @@ class FarmerState extends ChangeNotifier {
   static final FarmerState _instance = FarmerState._internal();
   factory FarmerState() => _instance;
   FarmerState._internal() {
-    _initDefaultData();
-    _loadNotificationPreferences();
+    _ensureDocumentChecklist();
+    initPreferences();
     fetchFromBackend();
     _startPeriodicNotificationPolling();
   }
 
   Timer? _notificationPollingTimer;
+  Future<void>? _prefsLoad;
+  bool _syncing = false;
+  bool _pollInFlight = false;
+  bool _ordersChanged = false;
+  bool _documentsChanged = false;
+  bool _profileChanged = false;
+  bool _productsChanged = false;
+  bool _cropsChanged = false;
+  bool _schemesChanged = false;
   final Set<String> _knownOrderIds = {};
   final Map<String, String> _knownOrderStatusMap = {};
   final Map<String, String> _knownDocumentStatusMap = {};
   void Function(DocumentItem doc)? onDocumentStatusChanged;
-  bool _isInitialSyncDone = false;
+  bool _ordersBaselineDone = false;
+  bool _documentsBaselineDone = false;
   bool isPreferencesLoaded = false;
 
   void _startPeriodicNotificationPolling() {
     _notificationPollingTimer?.cancel();
-    // Poll quietly in background every 4 seconds for live order & document notifications
-    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (isLoggedIn && isConnectedToBackend) {
-        _pollLiveNotifications();
-      }
+    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (isLoggedIn) _refreshInBackground();
     });
   }
 
-  Future<void> _pollLiveNotifications() async {
+  bool get _liveDataChanged =>
+      _profileChanged || _productsChanged || _cropsChanged || _ordersChanged || _documentsChanged || _schemesChanged;
+
+  /// Keeps farmer data current without a manual Sync tap.
+  Future<void> _refreshInBackground() async {
+    if (!isLoggedIn || _syncing || _pollInFlight) return;
+    _pollInFlight = true;
+    var connectionChanged = false;
     try {
+      if (!isConnectedToBackend) {
+        final healthy = await ApiService().checkHealth();
+        if (healthy != isConnectedToBackend) {
+          isConnectedToBackend = healthy;
+          backendUrl = ApiService().baseUrl;
+          connectionMessage = healthy ? 'Connected: $backendUrl' : 'Disconnected (Using Offline Cache)';
+          connectionChanged = true;
+        }
+        if (!healthy) {
+          if (connectionChanged) notifyListeners();
+          return;
+        }
+      }
       await Future.wait([
+        _fetchProfileSafe(),
+        _fetchProductsSafe(),
         _fetchOrdersSafe(),
+        _fetchCropsSafe(),
         _fetchDocumentsSafe(),
+        _fetchSchemesSafe(),
       ]);
-    } catch (_) {}
+      if (connectionChanged || _liveDataChanged) notifyListeners();
+    } catch (_) {
+    } finally {
+      _pollInFlight = false;
+    }
   }
 
   bool isLoggedIn = true;
@@ -62,6 +97,8 @@ class FarmerState extends ChangeNotifier {
   }
 
   Future<void> fetchFromBackend() async {
+    if (_syncing) return;
+    _syncing = true;
     isLoadingFromBackend = true;
     notifyListeners();
 
@@ -78,6 +115,10 @@ class FarmerState extends ChangeNotifier {
           _fetchProductsSafe(),
           _fetchOrdersSafe(),
           _fetchCropsSafe(),
+        ]);
+        isLoadingFromBackend = false;
+        notifyListeners();
+        await Future.wait([
           _fetchDocumentsSafe(),
           _fetchSchemesSafe(),
         ]);
@@ -88,22 +129,49 @@ class FarmerState extends ChangeNotifier {
       isConnectedToBackend = false;
       connectionMessage = 'Offline ($e)';
     } finally {
+      _syncing = false;
       isLoadingFromBackend = false;
       notifyListeners();
     }
   }
 
+  String _profileKey(FarmerProfile p) =>
+      '${p.id}|${p.fullName}|${p.mobile}|${p.email}|${p.farmName}|${p.totalAcres}|${p.kycStatus}|${p.bankVerificationStatus}|${p.village}|${p.taluka}|${p.district}|${p.soilType}|${p.irrigationType}|${p.profilePhoto}|${p.farmPhoto}';
+
   Future<void> _fetchProfileSafe() async {
+    _profileChanged = false;
     try {
       final pRes = await ApiService().fetchFarmerProfile(profile.id);
       if (pRes is Map<String, dynamic>) {
         final fMap = (pRes['farmer'] is Map) ? pRes['farmer'] as Map<String, dynamic> : pRes;
-        profile = FarmerProfile.fromJson(fMap);
+        final next = FarmerProfile.fromJson(fMap);
+        if (_profileKey(next) != _profileKey(profile)) {
+          profile = next;
+          _profileChanged = true;
+        }
       }
     } catch (_) {}
   }
 
+  bool _sameProducts(List<ProductItem> next) {
+    if (next.length != products.length) return false;
+    for (var i = 0; i < next.length; i++) {
+      final a = products[i];
+      final b = next[i];
+      if (a.id != b.id ||
+          a.productName != b.productName ||
+          a.status != b.status ||
+          a.stockQuantity != b.stockQuantity ||
+          a.pricePerUnit != b.pricePerUnit ||
+          a.variety != b.variety) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _fetchProductsSafe() async {
+    _productsChanged = false;
     try {
       final prodRes = await ApiService().fetchProducts(profile.id);
       if (prodRes is List && prodRes.isNotEmpty) {
@@ -117,25 +185,57 @@ class FarmerState extends ChangeNotifier {
             })
             .whereType<ProductItem>()
             .toList();
-        if (fetched.isNotEmpty) {
+        if (fetched.isNotEmpty && !_sameProducts(fetched)) {
           products = fetched;
+          _productsChanged = true;
         }
       }
     } catch (_) {}
   }
 
+  bool _sameOrders(List<FarmerOrderItem> next) {
+    if (next.length != orders.length) return false;
+    for (var i = 0; i < next.length; i++) {
+      final a = orders[i];
+      final b = next[i];
+      if (a.id != b.id ||
+          a.status != b.status ||
+          a.paymentStatus != b.paymentStatus ||
+          a.qualityStatus != b.qualityStatus ||
+          a.totalAmount != b.totalAmount ||
+          a.quantity != b.quantity ||
+          a.receivedQuantity != b.receivedQuantity ||
+          a.rejectedQuantity != b.rejectedQuantity ||
+          a.gradeAQty != b.gradeAQty ||
+          a.gradeBQty != b.gradeBQty ||
+          a.gradeCQty != b.gradeCQty ||
+          a.transactionId != b.transactionId ||
+          a.rejectionReason != b.rejectionReason) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _fetchOrdersSafe() async {
+    _ordersChanged = false;
     try {
       final ordRes = await ApiService().fetchOrders(profile.id);
       if (ordRes is List && ordRes.isNotEmpty) {
         final fetchedOrders = ordRes.map((o) => FarmerOrderItem.fromJson(o as Map<String, dynamic>)).toList();
-        
+        if (_sameOrders(fetchedOrders)) {
+          _ordersBaselineDone = true;
+          return;
+        }
+
         bool hasBrandNewUnannouncedOrder = false;
+        final knownBefore = _knownOrderIds.length;
+        final playedBefore = playedSoundNotificationIds.length;
         
         for (final order in fetchedOrders) {
           final soundKey = 'order_${order.id}_${order.status.toLowerCase()}';
           
-          if (_isInitialSyncDone) {
+          if (_ordersBaselineDone) {
             // Only trigger sound if this exact order status has NEVER played sound before
             if (!_knownOrderIds.contains(order.id) && !playedSoundNotificationIds.contains(soundKey)) {
               hasBrandNewUnannouncedOrder = true;
@@ -156,29 +256,50 @@ class FarmerState extends ChangeNotifier {
         }
         
         orders = fetchedOrders;
-        _persistNotificationPreferences();
-        
+        _ordersChanged = true;
+        if (_knownOrderIds.length != knownBefore || playedSoundNotificationIds.length != playedBefore) {
+          _persistNotificationPreferences();
+        }
+
         // Play notification sound ONLY once for genuinely new incoming orders
         if (hasBrandNewUnannouncedOrder) {
           debugPrint('🔔 Genuinely NEW incoming order arrived! Playing notification sound once.');
           NotificationSoundService().playNotificationSound();
         }
-        
-        _isInitialSyncDone = true;
+
+        _ordersBaselineDone = true;
       }
     } catch (_) {}
   }
 
+  bool _sameCrops(List<CropItem> next) {
+    if (next.length != crops.length) return false;
+    for (var i = 0; i < next.length; i++) {
+      final a = crops[i];
+      final b = next[i];
+      if (a.id != b.id || a.cropName != b.cropName || a.status != b.status || a.progress != b.progress || a.stageIndex != b.stageIndex) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _fetchCropsSafe() async {
+    _cropsChanged = false;
     try {
       final cropRes = await ApiService().fetchCrops();
       if (cropRes is List && cropRes.isNotEmpty) {
-        crops = cropRes.map((c) => CropItem.fromJson(c as Map<String, dynamic>)).toList();
+        final fetched = cropRes.map((c) => CropItem.fromJson(c as Map<String, dynamic>)).toList();
+        if (!_sameCrops(fetched)) {
+          crops = fetched;
+          _cropsChanged = true;
+        }
       }
     } catch (_) {}
   }
 
   Future<void> _fetchDocumentsSafe() async {
+    _documentsChanged = false;
     try {
       final docRes = await ApiService().fetchDocuments(profile.id);
       if (docRes is List && docRes.isNotEmpty) {
@@ -191,13 +312,14 @@ class FarmerState extends ChangeNotifier {
         }
 
         if (documents.isEmpty) {
-          _initDefaultData();
+          _ensureDocumentChecklist();
         }
 
         bool hasBrandNewDocUpdate = false;
         DocumentItem? latestUpdatedDoc;
 
-        documents = documents.map((localDoc) {
+        final previousDocs = documents;
+        final nextDocs = previousDocs.map((localDoc) {
           final backendDoc = docMap[localDoc.type.toLowerCase()];
           if (backendDoc != null) {
             final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
@@ -210,7 +332,7 @@ class FarmerState extends ChangeNotifier {
 
             final soundKey = 'doc_${localDoc.id}_$normalizedStatus';
 
-            if (_isInitialSyncDone) {
+            if (_documentsBaselineDone) {
               final prevStatus = _knownDocumentStatusMap[localDoc.id];
               if (prevStatus != null &&
                   prevStatus != normalizedStatus &&
@@ -252,19 +374,50 @@ class FarmerState extends ChangeNotifier {
           return localDoc;
         }).toList();
 
+        var docsChanged = nextDocs.length != previousDocs.length;
+        if (!docsChanged) {
+          for (var i = 0; i < nextDocs.length; i++) {
+            final before = previousDocs[i];
+            final after = nextDocs[i];
+            if (before.status != after.status ||
+                before.isUploaded != after.isUploaded ||
+                before.fileUrl != after.fileUrl ||
+                before.rejectionReason != after.rejectionReason ||
+                before.uploadDate != after.uploadDate) {
+              docsChanged = true;
+              break;
+            }
+          }
+        }
+        if (docsChanged) {
+          documents = nextDocs;
+          _documentsChanged = true;
+        }
+        _documentsBaselineDone = true;
         if (hasBrandNewDocUpdate) {
           _persistNotificationPreferences();
           NotificationSoundService().playNotificationSound();
           if (latestUpdatedDoc != null) {
             onDocumentStatusChanged?.call(latestUpdatedDoc!);
           }
-          notifyListeners();
+          _documentsChanged = true;
         }
       }
     } catch (_) {}
   }
 
+  bool _sameSchemes(List<GovtScheme> next) {
+    if (next.length != schemes.length) return false;
+    for (var i = 0; i < next.length; i++) {
+      final a = schemes[i];
+      final b = next[i];
+      if (a.id != b.id || a.title != b.title || a.status != b.status || a.deadline != b.deadline) return false;
+    }
+    return true;
+  }
+
   Future<void> _fetchSchemesSafe() async {
+    _schemesChanged = false;
     try {
       final schemeRes = await ApiService().fetchLiveGovtSchemes();
       if (schemeRes is List) {
@@ -280,29 +433,36 @@ class FarmerState extends ChangeNotifier {
             .whereType<GovtScheme>()
             .where((scheme) => scheme.id.isNotEmpty)
             .toList();
-        schemes = fetched;
+        if (!_sameSchemes(fetched)) {
+          schemes = fetched;
+          _schemesChanged = true;
+        }
       }
     } catch (_) {}
   }
 
   // Farmer Profile
   FarmerProfile profile = FarmerProfile(
-    id: 'GGC-FR-MH-AHI-SAN-00001',
-    fullName: 'Sunil Nehe (सुनील नेहे)',
-    mobile: '9420179190',
-    email: 'sunil.nehe@greengroo.in',
-    farmName: 'Nehe Mala (नेहे मळा)',
-    totalAcres: 5.0,
-    village: 'Sawargaon Tal',
-    taluka: 'Sangamner',
-    district: 'Ahilyanagar',
-    state: 'Maharashtra',
-    pincode: '422605',
-    soilType: 'Medium Black (मध्यम काळी)',
-    irrigationType: 'Drip (ठिबक सिंचन)',
-    waterSource: 'Well (विहीर)',
-    farmingMethod: 'Mixed Natural (नैसर्गिक व सेंद्रिय)',
-    kycStatus: 'APPROVED',
+    id: '',
+    fullName: '',
+    mobile: '',
+    email: '',
+    farmName: '',
+    totalAcres: 0,
+    village: '',
+    taluka: '',
+    district: '',
+    state: '',
+    pincode: '',
+    soilType: '',
+    irrigationType: '',
+    waterSource: '',
+    farmingMethod: '',
+    kycStatus: 'PENDING',
+    bankVerificationStatus: 'PENDING',
+    locationConfirmed: false,
+    mainCrops: '',
+    farmAddress: '',
   );
 
   // Crops
@@ -328,8 +488,8 @@ class FarmerState extends ChangeNotifier {
   final Set<String> deletedNotificationIds = {};
   final Set<String> playedSoundNotificationIds = {};
 
-  Future<void> initPreferences() async {
-    await _loadNotificationPreferences();
+  Future<void> initPreferences() {
+    return _prefsLoad ??= _loadNotificationPreferences();
   }
 
   Future<void> _loadNotificationPreferences() async {
@@ -339,17 +499,6 @@ class FarmerState extends ChangeNotifier {
       if (del != null && del.isNotEmpty) {
         deletedNotificationIds.addAll(del);
       }
-      // Ensure initial demo/mock orders stay suppressed from notification tray
-      deletedNotificationIds.addAll([
-        'order_GGC-ORD-20260907-00001',
-        'payment_GGC-ORD-20260907-00001',
-        'order_GGC-ORD-20260903-00002',
-        'payment_GGC-ORD-20260903-00002',
-        'order_GGC-ORD-20260903-00001',
-        'payment_GGC-ORD-20260903-00001',
-        'order_GGC-ORD-20260901-00003',
-        'payment_GGC-ORD-20260901-00003',
-      ]);
       final read = prefs.getStringList('farmer_read_notifications');
       if (read != null && read.isNotEmpty) {
         readNotificationIds.addAll(read);
@@ -448,386 +597,18 @@ class FarmerState extends ChangeNotifier {
 
 
 
-  void _initDefaultData() {
-    crops = [
-      CropItem(
-        id: 'CRP-001',
-        cropName: 'Tomato (टोमॅटो)',
-        variety: 'Bajeerao',
-        acreage: 2.0,
-        sowingDate: '01 Jun 2026',
-        estHarvestDate: '01 Sept 2026',
-        soilType: 'Medium Black (मध्यम काळी)',
-        irrigationType: 'Drip (ठिबक)',
-        status: 'Flowering / Fruiting',
-        progress: 19 / 22,
-        stageIndex: 18,
-      ),
-      CropItem(
-        id: 'CRP-002',
-        cropName: 'Onion (कांदा)',
-        variety: 'Hybrid',
-        acreage: 1.5,
-        sowingDate: '10 Jun 2026',
-        estHarvestDate: '02 Sept 2026',
-        soilType: 'Medium Black (मध्यम काळी)',
-        irrigationType: 'Drip (ठिबक)',
-        status: 'Spray / Pest Control',
-        progress: 12 / 22,
-        stageIndex: 11,
-      ),
-      CropItem(
-        id: 'CRP-003',
-        cropName: 'Brinjal (वांगी)',
-        variety: 'Pusa Purple Long',
-        acreage: 1.0,
-        sowingDate: '15 May 2026',
-        estHarvestDate: '05 Sept 2026',
-        soilType: 'Medium Black (मध्यम काळी)',
-        irrigationType: 'Drip (ठिबक)',
-        status: 'Pre-Harvest Stage',
-        progress: 21 / 22,
-        stageIndex: 20,
-      ),
-    ];
-
-    products = [
-      ProductItem(
-        id: 'GGC-ART-VEG-TOM-BAJ-00002',
-        productId: 'GGC-ART-VEG-TOM-BAJ-00002',
-        productName: 'Tomato',
-        variety: 'Bajeerao',
-        category: 'Vegetables (भाजीपाला)',
-        cropLinked: 'Tomato',
-        grade: 'Grade A',
-        unit: 'Kg',
-        pricePerUnit: 30.0,
-        stockQuantity: 3000.0,
-        minimumOrderQuantity: 1.0,
-        farmingType: 'Organic',
-        farmName: 'Krushna',
-        farmLocation: 'sawargaon tal',
-        sowingDate: '01 Jun 2026',
-        harvestDate: '01 Sept 2026',
-        availableFrom: '05 Sept 2026',
-        availableUntil: '30 Sept 2026',
-        status: 'Active',
-      ),
-      ProductItem(
-        id: 'GGC-ART-VEG-ONI-HYB-00002',
-        productId: 'GGC-ART-VEG-ONI-HYB-00002',
-        productName: 'Onion',
-        variety: 'Hybrid',
-        category: 'Vegetables (भाजीपाला)',
-        cropLinked: 'Onion (कांदा)',
-        grade: 'Grade A',
-        unit: 'Kg',
-        pricePerUnit: 35.0,
-        stockQuantity: 500.0,
-        minimumOrderQuantity: 50.0,
-        farmingType: 'Organic (सेंद्रिय)',
-        farmName: 'Nehe Mala',
-        farmLocation: 'Sawargaon Tal, Sangamner',
-        sowingDate: '10 Jun 2026',
-        harvestDate: '02 Sept 2026',
-        availableFrom: '02 Sept 2026',
-        availableUntil: '30 Nov 2026',
-        status: 'Out of Stock',
-      ),
-      ProductItem(
-        id: 'GGC-ART-VEG-BRJ-PUS-00001',
-        productId: 'GGC-ART-VEG-BRJ-PUS-00001',
-        productName: 'Brinjal',
-        variety: 'Pusa Purple Long',
-        category: 'Vegetables (भाजीपाला)',
-        cropLinked: 'Brinjal (वांगी)',
-        grade: 'Grade A',
-        unit: 'Kg',
-        pricePerUnit: 30.0,
-        stockQuantity: 1500.0,
-        minimumOrderQuantity: 50.0,
-        farmingType: 'Organic (सेंद्रिय)',
-        farmName: 'Nehe Mala',
-        farmLocation: 'Sawargaon Tal, Sangamner',
-        sowingDate: '15 May 2026',
-        harvestDate: '05 Sept 2026',
-        availableFrom: '05 Sept 2026',
-        availableUntil: '30 Nov 2026',
-        status: 'Active',
-      ),
-    ];
-
-    // All default mock orders from the past are suppressed from notifications tray
-    final initialMockNotifIds = [
-      'order_GGC-ORD-20260907-00001',
-      'payment_GGC-ORD-20260907-00001',
-      'order_GGC-ORD-20260903-00002',
-      'payment_GGC-ORD-20260903-00002',
-      'order_GGC-ORD-20260903-00001',
-      'payment_GGC-ORD-20260903-00001',
-      'order_GGC-ORD-20260901-00003',
-      'payment_GGC-ORD-20260901-00003',
-    ];
-    deletedNotificationIds.addAll(initialMockNotifIds);
-    readNotificationIds.addAll(initialMockNotifIds);
-    _knownOrderIds.addAll(['GGC-ORD-20260907-00001', 'GGC-ORD-20260903-00002', 'GGC-ORD-20260903-00001', 'GGC-ORD-20260901-00003']);
-    for (final id in initialMockNotifIds) {
-      playedSoundNotificationIds.add(id);
-    }
-
-    orders = [
-      FarmerOrderItem(
-        id: 'GGC-ORD-20260907-00001',
-        orderCode: 'GGC-ORD-20260907-00001',
-        productId: 'GGC-ART-VEG-TOM-BAJ-00002',
-        buyerName: 'Daily Harvest Statement',
-        buyerPhone: '9921182753',
-        productName: 'Tomato',
-        cropName: 'Tomato',
-        variety: 'Bajeerao',
-        quantity: 300.0,
-        orderedQuantity: 300.0,
-        receivedQuantity: 300.0,
-        unit: 'Kg',
-        rate: 30.0,
-        gradeAQty: 200.0,
-        gradeARate: 30.0,
-        gradeARejected: 0.0,
-        gradeBQty: 80.0,
-        gradeBRate: 12.0,
-        gradeBRejected: 10.0,
-        gradeCQty: 0.0,
-        gradeCRate: 0.0,
-        gradeCRejected: 0.0,
-        rejectedQuantity: 10.0,
-        totalAmount: 6960.0,
-        status: 'ORDER_COMPLETED',
-        qualityStatus: 'GRADE_CONFIRMED',
-        paymentStatus: 'Pending',
-        pickupDate: '08/09/2026, Tuesday',
-        pickupSlot: '07:00 AM',
-        createdAt: '07/09/2026, Monday',
-        transactionId: 'TXN-GGC-20260907-6960',
-        collectionCentre: 'Main Collection Centre',
-        collectionCentreId: 'GGC-CC-MH-NK-NAS-NAS-001',
-        inspectorName: 'Prajwal Nehe',
-        weighbridgeStatus: 'Verified on Scale',
-      ),
-      FarmerOrderItem(
-        id: 'GGC-ORD-20260903-00002',
-        orderCode: 'GGC-ORD-20260903-00002',
-        productId: 'GGC-ART-VEG-ONI-HYB-00002',
-        buyerName: 'Swastik Supermarket Pune',
-        buyerPhone: '+91 98501 23456',
-        productName: 'Onion',
-        cropName: 'Onion (कांदा)',
-        variety: 'Hybrid',
-        quantity: 123.0,
-        orderedQuantity: 150.0,
-        receivedQuantity: 150.0,
-        unit: 'Kg',
-        rate: 10.0,
-        gradeAQty: 80.0,
-        gradeARate: 10.0,
-        gradeARejected: 20.0,
-        gradeBQty: 43.0,
-        gradeBRate: 3.0,
-        gradeBRejected: 7.0,
-        gradeCQty: 0.0,
-        gradeCRate: 0.0,
-        gradeCRejected: 0.0,
-        rejectedQuantity: 27.0,
-        totalAmount: 929.0,
-        status: 'ORDER_COMPLETED',
-        qualityStatus: 'GRADE_CONFIRMED',
-        paymentStatus: 'Paid',
-        pickupDate: '05/09/2026, Saturday',
-        pickupSlot: '5:23 PM',
-        createdAt: '03/09/2026, Thursday',
-        transactionId: 'TXN-GGC-20260903-9291',
-      ),
-      FarmerOrderItem(
-        id: 'GGC-ORD-20260903-00001',
-        orderCode: 'GGC-ORD-20260903-00001',
-        productId: 'GGC-ART-VEG-ONI-HYB-00002',
-        buyerName: 'Nature Fresh Mart Mumbai',
-        buyerPhone: '+91 98220 54321',
-        productName: 'Onion',
-        cropName: 'Onion (कांदा)',
-        variety: 'Hybrid',
-        quantity: 500.0,
-        orderedQuantity: 500.0,
-        receivedQuantity: 500.0,
-        unit: 'Kg',
-        rate: 20.0,
-        gradeAQty: 500.0,
-        gradeARate: 20.0,
-        gradeARejected: 0.0,
-        gradeBQty: 0.0,
-        gradeBRate: 0.0,
-        gradeBRejected: 0.0,
-        gradeCQty: 0.0,
-        gradeCRate: 0.0,
-        gradeCRejected: 0.0,
-        rejectedQuantity: 0.0,
-        totalAmount: 10000.0,
-        status: 'PREPARING',
-        qualityStatus: 'PREPARING',
-        paymentStatus: 'Pending',
-        pickupDate: '05/09/2026, Saturday',
-        pickupSlot: '5:00 AM',
-        createdAt: '03/09/2026, Thursday',
-        transactionId: '',
-      ),
-      FarmerOrderItem(
-        id: 'GGC-ORD-20260916-00001',
-        orderCode: 'GGC-ORD-20260916-00001',
-        productId: 'GGC-ART-VEG-TOM-BAJ-00002',
-        buyerName: 'Kisan Mandi Nashik',
-        buyerPhone: '+91 98221 88990',
-        productName: 'Tomato',
-        cropName: 'Tomato (टोमॅटो)',
-        variety: 'Bajeerao',
-        quantity: 175.0,
-        orderedQuantity: 175.0,
-        receivedQuantity: 175.0,
-        unit: 'Kg',
-        rate: 12.0,
-        gradeAQty: 110.0,
-        gradeARate: 12.0,
-        gradeARejected: 0.0,
-        gradeBQty: 55.0,
-        gradeBRate: 5.0,
-        gradeBRejected: 0.0,
-        gradeCQty: 10.0,
-        gradeCRate: 2.0,
-        gradeCRejected: 0.0,
-        rejectedQuantity: 0.0,
-        totalAmount: 1615.0,
-        status: 'PREPARING',
-        qualityStatus: 'PREPARING',
-        paymentStatus: 'Pending',
-        pickupDate: '17/09/2026, Thursday',
-        pickupSlot: '2:33 PM',
-        createdAt: '16/09/2026, Wednesday',
-        transactionId: '',
-      ),
-    ];
-
-    harvestOrders = [
-      HarvestOrderItem(
-        id: 'HRV-301',
-        batchCode: 'BATCH-TOM-09',
-        cropName: 'Tomato (टोमॅटो)',
-        gradeAQty: 350.0,
-        gradeBQty: 80.0,
-        gradeCQty: 20.0,
-        unit: 'Kg',
-        harvestDate: '23 Sep 2026',
-        pickupSlot: 'Morning Slot (06:00 AM - 08:30 AM)',
-        status: 'Scheduled',
-      ),
-      HarvestOrderItem(
-        id: 'HRV-302',
-        batchCode: 'BATCH-BRJ-04',
-        cropName: 'Brinjal (वांगी)',
-        gradeAQty: 220.0,
-        gradeBQty: 50.0,
-        gradeCQty: 15.0,
-        unit: 'Kg',
-        harvestDate: '25 Sep 2026',
-        pickupSlot: 'Morning Slot (07:00 AM - 09:30 AM)',
-        status: 'Scheduled',
-      ),
-      HarvestOrderItem(
-        id: 'HRV-290',
-        batchCode: 'BATCH-ONI-01',
-        cropName: 'Onion (कांदा)',
-        gradeAQty: 600.0,
-        gradeBQty: 150.0,
-        gradeCQty: 50.0,
-        unit: 'Kg',
-        harvestDate: '12 Sep 2026',
-        pickupSlot: 'Afternoon Slot (02:00 PM)',
-        status: 'Completed',
-      ),
-    ];
-
-    schemes = [];
-
+  void _ensureDocumentChecklist() {
+    if (documents.isNotEmpty) return;
     documents = [
-      DocumentItem(
-        id: 'DOC-1',
-        type: 'aadhaar',
-        title: 'Aadhaar Card',
-        marathiTitle: 'आधार कार्ड',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-2',
-        type: 'farmer_id',
-        title: 'Farmer ID',
-        marathiTitle: 'शेतकरी ओळखपत्र',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-3',
-        type: 'land_712',
-        title: '7/12 Extract',
-        marathiTitle: '७/१२ उतारा',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-4',
-        type: 'land_8a',
-        title: '8A Extract',
-        marathiTitle: '८-अ उतारा',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-5',
-        type: 'bank',
-        title: 'Bank Passbook',
-        marathiTitle: 'बँक पासबुक',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-6',
-        type: 'farmer_photo',
-        title: 'Farmer Photo',
-        marathiTitle: 'शेतकरी फोटो',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-7',
-        type: 'address_proof',
-        title: 'Address Proof',
-        marathiTitle: 'रहिवासी दाखला',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-8',
-        type: 'pan',
-        title: 'PAN Card',
-        marathiTitle: 'पॅन कार्ड',
-        isUploaded: false,
-        status: 'pending',
-      ),
-      DocumentItem(
-        id: 'DOC-9',
-        type: 'video_kyc',
-        title: 'Live Video KYC',
-        marathiTitle: 'थेट व्हिडिओ केवायसी',
-        isUploaded: false,
-        status: 'pending',
-      ),
+      DocumentItem(id: 'DOC-1', type: 'aadhaar', title: 'Aadhaar Card', marathiTitle: 'आधार कार्ड', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-2', type: 'farmer_id', title: 'Farmer ID', marathiTitle: 'शेतकरी ओळखपत्र', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-3', type: 'land_712', title: '7/12 Extract', marathiTitle: '७/१२ उतारा', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-4', type: 'land_8a', title: '8A Extract', marathiTitle: '८-अ उतारा', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-5', type: 'bank', title: 'Bank Passbook', marathiTitle: 'बँक पासबुक', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-6', type: 'farmer_photo', title: 'Farmer Photo', marathiTitle: 'शेतकरी फोटो', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-7', type: 'address_proof', title: 'Address Proof', marathiTitle: 'रहिवासी दाखला', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-8', type: 'pan', title: 'PAN Card', marathiTitle: 'पॅन कार्ड', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-9', type: 'video_kyc', title: 'Live Video KYC', marathiTitle: 'थेट व्हिडिओ केवायसी', isUploaded: false, status: 'not_uploaded'),
     ];
   }
 
@@ -1116,7 +897,7 @@ class FarmerState extends ChangeNotifier {
   // Dashboard calculations
   double get totalEarnings => orders
       .where((o) => o.status == 'Completed')
-      .fold(0.0, (sum, o) => sum + o.totalAmount) + 84500.0;
+      .fold(0.0, (sum, o) => sum + o.totalAmount);
 
   double get pendingEarnings => orders
       .where((o) => o.status != 'Completed' && o.status != 'Rejected')
