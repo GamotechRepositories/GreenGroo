@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import 'order_detail_screen.dart';
@@ -274,7 +274,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
 
                 // 3. Harvest Orders List
                 if (filteredList.isEmpty && allOrders.isEmpty && !FarmerState().ordersReady)
-                  const AppLoader(message: 'काढणी ऑर्डर्स लोड होत आहेत...')
+                  const OrderListSkeleton(count: 3, shrinkWrap: true)
                 else if (filteredList.isEmpty)
                   Center(
                     child: Padding(

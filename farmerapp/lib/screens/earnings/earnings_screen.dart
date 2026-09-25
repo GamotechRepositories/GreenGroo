@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
-import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import 'earning_report_screen.dart';
 import '../main_shell.dart';
 
@@ -680,7 +680,7 @@ class EarningsScreenState extends State<EarningsScreen> {
 
     if (completedProducts.isEmpty) {
       if (!FarmerState().ordersReady || !FarmerState().productsReady) {
-        return const AppLoader(message: 'उत्पन्न लोड होत आहे...');
+        return const EarningsSkeleton();
       }
       return Container(
         width: double.infinity,

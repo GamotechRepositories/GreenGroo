@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import 'harvest_orders_screen.dart';
@@ -57,10 +57,6 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
       case 'completed':
         return s.contains('COMPLET') ||
             s.contains('DELIVER') ||
-            s.contains('GRADE') ||
-            s.contains('INSPECT') ||
-            s.contains('QUALITY') ||
-            s.contains('GRADING') ||
             s.contains('TRANSIT') ||
             s.contains('CENTRE') ||
             s.contains('CENTER') ||
@@ -78,7 +74,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allOrders = FarmerState().orders;
+        final allOrders = FarmerState().orders.where((order) {
+          final status = order.status.trim().toUpperCase();
+          return status != 'DELETED' && status != 'DELETED_ORDER';
+        }).toList();
 
         return Scaffold(
           backgroundColor: const Color(0xFFF9FAFB),
@@ -132,7 +131,7 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
 
                 if (filtered.isEmpty) {
                   if (allOrders.isEmpty && !FarmerState().ordersReady) {
-                    return const AppLoader(message: 'ऑर्डर्स लोड होत आहेत...');
+                    return const OrderListSkeleton();
                   }
                   return Center(
                     child: Padding(
@@ -468,53 +467,46 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
     final canReject = s.contains('NEW') || s.contains('CONFIRMED');
     final canPrepare = s.contains('ACCEPT') || s.contains('PREPAR') || s.contains('PACK');
 
-    // Build Grade rows (Grade A, Grade B, Grade C)
-    final gradeRows = <Map<String, dynamic>>[];
-    if (order.gradeAQty > 0) {
-      gradeRows.add({
+    // Same grade lines as the order View screen.
+    double cardQty(double graded, double shown) => graded > 0 ? graded : shown;
+    double cardRate(double graded, double shown, [double fallback = 0]) {
+      if (graded > 0) return graded;
+      if (shown > 0) return shown;
+      return fallback;
+    }
+
+    final gradeAQty = cardQty(order.gradeAQty, order.shownAQty);
+    final gradeBQty = cardQty(order.gradeBQty, order.shownBQty);
+    final gradeCQty = cardQty(order.gradeCQty, order.shownCQty);
+    final gradeRows = <Map<String, dynamic>>[
+      {
         'label': 'Grade A',
-        'qty': order.gradeAQty,
-        'rate': order.gradeARate > 0 ? order.gradeARate : order.rate,
+        'qty': gradeAQty > 0 ? gradeAQty : (gradeBQty <= 0 && gradeCQty <= 0 ? order.quantity : 0),
+        'rate': cardRate(order.gradeARate, order.shownARate, order.rate),
         'bg': const Color(0xFFECFDF5),
         'head': const Color(0xFFD1FAE5),
         'border': const Color(0xFFA7F3D0),
         'text': const Color(0xFF065F46),
-      });
-    }
-    if (order.gradeBQty > 0) {
-      gradeRows.add({
+      },
+      {
         'label': 'Grade B',
-        'qty': order.gradeBQty,
-        'rate': order.gradeBRate > 0 ? order.gradeBRate : (order.rate * 0.4).roundToDouble(),
+        'qty': gradeBQty,
+        'rate': cardRate(order.gradeBRate, order.shownBRate),
         'bg': const Color(0xFFEFF6FF),
         'head': const Color(0xFFDBEAFE),
         'border': const Color(0xFFBFDBFE),
         'text': const Color(0xFF1E40AF),
-      });
-    }
-    if (order.gradeCQty > 0) {
-      gradeRows.add({
+      },
+      {
         'label': 'Grade C',
-        'qty': order.gradeCQty,
-        'rate': order.gradeCRate,
+        'qty': gradeCQty,
+        'rate': cardRate(order.gradeCRate, order.shownCRate),
         'bg': const Color(0xFFFFFBEB),
         'head': const Color(0xFFFEF3C7),
         'border': const Color(0xFFFDE68A),
         'text': const Color(0xFF92400E),
-      });
-    }
-
-    if (gradeRows.isEmpty) {
-      gradeRows.add({
-        'label': 'Grade A',
-        'qty': order.quantity,
-        'rate': order.gradeARate > 0 ? order.gradeARate : order.rate,
-        'bg': const Color(0xFFECFDF5),
-        'head': const Color(0xFFD1FAE5),
-        'border': const Color(0xFFA7F3D0),
-        'text': const Color(0xFF065F46),
-      });
-    }
+      },
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -807,7 +799,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                         Expanded(
                           flex: 2,
                           child: Text(
-                            qty > 0 ? '${qty.toStringAsFixed(0)} ${order.unit}' : '—',
+                            qty > 0 ? '${qty.toStringAsFixed(0)} ${order.unit}' : '0 ${order.unit}',
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               fontSize: 12,
@@ -819,7 +811,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                         Expanded(
                           flex: 2,
                           child: Text(
-                            rate > 0 ? '₹${rate.toStringAsFixed(0)}' : '—',
+                            qty > 0 && rate > 0 ? '₹${rate.toStringAsFixed(0)}' : '—',
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               fontSize: 12,

@@ -545,6 +545,12 @@ class FarmerOrderItem {
   final double gradeCQty;
   final double gradeCRate;
   final double gradeCRejected;
+  final double placedAQty;
+  final double placedARate;
+  final double placedBQty;
+  final double placedBRate;
+  final double placedCQty;
+  final double placedCRate;
   final double rejectedQuantity;
   final double totalAmount;
   String status; // New, Preparing, Ready for Pickup, Completed, Rejected
@@ -599,6 +605,12 @@ class FarmerOrderItem {
     this.gradeCQty = 0.0,
     this.gradeCRate = 0.0,
     this.gradeCRejected = 0.0,
+    this.placedAQty = 0,
+    this.placedARate = 0,
+    this.placedBQty = 0,
+    this.placedBRate = 0,
+    this.placedCQty = 0,
+    this.placedCRate = 0,
     double? rejectedQuantity,
     required this.totalAmount,
     required this.status,
@@ -633,6 +645,20 @@ class FarmerOrderItem {
   double get totalAcceptedQty => gradeAQty + gradeBQty + gradeCQty;
   double get effectiveTotalAmount => totalAmount > 0 ? totalAmount : (gradeAAmt + gradeBAmt + gradeCAmt);
 
+  bool get isGradedSettlement {
+    final s = status.trim().toUpperCase();
+    final q = qualityStatus.trim().toUpperCase();
+    const done = {'GRADE_CONFIRMED', 'ORDER_COMPLETED', 'COMPLETED'};
+    return done.contains(s) || done.contains(q);
+  }
+
+  double get shownAQty => placedAQty > 0 || placedBQty > 0 || placedCQty > 0 ? placedAQty : gradeAQty;
+  double get shownARate => placedAQty > 0 || placedBQty > 0 || placedCQty > 0 ? placedARate : gradeARate;
+  double get shownBQty => placedAQty > 0 || placedBQty > 0 || placedCQty > 0 ? placedBQty : gradeBQty;
+  double get shownBRate => placedAQty > 0 || placedBQty > 0 || placedCQty > 0 ? placedBRate : gradeBRate;
+  double get shownCQty => placedAQty > 0 || placedBQty > 0 || placedCQty > 0 ? placedCQty : gradeCQty;
+  double get shownCRate => placedAQty > 0 || placedBQty > 0 || placedCQty > 0 ? placedCRate : gradeCRate;
+
   factory FarmerOrderItem.fromJson(Map<String, dynamic> json) {
     double parseDbl(dynamic v, double fallback) {
       if (v == null) return fallback;
@@ -645,6 +671,19 @@ class FarmerOrderItem {
       for (final value in values) {
         final text = textOf(value);
         if (text.isNotEmpty) return text;
+      }
+      return '';
+    }
+
+    String gradeLetter(Map<String, dynamic> row) {
+      for (final raw in [row['label'], row['grade'], row['gradeName'], row['name']]) {
+        final lbl = textOf(raw).toUpperCase();
+        if (lbl.isEmpty) continue;
+        if (lbl == 'A' || lbl.contains('GRADE A') || lbl.contains('GRADE_A') || lbl.contains('GRADEA')) return 'A';
+        if (lbl == 'B' || lbl.contains('GRADE B') || lbl.contains('GRADE_B') || lbl.contains('GRADEB')) return 'B';
+        if (lbl == 'C' || lbl.contains('GRADE C') || lbl.contains('GRADE_C') || lbl.contains('GRADEC')) return 'C';
+        final clean = lbl.replaceAll('GRADE', '').replaceAll(RegExp(r'[^A-Z]'), '');
+        if (clean == 'A' || clean == 'B' || clean == 'C') return clean;
       }
       return '';
     }
@@ -674,25 +713,20 @@ class FarmerOrderItem {
       for (final item in gradeListRaw) {
         if (item is Map) {
           final row = Map<String, dynamic>.from(item);
-          final lbl = (row['label']?.toString() ?? row['name']?.toString() ?? row['grade']?.toString() ?? '').toUpperCase();
+          final letter = gradeLetter(row);
           final qty = parseDbl(row['quantity'] ?? row['finalQty'] ?? row['assignedQuantity'] ?? row['qty'], 0.0);
           final prc = parseDbl(row['price'] ?? row['rate'], 0.0);
           final rj = parseDbl(row['rejectedQuantity'] ?? row['rejectedQty'] ?? row['rejected'], 0.0);
 
-          final clean = lbl.replaceAll('GRADE', '').replaceAll(RegExp(r'[^A-Z]'), '');
-          final bool isGradeA = clean == 'A' || lbl.contains('GRADE A') || lbl.contains('GRADE_A');
-          final bool isGradeB = clean == 'B' || lbl.contains('GRADE B') || lbl.contains('GRADE_B');
-          final bool isGradeC = clean == 'C' || lbl.contains('GRADE C') || lbl.contains('GRADE_C');
-
-          if (isGradeA) {
+          if (letter == 'A') {
             gA += qty;
             if (prc > 0) gAR = prc;
             gARej += rj;
-          } else if (isGradeB) {
+          } else if (letter == 'B') {
             gB += qty;
             if (prc > 0) gBR = prc;
             gBRej += rj;
-          } else if (isGradeC) {
+          } else if (letter == 'C') {
             gC += qty;
             if (prc > 0) gCR = prc;
             gCRej += rj;
@@ -741,6 +775,60 @@ class FarmerOrderItem {
     final qStatus = json['qualityStatus']?.toString() ?? '';
     final orderCode = firstText([json['orderDisplayId'], json['orderId'], json['orderCode'], json['id']]);
 
+    double pA = 0, pAR = 0, pB = 0, pBR = 0, pC = 0, pCR = 0;
+    dynamic placedRaw;
+    if (json['orderedGrades'] is List && (json['orderedGrades'] as List).isNotEmpty) {
+      placedRaw = json['orderedGrades'];
+    } else if (json['products'] is List && (json['products'] as List).isNotEmpty) {
+      placedRaw = json['products'];
+    } else if (json['finalStatement'] is! List || (json['finalStatement'] as List).isEmpty) {
+      placedRaw = json['grades'];
+    }
+    if (placedRaw is List) {
+      for (final item in placedRaw) {
+        if (item is! Map) continue;
+        final row = Map<String, dynamic>.from(item);
+        final letter = gradeLetter(row);
+        final qty = parseDbl(row['quantity'] ?? row['finalQty'] ?? row['assignedQuantity'] ?? row['qty'], 0.0);
+        final prc = parseDbl(row['price'] ?? row['rate'], 0.0);
+        if (letter == 'A') {
+          pA += qty;
+          if (prc > 0) pAR = prc;
+        } else if (letter == 'B') {
+          pB += qty;
+          if (prc > 0) pBR = prc;
+        } else if (letter == 'C') {
+          pC += qty;
+          if (prc > 0) pCR = prc;
+        } else if (pA <= 0 && pB <= 0 && pC <= 0 && qty > 0) {
+          pA = qty;
+          if (prc > 0) pAR = prc;
+        }
+      }
+    }
+    final bool hasFinalStatement = json['finalStatement'] is List && (json['finalStatement'] as List).isNotEmpty;
+    if (pA <= 0 && pB <= 0 && pC <= 0) {
+      pA = gA;
+      pAR = gAR;
+      pB = gB;
+      pBR = gBR;
+      pC = gC;
+      pCR = gCR;
+    } else if (!hasFinalStatement) {
+      if (pA <= 0 && gA > 0) {
+        pA = gA;
+        if (pAR <= 0) pAR = gAR;
+      }
+      if (pB <= 0 && gB > 0) {
+        pB = gB;
+        if (pBR <= 0) pBR = gBR;
+      }
+      if (pC <= 0 && gC > 0) {
+        pC = gC;
+        if (pCR <= 0) pCR = gCR;
+      }
+    }
+
     return FarmerOrderItem(
       id: firstText([json['id'], json['orderId'], json['_id'], orderCode]),
       productId: firstText([json['productId'], json['product_id'], firstProduct['productId'], firstProduct['id']]),
@@ -764,6 +852,12 @@ class FarmerOrderItem {
       gradeCQty: gC,
       gradeCRate: gCR,
       gradeCRejected: gCRej,
+      placedAQty: pA,
+      placedARate: pAR > 0 ? pAR : r,
+      placedBQty: pB,
+      placedBRate: pBR,
+      placedCQty: pC,
+      placedCRate: pCR,
       rejectedQuantity: finalRej,
       totalAmount: totAmt,
       status: st,

@@ -218,16 +218,17 @@ class ApiService {
   }
   Future<dynamic> fetchOrders(String farmerId) async {
     const timeout = Duration(seconds: 15);
+    List<dynamic>? first;
     try {
-      final parsed = _coerceList(await get('/api/farmer/orders', timeout: timeout), const ['orders', 'data', 'rows']);
-      if (parsed != null) return parsed;
+      first = _coerceList(await get('/api/farmer/orders', timeout: timeout), const ['orders', 'data', 'rows']);
+      if (first != null && first.isNotEmpty) return first;
     } catch (_) {}
-    if (farmerId.trim().isEmpty) return [];
+    if (farmerId.trim().isEmpty) return first ?? [];
     try {
       final parsed = _coerceList(await get('/api/farmers/$farmerId/orders', timeout: timeout), const ['orders', 'data', 'rows']);
-      if (parsed != null) return parsed;
+      if (parsed != null && parsed.isNotEmpty) return parsed;
     } catch (_) {}
-    return [];
+    return first ?? [];
   }
   Future<dynamic> fetchDocuments(String farmerId) async => get('/api/farmers/$farmerId/documents');
 
