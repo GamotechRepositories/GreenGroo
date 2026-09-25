@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../crops/add_crop_screen.dart';
 import '../crops/crop_planning_screen.dart';
@@ -20,11 +21,28 @@ class DashboardScreen extends StatelessWidget {
         final profile = state.profile;
         final crops = state.crops;
         final products = state.products;
-        final harvestOrders = state.harvestOrders;
-        final pendingHarvest = harvestOrders.where((h) => h.status != 'Completed').length;
-        final totalEarned = state.totalEarnings;
-        final pendingEarned = state.pendingEarnings;
+        final liveOrders = state.orders.where((o) {
+          final s = o.status.toUpperCase();
+          return s != 'DELETED' && s != 'DELETED_ORDER';
+        }).toList();
+        final pendingHarvest = liveOrders.where((o) => !_isClosedOrder(o)).length;
+        final settledOrders = liveOrders.where(_isEarningOrder).toList();
+        final totalEarned = settledOrders.fold<double>(0, (sum, o) => sum + _orderAmount(o));
+        final pendingEarned = settledOrders.where((o) => !_isPaidOrder(o)).fold<double>(0, (sum, o) => sum + _orderAmount(o));
         final totalStock = state.totalStockKg;
+        final grades = _gradeTotals(liveOrders, products);
+        final firstName = profile.fullName.trim().isEmpty ? 'शेतकरी' : profile.fullName.trim().split(RegExp(r'\s+')).first;
+        final place = [profile.village, profile.taluka, profile.district].where((part) => part.trim().isNotEmpty).join(', ');
+        final farmLabel = profile.farmName.trim().isEmpty ? 'शेत' : profile.farmName.trim();
+        final acres = profile.totalAcres;
+        final acreText = acres == acres.roundToDouble() ? acres.toInt().toString() : acres.toStringAsFixed(1);
+        final farmDetails = <String>[
+          '${crops.length} पिके लागवडीखाली',
+          if (profile.soilType.trim().isNotEmpty) profile.soilType.trim(),
+          if (profile.irrigationType.trim().isNotEmpty) profile.irrigationType.trim(),
+        ].join(' • ');
+        final kyc = profile.kycStatus.trim().toUpperCase();
+        final kycVerified = kyc.contains('VERIF') || kyc.contains('APPROV');
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -54,7 +72,7 @@ class DashboardScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       ),
                       Text(
-                        'स्वागत आहे, ${profile.fullName.split(' ')[0]}',
+                        'स्वागत आहे, $firstName',
                         style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                       ),
                     ],
@@ -127,31 +145,35 @@ class DashboardScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '${profile.district} • सनी २९°C',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          Expanded(
+                            child: Text(
+                              place.isEmpty ? '—' : place,
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.white24,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Text(
-                              'KYC Verified ✓',
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            child: Text(
+                              kycVerified ? 'KYC Verified ✓' : 'KYC ${kyc.isEmpty ? 'PENDING' : kyc}',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '${profile.farmName} (${profile.totalAcres} Acres)',
+                        '$farmLabel ($acreText ${profile.totalFarmAreaUnit})',
                         style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${crops.length} पिके लागवडीखाली • ${profile.soilType} • ${profile.irrigationType}',
+                        farmDetails,
                         style: const TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
@@ -248,7 +270,7 @@ class DashboardScreen extends StatelessWidget {
                     Expanded(
                       child: _StatCard(
                         title: 'Harvest Orders',
-                        value: '${harvestOrders.length}',
+                        value: '${liveOrders.length}',
                         icon: Icons.assignment,
                         color: Colors.blue.shade700,
                       ),
@@ -324,6 +346,14 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
+                if (crops.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'कोणतेही पीक नियोजन नाही',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                  ),
                 ...crops.take(2).map((crop) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -411,7 +441,7 @@ class DashboardScreen extends StatelessWidget {
                           Expanded(
                             child: _GradeMetric(
                               title: 'Grade A',
-                              qty: '730 Kg',
+                              qty: _qtyLabel(grades.$1),
                               bgColor: AppColors.gradeAHead,
                               textColor: AppColors.gradeAText,
                             ),
@@ -420,7 +450,7 @@ class DashboardScreen extends StatelessWidget {
                           Expanded(
                             child: _GradeMetric(
                               title: 'Grade B',
-                              qty: '15 Quintal',
+                              qty: _qtyLabel(grades.$2),
                               bgColor: AppColors.gradeBHead,
                               textColor: AppColors.gradeBText,
                             ),
@@ -429,7 +459,7 @@ class DashboardScreen extends StatelessWidget {
                           Expanded(
                             child: _GradeMetric(
                               title: 'Grade C',
-                              qty: '35 Kg',
+                              qty: _qtyLabel(grades.$3),
                               bgColor: AppColors.gradeCHead,
                               textColor: AppColors.gradeCText,
                             ),
@@ -447,6 +477,85 @@ class DashboardScreen extends StatelessWidget {
       },
     );
   }
+}
+
+bool _isClosedOrder(FarmerOrderItem order) {
+  final status = order.status.toUpperCase();
+  return status.contains('COMPLET') ||
+      status.contains('DELIVER') ||
+      status.contains('REJECT') ||
+      status.contains('CANCEL') ||
+      status.contains('GRADE_CONFIRM');
+}
+
+bool _isEarningOrder(FarmerOrderItem order) {
+  final status = order.status.trim().toUpperCase();
+  final quality = order.qualityStatus.trim().toUpperCase();
+  if (status.contains('REJECT') || status.contains('CANCEL') || status.contains('DELETED')) return false;
+  const open = {
+    'PREPARING',
+    'NEW',
+    'PENDING',
+    'CONFIRMED',
+    'ACCEPTED',
+    'READY_FOR_PICKUP',
+    'IN_TRANSIT',
+    'INSPECTION',
+    'PACKING',
+  };
+  if (open.contains(status)) return false;
+  return status.contains('COMPLET') ||
+      status.contains('DELIVER') ||
+      status == 'RECEIVED' ||
+      status.contains('GRADE_CONFIRM') ||
+      quality.contains('COMPLET') ||
+      quality.contains('GRADE_CONFIRM');
+}
+
+bool _isPaidOrder(FarmerOrderItem order) {
+  final status = order.paymentStatus.trim().toUpperCase();
+  return status == 'PAID' || status == 'PAYMENT_COMPLETED' || status == 'COMPLETED' || status == 'PAYMENT RECEIVED';
+}
+
+double _orderAmount(FarmerOrderItem order) {
+  if (order.totalAmount > 0) return order.totalAmount;
+  return order.effectiveTotalAmount;
+}
+
+(double, double, double) _gradeTotals(List<FarmerOrderItem> orders, List<ProductItem> products) {
+  var gradeA = 0.0;
+  var gradeB = 0.0;
+  var gradeC = 0.0;
+  for (final order in orders) {
+    gradeA += order.gradeAQty > 0 ? order.gradeAQty : order.shownAQty;
+    gradeB += order.gradeBQty > 0 ? order.gradeBQty : order.shownBQty;
+    gradeC += order.gradeCQty > 0 ? order.gradeCQty : order.shownCQty;
+  }
+  if (gradeA <= 0 && gradeB <= 0 && gradeC <= 0) {
+    for (final product in products) {
+      if (product.gradeAQty > 0 || product.gradeBQty > 0 || product.gradeCQty > 0) {
+        gradeA += product.gradeAQty;
+        gradeB += product.gradeBQty;
+        gradeC += product.gradeCQty;
+        continue;
+      }
+      final qty = product.unit.toLowerCase() == 'quintal' ? product.stockQuantity * 100 : product.stockQuantity;
+      final grade = product.grade.toUpperCase();
+      if (grade.contains('C')) {
+        gradeC += qty;
+      } else if (grade.contains('B')) {
+        gradeB += qty;
+      } else if (grade.contains('A')) {
+        gradeA += qty;
+      }
+    }
+  }
+  return (gradeA, gradeB, gradeC);
+}
+
+String _qtyLabel(double qty) {
+  final text = qty == qty.roundToDouble() ? qty.toInt().toString() : qty.toStringAsFixed(1);
+  return '$text Kg';
 }
 
 class _StatCard extends StatelessWidget {
