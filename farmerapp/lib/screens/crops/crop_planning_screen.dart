@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../core/constants/farmer_constants.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../../services/farmer_state.dart';
@@ -83,6 +84,9 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                 const SizedBox(height: 8),
 
                 // Crops List
+                if (!FarmerState().cropsReady && crops.isEmpty)
+                  const AppLoader(message: 'पिके लोड होत आहेत...')
+                else
                 ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),

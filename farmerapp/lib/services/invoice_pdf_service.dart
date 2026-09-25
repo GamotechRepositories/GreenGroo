@@ -80,25 +80,22 @@ class InvoicePdfService {
     } catch (_) {}
 
     final isPaid = order.paymentStatus.toUpperCase() == 'PAID' || order.status == 'Completed';
-    final double effectiveRate = order.rate > 0 ? order.rate : (rate > 0 ? rate : 30.0);
+    final double effectiveRate = order.rate > 0 ? order.rate : rate;
 
     final double gAQty = order.gradeAQty;
     final double gARate = order.gradeARate > 0 ? order.gradeARate : effectiveRate;
     final double gAAmt = order.gradeAAmt;
 
-    final double gBQty = order.gradeBQty > 0 ? order.gradeBQty : 80.0;
-    final double gBRate = order.gradeBRate > 0
-        ? order.gradeBRate
-        : ((effectiveRate * 0.4).roundToDouble() > 0 ? (effectiveRate * 0.4).roundToDouble() : 12.0);
-    final double gBAmt = order.gradeBAmt > 0 ? order.gradeBAmt : 960.0;
+    final double gBQty = order.gradeBQty;
+    final double gBRate = order.gradeBRate;
+    final double gBAmt = order.gradeBAmt;
 
     final double gCQty = order.gradeCQty;
     final double gCRate = order.gradeCRate;
     final double gCAmt = order.gradeCAmt;
 
-    final double rejQty = order.rejectedQuantity > 0 ? order.rejectedQuantity : 10.0;
     final double gARej = order.gradeARejected;
-    final double gBRej = order.gradeBRejected > 0 ? order.gradeBRejected : rejQty;
+    final double gBRej = order.gradeBRejected;
     final double gCRej = order.gradeCRejected;
 
     final double gAOrdered = gAQty + gARej;

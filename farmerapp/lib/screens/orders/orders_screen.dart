@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import 'harvest_orders_screen.dart';
@@ -41,19 +42,30 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
   }
 
   bool _matchesFilter(FarmerOrderItem order, String filterKey) {
-    if (filterKey == 'all') return true;
     final s = order.status.toUpperCase();
+    if (s == 'DELETED' || s == 'DELETED_ORDER') return false;
+    if (filterKey == 'all') return true;
     switch (filterKey) {
       case 'new':
-        return s.contains('NEW') || s.contains('CONFIRMED');
+        return s == 'NEW' || s.contains('NEW') || s.contains('CONFIRMED');
       case 'accepted':
         return s == 'ACCEPTED' || s == 'ACCEPT';
       case 'preparing':
-        return s.contains('PREPAR') || s.contains('PACK');
+        return s == 'PREPARING' || s == 'PACKING' || s.contains('PREPAR') || s.contains('PACK');
       case 'ready':
-        return s.contains('READY');
+        return s.contains('READY') || s.contains('DRIVER') || s.contains('DISPATCH') || s == 'ORDER_VERIFIED' || s == 'QR_VERIFIED';
       case 'completed':
-        return s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID');
+        return s.contains('COMPLET') ||
+            s.contains('DELIVER') ||
+            s.contains('GRADE') ||
+            s.contains('INSPECT') ||
+            s.contains('QUALITY') ||
+            s.contains('GRADING') ||
+            s.contains('TRANSIT') ||
+            s.contains('CENTRE') ||
+            s.contains('CENTER') ||
+            s.contains('RECEIV') ||
+            s == 'PICKED_UP';
       case 'rejected':
         return s.contains('REJECT') || s.contains('CANCEL');
       default:
@@ -119,6 +131,9 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                 final filtered = allOrders.where((o) => _matchesFilter(o, tab['key']!)).toList();
 
                 if (filtered.isEmpty) {
+                  if (allOrders.isEmpty && !FarmerState().ordersReady) {
+                    return const AppLoader(message: 'ऑर्डर्स लोड होत आहेत...');
+                  }
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -493,7 +508,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
       gradeRows.add({
         'label': 'Grade A',
         'qty': order.quantity,
-        'rate': order.rate > 0 ? order.rate : 30.0,
+        'rate': order.gradeARate > 0 ? order.gradeARate : order.rate,
         'bg': const Color(0xFFECFDF5),
         'head': const Color(0xFFD1FAE5),
         'border': const Color(0xFFA7F3D0),

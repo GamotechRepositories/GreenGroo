@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
+import '../../core/widgets/app_loader.dart';
 import 'earning_report_screen.dart';
 import '../main_shell.dart';
 
@@ -275,10 +276,8 @@ class EarningsScreenState extends State<EarningsScreen> {
       final oId = order.productId.trim();
       final pId = product.productId.trim();
       final pAltId = product.id.trim();
-      if (oId.isNotEmpty) {
-        if (pId.isNotEmpty && oId == pId) return true;
-        if (pAltId.isNotEmpty && oId == pAltId) return true;
-        if (pId.isNotEmpty || pAltId.isNotEmpty) return false;
+      if (oId.isNotEmpty && ((pId.isNotEmpty && oId == pId) || (pAltId.isNotEmpty && oId == pAltId))) {
+        return true;
       }
     } catch (_) {}
 
@@ -680,6 +679,9 @@ class EarningsScreenState extends State<EarningsScreen> {
     }).toList();
 
     if (completedProducts.isEmpty) {
+      if (!FarmerState().ordersReady || !FarmerState().productsReady) {
+        return const AppLoader(message: 'उत्पन्न लोड होत आहे...');
+      }
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
@@ -751,9 +753,10 @@ class EarningsScreenState extends State<EarningsScreen> {
           }
         }
 
-        final rate = product.pricePerUnit > 0 ? product.pricePerUnit : 30.0;
-        if (gradeARate <= 0) gradeARate = rate;
-        if (gradeBRate <= 0) gradeBRate = ((rate * 0.4).roundToDouble() > 0 ? (rate * 0.4).roundToDouble() : 12.0);
+        if (gradeARate <= 0) {
+          final fromOrder = matchedOrders.map((o) => o.rate).firstWhere((value) => value > 0, orElse: () => 0);
+          gradeARate = fromOrder > 0 ? fromOrder : (product.pricePerUnit > 0 ? product.pricePerUnit : 0);
+        }
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1196,8 +1199,10 @@ class EarningsScreenState extends State<EarningsScreen> {
     }
 
     final unit = product?.unit ?? "Kg";
-    double rate = product?.pricePerUnit ?? 30.0;
-    if (rate <= 0) rate = 30.0;
+    double rate = product?.pricePerUnit ?? 0;
+    if (rate <= 0) {
+      rate = matchedOrders.map((o) => o.gradeARate > 0 ? o.gradeARate : o.rate).firstWhere((value) => value > 0, orElse: () => 0);
+    }
 
     double totalGAQty = 0;
     double totalGBQty = 0;
@@ -1604,9 +1609,9 @@ class EarningsScreenState extends State<EarningsScreen> {
 
     // Exact Grade Quantities, Rates, and Amounts
     final double gAQty = order.gradeAQty;
-    final double gARate = order.gradeARate > 0 ? order.gradeARate : rate;
+    final double gARate = order.gradeARate > 0 ? order.gradeARate : (order.rate > 0 ? order.rate : rate);
     final double gBQty = order.gradeBQty;
-    final double gBRate = order.gradeBRate > 0 ? order.gradeBRate : ((rate * 0.4).roundToDouble() > 0 ? (rate * 0.4).roundToDouble() : 12.0);
+    final double gBRate = order.gradeBRate;
     final double gCQty = order.gradeCQty;
     final double gCRate = order.gradeCRate;
     final double rejQty = order.rejectedQuantity;
@@ -2112,13 +2117,13 @@ class EarningsScreenState extends State<EarningsScreen> {
           double pDeposited = 0;
           double pPending = 0;
           double gaQty = 0;
-          double gaRate = p.pricePerUnit > 0 ? p.pricePerUnit : 30.0;
+          double gaRate = p.pricePerUnit > 0 ? p.pricePerUnit : 0;
           double gaRej = 0;
           double gbQty = 0;
-          double gbRate = gaRate * 0.4;
+          double gbRate = 0;
           double gbRej = 0;
           double gcQty = 0;
-          double gcRate = gaRate * 0.2;
+          double gcRate = 0;
           double gcRej = 0;
 
           for (final o in matchedOrders) {

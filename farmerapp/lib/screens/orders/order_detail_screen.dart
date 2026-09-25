@@ -689,6 +689,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   width: 165,
                                   height: 165,
                                   fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF217346)),
+                                      ),
+                                    );
+                                  },
                                   errorBuilder: (context, error, stackTrace) => const Center(
                                     child: Icon(Icons.qr_code_2_rounded, size: 140, color: Color(0xFF1F2937)),
                                   ),

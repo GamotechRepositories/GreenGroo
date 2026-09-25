@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import '../../core/utils/photo_picker_sheet.dart';
@@ -46,7 +47,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.sync_rounded, color: Color(0xFF217346), size: 22),
+                icon: FarmerState().isLoadingFromBackend
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF217346)),
+                      )
+                    : const Icon(Icons.sync_rounded, color: Color(0xFF217346), size: 22),
                 tooltip: 'ताजे करा (Refresh)',
                 onPressed: () async {
                   await FarmerState().fetchFromBackend();
@@ -64,7 +71,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             ],
           ),
           body: SafeArea(
-            child: RefreshIndicator(
+            child: !FarmerState().documentsReady
+                ? const AppLoader(message: 'कागदपत्रे लोड होत आहेत...')
+                : RefreshIndicator(
               color: const Color(0xFF217346),
               onRefresh: () async {
                 await FarmerState().fetchFromBackend();

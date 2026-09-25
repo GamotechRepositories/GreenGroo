@@ -306,8 +306,8 @@ class CropItem {
 
     return CropItem(
       id: json['id']?.toString() ?? json['_id']?.toString() ?? json['cropId']?.toString() ?? 'CRP-${DateTime.now().millisecondsSinceEpoch}',
-      cropName: json['cropName']?.toString() ?? json['name']?.toString() ?? 'Crop',
-      variety: json['variety']?.toString() ?? 'Hybrid',
+      cropName: json['cropName']?.toString() ?? json['name']?.toString() ?? '',
+      variety: json['variety']?.toString() ?? '',
       acreage: area,
       areaUnit: json['areaUnit']?.toString() ?? 'Acre',
       sowingDate: json['sowingDate']?.toString() ?? '',
@@ -640,8 +640,22 @@ class FarmerOrderItem {
       return double.tryParse(v.toString()) ?? fallback;
     }
 
-    final q = parseDbl(json['quantity'] ?? json['orderedQuantity'] ?? json['totalQuantity'] ?? json['qty'], 0.0);
-    final r = parseDbl(json['price'] ?? json['rate'] ?? json['sellingPrice'] ?? json['pricePerUnit'], 0.0);
+    String textOf(dynamic v) => v?.toString().trim() ?? '';
+    String firstText(List<dynamic> values) {
+      for (final value in values) {
+        final text = textOf(value);
+        if (text.isNotEmpty) return text;
+      }
+      return '';
+    }
+
+    final customer = json['customer'] is Map ? Map<String, dynamic>.from(json['customer'] as Map) : <String, dynamic>{};
+    final firstProduct = json['products'] is List && (json['products'] as List).isNotEmpty && (json['products'] as List).first is Map
+        ? Map<String, dynamic>.from((json['products'] as List).first as Map)
+        : <String, dynamic>{};
+
+    final q = parseDbl(json['quantity'] ?? json['orderedQuantity'] ?? json['totalQuantity'] ?? json['qty'] ?? firstProduct['quantity'], 0.0);
+    var r = parseDbl(json['price'] ?? json['rate'] ?? json['sellingPrice'] ?? json['pricePerUnit'] ?? firstProduct['price'], 0.0);
 
     double gA = 0.0;
     double gAR = r > 0 ? r : 0.0;
@@ -656,33 +670,44 @@ class FarmerOrderItem {
 
     final dynamic gradeListRaw = json['finalStatement'] ?? json['grades'] ?? json['orderedGrades'] ?? json['products'];
     if (gradeListRaw is List && gradeListRaw.isNotEmpty) {
+      final unmatched = <Map<String, dynamic>>[];
       for (final item in gradeListRaw) {
         if (item is Map) {
-          final lbl = (item['label']?.toString() ?? item['name']?.toString() ?? item['grade']?.toString() ?? '').toUpperCase();
-          final qty = parseDbl(item['quantity'] ?? item['finalQty'] ?? item['assignedQuantity'] ?? item['qty'], 0.0);
-          final prc = parseDbl(item['price'] ?? item['rate'], 0.0);
-          final rj = parseDbl(item['rejectedQuantity'] ?? item['rejectedQty'] ?? item['rejected'], 0.0);
+          final row = Map<String, dynamic>.from(item);
+          final lbl = (row['label']?.toString() ?? row['name']?.toString() ?? row['grade']?.toString() ?? '').toUpperCase();
+          final qty = parseDbl(row['quantity'] ?? row['finalQty'] ?? row['assignedQuantity'] ?? row['qty'], 0.0);
+          final prc = parseDbl(row['price'] ?? row['rate'], 0.0);
+          final rj = parseDbl(row['rejectedQuantity'] ?? row['rejectedQty'] ?? row['rejected'], 0.0);
 
-          final clean = lbl.replaceAll('GRADE', '').replaceAll('_', '').replaceAll(' ', '').trim();
-          final bool isGradeA = clean == 'A' || lbl == 'GRADE A' || lbl == 'GRADE_A' || lbl.startsWith('GRADE A') || lbl.endsWith(' A');
-          final bool isGradeB = clean == 'B' || lbl == 'GRADE B' || lbl == 'GRADE_B' || lbl.startsWith('GRADE B') || lbl.endsWith(' B');
-          final bool isGradeC = clean == 'C' || lbl == 'GRADE C' || lbl == 'GRADE_C' || lbl.startsWith('GRADE C') || lbl.endsWith(' C');
+          final clean = lbl.replaceAll('GRADE', '').replaceAll(RegExp(r'[^A-Z]'), '');
+          final bool isGradeA = clean == 'A' || lbl.contains('GRADE A') || lbl.contains('GRADE_A');
+          final bool isGradeB = clean == 'B' || lbl.contains('GRADE B') || lbl.contains('GRADE_B');
+          final bool isGradeC = clean == 'C' || lbl.contains('GRADE C') || lbl.contains('GRADE_C');
 
           if (isGradeA) {
-            gA = qty;
+            gA += qty;
             if (prc > 0) gAR = prc;
-            gARej = rj;
+            gARej += rj;
           } else if (isGradeB) {
-            gB = qty;
+            gB += qty;
             if (prc > 0) gBR = prc;
-            gBRej = rj;
+            gBRej += rj;
           } else if (isGradeC) {
-            gC = qty;
+            gC += qty;
             if (prc > 0) gCR = prc;
-            gCRej = rj;
+            gCRej += rj;
+          } else if (qty > 0 || prc > 0) {
+            unmatched.add(row);
           }
           totalRejFromGrades += rj;
         }
+      }
+      if (gA <= 0 && gB <= 0 && gC <= 0 && unmatched.isNotEmpty) {
+        final row = unmatched.first;
+        gA = parseDbl(row['quantity'] ?? row['finalQty'] ?? row['assignedQuantity'] ?? row['qty'], 0.0);
+        final prc = parseDbl(row['price'] ?? row['rate'], 0.0);
+        if (prc > 0) gAR = prc;
+        gARej = parseDbl(row['rejectedQuantity'] ?? row['rejectedQty'] ?? row['rejected'], 0.0);
       }
     } else {
       gA = parseDbl(json['gradeAQuantity'] ?? json['gradeAQty'] ?? json['gradeAAssigned'], 0.0);
@@ -705,25 +730,28 @@ class FarmerOrderItem {
     double totAmt = parseDbl(json['totalAmount'] ?? json['orderValue'] ?? json['finalAmount'] ?? json['amount'], 0.0);
 
     double calculatedAmount = (gA * gAR) + (gB * gBR) + (gC * gCR);
+    if (r <= 0 && gAR > 0) r = gAR;
+    final orderedQty = q > 0 ? q : (gA + gB + gC);
     if (totAmt <= 0) {
-      totAmt = calculatedAmount > 0 ? calculatedAmount : (q * r);
+      totAmt = calculatedAmount > 0 ? calculatedAmount : (orderedQty * r);
     }
 
     final pStatus = json['paymentStatus']?.toString() ?? 'Pending';
     final st = json['status']?.toString() ?? 'NEW';
     final qStatus = json['qualityStatus']?.toString() ?? '';
+    final orderCode = firstText([json['orderDisplayId'], json['orderId'], json['orderCode'], json['id']]);
 
     return FarmerOrderItem(
-      id: json['id']?.toString() ?? json['_id']?.toString() ?? json['orderCode']?.toString() ?? json['orderDisplayId']?.toString() ?? '',
-      productId: json['productId']?.toString() ?? json['product_id']?.toString() ?? '',
-      orderCode: json['orderDisplayId']?.toString() ?? json['orderCode']?.toString() ?? json['id']?.toString() ?? '',
-      buyerName: json['buyerName']?.toString() ?? json['customerName']?.toString() ?? '',
-      buyerPhone: json['buyerPhone']?.toString() ?? json['customerPhone']?.toString() ?? '',
-      productName: json['productName']?.toString() ?? json['cropName']?.toString() ?? json['name']?.toString() ?? '',
-      cropName: json['cropName']?.toString() ?? json['cropLinked']?.toString() ?? json['productName']?.toString() ?? '',
-      variety: json['variety']?.toString() ?? '',
-      quantity: q,
-      orderedQuantity: parseDbl(json['orderedQuantity'] ?? json['totalQuantity'], q),
+      id: firstText([json['id'], json['orderId'], json['_id'], orderCode]),
+      productId: firstText([json['productId'], json['product_id'], firstProduct['productId'], firstProduct['id']]),
+      orderCode: orderCode,
+      buyerName: firstText([json['buyerName'], json['customerName'], customer['name']]),
+      buyerPhone: firstText([json['buyerPhone'], json['customerPhone'], customer['phone']]),
+      productName: firstText([json['productName'], firstProduct['name'], json['cropName'], json['name']]),
+      cropName: firstText([json['cropName'], json['cropLinked'], json['productName'], firstProduct['name']]),
+      variety: firstText([json['variety'], firstProduct['variety']]),
+      quantity: orderedQty,
+      orderedQuantity: parseDbl(json['orderedQuantity'] ?? json['totalQuantity'], orderedQty),
       receivedQuantity: parseDbl(json['receivedQuantity'], q),
       unit: json['unit']?.toString() ?? 'Kg',
       rate: r > 0 ? r : gAR,

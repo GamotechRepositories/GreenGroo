@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import 'add_product_screen.dart';
@@ -225,7 +226,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 const SizedBox(height: 12),
 
                 // 4. Products List
-                if (products.isEmpty)
+                if (products.isEmpty && FarmerState().products.isEmpty && !FarmerState().productsReady)
+                  const AppLoader(message: 'उत्पादने लोड होत आहेत...')
+                else if (products.isEmpty)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(28),

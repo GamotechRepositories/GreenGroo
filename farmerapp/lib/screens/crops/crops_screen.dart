@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../../core/utils/photo_picker_sheet.dart';
@@ -205,7 +206,9 @@ class _CropsScreenState extends State<CropsScreen> {
                   const SizedBox(height: 14),
 
                   // Crop List / Empty State
-                  if (crops.isEmpty)
+                  if (crops.isEmpty && allCrops.isEmpty && !FarmerState().cropsReady)
+                    const AppLoader(message: 'पिके लोड होत आहेत...')
+                  else if (crops.isEmpty)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),

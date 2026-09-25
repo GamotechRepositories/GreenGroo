@@ -109,7 +109,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
         final state = FarmerState();
         final allSchemes = state.schemes;
         final schemes = _filterSchemes(allSchemes);
-        final loading = state.isLoadingFromBackend && allSchemes.isEmpty;
+        final loading = !state.schemesReady && allSchemes.isEmpty;
         final categories = _getAvailableCategories(allSchemes);
 
         return Scaffold(
@@ -267,7 +267,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
                         'Available Schemes (${schemes.length})',
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
                       ),
-                      if (state.isLoadingFromBackend)
+                      if (!state.schemesReady || state.isLoadingFromBackend)
                         const SizedBox(
                           width: 14,
                           height: 14,

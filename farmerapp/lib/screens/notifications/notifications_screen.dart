@@ -1,6 +1,7 @@
 import '../../services/sound_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../services/farmer_state.dart';
 import '../orders/order_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
@@ -315,7 +316,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 // Notification List View
                 Expanded(
                   child: filteredList.isEmpty
-                      ? Center(
+                      ? (allLiveNotifications.isEmpty && (!state.ordersReady || !state.documentsReady || !state.schemesReady))
+                          ? const AppLoader(message: 'सूचना लोड होत आहेत...')
+                          : Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

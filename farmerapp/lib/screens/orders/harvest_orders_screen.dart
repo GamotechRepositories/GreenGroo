@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import 'order_detail_screen.dart';
@@ -272,7 +273,9 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                 const SizedBox(height: 14),
 
                 // 3. Harvest Orders List
-                if (filteredList.isEmpty)
+                if (filteredList.isEmpty && allOrders.isEmpty && !FarmerState().ordersReady)
+                  const AppLoader(message: 'काढणी ऑर्डर्स लोड होत आहेत...')
+                else if (filteredList.isEmpty)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32),
@@ -416,14 +419,14 @@ class _CompletedHarvestCard extends StatelessWidget {
       gradeRows.add({
         'label': 'Grade A',
         'qty': order.quantity,
-        'rate': order.rate > 0 ? order.rate : 30.0,
+        'rate': order.gradeARate > 0 ? order.gradeARate : order.rate,
         'bg': const Color(0xFFECFDF5),
         'text': const Color(0xFF065F46),
       });
     }
 
     final totalQty = order.quantity > 0 ? order.quantity : order.orderedQuantity;
-    final totalVal = order.totalAmount > 0 ? order.totalAmount : (totalQty * (order.rate > 0 ? order.rate : 30));
+    final totalVal = order.totalAmount > 0 ? order.totalAmount : (totalQty * (order.rate > 0 ? order.rate : order.gradeARate));
 
     return Container(
       decoration: BoxDecoration(

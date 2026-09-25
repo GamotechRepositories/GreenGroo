@@ -1,4 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
+﻿import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'sound_service.dart';
 import 'package:flutter/material.dart';
@@ -63,15 +63,16 @@ class FarmerState extends ChangeNotifier {
           return;
         }
       }
+      final stillLoading = !dashboardReady || !documentsReady || !schemesReady;
       await Future.wait([
-        _fetchProfileSafe(),
-        _fetchProductsSafe(),
-        _fetchOrdersSafe(),
-        _fetchCropsSafe(),
-        _fetchDocumentsSafe(),
-        _fetchSchemesSafe(),
+        _markReady(_fetchProfileSafe(), () => profileReady = true),
+        _markReady(_fetchProductsSafe(), () => productsReady = true),
+        _markReady(_fetchOrdersSafe(), () => ordersReady = true),
+        _markReady(_fetchCropsSafe(), () => cropsReady = true),
+        _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
+        _markReady(_fetchSchemesSafe(), () => schemesReady = true),
       ]);
-      if (connectionChanged || _liveDataChanged) notifyListeners();
+      if (connectionChanged || _liveDataChanged || stillLoading) notifyListeners();
     } catch (_) {
     } finally {
       _pollInFlight = false;
@@ -82,7 +83,28 @@ class FarmerState extends ChangeNotifier {
   bool isConnectedToBackend = false;
   String backendUrl = '';
   bool isLoadingFromBackend = false;
+  bool profileReady = false;
+  bool productsReady = false;
+  bool ordersReady = false;
+  bool cropsReady = false;
+  bool documentsReady = false;
+  bool schemesReady = false;
   String connectionMessage = 'Connecting...';
+
+  bool get dashboardReady => profileReady && productsReady && ordersReady && cropsReady;
+
+  Future<T> _markReady<T>(Future<T> future, void Function() mark) {
+    return future.whenComplete(mark);
+  }
+
+  void _markAllSectionsReady() {
+    profileReady = true;
+    productsReady = true;
+    ordersReady = true;
+    cropsReady = true;
+    documentsReady = true;
+    schemesReady = true;
+  }
 
   void logout() {
     isLoggedIn = false;
@@ -110,24 +132,26 @@ class FarmerState extends ChangeNotifier {
       if (healthy) {
         connectionMessage = 'Connected: $backendUrl';
 
-        await Future.wait([
-          _fetchProfileSafe(),
-          _fetchProductsSafe(),
-          _fetchOrdersSafe(),
-          _fetchCropsSafe(),
-        ]);
-        isLoadingFromBackend = false;
+        await _markReady(_fetchProfileSafe(), () => profileReady = true);
         notifyListeners();
         await Future.wait([
-          _fetchDocumentsSafe(),
-          _fetchSchemesSafe(),
+          _markReady(_fetchProductsSafe(), () => productsReady = true),
+          _markReady(_fetchOrdersSafe(), () => ordersReady = true),
+          _markReady(_fetchCropsSafe(), () => cropsReady = true),
+        ]);
+        notifyListeners();
+        await Future.wait([
+          _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
+          _markReady(_fetchSchemesSafe(), () => schemesReady = true),
         ]);
       } else {
         connectionMessage = 'Disconnected (Using Offline Cache)';
+        _markAllSectionsReady();
       }
     } catch (e) {
       isConnectedToBackend = false;
       connectionMessage = 'Offline ($e)';
+      _markAllSectionsReady();
     } finally {
       _syncing = false;
       isLoadingFromBackend = false;
@@ -221,8 +245,14 @@ class FarmerState extends ChangeNotifier {
     _ordersChanged = false;
     try {
       final ordRes = await ApiService().fetchOrders(profile.id);
-      if (ordRes is List && ordRes.isNotEmpty) {
-        final fetchedOrders = ordRes.map((o) => FarmerOrderItem.fromJson(o as Map<String, dynamic>)).toList();
+      if (ordRes is List) {
+        final fetchedOrders = <FarmerOrderItem>[];
+        for (final raw in ordRes) {
+          if (raw is! Map) continue;
+          try {
+            fetchedOrders.add(FarmerOrderItem.fromJson(Map<String, dynamic>.from(raw)));
+          } catch (_) {}
+        }
         if (_sameOrders(fetchedOrders)) {
           _ordersBaselineDone = true;
           return;
@@ -597,6 +627,7 @@ class FarmerState extends ChangeNotifier {
 
 
 
+  /// Empty KYC slots only. Status and files are filled from the backend.
   void _ensureDocumentChecklist() {
     if (documents.isNotEmpty) return;
     documents = [

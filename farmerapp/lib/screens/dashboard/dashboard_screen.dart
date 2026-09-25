@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../services/farmer_state.dart';
 import '../crops/add_crop_screen.dart';
 import '../crops/crop_planning_screen.dart';
@@ -101,7 +102,9 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(width: 4),
             ],
           ),
-          body: SingleChildScrollView(
+          body: !state.dashboardReady
+              ? const AppLoader(message: 'माहिती लोड होत आहे...')
+              : SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

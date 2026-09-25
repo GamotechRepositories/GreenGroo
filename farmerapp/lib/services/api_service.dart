@@ -74,9 +74,9 @@ class ApiService {
     return map;
   }
 
-  Future<dynamic> get(String endpoint) async {
+  Future<dynamic> get(String endpoint, {Duration timeout = const Duration(seconds: 5)}) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 5));
+    final response = await _client.get(uri, headers: _headers).timeout(timeout);
     return _handleResponse(response);
   }
 
@@ -217,12 +217,14 @@ class ApiService {
     return [];
   }
   Future<dynamic> fetchOrders(String farmerId) async {
+    const timeout = Duration(seconds: 15);
     try {
-      final parsed = _coerceList(await get('/api/farmer/orders'), const ['orders', 'data']);
+      final parsed = _coerceList(await get('/api/farmer/orders', timeout: timeout), const ['orders', 'data', 'rows']);
       if (parsed != null) return parsed;
     } catch (_) {}
+    if (farmerId.trim().isEmpty) return [];
     try {
-      final parsed = _coerceList(await get('/api/farmers/$farmerId/orders'), const ['orders', 'data']);
+      final parsed = _coerceList(await get('/api/farmers/$farmerId/orders', timeout: timeout), const ['orders', 'data', 'rows']);
       if (parsed != null) return parsed;
     } catch (_) {}
     return [];

@@ -67,11 +67,11 @@ class EarningReportScreen extends StatelessWidget {
     final profile = FarmerState().profile;
     final isPaid = order.paymentStatus.toUpperCase() == 'PAID' || order.status == 'Completed';
 
-    final double effectiveRate = order.rate > 0 ? order.rate : (rate > 0 ? rate : 30.0);
+    final double effectiveRate = order.rate > 0 ? order.rate : rate;
     final double gAQty = order.gradeAQty;
     final double gARate = order.gradeARate > 0 ? order.gradeARate : effectiveRate;
     final double gBQty = order.gradeBQty;
-    final double gBRate = order.gradeBRate > 0 ? order.gradeBRate : ((effectiveRate * 0.4).roundToDouble() > 0 ? (effectiveRate * 0.4).roundToDouble() : 12.0);
+    final double gBRate = order.gradeBRate;
     final double gCQty = order.gradeCQty;
     final double gCRate = order.gradeCRate;
     final double rejQty = order.rejectedQuantity;
@@ -957,9 +957,9 @@ class EarningReportScreen extends StatelessWidget {
     final double gARej = order.gradeARejected; // 0
     final double gAFinal = gAQty; // 200
 
-    final double gBRej = order.gradeBRejected > 0 ? order.gradeBRejected : (rejQty > 0 ? rejQty : 10.0); // 10
-    final double gBFinal = gBQty > 0 ? gBQty : 80.0; // 80
-    final double gBOrdered = gBFinal + gBRej; // 90
+    final double gBRej = order.gradeBRejected;
+    final double gBFinal = gBQty;
+    final double gBOrdered = gBFinal + gBRej;
 
     final double gCRej = order.gradeCRejected; // 0
     final double gCFinal = gCQty; // 0
@@ -1020,7 +1020,7 @@ class EarningReportScreen extends StatelessWidget {
                 '${gBRej.toStringAsFixed(0)} $unit',
                 '${gBFinal.toStringAsFixed(0)} $unit',
                 '₹${gBRate.toStringAsFixed(0)}',
-                '₹${_formatCurrency(gBAmt > 0 ? gBAmt : 960)}',
+                '₹${_formatCurrency(gBAmt)}',
                 false,
               ),
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
