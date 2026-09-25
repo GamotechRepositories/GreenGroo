@@ -1677,6 +1677,14 @@ class __SelectPaymentMethodSheetState
       return;
     }
 
+    if (_selectedPaymentMode != 'cod') {
+      Navigator.pop(context);
+      context.push(
+        '${RoutePaths.payment}?addressId=${address.id}',
+      );
+      return;
+    }
+
     setState(() {
       _placingOrder = true;
       _error = '';
@@ -1690,6 +1698,11 @@ class __SelectPaymentMethodSheetState
               'quantity': item.quantity,
               'variantName': item.variantName,
               'colorName': item.colorName,
+              'name': item.name,
+              'price': item.price,
+              'discountedPrice': item.discountedPrice,
+              'brandName': item.brandName,
+              'image': item.productImages.isNotEmpty ? item.productImages.first : '',
             },
           )
           .toList();
@@ -1697,7 +1710,7 @@ class __SelectPaymentMethodSheetState
       final api = ref.read(apiServiceProvider);
       final response = await api.placeOrder({
         'addressId': address.id,
-        'paymentMethod': _selectedPaymentMode == 'cod' ? 'cod' : 'online',
+        'paymentMethod': 'cod',
         'checkoutItems': itemsPayload,
         'checkoutMode': 'cart',
       });

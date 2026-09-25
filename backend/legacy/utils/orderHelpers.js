@@ -240,24 +240,45 @@ export function mergeCustomerLocation(snapshot, customerLocation) {
   if (!snapshot) return snapshot;
   const next = { ...snapshot };
 
-  // Do not copy session/browsing GPS into the delivery address — that pinned every
-  // order to the same map point. Only coords saved on the address itself are kept.
-  if (next.location) {
-    // keep snapshot location as-is
+  if (customerLocation && typeof customerLocation === "object") {
+    if (customerLocation.address || customerLocation.fullAddress) {
+      const addrStr = String(customerLocation.address || customerLocation.fullAddress).trim();
+      if (addrStr.length > 0 && addrStr !== "Main Address" && addrStr !== "Address to be confirmed") {
+        next.fullAddress = addrStr;
+      }
+    }
+    if (customerLocation.area) {
+      const areaStr = String(customerLocation.area).trim();
+      if (areaStr.length > 0 && areaStr !== "Near Location") {
+        next.area = areaStr;
+        if (!next.landmark || next.landmark === "Near Location") {
+          next.landmark = areaStr;
+        }
+      }
+    }
+    if (customerLocation.city) {
+      const cityStr = String(customerLocation.city).trim();
+      if (cityStr.length > 0 && cityStr !== "City") {
+        next.city = cityStr;
+      }
+    }
+    if (customerLocation.state) {
+      const stateStr = String(customerLocation.state).trim();
+      if (stateStr.length > 0 && stateStr !== "State") {
+        next.state = stateStr;
+      }
+    }
+    if (customerLocation.pincode) {
+      const pinStr = String(customerLocation.pincode).trim();
+      if (pinStr.length > 0 && pinStr !== "110001") {
+        next.pincode = pinStr;
+      }
+    }
+    if (customerLocation.lat && customerLocation.lng) {
+      next.location = { lat: customerLocation.lat, lng: customerLocation.lng };
+    }
   }
 
-  if (!next.area && customerLocation?.area) {
-    next.area = String(customerLocation.area).trim();
-  }
-  if (!next.city && customerLocation?.city) {
-    next.city = String(customerLocation.city).trim();
-  }
-  if (!next.state && customerLocation?.state) {
-    next.state = String(customerLocation.state).trim();
-  }
-  if (!next.pincode && customerLocation?.pincode) {
-    next.pincode = String(customerLocation.pincode).trim();
-  }
   return next;
 }
 
@@ -417,12 +438,19 @@ async function resolveCheckoutItems(rawItems, { skipStockCheck = false } = {}) {
         return { error: "Invalid checkout item", status: 400 };
       }
     } else {
-      product = await Product.findById(productId).select(PRODUCT_PRICING_SELECT);
+      try {
+        product = await Product.findById(productId).select(PRODUCT_PRICING_SELECT);
+      } catch (_) {
+        product = null;
+      }
       if (!product || !product.isActive) {
-        return {
-          error: "One or more products are no longer available",
-          status: 404,
-        };
+        product = buildCatalogProductFromEntry(entry);
+        if (!product) {
+          return {
+            error: "One or more products are no longer available",
+            status: 404,
+          };
+        }
       }
     }
 
@@ -642,20 +670,33 @@ export async function prepareOrderData(userId, addressId, options = {}) {
   deliveryAddress.fullName = (deliveryAddress.fullName || user.name || "Customer").trim();
   deliveryAddress.number = (deliveryAddress.number || fallbackPhone).trim();
   deliveryAddress.email = (deliveryAddress.email || fallbackEmail).trim();
-  deliveryAddress.shopNo = (deliveryAddress.shopNo || "Main").trim();
-  deliveryAddress.shopName = (deliveryAddress.shopName || "Home/Work").trim();
+  deliveryAddress.shopNo = (deliveryAddress.shopNo && deliveryAddress.shopNo !== "Main" ? deliveryAddress.shopNo : "").trim();
+  deliveryAddress.shopName = (deliveryAddress.shopName && deliveryAddress.shopName !== "Home/Work" ? deliveryAddress.shopName : "").trim();
   deliveryAddress.fullAddress = (
     deliveryAddress.fullAddress ||
+    options.customerLocation?.address ||
     options.customerLocation?.fullAddress ||
-    "Main Address"
+    ""
   ).trim();
   deliveryAddress.landmark = (
-    deliveryAddress.landmark || options.customerLocation?.area || "Near Location"
+    deliveryAddress.landmark && deliveryAddress.landmark !== "Near Location"
+      ? deliveryAddress.landmark
+      : (options.customerLocation?.area || "")
   ).trim();
-  deliveryAddress.city = (deliveryAddress.city || options.customerLocation?.city || "City").trim();
-  deliveryAddress.state = (deliveryAddress.state || options.customerLocation?.state || "State").trim();
+  deliveryAddress.city = (
+    deliveryAddress.city && deliveryAddress.city !== "City"
+      ? deliveryAddress.city
+      : (options.customerLocation?.city || "")
+  ).trim();
+  deliveryAddress.state = (
+    deliveryAddress.state && deliveryAddress.state !== "State"
+      ? deliveryAddress.state
+      : (options.customerLocation?.state || "")
+  ).trim();
   deliveryAddress.pincode = (
-    deliveryAddress.pincode || options.customerLocation?.pincode || "110001"
+    deliveryAddress.pincode && deliveryAddress.pincode !== "110001"
+      ? deliveryAddress.pincode
+      : (options.customerLocation?.pincode || "")
   ).trim();
 
   return {

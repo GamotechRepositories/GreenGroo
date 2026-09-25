@@ -264,16 +264,16 @@ class Order {
           ?.toString() ??
           '',
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? DateTime.tryParse(json['createdAt'].toString())?.toLocal()
           : null,
       codAdvancePaidAt: json['codAdvancePaidAt'] != null
-          ? DateTime.tryParse(json['codAdvancePaidAt'].toString())
+          ? DateTime.tryParse(json['codAdvancePaidAt'].toString())?.toLocal()
           : null,
       codAdvanceAmount: _toDouble(json['codAdvanceAmount'] ?? json['advancePaidAmount']),
       razorpayPaymentId: json['razorpayPaymentId']?.toString() ?? '',
       razorpayOrderId: json['razorpayOrderId']?.toString() ?? '',
       paidAt: json['paidAt'] != null
-          ? DateTime.tryParse(json['paidAt'].toString())
+          ? DateTime.tryParse(json['paidAt'].toString())?.toLocal()
           : null,
       shipment: json['shipment'] is Map<String, dynamic>
           ? OrderShipment.fromJson(json['shipment'] as Map<String, dynamic>)

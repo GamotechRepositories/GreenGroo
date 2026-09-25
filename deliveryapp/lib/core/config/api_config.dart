@@ -132,7 +132,10 @@ String _timeoutMessage(String url) {
       'For emulators use: http://10.0.2.2:5001';
 }
 
-const Duration _kDefaultTimeout = Duration(seconds: 20);
+// Incoming live API uses 20s; stashed local speed uses 6s.
+const Duration _kDefaultTimeout = kReleaseMode
+    ? Duration(seconds: 20)
+    : Duration(seconds: 6);
 
 Future<http.Response> apiPost(
   String path, {

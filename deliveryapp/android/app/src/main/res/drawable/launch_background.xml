@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Solid splash color only — no app icon before Flutter splash. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background" />
+    <item android:drawable="@color/splash_background" />
     <item>
         <bitmap android:gravity="fill" android:src="@drawable/background"/>
     </item>

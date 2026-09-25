@@ -14,11 +14,8 @@ import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../delivery_rating_controller.dart';
 
-const blinkitPink = Color(0xFFE23744);
-const _invoiceBg = Color(0xFFF3EEFF);
-const _invoiceText = Color(0xFF5B4FCF);
-const _ratingBg = Color(0xFFFFF0F2);
-const _billBg = Color(0xFFF8F8F8);
+const _themeGreen = Color(0xFF2E7D32);
+const _billBg = Color(0xFFFFFFFF);
 const _tabSelectedBg = Color(0xFFEEF0F4);
 
 List<List<OrderItem>> splitOrderShipments(List<OrderItem> items) {
@@ -136,7 +133,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
     final shipmentItems = shipments[_selectedShipment.clamp(0, shipments.length - 1)];
     final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
     final orderCode = getOrderDisplayCode(order);
-    final totalItems = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
     final statusLabel = getBlinkitShipmentStatusLabel(
       order.status,
       shipmentStatus: order.shipment.displayStatus,
@@ -146,9 +142,8 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
     return Column(
       children: [
         _DetailHeader(
-          orderCode: orderCode,
-          itemCount: totalItems,
           onBack: () => context.pop(),
+          onDelete: () => _showDeleteConfirmation(context),
         ),
         if (shipments.length > 1)
           _ShipmentTabs(
@@ -158,9 +153,9 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
           ),
         Expanded(
           child: ColoredBox(
-            color: Colors.white,
+            color: const Color(0xFFF8F9FA),
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: 24),
               children: [
                 if (order.shipment.hasTracking && order.shipment.trackUrl.trim().isNotEmpty) ...[
                   Padding(
@@ -176,7 +171,7 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                         icon: const Icon(Icons.open_in_new_rounded, size: 18),
                         label: const Text('Open live tracking'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.navSelected,
+                          backgroundColor: _themeGreen,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
@@ -184,8 +179,10 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                     ),
                   ),
                 ],
-                if (order.status == 'delivered' && deliveryRating != null)
-                  _RatingBanner(rating: deliveryRating),
+                _RatingBanner(
+                  rating: deliveryRating,
+                  onRateNow: () => _showRatingSheet(context, ref, order.id),
+                ),
                 if (_shouldShowDeliveryOtp(order))
                   _DeliveryOtpBanner(otp: order.deliveryOtp),
                 _ShipmentStatusBlock(
@@ -194,7 +191,7 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   isDelivered: order.status == 'delivered',
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
                   child: Text(
                     '${shipmentItems.length} item${shipmentItems.length == 1 ? '' : 's'} in shipment',
                     style: const TextStyle(
@@ -207,19 +204,21 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ...shipmentItems.map(
                   (item) => _ShipmentItemRow(item: item),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _BillSummary(order: order),
                 if (order.giftHamper?.isVisible == true) ...[
                   const SizedBox(height: 16),
                   _GiftHamperSection(giftHamper: order.giftHamper!),
                 ],
                 const SizedBox(height: 16),
+                _OrderDetailsSection(order: order, orderCode: orderCode),
+                const SizedBox(height: 16),
+                _NeedHelpSection(),
+                const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _DownloadInvoiceButton(onTap: widget.onInvoice),
                 ),
-                const SizedBox(height: 24),
-                _OrderDetailsSection(order: order, orderCode: orderCode),
               ],
             ),
           ),
@@ -228,18 +227,101 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
       ],
     );
   }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear Order History?'),
+        content: const Text('This will remove this order entry from your recent view.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.pop();
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRatingSheet(BuildContext context, WidgetRef ref, String orderId) {
+    var selected = 5;
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'How were your ordered items?',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      final star = index + 1;
+                      return IconButton(
+                        onPressed: () => setState(() => selected = star),
+                        icon: Icon(
+                          star <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
+                          color: Colors.amber.shade700,
+                          size: 34,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () async {
+                      await ref
+                          .read(deliveryRatingsProvider.notifier)
+                          .setRating(orderId, selected);
+                      if (sheetContext.mounted) Navigator.pop(sheetContext);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _themeGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Submit rating', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _DetailHeader extends StatelessWidget {
   const _DetailHeader({
-    required this.orderCode,
-    required this.itemCount,
     required this.onBack,
+    required this.onDelete,
   });
 
-  final String orderCode;
-  final int itemCount;
   final VoidCallback onBack;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -247,8 +329,9 @@ class _DetailHeader extends StatelessWidget {
       bottom: false,
       child: Container(
         color: Colors.white,
-        padding: const EdgeInsets.fromLTRB(8, 4, 12, 12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Material(
               color: Colors.transparent,
@@ -260,34 +343,26 @@ class _DetailHeader extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.borderLight),
+                    border: Border.all(color: const Color(0xFFE0E0E0)),
                   ),
-                  child: const Icon(Icons.chevron_left, size: 26),
+                  child: const Icon(Icons.arrow_back, size: 20, color: AppColors.textPrimary),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Order #$orderCode',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onDelete,
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE0E0E0)),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$itemCount item${itemCount == 1 ? '' : 's'}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+                  child: const Icon(Icons.delete_outline, size: 20, color: AppColors.textPrimary),
+                ),
               ),
             ),
           ],
@@ -350,39 +425,69 @@ class _ShipmentTabs extends StatelessWidget {
 }
 
 class _RatingBanner extends StatelessWidget {
-  const _RatingBanner({required this.rating});
+  const _RatingBanner({
+    required this.rating,
+    required this.onRateNow,
+  });
 
-  final int rating;
+  final int? rating;
+  final VoidCallback onRateNow;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _ratingBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFFD6DC)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
       ),
       child: Row(
         children: [
-          const Text(
-            'You rated:',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.star_rounded,
+              color: Colors.amber.shade700,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'How were your ordered items?',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
           const SizedBox(width: 8),
-          Row(
-            children: List.generate(5, (index) {
-              return Icon(
-                index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                size: 18,
-                color: blinkitPink,
-              );
-            }),
+          FilledButton(
+            onPressed: onRateNow,
+            style: FilledButton.styleFrom(
+              backgroundColor: _themeGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              minimumSize: const Size(0, 36),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              rating != null ? 'Rated $rating★' : 'Rate now',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -412,7 +517,7 @@ class _ShipmentStatusBlock extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: isDelivered ? const Color(0xFF2E7D32) : AppColors.navSelected,
+              color: isDelivered ? _themeGreen : AppColors.navSelected,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
@@ -439,7 +544,7 @@ class _ShipmentStatusBlock extends StatelessWidget {
                 Text(
                   statusLabel,
                   style: const TextStyle(
-                    fontSize: 26,
+                    fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
                     height: 1.1,
@@ -464,12 +569,18 @@ class _ShipmentItemRow extends StatelessWidget {
     final lineTotal = item.price * item.quantity;
     final unitLabel = item.quantity == 1 ? '1 unit' : '${item.quantity} units';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Product3DImage(imageUrl: item.image, size: 56),
+          Product3DImage(imageUrl: item.image, size: 52),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -499,9 +610,9 @@ class _ShipmentItemRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            formatInr(lineTotal, withDecimals: true),
+            formatInr(lineTotal, withDecimals: false),
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
             ),
@@ -520,6 +631,7 @@ class _BillSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final deliveryFree = order.deliveryCharges == 0;
+    final handlingFee = 5.0;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -527,55 +639,52 @@ class _BillSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: _billBg,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.receipt_long_outlined, size: 18, color: AppColors.textPrimary),
-              SizedBox(width: 8),
-              Text(
-                'Bill Summary',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
+          const Text(
+            'Bill details',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 14),
           _BillRow(
-            label: 'Item total',
-            value: formatInr(order.subtotal, withDecimals: true),
+            label: 'MRP',
+            value: formatInr(order.subtotal, withDecimals: false),
+          ),
+          const SizedBox(height: 10),
+          _BillRow(
+            label: 'Handling charge',
+            value: '+${formatInr(handlingFee, withDecimals: false)}',
+          ),
+          const SizedBox(height: 10),
+          _BillRow(
+            label: 'Delivery charges',
+            value: deliveryFree ? 'FREE' : formatInr(order.deliveryCharges, withDecimals: false),
+            valueColor: deliveryFree ? _themeGreen : null,
           ),
           if (order.couponDiscount > 0) ...[
             const SizedBox(height: 10),
             _BillRow(
-              label: order.couponCode.isNotEmpty
-                  ? 'Coupon discount (${order.couponCode})'
-                  : 'Coupon discount',
-              value: '-${formatInr(order.couponDiscount, withDecimals: true)}',
-              valueColor: const Color(0xFF2E7D32),
+              label: 'Coupon discount',
+              value: '-${formatInr(order.couponDiscount, withDecimals: false)}',
+              valueColor: _themeGreen,
             ),
           ],
-          const SizedBox(height: 10),
-          _BillRow(
-            label: 'Delivery fee',
-            value: deliveryFree ? 'FREE' : formatInr(order.deliveryCharges, withDecimals: true),
-            valueColor: deliveryFree ? const Color(0xFF2E7D32) : null,
-            strikeValue: deliveryFree ? '₹30' : null,
-          ),
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Divider(height: 1, color: AppColors.borderLight),
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFEEEEEE)),
           ),
           Row(
             children: [
               const Expanded(
                 child: Text(
-                  'Total Bill',
+                  'Bill total',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -586,7 +695,7 @@ class _BillSummary extends StatelessWidget {
               Text(
                 formatInr(order.total, withDecimals: false),
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
                 ),
@@ -604,13 +713,11 @@ class _BillRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.valueColor,
-    this.strikeValue,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
-  final String? strikeValue;
 
   @override
   Widget build(BuildContext context) {
@@ -620,27 +727,16 @@ class _BillRow extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: AppColors.textSecondary,
             ),
           ),
         ),
-        if (strikeValue != null) ...[
-          Text(
-            strikeValue!,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textMuted,
-              decoration: TextDecoration.lineThrough,
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
         Text(
           value,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
             color: valueColor ?? AppColors.textPrimary,
           ),
         ),
@@ -748,19 +844,239 @@ class _GiftHamperSection extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (giftHamper.minOrderAmount > 0) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'Unlocked on orders of ${formatInr(giftHamper.minOrderAmount)} or more',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderDetailsSection extends StatelessWidget {
+  const _OrderDetailsSection({
+    required this.order,
+    required this.orderCode,
+  });
+
+  final Order order;
+  final String orderCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final addr = order.deliveryAddress;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Order details',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _DetailField(
+            label: 'Order id',
+            value: orderCode,
+            trailing: InkWell(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: orderCode));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Order ID copied'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.only(left: 6),
+                child: Icon(Icons.copy_rounded, size: 16, color: AppColors.textSecondary),
+              ),
+            ),
+          ),
+          _DetailField(
+            label: 'Payment',
+            value: order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Paid Online',
+          ),
+          _DetailField(
+            label: 'Deliver to',
+            value: formatAddressLine(addr),
+          ),
+          _DetailField(
+            label: 'Order placed',
+            value: formatOrderPlacedDetailDateTime(order.createdAt),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailField extends StatelessWidget {
+  const _DetailField({
+    required this.label,
+    required this.value,
+    this.trailing,
+  });
+
+  final String label;
+  final String value;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NeedHelpSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Need help with your order?',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          InkWell(
+            onTap: () {
+              showModalBottomSheet<void>(
+                context: context,
+                builder: (ctx) => Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.support_agent_rounded, size: 48, color: _themeGreen),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Support & Help',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Our customer support team is available 24/7 to assist you with your order.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: FilledButton.styleFrom(backgroundColor: _themeGreen),
+                          child: const Text('Close'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF2F4F7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: AppColors.textPrimary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Chat with us',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'About any issues related to your order',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textSecondary,
                 ),
               ],
             ),
@@ -779,205 +1095,24 @@ class _DownloadInvoiceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _invoiceBg,
+      color: const Color(0xFFF3EEFF),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
           child: Center(
             child: Text(
               'Download Invoice / Credit Note',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: _invoiceText,
+                color: Color(0xFF5B4FCF),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _OrderDetailsSection extends StatelessWidget {
-  const _OrderDetailsSection({
-    required this.order,
-    required this.orderCode,
-  });
-
-  final Order order;
-  final String orderCode;
-
-  @override
-  Widget build(BuildContext context) {
-    final addr = order.deliveryAddress;
-    final receiverName = getAddressFullName(addr);
-    final phone = addr.number.trim().isNotEmpty ? '+91 ${addr.number.trim()}' : '';
-    final shipments = splitOrderShipments(order.items);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Order Details',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _DetailField(
-            label: 'Order ID',
-            value: orderCode,
-            trailing: IconButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: orderCode));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Order ID copied'),
-                    behavior: SnackBarBehavior.floating,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.copy_outlined, size: 18),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-          ),
-          if (receiverName.isNotEmpty || phone.isNotEmpty)
-            _DetailField(
-              label: 'Receiver details',
-              value: [receiverName, phone].where((v) => v.isNotEmpty).join(', '),
-            ),
-          _DetailField(
-            label: 'Delivery Address',
-            value: formatAddressLine(addr),
-          ),
-          _DetailField(
-            label: 'Order placed at',
-            value: formatOrderDateTime(order.createdAt),
-          ),
-          if (order.shipment.manualTracking.hasDetails &&
-              order.shipment.manualTracking.note.trim().isNotEmpty)
-            _DetailField(
-              label: 'Tracking update',
-              value: order.shipment.manualTracking.note,
-            ),
-          if (order.shipment.manualTracking.hasDetails &&
-              order.shipment.manualTracking.evidenceUrl.trim().isNotEmpty)
-            _DetailField(
-              label: 'Tracking photo',
-              value: order.shipment.manualTracking.evidenceName.trim().isNotEmpty
-                  ? order.shipment.manualTracking.evidenceName
-                  : 'View photo',
-              onTap: () => openExternalUrl(
-                order.shipment.manualTracking.evidenceUrl,
-                context: context,
-                errorMessage: 'Could not open tracking photo.',
-              ),
-              valueColor: AppColors.navSelected,
-            ),
-          if (order.shipment.note.trim().isNotEmpty)
-            _DetailField(
-              label: 'Shipment note',
-              value: order.shipment.note,
-            ),
-          if (order.shipment.evidenceUrl.trim().isNotEmpty)
-            _DetailField(
-              label: 'Shipment photo',
-              value: order.shipment.evidenceName.trim().isNotEmpty
-                  ? order.shipment.evidenceName
-                  : 'View photo',
-              onTap: () => openExternalUrl(
-                order.shipment.evidenceUrl,
-                context: context,
-                errorMessage: 'Could not open shipment photo.',
-              ),
-              valueColor: AppColors.navSelected,
-            ),
-          if (order.status == 'delivered')
-            for (var i = 0; i < shipments.length; i++)
-              _DetailField(
-                label: 'Shipment ${i + 1} arrived at',
-                value: formatOrderDateTime(order.createdAt),
-              ),
-          _DetailField(
-            label: 'Payment mode',
-            value: order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Online',
-          ),
-          _DetailField(
-            label: 'Payment status',
-            value: getOrderPaymentLabel(order),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailField extends StatelessWidget {
-  const _DetailField({
-    required this.label,
-    required this.value,
-    this.trailing,
-    this.onTap,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final valueWidget = Text(
-      value,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: valueColor ?? AppColors.textPrimary,
-        height: 1.35,
-        decoration: onTap != null ? TextDecoration.underline : null,
-      ),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textMuted,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: onTap == null
-                    ? valueWidget
-                    : InkWell(
-                        onTap: onTap,
-                        child: valueWidget,
-                      ),
-              ),
-              ?trailing,
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -1000,22 +1135,37 @@ class _BottomOrderAgain extends StatelessWidget {
         top: false,
         child: SizedBox(
           width: double.infinity,
-          height: 50,
+          height: 54,
           child: FilledButton(
             onPressed: onTap,
             style: FilledButton.styleFrom(
-              backgroundColor: blinkitPink,
+              backgroundColor: _themeGreen,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
               elevation: 0,
             ),
-            child: const Text(
-              'Order Again',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'Repeat Order',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'VIEW CART ON NEXT STEP',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

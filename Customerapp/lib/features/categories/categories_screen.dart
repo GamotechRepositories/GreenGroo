@@ -13,6 +13,7 @@ import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/category/category_grid_tile.dart';
 import '../../widgets/category/triangular_category_card.dart';
 import '../../widgets/common/app_loading.dart';
+import '../../widgets/common/offers_badge_button.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../home/home_providers.dart';
 import '../home/widgets/home_header_category_strip.dart';
@@ -433,54 +434,62 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
               // 2. Search Bar Box (Pure White inner box)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Container(
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFF047857),
-                        size: 19,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: searchController,
-                          onSubmitted: onSubmitted,
-                          textInputAction: TextInputAction.search,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF111827),
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Search',
-                            hintStyle: GoogleFonts.plusJakartaSans(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF94A3B8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(21),
+                          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
                             ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.search_rounded,
+                              color: Color(0xFF64748B),
+                              size: 19,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: searchController,
+                                onSubmitted: onSubmitted,
+                                textInputAction: TextInputAction.search,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF111827),
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Search for "Fruits", "Vegetables"...',
+                                  hintStyle: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xFF94A3B8),
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    const OffersBadgeButton(height: 42),
+                  ],
                 ),
               ),
             ],

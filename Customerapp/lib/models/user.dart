@@ -8,6 +8,8 @@ class User {
     this.shopName = '',
     this.shopAddress = '',
     this.gstNumber = '',
+    this.accountType = 'retail',
+    this.ownerContact = '',
     this.role = 'user',
   });
 
@@ -19,6 +21,8 @@ class User {
   final String shopName;
   final String shopAddress;
   final String gstNumber;
+  final String accountType;
+  final String ownerContact;
   final String role;
 
   bool get isAdmin => role == 'admin';
@@ -36,6 +40,8 @@ class User {
       shopName: json['shopName']?.toString() ?? '',
       shopAddress: json['shopAddress']?.toString() ?? '',
       gstNumber: json['gstNumber']?.toString() ?? '',
+      accountType: json['accountType']?.toString() ?? 'retail',
+      ownerContact: json['ownerContact']?.toString() ?? '',
       role: json['role']?.toString() ?? 'user',
     );
   }
@@ -49,6 +55,8 @@ class User {
         'shopName': shopName,
         'shopAddress': shopAddress,
         'gstNumber': gstNumber,
+        'accountType': accountType,
+        'ownerContact': ownerContact,
         'role': role,
       };
 }

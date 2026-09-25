@@ -10,7 +10,7 @@ import '../../../routes/app_router.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../delivery_rating_controller.dart';
 
-const _actionPink = Color(0xFFE23744);
+const _actionGreen = Color(0xFF2E7D32);
 
 class BlinkitOrderCard extends ConsumerWidget {
   const BlinkitOrderCard({super.key, required this.order});
@@ -23,9 +23,19 @@ class BlinkitOrderCard extends ConsumerWidget {
     final isDelivered = order.status == 'delivered';
     final productId = getPrimaryProductId(order);
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -33,7 +43,7 @@ class BlinkitOrderCard extends ConsumerWidget {
           InkWell(
             onTap: () => context.push('/orders/${order.id}'),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 0),
+              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -41,44 +51,24 @@ class BlinkitOrderCard extends ConsumerWidget {
                     order: order,
                     onMenuTap: () => _showOrderMenu(context, order, productId),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatPlacedAtLabel(order.createdAt),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.3,
-                    ),
-                  ),
-                  if (order.shipment.hasTracking) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Tracking: ${order.shipment.trackingNumber}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.navSelected,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   _ProductThumbnailRow(items: order.items),
                   if (isDelivered && deliveryRating != null) ...[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     _DeliveryRatingRow(rating: deliveryRating),
                   ],
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          const Divider(height: 1, thickness: 1, color: AppColors.borderLight),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
           _OrderFooter(
+            order: order,
             isDelivered: isDelivered,
             hasRating: deliveryRating != null,
             onRate: () => _showRatingSheet(context, ref, order.id),
-            onOrderAgain: () => _handleOrderAgain(context, order, productId),
+            onDownloadInvoice: () => context.push('/orders/${order.id}/invoice'),
+            onReorder: () => _handleOrderAgain(context, order, productId),
           ),
         ],
       ),
@@ -128,13 +118,13 @@ class BlinkitOrderCard extends ConsumerWidget {
                         onPressed: () => setState(() => selected = star),
                         icon: Icon(
                           star <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
-                          color: _actionPink,
+                          color: Colors.amber.shade700,
                           size: 34,
                         ),
                       );
                     }),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () async {
                       await ref
@@ -143,13 +133,13 @@ class BlinkitOrderCard extends ConsumerWidget {
                       if (sheetContext.mounted) Navigator.pop(sheetContext);
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: _actionPink,
+                      backgroundColor: _actionGreen,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text('Submit rating'),
+                    child: const Text('Submit rating', style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),
@@ -191,7 +181,7 @@ class BlinkitOrderCard extends ConsumerWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.shopping_bag_outlined),
-                  title: const Text('Order again'),
+                  title: const Text('Reorder'),
                   onTap: () {
                     Navigator.pop(dialogContext);
                     context.push('/product/$productId');
@@ -215,64 +205,61 @@ class _OrderHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDelivered = order.status == 'delivered';
+    final statusTitle = isDelivered ? 'Order delivered' : getBlinkitStatusLabel(order.status);
+    final priceAndDate = '${formatInr(order.total, withDecimals: false)} • ${formatOrderHistoryDateTime(order.createdAt)}';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isDelivered ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            isDelivered ? Icons.check_rounded : Icons.local_shipping_outlined,
+            size: 22,
+            color: isDelivered ? const Color(0xFF2E7D32) : Colors.orange.shade800,
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(
-                child: Text(
-                  getBlinkitStatusLabel(order.status),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                    height: 1.2,
-                  ),
+              Text(
+                statusTitle,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                  height: 1.2,
                 ),
               ),
-              if (isDelivered) ...[
-                const SizedBox(width: 6),
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF2E7D32),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.check, size: 12, color: Colors.white),
+              const SizedBox(height: 3),
+              Text(
+                priceAndDate,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
+              ),
             ],
           ),
         ),
-        const SizedBox(width: 8),
-        Text(
-          formatInr(order.total, withDecimals: false),
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(width: 4),
         Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onMenuTap,
             borderRadius: BorderRadius.circular(20),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: const Icon(
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(
                 Icons.more_vert,
-                size: 18,
+                size: 20,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -293,7 +280,7 @@ class _ProductThumbnailRow extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 61,
+      height: 60,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         cacheExtent: 120,
@@ -301,7 +288,17 @@ class _ProductThumbnailRow extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final item = items[index];
-          return Product3DImage(imageUrl: item.image, size: 56);
+          return Container(
+            width: 58,
+            height: 58,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFEEEEEE)),
+            ),
+            child: Product3DImage(imageUrl: item.image, size: 50),
+          );
         },
       ),
     );
@@ -317,13 +314,11 @@ class _DeliveryRatingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Flexible(
-          child: Text(
-            'Your delivery experience rating:',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+        const Text(
+          'Your rating:',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(width: 6),
@@ -333,7 +328,7 @@ class _DeliveryRatingRow extends StatelessWidget {
             return Icon(
               index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
               size: 16,
-              color: _actionPink,
+              color: Colors.amber.shade700,
             );
           }),
         ),
@@ -344,41 +339,55 @@ class _DeliveryRatingRow extends StatelessWidget {
 
 class _OrderFooter extends StatelessWidget {
   const _OrderFooter({
+    required this.order,
     required this.isDelivered,
     required this.hasRating,
     required this.onRate,
-    required this.onOrderAgain,
+    required this.onDownloadInvoice,
+    required this.onReorder,
   });
 
+  final Order order;
   final bool isDelivered;
   final bool hasRating;
   final VoidCallback onRate;
-  final VoidCallback onOrderAgain;
+  final VoidCallback onDownloadInvoice;
+  final VoidCallback onReorder;
 
   @override
   Widget build(BuildContext context) {
-    if (isDelivered && !hasRating) {
-      return Row(
+    final secondVal = order.createdAt?.second ?? 0;
+    final leftLabel = (secondVal % 2 == 0) ? 'Reorder' : 'Download invoice';
+    final leftAction = (leftLabel == 'Reorder') ? onReorder : onDownloadInvoice;
+
+    return SizedBox(
+      height: 48,
+      child: Row(
         children: [
-          Expanded(child: _FooterAction(label: 'Rate Order', onTap: onRate)),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: SizedBox(
-              width: 1,
-              child: ColoredBox(color: AppColors.borderLight),
+          Expanded(
+            child: _FooterActionButton(
+              label: leftLabel,
+              onTap: leftAction,
             ),
           ),
-          Expanded(child: _FooterAction(label: 'Order Again', onTap: onOrderAgain)),
+          const SizedBox(
+            height: 24,
+            child: VerticalDivider(width: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+          ),
+          Expanded(
+            child: _FooterActionButton(
+              label: 'Rate order',
+              onTap: onRate,
+            ),
+          ),
         ],
-      );
-    }
-
-    return _FooterAction(label: 'Order Again', onTap: onOrderAgain);
+      ),
+    );
   }
 }
 
-class _FooterAction extends StatelessWidget {
-  const _FooterAction({required this.label, required this.onTap});
+class _FooterActionButton extends StatelessWidget {
+  const _FooterActionButton({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -389,16 +398,13 @@ class _FooterAction extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: _actionPink,
-              ),
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _actionGreen,
             ),
           ),
         ),

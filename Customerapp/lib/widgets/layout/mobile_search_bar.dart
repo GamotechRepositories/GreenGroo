@@ -101,7 +101,7 @@ class _MobileSearchBarState extends State<MobileSearchBar> {
                   color: AppColors.textPrimary,
                 ),
                 decoration: const InputDecoration(
-                  hintText: 'Search Products...',
+                  hintText: 'Search for "Fruits", "Vegetables"...',
                   hintStyle: TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 14,

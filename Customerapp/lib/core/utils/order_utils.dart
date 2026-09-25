@@ -143,6 +143,19 @@ String _ordinalSuffix(int day) {
   }
 }
 
+String formatOrderHistoryDateTime(DateTime? date) {
+  if (date == null) return '—';
+  final formatted = DateFormat('dd MMM, h:mm a').format(date);
+  // Convert AM/PM to lowercase am/pm like screenshot
+  return formatted.replaceAll('AM', 'am').replaceAll('PM', 'pm');
+}
+
+String formatOrderPlacedDetailDateTime(DateTime? date) {
+  if (date == null) return '—';
+  final formatted = DateFormat("E, d MMM''yy, h:mm a").format(date);
+  return 'placed on $formatted';
+}
+
 String getOrderMessage(Order order) {
   final text = (order.customerMessage.isNotEmpty
           ? order.customerMessage

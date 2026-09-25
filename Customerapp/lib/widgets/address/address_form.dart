@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme.dart';
 import '../../core/providers/app_providers.dart';
+import '../../core/providers/location_provider.dart';
 import '../../core/utils/address_utils.dart';
 import 'location_autocomplete_field.dart';
+import 'map_location_picker_sheet.dart';
 
 const addressFormDefaults = <String, String>{
   'fullName': '',
@@ -15,6 +17,7 @@ const addressFormDefaults = <String, String>{
   'shopName': '',
   'fullAddress': '',
   'landmark': '',
+  'area': '',
   'city': '',
   'state': '',
   'pincode': '',
@@ -43,6 +46,8 @@ class AddressForm extends ConsumerStatefulWidget {
 class _AddressFormState extends ConsumerState<AddressForm> {
   late final Map<String, TextEditingController> _controllers;
   String? _validationError;
+  bool _isDetecting = false;
+  Map<String, dynamic>? _detectedLocation;
 
   @override
   void initState() {
@@ -107,7 +112,101 @@ class _AddressFormState extends ConsumerState<AddressForm> {
         _controllers['city']!.text = result['city']!;
       }
     } catch (_) {
-      // keep typed pincode
+      // keep typed pincode if lookup fails
+    }
+  }
+
+  Future<void> _handleDetectLocation() async {
+    setState(() => _isDetecting = true);
+
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    final currentLoc = ref.read(deliveryLocationProvider);
+    final city = currentLoc?.city ?? 'Pune';
+    final state = currentLoc?.state ?? 'Maharashtra';
+    final pincode = currentLoc?.pincode ?? '411057';
+    final area = currentLoc?.area ?? 'Hinjawadi Phase 2';
+    final fullAddr = currentLoc?.address ??
+        '$area, $city, $state $pincode';
+
+    setState(() {
+      _controllers['city']!.text = city;
+      _controllers['state']!.text = state;
+      _controllers['pincode']!.text = pincode;
+      _controllers['area']!.text = area;
+      if (_controllers['landmark']!.text.isEmpty) {
+        _controllers['landmark']!.text = area;
+      }
+      if (_controllers['fullAddress']!.text.isEmpty) {
+        _controllers['fullAddress']!.text = fullAddr;
+      }
+      _detectedLocation = {
+        'lat': currentLoc?.latitude ?? 18.5912,
+        'lng': currentLoc?.longitude ?? 73.7389,
+      };
+      _isDetecting = false;
+      _validationError = null;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text('Location detected successfully!'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF047857),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleChooseOnMap() async {
+    final result = await showMapLocationPickerSheet(context, ref);
+    if (result == null || !mounted) return;
+
+    final city = result['city']?.toString() ?? '';
+    final state = result['state']?.toString() ?? '';
+    final pincode = result['pincode']?.toString() ?? '';
+    final area = result['area']?.toString() ?? '';
+    final landmark = result['landmark']?.toString() ?? area;
+    final address = result['address']?.toString() ?? '';
+
+    setState(() {
+      if (city.isNotEmpty) _controllers['city']!.text = city;
+      if (state.isNotEmpty) _controllers['state']!.text = state;
+      if (pincode.isNotEmpty) _controllers['pincode']!.text = pincode;
+      if (area.isNotEmpty) _controllers['area']!.text = area;
+      if (landmark.isNotEmpty) _controllers['landmark']!.text = landmark;
+      if (address.isNotEmpty) _controllers['fullAddress']!.text = address;
+
+      _detectedLocation = {
+        'lat': result['lat'] ?? 18.5912,
+        'lng': result['lng'] ?? 73.7389,
+      };
+      _validationError = null;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text('Location selected from map!'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF2563EB),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -118,7 +217,27 @@ class _AddressFormState extends ConsumerState<AddressForm> {
       setState(() => _validationError = error);
       return;
     }
-    widget.onSubmit(form);
+
+    final landmark = form['landmark']!.trim();
+    final area = form['area']!.trim();
+    final finalLandmark = landmark.isNotEmpty ? landmark : area;
+    final finalArea = area.isNotEmpty ? area : landmark;
+
+    final submission = {
+      'fullName': form['fullName']!.trim(),
+      'number': form['number']!.trim(),
+      'email': form['email']!.trim(),
+      'shopNo': form['shopNo']!.trim(),
+      'shopName': form['shopName']!.trim(),
+      'fullAddress': form['fullAddress']!.trim(),
+      'landmark': finalLandmark,
+      'area': finalArea,
+      'city': form['city']!.trim(),
+      'state': form['state']!.trim(),
+      'pincode': form['pincode']!.trim(),
+    };
+
+    widget.onSubmit(submission);
   }
 
   @override
@@ -126,6 +245,15 @@ class _AddressFormState extends ConsumerState<AddressForm> {
     final api = ref.read(apiServiceProvider);
     final stateValue = _controllers['state']!.text.trim();
     final cityValue = _controllers['city']!.text.trim();
+    final areaValue = _controllers['area']!.text.trim();
+
+    final locationSummaryParts = [
+      if (areaValue.isNotEmpty) areaValue,
+      if (cityValue.isNotEmpty) cityValue,
+      if (stateValue.isNotEmpty) stateValue,
+      if (_controllers['pincode']!.text.trim().isNotEmpty)
+        _controllers['pincode']!.text.trim(),
+    ];
 
     final formContent = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -136,14 +264,71 @@ class _AddressFormState extends ConsumerState<AddressForm> {
             decoration: BoxDecoration(
               color: Colors.red.shade50,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.shade200),
             ),
             child: Text(
               _validationError!,
-              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+              style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
           const SizedBox(height: 12),
         ],
+
+        // Action Buttons: Detect Live Location & Choose on Map
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _isDetecting ? null : _handleDetectLocation,
+                icon: _isDetecting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
+                      )
+                    : const Icon(Icons.my_location_rounded, size: 18, color: Color(0xFF047857)),
+                label: Text(
+                  _isDetecting ? 'Detecting...' : 'Detect Live Location',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF047857),
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF0FDF4),
+                  side: const BorderSide(color: Color(0xFFBBF7D0)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _handleChooseOnMap,
+                icon: const Icon(Icons.map_outlined, size: 18, color: Color(0xFF2563EB)),
+                label: const Text(
+                  'Choose on Map',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  side: const BorderSide(color: Color(0xFFBFDBFE)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Full Name & Number
         Row(
           children: [
             Expanded(child: _field('fullName', 'Full name')),
@@ -160,70 +345,148 @@ class _AddressFormState extends ConsumerState<AddressForm> {
           ],
         ),
         const SizedBox(height: 12),
+
+        // Email ID
         _field('email', 'Email ID', keyboardType: TextInputType.emailAddress),
         const SizedBox(height: 12),
+
+        // House / flat no. & Building / society
         Row(
           children: [
-            Expanded(child: _field('shopNo', 'Shop no.')),
+            Expanded(child: _field('shopNo', 'House / flat no.')),
             const SizedBox(width: 12),
-            Expanded(child: _field('shopName', 'Shop name')),
+            Expanded(child: _field('shopName', 'Building / society')),
           ],
         ),
         const SizedBox(height: 12),
-        _field('fullAddress', 'Full address', maxLines: 2),
+
+        // Street address
+        _field('fullAddress', 'Street address', maxLines: 2),
         const SizedBox(height: 12),
-        _field('landmark', 'Landmark'),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: LocationAutocompleteField(
-                controller: _controllers['state']!,
-                hint: 'State',
-                fetchSuggestions: (query) => api.fetchLocationStates(q: query),
-                onSelected: (_) => setState(_clearCityAndPincode),
-              ),
+
+        // Location Detected Card OR Manual Area/Landmark & State/City/Pincode
+        if (_detectedLocation != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: LocationAutocompleteField(
-                controller: _controllers['city']!,
-                hint: stateValue.isEmpty ? 'Select state first' : 'City',
-                enabled: stateValue.isNotEmpty,
-                fetchSuggestions: (query) => api.fetchLocationCities(
-                  state: _controllers['state']!.text.trim(),
-                  q: query,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF047857), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Location Detected',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF065F46),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        locationSummaryParts.isNotEmpty
+                            ? locationSummaryParts.join(', ')
+                            : 'Detected Coordinates',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF047857)),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () => setState(() => _detectedLocation = null),
+                        child: const Text(
+                          'Enter manually instead',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF047857),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                onSelected: (_) => setState(_clearPincode),
-              ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: LocationAutocompleteField(
-                controller: _controllers['pincode']!,
-                hint: cityValue.isEmpty ? 'Select city first' : 'Pincode',
-                enabled: stateValue.isNotEmpty && cityValue.isNotEmpty,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                fetchSuggestions: (query) => api.fetchLocationPincodes(
-                  state: _controllers['state']!.text.trim(),
-                  city: _controllers['city']!.text.trim(),
-                  q: query,
+          ),
+          const SizedBox(height: 12),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(child: _field('area', 'Area / locality')),
+              const SizedBox(width: 12),
+              Expanded(child: _field('landmark', 'Landmark (optional)')),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: LocationAutocompleteField(
+                  controller: _controllers['state']!,
+                  hint: 'State',
+                  fetchSuggestions: (query) => api.fetchLocationStates(q: query),
+                  onSelected: (_) => setState(_clearCityAndPincode),
                 ),
-                onSelected: _handlePincodeSelected,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+              const SizedBox(width: 12),
+              Expanded(
+                child: LocationAutocompleteField(
+                  controller: _controllers['city']!,
+                  hint: stateValue.isEmpty ? 'Select state first' : 'City',
+                  enabled: stateValue.isNotEmpty,
+                  fetchSuggestions: (query) => api.fetchLocationCities(
+                    state: _controllers['state']!.text.trim(),
+                    q: query,
+                  ),
+                  onSelected: (_) => setState(_clearPincode),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: LocationAutocompleteField(
+                  controller: _controllers['pincode']!,
+                  hint: cityValue.isEmpty ? 'Select city first' : 'Pincode',
+                  enabled: stateValue.isNotEmpty && cityValue.isNotEmpty,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  fetchSuggestions: (query) => api.fetchLocationPincodes(
+                    state: _controllers['state']!.text.trim(),
+                    city: _controllers['city']!.text.trim(),
+                    q: query,
+                  ),
+                  onSelected: _handlePincodeSelected,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            TextButton(onPressed: widget.onCancel, child: const Text('Cancel')),
+            TextButton(
+              onPressed: widget.onCancel,
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
             const SizedBox(width: 8),
             FilledButton(
               onPressed: widget.submitting ? null : _handleSubmit,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
               child: Text(widget.submitting ? 'Saving...' : 'Save Address'),
             ),
           ],

@@ -152,6 +152,24 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _selectedAddressId = defaultAddr.id;
   }
 
+  Map<String, dynamic>? _customerLocationPayload() {
+    final loc = ref.read(deliveryLocationProvider);
+    if (loc == null) return null;
+    final map = <String, dynamic>{
+      'city': loc.city ?? '',
+      'area': loc.area ?? '',
+      'state': loc.state ?? '',
+      'pincode': loc.pincode ?? '',
+      'fullAddress': loc.address ?? loc.displayAddress,
+    };
+    if (loc.latitude != null && loc.longitude != null) {
+      map['lat'] = loc.latitude;
+      map['lng'] = loc.longitude;
+      map['location'] = {'lat': loc.latitude, 'lng': loc.longitude};
+    }
+    return map;
+  }
+
   List<Map<String, dynamic>> _checkoutItemsPayload(List<CartItem> items) {
     return items
         .map(
@@ -180,6 +198,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'paymentMethod': PaymentUtils.checkoutPaymentMethod(_paymentPlan),
         'checkoutItems': _checkoutItemsPayload(items),
         'checkoutMode': 'cart',
+        'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
@@ -204,7 +223,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final error = await ref.read(addressControllerProvider.notifier).saveAddress(
           form,
-          makeDefault: ref.read(addressControllerProvider).addresses.isEmpty,
+          makeDefault: true,
         );
 
     if (!mounted) return;
@@ -236,6 +255,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       'shopName': '',
       'fullAddress': '',
       'landmark': '',
+      'area': '',
       'city': '',
       'state': '',
       'pincode': '',
@@ -255,10 +275,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     try {
       final cartItems = ref.read(cartControllerProvider).items;
       final response = await ref.read(apiServiceProvider).createRazorpayOrder({
-        'addressId': _selectedAddressId,
+        if (_selectedAddressId != null) 'addressId': _selectedAddressId,
         'paymentMode': _apiPaymentMode,
         'checkoutItems': _checkoutItemsPayload(cartItems),
         'checkoutMode': 'cart',
+        'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
       });
       final body = ApiResponseParser.getData(response.data);
@@ -513,7 +534,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   _SelectedAddressCard(
                                     address: selectedAddress,
                                     showChange: true,
-                                    onChange: () => showSelectDeliveryLocationBottomSheet(context, ref),
+                                    onChange: () => setState(() => _showAddressPicker = true),
                                   ),
                                 if (_showAddressPicker && !_showAddressForm)
                                   _AddressPicker(

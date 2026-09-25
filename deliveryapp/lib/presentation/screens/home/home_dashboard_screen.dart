@@ -44,6 +44,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   bool _isOnline = false;
   bool _updatingStatus = false;
   Timer? _heartbeat;
+  Timer? _verifyPoll;
   Timer? _offerPoll;
   Timer? _shiftEndOfflineTimer;
   StreamSubscription<Map<String, dynamic>>? _offerSocketSub;
@@ -137,7 +138,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _listenForForcedOffline();
     _listenForOfferRecovery();
     _bootstrapHome();
+    _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (_verificationPending ||
+          _lastVerificationStatus == 'pending' ||
+          _lastVerificationStatus == null) {
+        _refreshVerificationInfo();
+      }
+    });
   }
+
   /// One coordinated load: single /me + parallel page data (no stacked waits).
   Future<void> _bootstrapHome() async {
     final meFuture = AuthService.instance.fetchMe();
@@ -427,6 +436,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void dispose() {
     _heartbeat?.cancel();
+    _verifyPoll?.cancel();
     _offerPoll?.cancel();
     _shiftEndOfflineTimer?.cancel();
     _offerSocketSub?.cancel();

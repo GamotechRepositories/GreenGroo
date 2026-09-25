@@ -83,11 +83,21 @@ class AuthController extends Notifier<AuthState> {
     required String name,
     required String phone,
     required String password,
+    String accountType = 'retail',
+    String? shopName,
+    String? shopAddress,
+    String? ownerContact,
+    String? gstNumber,
   }) async {
     final session = await ref.read(apiServiceProvider).signup(
           name: name,
           phone: phone,
           password: password,
+          accountType: accountType,
+          shopName: shopName,
+          shopAddress: shopAddress,
+          ownerContact: ownerContact,
+          gstNumber: gstNumber,
         );
     if (session.user.isAdmin) {
       throw ApiException('Please use the admin panel to sign in.');

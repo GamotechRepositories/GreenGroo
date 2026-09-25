@@ -16,15 +16,21 @@ void completeAuthAndGoHome({
 }) {
   ref.read(authControllerProvider.notifier).closeAuthModal();
 
-  final rootContext = rootNavigatorKey.currentContext;
-  final navigator = rootContext != null && rootContext.mounted
-      ? Navigator.of(rootContext, rootNavigator: true)
-      : sheetContext.mounted
-          ? Navigator.of(sheetContext, rootNavigator: true)
-          : null;
-
-  if (navigator != null && navigator.canPop()) {
-    navigator.pop();
+  if (sheetContext.mounted) {
+    try {
+      Navigator.of(sheetContext, rootNavigator: true).pop();
+    } catch (_) {
+      try {
+        Navigator.of(sheetContext).pop();
+      } catch (_) {}
+    }
+  } else {
+    final rootContext = rootNavigatorKey.currentContext;
+    if (rootContext != null && rootContext.mounted) {
+      try {
+        Navigator.of(rootContext, rootNavigator: true).pop();
+      } catch (_) {}
+    }
   }
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -39,7 +45,7 @@ void completeAuthAndGoHome({
       SnackBar(
         content: Text(
           isSignup
-              ? 'Welcome to GreenGrocc, $greetingName!'
+              ? 'Welcome to GreenGroo, $greetingName!'
               : 'Welcome back, $greetingName!',
         ),
         behavior: SnackBarBehavior.floating,

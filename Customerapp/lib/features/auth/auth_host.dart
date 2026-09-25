@@ -50,6 +50,11 @@ class _AuthHostState extends ConsumerState<AuthHost> {
           if (!mounted) return;
           _showAuthSheet(mode);
         });
+      } else if (mode == null && _visibleMode != null) {
+        final navContext = rootNavigatorKey.currentContext;
+        if (navContext != null && navContext.mounted) {
+          Navigator.of(navContext, rootNavigator: true).maybePop();
+        }
       }
     });
 

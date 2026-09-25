@@ -24,6 +24,8 @@ class OrdersScreen extends ConsumerStatefulWidget {
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   void dispose() {
     _tabScrollRegistry.unregister(ShellTabIndex.orders, _scrollController);
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -59,9 +62,28 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       if (next) _loadOrders();
     });
 
-    return ColoredBox(
-      color: AppColors.pageBackground,
-      child: _buildBody(
+    return Scaffold(
+      backgroundColor: AppColors.pageBackground,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: const Text(
+          'Order History',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+      body: _buildBody(
         context,
         isLoggedIn: isLoggedIn,
         orders: orders,
@@ -110,22 +132,84 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadOrders,
-      color: AppColors.primary,
-      child: ListView.separated(
-        controller: _scrollController,
-        physics: AppScrollConfig.listPhysics,
-        cacheExtent: AppScrollConfig.cacheExtent,
-        padding: ShellBottomInsets.listPadding(context, left: 12, top: 12, right: 12),
-        itemCount: orders.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          return RepaintBoundary(
-            child: BlinkitOrderCard(order: orders[index]),
-          );
-        },
-      ),
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredOrders = orders.where((o) {
+      if (query.isEmpty) return true;
+      if (o.id.toLowerCase().contains(query) || o.orderNumber.toLowerCase().contains(query)) {
+        return true;
+      }
+      for (final item in o.items) {
+        if (item.name.toLowerCase().contains(query)) return true;
+      }
+      return false;
+    }).toList();
+
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE0E0E0)),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              decoration: InputDecoration(
+                hintText: 'Search your orders',
+                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                prefixIcon: const Icon(Icons.search, color: AppColors.textPrimary, size: 22),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 11),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: filteredOrders.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'No orders matching "$_searchQuery"',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    ),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadOrders,
+                  color: AppColors.primary,
+                  child: ListView.separated(
+                    controller: _scrollController,
+                    physics: AppScrollConfig.listPhysics,
+                    cacheExtent: AppScrollConfig.cacheExtent,
+                    padding: ShellBottomInsets.listPadding(context, left: 12, top: 12, right: 12),
+                    itemCount: filteredOrders.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      return RepaintBoundary(
+                        child: BlinkitOrderCard(order: filteredOrders[index]),
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

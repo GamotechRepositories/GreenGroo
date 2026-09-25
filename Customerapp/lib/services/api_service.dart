@@ -575,13 +575,43 @@ class ApiService {
     required String name,
     required String phone,
     required String password,
+    String accountType = 'retail',
+    String? shopName,
+    String? shopAddress,
+    String? ownerContact,
+    String? gstNumber,
     String? email,
   }) async {
     final payload = <String, dynamic>{
       'name': name.trim(),
       'phone': phone.trim(),
       'password': password,
+      'accountType': accountType,
     };
+    if (accountType == 'bulk') {
+      if (shopName != null && shopName.trim().isNotEmpty) {
+        payload['shopName'] = shopName.trim();
+      }
+      if (shopAddress != null && shopAddress.trim().isNotEmpty) {
+        payload['shopAddress'] = shopAddress.trim();
+      }
+      if (ownerContact != null && ownerContact.trim().isNotEmpty) {
+        payload['ownerContact'] = ownerContact.trim();
+      }
+      if (gstNumber != null && gstNumber.trim().isNotEmpty) {
+        payload['gstNumber'] = gstNumber.trim().toUpperCase();
+      }
+    } else {
+      if (shopName != null && shopName.trim().isNotEmpty) {
+        payload['shopName'] = shopName.trim();
+      }
+      if (shopAddress != null && shopAddress.trim().isNotEmpty) {
+        payload['shopAddress'] = shopAddress.trim();
+      }
+      if (gstNumber != null && gstNumber.trim().isNotEmpty) {
+        payload['gstNumber'] = gstNumber.trim().toUpperCase();
+      }
+    }
     final trimmedEmail = email?.trim();
     if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
       payload['email'] = trimmedEmail;
