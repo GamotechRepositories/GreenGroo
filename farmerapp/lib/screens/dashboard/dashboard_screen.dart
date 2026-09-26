@@ -12,6 +12,8 @@ import '../notifications/notifications_screen.dart';
 import '../documents/documents_screen.dart';
 import '../schemes/schemes_screen.dart';
 import '../main_shell.dart';
+import '../market/market_comparison_screen.dart';
+import '../../services/market_price_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -1056,7 +1058,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.show_chart_rounded,
                   iconColor: const Color(0xFF16A34A),
                   title: 'EARNINGS TREND',
-                  marathiTitle: 'उत्पन्न कल — Line Chart',
+                  marathiTitle: 'उत्पन्न कल',
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1072,7 +1074,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.bar_chart_rounded,
                   iconColor: const Color(0xFF2563EB),
                   title: 'ORDERS STATUS',
-                  marathiTitle: 'ऑर्डर स्थिती — Bar Chart',
+                  marathiTitle: 'ऑर्डर स्थिती',
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1091,7 +1093,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.donut_large_rounded,
                   iconColor: const Color(0xFFDC2626),
                   title: 'PRODUCT REJECTION %',
-                  marathiTitle: 'उत्पादनानुसार नाकारलेले — Donut Chart',
+                  marathiTitle: 'नाकारलेले शेतमाल',
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1106,7 +1108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.grass_rounded,
                   iconColor: const Color(0xFF059669),
                   title: 'CROP PRODUCTION',
-                  marathiTitle: 'पिकानुसार उत्पादन — Bar Chart',
+                  marathiTitle: 'पिकानुसार उत्पादन',
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1115,7 +1117,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
 
-                // 12. 🏛️ REAL GOVERNMENT SCHEMES (शासकीय योजना व अनुदान)
+                // 12. 🏷️ REAL MARKET PRICE COMPARISON — DONUT CHART (बाजार भाव तुलना)
+                _sectionHeader(
+                  icon: Icons.trending_up_rounded,
+                  iconColor: const Color(0xFF16A34A),
+                  title: 'MARKET PRICES',
+                  marathiTitle: 'बाजार भाव तुलना',
+                  actionLabel: 'सर्व बाजार →',
+                  onAction: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MarketComparisonScreen()),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: _MarketPriceComparisonDonutCard(),
+                ),
+
+                // 13. 🏛️ REAL GOVERNMENT SCHEMES (शासकीय योजना व अनुदान)
                 _sectionHeader(
                   icon: Icons.account_balance_rounded,
                   iconColor: const Color(0xFF7C3AED),
@@ -1264,42 +1283,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: iconColor),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF111827),
-                  letterSpacing: 0.3,
+          Expanded(
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: iconColor),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: RichText(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      text: title,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF111827),
+                        letterSpacing: 0.3,
+                      ),
+                      children: [
+                        const TextSpan(text: ' '),
+                        TextSpan(
+                          text: '($marathiTitle)',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '($marathiTitle)',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF6B7280),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          if (actionLabel != null && onAction != null)
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(width: 8),
             InkWell(
               onTap: onAction,
-              child: Text(
-                actionLabel,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF16A34A),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Text(
+                  actionLabel,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF16A34A),
+                  ),
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -2606,6 +2641,369 @@ class _CropProductionBarChart extends StatelessWidget {
           }),
         ],
       ),
+    );
+  }
+}
+
+class _MarketPriceComparisonDonutCard extends StatefulWidget {
+  const _MarketPriceComparisonDonutCard();
+
+  @override
+  State<_MarketPriceComparisonDonutCard> createState() => _MarketPriceComparisonDonutCardState();
+}
+
+class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonDonutCard> {
+  int _selectedProductIndex = 0;
+
+  static const List<Color> _chartColors = [
+    Color(0xFF16A34A), // Emerald Green
+    Color(0xFF2563EB), // Blue
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFFEA580C), // Orange
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFFF59E0B), // Amber
+    Color(0xFFDC2626), // Rose
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: MarketPriceService(),
+      builder: (context, _) {
+        final comparisons = MarketPriceService().getComparisons();
+        if (comparisons.isEmpty) return const SizedBox.shrink();
+
+        final selected = comparisons[_selectedProductIndex.clamp(0, comparisons.length - 1)];
+
+        // Build Donut slices based on market prices
+        final slices = selected.markets.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final m = entry.value;
+          return (
+            label: m.marketName,
+            value: m.price,
+            color: _chartColors[idx % _chartColors.length],
+          );
+        }).toList();
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title & Best Advantage Badge
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(selected.emoji, style: const TextStyle(fontSize: 16)),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '${selected.cleanProductName} — दर तुलना',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
+                      style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // Product Selector Chips (Horizontal)
+              SizedBox(
+                height: 40,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: comparisons.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
+                  itemBuilder: (context, idx) {
+                    final p = comparisons[idx];
+                    final isSel = idx == _selectedProductIndex;
+                    return InkWell(
+                      onTap: () => setState(() => _selectedProductIndex = idx),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSel ? const Color(0xFF16A34A) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSel ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(p.emoji, style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Text(
+                              p.cleanProductName,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                                color: isSel ? Colors.white : const Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+
+              const SizedBox(height: 14),
+
+              // Donut Chart + Market Percent breakdown
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CustomPaint(
+                          size: const Size(120, 120),
+                          painter: _DonutChartPainter(
+                            slices: slices,
+                            strokeWidth: 15.0,
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '+${selected.bestAdvantagePercent.toStringAsFixed(1)}%',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
+                            const Text(
+                              'जास्त भाव',
+                              style: TextStyle(fontSize: 8.5, color: Color(0xFF6B7280), fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 14),
+
+                  // Markets with % comparison list
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: selected.markets.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final m = entry.value;
+                        final color = _chartColors[idx % _chartColors.length];
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Row(
+                            children: [
+                              m.isGreenGroo
+                                  ? const Text('🌿', style: TextStyle(fontSize: 9))
+                                  : Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  m.isGreenGroo
+                                      ? 'GreenGroo खरेदी केंद्र'
+                                      : m.marketName.replaceAll('APMC', '').trim(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: m.isGreenGroo ? const Color(0xFF047857) : const Color(0xFF374151),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '₹${m.price.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: m.isGreenGroo ? const Color(0xFF047857) : const Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                m.isGreenGroo
+                                    ? (selected.greenGrooVsAvgPercent >= 0
+                                        ? '(+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}%)'
+                                        : '(${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}%)')
+                                    : (m.percentHigher > 0
+                                        ? '(+${m.percentHigher.toStringAsFixed(1)}%)'
+                                        : '(Base)'),
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: m.isGreenGroo
+                                      ? (selected.greenGrooVsAvgPercent >= 0
+                                          ? const Color(0xFF16A34A)
+                                          : const Color(0xFFDC2626))
+                                      : (m.percentHigher > 0 ? const Color(0xFF16A34A) : const Color(0xFF9CA3AF)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // 🌿 GreenGroo Direct Procurement Highlight (if available)
+              if (selected.hasGreenGroo && selected.greenGrooRate != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF065F46), Color(0xFF047857)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF047857).withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🌿', style: TextStyle(fontSize: 12)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          selected.greenGrooVsAvgPercent >= 0
+                              ? 'GreenGroo खरेदी: ₹${selected.greenGrooRate!.price.toStringAsFixed(0)} (+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% जास्त भाव)'
+                              : 'GreenGroo खरेदी: ₹${selected.greenGrooRate!.price.toStringAsFixed(0)} (${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% कमी भाव)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MarketComparisonScreen(initialProduct: selected.cleanProductName),
+                          ),
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Text(
+                            'तुलना पहा →',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFA7F3D0)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+
+              // Best Market Recommendation Banner + Action
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFF16A34A), size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'सर्वोत्तम: ${selected.bestMarketName} (₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MarketComparisonScreen(initialProduct: selected.cleanProductName),
+                        ),
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Text(
+                          'तुलना पहा →',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

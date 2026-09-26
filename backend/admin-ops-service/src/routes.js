@@ -132,6 +132,14 @@ import {
   updateGovtScheme,
   deleteGovtScheme,
 } from "./govtSchemeControllers.js";
+import {
+  listMarketPrices,
+  listLiveMarketPrices,
+  getMarketPrice,
+  createMarketPrice,
+  updateMarketPrice,
+  deleteMarketPrice,
+} from "./marketPriceControllers.js";
 
 const router = express.Router();
 
@@ -145,6 +153,7 @@ router.get("/hr/vacancies/open", listOpenHrVacancies);
 router.post("/hr/candidates/apply", applyHrCandidate);
 router.get("/policies/live", optionalAuth, listLiveRolePolicies);
 router.get("/govt-schemes/live", optionalAuth, listLiveGovtSchemes);
+router.get("/market-prices/live", optionalAuth, listLiveMarketPrices);
 
 router.use(protect, requireAdmin);
 
@@ -158,6 +167,12 @@ router.get("/govt-schemes/:id", getGovtScheme);
 router.post("/govt-schemes", createGovtScheme);
 router.put("/govt-schemes/:id", updateGovtScheme);
 router.delete("/govt-schemes/:id", deleteGovtScheme);
+
+router.get("/market-prices", listMarketPrices);
+router.get("/market-prices/:id", getMarketPrice);
+router.post("/market-prices", createMarketPrice);
+router.put("/market-prices/:id", updateMarketPrice);
+router.delete("/market-prices/:id", deleteMarketPrice);
 
 router.get("/policies/roles", listPolicyRoles);
 router.get("/policies", listRolePolicies);

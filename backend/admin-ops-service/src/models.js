@@ -540,4 +540,37 @@ export const GovernmentScheme =
   mongoose.models.AdminGovernmentScheme ||
   mongoose.model("AdminGovernmentScheme", governmentSchemeSchema);
 
+const marketPriceSchema = new mongoose.Schema(
+  {
+    marketName: { type: String, required: true, trim: true, index: true },
+    productName: { type: String, required: true, trim: true, index: true },
+    variety: { type: String, required: true, trim: true, default: "Standard" },
+    price: { type: Number, required: true, min: 0 },
+    minPrice: { type: Number, default: 0, min: 0 },
+    maxPrice: { type: Number, default: 0, min: 0 },
+    unit: { type: String, default: "Quintal", trim: true },
+    priceDate: { type: String, default: () => new Date().toISOString().slice(0, 10), index: true },
+    district: { type: String, default: "Pune", trim: true },
+    state: { type: String, default: "Maharashtra", trim: true },
+    trend: {
+      type: String,
+      enum: ["up", "stable", "down"],
+      default: "stable",
+    },
+    arrivalQuantity: { type: Number, default: 0 },
+    arrivalUnit: { type: String, default: "Quintal", trim: true },
+    notes: { type: String, default: "", trim: true },
+    isActive: { type: Boolean, default: true, index: true },
+    isGreenGroo: { type: Boolean, default: false, index: true },
+  },
+  { timestamps: true }
+);
+
+marketPriceSchema.index({ marketName: 1, productName: 1, variety: 1, priceDate: 1 });
+
+export const MarketPrice =
+  mongoose.models.AdminMarketPrice ||
+  mongoose.model("AdminMarketPrice", marketPriceSchema);
+
 export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };
+

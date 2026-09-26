@@ -59,6 +59,7 @@ import {
 } from './pages/ops/AssetsManagementPage';
 import AllGovtSchemesPage from './pages/government/AllGovtSchemesPage';
 import CreateGovtSchemePage from './pages/government/CreateGovtSchemePage';
+import MarketPricesPage from './pages/ops/MarketPricesPage';
 
 export default function App() {
   return (
@@ -77,6 +78,7 @@ export default function App() {
               <Route path="erp/farmers/:id" element={<Farmer360Page />} />
               <Route path="erp/:resource" element={<ErpListPage />} />
               <Route path="products" element={<Products />} />
+              <Route path="market-prices" element={<MarketPricesPage />} />
               <Route path="inventory" element={<InventoryHubPage />} />
               <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />

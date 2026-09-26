@@ -36,6 +36,7 @@ import {
   UserPlus,
   Clock3,
   PlusCircle,
+  TrendingUp,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -86,6 +87,19 @@ export const NAV_GROUPS = [
         icon: Package,
         implemented: true,
         description: 'Create, edit, and publish products, pricing, stock, and media.',
+      },
+      {
+        name: 'Market Prices',
+        href: '/market-prices',
+        icon: TrendingUp,
+        implemented: true,
+        description: 'Daily APMC mandi rates, product varieties, and price trends.',
+        capabilities: [
+          'Add and manage APMC markets, crops, and varieties',
+          'Track minimum, maximum, and modal market rates',
+          'Monitor price trends (rising, stable, falling)',
+          'Sync daily mandi prices for farmers and operations',
+        ],
       },
       {
         name: 'Inventory',

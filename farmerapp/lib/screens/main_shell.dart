@@ -14,6 +14,7 @@ import 'earnings/earnings_screen.dart';
 import 'documents/documents_screen.dart';
 import 'profile/profile_screen.dart';
 import 'auth/login_screen.dart';
+import 'market/market_comparison_screen.dart';
 import '../services/farmer_state.dart';
 
 class MainShell extends StatefulWidget {
@@ -240,6 +241,11 @@ class _MainShellState extends State<MainShell> {
                     icon: Icons.account_balance_outlined,
                     label: 'Govt Schemes (शासकीय योजना)',
                     onTap: () => _onDrawerNavigate(const SchemesScreen()),
+                  ),
+                  _drawerItem(
+                    icon: Icons.trending_up_rounded,
+                    label: 'Market Prices (बाजार भाव तुलना)',
+                    onTap: () => _onDrawerNavigate(const MarketComparisonScreen()),
                   ),
 
                   // Crops Group
