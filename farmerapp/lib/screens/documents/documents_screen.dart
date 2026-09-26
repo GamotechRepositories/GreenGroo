@@ -23,11 +23,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final docs = FarmerState().documents;
-        final approvedCount = docs.where((d) => d.status == 'approved').length;
-        final pendingCount = docs.where((d) => d.status == 'pending' && d.isUploaded).length;
-        final notUploadedCount = docs.where((d) => d.status == 'not_uploaded' || !d.isUploaded).length;
-        final isAllVerified = approvedCount == docs.length && docs.isNotEmpty;
+        final allDocs = FarmerState().documents;
+        final uploadedDocs = allDocs.where((d) => d.isUploaded || d.fileUrl.isNotEmpty || (d.status != 'not_uploaded' && d.status.isNotEmpty)).toList();
+        final pendingDocs = allDocs.where((d) => !uploadedDocs.contains(d)).toList();
+        final approvedCount = uploadedDocs.where((d) => d.status == 'approved').length;
+        final pendingCount = uploadedDocs.where((d) => d.status == 'pending').length;
+        final rejectedCount = uploadedDocs.where((d) => d.status == 'rejected').length;
+        final isAllVerified = approvedCount == allDocs.length && allDocs.isNotEmpty;
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -46,6 +48,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               ],
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF217346), size: 22),
+                tooltip: 'नवीन कागदपत्र जोडा (+ Upload)',
+                onPressed: () => _showUploadDocumentPicker(context, allDocs),
+              ),
               IconButton(
                 icon: FarmerState().isLoadingFromBackend
                     ? const SizedBox(
@@ -93,7 +100,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                               ? const [Color(0xFF166534), Color(0xFF15803D)]
                               : (pendingCount > 0
                                   ? const [Color(0xFFB45309), Color(0xFFD97706)]
-                                  : const [Color(0xFF9A3412), Color(0xFFC2410C)]),
+                                  : (rejectedCount > 0
+                                      ? const [Color(0xFF991B1B), Color(0xFFDC2626)]
+                                      : const [Color(0xFF0F766E), Color(0xFF0D9488)])),
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -108,7 +117,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              isAllVerified ? Icons.verified : (pendingCount > 0 ? Icons.hourglass_top_rounded : Icons.pending_actions),
+                              isAllVerified
+                                  ? Icons.verified
+                                  : (pendingCount > 0
+                                      ? Icons.hourglass_top_rounded
+                                      : (rejectedCount > 0 ? Icons.error_outline_rounded : Icons.task_alt_rounded)),
                               color: Colors.white,
                               size: 28,
                             ),
@@ -123,14 +136,18 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                       ? 'शेतकरी केवायसी प्रमाणित (100% Verified)'
                                       : (pendingCount > 0
                                           ? 'व्हेंडर पडताळणी चालू (Vendor Review Pending)'
-                                          : 'केवायसी कागदपत्रे प्रलंबित (Upload Required)'),
+                                          : (rejectedCount > 0
+                                              ? 'काही कागदपत्रे अमान्य आहेत (Action Needed)'
+                                              : (uploadedDocs.isNotEmpty
+                                                  ? 'कागदपत्रे अपलोड केली आहेत (Uploaded)'
+                                                  : 'केवायसी कागदपत्रे प्रलंबित (Upload Required)'))),
                                   style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  isAllVerified
-                                      ? 'सर्व ${docs.length} आवश्यक कागदपत्रे व्हेंडरद्वारे मंजूर आहेत.'
-                                      : '$approvedCount मंजूर • $pendingCount व्हेंडर पडताळणी प्रलंबित • $notUploadedCount अपलोड करणे बाकी',
+                                  uploadedDocs.isEmpty
+                                      ? 'केवायसी पडताळणीसाठी खालील बटणावर दाबून कागदपत्र अपलोड करा.'
+                                      : '${uploadedDocs.length} अपलोड केलेली कागदपत्रे • $approvedCount मंजूर • $pendingCount पडताळणी चालू${rejectedCount > 0 ? ' • $rejectedCount अमान्य' : ''}',
                                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                                 ),
                               ],
@@ -145,38 +162,237 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Documents Checklist (${docs.length})',
+                          'अपलोड केलेली कागदपत्रे (${uploadedDocs.length})',
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
                         ),
-                        const Row(
-                          children: [
-                            Icon(Icons.circle, size: 8, color: Color(0xFF059669)),
-                            SizedBox(width: 4),
-                            Text(
-                              'Live',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                        TextButton.icon(
+                          onPressed: () => _showUploadDocumentPicker(context, allDocs),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF217346),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          icon: const Icon(Icons.add_circle, size: 16),
+                          label: const Text('+ नवीन जोडा', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
 
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: docs.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final doc = docs[index];
-                        return _DocumentCard(doc: doc);
-                      },
-                    ),
+                    if (uploadedDocs.isNotEmpty) ...[
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: uploadedDocs.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final doc = uploadedDocs[index];
+                          return _DocumentCard(doc: doc);
+                        },
+                      ),
+                    ],
+
+                    if (pendingDocs.isNotEmpty) ...[
+                      const SizedBox(height: 22),
+                      Row(
+                        children: [
+                          const Icon(Icons.upload_file_rounded, size: 18, color: Color(0xFF217346)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'आवश्यक कागदपत्रे - अपलोड करा (${pendingDocs.length})',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: pendingDocs.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final doc = pendingDocs[index];
+                          return _PendingDocumentCard(
+                            doc: doc,
+                            onTap: () => _uploadDoc(context, doc),
+                          );
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 40),
                   ],
                 ),
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showUploadDocumentPicker(BuildContext context, List<DocumentItem> allDocs) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'कागदपत्र निवडा (Select Document)',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const Text(
+                  'अपलोड करण्यासाठी खालीलपैकी कागदपत्राचा प्रकार निवडा:',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: allDocs.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, idx) {
+                      final doc = allDocs[idx];
+                      final isUploaded = doc.isUploaded || doc.fileUrl.isNotEmpty;
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: doc.type == 'video_kyc' ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            doc.type == 'video_kyc' ? Icons.videocam_rounded : _getDocIconForType(doc.type),
+                            color: doc.type == 'video_kyc' ? const Color(0xFF2563EB) : const Color(0xFF217346),
+                            size: 22,
+                          ),
+                        ),
+                        title: Text(
+                          '${doc.title} (${doc.marathiTitle})',
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          isUploaded ? 'आधीच अपलोड केलेले आहे (${doc.status})' : 'अपलोड करण्यासाठी टॅप करा',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isUploaded ? const Color(0xFF059669) : const Color(0xFF64748B),
+                          ),
+                        ),
+                        trailing: Icon(
+                          isUploaded ? Icons.check_circle_rounded : Icons.arrow_forward_ios_rounded,
+                          size: 16,
+                          color: isUploaded ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _uploadDoc(context, doc);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  static IconData _getDocIconForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'aadhaar':
+        return Icons.badge_outlined;
+      case 'farmer_id':
+        return Icons.card_membership_outlined;
+      case 'land_712':
+        return Icons.assignment_outlined;
+      case 'land_8a':
+        return Icons.description_outlined;
+      case 'bank':
+        return Icons.account_balance_outlined;
+      case 'farmer_photo':
+        return Icons.face_outlined;
+      case 'address_proof':
+        return Icons.home_outlined;
+      case 'pan':
+        return Icons.credit_card_outlined;
+      case 'video_kyc':
+        return Icons.videocam_rounded;
+      default:
+        return Icons.description_outlined;
+    }
+  }
+
+  static void _uploadDoc(BuildContext context, DocumentItem doc) {
+    if (doc.type == 'video_kyc') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FarmerLivenessCheckScreen(
+            farmerName: FarmerState().profile.fullName,
+            onCompleted: (String? videoUrl) {
+              if (videoUrl != null && videoUrl.isNotEmpty) {
+                FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('व्हिडिओ केवायसी यशस्वीपणे रेकॉर्ड झाली! व्हेंडर पडताळणी प्रलंबित आहे. (Video KYC Submitted ⏳)'),
+                  backgroundColor: Color(0xFFC2410C),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    showAppPhotoPicker(
+      context,
+      title: 'Upload ${doc.title} (${doc.marathiTitle})',
+      subtitle: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा',
+      presetCategory: 'Document',
+      allowPdf: true,
+      onPhotoSelected: (photoStr) {
+        FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
+        final isPdf = photoStr.startsWith('data:application/pdf') || photoStr.toLowerCase().endsWith('.pdf');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${doc.title} ${isPdf ? 'PDF फाईल' : 'कागदपत्र'} अपलोड झाले! व्हेंडर पडताळणी प्रलंबित आहे. (Vendor Review Pending ⏳)'),
+            backgroundColor: const Color(0xFFC2410C),
+            duration: const Duration(seconds: 4),
           ),
         );
       },
@@ -996,3 +1212,77 @@ class _DocumentCard extends StatelessWidget {
     );
   }
 }
+
+class _PendingDocumentCard extends StatelessWidget {
+  final DocumentItem doc;
+  final VoidCallback onTap;
+
+  const _PendingDocumentCard({required this.doc, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isVideo = doc.type == 'video_kyc';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isVideo ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isVideo ? Icons.videocam_rounded : _DocumentsScreenState._getDocIconForType(doc.type),
+                color: isVideo ? const Color(0xFF2563EB) : const Color(0xFF217346),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    doc.title,
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.text),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    doc.marathiTitle,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF217346),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: Icon(isVideo ? Icons.videocam_rounded : Icons.cloud_upload_outlined, size: 14),
+              label: Text(isVideo ? 'केवायसी' : 'Upload', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              onPressed: onTap,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

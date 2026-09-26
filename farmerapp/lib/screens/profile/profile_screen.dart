@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
 import '../../core/constants/farmer_constants.dart';
@@ -121,6 +122,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _latitude = p.latitude ?? 0;
     _longitude = p.longitude ?? 0;
     _locationConfirmed = p.locationConfirmed;
+
+    _loadSavedBankDetails();
+  }
+
+  Future<void> _loadSavedBankDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final holder = prefs.getString('farmer_bank_holder');
+      final name = prefs.getString('farmer_bank_name');
+      final accNo = prefs.getString('farmer_bank_acc_no');
+      final ifsc = prefs.getString('farmer_bank_ifsc');
+      final branch = prefs.getString('farmer_bank_branch');
+      final accType = prefs.getString('farmer_bank_acc_type');
+      final aadhaar = prefs.getString('farmer_aadhaar');
+      final pan = prefs.getString('farmer_pan');
+      final upi = prefs.getString('farmer_upi_id');
+
+      if (mounted) {
+        setState(() {
+          if (holder != null && holder.isNotEmpty) _bankHolderController.text = holder;
+          if (name != null && name.isNotEmpty) _bankNameController.text = name;
+          if (accNo != null && accNo.isNotEmpty) _bankAccountNoController.text = accNo;
+          if (ifsc != null && ifsc.isNotEmpty) _bankIfscController.text = ifsc;
+          if (branch != null && branch.isNotEmpty) _bankBranchController.text = branch;
+          if (accType != null && accType.isNotEmpty) _bankAccountType = accType;
+          if (aadhaar != null && aadhaar.isNotEmpty) _aadhaarController.text = aadhaar;
+          if (pan != null && pan.isNotEmpty) _panCardController.text = pan;
+          if (upi != null && upi.isNotEmpty) _upiIdController.text = upi;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -153,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _saveBankAndIdentityDetails() {
+  Future<void> _saveBankAndIdentityDetails() async {
     if (_bankHolderController.text.trim().isEmpty) {
       _showToast('कृपया खातेदाराचे नाव प्रविष्ट करा (Enter account holder name)');
       return;
@@ -170,6 +202,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _showToast('कृपया आधार क्रमांक प्रविष्ट करा (Enter Aadhaar number)');
       return;
     }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('farmer_bank_holder', _bankHolderController.text.trim());
+      await prefs.setString('farmer_bank_name', _bankNameController.text.trim());
+      await prefs.setString('farmer_bank_acc_no', _bankAccountNoController.text.trim());
+      await prefs.setString('farmer_bank_ifsc', _bankIfscController.text.trim());
+      await prefs.setString('farmer_bank_branch', _bankBranchController.text.trim());
+      await prefs.setString('farmer_bank_acc_type', _bankAccountType);
+      await prefs.setString('farmer_aadhaar', _aadhaarController.text.trim());
+      await prefs.setString('farmer_pan', _panCardController.text.trim());
+      await prefs.setString('farmer_upi_id', _upiIdController.text.trim());
+    } catch (_) {}
+
+    final current = FarmerState().profile;
+    final updated = current.copyWith(
+      bankVerificationStatus: 'PENDING',
+    );
+    FarmerState().updateProfile(updated);
+
     setState(() => _isEditingKyc = false);
     _showToast('बँक व ओळख तपशील जतन झाले ✓ (Bank & Identity details saved)');
   }

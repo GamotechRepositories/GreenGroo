@@ -1,4 +1,5 @@
-﻿import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'sound_service.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,9 @@ class FarmerState extends ChangeNotifier {
   FarmerState._internal() {
     _ensureDocumentChecklist();
     initPreferences();
-    fetchFromBackend();
+    if (isLoggedIn) {
+      fetchFromBackend();
+    }
     _startPeriodicNotificationPolling();
   }
 
@@ -79,7 +82,7 @@ class FarmerState extends ChangeNotifier {
     }
   }
 
-  bool isLoggedIn = true;
+  bool isLoggedIn = false;
   bool isConnectedToBackend = false;
   String backendUrl = '';
   bool isLoadingFromBackend = false;
@@ -109,11 +112,13 @@ class FarmerState extends ChangeNotifier {
   void logout() {
     isLoggedIn = false;
     ApiService().setToken(null);
+    _persistProfile();
     notifyListeners();
   }
 
   void login() {
     isLoggedIn = true;
+    _persistProfile();
     fetchFromBackend();
     notifyListeners();
   }
@@ -168,10 +173,18 @@ class FarmerState extends ChangeNotifier {
       final pRes = await ApiService().fetchFarmerProfile(profile.id);
       if (pRes is Map<String, dynamic>) {
         final fMap = (pRes['farmer'] is Map) ? pRes['farmer'] as Map<String, dynamic> : pRes;
-        final next = FarmerProfile.fromJson(fMap);
+        var next = FarmerProfile.fromJson(fMap);
+        // Preserve local photos if backend returns empty
+        if (next.profilePhoto.isEmpty && profile.profilePhoto.isNotEmpty) {
+          next = next.copyWith(profilePhoto: profile.profilePhoto);
+        }
+        if (next.farmPhoto.isEmpty && profile.farmPhoto.isNotEmpty) {
+          next = next.copyWith(farmPhoto: profile.farmPhoto, farmPhotos: profile.farmPhotos);
+        }
         if (_profileKey(next) != _profileKey(profile)) {
           profile = next;
           _profileChanged = true;
+          _persistProfile();
         }
       }
     } catch (_) {}
@@ -355,10 +368,11 @@ class FarmerState extends ChangeNotifier {
             final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
             final fUrl = (backendDoc['fileUrl'] ?? '').toString();
             final rReason = (backendDoc['rejectionReason'] ?? '').toString();
-            final hasFile = fUrl.isNotEmpty && (backendDoc['fileName'] ?? '').toString().isNotEmpty;
+            final effectiveUrl = fUrl.isNotEmpty ? fUrl : localDoc.fileUrl;
+            final hasFile = effectiveUrl.isNotEmpty || (backendDoc['fileName'] ?? '').toString().isNotEmpty || localDoc.isUploaded;
             final normalizedStatus = st == 'Approved'
                 ? 'approved'
-                : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded'));
+                : (st == 'Rejected' ? 'rejected' : (hasFile ? (localDoc.status.isNotEmpty && localDoc.status != 'not_uploaded' ? localDoc.status : 'pending') : 'not_uploaded'));
 
             final soundKey = 'doc_${localDoc.id}_$normalizedStatus';
 
@@ -378,7 +392,7 @@ class FarmerState extends ChangeNotifier {
                     isUploaded: hasFile,
                     status: normalizedStatus,
                     uploadDate: 'Just now',
-                    fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+                    fileUrl: effectiveUrl,
                     rejectionReason: rReason,
                   );
                 }
@@ -397,7 +411,7 @@ class FarmerState extends ChangeNotifier {
               isUploaded: hasFile,
               status: normalizedStatus,
               uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
-              fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+              fileUrl: effectiveUrl,
               rejectionReason: rReason,
             );
           }
@@ -422,6 +436,7 @@ class FarmerState extends ChangeNotifier {
         if (docsChanged) {
           documents = nextDocs;
           _documentsChanged = true;
+          _persistDocuments();
         }
         _documentsBaselineDone = true;
         if (hasBrandNewDocUpdate) {
@@ -519,7 +534,103 @@ class FarmerState extends ChangeNotifier {
   final Set<String> playedSoundNotificationIds = {};
 
   Future<void> initPreferences() {
-    return _prefsLoad ??= _loadNotificationPreferences();
+    return _prefsLoad ??= _loadAllPreferences();
+  }
+
+  Future<void> _loadAllPreferences() async {
+    await Future.wait([
+      _loadNotificationPreferences(),
+      _loadProfilePreferences(),
+      _loadDocumentsPreferences(),
+    ]);
+  }
+
+  Future<void> _loadProfilePreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pStr = prefs.getString('farmer_profile_data');
+      if (pStr != null && pStr.isNotEmpty) {
+        final decoded = jsonDecode(pStr);
+        if (decoded is Map<String, dynamic>) {
+          profile = FarmerProfile.fromJson(decoded);
+          if (profile.id.isNotEmpty || profile.fullName.isNotEmpty) {
+            profileReady = true;
+          }
+        }
+      }
+      final savedLogin = prefs.getBool('farmer_is_logged_in');
+      if (savedLogin != null) {
+        isLoggedIn = savedLogin;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading profile preferences: $e');
+    }
+  }
+
+  Future<void> _persistProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('farmer_profile_data', jsonEncode(profile.toJson()));
+      await prefs.setBool('farmer_is_logged_in', isLoggedIn);
+    } catch (e) {
+      debugPrint('Error saving profile preferences: $e');
+    }
+  }
+
+  Future<void> _loadDocumentsPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dStr = prefs.getString('farmer_documents_data');
+      if (dStr != null && dStr.isNotEmpty) {
+        final decoded = jsonDecode(dStr);
+        if (decoded is List) {
+          final savedDocs = decoded
+              .whereType<Map>()
+              .map((m) => DocumentItem.fromJson(Map<String, dynamic>.from(m)))
+              .toList();
+          if (savedDocs.isNotEmpty) {
+            _mergeLoadedDocuments(savedDocs);
+            documentsReady = true;
+          }
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading documents preferences: $e');
+    }
+  }
+
+  void _mergeLoadedDocuments(List<DocumentItem> loaded) {
+    _ensureDocumentChecklist();
+    final map = {for (final d in loaded) d.type.toLowerCase(): d};
+    documents = documents.map((base) {
+      final found = map[base.type.toLowerCase()];
+      if (found != null) {
+        return DocumentItem(
+          id: base.id,
+          type: base.type,
+          title: base.title,
+          marathiTitle: base.marathiTitle,
+          isUploaded: found.isUploaded,
+          status: found.status,
+          uploadDate: found.uploadDate,
+          fileUrl: found.fileUrl,
+          rejectionReason: found.rejectionReason,
+        );
+      }
+      return base;
+    }).toList();
+  }
+
+  Future<void> _persistDocuments() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listJson = documents.map((d) => d.toJson()).toList();
+      await prefs.setString('farmer_documents_data', jsonEncode(listJson));
+    } catch (e) {
+      debugPrint('Error saving documents preferences: $e');
+    }
   }
 
   Future<void> _loadNotificationPreferences() async {
@@ -884,39 +995,94 @@ class FarmerState extends ChangeNotifier {
 
   void updateProfile(FarmerProfile newProfile) {
     profile = newProfile;
+    profileReady = true;
+    _persistProfile();
     notifyListeners();
+
+    // Sync to backend asynchronously
+    final pId = newProfile.id.isNotEmpty ? newProfile.id : 'me';
+    ApiService().updateFarmerProfile(pId, {
+      'name': newProfile.fullName,
+      'fullName': newProfile.fullName,
+      'mobile': newProfile.mobile,
+      'email': newProfile.email,
+      'preferredLanguage': newProfile.preferredLanguage,
+      'village': newProfile.village,
+      'taluka': newProfile.taluka,
+      'district': newProfile.district,
+      'pincode': newProfile.pincode,
+      'profileImage': newProfile.profilePhoto,
+      'profilePhoto': newProfile.profilePhoto,
+    }).catchError((err) {
+      debugPrint('Failed to sync profile to backend: $err');
+    });
+
+    if (newProfile.farmName.isNotEmpty || newProfile.totalAcres > 0) {
+      ApiService().updateFarmerFarm({
+        'farmName': newProfile.farmName,
+        'totalFarmArea': newProfile.totalAcres,
+        'cultivatedArea': newProfile.cultivatedArea,
+        'totalFarmAreaUnit': newProfile.totalFarmAreaUnit,
+        'cultivatedAreaUnit': newProfile.cultivatedAreaUnit,
+        'soilType': newProfile.soilType,
+        'irrigationType': newProfile.irrigationType,
+        'waterSource': newProfile.waterSource,
+        'farmingMethod': newProfile.farmingMethod,
+        'farmingType': newProfile.farmingType,
+        'mainCrops': newProfile.mainCrops,
+        'farmPhoto': newProfile.farmPhoto,
+        'farmPhotos': newProfile.farmPhotos,
+      }).catchError((_) {});
+    }
+
+    if (newProfile.farmAddress.isNotEmpty || newProfile.latitude != null) {
+      ApiService().updateFarmerFarmLocation({
+        'village': newProfile.village,
+        'taluka': newProfile.taluka,
+        'district': newProfile.district,
+        'pincode': newProfile.pincode,
+        'farmAddress': newProfile.farmAddress,
+        'latitude': newProfile.latitude,
+        'longitude': newProfile.longitude,
+        'confirmed': newProfile.locationConfirmed,
+      }).catchError((_) {});
+    }
   }
 
   void uploadDocument(String docId, {String? fileUrl, String status = 'pending', String rejectionReason = ''}) {
     final idx = documents.indexWhere((d) => d.id == docId);
     if (idx != -1) {
       final doc = documents[idx];
+      final updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
       documents[idx] = DocumentItem(
         id: doc.id,
         type: doc.type,
         title: doc.title,
         marathiTitle: doc.marathiTitle,
-        isUploaded: true,
+        isUploaded: updatedUrl.isNotEmpty,
         status: status,
         uploadDate: 'Today',
-        fileUrl: fileUrl ?? doc.fileUrl,
+        fileUrl: updatedUrl,
         rejectionReason: rejectionReason,
       );
+      documentsReady = true;
+      _persistDocuments();
       notifyListeners();
 
       // Persist to backend database so it shows in vendor portal immediately
-      if (fileUrl != null && fileUrl.isNotEmpty) {
-        final isPdf = fileUrl.startsWith('data:application/pdf') || fileUrl.toLowerCase().endsWith('.pdf');
-        final isVideo = fileUrl.startsWith('data:video') || fileUrl.toLowerCase().endsWith('.mp4');
+      if (updatedUrl.isNotEmpty) {
+        final isPdf = updatedUrl.startsWith('data:application/pdf') || updatedUrl.toLowerCase().endsWith('.pdf');
+        final isVideo = updatedUrl.startsWith('data:video') || updatedUrl.toLowerCase().endsWith('.mp4');
         final ext = isPdf ? 'pdf' : (isVideo ? 'mp4' : 'jpg');
         final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
         final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        final targetFarmerId = profile.id.isNotEmpty ? profile.id : 'me';
 
-        ApiService().uploadDocument(profile.id, {
+        ApiService().uploadDocument(targetFarmerId, {
           'type': doc.type,
           'name': '${doc.title} (${doc.marathiTitle})',
           'fileName': fileName,
-          'fileUrl': fileUrl,
+          'fileUrl': updatedUrl,
           'status': status == 'approved' ? 'Approved' : 'Pending',
         }).catchError((err) {
           debugPrint('Failed to sync document to backend: $err');

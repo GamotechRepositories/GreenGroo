@@ -226,6 +226,44 @@ class FarmerProfile {
       farmVideos: (farm['farmVideos'] is List) ? List<String>.from(farm['farmVideos'].map((e) => e.toString())) : [],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'fullName': fullName,
+    'name': fullName,
+    'mobile': mobile,
+    'email': email,
+    'preferredLanguage': preferredLanguage,
+    'farmName': farmName,
+    'totalAcres': totalAcres,
+    'farmArea': totalAcres,
+    'totalFarmAreaUnit': totalFarmAreaUnit,
+    'cultivatedArea': cultivatedArea,
+    'cultivatedAreaUnit': cultivatedAreaUnit,
+    'soilType': soilType,
+    'irrigationType': irrigationType,
+    'waterSource': waterSource,
+    'farmingMethod': farmingMethod,
+    'farmType': farmingMethod,
+    'farmingType': farmingType,
+    'mainCrops': mainCrops,
+    'village': village,
+    'taluka': taluka,
+    'district': district,
+    'state': state,
+    'pincode': pincode,
+    'farmAddress': farmAddress,
+    'latitude': latitude,
+    'longitude': longitude,
+    'locationConfirmed': locationConfirmed,
+    'kycStatus': kycStatus,
+    'bankVerificationStatus': bankVerificationStatus,
+    'profilePhoto': profilePhoto,
+    'profileImage': profilePhoto,
+    'farmPhoto': farmPhoto,
+    'farmPhotos': farmPhotos,
+    'farmVideos': farmVideos,
+  };
 }
 
 class CropItem {
@@ -1021,4 +1059,28 @@ class DocumentItem {
     this.fileUrl = '',
     this.rejectionReason = '',
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'title': title,
+    'marathiTitle': marathiTitle,
+    'isUploaded': isUploaded,
+    'status': status,
+    'uploadDate': uploadDate,
+    'fileUrl': fileUrl,
+    'rejectionReason': rejectionReason,
+  };
+
+  factory DocumentItem.fromJson(Map<String, dynamic> json) => DocumentItem(
+    id: json['id']?.toString() ?? '',
+    type: json['type']?.toString() ?? '',
+    title: json['title']?.toString() ?? '',
+    marathiTitle: json['marathiTitle']?.toString() ?? '',
+    isUploaded: json['isUploaded'] == true || (json['fileUrl'] != null && json['fileUrl'].toString().isNotEmpty),
+    status: json['status']?.toString() ?? 'not_uploaded',
+    uploadDate: json['uploadDate']?.toString() ?? '',
+    fileUrl: json['fileUrl']?.toString() ?? '',
+    rejectionReason: json['rejectionReason']?.toString() ?? '',
+  );
 }

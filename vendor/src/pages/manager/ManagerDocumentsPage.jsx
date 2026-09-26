@@ -30,7 +30,9 @@ const REJECTION_PRESETS = [
 ];
 
 function getUploadedFarmerDocs(docs = []) {
-  return (docs || []).filter((d) => Boolean(d.fileUrl || d.fileName));
+  return (docs || []).filter(
+    (d) => Boolean(d && (d.fileUrl || d.fileName) && d.status !== "Not Uploaded" && d.status !== "not_uploaded")
+  );
 }
 
 export default function ManagerDocumentsPage() {
@@ -123,7 +125,9 @@ export default function ManagerDocumentsPage() {
     }
   };
 
-  const displayFarmers = farmerFilter ? farmers.filter((f) => f.id === farmerFilter) : farmers;
+  const displayFarmers = (farmerFilter ? farmers.filter((f) => f.id === farmerFilter) : farmers).filter(
+    (f) => getUploadedFarmerDocs(docsByFarmer[f.id] || []).length > 0
+  );
 
   return (
     <div className="space-y-4 p-4 sm:p-6">

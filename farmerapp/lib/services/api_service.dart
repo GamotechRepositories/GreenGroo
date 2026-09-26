@@ -178,6 +178,34 @@ class ApiService {
     }
   }
 
+  Future<dynamic> updateFarmerProfile(String farmerId, Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmers/me/profile', body);
+    } catch (_) {
+      try {
+        return await put('/api/farmers/$farmerId', body);
+      } catch (_) {
+        return await put('/api/farmer/$farmerId', body);
+      }
+    }
+  }
+
+  Future<dynamic> updateFarmerFarm(Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmers/me/farm', body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<dynamic> updateFarmerFarmLocation(Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmers/me/farm-location', body);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<dynamic>? _coerceList(dynamic res, List<String> keys) {
     if (res is List) return res;
     if (res is Map) {

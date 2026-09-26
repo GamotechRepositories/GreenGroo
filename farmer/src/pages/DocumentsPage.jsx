@@ -71,11 +71,21 @@ function DocumentsPage() {
   }, [docs]);
 
   const identityDocs = useMemo(() => {
-    return byType.filter((d) => ["aadhaar", "pan", "bank", "address"].includes(d.id));
+    return byType.filter(
+      (d) =>
+        ["aadhaar", "pan", "bank", "address"].includes(d.id) &&
+        d.status !== VERIFICATION_STATUS.NOT_UPLOADED &&
+        Boolean(d.fileUrl || d.fileName)
+    );
   }, [byType]);
 
   const certificateDocs = useMemo(() => {
-    return byType.filter((d) => !["aadhaar", "pan", "bank", "address"].includes(d.id));
+    return byType.filter(
+      (d) =>
+        !["aadhaar", "pan", "bank", "address"].includes(d.id) &&
+        d.status !== VERIFICATION_STATUS.NOT_UPLOADED &&
+        Boolean(d.fileUrl || d.fileName)
+    );
   }, [byType]);
 
   const handleUpload = async (e) => {
@@ -141,49 +151,55 @@ function DocumentsPage() {
               </button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {certificateDocs.map((doc) => (
-                <div key={doc.id || doc.type} className={`${EXCEL_PANEL} hover:border-emerald-300 transition`}>
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-xs font-bold text-[#1F2937]">{doc.name}</h3>
-                        <p className="mt-0.5 text-xs text-[#6B7280] truncate max-w-[200px]">
-                          File: {doc.fileName || "No certificate uploaded yet"}
-                        </p>
-                        <p className="text-[10px] text-[#6B7280]">
-                          Updated: {formatDate(doc.uploadedAt)}
-                        </p>
+            {certificateDocs.length === 0 ? (
+              <div className="rounded border border-dashed border-[#D4D4D4] bg-[#FBFBFB] p-6 text-center text-xs text-[#6B7280]">
+                कोणतेही शेती प्रमाणपत्र अद्याप अपलोड केलेले नाही. (No agricultural certificates uploaded yet)
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {certificateDocs.map((doc) => (
+                  <div key={doc.id || doc.type} className={`${EXCEL_PANEL} hover:border-emerald-300 transition`}>
+                    <div className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-xs font-bold text-[#1F2937]">{doc.name}</h3>
+                          <p className="mt-0.5 text-xs text-[#6B7280] truncate max-w-[200px]">
+                            File: {doc.fileName || "Uploaded document"}
+                          </p>
+                          <p className="text-[10px] text-[#6B7280]">
+                            Updated: {formatDate(doc.uploadedAt)}
+                          </p>
+                        </div>
+                        <StatusBadge status={doc.status || VERIFICATION_STATUS.NOT_UPLOADED} />
                       </div>
-                      <StatusBadge status={doc.status || VERIFICATION_STATUS.NOT_UPLOADED} />
-                    </div>
 
-                    {doc.adminRemarks ? (
-                      <p className="border border-[#D4D4D4] bg-[#F2F2F2] p-1.5 text-xs text-[#1F2937]">
-                        Remarks: {doc.adminRemarks}
-                      </p>
-                    ) : null}
+                      {doc.adminRemarks ? (
+                        <p className="border border-[#D4D4D4] bg-[#F2F2F2] p-1.5 text-xs text-[#1F2937]">
+                          Remarks: {doc.adminRemarks}
+                        </p>
+                      ) : null}
 
-                    <div className="flex justify-between items-center pt-2 border-t border-[#E5E7EB]">
-                      <button
-                        type="button"
-                        onClick={() => openUpload(doc.id || doc.type)}
-                        className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                      >
-                        📤 {doc.fileName ? "Replace File" : "Upload File"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewDoc(doc)}
-                        className={`${EXCEL_BTN} text-xs py-0.5 px-2`}
-                      >
-                        🔍 View Status
-                      </button>
+                      <div className="flex justify-between items-center pt-2 border-t border-[#E5E7EB]">
+                        <button
+                          type="button"
+                          onClick={() => openUpload(doc.id || doc.type)}
+                          className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                        >
+                          📤 {doc.fileName ? "Replace File" : "Upload File"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewDoc(doc)}
+                          className={`${EXCEL_BTN} text-xs py-0.5 px-2`}
+                        >
+                          🔍 View Status
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* KYC Documents Section */}
@@ -192,8 +208,13 @@ function DocumentsPage() {
               <span>🪪</span> Identity & Banking Documents (ओळख व बँक पुरावे)
             </h2>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {identityDocs.map((doc) => (
+            {identityDocs.length === 0 ? (
+              <div className="rounded border border-dashed border-[#D4D4D4] bg-[#FBFBFB] p-6 text-center text-xs text-[#6B7280]">
+                कोणतेही ओळख किंवा बँक कागदपत्र अद्याप अपलोड केलेले नाही. (No identity/banking documents uploaded yet)
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {identityDocs.map((doc) => (
                 <div key={doc.id || doc.type} className={EXCEL_PANEL}>
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -235,6 +256,7 @@ function DocumentsPage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </>
       )}
