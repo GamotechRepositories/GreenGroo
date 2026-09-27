@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import 'add_product_screen.dart';
@@ -83,9 +84,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.productsReady);
+        if (isLoading) {
+          return const ProductsSkeletonLoader();
+        }
+
         List<ProductItem> products = [];
         try {
-          final allProducts = FarmerState().products;
+          final allProducts = state.products;
           products = allProducts.where((p) {
             final pStatus = (p.status.isNotEmpty ? p.status : 'Active').toLowerCase();
             final isOos = pStatus.contains('out of stock') || p.stockQuantity <= 0;

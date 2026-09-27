@@ -68,6 +68,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       listenable: FarmerState(),
       builder: (context, _) {
         final state = FarmerState();
+
+        // Shimmer Skeleton Loader while initializing/loading from backend
+        final isInitialLoading = !state.isPreferencesLoaded ||
+            state.isLoadingFromBackend ||
+            !state.dashboardReady;
+
+        if (isInitialLoading) {
+          return const _DashboardSkeletonLoader();
+        }
+
         final profile = state.profile;
         final crops = state.crops;
         final products = state.products;
@@ -2702,6 +2712,8 @@ class _MarketPriceComparisonDonutCard extends StatefulWidget {
 
 class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonDonutCard> {
   int _selectedProductIndex = 0;
+  int _selectedDateIndex = 0; // 0: Today, 1: Yesterday, 2: 2 Days Ago, -1: Custom Date, 3: All
+  DateTime? _customDate;
 
   static const List<Color> _chartColors = [
     Color(0xFF16A34A), // Emerald Green
@@ -2718,8 +2730,43 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
     return ListenableBuilder(
       listenable: MarketPriceService(),
       builder: (context, _) {
-        final comparisons = MarketPriceService().getComparisons();
-        if (comparisons.isEmpty) return const SizedBox.shrink();
+        String? targetDate;
+        final now = DateTime.now();
+        if (_selectedDateIndex == -1 && _customDate != null) {
+          targetDate = _customDate!.toIso8601String().substring(0, 10);
+        } else if (_selectedDateIndex == 0) {
+          targetDate = now.toIso8601String().substring(0, 10);
+        } else if (_selectedDateIndex == 1) {
+          targetDate = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+        } else if (_selectedDateIndex == 2) {
+          targetDate = now.subtract(const Duration(days: 2)).toIso8601String().substring(0, 10);
+        } else {
+          targetDate = null;
+        }
+
+        final comparisons = MarketPriceService().getComparisons(date: targetDate);
+        if (comparisons.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(
+              children: [
+                _buildDateSelectorRow(),
+                const SizedBox(height: 12),
+                Text(
+                  targetDate != null
+                      ? '$targetDate रोजी बाजार भाव उपलब्ध नाहीत'
+                      : 'या तारखेचे बाजार भाव उपलब्ध नाहीत',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                ),
+              ],
+            ),
+          );
+        }
 
         final selected = comparisons[_selectedProductIndex.clamp(0, comparisons.length - 1)];
 
@@ -2789,9 +2836,14 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
 
               const SizedBox(height: 10),
 
+              // Date Selector Row (आज, काल, २ दिवस आधी, तारीख निवडा, सर्व)
+              _buildDateSelectorRow(),
+
+              const SizedBox(height: 10),
+
               // Product Selector Chips (Horizontal)
               SizedBox(
-                height: 40,
+                height: 38,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: comparisons.length,
@@ -2803,7 +2855,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                       onTap: () => setState(() => _selectedProductIndex = idx),
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: isSel ? const Color(0xFF16A34A) : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(10),
@@ -2831,7 +2883,6 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                   },
                 ),
               ),
-
 
               const SizedBox(height: 14),
 
@@ -2889,15 +2940,15 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                           child: Row(
                             children: [
                               m.isGreenGroo
-                                  ? const Text('🌿', style: TextStyle(fontSize: 9))
-                                  : Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: color,
-                                        shape: BoxShape.circle,
+                                    ? const Text('🌿', style: TextStyle(fontSize: 9))
+                                    : Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          shape: BoxShape.circle,
+                                        ),
                                       ),
-                                    ),
                               const SizedBox(width: 5),
                               Expanded(
                                 child: Text(
@@ -2949,13 +3000,612 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                   ),
                 ],
               ),
-
             ],
           ),
         );
       },
     );
   }
+
+  Widget _buildDateSelectorRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _dateChip(0, 'आज (Today)'),
+          const SizedBox(width: 5),
+          _dateChip(1, 'काल (Yesterday)'),
+          const SizedBox(width: 5),
+          _dateChip(2, '२ दिवस आधी (2 Days)'),
+          const SizedBox(width: 5),
+          // Custom Date Picker button
+          _buildCustomDatePickerChip(),
+          const SizedBox(width: 5),
+          _dateChip(3, 'सर्व दिवस (All Dates)'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomDatePickerChip() {
+    final isSel = _selectedDateIndex == -1;
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _customDate ?? DateTime.now(),
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 30)),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFF16A34A),
+                  onPrimary: Colors.white,
+                  onSurface: Color(0xFF1E293B),
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (picked != null) {
+          setState(() {
+            _customDate = picked;
+            _selectedDateIndex = -1;
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF16A34A) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSel ? const Color(0xFF16A34A) : const Color(0xFFCBD5E1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_month_rounded,
+              size: 11,
+              color: isSel ? Colors.white : const Color(0xFF16A34A),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isSel && _customDate != null
+                  ? '${_customDate!.day}/${_customDate!.month}/${_customDate!.year}'
+                  : '📅 तारीख निवडा (Select Date)',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                color: isSel ? Colors.white : const Color(0xFF16A34A),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dateChip(int index, String label) {
+    final isSel = _selectedDateIndex == index;
+    return InkWell(
+      onTap: () => setState(() {
+        _selectedDateIndex = index;
+      }),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF16A34A) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+// ==========================================
+// 🌟 SKELETON SHIMMER LOADER FOR FAST DASHBOARD
+// ==========================================
+class _SkeletonShimmer extends StatefulWidget {
+  final Widget child;
+  const _SkeletonShimmer({required this.child});
+
+  @override
+  State<_SkeletonShimmer> createState() => _SkeletonShimmerState();
+}
+
+class _SkeletonShimmerState extends State<_SkeletonShimmer> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) {
+            final x = _controller.value * (bounds.width * 2) - bounds.width;
+            return const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                Color(0xFFE2E8F0),
+                Color(0xFFF8FAFC),
+                Color(0xFFE2E8F0),
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ).createShader(Rect.fromLTWH(x, 0, bounds.width, bounds.height));
+          },
+          child: widget.child,
+        );
+      },
+    );
+  }
+}
+
+Widget _skeletonBox({
+  double? width,
+  double? height,
+  double borderRadius = 8,
+  EdgeInsetsGeometry? margin,
+}) {
+  return Container(
+    width: width,
+    height: height,
+    margin: margin,
+    decoration: BoxDecoration(
+      color: const Color(0xFFE2E8F0),
+      borderRadius: BorderRadius.circular(borderRadius),
+    ),
+  );
+}
+
+class _DashboardSkeletonLoader extends StatelessWidget {
+  const _DashboardSkeletonLoader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8F5),
+      body: SafeArea(
+        child: _SkeletonShimmer(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 30),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. TOP HEADER APPBAR SKELETON
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    children: [
+                      _skeletonBox(width: 28, height: 28, borderRadius: 6),
+                      const SizedBox(width: 12),
+                      _skeletonBox(width: 38, height: 38, borderRadius: 12),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _skeletonBox(width: 140, height: 16, borderRadius: 4),
+                            const SizedBox(height: 5),
+                            _skeletonBox(width: 90, height: 11, borderRadius: 4),
+                          ],
+                        ),
+                      ),
+                      _skeletonBox(width: 34, height: 34, borderRadius: 17),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // 2. HERO BANNER SKELETON
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    width: double.infinity,
+                    height: 120,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _skeletonBox(width: 180, height: 20, borderRadius: 4),
+                        const SizedBox(height: 10),
+                        _skeletonBox(width: 230, height: 13, borderRadius: 4),
+                        const SizedBox(height: 6),
+                        _skeletonBox(width: 150, height: 13, borderRadius: 4),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // 3. 🏷️ MARKET PRICES CARD SKELETON
+                _buildSectionHeaderSkeleton('बाजार भाव तुलना (Market Prices)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _skeletonBox(width: 150, height: 15, borderRadius: 4),
+                            _skeletonBox(width: 80, height: 20, borderRadius: 10),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _skeletonBox(width: 75, height: 24, borderRadius: 12),
+                            const SizedBox(width: 6),
+                            _skeletonBox(width: 75, height: 24, borderRadius: 12),
+                            const SizedBox(width: 6),
+                            _skeletonBox(width: 90, height: 24, borderRadius: 12),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            _skeletonBox(width: 105, height: 105, borderRadius: 52),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  _skeletonBox(height: 22, borderRadius: 6),
+                                  const SizedBox(height: 8),
+                                  _skeletonBox(height: 22, borderRadius: 6),
+                                  const SizedBox(height: 8),
+                                  _skeletonBox(height: 22, borderRadius: 6),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 4. 📊 FARM OVERVIEW 4 STAT CARDS SKELETON
+                _buildSectionHeaderSkeleton('शेत थेट आढावा (Farm Overview)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: _skeletonBox(height: 72, borderRadius: 12)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _skeletonBox(height: 72, borderRadius: 12)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _skeletonBox(height: 72, borderRadius: 12)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _skeletonBox(height: 72, borderRadius: 12)),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 5. 📦 ORDERS STATUS BAR CHART SKELETON
+                _buildSectionHeaderSkeleton('ऑर्डर स्थिती (Orders Status)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _skeletonBox(width: 160, height: 15, borderRadius: 4),
+                            _skeletonBox(width: 50, height: 18, borderRadius: 9),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _skeletonBox(width: 65, height: 22, borderRadius: 11),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 65, height: 22, borderRadius: 11),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 65, height: 22, borderRadius: 11),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _skeletonBox(width: 75, height: 22, borderRadius: 11),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 75, height: 22, borderRadius: 11),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 75, height: 22, borderRadius: 11),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: List.generate(6, (i) {
+                            final h = [40.0, 65.0, 30.0, 50.0, 70.0, 25.0][i];
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _skeletonBox(width: 22, height: h, borderRadius: 4),
+                                const SizedBox(height: 6),
+                                _skeletonBox(width: 28, height: 10, borderRadius: 3),
+                              ],
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 6. 🚚 UPCOMING PICKUP SKELETON
+                _buildSectionHeaderSkeleton('आगामी वाहन उचल (Upcoming Pickup)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            _skeletonBox(width: 36, height: 36, borderRadius: 10),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _skeletonBox(width: 120, height: 13, borderRadius: 4),
+                                  const SizedBox(height: 4),
+                                  _skeletonBox(width: 90, height: 11, borderRadius: 4),
+                                ],
+                              ),
+                            ),
+                            _skeletonBox(width: 60, height: 20, borderRadius: 6),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _skeletonBox(width: 70, height: 24, borderRadius: 4),
+                            _skeletonBox(width: 70, height: 24, borderRadius: 4),
+                            _skeletonBox(width: 70, height: 24, borderRadius: 4),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(child: _skeletonBox(height: 32, borderRadius: 8)),
+                            const SizedBox(width: 8),
+                            Expanded(child: _skeletonBox(height: 32, borderRadius: 8)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 7. 💰 EARNINGS 4 METRICS SKELETON
+                _buildSectionHeaderSkeleton('उत्पन्न तपशील (Earnings)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          _skeletonBox(width: 70, height: 22, borderRadius: 11),
+                          const SizedBox(width: 6),
+                          _skeletonBox(width: 85, height: 22, borderRadius: 11),
+                          const SizedBox(width: 6),
+                          _skeletonBox(width: 80, height: 22, borderRadius: 11),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(child: _skeletonBox(height: 68, borderRadius: 12)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _skeletonBox(height: 68, borderRadius: 12)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _skeletonBox(height: 68, borderRadius: 12)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _skeletonBox(height: 68, borderRadius: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 8. 📈 EARNINGS TREND SKELETON
+                _buildSectionHeaderSkeleton('उत्पन्न कल (Earnings Trend)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _skeletonBox(width: 140, height: 15, borderRadius: 4),
+                            _skeletonBox(width: 70, height: 20, borderRadius: 10),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _skeletonBox(width: 60, height: 20, borderRadius: 10),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 60, height: 20, borderRadius: 10),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 60, height: 20, borderRadius: 10),
+                            const SizedBox(width: 5),
+                            _skeletonBox(width: 60, height: 20, borderRadius: 10),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _skeletonBox(width: double.infinity, height: 120, borderRadius: 10),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 9. ⚠️ PRODUCT REJECTION RATE SKELETON
+                _buildSectionHeaderSkeleton('नाकारलेले शेतमाल (Product Rejection)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            _skeletonBox(width: 100, height: 100, borderRadius: 50),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  _skeletonBox(height: 20, borderRadius: 6),
+                                  const SizedBox(height: 8),
+                                  _skeletonBox(height: 20, borderRadius: 6),
+                                  const SizedBox(height: 8),
+                                  _skeletonBox(height: 20, borderRadius: 6),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // 10. 🏛️ GOVT SCHEMES SKELETON
+                _buildSectionHeaderSkeleton('शासकीय योजना (Govt Schemes)'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: _skeletonBox(height: 110, borderRadius: 14)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _skeletonBox(height: 110, borderRadius: 14)),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildSectionHeaderSkeleton(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              _skeletonBox(width: 18, height: 18, borderRadius: 4),
+              const SizedBox(width: 8),
+              _skeletonBox(width: 130, height: 13, borderRadius: 4),
+            ],
+          ),
+          _skeletonBox(width: 60, height: 12, borderRadius: 4),
+        ],
+      ),
+    );
+  }
+}
+
 
 

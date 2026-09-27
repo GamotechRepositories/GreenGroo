@@ -12,10 +12,11 @@ class FarmerState extends ChangeNotifier {
   factory FarmerState() => _instance;
   FarmerState._internal() {
     _ensureDocumentChecklist();
-    initPreferences();
-    if (isLoggedIn) {
-      fetchFromBackend();
-    }
+    initPreferences().then((_) {
+      if (isLoggedIn) {
+        fetchFromBackend();
+      }
+    });
     _startPeriodicNotificationPolling();
   }
 
@@ -137,15 +138,12 @@ class FarmerState extends ChangeNotifier {
       if (healthy) {
         connectionMessage = 'Connected: $backendUrl';
 
-        await _markReady(_fetchProfileSafe(), () => profileReady = true);
-        notifyListeners();
+        // Parallel fetch of ALL sections for blazing-fast speed
         await Future.wait([
+          _markReady(_fetchProfileSafe(), () => profileReady = true),
           _markReady(_fetchProductsSafe(), () => productsReady = true),
           _markReady(_fetchOrdersSafe(), () => ordersReady = true),
           _markReady(_fetchCropsSafe(), () => cropsReady = true),
-        ]);
-        notifyListeners();
-        await Future.wait([
           _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
           _markReady(_fetchSchemesSafe(), () => schemesReady = true),
         ]);
@@ -543,6 +541,8 @@ class FarmerState extends ChangeNotifier {
       _loadProfilePreferences(),
       _loadDocumentsPreferences(),
     ]);
+    isPreferencesLoaded = true;
+    notifyListeners();
   }
 
   Future<void> _loadProfilePreferences() async {

@@ -141,6 +141,7 @@ export default function MarketPricesPage() {
   const [marketFilter, setMarketFilter] = useState('all');
   const [productFilter, setProductFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -157,6 +158,7 @@ export default function MarketPricesPage() {
       if (statusFilter !== 'all') params.status = statusFilter;
       if (marketFilter !== 'all') params.marketName = marketFilter;
       if (productFilter !== 'all') params.productName = productFilter;
+      if (dateFilter !== 'all') params.priceDate = dateFilter;
 
       const res = await opsApi.list('market-prices', params);
       setRows(Array.isArray(res.data) ? res.data : []);
@@ -166,13 +168,13 @@ export default function MarketPricesPage() {
     } finally {
       setLoading(false);
     }
-  }, [marketFilter, productFilter, statusFilter]);
+  }, [marketFilter, productFilter, statusFilter, dateFilter]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Unique markets and products
+  // Unique markets, products, and dates
   const uniqueMarkets = useMemo(() => {
     const set = new Set(rows.map((r) => stripMarathi(r.marketName)).filter(Boolean));
     return Array.from(set).sort();
@@ -181,6 +183,11 @@ export default function MarketPricesPage() {
   const uniqueProducts = useMemo(() => {
     const set = new Set(rows.map((r) => stripMarathi(r.productName)).filter(Boolean));
     return Array.from(set).sort();
+  }, [rows]);
+
+  const uniqueDates = useMemo(() => {
+    const set = new Set(rows.map((r) => r.priceDate ? String(r.priceDate).slice(0, 10) : '').filter(Boolean));
+    return Array.from(set).sort().reverse();
   }, [rows]);
 
   // Product price comparison (GreenGroo vs APMC)
@@ -261,10 +268,13 @@ export default function MarketPricesPage() {
         statusFilter === 'all' ||
         (statusFilter === 'active' && row.isActive) ||
         (statusFilter === 'inactive' && !row.isActive);
+      const matchesDate =
+        dateFilter === 'all' ||
+        (row.priceDate && String(row.priceDate).slice(0, 10) === dateFilter);
 
-      return matchesSearch && matchesMarket && matchesProduct && matchesStatus;
+      return matchesSearch && matchesMarket && matchesProduct && matchesStatus && matchesDate;
     });
-  }, [rows, search, scopeFilter, marketFilter, productFilter, statusFilter]);
+  }, [rows, search, scopeFilter, marketFilter, productFilter, statusFilter, dateFilter]);
 
   const openCreateModal = () => {
     setEditingItem(null);
@@ -704,11 +714,35 @@ export default function MarketPricesPage() {
             </select>
           </div>
 
+          {/* Date Dropdown & Picker */}
+          <div className="flex items-center gap-1">
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className={`${INPUT} py-1.5 text-xs font-medium text-slate-700 min-w-[130px]`}
+            >
+              <option value="all">📅 All Dates</option>
+              {uniqueDates.map((d) => (
+                <option key={d} value={d}>
+                  {d === new Date().toISOString().slice(0, 10) ? `📍 Today (${d})` : d}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={dateFilter !== 'all' ? dateFilter : ''}
+              onChange={(e) => setDateFilter(e.target.value || 'all')}
+              className={`${INPUT} py-1 px-2 text-xs font-medium text-slate-700 w-auto`}
+              title="Select custom date"
+            />
+          </div>
+
           {/* Reset */}
           {(search ||
             marketFilter !== 'all' ||
             productFilter !== 'all' ||
             statusFilter !== 'all' ||
+            dateFilter !== 'all' ||
             scopeFilter !== 'all') && (
             <button
               type="button"
@@ -718,6 +752,7 @@ export default function MarketPricesPage() {
                 setMarketFilter('all');
                 setProductFilter('all');
                 setStatusFilter('all');
+                setDateFilter('all');
               }}
               className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
             >

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../../core/utils/photo_picker_sheet.dart';
@@ -109,7 +110,13 @@ class _CropsScreenState extends State<CropsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allCrops = FarmerState().crops;
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.cropsReady);
+        if (isLoading) {
+          return const CropsSkeletonLoader();
+        }
+
+        final allCrops = state.crops;
         final crops = allCrops.where((c) {
           final q = _search.trim().toLowerCase();
           if (q.isEmpty) return true;

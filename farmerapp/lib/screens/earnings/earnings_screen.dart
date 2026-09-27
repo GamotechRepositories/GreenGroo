@@ -53,8 +53,14 @@ class EarningsScreenState extends State<EarningsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final products = FarmerState().products;
-        final rawOrders = FarmerState().orders;
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.ordersReady);
+        if (isLoading) {
+          return const EarningsSkeletonLoader();
+        }
+
+        final products = state.products;
+        final rawOrders = state.orders;
         final orders = rawOrders.where(_isStatementOrder).toList();
 
         // Build list of workbook sheets

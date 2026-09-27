@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../core/constants/farmer_constants.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
@@ -424,8 +424,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
-          body: !FarmerState().profileReady
-              ? const AppLoader(message: 'प्रोफाईल लोड होत आहे...')
+          body: (!FarmerState().isPreferencesLoaded || (FarmerState().isLoadingFromBackend && !FarmerState().profileReady))
+              ? const ProfileSkeletonLoader()
               : SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Column(

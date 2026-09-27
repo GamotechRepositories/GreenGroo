@@ -16,277 +16,86 @@ class MarketPriceService extends ChangeNotifier {
   List<MarketPriceItem> _items = [];
   List<MarketPriceItem> get items => _items;
 
-  void _initFallbackData() {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    _items = [
-      MarketPriceItem(
-        id: 'MP-GG-1',
-        marketName: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)',
-        productName: 'Tomato (टोमॅटो)',
-        variety: 'Hybrid Super Grade',
-        price: 2850,
-        minPrice: 2500,
-        maxPrice: 3100,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune Hub',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 3200,
-        isGreenGroo: true,
-      ),
-      MarketPriceItem(
-        id: 'MP-GG-2',
-        marketName: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)',
-        productName: 'Onion (कांदा)',
-        variety: 'Garwa / Export',
-        price: 2250,
-        minPrice: 1950,
-        maxPrice: 2500,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Nashik Hub',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 5400,
-        isGreenGroo: true,
-      ),
-      MarketPriceItem(
-        id: 'MP-GG-3',
-        marketName: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)',
-        productName: 'Potato (बटाटा)',
-        variety: 'Jyoti Premium',
-        price: 2300,
-        minPrice: 2000,
-        maxPrice: 2500,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune Hub',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 2800,
-        isGreenGroo: true,
-      ),
-      MarketPriceItem(
-        id: 'MP-1',
-        marketName: 'Mumbai Vashi APMC',
-        productName: 'Tomato (टोमॅटो)',
-        variety: 'Desi Special',
-        price: 2600,
-        minPrice: 2200,
-        maxPrice: 3000,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Mumbai',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 2100,
-      ),
-      MarketPriceItem(
-        id: 'MP-2',
-        marketName: 'Pune APMC (गुलटेकडी)',
-        productName: 'Tomato (टोमॅटो)',
-        variety: 'Hybrid No.1',
-        price: 2400,
-        minPrice: 2000,
-        maxPrice: 2800,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 1850,
-      ),
-      MarketPriceItem(
-        id: 'MP-3',
-        marketName: 'Nashik APMC (पिंपळगाव)',
-        productName: 'Tomato (टोमॅटो)',
-        variety: 'Hybrid 1057',
-        price: 2350,
-        minPrice: 1950,
-        maxPrice: 2700,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Nashik',
-        state: 'Maharashtra',
-        trend: 'stable',
-        arrivalQuantity: 3200,
-      ),
-      MarketPriceItem(
-        id: 'MP-4',
-        marketName: 'Nashik APMC (पिंपळगाव)',
-        productName: 'Onion (कांदा)',
-        variety: 'Lal Kaanda',
-        price: 2100,
-        minPrice: 1700,
-        maxPrice: 2450,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Nashik',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 8600,
-      ),
-      MarketPriceItem(
-        id: 'MP-5',
-        marketName: 'Pune APMC (गुलटेकडी)',
-        productName: 'Onion (कांदा)',
-        variety: 'Garwa / Unhali',
-        price: 1850,
-        minPrice: 1500,
-        maxPrice: 2200,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune',
-        state: 'Maharashtra',
-        trend: 'stable',
-        arrivalQuantity: 4200,
-      ),
-      MarketPriceItem(
-        id: 'MP-6',
-        marketName: 'Solapur APMC',
-        productName: 'Onion (कांदा)',
-        variety: 'Regular Lal',
-        price: 1750,
-        minPrice: 1400,
-        maxPrice: 2050,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Solapur',
-        state: 'Maharashtra',
-        trend: 'down',
-        arrivalQuantity: 5100,
-      ),
-      MarketPriceItem(
-        id: 'MP-7',
-        marketName: 'Mumbai Vashi APMC',
-        productName: 'Potato (बटाटा)',
-        variety: 'Jyoti Grade-A',
-        price: 2150,
-        minPrice: 1850,
-        maxPrice: 2400,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Mumbai',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 2800,
-      ),
-      MarketPriceItem(
-        id: 'MP-8',
-        marketName: 'Pune APMC (गुलटेकडी)',
-        productName: 'Potato (बटाटा)',
-        variety: 'Jyoti / Local',
-        price: 1900,
-        minPrice: 1600,
-        maxPrice: 2200,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune',
-        state: 'Maharashtra',
-        trend: 'stable',
-        arrivalQuantity: 3100,
-      ),
-      MarketPriceItem(
-        id: 'MP-9',
-        marketName: 'Kolhapur APMC',
-        productName: 'Green Chilli (हिरवी मिरची)',
-        variety: 'G4 Green',
-        price: 4500,
-        minPrice: 3800,
-        maxPrice: 5200,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Kolhapur',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 920,
-      ),
-      MarketPriceItem(
-        id: 'MP-10',
-        marketName: 'Pune APMC (गुलटेकडी)',
-        productName: 'Green Chilli (हिरवी मिरची)',
-        variety: 'Lavangi / Local',
-        price: 4000,
-        minPrice: 3500,
-        maxPrice: 4600,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune',
-        state: 'Maharashtra',
-        trend: 'stable',
-        arrivalQuantity: 1100,
-      ),
-      MarketPriceItem(
-        id: 'MP-11',
-        marketName: 'Solapur APMC',
-        productName: 'Pomegranate (डाळिंब)',
-        variety: 'Bhagwa Super',
-        price: 9500,
-        minPrice: 8000,
-        maxPrice: 11500,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Solapur',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 650,
-      ),
-      MarketPriceItem(
-        id: 'MP-12',
-        marketName: 'Pune APMC (गुलटेकडी)',
-        productName: 'Pomegranate (डाळिंब)',
-        variety: 'Bhagwa Standard',
-        price: 8500,
-        minPrice: 7200,
-        maxPrice: 9800,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Pune',
-        state: 'Maharashtra',
-        trend: 'stable',
-        arrivalQuantity: 820,
-      ),
-      MarketPriceItem(
-        id: 'MP-13',
-        marketName: 'Sangli APMC',
-        productName: 'Turmeric (हळद)',
-        variety: 'Rajapore Salem',
-        price: 13800,
-        minPrice: 12500,
-        maxPrice: 15200,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Sangli',
-        state: 'Maharashtra',
-        trend: 'up',
-        arrivalQuantity: 1200,
-      ),
-      MarketPriceItem(
-        id: 'MP-14',
-        marketName: 'Kolhapur APMC',
-        productName: 'Turmeric (हळद)',
-        variety: 'Local Salem',
-        price: 12500,
-        minPrice: 11200,
-        maxPrice: 13900,
-        unit: 'Quintal',
-        priceDate: today,
-        district: 'Kolhapur',
-        state: 'Maharashtra',
-        trend: 'stable',
-        arrivalQuantity: 880,
-      ),
-    ];
+  List<String> get availableDates {
+    final set = <String>{};
+    for (final item in _items) {
+      if (item.priceDate.isNotEmpty) {
+        set.add(item.priceDate.substring(0, 10));
+      }
+    }
+    final list = set.toList();
+    list.sort((a, b) => b.compareTo(a)); // newest first
+    return list;
   }
 
-  Future<void> fetchMarketPrices() async {
+  static String _getDateOffset(int days) {
+    final d = DateTime.now().add(Duration(days: days));
+    return d.toIso8601String().substring(0, 10);
+  }
+
+  void _initFallbackData() {
+    final baseSeeds = [
+      (id: 'MP-GG-1', m: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)', p: 'Tomato (टोमॅटो)', v: 'Hybrid Super Grade', pr: 2850.0, min: 2500.0, max: 3100.0, dist: 'Pune Hub', t: 'up', arr: 3200.0, gg: true),
+      (id: 'MP-GG-2', m: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)', p: 'Onion (कांदा)', v: 'Garwa / Export', pr: 2250.0, min: 1950.0, max: 2500.0, dist: 'Nashik Hub', t: 'up', arr: 5400.0, gg: true),
+      (id: 'MP-GG-3', m: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)', p: 'Potato (बटाटा)', v: 'Jyoti Premium', pr: 2300.0, min: 2000.0, max: 2500.0, dist: 'Pune Hub', t: 'up', arr: 2800.0, gg: true),
+      (id: 'MP-1', m: 'Mumbai Vashi APMC', p: 'Tomato (टोमॅटो)', v: 'Desi Special', pr: 2600.0, min: 2200.0, max: 3000.0, dist: 'Mumbai', t: 'up', arr: 2100.0, gg: false),
+      (id: 'MP-2', m: 'Pune APMC (गुलटेकडी)', p: 'Tomato (टोमॅटो)', v: 'Hybrid No.1', pr: 2400.0, min: 2000.0, max: 2800.0, dist: 'Pune', t: 'up', arr: 1850.0, gg: false),
+      (id: 'MP-3', m: 'Nashik APMC (पिंपळगाव)', p: 'Tomato (टोमॅटो)', v: 'Hybrid 1057', pr: 2350.0, min: 1950.0, max: 2700.0, dist: 'Nashik', t: 'stable', arr: 3200.0, gg: false),
+      (id: 'MP-4', m: 'Nashik APMC (पिंपळगाव)', p: 'Onion (कांदा)', v: 'Lal Kaanda', pr: 2100.0, min: 1700.0, max: 2450.0, dist: 'Nashik', t: 'up', arr: 8600.0, gg: false),
+      (id: 'MP-5', m: 'Pune APMC (गुलटेकडी)', p: 'Onion (कांदा)', v: 'Garwa / Unhali', pr: 1850.0, min: 1500.0, max: 2200.0, dist: 'Pune', t: 'stable', arr: 4200.0, gg: false),
+      (id: 'MP-6', m: 'Solapur APMC', p: 'Onion (कांदा)', v: 'Regular Lal', pr: 1750.0, min: 1400.0, max: 2050.0, dist: 'Solapur', t: 'down', arr: 5100.0, gg: false),
+      (id: 'MP-7', m: 'Mumbai Vashi APMC', p: 'Potato (बटाटा)', v: 'Jyoti Grade-A', pr: 2150.0, min: 1850.0, max: 2400.0, dist: 'Mumbai', t: 'up', arr: 2800.0, gg: false),
+      (id: 'MP-8', m: 'Pune APMC (गुलटेकडी)', p: 'Potato (बटाटा)', v: 'Jyoti / Local', pr: 1900.0, min: 1600.0, max: 2200.0, dist: 'Pune', t: 'stable', arr: 3100.0, gg: false),
+      (id: 'MP-9', m: 'Kolhapur APMC', p: 'Green Chilli (हिरवी मिरची)', v: 'G4 Green', pr: 4500.0, min: 3800.0, max: 5200.0, dist: 'Kolhapur', t: 'up', arr: 920.0, gg: false),
+      (id: 'MP-10', m: 'Pune APMC (गुलटेकडी)', p: 'Green Chilli (हिरवी मिरची)', v: 'Lavangi / Local', pr: 4000.0, min: 3500.0, max: 4600.0, dist: 'Pune', t: 'stable', arr: 1100.0, gg: false),
+      (id: 'MP-11', m: 'Solapur APMC', p: 'Pomegranate (डाळिंब)', v: 'Bhagwa Super', pr: 9500.0, min: 8000.0, max: 11500.0, dist: 'Solapur', t: 'up', arr: 650.0, gg: false),
+      (id: 'MP-12', m: 'Pune APMC (गुलटेकडी)', p: 'Pomegranate (डाळिंब)', v: 'Bhagwa Standard', pr: 8500.0, min: 7200.0, max: 9800.0, dist: 'Pune', t: 'stable', arr: 820.0, gg: false),
+      (id: 'MP-13', m: 'Sangli APMC', p: 'Turmeric (हळद)', v: 'Rajapore Salem', pr: 13800.0, min: 12500.0, max: 15200.0, dist: 'Sangli', t: 'up', arr: 1200.0, gg: false),
+      (id: 'MP-14', m: 'Kolhapur APMC', p: 'Turmeric (हळद)', v: 'Local Salem', pr: 12500.0, min: 11200.0, max: 13900.0, dist: 'Kolhapur', t: 'stable', arr: 880.0, gg: false),
+    ];
+
+    final List<MarketPriceItem> generated = [];
+    final offsets = [0, -1, -2, -3, -4, -5, -6];
+
+    for (final off in offsets) {
+      final dateStr = _getDateOffset(off);
+      for (final s in baseSeeds) {
+        final delta = off * 25.0 * (s.t == 'up' ? -1 : s.t == 'down' ? 1 : (off % 2 == 0 ? 1 : -1));
+        final finalPrice = (s.pr + delta).clamp(s.min, s.max);
+        generated.add(
+          MarketPriceItem(
+            id: '${s.id}_$off',
+            marketName: s.m,
+            productName: s.p,
+            variety: s.v,
+            price: finalPrice,
+            minPrice: s.min,
+            maxPrice: s.max,
+            unit: 'Quintal',
+            priceDate: dateStr,
+            district: s.dist,
+            state: 'Maharashtra',
+            trend: s.t,
+            arrivalQuantity: s.arr,
+            isGreenGroo: s.gg,
+          ),
+        );
+      }
+    }
+    _items = generated;
+  }
+
+  Future<void> fetchMarketPrices({String? date}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
+      final uri = (date != null && date.isNotEmpty && date != 'all')
+          ? '/api/admin-ops/market-prices/live?date=$date'
+          : '/api/admin-ops/market-prices/live';
+
       final res = await ApiService().get(
-        '/api/admin-ops/market-prices/live',
+        uri,
         timeout: const Duration(seconds: 4),
       );
 
@@ -297,13 +106,13 @@ class MarketPriceService extends ChangeNotifier {
               .map((item) => MarketPriceItem.fromJson(Map<String, dynamic>.from(item)))
               .toList();
 
-          // Merge loaded with fallback if needed so all crops have multi-market comparisons
+          // Merge loaded with fallback
           final Map<String, MarketPriceItem> map = {};
           for (final item in _items) {
-            map['${item.marketName}_${_normalizeProductName(item.productName)}'] = item;
+            map['${item.marketName}_${_normalizeProductName(item.productName)}_${item.priceDate.isNotEmpty ? item.priceDate.substring(0, 10) : ""}'] = item;
           }
           for (final item in loaded) {
-            map['${item.marketName}_${_normalizeProductName(item.productName)}'] = item;
+            map['${item.marketName}_${_normalizeProductName(item.productName)}_${item.priceDate.isNotEmpty ? item.priceDate.substring(0, 10) : ""}'] = item;
           }
           _items = map.values.toList();
         }
@@ -344,12 +153,15 @@ class MarketPriceService extends ChangeNotifier {
     return '🌾';
   }
 
-  /// Compares all prices for the same product across different markets
-  /// and calculates for each market how many percent (%) higher the market rate is!
-  List<ProductMarketComparison> getComparisons() {
+  /// Compares all prices for the same product across different markets for a given date
+  List<ProductMarketComparison> getComparisons({String? date}) {
     final Map<String, List<MarketPriceItem>> grouped = {};
 
-    for (final item in _items) {
+    final sourceItems = (date != null && date.isNotEmpty && date != 'all')
+        ? _items.where((i) => i.priceDate.startsWith(date)).toList()
+        : _items;
+
+    for (final item in sourceItems) {
       if (!item.isActive) continue;
       final key = _normalizeProductName(item.productName);
       grouped.putIfAbsent(key, () => []).add(item);
@@ -360,7 +172,7 @@ class MarketPriceService extends ChangeNotifier {
     grouped.forEach((productKey, productItems) {
       if (productItems.isEmpty) return;
 
-      // Deduplicate by marketName (keep highest price quote if multiple)
+      // Deduplicate by marketName (keep latest or highest quote)
       final Map<String, MarketPriceItem> marketMap = {};
       for (final p in productItems) {
         final existing = marketMap[p.marketName];

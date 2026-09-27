@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../models/market_price_item.dart';
 import '../../services/market_price_service.dart';
 
@@ -13,6 +14,8 @@ class MarketComparisonScreen extends StatefulWidget {
 
 class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
   int _selectedProductIndex = 0;
+  int _selectedDateIndex = 0; // 0: Today, 1: Yesterday, 2: 2 Days Ago, -1: Custom Date, 3: All
+  DateTime? _customDate;
 
   static const List<Color> _chartColors = [
     Color(0xFF16A34A), // Emerald Green
@@ -36,7 +39,21 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
       listenable: MarketPriceService(),
       builder: (context, _) {
         final service = MarketPriceService();
-        final comparisons = service.getComparisons();
+        String? targetDate;
+        final now = DateTime.now();
+        if (_selectedDateIndex == -1 && _customDate != null) {
+          targetDate = _customDate!.toIso8601String().substring(0, 10);
+        } else if (_selectedDateIndex == 0) {
+          targetDate = now.toIso8601String().substring(0, 10);
+        } else if (_selectedDateIndex == 1) {
+          targetDate = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+        } else if (_selectedDateIndex == 2) {
+          targetDate = now.subtract(const Duration(days: 2)).toIso8601String().substring(0, 10);
+        } else {
+          targetDate = null;
+        }
+
+        final comparisons = service.getComparisons(date: targetDate);
 
         if (widget.initialProduct != null && widget.initialProduct!.isNotEmpty) {
           final idx = comparisons.indexWhere((c) =>
@@ -45,6 +62,10 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
           if (idx != -1 && _selectedProductIndex == 0) {
             _selectedProductIndex = idx;
           }
+        }
+
+        if (service.isLoading && comparisons.isEmpty) {
+          return const MarketComparisonSkeletonLoader();
         }
 
         final selected = comparisons.isNotEmpty
@@ -92,8 +113,15 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
             color: const Color(0xFF16A34A),
             onRefresh: () => service.fetchMarketPrices(),
             child: comparisons.isEmpty
-                ? const Center(
-                    child: Text('बाजार भाव उपलब्ध नाहीत', style: TextStyle(color: Color(0xFF64748B))),
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildDateRow(),
+                        const SizedBox(height: 20),
+                        const Text('या तारखेचे बाजार भाव उपलब्ध नाहीत', style: TextStyle(color: Color(0xFF64748B))),
+                      ],
+                    ),
                   )
                 : SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -101,6 +129,10 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Date selector
+                        _buildDateRow(),
+                        const SizedBox(height: 12),
+
                         // Top Summary Card
                         Container(
                           width: double.infinity,
@@ -788,6 +820,131 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDateRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _dateFilterChip(0, 'आजचे दर (Today)'),
+          const SizedBox(width: 6),
+          _dateFilterChip(1, 'कालचे दर (Yesterday)'),
+          const SizedBox(width: 6),
+          _dateFilterChip(2, '२ दिवस आधी (2 Days)'),
+          const SizedBox(width: 6),
+          _buildCustomDatePickerChip(),
+          const SizedBox(width: 6),
+          _dateFilterChip(3, 'सर्व दिवस (All Dates)'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomDatePickerChip() {
+    final isSel = _selectedDateIndex == -1;
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _customDate ?? DateTime.now(),
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 30)),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFF16A34A),
+                  onPrimary: Colors.white,
+                  onSurface: Color(0xFF1E293B),
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (picked != null) {
+          setState(() {
+            _customDate = picked;
+            _selectedDateIndex = -1;
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF16A34A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSel ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+          ),
+          boxShadow: [
+            if (isSel)
+              BoxShadow(
+                color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_month_rounded,
+              size: 13,
+              color: isSel ? Colors.white : const Color(0xFF16A34A),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isSel && _customDate != null
+                  ? '${_customDate!.day}/${_customDate!.month}/${_customDate!.year}'
+                  : '📅 तारीख निवडा (Select Date)',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                color: isSel ? Colors.white : const Color(0xFF16A34A),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dateFilterChip(int index, String label) {
+    final isSel = _selectedDateIndex == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedDateIndex = index),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF16A34A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSel ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+          ),
+          boxShadow: [
+            if (isSel)
+              BoxShadow(
+                color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+            color: isSel ? Colors.white : const Color(0xFF475569),
+          ),
+        ),
+      ),
     );
   }
 }

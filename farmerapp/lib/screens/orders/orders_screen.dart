@@ -74,7 +74,13 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allOrders = FarmerState().orders.where((order) {
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.ordersReady);
+        if (isLoading) {
+          return const OrdersSkeletonLoader();
+        }
+
+        final allOrders = state.orders.where((order) {
           final status = order.status.trim().toUpperCase();
           return status != 'DELETED' && status != 'DELETED_ORDER';
         }).toList();

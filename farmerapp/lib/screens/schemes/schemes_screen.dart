@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import '../../core/utils/photo_picker_sheet.dart';
@@ -107,9 +108,13 @@ class _SchemesScreenState extends State<SchemesScreen> {
       listenable: FarmerState(),
       builder: (context, _) {
         final state = FarmerState();
+        final loading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.schemesReady);
+        if (loading) {
+          return const SchemesSkeletonLoader();
+        }
+
         final allSchemes = state.schemes;
         final schemes = _filterSchemes(allSchemes);
-        final loading = !state.schemesReady && allSchemes.isEmpty;
         final categories = _getAvailableCategories(allSchemes);
 
         return Scaffold(

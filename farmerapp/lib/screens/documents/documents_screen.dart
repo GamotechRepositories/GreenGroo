@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import '../../core/utils/photo_picker_sheet.dart';
@@ -23,7 +24,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allDocs = FarmerState().documents;
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.documentsReady);
+        if (isLoading) {
+          return const DocumentsSkeletonLoader();
+        }
+
+        final allDocs = state.documents;
         final uploadedDocs = allDocs.where((d) => d.isUploaded || d.fileUrl.isNotEmpty || (d.status != 'not_uploaded' && d.status.isNotEmpty)).toList();
         final pendingDocs = allDocs.where((d) => !uploadedDocs.contains(d)).toList();
         final approvedCount = uploadedDocs.where((d) => d.status == 'approved').length;
