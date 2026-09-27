@@ -5,11 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
-import '../crops/add_crop_screen.dart';
-import '../crops/crop_planning_screen.dart';
-import '../products/add_product_screen.dart';
 import '../notifications/notifications_screen.dart';
-import '../documents/documents_screen.dart';
 import '../schemes/schemes_screen.dart';
 import '../main_shell.dart';
 import '../market/market_comparison_screen.dart';
@@ -81,40 +77,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return s != 'DELETED' && s != 'DELETED_ORDER';
         }).toList();
 
-        // Real order status counts
-        final newOrdersCount = liveOrders.where((o) {
-          final s = o.status.toUpperCase();
-          return s == 'NEW' || s == 'PENDING';
-        }).length;
-
-        final acceptedOrdersCount = liveOrders.where((o) {
-          final s = o.status.toUpperCase();
-          return s == 'ACCEPTED' || s == 'CONFIRMED';
-        }).length;
-
-        final preparingOrdersCount = liveOrders.where((o) {
-          final s = o.status.toUpperCase();
-          return s == 'PREPARING' || s == 'PACKING';
-        }).length;
-
-        final readyPickupOrdersCount = liveOrders.where((o) {
-          final s = o.status.toUpperCase();
-          return s == 'READY_FOR_PICKUP' || s.contains('READY');
-        }).length;
-
-        final completedOrdersCount = liveOrders.where((o) {
-          final s = o.status.toUpperCase();
-          return s == 'COMPLETED' || s == 'DELIVERED';
-        }).length;
-
-        final rejectedOrdersCount = liveOrders.where((o) {
-          final s = o.status.toUpperCase();
-          return s == 'REJECTED' || s == 'CANCELLED';
-        }).length;
-
         final settledOrders = liveOrders.where(_isEarningOrder).toList();
         final totalEarned = settledOrders.fold<double>(0, (sum, o) => sum + _orderAmount(o));
-        final pendingEarned = settledOrders.where((o) => !_isPaidOrder(o)).fold<double>(0, (sum, o) => sum + _orderAmount(o));
 
         // Real monthly earnings calculation
         final now = DateTime.now();
@@ -128,21 +92,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         }).toList();
         final monthlyEarned = thisMonthOrders.fold<double>(0, (sum, o) => sum + _orderAmount(o));
-        final paidEarned = liveOrders.where(_isPaidOrder).fold<double>(0, (sum, o) => sum + _orderAmount(o));
 
         final totalStock = state.totalStockKg;
 
         // Real profile details
         final firstName = profile.fullName.trim().isEmpty ? 'शेतकरी' : profile.fullName.trim().split(RegExp(r'\s+')).first;
-        final placeParts = [profile.village, profile.taluka].where((part) => part.trim().isNotEmpty).toList();
-        final place = placeParts.isNotEmpty
-            ? placeParts.join(', ')
-            : (profile.district.trim().isNotEmpty ? profile.district.trim() : 'स्थान नोंदणी बाकी');
-
-        final acres = profile.totalAcres;
-        final acreText = acres > 0
-            ? (acres == acres.roundToDouble() ? acres.toInt().toString() : acres.toStringAsFixed(1))
-            : '0';
 
         final totalCropsCount = crops.length;
         final kyc = profile.kycStatus.trim().toUpperCase();
@@ -152,10 +106,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final totalProductsVal = '${products.length}';
         final harvestOrdersVal = '${liveOrders.length}';
         final totalStockVal = totalStock > 0 ? '${totalStock.toStringAsFixed(0)} Kg' : '0 Kg';
-        final totalEarningsVal = '₹ ${_formatRupees(totalEarned)}';
-        final pendingPayoutVal = '₹ ${_formatRupees(pendingEarned)}';
-        final paidPayoutVal = '₹ ${_formatRupees(paidEarned)}';
-        final monthlyEarningsVal = '₹ ${_formatRupees(monthlyEarned)}';
 
         // Real pickup orders
         final pickupOrders = liveOrders.where((o) {
@@ -399,232 +349,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
 
-                // 2. 👨🌾 REAL FARMER + FARM SUMMARY CARD
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0F4725), Color(0xFF165D32)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF0F4725).withValues(alpha: 0.28),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // 1. My Farm Section (Real Acres & Real Location)
-                      Expanded(
-                        flex: 11,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.eco, color: Color(0xFF86EFAC), size: 13),
-                                SizedBox(width: 3),
-                                Text(
-                                  'माझे शेत',
-                                  style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              acres > 0 ? '$acreText Acre' : 'शेती आकार नोंदवा',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: acres > 0 ? 17 : 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on, color: Color(0xFF86EFAC), size: 11),
-                                const SizedBox(width: 2),
-                                Expanded(
-                                  child: Text(
-                                    place,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 9.5),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Divider
-                      Container(
-                        height: 44,
-                        width: 1,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        color: Colors.white24,
-                      ),
-
-                      // 2. Real Crops Count & Crop Badges
-                      Expanded(
-                        flex: 9,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: const [
-                                Icon(Icons.grass_rounded, color: Color(0xFFFDE047), size: 13),
-                                SizedBox(width: 3),
-                                Text(
-                                  'एकूण पिके',
-                                  style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$totalCropsCount',
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: crops.isNotEmpty
-                                  ? crops.take(3).map((c) => Padding(
-                                      padding: const EdgeInsets.only(right: 3),
-                                      child: _cropBadge(_getCropEmoji(c.cropName)),
-                                    )).toList()
-                                  : [
-                                      InkWell(
-                                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen())),
-                                        child: const Text('+ पिक जोडा', style: TextStyle(color: Color(0xFF86EFAC), fontSize: 9, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(width: 6),
-
-                      // 3. Real KYC Status Pill Button
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const DocumentsScreen()));
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                kycVerified ? Icons.check_circle_rounded : Icons.pending_rounded,
-                                color: kycVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-                                size: 13,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                kycVerified ? 'KYC VERIFIED' : 'KYC PENDING',
-                                style: TextStyle(
-                                  color: kycVerified ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.1,
-                                ),
-                              ),
-                              const SizedBox(width: 1),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                color: kycVerified ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                                size: 13,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 3. ⚡ QUICK ACTIONS (जलद कृती)
+                                // 12. 🏷️ REAL MARKET PRICE COMPARISON — DONUT CHART (बाजार भाव तुलना)
                 _sectionHeader(
-                  icon: Icons.flash_on_rounded,
-                  iconColor: const Color(0xFFD97706),
-                  title: 'QUICK ACTIONS',
-                  marathiTitle: 'जलद कृती',
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _ActionCard(
-                          icon: Icons.eco_rounded,
-                          iconColor: const Color(0xFF16A34A),
-                          bgColor: const Color(0xFFEBF7EE),
-                          title: 'Add Crop',
-                          subTitle: 'पिक जोडा',
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen())),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionCard(
-                          icon: Icons.inventory_2_rounded,
-                          iconColor: const Color(0xFF2563EB),
-                          bgColor: const Color(0xFFEFF6FF),
-                          title: 'Add Product',
-                          subTitle: 'उत्पादन जोडा',
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen())),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionCard(
-                          icon: Icons.calendar_month_rounded,
-                          iconColor: const Color(0xFFD97706),
-                          bgColor: const Color(0xFFFFFBEB),
-                          title: 'Crop Planning',
-                          subTitle: 'पीक नियोजन',
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CropPlanningScreen())),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ActionCard(
-                          icon: Icons.local_shipping_rounded,
-                          iconColor: const Color(0xFFDC2626),
-                          bgColor: const Color(0xFFFEF2F2),
-                          title: 'Ready Pickup',
-                          subTitle: 'उचल साठी तयार',
-                          onTap: () => MainShell.setTab(context, 2),
-                        ),
-                      ),
-                    ],
+                  icon: Icons.trending_up_rounded,
+                  iconColor: const Color(0xFF16A34A),
+                  title: 'MARKET PRICES',
+                  marathiTitle: 'बाजार भाव तुलना',
+                  actionLabel: 'सर्व बाजार →',
+                  onAction: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MarketComparisonScreen()),
                   ),
                 ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: _MarketPriceComparisonDonutCard(),
+                ),
 
-                // 4. 📊 REAL FARM OVERVIEW (शेत थेट आढावा)
+// 4. 📊 REAL FARM OVERVIEW (शेत थेट आढावा)
                 _sectionHeader(
                   icon: Icons.analytics_outlined,
                   iconColor: const Color(0xFF16A34A),
@@ -680,138 +422,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
 
-                // 5. 📦 REAL ORDERS PIPELINE (ऑर्डर्स स्थिती)
+                // 5. 📦 REAL ORDERS STATUS — BAR CHART (Date + Order Type Filters)
                 _sectionHeader(
-                  icon: Icons.inventory_rounded,
+                  icon: Icons.bar_chart_rounded,
                   iconColor: const Color(0xFF2563EB),
-                  title: 'ORDERS',
-                  marathiTitle: 'ऑर्डर्स स्थिती',
-                  actionLabel: 'View All →',
+                  title: 'ORDERS STATUS',
+                  marathiTitle: 'ऑर्डर स्थिती',
+                  actionLabel: 'सर्व ऑर्डर्स →',
                   onAction: () => MainShell.setTab(context, 2),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 6 Real Status Counts Grid (3 columns x 2 rows)
-                        Row(
-                          children: [
-                            Expanded(child: _OrderStatusChip(label: 'New', count: '$newOrdersCount', color: const Color(0xFF2563EB), bgColor: const Color(0xFFEFF6FF))),
-                            const SizedBox(width: 6),
-                            Expanded(child: _OrderStatusChip(label: 'Accepted', count: '$acceptedOrdersCount', color: const Color(0xFF4F46E5), bgColor: const Color(0xFFEEF2FF))),
-                            const SizedBox(width: 6),
-                            Expanded(child: _OrderStatusChip(label: 'Preparing', count: '$preparingOrdersCount', color: const Color(0xFFD97706), bgColor: const Color(0xFFFFFBEB))),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(child: _OrderStatusChip(label: 'Ready Pickup', count: '$readyPickupOrdersCount', color: const Color(0xFFEA580C), bgColor: const Color(0xFFFFEDD5))),
-                            const SizedBox(width: 6),
-                            Expanded(child: _OrderStatusChip(label: 'Completed', count: '$completedOrdersCount', color: const Color(0xFF16A34A), bgColor: const Color(0xFFEBF7EE))),
-                            const SizedBox(width: 6),
-                            Expanded(child: _OrderStatusChip(label: 'Rejected', count: '$rejectedOrdersCount', color: const Color(0xFFDC2626), bgColor: const Color(0xFFFEF2F2))),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                        const SizedBox(height: 10),
-                        // Real Latest Order Snapshot (or clear empty message)
-                        if (liveOrders.isNotEmpty) ...[
-                          Builder(builder: (context) {
-                            final latest = liveOrders.first;
-                            return Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEBF7EE),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _getCropEmoji(latest.productName.isNotEmpty ? latest.productName : latest.cropName),
-                                      style: const TextStyle(fontSize: 18),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '#${latest.orderCode.isNotEmpty ? latest.orderCode : latest.id} • ${latest.productName.isNotEmpty ? latest.productName : latest.cropName}',
-                                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      Text(
-                                        '${latest.quantity} ${latest.unit} • ₹ ${_formatRupees(latest.totalAmount)} • ${latest.status}',
-                                        style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280)),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                InkWell(
-                                  onTap: () => MainShell.setTab(context, 2),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF16A34A),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Text(
-                                      'Manage',
-                                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }),
-                        ] else ...[
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: const BoxDecoration(color: Color(0xFFF1F5F9), shape: BoxShape.circle),
-                                child: const Icon(Icons.inbox_outlined, size: 18, color: Color(0xFF94A3B8)),
-                              ),
-                              const SizedBox(width: 10),
-                              const Expanded(
-                                child: Text(
-                                  'अद्याप कोणतीही ऑर्डर आलेली नाही. उत्पादने जोडा.',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen())),
-                                child: const Text('+ उत्पादन जोडा', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
+                  child: _OrderStatusBaChart(
+                    orders: liveOrders,
                   ),
                 ),
 
@@ -993,7 +616,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
 
-                // 7. 💰 REAL EARNINGS (उत्पन्न तपशील - Total | Monthly | Pending | Paid)
+                // 7. 💰 REAL EARNINGS (उत्पन्न तपशील - Period Filter)
                 _sectionHeader(
                   icon: Icons.account_balance_wallet_rounded,
                   iconColor: const Color(0xFF16A34A),
@@ -1004,56 +627,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _EarningsMetricCard(
-                          label: 'Total',
-                          marathi: 'एकूण उत्पन्न',
-                          amount: totalEarningsVal,
-                          icon: Icons.account_balance_wallet,
-                          color: const Color(0xFF16A34A),
-                          bgColor: const Color(0xFFDCFCE7),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _EarningsMetricCard(
-                          label: 'Monthly',
-                          marathi: 'या महिन्याचे',
-                          amount: monthlyEarningsVal,
-                          icon: Icons.calendar_today_rounded,
-                          color: const Color(0xFF2563EB),
-                          bgColor: const Color(0xFFDBEAFE),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _EarningsMetricCard(
-                          label: 'Pending',
-                          marathi: 'प्रलंबित रक्कम',
-                          amount: pendingPayoutVal,
-                          icon: Icons.hourglass_top_rounded,
-                          color: const Color(0xFFD97706),
-                          bgColor: const Color(0xFFFEF3C7),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _EarningsMetricCard(
-                          label: 'Paid',
-                          marathi: 'खात्यात जमा',
-                          amount: paidPayoutVal,
-                          icon: Icons.verified_rounded,
-                          color: const Color(0xFF059669),
-                          bgColor: const Color(0xFFD1FAE5),
-                        ),
-                      ),
-                    ],
+                  child: _EarningsCardsWithFilter(
+                    settledOrders: settledOrders,
+                    liveOrders: liveOrders,
                   ),
                 ),
 
-                // 8. 📈 REAL EARNINGS TREND — LINE CHART
+                // 8. 📈 REAL EARNINGS TREND — LINE CHART (Date Filter)
                 _sectionHeader(
                   icon: Icons.show_chart_rounded,
                   iconColor: const Color(0xFF16A34A),
@@ -1069,26 +649,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
 
-                // 9. 📦 REAL ORDERS STATUS — BAR CHART
-                _sectionHeader(
-                  icon: Icons.bar_chart_rounded,
-                  iconColor: const Color(0xFF2563EB),
-                  title: 'ORDERS STATUS',
-                  marathiTitle: 'ऑर्डर स्थिती',
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _OrderStatusBaChart(
-                    newCount: newOrdersCount,
-                    acceptedCount: acceptedOrdersCount,
-                    preparingCount: preparingOrdersCount,
-                    readyCount: readyPickupOrdersCount,
-                    completedCount: completedOrdersCount,
-                    rejectedCount: rejectedOrdersCount,
-                  ),
-                ),
-
-                // 10. ⚠️ REAL PRODUCT-WISE REJECTION % CHART
+                // 10. ⚠️ REAL PRODUCT-WISE REJECTION % CHART (Date + Product + Grade Filters)
                 _sectionHeader(
                   icon: Icons.donut_large_rounded,
                   iconColor: const Color(0xFFDC2626),
@@ -1115,23 +676,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: _CropProductionBarChart(
                     crops: crops,
                   ),
-                ),
-
-                // 12. 🏷️ REAL MARKET PRICE COMPARISON — DONUT CHART (बाजार भाव तुलना)
-                _sectionHeader(
-                  icon: Icons.trending_up_rounded,
-                  iconColor: const Color(0xFF16A34A),
-                  title: 'MARKET PRICES',
-                  marathiTitle: 'बाजार भाव तुलना',
-                  actionLabel: 'सर्व बाजार →',
-                  onAction: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MarketComparisonScreen()),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: _MarketPriceComparisonDonutCard(),
                 ),
 
                 // 13. 🏛️ REAL GOVERNMENT SCHEMES (शासकीय योजना व अनुदान)
@@ -1340,21 +884,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  static Widget _cropBadge(String emoji) {
-    return Container(
-      width: 18,
-      height: 18,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white30, width: 0.8),
-      ),
-      child: Center(
-        child: Text(emoji, style: const TextStyle(fontSize: 9.5)),
-      ),
-    );
-  }
-
   static String _getCropEmoji(String cropName) {
     final name = cropName.toLowerCase();
     if (name.contains('tomat') || name.contains('टोमॅटो')) return '🍅';
@@ -1388,48 +917,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ---------------------------------------------------------------------------
 // SUB-WIDGETS & CARDS
 // ---------------------------------------------------------------------------
-
-
-class _OrderStatusChip extends StatelessWidget {
-  final String label;
-  final String count;
-  final Color color;
-  final Color bgColor;
-
-  const _OrderStatusChip({
-    required this.label,
-    required this.count,
-    required this.color,
-    required this.bgColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            count,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: color),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: color),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 
 class _EarningsMetricCard extends StatelessWidget {
@@ -1588,75 +1075,6 @@ class _SchemeMiniCard extends StatelessWidget {
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color bgColor;
-  final String title;
-  final String subTitle;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.icon,
-    required this.iconColor,
-    required this.bgColor,
-    required this.title,
-    required this.subTitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 3),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: iconColor),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subTitle,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 9,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _OverviewStatCard extends StatelessWidget {
   final IconData icon;
@@ -1774,10 +1192,192 @@ double _orderAmount(FarmerOrderItem order) {
 }
 
 // ---------------------------------------------------------------------------
-// 4 REAL ANALYTICS CHARTS (LINE CHART, BAR CHARTS, REJECTION %)
+// 5 FILTERABLE DASHBOARD SECTIONS & CARDS
+// 1. Weather Forecast Card (Today / Tomorrow / 7 Days)
+// 2. Earnings Cards (Period: All Time / This Month / This Week / Today)
+// 3. Earnings Trend Line Chart (Date: 7 Days / 14 Days / 30 Days / 6 Months / 1 Year)
+// 4. Orders Status Bar Chart (Date + Order Type)
+// 5. Product Rejection Rate Donut Chart (Date + Product + Grade)
 // ---------------------------------------------------------------------------
 
-class _EarningsTrendLineChart extends StatelessWidget {
+// 2. 💰 EARNINGS CARDS WITH PERIOD FILTER (All Time / This Month / This Week / Today)
+class _EarningsCardsWithFilter extends StatefulWidget {
+  final List<FarmerOrderItem> settledOrders;
+  final List<FarmerOrderItem> liveOrders;
+
+  const _EarningsCardsWithFilter({
+    required this.settledOrders,
+    required this.liveOrders,
+  });
+
+  @override
+  State<_EarningsCardsWithFilter> createState() => _EarningsCardsWithFilterState();
+}
+
+class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
+  int _selectedPeriod = 0; // 0: All Time, 1: This Month, 2: This Week, 3: Today
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+
+    List<FarmerOrderItem> filterByPeriod(List<FarmerOrderItem> source) {
+      if (_selectedPeriod == 0) return source; // All Time
+      return source.where((o) {
+        if (o.createdAt.isEmpty) return true;
+        try {
+          final d = DateTime.parse(o.createdAt);
+          if (_selectedPeriod == 3) {
+            // Today
+            return d.isAfter(startOfToday) || (d.year == now.year && d.month == now.month && d.day == now.day);
+          } else if (_selectedPeriod == 2) {
+            // This Week
+            return d.isAfter(startOfWeekDate);
+          } else if (_selectedPeriod == 1) {
+            // This Month
+            return d.year == now.year && d.month == now.month;
+          }
+          return true;
+        } catch (_) {
+          return true;
+        }
+      }).toList();
+    }
+
+    final filteredSettled = filterByPeriod(widget.settledOrders);
+    final filteredLive = filterByPeriod(widget.liveOrders);
+
+    final totalEarned = filteredSettled.fold<double>(0, (sum, o) => sum + _orderAmount(o));
+    final pendingEarned = filteredSettled.where((o) => !_isPaidOrder(o)).fold<double>(0, (sum, o) => sum + _orderAmount(o));
+    final paidEarned = filteredLive.where(_isPaidOrder).fold<double>(0, (sum, o) => sum + _orderAmount(o));
+
+    final thisMonthOrders = widget.settledOrders.where((o) {
+      if (o.createdAt.isEmpty) return true;
+      try {
+        final d = DateTime.parse(o.createdAt);
+        return d.year == now.year && d.month == now.month;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+    final monthlyEarned = thisMonthOrders.fold<double>(0, (sum, o) => sum + _orderAmount(o));
+
+    final periodLabel = _selectedPeriod == 0
+        ? 'All Time'
+        : (_selectedPeriod == 1 ? 'या महिना' : (_selectedPeriod == 2 ? 'हा आठवडा' : 'आज'));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Filter Chips Row
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _periodFilterChip(0, 'All Time (एकूण)'),
+              const SizedBox(width: 6),
+              _periodFilterChip(1, 'This Month (या महिना)'),
+              const SizedBox(width: 6),
+              _periodFilterChip(2, 'This Week (हा आठवडा)'),
+              const SizedBox(width: 6),
+              _periodFilterChip(3, 'Today (आज)'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        // 4 Cards Grid
+        Row(
+          children: [
+            Expanded(
+              child: _EarningsMetricCard(
+                label: 'Total ($periodLabel)',
+                marathi: 'निवडलेले एकूण',
+                amount: '₹ ${_DashboardScreenState._formatRupees(totalEarned)}',
+                icon: Icons.account_balance_wallet,
+                color: const Color(0xFF16A34A),
+                bgColor: const Color(0xFFDCFCE7),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _EarningsMetricCard(
+                label: 'Monthly',
+                marathi: 'या महिन्याचे',
+                amount: '₹ ${_DashboardScreenState._formatRupees(monthlyEarned)}',
+                icon: Icons.calendar_today_rounded,
+                color: const Color(0xFF2563EB),
+                bgColor: const Color(0xFFDBEAFE),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _EarningsMetricCard(
+                label: 'Pending',
+                marathi: 'प्रलंबित रक्कम',
+                amount: '₹ ${_DashboardScreenState._formatRupees(pendingEarned)}',
+                icon: Icons.hourglass_top_rounded,
+                color: const Color(0xFFD97706),
+                bgColor: const Color(0xFFFEF3C7),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _EarningsMetricCard(
+                label: 'Paid',
+                marathi: 'खात्यात जमा',
+                amount: '₹ ${_DashboardScreenState._formatRupees(paidEarned)}',
+                icon: Icons.verified_rounded,
+                color: const Color(0xFF059669),
+                bgColor: const Color(0xFFD1FAE5),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _periodFilterChip(int index, String label) {
+    final isSel = _selectedPeriod == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedPeriod = index),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF16A34A) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSel ? const Color(0xFF16A34A) : const Color(0xFFD1D5DB),
+          ),
+          boxShadow: isSel
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF374151),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 3. 📈 EARNINGS TREND LINE CHART WITH DATE FILTER
+class _EarningsTrendLineChart extends StatefulWidget {
   final List<FarmerOrderItem> orders;
   final double totalEarned;
   final double monthlyEarned;
@@ -1789,33 +1389,108 @@ class _EarningsTrendLineChart extends StatelessWidget {
   });
 
   @override
+  State<_EarningsTrendLineChart> createState() => _EarningsTrendLineChartState();
+}
+
+class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
+  int _selectedDateFilter = 0; // 0: 7 Days, 1: 14 Days, 2: 30 Days, 3: 6 Months, 4: 1 Year
+
+  @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final List<({String label, double amount})> monthlyData = [];
+    final List<({String label, double amount})> pointsData = [];
     const monthNames = ['जाने', 'फेब्रु', 'मार्च', 'एप्रिल', 'मे', 'जून', 'जुलै', 'ऑगस्ट', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'];
 
-    for (int i = 5; i >= 0; i--) {
-      final monthDate = DateTime(now.year, now.month - i, 1);
-      final monthName = monthNames[monthDate.month - 1];
-
-      final sum = orders.where((o) {
-        if (o.createdAt.isEmpty) return false;
-        try {
-          final d = DateTime.parse(o.createdAt);
-          return d.year == monthDate.year && d.month == monthDate.month;
-        } catch (_) {
-          return false;
-        }
-      }).fold<double>(0.0, (acc, o) => acc + _orderAmount(o));
-
-      monthlyData.add((label: monthName, amount: sum));
+    if (_selectedDateFilter == 0) {
+      // Last 7 Days
+      for (int i = 6; i >= 0; i--) {
+        final d = now.subtract(Duration(days: i));
+        final dayLabel = '${d.day} ${_getShortMonth(d.month)}';
+        final sum = widget.orders.where((o) {
+          if (o.createdAt.isEmpty) return false;
+          try {
+            final od = DateTime.parse(o.createdAt);
+            return od.year == d.year && od.month == d.month && od.day == d.day;
+          } catch (_) {
+            return false;
+          }
+        }).fold<double>(0.0, (acc, o) => acc + _orderAmount(o));
+        pointsData.add((label: dayLabel, amount: sum));
+      }
+    } else if (_selectedDateFilter == 1) {
+      // Last 14 Days (7 intervals of 2 days)
+      for (int i = 6; i >= 0; i--) {
+        final d = now.subtract(Duration(days: i * 2));
+        final dayLabel = '${d.day} ${_getShortMonth(d.month)}';
+        final sum = widget.orders.where((o) {
+          if (o.createdAt.isEmpty) return false;
+          try {
+            final od = DateTime.parse(o.createdAt);
+            final diff = now.difference(od).inDays;
+            return diff >= (i * 2) && diff < (i * 2 + 2);
+          } catch (_) {
+            return false;
+          }
+        }).fold<double>(0.0, (acc, o) => acc + _orderAmount(o));
+        pointsData.add((label: dayLabel, amount: sum));
+      }
+    } else if (_selectedDateFilter == 2) {
+      // Last 30 Days (6 intervals of 5 days)
+      for (int i = 5; i >= 0; i--) {
+        final d = now.subtract(Duration(days: i * 5));
+        final dayLabel = '${d.day} ${_getShortMonth(d.month)}';
+        final sum = widget.orders.where((o) {
+          if (o.createdAt.isEmpty) return false;
+          try {
+            final od = DateTime.parse(o.createdAt);
+            final diff = now.difference(od).inDays;
+            return diff >= (i * 5) && diff < (i * 5 + 5);
+          } catch (_) {
+            return false;
+          }
+        }).fold<double>(0.0, (acc, o) => acc + _orderAmount(o));
+        pointsData.add((label: dayLabel, amount: sum));
+      }
+    } else if (_selectedDateFilter == 3) {
+      // Last 6 Months
+      for (int i = 5; i >= 0; i--) {
+        final monthDate = DateTime(now.year, now.month - i, 1);
+        final monthName = monthNames[(monthDate.month - 1) % 12];
+        final sum = widget.orders.where((o) {
+          if (o.createdAt.isEmpty) return false;
+          try {
+            final d = DateTime.parse(o.createdAt);
+            return d.year == monthDate.year && d.month == monthDate.month;
+          } catch (_) {
+            return false;
+          }
+        }).fold<double>(0.0, (acc, o) => acc + _orderAmount(o));
+        pointsData.add((label: monthName, amount: sum));
+      }
+    } else {
+      // 1 Year (6 bi-monthly points)
+      for (int i = 5; i >= 0; i--) {
+        final monthDate = DateTime(now.year, now.month - (i * 2), 1);
+        final monthName = monthNames[(monthDate.month - 1) % 12];
+        final sum = widget.orders.where((o) {
+          if (o.createdAt.isEmpty) return false;
+          try {
+            final d = DateTime.parse(o.createdAt);
+            return d.year == monthDate.year && (d.month == monthDate.month || d.month == monthDate.month + 1);
+          } catch (_) {
+            return false;
+          }
+        }).fold<double>(0.0, (acc, o) => acc + _orderAmount(o));
+        pointsData.add((label: monthName, amount: sum));
+      }
     }
 
-    if (monthlyData.every((m) => m.amount == 0) && totalEarned > 0) {
-      monthlyData[monthlyData.length - 1] = (label: monthlyData.last.label, amount: totalEarned);
+    if (pointsData.every((m) => m.amount == 0) && widget.totalEarned > 0) {
+      pointsData[pointsData.length - 1] = (label: pointsData.last.label, amount: widget.totalEarned);
     }
 
-    final maxVal = monthlyData.fold<double>(1000.0, (m, item) => item.amount > m ? item.amount : m);
+    final maxVal = pointsData.fold<double>(1000.0, (m, item) => item.amount > m ? item.amount : m);
+    final currentSum = pointsData.fold<double>(0.0, (acc, item) => acc + item.amount);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1834,6 +1509,7 @@ class _EarningsTrendLineChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header + Filter Selector
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1841,12 +1517,12 @@ class _EarningsTrendLineChart extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'मासिक उत्पन्न कल (Monthly Trend)',
+                    'उत्पन्न कल (Earnings Trend)',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'चालू महिना: ₹ ${_DashboardScreenState._formatRupees(monthlyEarned)}',
+                    'कालावधी एकूण: ₹ ${_DashboardScreenState._formatRupees(currentSum)}',
                     style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -1870,29 +1546,54 @@ class _EarningsTrendLineChart extends StatelessWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 12),
+
+          // Date Filter Pills
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _trendFilterPill(0, '7 Days', '७ दिवस'),
+                const SizedBox(width: 5),
+                _trendFilterPill(1, '14 Days', '१४ दिवस'),
+                const SizedBox(width: 5),
+                _trendFilterPill(2, '30 Days', '३० दिवस'),
+                const SizedBox(width: 5),
+                _trendFilterPill(3, '6 Months', '६ महिने'),
+                const SizedBox(width: 5),
+                _trendFilterPill(4, '1 Year', '१ वर्ष'),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 16),
+
+          // Line Chart
           SizedBox(
             height: 130,
             width: double.infinity,
             child: CustomPaint(
               painter: _EarningsLinePainter(
-                data: monthlyData.map((m) => m.amount).toList(),
-                labels: monthlyData.map((m) => m.label).toList(),
+                data: pointsData.map((m) => m.amount).toList(),
+                labels: pointsData.map((m) => m.label).toList(),
                 maxVal: maxVal,
               ),
             ),
           ),
+
           const SizedBox(height: 8),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'एकूण उत्पन्न: ₹ ${_DashboardScreenState._formatRupees(totalEarned)}',
+                'एकूण उत्पन्न: ₹ ${_DashboardScreenState._formatRupees(widget.totalEarned)}',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
               ),
-              const Text(
-                'गेले ६ महिने',
-                style: TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+              Text(
+                _selectedDateFilter == 0 ? 'गेले ७ दिवस' : (_selectedDateFilter == 1 ? 'गेले १४ दिवस' : (_selectedDateFilter == 2 ? 'गेले ३० दिवस' : (_selectedDateFilter == 3 ? 'गेले ६ महिने' : 'गेले १ वर्ष'))),
+                style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
               ),
             ],
           ),
@@ -1900,160 +1601,120 @@ class _EarningsTrendLineChart extends StatelessWidget {
       ),
     );
   }
-}
 
-class _EarningsLinePainter extends CustomPainter {
-  final List<double> data;
-  final List<String> labels;
-  final double maxVal;
-
-  _EarningsLinePainter({
-    required this.data,
-    required this.labels,
-    required this.maxVal,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-
-    final paintLine = Paint()
-      ..color = const Color(0xFF16A34A)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final paintGrid = Paint()
-      ..color = const Color(0xFFF3F4F6)
-      ..strokeWidth = 1.0;
-
-    final paintDotFill = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    final paintDotStroke = Paint()
-      ..color = const Color(0xFF16A34A)
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke;
-
-    final bottomPadding = 20.0;
-    final chartHeight = size.height - bottomPadding;
-    final chartWidth = size.width;
-
-    // Draw horizontal grid lines
-    for (int i = 0; i <= 3; i++) {
-      final y = chartHeight * (i / 3.0);
-      canvas.drawLine(Offset(0, y), Offset(chartWidth, y), paintGrid);
-    }
-
-    final count = data.length;
-    final stepX = chartWidth / (count - 1);
-    final points = <Offset>[];
-
-    for (int i = 0; i < count; i++) {
-      final x = i * stepX;
-      final normalized = (data[i] / maxVal).clamp(0.0, 1.0);
-      final y = chartHeight - (normalized * (chartHeight - 12)) - 6;
-      points.add(Offset(x, y));
-    }
-
-    // Build curved path
-    final path = Path();
-    final fillPath = Path();
-
-    if (points.isNotEmpty) {
-      path.moveTo(points[0].dx, points[0].dy);
-      fillPath.moveTo(points[0].dx, chartHeight);
-      fillPath.lineTo(points[0].dx, points[0].dy);
-
-      for (int i = 0; i < points.length - 1; i++) {
-        final p0 = points[i];
-        final p1 = points[i + 1];
-        final controlX1 = p0.dx + (p1.dx - p0.dx) / 2;
-        final controlY1 = p0.dy;
-        final controlX2 = p0.dx + (p1.dx - p0.dx) / 2;
-        final controlY2 = p1.dy;
-
-        path.cubicTo(controlX1, controlY1, controlX2, controlY2, p1.dx, p1.dy);
-        fillPath.cubicTo(controlX1, controlY1, controlX2, controlY2, p1.dx, p1.dy);
-      }
-
-      fillPath.lineTo(points.last.dx, chartHeight);
-      fillPath.close();
-
-      final fillPaint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFF16A34A).withValues(alpha: 0.28),
-            const Color(0xFF16A34A).withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromLTWH(0, 0, chartWidth, chartHeight));
-
-      canvas.drawPath(fillPath, fillPaint);
-      canvas.drawPath(path, paintLine);
-
-      final textPainter = TextPainter(textDirection: TextDirection.ltr);
-
-      for (int i = 0; i < points.length; i++) {
-        final pt = points[i];
-
-        canvas.drawCircle(pt, 4.5, paintDotFill);
-        canvas.drawCircle(pt, 4.5, paintDotStroke);
-
-        if (i == points.length - 1) {
-          final pulsePaint = Paint()
-            ..color = const Color(0xFF16A34A).withValues(alpha: 0.2)
-            ..style = PaintingStyle.fill;
-          canvas.drawCircle(pt, 8.0, pulsePaint);
-        }
-
-        if (i < labels.length) {
-          textPainter.text = TextSpan(
-            text: labels[i],
-            style: TextStyle(
-              fontSize: 9.5,
-              color: i == points.length - 1 ? const Color(0xFF16A34A) : const Color(0xFF6B7280),
-              fontWeight: i == points.length - 1 ? FontWeight.bold : FontWeight.normal,
-            ),
-          );
-          textPainter.layout();
-          textPainter.paint(
-            canvas,
-            Offset(pt.dx - (textPainter.width / 2), size.height - textPainter.height),
-          );
-        }
-      }
-    }
+  static String _getShortMonth(int month) {
+    const list = ['जाने', 'फेब्रु', 'मार्च', 'एप्रि', 'मे', 'जून', 'जुलै', 'ऑग', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'];
+    return list[(month - 1) % 12];
   }
 
-  @override
-  bool shouldRepaint(covariant _EarningsLinePainter oldDelegate) {
-    return oldDelegate.data != data || oldDelegate.maxVal != maxVal;
+  Widget _trendFilterPill(int index, String en, String mr) {
+    final isSel = _selectedDateFilter == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedDateFilter = index),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF16A34A) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          '$en ($mr)',
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF4B5563),
+          ),
+        ),
+      ),
+    );
   }
 }
 
-class _OrderStatusBaChart extends StatelessWidget {
-  final int newCount;
-  final int acceptedCount;
-  final int preparingCount;
-  final int readyCount;
-  final int completedCount;
-  final int rejectedCount;
+// 4. 📦 ORDERS STATUS BAR CHART WITH DATE + ORDER TYPE FILTERS
+class _OrderStatusBaChart extends StatefulWidget {
+  final List<FarmerOrderItem> orders;
 
-  const _OrderStatusBaChart({
-    required this.newCount,
-    required this.acceptedCount,
-    required this.preparingCount,
-    required this.readyCount,
-    required this.completedCount,
-    required this.rejectedCount,
-  });
+  const _OrderStatusBaChart({required this.orders});
+
+  @override
+  State<_OrderStatusBaChart> createState() => _OrderStatusBaChartState();
+}
+
+class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
+  int _selectedDate = 0; // 0: All Time, 1: Today, 2: This Week, 3: This Month, 4: 30 Days
+  String _selectedType = 'ALL'; // 'ALL', 'HARVEST', 'DIRECT', 'REGULAR', 'CONTRACT'
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekDate = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+
+    // Filter by Date
+    final dateFiltered = widget.orders.where((o) {
+      if (_selectedDate == 0) return true; // All Time
+      if (o.createdAt.isEmpty) return true;
+      try {
+        final d = DateTime.parse(o.createdAt);
+        if (_selectedDate == 1) {
+          return d.isAfter(startOfToday) || (d.year == now.year && d.month == now.month && d.day == now.day);
+        } else if (_selectedDate == 2) {
+          return d.isAfter(startOfWeekDate);
+        } else if (_selectedDate == 3) {
+          return d.year == now.year && d.month == now.month;
+        } else if (_selectedDate == 4) {
+          return d.isAfter(thirtyDaysAgo);
+        }
+        return true;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    // Filter by Order Type
+    final filtered = dateFiltered.where((o) {
+      if (_selectedType == 'ALL') return true;
+      final tag = '${o.buyerName} ${o.cropName} ${o.productName} ${o.variety} ${o.collectionCentre}'.toUpperCase();
+      if (_selectedType == 'HARVEST') return tag.contains('HARVEST') || tag.contains('काढणी') || o.pickupSlot.toUpperCase().contains('HARVEST');
+      if (_selectedType == 'DIRECT') return tag.contains('DIRECT') || tag.contains('थेट') || o.collectionCentre.isNotEmpty;
+      if (_selectedType == 'CONTRACT') return tag.contains('CONTRACT') || tag.contains('करार');
+      if (_selectedType == 'REGULAR') return true;
+      return true;
+    }).toList();
+
+    final newCount = filtered.where((o) {
+      final s = o.status.toUpperCase();
+      return s == 'NEW' || s == 'PENDING';
+    }).length;
+
+    final acceptedCount = filtered.where((o) {
+      final s = o.status.toUpperCase();
+      return s == 'ACCEPTED' || s == 'CONFIRMED';
+    }).length;
+
+    final preparingCount = filtered.where((o) {
+      final s = o.status.toUpperCase();
+      return s == 'PREPARING' || s == 'PACKING';
+    }).length;
+
+    final readyCount = filtered.where((o) {
+      final s = o.status.toUpperCase();
+      return s == 'READY_FOR_PICKUP' || s.contains('READY');
+    }).length;
+
+    final completedCount = filtered.where((o) {
+      final s = o.status.toUpperCase();
+      return s == 'COMPLETED' || s == 'DELIVERED';
+    }).length;
+
+    final rejectedCount = filtered.where((o) {
+      final s = o.status.toUpperCase();
+      return s == 'REJECTED' || s == 'CANCELLED';
+    }).length;
+
     final total = newCount + acceptedCount + preparingCount + readyCount + completedCount + rejectedCount;
     final maxCount = [newCount, acceptedCount, preparingCount, readyCount, completedCount, rejectedCount]
         .fold<int>(1, (m, c) => c > m ? c : m);
@@ -2084,6 +1745,7 @@ class _OrderStatusBaChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title + Total Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -2104,7 +1766,50 @@ class _OrderStatusBaChart extends StatelessWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 10),
+
+          // Filter Row 1: Date Filter
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _dateChip(0, 'All Time (सर्व)'),
+                const SizedBox(width: 5),
+                _dateChip(1, 'Today (आज)'),
+                const SizedBox(width: 5),
+                _dateChip(2, 'This Week (आठवडा)'),
+                const SizedBox(width: 5),
+                _dateChip(3, 'This Month (महिना)'),
+                const SizedBox(width: 5),
+                _dateChip(4, '30 Days (३० दिवस)'),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Filter Row 2: Order Type Filter
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _typeChip('ALL', 'All Types (सर्व प्रकार)'),
+                const SizedBox(width: 5),
+                _typeChip('HARVEST', '🌾 Harvest (काढणी)'),
+                const SizedBox(width: 5),
+                _typeChip('DIRECT', '🏪 Direct (थेट विक्री)'),
+                const SizedBox(width: 5),
+                _typeChip('REGULAR', '📦 Regular (नियमित)'),
+                const SizedBox(width: 5),
+                _typeChip('CONTRACT', '📝 Contract (करार)'),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 16),
+
+          // Bar Chart Columns
           SizedBox(
             height: 146,
             child: Row(
@@ -2167,9 +1872,57 @@ class _OrderStatusBaChart extends StatelessWidget {
       ),
     );
   }
+
+  Widget _dateChip(int index, String label) {
+    final isSel = _selectedDate == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedDate = index),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF2563EB) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF4B5563),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _typeChip(String type, String label) {
+    final isSel = _selectedType == type;
+    return InkWell(
+      onTap: () => setState(() => _selectedType = type),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFF059669) : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: isSel ? const Color(0xFF059669) : const Color(0xFFE5E7EB)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF4B5563),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _ProductRejectionRateChart extends StatelessWidget {
+// 5. ❌ PRODUCT REJECTION % DONUT CHART WITH DATE + PRODUCT + GRADE FILTERS
+class _ProductRejectionRateChart extends StatefulWidget {
   final List<ProductItem> products;
   final List<FarmerOrderItem> orders;
 
@@ -2179,8 +1932,17 @@ class _ProductRejectionRateChart extends StatelessWidget {
   });
 
   @override
+  State<_ProductRejectionRateChart> createState() => _ProductRejectionRateChartState();
+}
+
+class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> {
+  int _selectedDate = 0; // 0: All Time, 1: This Month, 2: 30 Days, 3: 90 Days
+  String _selectedProduct = 'ALL'; // 'ALL' or Product Name
+  String _selectedGrade = 'ALL'; // 'ALL', 'GRADE_A', 'GRADE_B', 'GRADE_C'
+
+  @override
   Widget build(BuildContext context) {
-    if (products.isEmpty) {
+    if (widget.products.isEmpty && widget.orders.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -2194,7 +1956,7 @@ class _ProductRejectionRateChart extends StatelessWidget {
             Icon(Icons.donut_large_rounded, size: 30, color: Color(0xFF94A3B8)),
             SizedBox(height: 6),
             Text(
-              'कोणतीही उत्पादने नोंदवलेली नाहीत',
+              'कोणतीही उत्पादने किंवा ऑर्डर्स नोंदवलेली नाहीत',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
             ),
           ],
@@ -2202,11 +1964,44 @@ class _ProductRejectionRateChart extends StatelessWidget {
       );
     }
 
+    final now = DateTime.now();
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    final ninetyDaysAgo = now.subtract(const Duration(days: 90));
+
+    // 1. Filter Orders by Date
+    final dateFilteredOrders = widget.orders.where((o) {
+      if (_selectedDate == 0) return true; // All Time
+      if (o.createdAt.isEmpty) return true;
+      try {
+        final d = DateTime.parse(o.createdAt);
+        if (_selectedDate == 1) return d.year == now.year && d.month == now.month;
+        if (_selectedDate == 2) return d.isAfter(thirtyDaysAgo);
+        if (_selectedDate == 3) return d.isAfter(ninetyDaysAgo);
+        return true;
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    // 2. Filter Orders by Grade (if specified)
+    final gradeFilteredOrders = dateFilteredOrders.where((o) {
+      if (_selectedGrade == 'ALL') return true;
+      if (_selectedGrade == 'GRADE_A') return o.gradeAQty > 0 || o.gradeARejected > 0 || o.placedAQty > 0;
+      if (_selectedGrade == 'GRADE_B') return o.gradeBQty > 0 || o.gradeBRejected > 0 || o.placedBQty > 0;
+      if (_selectedGrade == 'GRADE_C') return o.gradeCQty > 0 || o.gradeCRejected > 0 || o.placedCQty > 0;
+      return true;
+    }).toList();
+
+    // 3. Filter Products by selected product
+    final effectiveProducts = _selectedProduct == 'ALL'
+        ? widget.products
+        : widget.products.where((p) => p.productName.trim().toLowerCase() == _selectedProduct.trim().toLowerCase()).toList();
+
     final List<({String title, String category, double totalOrdered, double rejected, double rate})> list = [];
 
-    for (final p in products) {
+    for (final p in effectiveProducts) {
       final titleLower = p.productName.trim().toLowerCase();
-      final matchedOrders = orders.where((o) {
+      final matchedOrders = gradeFilteredOrders.where((o) {
         final cLower = o.cropName.trim().toLowerCase();
         final vLower = o.variety.trim().toLowerCase();
         return cLower.contains(titleLower) || titleLower.contains(cLower) || (vLower.isNotEmpty && titleLower.contains(vLower));
@@ -2274,11 +2069,12 @@ class _ProductRejectionRateChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title + Status Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'उत्पादनानुसार नाकारलेले प्रमाण % (Donut Chart)',
+                'नाकारलेले प्रमाण % (Rejection Rate)',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
               ),
               Container(
@@ -2298,7 +2094,98 @@ class _ProductRejectionRateChart extends StatelessWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 10),
+
+          // Filter Row 1: Date Filter
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _dateChip(0, 'All Time (एकूण)'),
+                const SizedBox(width: 5),
+                _dateChip(1, 'This Month (या महिना)'),
+                const SizedBox(width: 5),
+                _dateChip(2, '30 Days (३० दिवस)'),
+                const SizedBox(width: 5),
+                _dateChip(3, '90 Days (९० दिवस)'),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Filter Row 2: Product Filter + Grade Filter
+          Row(
+            children: [
+              // Product Dropdown
+              Expanded(
+                flex: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedProduct,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF6B7280)),
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
+                      items: [
+                        const DropdownMenuItem(value: 'ALL', child: Text('सर्व उत्पादने (All Products)')),
+                        ...widget.products.map((p) => DropdownMenuItem(
+                              value: p.productName,
+                              child: Text('${_DashboardScreenState._getCropEmoji(p.productName)} ${p.productName}'),
+                            )),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedProduct = val);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Grade Dropdown
+              Expanded(
+                flex: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedGrade,
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF6B7280)),
+                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
+                      items: const [
+                        DropdownMenuItem(value: 'ALL', child: Text('सर्व प्रत (All)')),
+                        DropdownMenuItem(value: 'GRADE_A', child: Text('Grade A (अ)')),
+                        DropdownMenuItem(value: 'GRADE_B', child: Text('Grade B (ब)')),
+                        DropdownMenuItem(value: 'GRADE_C', child: Text('Grade C (क)')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedGrade = val);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
           const SizedBox(height: 16),
+
+          // Donut Chart + Percent Breakdown
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -2415,7 +2302,10 @@ class _ProductRejectionRateChart extends StatelessWidget {
               ),
             ],
           ),
+
           const SizedBox(height: 10),
+
+          // Quality Advice Banner
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2452,6 +2342,164 @@ class _ProductRejectionRateChart extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _dateChip(int index, String label) {
+    final isSel = _selectedDate == index;
+    return InkWell(
+      onTap: () => setState(() => _selectedDate = index),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: isSel ? const Color(0xFFDC2626) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel ? Colors.white : const Color(0xFF4B5563),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class _EarningsLinePainter extends CustomPainter {
+  final List<double> data;
+  final List<String> labels;
+  final double maxVal;
+
+  _EarningsLinePainter({
+    required this.data,
+    required this.labels,
+    required this.maxVal,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final paintLine = Paint()
+      ..color = const Color(0xFF16A34A)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final paintGrid = Paint()
+      ..color = const Color(0xFFF3F4F6)
+      ..strokeWidth = 1.0;
+
+    final paintDotFill = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    final paintDotStroke = Paint()
+      ..color = const Color(0xFF16A34A)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+
+    final bottomPadding = 20.0;
+    final chartHeight = size.height - bottomPadding;
+    final chartWidth = size.width;
+
+    // Draw horizontal grid lines
+    for (int i = 0; i <= 3; i++) {
+      final y = chartHeight * (i / 3.0);
+      canvas.drawLine(Offset(0, y), Offset(chartWidth, y), paintGrid);
+    }
+
+    final count = data.length;
+    final stepX = count > 1 ? chartWidth / (count - 1) : chartWidth / 2;
+    final points = <Offset>[];
+
+    for (int i = 0; i < count; i++) {
+      final x = count > 1 ? i * stepX : chartWidth / 2;
+      final normalized = maxVal > 0 ? (data[i] / maxVal).clamp(0.0, 1.0) : 0.0;
+      final y = chartHeight - (normalized * (chartHeight - 12)) - 6;
+      points.add(Offset(x, y));
+    }
+
+    // Build curved path
+    final path = Path();
+    final fillPath = Path();
+
+    if (points.isNotEmpty) {
+      path.moveTo(points[0].dx, points[0].dy);
+      fillPath.moveTo(points[0].dx, chartHeight);
+      fillPath.lineTo(points[0].dx, points[0].dy);
+
+      for (int i = 0; i < points.length - 1; i++) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
+        final controlX1 = p0.dx + (p1.dx - p0.dx) / 2;
+        final controlY1 = p0.dy;
+        final controlX2 = p0.dx + (p1.dx - p0.dx) / 2;
+        final controlY2 = p1.dy;
+
+        path.cubicTo(controlX1, controlY1, controlX2, controlY2, p1.dx, p1.dy);
+        fillPath.cubicTo(controlX1, controlY1, controlX2, controlY2, p1.dx, p1.dy);
+      }
+
+      fillPath.lineTo(points.last.dx, chartHeight);
+      fillPath.close();
+
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF16A34A).withValues(alpha: 0.28),
+            const Color(0xFF16A34A).withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, chartWidth, chartHeight));
+
+      canvas.drawPath(fillPath, fillPaint);
+      canvas.drawPath(path, paintLine);
+
+      final textPainter = TextPainter(textDirection: TextDirection.ltr);
+
+      for (int i = 0; i < points.length; i++) {
+        final pt = points[i];
+
+        canvas.drawCircle(pt, 4.5, paintDotFill);
+        canvas.drawCircle(pt, 4.5, paintDotStroke);
+
+        if (i == points.length - 1) {
+          final pulsePaint = Paint()
+            ..color = const Color(0xFF16A34A).withValues(alpha: 0.2)
+            ..style = PaintingStyle.fill;
+          canvas.drawCircle(pt, 8.0, pulsePaint);
+        }
+
+        if (i < labels.length) {
+          textPainter.text = TextSpan(
+            text: labels[i],
+            style: TextStyle(
+              fontSize: 9.5,
+              color: i == points.length - 1 ? const Color(0xFF16A34A) : const Color(0xFF6B7280),
+              fontWeight: i == points.length - 1 ? FontWeight.bold : FontWeight.normal,
+            ),
+          );
+          textPainter.layout();
+          textPainter.paint(
+            canvas,
+            Offset(pt.dx - (textPainter.width / 2), size.height - textPainter.height),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EarningsLinePainter oldDelegate) {
+    return oldDelegate.data != data || oldDelegate.maxVal != maxVal;
   }
 }
 
@@ -2902,104 +2950,6 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                 ],
               ),
 
-              const SizedBox(height: 12),
-
-              // 🌿 GreenGroo Direct Procurement Highlight (if available)
-              if (selected.hasGreenGroo && selected.greenGrooRate != null) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF065F46), Color(0xFF047857)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF047857).withValues(alpha: 0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Text('🌿', style: TextStyle(fontSize: 12)),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          selected.greenGrooVsAvgPercent >= 0
-                              ? 'GreenGroo खरेदी: ₹${selected.greenGrooRate!.price.toStringAsFixed(0)} (+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% जास्त भाव)'
-                              : 'GreenGroo खरेदी: ₹${selected.greenGrooRate!.price.toStringAsFixed(0)} (${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% कमी भाव)',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => MarketComparisonScreen(initialProduct: selected.cleanProductName),
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Text(
-                            'तुलना पहा →',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFA7F3D0)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-
-              // Best Market Recommendation Banner + Action
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF16A34A), size: 16),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'सर्वोत्तम: ${selected.bestMarketName} (₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit})',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MarketComparisonScreen(initialProduct: selected.cleanProductName),
-                        ),
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        child: Text(
-                          'तुलना पहा →',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         );
