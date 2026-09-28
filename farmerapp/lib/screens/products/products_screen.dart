@@ -8,6 +8,7 @@ import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../main_shell.dart';
+import '../../services/app_language.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -17,14 +18,31 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedStatusFilter = 'All';
   String _searchQuery = '';
+
+  String _translateStatus(String s) {
+    final lang = AppLanguage();
+    switch (s.toLowerCase()) {
+      case 'all': return lang.tr(mr: 'सर्व', en: 'All');
+      case 'active': return lang.tr(mr: 'सक्रिय', en: 'Active');
+      case 'out of stock': return lang.tr(mr: 'स्टॉक संपला', en: 'Out of Stock');
+      case 'published': return lang.tr(mr: 'प्रकाशित', en: 'Published');
+      case 'draft': return lang.tr(mr: 'मसुदा', en: 'Draft');
+      case 'paused': return lang.tr(mr: 'थांबवले', en: 'Paused');
+      default: return s;
+    }
+  }
+
+
+
 
   void _copyId(String id) {
     Clipboard.setData(ClipboardData(text: id));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Product ID "$id" copied to clipboard!'),
+        content: Text(AppLanguage().tr(mr: 'उत्पादन आयडी "$id" क्लिपबोर्डवर कॉपी केला!', en: 'Product ID "$id" copied to clipboard!')),
         backgroundColor: const Color(0xFF217346),
         duration: const Duration(seconds: 2),
       ),
@@ -36,13 +54,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text(
-          'Delete product?',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+        title: Text(
+          AppLanguage().tr(mr: 'उत्पादन हटवायचे?', en: 'Delete product?'),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
         ),
-        content: const Text(
-          'Only draft products can be deleted. This cannot be undone.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+        content: Text(
+          AppLanguage().tr(mr: 'फक्त मसुदा (Draft) उत्पादने हटविली जाऊ शकतात. ही क्रिया पूर्ववत करता येणार नाही.', en: 'Only draft products can be deleted. This cannot be undone.'),
+          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
         ),
         actions: [
           OutlinedButton(
@@ -52,7 +70,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -66,13 +84,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
               FarmerState().deleteProduct(product.id);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Product "${product.productName}" deleted successfully'),
+                  content: Text(AppLanguage().tr(mr: 'उत्पादन "${product.productName}" यशस्वीरित्या हटवले', en: 'Product "${product.productName}" deleted successfully')),
                   backgroundColor: const Color(0xFFDC2626),
                   duration: const Duration(seconds: 2),
                 ),
               );
             },
-            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(AppLanguage().tr(mr: 'हटवा', en: 'Delete'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         ],
       ),
@@ -124,24 +142,33 @@ class _ProductsScreenState extends State<ProductsScreen> {
           products = FarmerState().products;
         }
 
+        final lang = AppLanguage();
         return Scaffold(
+          key: _scaffoldKey,
+          drawer: const FarmerSidebarDrawer(),
           backgroundColor: const Color(0xFFF8FAFC),
           appBar: AppBar(
             backgroundColor: Colors.white,
             elevation: 0.5,
             leading: IconButton(
               icon: const Icon(Icons.menu, color: Color(0xFF217346)),
-              tooltip: 'Menu',
-              onPressed: () => MainShell.openDrawer(context),
+              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
+              onPressed: () {
+                if (_scaffoldKey.currentState != null) {
+                  _scaffoldKey.currentState!.openDrawer();
+                } else {
+                  MainShell.openDrawer(context);
+                }
+              },
             ),
-            title: const Text(
-              'My Products (माझी उत्पादने)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            title: Text(
+              lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add, color: Color(0xFF217346)),
-                tooltip: 'Add Product',
+                tooltip: lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
                 },
@@ -154,7 +181,117 @@ class _ProductsScreenState extends State<ProductsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                // 1. Search Input + Add Product Button in 1 Row
+                  // 🌟 TOP HERO BANNER WITH PRODUCTS BACKGROUND
+                  Container(
+                    width: double.infinity,
+                    height: 130,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            'assets/images/my_products_banner_bg.png',
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF166534), Color(0xFF15803D)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Gradient overlay for contrast
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  stops: const [0.0, 0.55, 1.0],
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.72),
+                                    Colors.black.withValues(alpha: 0.45),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF16A34A),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        lang.tr(mr: '📦 उत्पादन विक्री', en: '📦 Produce Market'),
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      lang.tr(
+                                        mr: '${products.length} उत्पादने सूचीबद्ध',
+                                        en: '${products.length} Products Listed',
+                                      ),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  lang.tr(mr: 'माझी उत्पादने, थेट बाजारपेठ', en: 'My Products, Direct Market'),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  lang.tr(
+                                    mr: 'ताजी फळे, भाजीपाला व दर्जेदार शेतमाल थेट ग्राहकांपर्यंत!',
+                                    en: 'Fresh produce & quality crops directly to customers!',
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // 1. Search Input + Add Product Button in 1 Row
                 Row(
                   children: [
                     Expanded(
@@ -166,9 +303,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           border: Border.all(color: const Color(0xFFCBD5E1)),
                         ),
                         child: TextField(
-                          decoration: const InputDecoration(
-                            hintText: 'Search crop, variety, or product ID...',
-                            hintStyle: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                          decoration: InputDecoration(
+                            hintText: lang.tr(mr: 'पीक, वाण किंवा उत्पादन आयडी शोधा...', en: 'Search crop, variety, or product ID...'),
+                            hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                             prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(vertical: 9, horizontal: 8),
@@ -189,7 +326,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
                         },
@@ -209,7 +346,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         padding: const EdgeInsets.only(right: 6),
                         child: ChoiceChip(
                           label: Text(
-                            status,
+                            _translateStatus(status),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
@@ -234,7 +371,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                 // 4. Products List
                 if (products.isEmpty && FarmerState().products.isEmpty && !FarmerState().productsReady)
-                  const AppLoader(message: 'उत्पादने लोड होत आहेत...')
+                  AppLoader(message: lang.tr(mr: 'उत्पादने लोड होत आहेत...', en: 'Loading products...'))
                 else if (products.isEmpty)
                   Container(
                     width: double.infinity,
@@ -278,7 +415,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.add, size: 15),
-                          label: const Text('Add Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen()));
                           },
@@ -291,7 +428,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: products.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, index) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final product = products[index];
                       return _buildProductCard(context, product);
@@ -308,6 +445,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 }
 
   Widget _buildProductCard(BuildContext context, ProductItem product) {
+    final lang = AppLanguage();
     try {
       final statusStr = product.status.isNotEmpty ? product.status : 'Active';
       final isOutOfStock = statusStr.toLowerCase().contains('out of stock') || product.stockQuantity <= 0;
@@ -405,7 +543,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            statusText,
+                            _translateStatus(statusText),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -462,7 +600,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             children: [
               Expanded(
                 child: _buildCardButton(
-                  label: 'View',
+                  label: lang.tr(mr: 'पहा', en: 'View'),
                   textColor: const Color(0xFF1E293B),
                   borderColor: const Color(0xFFE2E8F0),
                   onTap: () {
@@ -476,7 +614,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildCardButton(
-                  label: 'Edit',
+                  label: lang.tr(mr: 'बदल', en: 'Edit'),
                   textColor: const Color(0xFF1E293B),
                   borderColor: const Color(0xFFE2E8F0),
                   onTap: () {
@@ -490,7 +628,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildCardButton(
-                  label: 'Delete',
+                  label: lang.tr(mr: 'हटवा', en: 'Delete'),
                   textColor: const Color(0xFFDC2626),
                   borderColor: const Color(0xFFFECDD3),
                   onTap: () => _confirmDeleteProduct(product),

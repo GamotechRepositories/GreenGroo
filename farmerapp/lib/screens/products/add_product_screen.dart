@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../services/app_language.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
@@ -61,6 +62,35 @@ class _AddProductScreenState extends State<AddProductScreen> {
   bool _isSubmitting = false;
 
   bool get isEditing => widget.editingProduct != null;
+
+  String _translateOption(String val) {
+    final lang = AppLanguage();
+    switch (val.toLowerCase()) {
+      case 'kg': return lang.tr(mr: 'किलो', en: 'Kg');
+      case 'quintal': return lang.tr(mr: 'क्विंटल', en: 'Quintal');
+      case 'ton': return lang.tr(mr: 'टन', en: 'Ton');
+      case 'box': return lang.tr(mr: 'बॉक्स', en: 'Box');
+      case 'dozen': return lang.tr(mr: 'डझन', en: 'Dozen');
+      case 'piece': return lang.tr(mr: 'नग', en: 'Piece');
+      case 'crate': return lang.tr(mr: 'क्रेटा', en: 'Crate');
+      case 'bag': return lang.tr(mr: 'बॅग', en: 'Bag');
+
+      case 'conventional': return lang.tr(mr: 'पारंपारिक शेती', en: 'Conventional');
+      case 'organic': return lang.tr(mr: 'सेंद्रिय शेती', en: 'Organic');
+      case 'natural': return lang.tr(mr: 'नैसर्गिक शेती', en: 'Natural');
+      case 'ipm': return lang.tr(mr: 'आयपीएम', en: 'IPM');
+      case 'hydroponic': return lang.tr(mr: 'हायड्रोपोनिक', en: 'Hydroponic');
+      case 'other': return lang.tr(mr: 'इतर', en: 'Other');
+
+      case 'main': return lang.tr(mr: 'मुख्य फोटो', en: 'Main');
+      case 'farm': return lang.tr(mr: 'शेताचा फोटो', en: 'Farm');
+      case 'crop': return lang.tr(mr: 'पिकाचा फोटो', en: 'Crop');
+      case 'harvest': return lang.tr(mr: 'काढणीचा फोटो', en: 'Harvest');
+
+      default: return val;
+    }
+  }
+
 
   @override
   void initState() {
@@ -372,7 +402,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           productId: existing.productId,
           productName: _productName,
           variety: _varietyController.text.trim(),
-          category: 'Vegetables (भाजीपाला)',
+          category: 'Vegetables',
           cropLinked: _cropName,
           grade: 'Grade ${_grades.isNotEmpty ? _grades.first.grade : 'A'}',
           unit: _unit,
@@ -418,7 +448,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           productId: businessId,
           productName: _productName,
           variety: _varietyController.text.trim(),
-          category: 'Vegetables (भाजीपाला)',
+          category: 'Vegetables',
           cropLinked: _cropName,
           grade: 'Grade ${_grades.isNotEmpty ? _grades.first.grade : 'A'}',
           unit: _unit,
@@ -487,13 +517,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          isEditing ? 'Edit Product' : 'Add Product',
+          isEditing ? AppLanguage().tr(mr: 'उत्पादनात बदल करा', en: 'Edit Product') : AppLanguage().tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Back', style: TextStyle(color: Color(0xFF217346), fontWeight: FontWeight.bold, fontSize: 13)),
+            child: Text(AppLanguage().tr(mr: 'मागे', en: 'Back'), style: const TextStyle(color: Color(0xFF217346), fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ],
       ),
@@ -506,9 +536,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Subtitle & Warning
-                const Text(
-                  'Link this product to a crop, then save as draft or publish for approval.',
-                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                Text(
+                  AppLanguage().tr(mr: 'हे उत्पादन पिकाशी लिंक करा, नंतर मसुदा म्हणून जतन करा किंवा प्रकाशित करा.', en: 'Link this product to a crop, then save as draft or publish for approval.'),
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                 ),
                 if (crops.isEmpty) ...[
                   const SizedBox(height: 6),
@@ -522,10 +552,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Add a crop first, then create a product.', style: TextStyle(fontSize: 11, color: Color(0xFFB45309))),
+                        Text(AppLanguage().tr(mr: 'आधी पीक जोडा, नंतर उत्पादन तयार करा.', en: 'Add a crop first, then create a product.'), style: const TextStyle(fontSize: 11, color: Color(0xFFB45309))),
                         GestureDetector(
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen())),
-                          child: const Text('Add Crop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
+                          child: Text(AppLanguage().tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
                         ),
                       ],
                     ),
@@ -578,14 +608,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       // ==========================================
                       // SECTION 1: PRODUCT (2-Column Excel Layout)
                       // ==========================================
-                      _buildSectionTitle('PRODUCT'),
+                      _buildSectionTitle(AppLanguage().tr(mr: 'उत्पादन माहिती', en: 'PRODUCT DETAILS')),
                       const SizedBox(height: 6),
 
                       // Select Crop (Full Width)
-                      _buildLabel('Select Crop', required: true),
+                      _buildLabel(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select Crop'), required: true),
                       DropdownButtonFormField<String>(
                         initialValue: _selectedCropId != null && crops.any((c) => c.id == _selectedCropId) ? _selectedCropId : null,
-                        hint: const Text('Select crop', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+                        hint: Text(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select crop'), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
                         isExpanded: true,
                         decoration: _inputDecoration(error: _errors['cropId']),
                         items: crops.map((c) {
@@ -616,7 +646,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Product Name', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), required: true),
                                 Container(
                                   height: 38,
                                   width: double.infinity,
@@ -628,7 +658,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     border: Border.all(color: const Color(0xFFCBD5E1)),
                                   ),
                                   child: Text(
-                                    _productName.isNotEmpty ? _productName : 'Select crop first',
+                                    _productName.isNotEmpty ? _productName : AppLanguage().tr(mr: 'आधी पीक निवडा', en: 'Select crop first'),
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -647,13 +677,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Variety', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'वाण', en: 'Variety'), required: true),
                                 SizedBox(
                                   height: 38,
                                   child: TextFormField(
                                     controller: _varietyController,
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                                    decoration: _inputDecoration(hint: 'Variety name', error: _errors['variety']),
+                                    decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'वाणाचे नाव', en: 'Variety name'), error: _errors['variety']),
                                     onChanged: (_) => setState(() => _errors.remove('variety')),
                                   ),
                                 ),
@@ -673,12 +703,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Farming Type', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'शेती पद्धती', en: 'Farming Type'), required: true),
                                 DropdownButtonFormField<String>(
                                   initialValue: _farmingTypes.contains(_farmingType) ? _farmingType : 'Conventional',
                                   isExpanded: true,
                                   decoration: _inputDecoration(),
-                                  items: _farmingTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 11.5)))).toList(),
+                                  items: _farmingTypes.map((t) => DropdownMenuItem(value: t, child: Text(_translateOption(t), style: const TextStyle(fontSize: 11.5)))).toList(),
                                   onChanged: (val) {
                                     if (val != null) setState(() => _farmingType = val);
                                   },
@@ -702,7 +732,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Quantity', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'उपलब्ध प्रमाण', en: 'Quantity'), required: true),
                                 SizedBox(
                                   height: 38,
                                   child: TextFormField(
@@ -719,7 +749,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                             isDense: true,
                                             icon: const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF64748B)),
                                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
-                                            items: _cropUnits.map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 11)))).toList(),
+                                            items: _cropUnits.map((u) => DropdownMenuItem(value: u, child: Text(_translateOption(u), style: const TextStyle(fontSize: 11)))).toList(),
                                             onChanged: (val) {
                                               if (val != null) setState(() => _unit = val);
                                             },
@@ -747,7 +777,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Sowing Date'),
+                                _buildLabel(AppLanguage().tr(mr: 'लागवड तारीख', en: 'Sowing Date')),
                                 Container(
                                   height: 38,
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -770,7 +800,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Harvest Date', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'काढणी तारीख', en: 'Harvest Date'), required: true),
                                 InkWell(
                                   onTap: () => _pickDate(field: 'harvest'),
                                   child: Container(
@@ -890,7 +920,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _buildSectionTitle('GRADE *'),
+                          _buildSectionTitle(AppLanguage().tr(mr: 'दर्जा व प्रमाण *', en: 'GRADE *')),
                           if (unused.isNotEmpty)
                             SizedBox(
                               height: 28,
@@ -901,7 +931,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 ),
                                 onPressed: _addGrade,
-                                child: const Text('+ Add', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                child: Text(AppLanguage().tr(mr: '+ जोडा', en: '+ Add'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                               ),
                             ),
                         ],
@@ -913,15 +943,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       const SizedBox(height: 6),
 
                       // Grade Column Headers
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 2),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: Row(
                           children: [
-                            SizedBox(width: 42, child: Text('GRADE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+                            SizedBox(width: 42, child: Text(AppLanguage().tr(mr: 'दर्जा', en: 'GRADE'), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
                             SizedBox(width: 8),
-                            Expanded(child: Text('QTY', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+                            Expanded(child: Text(AppLanguage().tr(mr: 'प्रमाण', en: 'QTY'), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
                             SizedBox(width: 8),
-                            SizedBox(width: 72, child: Text('UNIT', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+                            SizedBox(width: 72, child: Text(AppLanguage().tr(mr: 'एकक', en: 'UNIT'), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
                             SizedBox(width: 34),
                           ],
                         ),
@@ -962,7 +992,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     initialValue: grade.quantity,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                                    decoration: _inputDecoration(hint: 'Qty'),
+                                    decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'प्रमाण', en: 'Qty')),
                                     onChanged: (v) => grade.quantity = v,
                                   ),
                                 ),
@@ -984,7 +1014,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     value: _unit,
                                     isExpanded: true,
                                     isDense: true,
-                                    items: _cropUnits.map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 11.5)))).toList(),
+                                    items: _cropUnits.map((u) => DropdownMenuItem(value: u, child: Text(_translateOption(u), style: const TextStyle(fontSize: 11.5)))).toList(),
                                     onChanged: (val) {
                                       if (val != null) setState(() => _unit = val);
                                     },
@@ -1012,11 +1042,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       // ==========================================
                       // SECTION 3: PHOTOS (2x2 Grid with Upload & Camera)
                       // ==========================================
-                      _buildSectionTitle('PHOTOS'),
+                      _buildSectionTitle(AppLanguage().tr(mr: 'उत्पादन फोटो', en: 'PHOTOS')),
                       const SizedBox(height: 2),
-                      const Text(
-                        'Clear, well-lit photos. Product should be clearly visible.',
-                        style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                      Text(
+                        AppLanguage().tr(mr: 'स्पष्ट आणि पुरेशा प्रकाशात काढलेले फोटो. उत्पादन स्पष्ट दिसले पाहिजे.', en: 'Clear, well-lit photos. Product should be clearly visible.'),
+                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                       ),
                       if (_errors['mainPhoto'] != null) ...[
                         const SizedBox(height: 2),
@@ -1030,7 +1060,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         children: [
                           Expanded(
                             child: _buildPhotoTile(
-                              label: 'Main',
+                              label: _translateOption('main'),
                               required: true,
                               photoUrl: _mainPhoto,
                               slotKey: 'main',
@@ -1040,7 +1070,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildPhotoTile(
-                              label: 'Farm',
+                              label: _translateOption('farm'),
                               photoUrl: _farmPhoto,
                               slotKey: 'farm',
                             ),
@@ -1053,7 +1083,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         children: [
                           Expanded(
                             child: _buildPhotoTile(
-                              label: 'Crop',
+                              label: _translateOption('crop'),
                               photoUrl: _cropPhoto,
                               slotKey: 'crop',
                             ),
@@ -1061,7 +1091,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildPhotoTile(
-                              label: 'Harvest',
+                              label: _translateOption('harvest'),
                               photoUrl: _harvestPhoto,
                               slotKey: 'harvest',
                             ),
@@ -1107,7 +1137,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     onPressed: _isSubmitting ? null : () => _submit(false),
                     child: Text(
-                      _isSubmitting ? 'Saving…' : 'Save Draft',
+                      _isSubmitting ? AppLanguage().tr(mr: 'जतन करत आहे…', en: 'Saving…') : AppLanguage().tr(mr: 'मसुदा जतन करा', en: 'Save Draft'),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -1128,7 +1158,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     onPressed: _isSubmitting ? null : () => _submit(true),
                     child: Text(
-                      _isSubmitting ? 'Saving…' : 'Publish',
+                      _isSubmitting ? AppLanguage().tr(mr: 'जतन करत आहे…', en: 'Saving…') : AppLanguage().tr(mr: 'प्रकाशित करा', en: 'Publish'),
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -1190,12 +1220,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                   ],
                 )
-              : const Center(
+              : Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('+', style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
-                      Text('Add photo', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: Color(0xFF64748B))),
+                      const Text('+', style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+                      Text(AppLanguage().tr(mr: 'फोटो जोडा', en: 'Add photo'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: Color(0xFF64748B))),
                     ],
                   ),
                 ),
@@ -1217,7 +1247,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   ),
                   onPressed: () => _pickImageForSlot(ImageSource.gallery, slotKey),
-                  child: const Text('Upload', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(AppLanguage().tr(mr: 'अपलोड', en: 'Upload'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -1234,7 +1264,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   ),
                   onPressed: () => _pickImageForSlot(ImageSource.camera, slotKey),
-                  child: const Text('Camera', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(AppLanguage().tr(mr: 'कॅमेरा', en: 'Camera'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),

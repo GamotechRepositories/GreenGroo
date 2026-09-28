@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/app_language.dart';
 import 'package:flutter/services.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
@@ -16,6 +17,42 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late ProductItem _product;
 
+  String _translateStatus(String s) {
+    final lang = AppLanguage();
+    switch (s.toLowerCase()) {
+      case 'active': return lang.tr(mr: 'सक्रिय', en: 'Active');
+      case 'published': return lang.tr(mr: 'प्रकाशित', en: 'Published');
+      case 'paused': return lang.tr(mr: 'थांबवले', en: 'Paused');
+      case 'draft': return lang.tr(mr: 'मसुदा', en: 'Draft');
+      case 'out of stock': return lang.tr(mr: 'स्टॉक संपला', en: 'Out of Stock');
+      default: return s;
+    }
+  }
+
+  String _translateLabel(String label) {
+    final lang = AppLanguage();
+    switch (label) {
+      case 'Product ID': return lang.tr(mr: 'उत्पादन आयडी', en: 'Product ID');
+      case 'Product Name': return lang.tr(mr: 'उत्पादनाचे नाव', en: 'Product Name');
+      case 'Crop': return lang.tr(mr: 'पीक', en: 'Crop');
+      case 'Variety': return lang.tr(mr: 'वाण', en: 'Variety');
+      case 'Available Quantity': return lang.tr(mr: 'उपलब्ध प्रमाण', en: 'Available Quantity');
+      case 'Selling Price': return lang.tr(mr: 'विक्री दर', en: 'Selling Price');
+      case 'MOQ (Min Order)': return lang.tr(mr: 'किमान ऑर्डर प्रमाण (MOQ)', en: 'MOQ (Min Order)');
+      case 'Quality Grade': return lang.tr(mr: 'गुणवत्ता दर्जा', en: 'Quality Grade');
+      case 'Sowing Date': return lang.tr(mr: 'लागवड तारीख', en: 'Sowing Date');
+      case 'Harvest Date': return lang.tr(mr: 'काढणी तारीख', en: 'Harvest Date');
+      case 'Farming Method': return lang.tr(mr: 'शेती पद्धती', en: 'Farming Method');
+      case 'Available Window': return lang.tr(mr: 'उपलब्ध कालावधी', en: 'Available Window');
+      case 'Farm Name': return lang.tr(mr: 'शेताचे नाव', en: 'Farm Name');
+      case 'Farm Location': return lang.tr(mr: 'शेताचे ठिकाण', en: 'Farm Location');
+      case 'Estimated Yield': return lang.tr(mr: 'अंदाजे उत्पादन', en: 'Estimated Yield');
+      case 'Status': return lang.tr(mr: 'स्थिती', en: 'Status');
+      default: return label;
+    }
+  }
+
+
   @override
   void initState() {
     super.initState();
@@ -26,7 +63,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     Clipboard.setData(ClipboardData(text: id));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Product ID "$id" copied to clipboard!'),
+        content: Text(AppLanguage().tr(mr: 'उत्पादन आयडी "$id" क्लिपबोर्डवर कॉपी केला!', en: 'Product ID "$id" copied to clipboard!')),
         backgroundColor: const Color(0xFF217346),
         duration: const Duration(seconds: 2),
       ),
@@ -41,7 +78,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(newStatus == 'Paused' ? 'Product paused' : 'Product activated'),
+        content: Text(newStatus == 'Paused' ? AppLanguage().tr(mr: 'उत्पादन थांबवले', en: 'Product paused') : AppLanguage().tr(mr: 'उत्पादन सक्रिय केले', en: 'Product activated')),
         backgroundColor: const Color(0xFF217346),
         duration: const Duration(seconds: 2),
       ),
@@ -231,7 +268,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.currency_rupee, size: 14),
-                          label: const Text('Price & Stock', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          label: Text(AppLanguage().tr(mr: 'दर व साठा', en: 'Price & Stock'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: _openPriceStockSheet,
                         ),
                       ),
@@ -246,7 +283,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.photo_library_outlined, size: 14),
-                          label: const Text('Photos & Media', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          label: Text(AppLanguage().tr(mr: 'फोटो व मिडिया', en: 'Photos & Media'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: _openMediaSheet,
                         ),
                       ),
@@ -259,7 +296,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
             // 2. Product Details Panel (Excel Panel style)
             _buildPanel(
-              title: 'Product Details',
+              title: AppLanguage().tr(mr: 'उत्पादन तपशील', en: 'Product Details'),
               icon: Icons.info_outline,
               child: GridView.count(
                 crossAxisCount: 2,
@@ -279,7 +316,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   _buildInfoItem('Quality Grade', p.grade),
                   _buildInfoItem('Sowing Date', p.sowingDate),
                   _buildInfoItem('Harvest Date', p.harvestDate),
-                  _buildInfoItem('Farming Method', isOrganic ? 'Organic (सेंद्रिय)' : 'Conventional (पारंपारिक)'),
+                  _buildInfoItem('Farming Method', isOrganic ? AppLanguage().tr(mr: 'सेंद्रिय शेती', en: 'Organic') : AppLanguage().tr(mr: 'पारंपारिक शेती', en: 'Conventional')),
                   _buildInfoItem('Available Window', '${p.availableFrom} to ${p.availableUntil}'),
                 ],
               ),
@@ -288,13 +325,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
             // 3. Grades & Stock Panel
             _buildPanel(
-              title: 'Grades & Stock',
+              title: AppLanguage().tr(mr: 'दर्जा व साठा', en: 'Grades & Stock'),
               icon: Icons.layers_outlined,
               child: Row(
                 children: [
                   Expanded(
                     child: _buildGradeCard(
-                      label: 'Grade A',
+                      label: AppLanguage().tr(mr: 'दर्जा A', en: 'Grade A'),
                       qty: '${p.gradeAQty.toStringAsFixed(0)} ${p.unit}',
                       rate: '₹ ${p.gradeAPrice.toStringAsFixed(0)} / ${p.unit}',
                       bg: const Color(0xFFECFDF5),
@@ -305,7 +342,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _buildGradeCard(
-                      label: 'Grade B',
+                      label: AppLanguage().tr(mr: 'दर्जा B', en: 'Grade B'),
                       qty: '${p.gradeBQty.toStringAsFixed(0)} ${p.unit}',
                       rate: '₹ ${p.gradeBPrice.toStringAsFixed(0)} / ${p.unit}',
                       bg: const Color(0xFFEFF6FF),
@@ -316,7 +353,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _buildGradeCard(
-                      label: 'Grade C',
+                      label: AppLanguage().tr(mr: 'दर्जा C', en: 'Grade C'),
                       qty: '${p.gradeCQty > 0 ? p.gradeCQty.toStringAsFixed(0) : '0'} ${p.unit}',
                       rate: p.gradeCPrice > 0 ? '₹ ${p.gradeCPrice.toStringAsFixed(0)} / ${p.unit}' : '—',
                       bg: const Color(0xFFFFFBEB),
@@ -331,7 +368,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
             // 4. Farm & Crop Link Panel
             _buildPanel(
-              title: 'Farm & Crop Link',
+              title: AppLanguage().tr(mr: 'शेत व पीक लिंक', en: 'Farm & Crop Link'),
               icon: Icons.agriculture_outlined,
               child: GridView.count(
                 crossAxisCount: 2,
@@ -366,7 +403,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     icon: Icon(p.status == 'Paused' ? Icons.play_arrow_outlined : Icons.pause_outlined, size: 16),
                     label: Text(
-                      p.status == 'Paused' ? 'Activate' : 'Pause Listing',
+                      p.status == 'Paused' ? AppLanguage().tr(mr: 'सक्रिय करा', en: 'Activate') : AppLanguage().tr(mr: 'उत्पादन थांबवा', en: 'Pause Listing'),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     onPressed: _toggleStatus,
@@ -383,7 +420,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Edit Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: Text(AppLanguage().tr(mr: 'उत्पादनात बदल करा', en: 'Edit Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: () async {
                       final updated = await Navigator.push<ProductItem>(
                         context,
@@ -409,7 +446,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.delete_outline, size: 16),
-                label: const Text('Delete Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(AppLanguage().tr(mr: 'उत्पादन हटवा', en: 'Delete Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: _deleteProduct,
               ),
             ),
@@ -460,17 +497,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildInfoItem(String label, String val, {bool isMono = false, bool isGreen = false}) {
+    final displayLabel = _translateLabel(label);
+    final displayVal = label == 'Status' ? _translateStatus(val) : val;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          label.toUpperCase(),
+          displayLabel.toUpperCase(),
           style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.2),
         ),
         const SizedBox(height: 1),
         Text(
-          val.isNotEmpty ? val : '—',
+          displayVal.isNotEmpty ? displayVal : '—',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
@@ -587,9 +626,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Price & Stock (दर व साठा)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        Text(
+                          AppLanguage().tr(mr: 'दर व साठा', en: 'Price & Stock'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                         ),
                         Text(
                           '${_product.productName} • ${_product.displayBusinessId}',
@@ -604,7 +643,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ],
                 ),
                 const Divider(height: 20),
-                const Text('Quick Rates & Quantities', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                Text(AppLanguage().tr(mr: 'त्वरित दर व प्रमाण', en: 'Quick Rates & Quantities'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -613,7 +652,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: priceCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Base Price / ${_product.unit} (₹)',
+                          labelText: AppLanguage().tr(mr: 'मूळ दर / ${_product.unit} (₹)', en: 'Base Price / ${_product.unit} (₹)'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -626,7 +665,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: qtyCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Total Available (${_product.unit})',
+                          labelText: AppLanguage().tr(mr: 'एकूण उपलब्ध साठा (${_product.unit})', en: 'Total Available (${_product.unit})'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -640,14 +679,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   controller: moqCtrl,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    labelText: 'Minimum Order Quantity (MOQ)',
+                    labelText: AppLanguage().tr(mr: 'किमान ऑर्डर प्रमाण (MOQ)', en: 'Minimum Order Quantity (MOQ)'),
                     labelStyle: const TextStyle(fontSize: 11),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text('Grade Wise Breakdown', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                Text(AppLanguage().tr(mr: 'दर्जाहिशोबी विभागणी', en: 'Grade Wise Breakdown'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -656,7 +695,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: grAPriceCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Grade A Price (₹)',
+                          labelText: AppLanguage().tr(mr: 'दर्जा A दर (₹)', en: 'Grade A Price (₹)'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -669,7 +708,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: grAQtyCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Grade A Qty',
+                          labelText: AppLanguage().tr(mr: 'दर्जा A प्रमाण', en: 'Grade A Qty'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -686,7 +725,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: grBPriceCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Grade B Price (₹)',
+                          labelText: AppLanguage().tr(mr: 'दर्जा B दर (₹)', en: 'Grade B Price (₹)'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -699,7 +738,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: grBQtyCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Grade B Qty',
+                          labelText: AppLanguage().tr(mr: 'दर्जा B प्रमाण', en: 'Grade B Qty'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -752,13 +791,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       setState(() => _product = updated);
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Price and stock updated successfully!'),
-                          backgroundColor: Color(0xFF217346),
+                        SnackBar(
+                          content: Text(AppLanguage().tr(mr: 'दर आणि साठा यशस्वीरित्या अपडेट केला!', en: 'Price and stock updated successfully!')),
+                          backgroundColor: const Color(0xFF217346),
                         ),
                       );
                     },
-                    child: const Text('Save Price & Stock', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    child: Text(AppLanguage().tr(mr: 'दर व साठा जतन करा', en: 'Save Price & Stock'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ),
               ],
@@ -786,8 +825,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           void pickAndAddPhoto() {
             showAppPhotoPicker(
               context,
-              title: 'Add Product Photo (फोटो निवडा)',
-              subtitle: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा',
+              title: AppLanguage().tr(mr: 'उत्पादन फोटो निवडा', en: 'Add Product Photo'),
+              subtitle: AppLanguage().tr(mr: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा', en: 'Take live photo or select from gallery'),
               presetCategory: 'Vegetables',
               onPhotoSelected: (newPhoto) {
                 final updatedPhotos = List<String>.from(_product.photos);
@@ -831,9 +870,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 setSheetState(() {});
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Photo added to product gallery!'),
-                    backgroundColor: Color(0xFF217346),
+                  SnackBar(
+                    content: Text(AppLanguage().tr(mr: 'उत्पादन गॅलरीमध्ये फोटो जोडला!', en: 'Photo added to product gallery!')),
+                    backgroundColor: const Color(0xFF217346),
                   ),
                 );
               },
@@ -856,9 +895,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Product Photos (उत्पादन फोटो)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        Text(
+                          AppLanguage().tr(mr: 'उत्पादन फोटो', en: 'Product Photos'),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                         ),
                         Text(
                           '${_product.productName} • ${_product.displayBusinessId}',
@@ -888,9 +927,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 child: const Icon(Icons.add_a_photo_outlined, size: 36, color: Color(0xFF065F46)),
                               ),
                               const SizedBox(height: 12),
-                              const Text('No photos uploaded yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text(AppLanguage().tr(mr: 'अद्याप कोणतेही फोटो जोडलेले नाहीत', en: 'No photos uploaded yet'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                               const SizedBox(height: 4),
-                              const Text('Tap below to take live photo or select from gallery', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                              Text(AppLanguage().tr(mr: 'खाली टॅप करून कॅमेऱ्याने किंवा गॅलरीमधून फोटो जोडा', en: 'Tap below to take live photo or select from gallery'), style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
                             ],
                           ),
                         )
@@ -912,12 +951,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
                                   ),
-                                  child: const Column(
+                                  child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.add_photo_alternate_outlined, size: 32, color: Color(0xFF065F46)),
-                                      SizedBox(height: 6),
-                                      Text('+ Add Photo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                                      const Icon(Icons.add_photo_alternate_outlined, size: 32, color: Color(0xFF065F46)),
+                                      const SizedBox(height: 6),
+                                      Text(AppLanguage().tr(mr: '+ फोटो जोडा', en: '+ Add Photo'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
                                     ],
                                   ),
                                 ),
@@ -951,7 +990,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         color: const Color(0xFF217346),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
-                                      child: const Text('Main Photo', style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                      child: Text(AppLanguage().tr(mr: 'मुख्य फोटो', en: 'Main Photo'), style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold)),
                                     ),
                                   ),
                               ],
@@ -970,7 +1009,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                    label: const Text('Take Live Photo / Upload (फोटो जोडा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    label: Text(AppLanguage().tr(mr: 'लाईव्ह फोटो काढा / अपलोड करा', en: 'Take Live Photo / Upload'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     onPressed: pickAndAddPhoto,
                   ),
                 ),

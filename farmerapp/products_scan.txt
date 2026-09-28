@@ -1,0 +1,208 @@
+=== products_screen.dart ===
+28: case 'all': return lang.tr(mr: 'सर्व', en: 'All');
+29: case 'active': return lang.tr(mr: 'सक्रिय', en: 'Active');
+30: case 'out of stock': return lang.tr(mr: 'स्टॉक संपला', en: 'Out of Stock');
+31: case 'published': return lang.tr(mr: 'प्रकाशित', en: 'Published');
+32: case 'draft': return lang.tr(mr: 'मसुदा', en: 'Draft');
+33: case 'paused': return lang.tr(mr: 'थांबवले', en: 'Paused');
+45: content: Text(AppLanguage().tr(mr: 'उत्पादन आयडी "$id" क्लिपबोर्डवर कॉपी केला!', en: 'Product ID "$id" copied to clipboard!')),
+57 [EN]: title: Text(
+58: AppLanguage().tr(mr: 'उत्पादन हटवायचे?', en: 'Delete product?'),
+61 [EN]: content: Text(
+62: AppLanguage().tr(mr: 'फक्त मसुदा (Draft) उत्पादने हटविली जाऊ शकतात. ही क्रिया पूर्ववत करता येणार नाही.', en: 'Only draft products can be deleted. This cannot be undone.'),
+73: child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+87: content: Text(AppLanguage().tr(mr: 'उत्पादन "${product.productName}" यशस्वीरित्या हटवले', en: 'Product "${product.productName}" deleted successfully')),
+93: child: Text(AppLanguage().tr(mr: 'हटवा', en: 'Delete'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+155: tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
+164 [EN]: title: Text(
+165: lang.tr(mr: 'माझी उत्पादने', en: 'My Products'),
+171: tooltip: lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
+249 [EN]: child: Text(
+250: lang.tr(mr: '📦 उत्पादन विक्री', en: '📦 Produce Market'),
+255 [EN]: Text(
+257: mr: '${products.length} उत्पादने सूचीबद्ध',
+265 [EN]: Text(
+266: lang.tr(mr: 'माझी उत्पादने, थेट बाजारपेठ', en: 'My Products, Direct Market'),
+275 [EN]: Text(
+277: mr: 'ताजी फळे, भाजीपाला व दर्जेदार शेतमाल थेट ग्राहकांपर्यंत!',
+307: hintText: lang.tr(mr: 'पीक, वाण किंवा उत्पादन आयडी शोधा...', en: 'Search crop, variety, or product ID...'),
+329: label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+348 [EN]: label: Text(
+374: AppLoader(message: lang.tr(mr: 'उत्पादने लोड होत आहेत...', en: 'Loading products...'))
+398 [EN]: const Text(
+403 [EN]: const Text(
+418: label: Text(lang.tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+545 [EN]: Text(
+563 [EN]: Text(
+581 [EN]: Text(
+603: label: lang.tr(mr: 'पहा', en: 'View'),
+617: label: lang.tr(mr: 'बदल', en: 'Edit'),
+631: label: lang.tr(mr: 'हटवा', en: 'Delete'),
+705 [EN]: child: Text(
+=== add_product_screen.dart ===
+69: case 'kg': return lang.tr(mr: 'किलो (Kg)', en: 'Kg');
+70: case 'quintal': return lang.tr(mr: 'क्विंटल (Quintal)', en: 'Quintal');
+71: case 'ton': return lang.tr(mr: 'टन (Ton)', en: 'Ton');
+72: case 'box': return lang.tr(mr: 'बॉक्स (Box)', en: 'Box');
+73: case 'dozen': return lang.tr(mr: 'डझन (Dozen)', en: 'Dozen');
+74: case 'piece': return lang.tr(mr: 'नग (Piece)', en: 'Piece');
+75: case 'crate': return lang.tr(mr: 'क्रेटा (Crate)', en: 'Crate');
+76: case 'bag': return lang.tr(mr: 'बॅग (Bag)', en: 'Bag');
+78: case 'conventional': return lang.tr(mr: 'पारंपारिक शेती', en: 'Conventional');
+79: case 'organic': return lang.tr(mr: 'सेंद्रिय शेती', en: 'Organic');
+80: case 'natural': return lang.tr(mr: 'नैसर्गिक शेती', en: 'Natural');
+81: case 'ipm': return lang.tr(mr: 'आयपीएम (IPM)', en: 'IPM');
+82: case 'hydroponic': return lang.tr(mr: 'हायड्रोपोनिक', en: 'Hydroponic');
+83: case 'other': return lang.tr(mr: 'इतर', en: 'Other');
+85: case 'main': return lang.tr(mr: 'मुख्य फोटो', en: 'Main');
+86: case 'farm': return lang.tr(mr: 'शेताचा फोटो', en: 'Farm');
+87: case 'crop': return lang.tr(mr: 'पिकाचा फोटो', en: 'Crop');
+88: case 'harvest': return lang.tr(mr: 'काढणीचा फोटो', en: 'Harvest');
+289 [EN]: title: 'Select $slot Photo',
+435 [EN]: content: Text(publish ? 'Product submitted & published!' : 'Draft saved'),
+485 [EN]: content: Text(publish ? 'Product submitted for approval & published!' : 'Draft saved successfully'),
+519 [EN]: title: Text(
+520: isEditing ? AppLanguage().tr(mr: 'उत्पादनात बदल करा', en: 'Edit Product') : AppLanguage().tr(mr: 'उत्पादन जोडा', en: 'Add Product'),
+526: child: Text(AppLanguage().tr(mr: 'मागे', en: 'Back'), style: const TextStyle(color: Color(0xFF217346), fontWeight: FontWeight.bold, fontSize: 13)),
+539 [EN]: Text(
+540: AppLanguage().tr(mr: 'हे उत्पादन पिकाशी लिंक करा, नंतर मसुदा म्हणून जतन करा किंवा प्रकाशित करा.', en: 'Link this product to a crop, then save as draft or publish for approval.'),
+555: Text(AppLanguage().tr(mr: 'आधी पीक जोडा, नंतर उत्पादन तयार करा.', en: 'Add a crop first, then create a product.'), style: const TextStyle(fontSize: 11, color: Color(0xFFB45309))),
+558: child: Text(AppLanguage().tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
+597 [EN]: const Text('PRODUCT ID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Color(0xFF047857))),
+598 [EN]: Text(
+611: _buildSectionTitle(AppLanguage().tr(mr: 'उत्पादन माहिती', en: 'PRODUCT DETAILS')),
+615: _buildLabel(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select Crop'), required: true),
+618: hint: Text(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select crop'), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5)),
+624 [EN]: child: Text(
+638 [EN]: if (_errors['cropId'] != null) _buildErrorText(_errors['cropId']!),
+649: _buildLabel(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), required: true),
+660 [EN]: child: Text(
+661: _productName.isNotEmpty ? _productName : AppLanguage().tr(mr: 'आधी पीक निवडा', en: 'Select crop first'),
+671 [EN]: if (_errors['productName'] != null) _buildErrorText(_errors['productName']!),
+680: _buildLabel(AppLanguage().tr(mr: 'वाण', en: 'Variety'), required: true),
+686: decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'वाणाचे नाव', en: 'Variety name'), error: _errors['variety']),
+690 [EN]: if (_errors['variety'] != null) _buildErrorText(_errors['variety']!),
+706: _buildLabel(AppLanguage().tr(mr: 'शेती पद्धती', en: 'Farming Type'), required: true),
+711 [EN]: items: _farmingTypes.map((t) => DropdownMenuItem(value: t, child: Text(_translateOption(t), style: const TextStyle(fontSize: 11.5)))).toList(),
+735: _buildLabel(AppLanguage().tr(mr: 'उपलब्ध प्रमाण', en: 'Quantity'), required: true),
+752 [EN]: items: _cropUnits.map((u) => DropdownMenuItem(value: u, child: Text(_translateOption(u), style: const TextStyle(fontSize: 11)))).toList(),
+764 [EN]: if (_errors['availableQuantity'] != null) _buildErrorText(_errors['availableQuantity']!),
+780: _buildLabel(AppLanguage().tr(mr: 'लागवड तारीख', en: 'Sowing Date')),
+790 [EN]: child: Text(
+803: _buildLabel(AppLanguage().tr(mr: 'काढणी तारीख', en: 'Harvest Date'), required: true),
+817 [EN]: Text(
+830 [EN]: if (_errors['harvestDate'] != null) _buildErrorText(_errors['harvestDate']!),
+860 [EN]: Text(
+873 [EN]: if (_errors['availableFrom'] != null) _buildErrorText(_errors['availableFrom']!),
+896 [EN]: Text(
+909 [EN]: if (_errors['availableUntil'] != null) _buildErrorText(_errors['availableUntil']!),
+923: _buildSectionTitle(AppLanguage().tr(mr: 'दर्जा व प्रमाण *', en: 'GRADE *')),
+934: child: Text(AppLanguage().tr(mr: '+ जोडा', en: '+ Add'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+941 [EN]: _buildErrorText(_errors['grades']!),
+950: SizedBox(width: 42, child: Text(AppLanguage().tr(mr: 'दर्जा', en: 'GRADE'), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+952: Expanded(child: Text(AppLanguage().tr(mr: 'प्रमाण', en: 'QTY'), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+954: SizedBox(width: 72, child: Text(AppLanguage().tr(mr: 'एकक', en: 'UNIT'), style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)))),
+980 [EN]: child: Text(
+995: decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'प्रमाण', en: 'Qty')),
+1017 [EN]: items: _cropUnits.map((u) => DropdownMenuItem(value: u, child: Text(_translateOption(u), style: const TextStyle(fontSize: 11.5)))).toList(),
+1045: _buildSectionTitle(AppLanguage().tr(mr: 'उत्पादन फोटो', en: 'PHOTOS')),
+1047 [EN]: Text(
+1048: AppLanguage().tr(mr: 'स्पष्ट आणि पुरेशा प्रकाशात काढलेले फोटो. उत्पादन स्पष्ट दिसले पाहिजे.', en: 'Clear, well-lit photos. Product should be clearly visible.'),
+1053 [EN]: _buildErrorText(_errors['mainPhoto']!),
+1139 [EN]: child: Text(
+1140: _isSubmitting ? AppLanguage().tr(mr: 'जतन करत आहे…', en: 'Saving…') : AppLanguage().tr(mr: 'मसुदा जतन करा', en: 'Save Draft'),
+1160 [EN]: child: Text(
+1161: _isSubmitting ? AppLanguage().tr(mr: 'जतन करत आहे…', en: 'Saving…') : AppLanguage().tr(mr: 'प्रकाशित करा', en: 'Publish'),
+1188 [EN]: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+1189 [EN]: if (required) const Text(' *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+1227 [EN]: const Text('+', style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8))),
+1228: Text(AppLanguage().tr(mr: 'फोटो जोडा', en: 'Add photo'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: Color(0xFF64748B))),
+1250: child: Text(AppLanguage().tr(mr: 'अपलोड', en: 'Upload'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+1267: child: Text(AppLanguage().tr(mr: 'कॅमेरा', en: 'Camera'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+1278 [EN]: return Text(
+1295 [EN]: Text(
+1299 [EN]: if (required) const Text(' *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+1305 [EN]: Widget _buildErrorText(String text) {
+1308 [EN]: child: Text(text, style: const TextStyle(fontSize: 9.5, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
+1314 [EN]: hintText: hint,
+=== product_detail_screen.dart ===
+23: case 'active': return lang.tr(mr: 'सक्रिय', en: 'Active');
+24: case 'published': return lang.tr(mr: 'प्रकाशित', en: 'Published');
+25: case 'paused': return lang.tr(mr: 'थांबवले', en: 'Paused');
+26: case 'draft': return lang.tr(mr: 'मसुदा', en: 'Draft');
+27: case 'out of stock': return lang.tr(mr: 'स्टॉक संपला', en: 'Out of Stock');
+35: case 'Product ID': return lang.tr(mr: 'उत्पादन आयडी', en: 'Product ID');
+36: case 'Product Name': return lang.tr(mr: 'उत्पादनाचे नाव', en: 'Product Name');
+37: case 'Crop': return lang.tr(mr: 'पीक', en: 'Crop');
+38: case 'Variety': return lang.tr(mr: 'वाण', en: 'Variety');
+39: case 'Available Quantity': return lang.tr(mr: 'उपलब्ध प्रमाण', en: 'Available Quantity');
+40: case 'Selling Price': return lang.tr(mr: 'विक्री दर', en: 'Selling Price');
+41: case 'MOQ (Min Order)': return lang.tr(mr: 'किमान ऑर्डर प्रमाण (MOQ)', en: 'MOQ (Min Order)');
+42: case 'Quality Grade': return lang.tr(mr: 'गुणवत्ता दर्जा', en: 'Quality Grade');
+43: case 'Sowing Date': return lang.tr(mr: 'लागवड तारीख', en: 'Sowing Date');
+44: case 'Harvest Date': return lang.tr(mr: 'काढणी तारीख', en: 'Harvest Date');
+45: case 'Farming Method': return lang.tr(mr: 'शेती पद्धती', en: 'Farming Method');
+46: case 'Available Window': return lang.tr(mr: 'उपलब्ध कालावधी', en: 'Available Window');
+47: case 'Farm Name': return lang.tr(mr: 'शेताचे नाव', en: 'Farm Name');
+48: case 'Farm Location': return lang.tr(mr: 'शेताचे ठिकाण', en: 'Farm Location');
+49: case 'Estimated Yield': return lang.tr(mr: 'अंदाजे उत्पादन', en: 'Estimated Yield');
+50: case 'Status': return lang.tr(mr: 'स्थिती', en: 'Status');
+66: content: Text(AppLanguage().tr(mr: 'उत्पादन आयडी "$id" क्लिपबोर्डवर कॉपी केला!', en: 'Product ID "$id" copied to clipboard!')),
+81: content: Text(newStatus == 'Paused' ? AppLanguage().tr(mr: 'उत्पादन थांबवले', en: 'Product paused') : AppLanguage().tr(mr: 'उत्पादन सक्रिय केले', en: 'Product activated')),
+93 [EN]: title: const Row(
+97 [EN]: Text('Delete product?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+100 [EN]: content: const Text(
+107 [EN]: child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+121 [EN]: content: Text('Product deleted successfully'),
+128 [EN]: child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+138: final isOrganic = p.farmingType.toLowerCase().contains('organic') || p.farmingType.contains('सेंद्रिय');
+149 [EN]: title: Text(
+219 [EN]: child: Text(
+228 [EN]: Text(
+238 [EN]: Text(
+271: label: Text(AppLanguage().tr(mr: 'दर व साठा', en: 'Price & Stock'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+286: label: Text(AppLanguage().tr(mr: 'फोटो व मिडिया', en: 'Photos & Media'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+299: title: AppLanguage().tr(mr: 'उत्पादन तपशील', en: 'Product Details'),
+319: _buildInfoItem('Farming Method', isOrganic ? AppLanguage().tr(mr: 'सेंद्रिय शेती', en: 'Organic') : AppLanguage().tr(mr: 'पारंपारिक शेती', en: 'Conventional')),
+328: title: AppLanguage().tr(mr: 'दर्जा व साठा', en: 'Grades & Stock'),
+334: label: AppLanguage().tr(mr: 'दर्जा A', en: 'Grade A'),
+345: label: AppLanguage().tr(mr: 'दर्जा B', en: 'Grade B'),
+356: label: AppLanguage().tr(mr: 'दर्जा C', en: 'Grade C'),
+371: title: AppLanguage().tr(mr: 'शेत व पीक लिंक', en: 'Farm & Crop Link'),
+405 [EN]: label: Text(
+406: p.status == 'Paused' ? AppLanguage().tr(mr: 'सक्रिय करा', en: 'Activate') : AppLanguage().tr(mr: 'उत्पादन थांबवा', en: 'Pause Listing'),
+423: label: Text(AppLanguage().tr(mr: 'उत्पादनात बदल करा', en: 'Edit Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+449: label: Text(AppLanguage().tr(mr: 'उत्पादन हटवा', en: 'Delete Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+483 [EN]: Text(
+506 [EN]: Text(
+511 [EN]: Text(
+544 [EN]: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: fg)),
+546 [EN]: Text(qty, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+548 [EN]: Text(rate, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg)),
+585 [EN]: child: Text(
+629 [EN]: Text(
+630: AppLanguage().tr(mr: 'दर व साठा', en: 'Price & Stock'),
+633 [EN]: Text(
+646: Text(AppLanguage().tr(mr: 'त्वरित दर व प्रमाण', en: 'Quick Rates & Quantities'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+655: labelText: AppLanguage().tr(mr: 'मूळ दर / ${_product.unit} (₹)', en: 'Base Price / ${_product.unit} (₹)'),
+668: labelText: AppLanguage().tr(mr: 'एकूण उपलब्ध साठा (${_product.unit})', en: 'Total Available (${_product.unit})'),
+682: labelText: AppLanguage().tr(mr: 'किमान ऑर्डर प्रमाण (MOQ)', en: 'Minimum Order Quantity (MOQ)'),
+689: Text(AppLanguage().tr(mr: 'दर्जाहिशोबी विभागणी', en: 'Grade Wise Breakdown'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+698: labelText: AppLanguage().tr(mr: 'दर्जा A दर (₹)', en: 'Grade A Price (₹)'),
+711: labelText: AppLanguage().tr(mr: 'दर्जा A प्रमाण', en: 'Grade A Qty'),
+728: labelText: AppLanguage().tr(mr: 'दर्जा B दर (₹)', en: 'Grade B Price (₹)'),
+741: labelText: AppLanguage().tr(mr: 'दर्जा B प्रमाण', en: 'Grade B Qty'),
+795: content: Text(AppLanguage().tr(mr: 'दर आणि साठा यशस्वीरित्या अपडेट केला!', en: 'Price and stock updated successfully!')),
+800: child: Text(AppLanguage().tr(mr: 'दर व साठा जतन करा', en: 'Save Price & Stock'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+828: title: AppLanguage().tr(mr: 'उत्पादन फोटो निवडा', en: 'Add Product Photo'),
+829: subtitle: AppLanguage().tr(mr: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा', en: 'Take live photo or select from gallery'),
+874: content: Text(AppLanguage().tr(mr: 'उत्पादन गॅलरीमध्ये फोटो जोडला!', en: 'Photo added to product gallery!')),
+898 [EN]: Text(
+899: AppLanguage().tr(mr: 'उत्पादन फोटो', en: 'Product Photos'),
+902 [EN]: Text(
+930: Text(AppLanguage().tr(mr: 'अद्याप कोणतेही फोटो जोडलेले नाहीत', en: 'No photos uploaded yet'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+932: Text(AppLanguage().tr(mr: 'खाली टॅप करून कॅमेऱ्याने किंवा गॅलरीमधून फोटो जोडा', en: 'Tap below to take live photo or select from gallery'), style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+959: Text(AppLanguage().tr(mr: '+ फोटो जोडा', en: '+ Add Photo'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+993: child: Text(AppLanguage().tr(mr: 'मुख्य फोटो', en: 'Main Photo'), style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold)),
+1012: label: Text(AppLanguage().tr(mr: 'लाईव्ह फोटो काढा / अपलोड करा', en: 'Take Live Photo / Upload'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+1038 [EN]: child: Text(

@@ -10,6 +10,7 @@ import '../schemes/schemes_screen.dart';
 import '../main_shell.dart';
 import '../market/market_comparison_screen.dart';
 import '../../services/market_price_service.dart';
+import '../../services/app_language.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -46,7 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
     if (cleanPhone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('फोन नंबर उपलब्ध नाही')),
+        SnackBar(content: Text(AppLanguage().tr(mr: 'फोन नंबर उपलब्ध नाही', en: 'Phone number not available'))),
       );
       return;
     }
@@ -56,7 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('कॉल करता आला नाही: $cleanPhone')),
+          SnackBar(content: Text(AppLanguage().tr(mr: 'कॉल करता आला नाही: $cleanPhone', en: 'Could not place call: $cleanPhone'))),
         );
       }
     }
@@ -106,7 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final totalStock = state.totalStockKg;
 
         // Real profile details
-        final firstName = profile.fullName.trim().isEmpty ? 'शेतकरी' : profile.fullName.trim().split(RegExp(r'\s+')).first;
+        final firstName = profile.fullName.trim().isEmpty ? AppLanguage().tr(mr: 'शेतकरी', en: 'Farmer') : profile.fullName.trim().split(RegExp(r'\s+')).first;
 
         final totalCropsCount = crops.length;
         final kyc = profile.kycStatus.trim().toUpperCase();
@@ -140,7 +141,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             leading: IconButton(
               icon: const Icon(Icons.menu_rounded, color: Color(0xFF1F2937), size: 26),
-              tooltip: 'मेनू उघडा (Menu)',
+              tooltip: AppLanguage().tr(mr: 'मेनू उघडा', en: 'Open Menu'),
               onPressed: () => MainShell.openDrawer(context),
             ),
             titleSpacing: 0,
@@ -201,7 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       Text(
-                        'स्वागत आहे, $firstName',
+                        AppLanguage().tr(mr: 'स्वागत आहे, $firstName', en: 'Welcome, $firstName'),
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF6B7280),
@@ -222,7 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
                     },
                     icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1F2937), size: 26),
-                    tooltip: 'सूचना (Notifications)',
+                    tooltip: AppLanguage().tr(mr: 'सूचना', en: 'Notifications'),
                   ),
                   if (state.unreadNotificationCount > 0)
                     Positioned(
@@ -307,9 +308,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text(
-                                'शेतीतून समृद्धी,\nआपल्या हातातच!',
-                                style: TextStyle(
+                              Text(
+                                AppLanguage().tr(
+                                  mr: 'शेतीतून समृद्धी,\nआपल्या हातातच!',
+                                  en: 'Prosperity from farming,\nin your hands!',
+                                ),
+                                style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                   color: Color(0xFF14532D),
@@ -320,13 +324,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 6),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Icon(Icons.eco_rounded, size: 13, color: Color(0xFF16A34A)),
-                                  SizedBox(width: 4),
+                                children: [
+                                  const Icon(Icons.eco_rounded, size: 13, color: Color(0xFF16A34A)),
+                                  const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
-                                      'चांगले शेती नियोजन, उत्तम उत्पादन,\nआणि अधिक उत्पन्न!',
-                                      style: TextStyle(
+                                      AppLanguage().tr(
+                                        mr: 'चांगले शेती नियोजन, उत्तम उत्पादन,\nआणि अधिक उत्पन्न!',
+                                        en: 'Better farm planning, higher yield,\nand greater profit!',
+                                      ),
+                                      style: const TextStyle(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w600,
                                         color: Color(0xFF1F2937),
@@ -363,9 +370,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.trending_up_rounded,
                   iconColor: const Color(0xFF16A34A),
-                  title: 'MARKET PRICES',
+                  title: 'Market Prices',
                   marathiTitle: 'बाजार भाव तुलना',
-                  actionLabel: 'सर्व बाजार →',
+                  actionLabel: 'All Markets →',
+                  marathiActionLabel: 'सर्व बाजार →',
                   onAction: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const MarketComparisonScreen()),
@@ -380,9 +388,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.analytics_outlined,
                   iconColor: const Color(0xFF16A34A),
-                  title: 'FARM OVERVIEW',
+                  title: 'Farm Overview',
                   marathiTitle: 'शेत थेट आढावा',
                   actionLabel: 'View Details',
+                  marathiActionLabel: 'तपशील पहा',
                   onAction: () => MainShell.setTab(context, 3),
                 ),
                 Padding(
@@ -394,7 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.inventory_2_outlined,
                           iconColor: const Color(0xFF16A34A),
                           iconBg: const Color(0xFFDCFCE7),
-                          label: 'Products',
+                          label: AppLanguage().tr(mr: 'उत्पादने', en: 'Products'),
                           value: totalProductsVal,
                         ),
                       ),
@@ -404,7 +413,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.warehouse_outlined,
                           iconColor: const Color(0xFF059669),
                           iconBg: const Color(0xFFD1FAE5),
-                          label: 'Stock',
+                          label: AppLanguage().tr(mr: 'शिल्लक साठा', en: 'Stock'),
                           value: totalStockVal,
                         ),
                       ),
@@ -414,7 +423,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.grass_rounded,
                           iconColor: const Color(0xFF2563EB),
                           iconBg: const Color(0xFFDBEAFE),
-                          label: 'Crops',
+                          label: AppLanguage().tr(mr: 'पिके', en: 'Crops'),
                           value: '$totalCropsCount',
                         ),
                       ),
@@ -424,7 +433,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           icon: Icons.agriculture_rounded,
                           iconColor: const Color(0xFFEA580C),
                           iconBg: const Color(0xFFFFEDD5),
-                          label: 'Harvest',
+                          label: AppLanguage().tr(mr: 'काढणी', en: 'Harvest'),
                           value: harvestOrdersVal,
                         ),
                       ),
@@ -436,9 +445,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.bar_chart_rounded,
                   iconColor: const Color(0xFF2563EB),
-                  title: 'ORDERS STATUS',
+                  title: 'Orders Status',
                   marathiTitle: 'ऑर्डर स्थिती',
-                  actionLabel: 'सर्व ऑर्डर्स →',
+                  actionLabel: 'All Orders →',
+                  marathiActionLabel: 'सर्व ऑर्डर्स →',
                   onAction: () => MainShell.setTab(context, 2),
                 ),
                 Padding(
@@ -452,7 +462,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.local_shipping_rounded,
                   iconColor: const Color(0xFF2563EB),
-                  title: 'UPCOMING PICKUP',
+                  title: 'Upcoming Pickup',
                   marathiTitle: 'आगामी वाहन उचल',
                 ),
                 Padding(
@@ -499,7 +509,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                                           ),
                                           Text(
-                                            'खरेदीदार: ${currentPickup.buyerName.isNotEmpty ? currentPickup.buyerName : 'GreenGrocc Buyer'}',
+                                            AppLanguage().tr(
+                                              mr: 'खरेदीदार: ${currentPickup.buyerName.isNotEmpty ? currentPickup.buyerName : "GreenGrocc Buyer"}',
+                                              en: 'Buyer: ${currentPickup.buyerName.isNotEmpty ? currentPickup.buyerName : "GreenGrocc Buyer"}',
+                                            ),
                                             style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B7280)),
                                           ),
                                         ],
@@ -527,10 +540,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('तारीख / वेळ', style: TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
+                                        Text(AppLanguage().tr(mr: 'तारीख / वेळ', en: 'Date / Time'), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
                                         const SizedBox(height: 2),
                                         Text(
-                                          currentPickup.pickupDate.isNotEmpty ? currentPickup.pickupDate : 'लवकरच',
+                                          currentPickup.pickupDate.isNotEmpty ? currentPickup.pickupDate : AppLanguage().tr(mr: 'लवकरच', en: 'Soon'),
                                           style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                                         ),
                                       ],
@@ -538,7 +551,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('उत्पादन व माल', style: TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
+                                        Text(AppLanguage().tr(mr: 'उत्पादन व माल', en: 'Product & Qty'), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
                                         const SizedBox(height: 2),
                                         Text(
                                           '${currentPickup.quantity} ${currentPickup.unit}',
@@ -549,7 +562,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('रक्कम', style: TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
+                                        Text(AppLanguage().tr(mr: 'रक्कम', en: 'Amount'), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
                                         const SizedBox(height: 2),
                                         Text(
                                           '₹ ${_formatRupees(currentPickup.totalAmount)}',
@@ -571,7 +584,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
                                         icon: const Icon(Icons.phone_rounded, size: 14),
-                                        label: const Text('संपर्क (Call)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                        label: Text(AppLanguage().tr(mr: 'संपर्क करा', en: 'Call'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                         onPressed: () => _makePhoneCall(phoneToCall),
                                       ),
                                     ),
@@ -585,7 +598,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
                                         icon: const Icon(Icons.check_circle_outline, size: 14),
-                                        label: const Text('तपशील पहा', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                        label: Text(AppLanguage().tr(mr: 'तपशील पहा', en: 'View Details'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                         onPressed: () => MainShell.setTab(context, 2),
                                       ),
                                     ),
@@ -600,14 +613,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 6),
                               const Icon(Icons.local_shipping_outlined, size: 36, color: Color(0xFF94A3B8)),
                               const SizedBox(height: 6),
-                              const Text(
-                                'सध्या कोणतीही उचल नियोजित नाही',
-                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+                              Text(
+                                AppLanguage().tr(mr: 'सध्या कोणतीही उचल नियोजित नाही', en: 'No pickup scheduled currently'),
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
                               ),
                               const SizedBox(height: 2),
-                              const Text(
-                                'नवीन ऑर्डर आल्यानंतर पिकअप माहिती येथे दिसेल.',
-                                style: TextStyle(fontSize: 10.5, color: Color(0xFF6B7280)),
+                              Text(
+                                AppLanguage().tr(mr: 'नवीन ऑर्डर आल्यानंतर पिकअप माहिती येथे दिसेल.', en: 'Pickup info will appear here once orders arrive.'),
+                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B7280)),
                               ),
                               const SizedBox(height: 10),
                               OutlinedButton.icon(
@@ -618,7 +631,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: const Icon(Icons.list_alt_rounded, size: 14),
-                                label: const Text('ऑर्डर्स तपासा', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                label: Text(AppLanguage().tr(mr: 'ऑर्डर्स तपासा', en: 'Check Orders'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                 onPressed: () => MainShell.setTab(context, 2),
                               ),
                             ],
@@ -630,9 +643,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.account_balance_wallet_rounded,
                   iconColor: const Color(0xFF16A34A),
-                  title: 'EARNINGS',
+                  title: 'Earnings Overview',
                   marathiTitle: 'उत्पन्न तपशील',
-                  actionLabel: 'पासबुक पहा →',
+                  actionLabel: 'Passbook →',
+                  marathiActionLabel: 'पासबुक पहा →',
                   onAction: () => MainShell.setTab(context, 3),
                 ),
                 Padding(
@@ -647,7 +661,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.show_chart_rounded,
                   iconColor: const Color(0xFF16A34A),
-                  title: 'EARNINGS TREND',
+                  title: 'Earnings Trend',
                   marathiTitle: 'उत्पन्न कल',
                 ),
                 Padding(
@@ -663,7 +677,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.donut_large_rounded,
                   iconColor: const Color(0xFFDC2626),
-                  title: 'PRODUCT REJECTION %',
+                  title: 'Product Rejection %',
                   marathiTitle: 'नाकारलेले शेतमाल',
                 ),
                 Padding(
@@ -678,7 +692,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.grass_rounded,
                   iconColor: const Color(0xFF059669),
-                  title: 'CROP PRODUCTION',
+                  title: 'Crop Production',
                   marathiTitle: 'पिकानुसार उत्पादन',
                 ),
                 Padding(
@@ -692,9 +706,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.account_balance_rounded,
                   iconColor: const Color(0xFF7C3AED),
-                  title: 'GOVERNMENT SCHEMES',
+                  title: 'Government Schemes',
                   marathiTitle: 'शासकीय योजना',
-                  actionLabel: 'सर्व योजना →',
+                  actionLabel: 'All Schemes →',
+                  marathiActionLabel: 'सर्व योजना →',
                   onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen())),
                 ),
                 SizedBox(
@@ -713,27 +728,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             )).toList()
                         : [
                             _SchemeMiniCard(
-                              title: 'PM-Kisan Nidhi',
-                              benefit: '₹ 6,000 / वर्ष',
-                              category: 'थेट बँक खात्यात हप्ता',
+                              title: AppLanguage().tr(mr: 'पीएम-किसान निधी', en: 'PM-Kisan Nidhi'),
+                              benefit: AppLanguage().tr(mr: '₹ ६,००० / वर्ष', en: '₹ 6,000 / year'),
+                              category: AppLanguage().tr(mr: 'थेट बँक खात्यात हप्ता', en: 'Direct Bank Transfer'),
                               color: const Color(0xFF16A34A),
                               bgColor: const Color(0xFFF0FDF4),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen())),
                             ),
                             const SizedBox(width: 10),
                             _SchemeMiniCard(
-                              title: 'महाडीबीटी ठिबक सिंचन',
-                              benefit: '८०% अनुदान',
-                              category: 'सिंचन साहित्य सहाय्य',
+                              title: AppLanguage().tr(mr: 'महाडीबीटी ठिबक सिंचन', en: 'MahaDBT Drip Irrigation'),
+                              benefit: AppLanguage().tr(mr: '८०% अनुदान', en: '80% Subsidy'),
+                              category: AppLanguage().tr(mr: 'सिंचन साहित्य सहाय्य', en: 'Irrigation Equipment Support'),
                               color: const Color(0xFF2563EB),
                               bgColor: const Color(0xFFEFF6FF),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen())),
                             ),
                             const SizedBox(width: 10),
                             _SchemeMiniCard(
-                              title: 'पीक विमा योजना (PMFBY)',
-                              benefit: '₹ १ मध्ये विमा',
-                              category: 'हवामान नुकसान भरपाई',
+                              title: AppLanguage().tr(mr: 'पीक विमा योजना (PMFBY)', en: 'Crop Insurance (PMFBY)'),
+                              benefit: AppLanguage().tr(mr: '₹ १ मध्ये विमा', en: 'Insurance @ ₹ 1'),
+                              category: AppLanguage().tr(mr: 'हवामान नुकसान भरपाई', en: 'Weather Risk Compensation'),
                               color: const Color(0xFFD97706),
                               bgColor: const Color(0xFFFFFBEB),
                               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen())),
@@ -746,9 +761,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _sectionHeader(
                   icon: Icons.notifications_active_rounded,
                   iconColor: const Color(0xFFDC2626),
-                  title: 'NOTIFICATIONS',
+                  title: 'Notifications',
                   marathiTitle: 'महत्त्वाच्या सूचना',
-                  actionLabel: 'सर्व सूचना →',
+                  actionLabel: 'All Notifications →',
+                  marathiActionLabel: 'सर्व सूचना →',
                   onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                 ),
                 Padding(
@@ -787,10 +803,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 Text(
                                   liveOrders.isNotEmpty
-                                      ? 'ऑर्डर #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} अपडेट: ${liveOrders.first.status}'
+                                      ? AppLanguage().tr(
+                                          mr: 'ऑर्डर #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} अपडेट: ${liveOrders.first.status}',
+                                          en: 'Order #${liveOrders.first.orderCode.isNotEmpty ? liveOrders.first.orderCode : liveOrders.first.id} update: ${liveOrders.first.status}',
+                                        )
                                       : (kycVerified
-                                          ? 'आपले शेतकरी खाते व केवायसी पडताळणी पूर्ण झाली आहे.'
-                                          : 'केवायसी व बँक पडताळणीसाठी कागदपत्रे अपलोड करा.'),
+                                          ? AppLanguage().tr(
+                                              mr: 'आपले शेतकरी खाते व केवायसी पडताळणी पूर्ण झाली आहे.',
+                                              en: 'Your farmer account & KYC verification is complete.',
+                                            )
+                                          : AppLanguage().tr(
+                                              mr: 'केवायसी व बँक पडताळणीसाठी कागदपत्रे अपलोड करा.',
+                                              en: 'Upload documents for KYC & bank verification.',
+                                            )),
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -798,8 +823,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   liveOrders.isNotEmpty
-                                      ? '${liveOrders.first.productName} • एकूण ₹ ${_formatRupees(liveOrders.first.totalAmount)}'
-                                      : 'नवीन ऑर्डर्स, हवामान आणि पेमेंट सूचनांसाठी येथे टॅप करा.',
+                                      ? '${liveOrders.first.productName} • ${AppLanguage().tr(mr: "एकूण", en: "Total")} ₹ ${_formatRupees(liveOrders.first.totalAmount)}'
+                                      : AppLanguage().tr(
+                                          mr: 'नवीन ऑर्डर्स, हवामान आणि पेमेंट सूचनांसाठी येथे टॅप करा.',
+                                          en: 'Tap here for new orders, weather & payment alerts.',
+                                        ),
                                   style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -830,8 +858,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String title,
     required String marathiTitle,
     String? actionLabel,
+    String? marathiActionLabel,
     VoidCallback? onAction,
   }) {
+    final lang = AppLanguage();
+    final displayTitle = lang.tr(mr: marathiTitle, en: title);
+    final displayAction = actionLabel != null
+        ? lang.tr(mr: marathiActionLabel ?? actionLabel, en: actionLabel)
+        : null;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Row(
@@ -843,35 +878,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icon(icon, size: 16, color: iconColor),
                 const SizedBox(width: 6),
                 Flexible(
-                  child: RichText(
+                  child: Text(
+                    displayTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    text: TextSpan(
-                      text: title,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF111827),
-                        letterSpacing: 0.3,
-                      ),
-                      children: [
-                        const TextSpan(text: ' '),
-                        TextSpan(
-                          text: '($marathiTitle)',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF6B7280),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF111827),
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          if (actionLabel != null && onAction != null) ...[
+          if (displayAction != null && onAction != null) ...[
             const SizedBox(width: 8),
             InkWell(
               onTap: onAction,
@@ -879,7 +901,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Text(
-                  actionLabel,
+                  displayAction,
                   style: const TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
@@ -931,7 +953,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _EarningsMetricCard extends StatelessWidget {
   final String label;
-  final String marathi;
   final String amount;
   final IconData icon;
   final Color color;
@@ -939,7 +960,6 @@ class _EarningsMetricCard extends StatelessWidget {
 
   const _EarningsMetricCard({
     required this.label,
-    required this.marathi,
     required this.amount,
     required this.icon,
     required this.color,
@@ -972,7 +992,7 @@ class _EarningsMetricCard extends StatelessWidget {
                 decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6)),
                 child: Icon(icon, size: 11, color: color),
               ),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   label,
@@ -983,16 +1003,10 @@ class _EarningsMetricCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             amount,
             style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Color(0xFF111827)),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            marathi,
-            style: const TextStyle(fontSize: 7.5, color: Color(0xFF9CA3AF)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1071,7 +1085,7 @@ class _SchemeMiniCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'अर्ज करा',
+                  AppLanguage().tr(mr: 'अर्ज करा', en: 'Apply Now'),
                   style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
                 ),
                 const SizedBox(width: 2),
@@ -1276,8 +1290,12 @@ class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
     final monthlyEarned = thisMonthOrders.fold<double>(0, (sum, o) => sum + _orderAmount(o));
 
     final periodLabel = _selectedPeriod == 0
-        ? 'All Time'
-        : (_selectedPeriod == 1 ? 'या महिना' : (_selectedPeriod == 2 ? 'हा आठवडा' : 'आज'));
+        ? AppLanguage().tr(mr: 'एकूण', en: 'All Time')
+        : (_selectedPeriod == 1
+            ? AppLanguage().tr(mr: 'या महिना', en: 'This Month')
+            : (_selectedPeriod == 2
+                ? AppLanguage().tr(mr: 'हा आठवडा', en: 'This Week')
+                : AppLanguage().tr(mr: 'आज', en: 'Today')));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1287,13 +1305,13 @@ class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _periodFilterChip(0, 'All Time (एकूण)'),
+              _periodFilterChip(0, AppLanguage().tr(mr: 'एकूण', en: 'All Time')),
               const SizedBox(width: 6),
-              _periodFilterChip(1, 'This Month (या महिना)'),
+              _periodFilterChip(1, AppLanguage().tr(mr: 'या महिना', en: 'This Month')),
               const SizedBox(width: 6),
-              _periodFilterChip(2, 'This Week (हा आठवडा)'),
+              _periodFilterChip(2, AppLanguage().tr(mr: 'हा आठवडा', en: 'This Week')),
               const SizedBox(width: 6),
-              _periodFilterChip(3, 'Today (आज)'),
+              _periodFilterChip(3, AppLanguage().tr(mr: 'आज', en: 'Today')),
             ],
           ),
         ),
@@ -1303,8 +1321,7 @@ class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
           children: [
             Expanded(
               child: _EarningsMetricCard(
-                label: 'Total ($periodLabel)',
-                marathi: 'निवडलेले एकूण',
+                label: periodLabel,
                 amount: '₹ ${_DashboardScreenState._formatRupees(totalEarned)}',
                 icon: Icons.account_balance_wallet,
                 color: const Color(0xFF16A34A),
@@ -1314,8 +1331,7 @@ class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
             const SizedBox(width: 8),
             Expanded(
               child: _EarningsMetricCard(
-                label: 'Monthly',
-                marathi: 'या महिन्याचे',
+                label: AppLanguage().tr(mr: 'या महिन्याचे', en: 'Monthly'),
                 amount: '₹ ${_DashboardScreenState._formatRupees(monthlyEarned)}',
                 icon: Icons.calendar_today_rounded,
                 color: const Color(0xFF2563EB),
@@ -1325,8 +1341,7 @@ class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
             const SizedBox(width: 8),
             Expanded(
               child: _EarningsMetricCard(
-                label: 'Pending',
-                marathi: 'प्रलंबित रक्कम',
+                label: AppLanguage().tr(mr: 'प्रलंबित रक्कम', en: 'Pending'),
                 amount: '₹ ${_DashboardScreenState._formatRupees(pendingEarned)}',
                 icon: Icons.hourglass_top_rounded,
                 color: const Color(0xFFD97706),
@@ -1336,8 +1351,7 @@ class _EarningsCardsWithFilterState extends State<_EarningsCardsWithFilter> {
             const SizedBox(width: 8),
             Expanded(
               child: _EarningsMetricCard(
-                label: 'Paid',
-                marathi: 'खात्यात जमा',
+                label: AppLanguage().tr(mr: 'खात्यात जमा', en: 'Paid'),
                 amount: '₹ ${_DashboardScreenState._formatRupees(paidEarned)}',
                 icon: Icons.verified_rounded,
                 color: const Color(0xFF059669),
@@ -1409,7 +1423,7 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final List<({String label, double amount})> pointsData = [];
-    const monthNames = ['जाने', 'फेब्रु', 'मार्च', 'एप्रिल', 'मे', 'जून', 'जुलै', 'ऑगस्ट', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'];
+    final monthNames = AppLanguage().isMarathi ? ['जाने', 'फेब्रु', 'मार्च', 'एप्रिल', 'मे', 'जून', 'जुलै', 'ऑगस्ट', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'] : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     if (_selectedDateFilter == 0) {
       // Last 7 Days
@@ -1526,13 +1540,16 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'उत्पन्न कल (Earnings Trend)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                  Text(
+                    AppLanguage().tr(mr: 'उत्पन्न कल', en: 'Earnings Trend'),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'कालावधी एकूण: ₹ ${_DashboardScreenState._formatRupees(currentSum)}',
+                    AppLanguage().tr(
+                      mr: 'कालावधी एकूण: ₹ ${_DashboardScreenState._formatRupees(currentSum)}',
+                      en: 'Period Total: ₹ ${_DashboardScreenState._formatRupees(currentSum)}',
+                    ),
                     style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -1598,11 +1615,22 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'एकूण उत्पन्न: ₹ ${_DashboardScreenState._formatRupees(widget.totalEarned)}',
+                AppLanguage().tr(
+                  mr: 'एकूण उत्पन्न: ₹ ${_DashboardScreenState._formatRupees(widget.totalEarned)}',
+                  en: 'Total Earnings: ₹ ${_DashboardScreenState._formatRupees(widget.totalEarned)}',
+                ),
                 style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
               ),
               Text(
-                _selectedDateFilter == 0 ? 'गेले ७ दिवस' : (_selectedDateFilter == 1 ? 'गेले १४ दिवस' : (_selectedDateFilter == 2 ? 'गेले ३० दिवस' : (_selectedDateFilter == 3 ? 'गेले ६ महिने' : 'गेले १ वर्ष'))),
+                _selectedDateFilter == 0
+                    ? AppLanguage().tr(mr: 'गेले ७ दिवस', en: 'Last 7 Days')
+                    : (_selectedDateFilter == 1
+                        ? AppLanguage().tr(mr: 'गेले १४ दिवस', en: 'Last 14 Days')
+                        : (_selectedDateFilter == 2
+                            ? AppLanguage().tr(mr: 'गेले ३० दिवस', en: 'Last 30 Days')
+                            : (_selectedDateFilter == 3
+                                ? AppLanguage().tr(mr: 'गेले ६ महिने', en: 'Last 6 Months')
+                                : AppLanguage().tr(mr: 'गेले १ वर्ष', en: 'Last 1 Year')))),
                 style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
               ),
             ],
@@ -1613,7 +1641,9 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
   }
 
   static String _getShortMonth(int month) {
-    const list = ['जाने', 'फेब्रु', 'मार्च', 'एप्रि', 'मे', 'जून', 'जुलै', 'ऑग', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'];
+    const mrList = ['जाने', 'फेब्रु', 'मार्च', 'एप्रि', 'मे', 'जून', 'जुलै', 'ऑग', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'];
+    const enList = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final list = AppLanguage().isMarathi ? mrList : enList;
     return list[(month - 1) % 12];
   }
 
@@ -1629,7 +1659,7 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
-          '$en ($mr)',
+          AppLanguage().tr(mr: mr, en: en),
           style: TextStyle(
             fontSize: 8.5,
             fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
@@ -1730,12 +1760,12 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
         .fold<int>(1, (m, c) => c > m ? c : m);
 
     final items = [
-      (label: 'नवीन', sub: 'New', count: newCount, color: const Color(0xFF2563EB)),
-      (label: 'स्वीकृत', sub: 'Acpt', count: acceptedCount, color: const Color(0xFF0284C7)),
-      (label: 'तयार', sub: 'Prep', count: preparingCount, color: const Color(0xFFD97706)),
-      (label: 'उचल', sub: 'Ready', count: readyCount, color: const Color(0xFF7C3AED)),
-      (label: 'पूर्ण', sub: 'Done', count: completedCount, color: const Color(0xFF16A34A)),
-      (label: 'नाकार', sub: 'Rej', count: rejectedCount, color: const Color(0xFFDC2626)),
+      (label: AppLanguage().tr(mr: 'नवीन', en: 'New'), count: newCount, color: const Color(0xFF2563EB)),
+      (label: AppLanguage().tr(mr: 'स्वीकृत', en: 'Acpt'), count: acceptedCount, color: const Color(0xFF0284C7)),
+      (label: AppLanguage().tr(mr: 'तयार', en: 'Prep'), count: preparingCount, color: const Color(0xFFD97706)),
+      (label: AppLanguage().tr(mr: 'उचल', en: 'Ready'), count: readyCount, color: const Color(0xFF7C3AED)),
+      (label: AppLanguage().tr(mr: 'पूर्ण', en: 'Done'), count: completedCount, color: const Color(0xFF16A34A)),
+      (label: AppLanguage().tr(mr: 'नाकार', en: 'Rej'), count: rejectedCount, color: const Color(0xFFDC2626)),
     ];
 
     return Container(
@@ -1759,9 +1789,9 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'ऑर्डर स्थिती वितरण (Orders Status)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+              Text(
+                AppLanguage().tr(mr: 'ऑर्डर स्थिती वितरण', en: 'Orders Status Distribution'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1770,7 +1800,7 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'एकूण: $total',
+                  AppLanguage().tr(mr: 'एकूण: $total', en: 'Total: $total'),
                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
                 ),
               ),
@@ -1784,15 +1814,15 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _dateChip(0, 'All Time (सर्व)'),
+                _dateChip(0, AppLanguage().tr(mr: 'सर्व', en: 'All Time')),
                 const SizedBox(width: 5),
-                _dateChip(1, 'Today (आज)'),
+                _dateChip(1, AppLanguage().tr(mr: 'आज', en: 'Today')),
                 const SizedBox(width: 5),
-                _dateChip(2, 'This Week (आठवडा)'),
+                _dateChip(2, AppLanguage().tr(mr: 'आठवडा', en: 'This Week')),
                 const SizedBox(width: 5),
-                _dateChip(3, 'This Month (महिना)'),
+                _dateChip(3, AppLanguage().tr(mr: 'महिना', en: 'This Month')),
                 const SizedBox(width: 5),
-                _dateChip(4, '30 Days (३० दिवस)'),
+                _dateChip(4, AppLanguage().tr(mr: '३० दिवस', en: '30 Days')),
               ],
             ),
           ),
@@ -1804,15 +1834,15 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _typeChip('ALL', 'All Types (सर्व प्रकार)'),
+                _typeChip('ALL', AppLanguage().tr(mr: 'सर्व प्रकार', en: 'All Types')),
                 const SizedBox(width: 5),
-                _typeChip('HARVEST', '🌾 Harvest (काढणी)'),
+                _typeChip('HARVEST', AppLanguage().tr(mr: '🌾 काढणी', en: '🌾 Harvest')),
                 const SizedBox(width: 5),
-                _typeChip('DIRECT', '🏪 Direct (थेट विक्री)'),
+                _typeChip('DIRECT', AppLanguage().tr(mr: '🏪 थेट विक्री', en: '🏪 Direct')),
                 const SizedBox(width: 5),
-                _typeChip('REGULAR', '📦 Regular (नियमित)'),
+                _typeChip('REGULAR', AppLanguage().tr(mr: '📦 नियमित', en: '📦 Regular')),
                 const SizedBox(width: 5),
-                _typeChip('CONTRACT', '📝 Contract (करार)'),
+                _typeChip('CONTRACT', AppLanguage().tr(mr: '📝 करार', en: '📝 Contract')),
               ],
             ),
           ),
@@ -1859,18 +1889,12 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
                               : null,
                         ),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 6),
                       Text(
                         item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
-                      ),
-                      Text(
-                        item.sub,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 8, color: Color(0xFF6B7280)),
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
                       ),
                     ],
                   ),
@@ -2045,7 +2069,7 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
     final List<({String label, double value, Color color})> slices = [];
 
     slices.add((
-      label: 'मंजूर माल',
+      label: AppLanguage().tr(mr: 'मंजूर माल', en: 'Accepted'),
       value: totalAcceptedAll > 0 ? totalAcceptedAll : (totalRejectedAll == 0 ? 100.0 : 0.0),
       color: const Color(0xFF16A34A),
     ));
@@ -2083,9 +2107,9 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'नाकारलेले प्रमाण % (Rejection Rate)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+              Text(
+                AppLanguage().tr(mr: 'नाकारलेले प्रमाण %', en: 'Rejection Rate %'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2094,7 +2118,12 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  totalRejectedAll > 0 ? '${totalRejectedAll.toStringAsFixed(0)} Kg नाकारले' : '०% रिजेक्शन ✓',
+                  totalRejectedAll > 0
+                      ? AppLanguage().tr(
+                          mr: '${totalRejectedAll.toStringAsFixed(0)} Kg नाकारले',
+                          en: '${totalRejectedAll.toStringAsFixed(0)} Kg Rejected',
+                        )
+                      : AppLanguage().tr(mr: '०% रिजेक्शन ✓', en: '0% Rejection ✓'),
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
@@ -2112,13 +2141,13 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _dateChip(0, 'All Time (एकूण)'),
+                _dateChip(0, AppLanguage().tr(mr: 'एकूण', en: 'All Time')),
                 const SizedBox(width: 5),
-                _dateChip(1, 'This Month (या महिना)'),
+                _dateChip(1, AppLanguage().tr(mr: 'या महिना', en: 'This Month')),
                 const SizedBox(width: 5),
-                _dateChip(2, '30 Days (३० दिवस)'),
+                _dateChip(2, AppLanguage().tr(mr: '३० दिवस', en: '30 Days')),
                 const SizedBox(width: 5),
-                _dateChip(3, '90 Days (९० दिवस)'),
+                _dateChip(3, AppLanguage().tr(mr: '९० दिवस', en: '90 Days')),
               ],
             ),
           ),
@@ -2146,7 +2175,7 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF6B7280)),
                       style: const TextStyle(fontSize: 9.5, color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
                       items: [
-                        const DropdownMenuItem(value: 'ALL', child: Text('सर्व उत्पादने (All Products)')),
+                        DropdownMenuItem(value: 'ALL', child: Text(AppLanguage().tr(mr: 'सर्व उत्पादने', en: 'All Products'))),
                         ...widget.products.map((p) => DropdownMenuItem(
                               value: p.productName,
                               child: Text('${_DashboardScreenState._getCropEmoji(p.productName)} ${p.productName}'),
@@ -2177,11 +2206,11 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                       value: _selectedGrade,
                       icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF6B7280)),
                       style: const TextStyle(fontSize: 9.5, color: Color(0xFF1F2937), fontWeight: FontWeight.bold),
-                      items: const [
-                        DropdownMenuItem(value: 'ALL', child: Text('सर्व प्रत (All)')),
-                        DropdownMenuItem(value: 'GRADE_A', child: Text('Grade A (अ)')),
-                        DropdownMenuItem(value: 'GRADE_B', child: Text('Grade B (ब)')),
-                        DropdownMenuItem(value: 'GRADE_C', child: Text('Grade C (क)')),
+                      items: [
+                        DropdownMenuItem(value: 'ALL', child: Text(AppLanguage().tr(mr: 'सर्व प्रत', en: 'All Grades'))),
+                        DropdownMenuItem(value: 'GRADE_A', child: Text(AppLanguage().tr(mr: 'प्रत अ', en: 'Grade A'))),
+                        DropdownMenuItem(value: 'GRADE_B', child: Text(AppLanguage().tr(mr: 'प्रत ब', en: 'Grade B'))),
+                        DropdownMenuItem(value: 'GRADE_C', child: Text(AppLanguage().tr(mr: 'प्रत क', en: 'Grade C'))),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedGrade = val);
@@ -2224,7 +2253,9 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                           ),
                         ),
                         Text(
-                          overallRejectionRate > 0 ? 'नाकारलेले' : 'मंजूर माल',
+                          overallRejectionRate > 0
+                              ? AppLanguage().tr(mr: 'नाकारलेले', en: 'Rejected')
+                              : AppLanguage().tr(mr: 'मंजूर माल', en: 'Accepted'),
                           style: const TextStyle(fontSize: 8.5, color: Color(0xFF6B7280), fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -2249,12 +2280,12 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                           ),
                         ),
                         const SizedBox(width: 5),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'मंजूर माल (Accepted)',
+                            AppLanguage().tr(mr: 'मंजूर माल', en: 'Accepted'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+                            style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
                           ),
                         ),
                         Text(
@@ -2337,8 +2368,14 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                 Expanded(
                   child: Text(
                     overallRejectionRate <= 5.0
-                        ? 'उत्कृष्ट दर्जा! ९५%+ माल थेट मंजूर झाला आहे.'
-                        : 'माल नाकारणे कमी करण्यासाठी काढणीनंतर योग्य प्रतवारी व पॅकिंग करा.',
+                        ? AppLanguage().tr(
+                            mr: 'उत्कृष्ट दर्जा! ९५%+ माल थेट मंजूर झाला आहे.',
+                            en: 'Great quality! 95%+ harvest approved directly.',
+                          )
+                        : AppLanguage().tr(
+                            mr: 'माल नाकारणे कमी करण्यासाठी काढणीनंतर योग्य प्रतवारी व पॅकिंग करा.',
+                            en: 'Grade & pack properly after harvest to minimize rejection.',
+                          ),
                     style: TextStyle(
                       fontSize: 8.5,
                       color: overallRejectionRate <= 5.0 ? const Color(0xFF15803D) : const Color(0xFFB45309),
@@ -2616,9 +2653,9 @@ class _CropProductionBarChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'पिकानुसार उत्पादन क्षमता (Crop Production)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+              Text(
+                AppLanguage().tr(mr: 'पिकानुसार उत्पादन क्षमता', en: 'Crop Production'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -2627,7 +2664,10 @@ class _CropProductionBarChart extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${totalAcreage.toStringAsFixed(1)} Acre एकूण',
+                  AppLanguage().tr(
+                    mr: '${totalAcreage.toStringAsFixed(1)} एकर एकूण',
+                    en: '${totalAcreage.toStringAsFixed(1)} Acre Total',
+                  ),
                   style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
                 ),
               ),
@@ -2684,11 +2724,17 @@ class _CropProductionBarChart extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'अंदाजे काढणी: ${c.estHarvestDate.isNotEmpty ? c.estHarvestDate : "तारीख बाकी"}',
+                        AppLanguage().tr(
+                          mr: 'अंदाजे काढणी: ${c.estHarvestDate.isNotEmpty ? c.estHarvestDate : "तारीख बाकी"}',
+                          en: 'Est. Harvest: ${c.estHarvestDate.isNotEmpty ? c.estHarvestDate : "Pending"}',
+                        ),
                         style: const TextStyle(fontSize: 8.5, color: Color(0xFF6B7280)),
                       ),
                       Text(
-                        'वाढ: ${(c.progress * 100).toInt()}%',
+                        AppLanguage().tr(
+                          mr: 'वाढ: ${(c.progress * 100).toInt()}%',
+                          en: 'Growth: ${(c.progress * 100).toInt()}%',
+                        ),
                         style: const TextStyle(fontSize: 8.5, color: Color(0xFF6B7280)),
                       ),
                     ],
@@ -2759,8 +2805,14 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                 const SizedBox(height: 12),
                 Text(
                   targetDate != null
-                      ? '$targetDate रोजी बाजार भाव उपलब्ध नाहीत'
-                      : 'या तारखेचे बाजार भाव उपलब्ध नाहीत',
+                      ? AppLanguage().tr(
+                          mr: '$targetDate रोजी बाजार भाव उपलब्ध नाहीत',
+                          en: 'No market rates available on $targetDate',
+                        )
+                      : AppLanguage().tr(
+                          mr: 'या तारखेचे बाजार भाव उपलब्ध नाहीत',
+                          en: 'No market rates available for this date',
+                        ),
                   style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
                 ),
               ],
@@ -2810,7 +2862,10 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            '${selected.cleanProductName} — दर तुलना',
+                            AppLanguage().tr(
+                              mr: '${selected.cleanProductName} — दर तुलना',
+                              en: '${selected.cleanProductName} — Rate Comparison',
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
@@ -2827,7 +2882,10 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
+                      AppLanguage().tr(
+                        mr: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
+                        en: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% Higher Rate 📈',
+                      ),
                       style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
                     ),
                   ),
@@ -2914,9 +2972,9 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                                 color: Color(0xFF16A34A),
                               ),
                             ),
-                            const Text(
-                              'जास्त भाव',
-                              style: TextStyle(fontSize: 8.5, color: Color(0xFF6B7280), fontWeight: FontWeight.bold),
+                            Text(
+                              AppLanguage().tr(mr: 'जास्त भाव', en: 'Higher Rate'),
+                              style: const TextStyle(fontSize: 8.5, color: Color(0xFF6B7280), fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -2953,7 +3011,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                               Expanded(
                                 child: Text(
                                   m.isGreenGroo
-                                      ? 'GreenGroo खरेदी केंद्र'
+                                      ? AppLanguage().tr(mr: 'GreenGroo खरेदी केंद्र', en: 'GreenGroo Buying Centre')
                                       : m.marketName.replaceAll('APMC', '').trim(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -3012,16 +3070,16 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _dateChip(0, 'आज (Today)'),
+          _dateChip(0, AppLanguage().tr(mr: 'आज', en: 'Today')),
           const SizedBox(width: 5),
-          _dateChip(1, 'काल (Yesterday)'),
+          _dateChip(1, AppLanguage().tr(mr: 'काल', en: 'Yesterday')),
           const SizedBox(width: 5),
-          _dateChip(2, '२ दिवस आधी (2 Days)'),
+          _dateChip(2, AppLanguage().tr(mr: '२ दिवस आधी', en: '2 Days Ago')),
           const SizedBox(width: 5),
           // Custom Date Picker button
           _buildCustomDatePickerChip(),
           const SizedBox(width: 5),
-          _dateChip(3, 'सर्व दिवस (All Dates)'),
+          _dateChip(3, AppLanguage().tr(mr: 'सर्व दिवस', en: 'All Dates')),
         ],
       ),
     );
@@ -3078,7 +3136,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
             Text(
               isSel && _customDate != null
                   ? '${_customDate!.day}/${_customDate!.month}/${_customDate!.year}'
-                  : '📅 तारीख निवडा (Select Date)',
+                  : AppLanguage().tr(mr: '📅 तारीख निवडा', en: '📅 Select Date'),
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
@@ -3259,7 +3317,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // 3. 🏷️ MARKET PRICES CARD SKELETON
-                _buildSectionHeaderSkeleton('बाजार भाव तुलना (Market Prices)'),
+                _buildSectionHeaderSkeleton('Market Prices'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -3315,7 +3373,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 4. 📊 FARM OVERVIEW 4 STAT CARDS SKELETON
-                _buildSectionHeaderSkeleton('शेत थेट आढावा (Farm Overview)'),
+                _buildSectionHeaderSkeleton('Farm Overview'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
@@ -3334,7 +3392,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 5. 📦 ORDERS STATUS BAR CHART SKELETON
-                _buildSectionHeaderSkeleton('ऑर्डर स्थिती (Orders Status)'),
+                _buildSectionHeaderSkeleton('Orders Status'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -3398,7 +3456,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 6. 🚚 UPCOMING PICKUP SKELETON
-                _buildSectionHeaderSkeleton('आगामी वाहन उचल (Upcoming Pickup)'),
+                _buildSectionHeaderSkeleton('Upcoming Pickup'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -3454,7 +3512,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 7. 💰 EARNINGS 4 METRICS SKELETON
-                _buildSectionHeaderSkeleton('उत्पन्न तपशील (Earnings)'),
+                _buildSectionHeaderSkeleton('Earnings'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -3487,7 +3545,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 8. 📈 EARNINGS TREND SKELETON
-                _buildSectionHeaderSkeleton('उत्पन्न कल (Earnings Trend)'),
+                _buildSectionHeaderSkeleton('Earnings Trend'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -3529,7 +3587,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 9. ⚠️ PRODUCT REJECTION RATE SKELETON
-                _buildSectionHeaderSkeleton('नाकारलेले शेतमाल (Product Rejection)'),
+                _buildSectionHeaderSkeleton('Product Rejection'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Container(
@@ -3566,7 +3624,7 @@ class _DashboardSkeletonLoader extends StatelessWidget {
                 const SizedBox(height: 18),
 
                 // 10. 🏛️ GOVT SCHEMES SKELETON
-                _buildSectionHeaderSkeleton('शासकीय योजना (Govt Schemes)'),
+                _buildSectionHeaderSkeleton('Govt Schemes'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(

@@ -12,6 +12,7 @@ import '../auth/login_screen.dart';
 import '../main_shell.dart';
 import '../documents/documents_screen.dart';
 import 'farmer_liveness_check_screen.dart';
+import '../../services/app_language.dart';
 
 enum ProfileStep {
   farmerProfile,
@@ -411,17 +412,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, _) {
         final profile = FarmerState().profile;
 
+        final lang = AppLanguage();
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
             leading: IconButton(
               icon: const Icon(Icons.menu, color: AppColors.primary),
-              tooltip: 'मेनू उघडा (Menu)',
+              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
               onPressed: () => MainShell.openDrawer(context),
             ),
-            title: const Text(
-              'Farmer & Farm Profile (प्रोफाईल)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            title: Text(
+              lang.tr(mr: 'शेतकरी व शेत प्रोफाईल', en: 'Farmer & Farm Profile'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
           body: (!FarmerState().isPreferencesLoaded || (FarmerState().isLoadingFromBackend && !FarmerState().profileReady))
@@ -529,42 +531,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required ProfileStep step,
   }) {
     final isActive = _currentStep == step;
+    final lang = AppLanguage();
+    final stepText = lang.tr(mr: marathi, en: title);
+
     return InkWell(
       onTap: () => setState(() => _currentStep = step),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryLight.withValues(alpha: 0.5) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 9.5,
-                height: 1.15,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                color: isActive ? AppColors.primary : const Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              marathi,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8.5,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? AppColors.primaryDark : const Color(0xFF9CA3AF),
-              ),
-            ),
-          ],
+        child: Text(
+          stepText,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10.5,
+            height: 1.15,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+            color: isActive ? AppColors.primaryDark : const Color(0xFF6B7280),
+          ),
         ),
       ),
     );

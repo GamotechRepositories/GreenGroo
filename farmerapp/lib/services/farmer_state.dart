@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/farmer_models.dart';
 import '../core/constants/farmer_constants.dart';
 import 'api_service.dart';
+import 'farmer_socket_service.dart';
 
 class FarmerState extends ChangeNotifier {
   static final FarmerState _instance = FarmerState._internal();
@@ -15,21 +16,15 @@ class FarmerState extends ChangeNotifier {
     initPreferences().then((_) {
       if (isLoggedIn) {
         fetchFromBackend();
+        FarmerSocketService.instance.connect(profile.id);
       }
     });
-    _startPeriodicNotificationPolling();
   }
 
-  Timer? _notificationPollingTimer;
   Future<void>? _prefsLoad;
   bool _syncing = false;
-  bool _pollInFlight = false;
-  bool _ordersChanged = false;
-  bool _documentsChanged = false;
-  bool _profileChanged = false;
-  bool _productsChanged = false;
-  bool _cropsChanged = false;
-  bool _schemesChanged = false;
+  // ignore: unused_field
+  bool _ordersChanged = false, _documentsChanged = false, _profileChanged = false, _productsChanged = false, _cropsChanged = false, _schemesChanged = false;
   final Set<String> _knownOrderIds = {};
   final Map<String, String> _knownOrderStatusMap = {};
   final Map<String, String> _knownDocumentStatusMap = {};
@@ -38,49 +33,16 @@ class FarmerState extends ChangeNotifier {
   bool _documentsBaselineDone = false;
   bool isPreferencesLoaded = false;
 
-  void _startPeriodicNotificationPolling() {
-    _notificationPollingTimer?.cancel();
-    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (isLoggedIn) _refreshInBackground();
-    });
-  }
-
-  bool get _liveDataChanged =>
-      _profileChanged || _productsChanged || _cropsChanged || _ordersChanged || _documentsChanged || _schemesChanged;
-
-  /// Keeps farmer data current without a manual Sync tap.
-  Future<void> _refreshInBackground() async {
-    if (!isLoggedIn || _syncing || _pollInFlight) return;
-    _pollInFlight = true;
-    var connectionChanged = false;
-    try {
-      if (!isConnectedToBackend) {
-        final healthy = await ApiService().checkHealth();
-        if (healthy != isConnectedToBackend) {
-          isConnectedToBackend = healthy;
-          backendUrl = ApiService().baseUrl;
-          connectionMessage = healthy ? 'Connected: $backendUrl' : 'Disconnected (Using Offline Cache)';
-          connectionChanged = true;
-        }
-        if (!healthy) {
-          if (connectionChanged) notifyListeners();
-          return;
-        }
-      }
-      final stillLoading = !dashboardReady || !documentsReady || !schemesReady;
-      await Future.wait([
-        _markReady(_fetchProfileSafe(), () => profileReady = true),
-        _markReady(_fetchProductsSafe(), () => productsReady = true),
-        _markReady(_fetchOrdersSafe(), () => ordersReady = true),
-        _markReady(_fetchCropsSafe(), () => cropsReady = true),
-        _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
-        _markReady(_fetchSchemesSafe(), () => schemesReady = true),
-      ]);
-      if (connectionChanged || _liveDataChanged || stillLoading) notifyListeners();
-    } catch (_) {
-    } finally {
-      _pollInFlight = false;
+  void updateSchemeApplicationFromSocket(GovtSchemeApplication updatedApp) {
+    final list = List<GovtSchemeApplication>.from(schemeApplications);
+    final index = list.indexWhere((a) => a.id == updatedApp.id || (a.schemeId == updatedApp.schemeId && a.farmerId == updatedApp.farmerId));
+    if (index >= 0) {
+      list[index] = updatedApp;
+    } else {
+      list.insert(0, updatedApp);
     }
+    schemeApplications = list;
+    notifyListeners();
   }
 
   bool isLoggedIn = false;
@@ -114,6 +76,7 @@ class FarmerState extends ChangeNotifier {
     isLoggedIn = false;
     ApiService().setToken(null);
     _persistProfile();
+    FarmerSocketService.instance.disconnect();
     notifyListeners();
   }
 
@@ -121,6 +84,7 @@ class FarmerState extends ChangeNotifier {
     isLoggedIn = true;
     _persistProfile();
     fetchFromBackend();
+    FarmerSocketService.instance.connect(profile.id);
     notifyListeners();
   }
 
@@ -481,6 +445,23 @@ class FarmerState extends ChangeNotifier {
           _schemesChanged = true;
         }
       }
+      final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+      final appRes = await ApiService().fetchMySchemeApplications(fId);
+      if (appRes is List) {
+        final fetchedApps = appRes
+            .whereType<Map>()
+            .map((row) {
+              try {
+                return GovtSchemeApplication.fromJson(Map<String, dynamic>.from(row));
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<GovtSchemeApplication>()
+            .toList();
+        schemeApplications = fetchedApps;
+        _schemesChanged = true;
+      }
     } catch (_) {}
   }
 
@@ -522,6 +503,63 @@ class FarmerState extends ChangeNotifier {
 
   // Govt Schemes
   List<GovtScheme> schemes = [];
+  List<GovtSchemeApplication> schemeApplications = [];
+
+  GovtSchemeApplication? getApplicationForScheme(String schemeId) {
+    for (final app in schemeApplications) {
+      if (app.schemeId == schemeId) return app;
+    }
+    return null;
+  }
+
+  Future<void> fetchMySchemeApplications() async {
+    final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+    try {
+      final res = await ApiService().fetchMySchemeApplications(fId);
+      if (res is List) {
+        schemeApplications = res
+            .whereType<Map>()
+            .map((row) {
+              try {
+                return GovtSchemeApplication.fromJson(Map<String, dynamic>.from(row));
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<GovtSchemeApplication>()
+            .toList();
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<bool> applyForScheme({
+    required String schemeId,
+    required String schemeTitle,
+    String notes = '',
+  }) async {
+    final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+    final payload = {
+      'farmerId': fId,
+      'farmerName': profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : 'Farmer',
+      'farmerPhone': profile.mobile.trim(),
+      'farmerVillage': profile.village.trim(),
+      'farmerTaluka': profile.taluka.trim(),
+      'farmerDistrict': profile.district.trim(),
+      'landAcres': profile.totalAcres.toString(),
+      'schemeId': schemeId,
+      'schemeTitle': schemeTitle,
+      'notes': notes,
+    };
+
+    try {
+      final res = await ApiService().applyGovtScheme(payload);
+      await fetchMySchemeApplications();
+      return res != null && (res['success'] == true || res['_id'] != null || res['data'] != null);
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Documents
   List<DocumentItem> documents = [];

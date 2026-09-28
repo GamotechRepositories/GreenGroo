@@ -540,6 +540,41 @@ export const GovernmentScheme =
   mongoose.models.AdminGovernmentScheme ||
   mongoose.model("AdminGovernmentScheme", governmentSchemeSchema);
 
+const farmerSchemeApplicationSchema = new mongoose.Schema(
+  {
+    farmerId: { type: String, required: true, trim: true, index: true },
+    farmerName: { type: String, default: "", trim: true },
+    farmerPhone: { type: String, default: "", trim: true },
+    farmerVillage: { type: String, default: "", trim: true },
+    farmerTaluka: { type: String, default: "", trim: true },
+    farmerDistrict: { type: String, default: "", trim: true },
+    landAcres: { type: String, default: "", trim: true },
+    schemeId: { type: mongoose.Schema.Types.ObjectId, ref: "AdminGovernmentScheme", required: true, index: true },
+    schemeTitle: { type: String, required: true, trim: true },
+    schemeCategory: { type: String, default: "", trim: true },
+    subsidyAmount: { type: String, default: "", trim: true },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    notes: { type: String, default: "", trim: true },
+    adminNotes: { type: String, default: "", trim: true },
+    appliedAt: { type: Date, default: Date.now },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+farmerSchemeApplicationSchema.index({ farmerId: 1, schemeId: 1 });
+farmerSchemeApplicationSchema.index({ status: 1, createdAt: -1 });
+
+export const FarmerSchemeApplication =
+  mongoose.models.AdminFarmerSchemeApplication ||
+  mongoose.model("AdminFarmerSchemeApplication", farmerSchemeApplicationSchema);
+
 const marketPriceSchema = new mongoose.Schema(
   {
     marketName: { type: String, required: true, trim: true, index: true },

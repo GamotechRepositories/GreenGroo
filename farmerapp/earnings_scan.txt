@@ -1,0 +1,173 @@
+=== earnings_screen.dart ===
+165: tooltip: lang.tr(mr: 'मागे जा', en: 'Back to Overview'),
+171: tooltip: lang.tr(mr: 'मागे', en: 'Back'),
+176: tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
+179 [EN]: title: Text(
+181: ? lang.tr(mr: 'उत्पन्न हिशोब', en: 'Earning Statement')
+265 [EN]: child: Text(
+266: lang.tr(mr: '💰 नफा व उत्पन्न', en: '💰 Profit & Earnings'),
+271 [EN]: Text(
+273: mr: '₹${_formatCurrency(totalRevenue)} एकूण उत्पन्न',
+281 [EN]: Text(
+282: lang.tr(mr: 'माझे उत्पन्न व हिशोब', en: 'My Earnings & Statement'),
+291 [EN]: Text(
+293: mr: 'पारदर्शक हिशोब, थेट बँक खात्यात वेळेवर जमा!',
+541 [EN]: child: Text(
+572 [EN]: child: Text(
+603 [EN]: child: Text(
+664 [EN]: child: Text(
+676 [EN]: child: Text(
+739 [EN]: Text(
+755 [EN]: child: Text(
+820 [EN]: const Text(
+821: 'कोणतीही पूर्ण झालेली ऑर्डर (Completed Order) नाही',
+826 [EN]: const Text(
+827: 'ऑर्डर पूर्ण (Delivered / Graded) झाल्यानंतरच तिचा उत्पन्न हिशोब येथे दिसेल.',
+915 [EN]: child: Text(
+961 [EN]: child: Text(
+973 [EN]: child: Text(
+983 [EN]: Text(
+1015 [EN]: const SnackBar(content: Text('Product ID copied'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF217346)),
+1021 [EN]: const Text('PRODUCT ID', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+1027 [EN]: child: Text(
+1079 [EN]: Expanded(flex: 2, child: Text('Grade', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151)))),
+1080 [EN]: Expanded(flex: 2, child: Center(child: Text('Qty', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
+1081 [EN]: Expanded(flex: 2, child: Center(child: Text('Rate', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
+1082 [EN]: Expanded(flex: 2, child: Center(child: Text('Rejected', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))))),
+1134 [EN]: const Text('Total', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+1136 [EN]: Text('₹${_formatCurrency(prodTotal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
+1144 [EN]: const Text('Deposited', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+1146 [EN]: Text('₹${_formatCurrency(prodDeposited)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+1154 [EN]: const Text('Pending', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+1156 [EN]: Text('₹${_formatCurrency(prodPending)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+1178 [EN]: label: Text(openCount > 0 ? 'View Sheet' : 'Open Sheet', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+1202 [EN]: label: Text(openCount > 0 ? '+ Sheet ${openCount + 1}' : '+ New Sheet', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+1218 [EN]: Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+1220 [EN]: Text(val != null && val.isNotEmpty ? val : '—', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+1231 [EN]: Expanded(flex: 2, child: Text(grade, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg))),
+1232 [EN]: Expanded(flex: 2, child: Center(child: Text(qty, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))))),
+1233 [EN]: Expanded(flex: 2, child: Center(child: Text(rate, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))))),
+1234 [EN]: Expanded(flex: 2, child: Center(child: Text(rejected, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFDC2626))))),
+1293 [EN]: Text('Overview', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+1300 [EN]: Text(
+1310 [EN]: Text(
+1410 [EN]: Text('Overview', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+1417 [EN]: Text(
+1427 [EN]: Text(
+1535 [EN]: Text(
+1541 [EN]: Text(
+1573 [EN]: child: Text(
+1590 [EN]: child: Text(
+1606 [EN]: child: Text(
+1641 [EN]: child: Text(
+1656 [EN]: child: Text(
+1765 [EN]: child: Text('$index', style: const TextStyle(fontSize: 8.5, color: Color(0xFF9CA3AF), fontWeight: FontWeight.bold)),
+1777 [EN]: Text(oDate, style: const TextStyle(fontSize: 7.0, height: 1.1, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
+1778 [EN]: Text(oDay, style: const TextStyle(fontSize: 6.0, height: 1.1, color: Color(0xFF6B7280))),
+1792 [EN]: Text(pDate, style: const TextStyle(fontSize: 7.0, height: 1.05, fontWeight: FontWeight.w500, color: Color(0xFF1F2937))),
+1794 [EN]: Text(pDay, style: const TextStyle(fontSize: 6.0, height: 1.05, color: Color(0xFF6B7280))),
+1795 [EN]: Text(pTime, style: const TextStyle(fontSize: 6.0, height: 1.05, fontWeight: FontWeight.w600, color: Color(0xFF065F46))),
+1805 [EN]: child: Text(
+1820 [EN]: child: Text(
+1835 [EN]: child: Text(
+1850 [EN]: child: Text(
+1865 [EN]: child: Text(
+1880 [EN]: child: Text(
+1891 [EN]: child: Text(
+1906 [EN]: child: Text(
+1921 [EN]: child: Text(
+1981 [EN]: child: Text(
+1991 [EN]: child: Text(
+2007 [EN]: child: Text('×', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF))),
+2016 [EN]: child: Text(
+2032 [EN]: child: Text('×', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF))),
+2041 [EN]: child: Text(
+2057 [EN]: child: Text('×', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF9CA3AF))),
+2066 [EN]: child: Text(
+2082 [EN]: child: Text(
+2098 [EN]: child: Text('—', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+2120 [EN]: child: const Center(child: Text('✨', style: TextStyle(fontSize: 20))),
+2123 [EN]: Text(
+2128 [EN]: Text(
+2167 [EN]: content: Text('Duplicated sheet: $title'),
+2442 [EN]: child: Text('Excel / CSV Exported: $fileName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+2455 [EN]: content: Text('Failed to export sheet: $e'),
+2513 [EN]: Text('📑', style: TextStyle(fontSize: 16)),
+2515 [EN]: Text('Add / Create New Sheet', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+2524 [EN]: const Text(
+2531 [EN]: const Text('Select Product / Crop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+2543 [EN]: return DropdownMenuItem(value: p, child: Text(p.productName, style: const TextStyle(fontSize: 12)));
+2555 [EN]: const Text('Sheet Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+2560 [EN]: hintText: 'e.g. Tomato - Sept Batch',
+2574 [EN]: label: Text(sug, style: const TextStyle(fontSize: 10)),
+2629 [EN]: child: const Text('Create Sheet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+=== earning_report_screen.dart ===
+32 [EN]: child: Text(
+92 [EN]: title: Text(
+135 [EN]: content: Text(
+164 [EN]: content: Text(
+194 [EN]: const Text(
+199 [EN]: Text(
+294 [EN]: label: const Text('View Invoice', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+322 [EN]: label: const Text('Share Receipt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+336 [EN]: content: Text(
+361 [EN]: label: const Text('Download PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+375 [EN]: content: Text(
+459 [EN]: Text(
+502 [EN]: child: Text('GreenGrocc', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+521 [EN]: child: Text(
+542 [EN]: const Text(
+547 [EN]: child: Text(
+560 [EN]: Text(
+579 [EN]: child: Text(
+614 [EN]: Text('👨‍🌾', style: TextStyle(fontSize: 11)),
+617 [EN]: child: Text(
+649 [EN]: Text('🏬', style: TextStyle(fontSize: 11)),
+652 [EN]: child: Text(
+679 [EN]: Text(
+684 [EN]: Text(
+701 [EN]: Text(
+713 [EN]: child: Text(
+805 [EN]: const Text(
+822 [EN]: Text(
+856: _buildSpecCell('Order Day (वार)', orderDayStr),
+862: _buildSpecCell('Pickup Day (वार)', pickupDayStr),
+868: _buildSpecCell('Received Day (वार)', receivedDayStr, isGreen: true),
+889 [EN]: Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+898 [EN]: child: Text(
+926 [EN]: Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+928 [EN]: Text(
+975 [EN]: const Text(
+994 [EN]: const Expanded(flex: 3, child: Text('GRADE / ITEM', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white))),
+995 [EN]: const Expanded(flex: 2, child: Text('ORDERED\nQTY', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+996 [EN]: const Expanded(flex: 2, child: Text('REJECTED\nQTY', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+997 [EN]: const Expanded(flex: 2, child: Text('FINAL\nQTY', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+998 [EN]: Expanded(flex: 2, child: Text('RATE\n/ ${unit.toUpperCase()}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+999 [EN]: const Expanded(flex: 3, child: Text('TOTAL\nAMOUNT (₹)', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+1048 [EN]: const Expanded(flex: 3, child: Text('TOTAL\nSETTLEMENT', style: TextStyle(fontSize: 8.5, height: 1.1, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))),
+1049 [EN]: Expanded(flex: 2, child: Text('${totalOrdered.toStringAsFixed(0)} $unit', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)))),
+1050 [EN]: Expanded(flex: 2, child: Text('${totalRejected.toStringAsFixed(0)} $unit', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.w900, color: Color(0xFFDC2626)))),
+1051 [EN]: Expanded(flex: 2, child: Text('${totalFinal.toStringAsFixed(0)} $unit', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))),
+1052 [EN]: const Expanded(flex: 2, child: Text('—', textAlign: TextAlign.right, style: TextStyle(fontSize: 9.0, color: Color(0xFF94A3B8)))),
+1053 [EN]: Expanded(flex: 3, child: Text('₹${_formatCurrency(totalNetAmt)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF065F46)))),
+1076 [EN]: Text(grade, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+1080 [EN]: Expanded(flex: 2, child: Text(ordered, textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)))),
+1083 [EN]: child: Text(
+1093 [EN]: Expanded(flex: 2, child: Text(finalQty, textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))),
+1094 [EN]: Expanded(flex: 2, child: Text(rate, textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)))),
+1095 [EN]: Expanded(flex: 3, child: Text(amt, textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.w900, color: Color(0xFF065F46)))),
+1119 [EN]: const Text(
+1126 [EN]: const Text('Status: ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+1127 [EN]: Text(
+1161 [EN]: const Text(
+1176 [EN]: Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+1185 [EN]: child: Text(
+1213 [EN]: Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+1215 [EN]: Text(
+1302 [EN]: const Text(
+1318 [EN]: child: RichText(
+1358 [EN]: Text(
+1372 [EN]: child: Text(
+1389 [EN]: child: RichText(
+1423 [EN]: Text(
+1455 [EN]: title: Text(

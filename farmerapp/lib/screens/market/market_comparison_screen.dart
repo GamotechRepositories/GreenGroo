@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../models/market_price_item.dart';
 import '../../services/market_price_service.dart';
+import '../../services/app_language.dart';
 
 class MarketComparisonScreen extends StatefulWidget {
   final String? initialProduct;
@@ -39,6 +40,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
       listenable: MarketPriceService(),
       builder: (context, _) {
         final service = MarketPriceService();
+        final lang = AppLanguage();
         String? targetDate;
         final now = DateTime.now();
         if (_selectedDateIndex == -1 && _customDate != null) {
@@ -82,16 +84,16 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
               icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1F2937)),
               onPressed: () => Navigator.pop(context),
             ),
-            title: const Column(
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Market Price Comparison',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                  lang.tr(mr: 'बाजार भाव तुलना', en: 'Market Price Comparison'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                 ),
                 Text(
-                  'बाजार भाव तुलना व नफा विश्लेषण',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
+                  lang.tr(mr: 'नफा विश्लेषण व थेट बाजारपेठ', en: 'Price analysis & live market rates'),
+                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
                 ),
               ],
             ),

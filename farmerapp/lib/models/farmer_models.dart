@@ -1084,3 +1084,72 @@ class DocumentItem {
     rejectionReason: json['rejectionReason']?.toString() ?? '',
   );
 }
+
+class GovtSchemeApplication {
+  final String id;
+  final String farmerId;
+  final String farmerName;
+  final String farmerPhone;
+  final String farmerVillage;
+  final String farmerTaluka;
+  final String farmerDistrict;
+  final String landAcres;
+  final String schemeId;
+  final String schemeTitle;
+  final String schemeCategory;
+  final String subsidyAmount;
+  final String status; // pending, accepted, approved, rejected
+  final String notes;
+  final String adminNotes;
+  final String appliedAt;
+  final String reviewedAt;
+
+  GovtSchemeApplication({
+    required this.id,
+    required this.farmerId,
+    required this.farmerName,
+    required this.farmerPhone,
+    this.farmerVillage = '',
+    this.farmerTaluka = '',
+    this.farmerDistrict = '',
+    this.landAcres = '',
+    required this.schemeId,
+    required this.schemeTitle,
+    this.schemeCategory = '',
+    this.subsidyAmount = '',
+    required this.status,
+    this.notes = '',
+    this.adminNotes = '',
+    this.appliedAt = '',
+    this.reviewedAt = '',
+  });
+
+  factory GovtSchemeApplication.fromJson(Map<String, dynamic> json) {
+    final schemeObj = json['schemeId'] is Map ? json['schemeId'] as Map<String, dynamic> : null;
+    final sId = schemeObj != null ? (schemeObj['_id'] ?? schemeObj['id'] ?? '') : (json['schemeId'] ?? '');
+    final sTitle = (json['schemeTitle'] ?? (schemeObj != null ? schemeObj['title'] : '') ?? '').toString();
+    final sCategory = (json['schemeCategory'] ?? (schemeObj != null ? schemeObj['category'] : '') ?? '').toString();
+    final sSubsidy = (json['subsidyAmount'] ?? (schemeObj != null ? (schemeObj['subsidyAmount'] ?? schemeObj['maxBenefit']) : '') ?? '').toString();
+
+    return GovtSchemeApplication(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      farmerId: (json['farmerId'] ?? '').toString(),
+      farmerName: (json['farmerName'] ?? '').toString(),
+      farmerPhone: (json['farmerPhone'] ?? '').toString(),
+      farmerVillage: (json['farmerVillage'] ?? '').toString(),
+      farmerTaluka: (json['farmerTaluka'] ?? '').toString(),
+      farmerDistrict: (json['farmerDistrict'] ?? '').toString(),
+      landAcres: (json['landAcres'] ?? '').toString(),
+      schemeId: sId.toString(),
+      schemeTitle: sTitle.isNotEmpty ? sTitle : 'Govt Scheme',
+      schemeCategory: sCategory,
+      subsidyAmount: sSubsidy,
+      status: (json['status'] ?? 'pending').toString().toLowerCase(),
+      notes: (json['notes'] ?? '').toString(),
+      adminNotes: (json['adminNotes'] ?? '').toString(),
+      appliedAt: (json['appliedAt'] ?? json['createdAt'] ?? '').toString(),
+      reviewedAt: (json['reviewedAt'] ?? '').toString(),
+    );
+  }
+}
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
 import '../../models/farmer_models.dart';
@@ -6,6 +7,31 @@ import '../../services/farmer_state.dart';
 import '../../services/invoice_pdf_service.dart';
 
 class EarningReportScreen extends StatelessWidget {
+
+  static String _translateSpec(String label) {
+    final lang = AppLanguage();
+    switch (label) {
+      case 'Buyer / Store': return lang.tr(mr: 'खरेदीदार / स्टोअर', en: 'Buyer / Store');
+      case 'Store Location': return lang.tr(mr: 'स्टोअरचे ठिकाण', en: 'Store Location');
+      case 'Ordered Quantity': return lang.tr(mr: 'मागणी प्रमाण', en: 'Ordered Quantity');
+      case 'Received Quantity': return lang.tr(mr: 'प्राप्त प्रमाण', en: 'Received Quantity');
+      case 'Order Date & Time': return lang.tr(mr: 'ऑर्डर तारीख व वेळ', en: 'Order Date & Time');
+      case 'Order Day (वार)': return lang.tr(mr: 'ऑर्डर वार', en: 'Order Day');
+      case 'Order Day': return lang.tr(mr: 'ऑर्डर वार', en: 'Order Day');
+      case 'Pickup Date & Time': return lang.tr(mr: 'पिकअप तारीख व वेळ', en: 'Pickup Date & Time');
+      case 'Pickup Day (वार)': return lang.tr(mr: 'पिकअप वार', en: 'Pickup Day');
+      case 'Pickup Day': return lang.tr(mr: 'पिकअप वार', en: 'Pickup Day');
+      case 'Received Date & Time': return lang.tr(mr: 'प्राप्त तारीख व वेळ', en: 'Received Date & Time');
+      case 'Received Day (वार)': return lang.tr(mr: 'प्राप्त वार', en: 'Received Day');
+      case 'Received Day': return lang.tr(mr: 'प्राप्त वार', en: 'Received Day');
+      case 'Quality Status': return lang.tr(mr: 'गुणवत्ता स्थिती', en: 'Quality Status');
+      case 'Lot / Batch ID': return lang.tr(mr: 'लॉट / बॅच आयडी', en: 'Lot / Batch ID');
+      case 'Vehicle No': return lang.tr(mr: 'वाहन क्रमांक', en: 'Vehicle No');
+      case 'Payment Status': return lang.tr(mr: 'पेमेंट स्थिती', en: 'Payment Status');
+      default: return label;
+    }
+  }
+
   final FarmerOrderItem order;
   final double rate;
   final String unit;
@@ -291,7 +317,7 @@ class EarningReportScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: const Icon(Icons.visibility_outlined, size: 15, color: Color(0xFF15803D)),
-                      label: const Text('View Invoice', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: Text(AppLanguage().tr(mr: 'बिल पहा', en: 'View Invoice'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -319,7 +345,7 @@ class EarningReportScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: const Icon(Icons.share_outlined, size: 15, color: Color(0xFF475569)),
-                      label: const Text('Share Receipt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: Text(AppLanguage().tr(mr: 'पावती शेअर करा', en: 'Share Receipt'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       onPressed: () async {
                         try {
                           await InvoicePdfService.shareReceipt(
@@ -358,7 +384,7 @@ class EarningReportScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: const Icon(Icons.download_outlined, size: 15),
-                      label: const Text('Download PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: Text(AppLanguage().tr(mr: 'PDF डाउनलोड करा', en: 'Download PDF'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       onPressed: () async {
                         try {
                           await InvoicePdfService.downloadPdf(
@@ -398,12 +424,13 @@ class EarningReportScreen extends StatelessWidget {
 
   // --- 1. Quality Status Timeline ---
   Widget _buildQualityTimeline(bool isPaid) {
+    final lang = AppLanguage();
     final steps = [
-      {'label': 'Received', 'done': true},
-      {'label': 'Quality Check', 'done': true},
-      {'label': 'Grading', 'done': true},
-      {'label': 'Grading Done', 'done': true},
-      {'label': isPaid ? 'Payment Paid' : 'Payment Pending', 'done': isPaid},
+      {'label': lang.tr(mr: 'प्राप्त झाले', en: 'Received'), 'done': true},
+      {'label': lang.tr(mr: 'तपासणी', en: 'Quality Check'), 'done': true},
+      {'label': lang.tr(mr: 'प्रतवारी सुरू', en: 'Grading'), 'done': true},
+      {'label': lang.tr(mr: 'प्रतवारी पूर्ण', en: 'Grading Done'), 'done': true},
+      {'label': isPaid ? lang.tr(mr: 'पैसे जमा झाले', en: 'Payment Paid') : lang.tr(mr: 'पैसे बाकी', en: 'Payment Pending'), 'done': isPaid},
     ];
 
     return Container(
@@ -853,19 +880,19 @@ class EarningReportScreen extends StatelessWidget {
             TableRow(
               children: [
                 _buildSpecCell('Order Date & Time', '$orderDateStr · $orderTimeStr'),
-                _buildSpecCell('Order Day (वार)', orderDayStr),
+                _buildSpecCell('Order Day', orderDayStr),
               ],
             ),
             TableRow(
               children: [
                 _buildSpecCell('Pickup Date & Time', '$pickupDateStr · $pickupSlotStr'),
-                _buildSpecCell('Pickup Day (वार)', pickupDayStr),
+                _buildSpecCell('Pickup Day', pickupDayStr),
               ],
             ),
             TableRow(
               children: [
                 _buildSpecCell('Received Date & Time', '$receivedDateStr · $receivedTimeStr', isGreen: true),
-                _buildSpecCell('Received Day (वार)', receivedDayStr, isGreen: true),
+                _buildSpecCell('Received Day', receivedDayStr, isGreen: true),
               ],
             ),
             TableRow(
@@ -886,7 +913,7 @@ class EarningReportScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+          Text(_translateSpec(label).toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
           const SizedBox(height: 1),
           InkWell(
             onTap: () => _copyToClipboard(context, value, label),
@@ -923,7 +950,7 @@ class EarningReportScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+          Text(_translateSpec(label).toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
           const SizedBox(height: 1),
           Text(
             value,
@@ -991,19 +1018,19 @@ class EarningReportScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 child: Row(
                   children: [
-                    const Expanded(flex: 3, child: Text('GRADE / ITEM', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white))),
-                    const Expanded(flex: 2, child: Text('ORDERED\nQTY', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
-                    const Expanded(flex: 2, child: Text('REJECTED\nQTY', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
-                    const Expanded(flex: 2, child: Text('FINAL\nQTY', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
-                    Expanded(flex: 2, child: Text('RATE\n/ ${unit.toUpperCase()}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
-                    const Expanded(flex: 3, child: Text('TOTAL\nAMOUNT (₹)', textAlign: TextAlign.right, style: TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 3, child: Text(AppLanguage().tr(mr: 'दर्जा / बाबी', en: 'GRADE / ITEM'), style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'मागणी\nप्रमाण', en: 'ORDERED\nQTY'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'नाकारलेले\nप्रमाण', en: 'REJECTED\nQTY'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'अंतिम\nप्रमाण', en: 'FINAL\nQTY'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 2, child: Text('${AppLanguage().tr(mr: 'दर', en: 'RATE')}\n/ \${unit.toUpperCase()}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 3, child: Text(AppLanguage().tr(mr: 'एकूण\nरक्कम (₹)', en: 'TOTAL\nAMOUNT (₹)'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
                   ],
                 ),
               ),
 
               // Grade A Row
               _buildGradeTableRow(
-                'Grade A',
+                AppLanguage().tr(mr: 'दर्जा A', en: 'Grade A'),
                 '${gAOrdered.toStringAsFixed(0)} $unit',
                 '${gARej.toStringAsFixed(0)} $unit',
                 '${gAFinal.toStringAsFixed(0)} $unit',
@@ -1015,7 +1042,7 @@ class EarningReportScreen extends StatelessWidget {
 
               // Grade B Row
               _buildGradeTableRow(
-                'Grade B',
+                AppLanguage().tr(mr: 'दर्जा B', en: 'Grade B'),
                 '${gBOrdered.toStringAsFixed(0)} $unit',
                 '${gBRej.toStringAsFixed(0)} $unit',
                 '${gBFinal.toStringAsFixed(0)} $unit',
@@ -1027,7 +1054,7 @@ class EarningReportScreen extends StatelessWidget {
 
               // Grade C Row
               _buildGradeTableRow(
-                'Grade C',
+                AppLanguage().tr(mr: 'दर्जा C', en: 'Grade C'),
                 '${gCOrdered.toStringAsFixed(0)} $unit',
                 '${gCRej.toStringAsFixed(0)} $unit',
                 '${gCFinal.toStringAsFixed(0)} $unit',
@@ -1045,7 +1072,7 @@ class EarningReportScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
                 child: Row(
                   children: [
-                    const Expanded(flex: 3, child: Text('TOTAL\nSETTLEMENT', style: TextStyle(fontSize: 8.5, height: 1.1, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))),
+                    Expanded(flex: 3, child: Text(AppLanguage().tr(mr: 'एकूण\nहिशोब', en: 'TOTAL\nSETTLEMENT'), style: const TextStyle(fontSize: 8.5, height: 1.1, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))),
                     Expanded(flex: 2, child: Text('${totalOrdered.toStringAsFixed(0)} $unit', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)))),
                     Expanded(flex: 2, child: Text('${totalRejected.toStringAsFixed(0)} $unit', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.w900, color: Color(0xFFDC2626)))),
                     Expanded(flex: 2, child: Text('${totalFinal.toStringAsFixed(0)} $unit', textAlign: TextAlign.right, style: const TextStyle(fontSize: 9.0, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)))),
@@ -1173,7 +1200,7 @@ class EarningReportScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+          Text(_translateSpec(label).toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
           const SizedBox(height: 1),
           InkWell(
             onTap: () => _copyToClipboard(context, value, label),
@@ -1210,7 +1237,7 @@ class EarningReportScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+          Text(_translateSpec(label).toUpperCase(), style: const TextStyle(fontSize: 8.0, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
           const SizedBox(height: 1),
           Text(
             value,

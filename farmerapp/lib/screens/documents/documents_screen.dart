@@ -10,6 +10,7 @@ import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
 import '../../core/utils/photo_picker_sheet.dart';
 import '../profile/farmer_liveness_check_screen.dart';
+import '../../services/app_language.dart';
 
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
@@ -38,6 +39,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         final rejectedCount = uploadedDocs.where((d) => d.status == 'rejected').length;
         final isAllVerified = approvedCount == allDocs.length && allDocs.isNotEmpty;
 
+        final lang = AppLanguage();
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
@@ -47,17 +49,23 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
               onPressed: () => Navigator.pop(context),
             ),
-            title: const Column(
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Farmer Documents (कागदपत्रे)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                Text('KYC & Vendor Verification', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                Text(
+                  lang.tr(mr: 'शेतकरी कागदपत्रे', en: 'Farmer Documents'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                Text(
+                  lang.tr(mr: 'केवायसी व पडताळणी', en: 'KYC & Verification Status'),
+                  style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                ),
               ],
             ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF217346), size: 22),
-                tooltip: 'नवीन कागदपत्र जोडा (+ Upload)',
+                tooltip: lang.tr(mr: 'कागदपत्र अपलोड करा', en: 'Upload Document'),
                 onPressed: () => _showUploadDocumentPicker(context, allDocs),
               ),
               IconButton(
@@ -68,15 +76,20 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF217346)),
                       )
                     : const Icon(Icons.sync_rounded, color: Color(0xFF217346), size: 22),
-                tooltip: 'ताजे करा (Refresh)',
+                tooltip: lang.tr(mr: 'ताजे करा', en: 'Refresh'),
                 onPressed: () async {
                   await FarmerState().fetchFromBackend();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('कागदपत्र स्थिती ताजी केली! (Status Updated) ✓'),
-                        backgroundColor: Color(0xFF217346),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: Text(
+                          lang.tr(
+                            mr: 'कागदपत्र स्थिती ताजी केली! ✓',
+                            en: 'Document status updated! ✓',
+                          ),
+                        ),
+                        backgroundColor: const Color(0xFF217346),
+                        duration: const Duration(seconds: 2),
                       ),
                     );
                   }
@@ -179,7 +192,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           ),
                           icon: const Icon(Icons.add_circle, size: 16),
-                          label: const Text('+ नवीन जोडा', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          label: Text(lang.tr(mr: '+ नवीन जोडा', en: '+ Add New'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                         ),
                       ],
                     ),
@@ -245,6 +258,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        final lang = AppLanguage();
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -309,7 +323,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
-                          isUploaded ? 'आधीच अपलोड केलेले आहे (${doc.status})' : 'अपलोड करण्यासाठी टॅप करा',
+                          isUploaded ? lang.tr(mr: 'आधीच अपलोड केलेले आहे', en: 'Already uploaded') : lang.tr(mr: 'अपलोड करण्यासाठी टॅप करा', en: 'Tap to upload'),
                           style: TextStyle(
                             fontSize: 11,
                             color: isUploaded ? const Color(0xFF059669) : const Color(0xFF64748B),
@@ -373,8 +387,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
               }
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('व्हिडिओ केवायसी यशस्वीपणे रेकॉर्ड झाली! व्हेंडर पडताळणी प्रलंबित आहे. (Video KYC Submitted ⏳)'),
+                SnackBar(content: Text(AppLanguage().tr(mr: 'व्हिडिओ केवायसी यशस्वीपणे सबमिट झाली! पडताळणी प्रलंबित आहे ⏳', en: 'Video KYC submitted successfully! Review pending ⏳')),
                   backgroundColor: Color(0xFFC2410C),
                   duration: Duration(seconds: 4),
                 ),
@@ -388,16 +401,15 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
     showAppPhotoPicker(
       context,
-      title: 'Upload ${doc.title} (${doc.marathiTitle})',
-      subtitle: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा',
+      title: AppLanguage().isMarathi && doc.marathiTitle.isNotEmpty ? 'अपलोड करा: ${doc.marathiTitle}' : 'Upload ${doc.title}',
+      subtitle: AppLanguage().tr(mr: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा', en: 'Take photo with camera, choose from gallery or pick PDF'),
       presetCategory: 'Document',
       allowPdf: true,
       onPhotoSelected: (photoStr) {
         FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
-        final isPdf = photoStr.startsWith('data:application/pdf') || photoStr.toLowerCase().endsWith('.pdf');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${doc.title} ${isPdf ? 'PDF फाईल' : 'कागदपत्र'} अपलोड झाले! व्हेंडर पडताळणी प्रलंबित आहे. (Vendor Review Pending ⏳)'),
+            content: Text(AppLanguage().tr(mr: '${doc.marathiTitle.isNotEmpty ? doc.marathiTitle : doc.title} अपलोड झाले! पडताळणी प्रलंबित आहे ⏳', en: '${doc.title} uploaded! Vendor review pending ⏳')),
             backgroundColor: const Color(0xFFC2410C),
             duration: const Duration(seconds: 4),
           ),
@@ -423,8 +435,7 @@ class _DocumentCard extends StatelessWidget {
                 FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
               }
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('व्हिडिओ केवायसी यशस्वीपणे रेकॉर्ड झाली! व्हेंडर पडताळणी प्रलंबित आहे. (Video KYC Submitted ⏳)'),
+                SnackBar(content: Text(AppLanguage().tr(mr: 'व्हिडिओ केवायसी यशस्वीपणे सबमिट झाली! पडताळणी प्रलंबित आहे ⏳', en: 'Video KYC submitted successfully! Review pending ⏳')),
                   backgroundColor: Color(0xFFC2410C),
                   duration: Duration(seconds: 4),
                 ),
@@ -438,17 +449,16 @@ class _DocumentCard extends StatelessWidget {
 
     showAppPhotoPicker(
       context,
-      title: 'Upload ${doc.title} (${doc.marathiTitle})',
-      subtitle: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा',
+      title: AppLanguage().isMarathi && doc.marathiTitle.isNotEmpty ? 'अपलोड करा: ${doc.marathiTitle}' : 'Upload ${doc.title}',
+      subtitle: AppLanguage().tr(mr: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा', en: 'Take photo with camera, choose from gallery or pick PDF'),
       presetCategory: 'Document',
       allowPdf: true,
       onPhotoSelected: (photoStr) {
         // Document goes to 'pending' state until vendor explicitly approves it
         FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
-        final isPdf = photoStr.startsWith('data:application/pdf') || photoStr.toLowerCase().endsWith('.pdf');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${doc.title} ${isPdf ? 'PDF फाईल' : 'कागदपत्र'} अपलोड झाले! व्हेंडर पडताळणी प्रलंबित आहे. (Vendor Review Pending ⏳)'),
+            content: Text(AppLanguage().tr(mr: '${doc.marathiTitle.isNotEmpty ? doc.marathiTitle : doc.title} अपलोड झाले! पडताळणी प्रलंबित आहे ⏳', en: '${doc.title} uploaded! Vendor review pending ⏳')),
             backgroundColor: const Color(0xFFC2410C),
             duration: const Duration(seconds: 4),
           ),
@@ -461,8 +471,7 @@ class _DocumentCard extends StatelessWidget {
     try {
       if (doc.fileUrl.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('कागदपत्र अपलोड केलेले नाही! (Document not uploaded)'),
+          SnackBar(content: Text(AppLanguage().tr(mr: 'कागदपत्र अपलोड केलेले नाही!', en: 'Document not uploaded!')),
             backgroundColor: Color(0xFFDC2626),
           ),
         );
@@ -557,7 +566,7 @@ class _DocumentCard extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                tooltip: 'Re-upload / बदला',
+                tooltip: AppLanguage().tr(mr: 'बदला / पुन्हा अपलोड करा', en: 'Re-upload / Change'),
                 onPressed: () {
                   Navigator.pop(ctx);
                   _uploadDocumentPhoto(context);
@@ -607,7 +616,7 @@ class _DocumentCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            doc.status == 'approved' ? 'Approved (व्हेंडर मंजूर ✓)' : 'Under Review (व्हेंडर पडताळणी चालू ⏳)',
+                            doc.status == 'approved' ? AppLanguage().tr(mr: 'मंजूर ✓', en: 'Approved ✓') : AppLanguage().tr(mr: 'पडताळणी चालू ⏳', en: 'Under Review ⏳'),
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -627,7 +636,7 @@ class _DocumentCard extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               icon: const Icon(Icons.download_rounded, size: 16),
-                              label: const Text('Download / Share Video', style: TextStyle(fontWeight: FontWeight.bold)),
+                              label: Text(AppLanguage().tr(mr: 'व्हिडिओ डाउनलोड / शेअर करा', en: 'Download / Share Video'), style: const TextStyle(fontWeight: FontWeight.bold)),
                               onPressed: () => _downloadDocument(context),
                             ),
                           ],
@@ -676,7 +685,7 @@ class _DocumentCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                doc.status == 'approved' ? 'Approved (व्हेंडर मंजूर ✓)' : 'Under Review (व्हेंडर पडताळणी चालू ⏳)',
+                                doc.status == 'approved' ? AppLanguage().tr(mr: 'मंजूर ✓', en: 'Approved ✓') : AppLanguage().tr(mr: 'पडताळणी चालू ⏳', en: 'Under Review ⏳'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -696,7 +705,7 @@ class _DocumentCard extends StatelessWidget {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
                                   icon: const Icon(Icons.download_rounded, size: 16),
-                                  label: const Text('Download / Share PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  label: Text(AppLanguage().tr(mr: 'PDF डाउनलोड / शेअर करा', en: 'Download / Share PDF'), style: const TextStyle(fontWeight: FontWeight.bold)),
                                   onPressed: () => _downloadDocument(context),
                                 ),
                               ],
@@ -781,19 +790,19 @@ class _DocumentCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFBFDBFE)),
                   ),
-                  child: const Column(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.videocam_rounded, color: Color(0xFF2563EB), size: 50),
-                      SizedBox(height: 8),
+                      const Icon(Icons.videocam_rounded, color: Color(0xFF2563EB), size: 50),
+                      const SizedBox(height: 8),
                       Text(
-                        'Live Video KYC Recording 🎥',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E40AF)),
+                        AppLanguage().tr(mr: 'लाईव्ह व्हिडिओ केवायसी रेकॉर्डिंग 🎥', en: 'Live Video KYC Recording 🎥'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E40AF)),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'व्हिडिओ पाहण्यासाठी टॅप करा (Tap to view video)',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        AppLanguage().tr(mr: 'व्हिडिओ पाहण्यासाठी टॅप करा', en: 'Tap to view video'),
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                       ),
                     ],
                   ),
@@ -821,12 +830,12 @@ class _DocumentCard extends StatelessWidget {
                           color: Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.zoom_in, color: Colors.white, size: 14),
-                            SizedBox(width: 4),
-                            Text('मोठा फोटो पाहण्यासाठी टॅप करा (Zoom)', style: TextStyle(color: Colors.white, fontSize: 10)),
+                            const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                            const SizedBox(width: 4),
+                            Text(AppLanguage().tr(mr: 'मोठा फोटो पाहण्यासाठी टॅप करा', en: 'Tap to view full photo'), style: const TextStyle(color: Colors.white, fontSize: 10)),
                           ],
                         ),
                       ),
@@ -854,7 +863,7 @@ class _DocumentCard extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 3),
-                    const Text('PDF Document (कागदपत्र फाईल)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Text(AppLanguage().tr(mr: 'कागदपत्र फाईल (PDF)', en: 'PDF Document'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                   ],
                 ),
               )
@@ -867,12 +876,12 @@ class _DocumentCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.upload_file_outlined, color: Color(0xFF94A3B8), size: 40),
-                    SizedBox(height: 6),
-                    Text('अजून कोणतेही कागदपत्र अपलोड केलेले नाही.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    const Icon(Icons.upload_file_outlined, color: Color(0xFF94A3B8), size: 40),
+                    const SizedBox(height: 6),
+                    Text(AppLanguage().tr(mr: 'अद्याप कोणतेही कागदपत्र अपलोड केलेले नाही.', en: 'No document uploaded yet.'), style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                   ],
                 ),
               ),
@@ -881,7 +890,7 @@ class _DocumentCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Status (स्थिती): ', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+                Text(AppLanguage().tr(mr: 'स्थिती: ', en: 'Status: '), style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
                 Expanded(
                   child: Text(
                     doc.status == 'approved'
@@ -920,7 +929,7 @@ class _DocumentCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'अमान्य कारण (Rejection Reason):\n${doc.rejectionReason}',
+                        AppLanguage().tr(mr: 'अमान्य कारण:\n${doc.rejectionReason}', en: 'Rejection Reason:\n${doc.rejectionReason}'),
                         style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B), fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -937,7 +946,7 @@ class _DocumentCard extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close (बंद)', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                child: Text(AppLanguage().tr(mr: 'बंद करा', en: 'Close'), style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -968,7 +977,7 @@ class _DocumentCard extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.upload, size: 14),
-                    label: Text(hasFile ? 'बदला' : 'Upload', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: Text(hasFile ? AppLanguage().tr(mr: 'बदला', en: 'Change') : AppLanguage().tr(mr: 'अपलोड', en: 'Upload'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       Navigator.pop(ctx);
                       _uploadDocumentPhoto(context);
@@ -1010,6 +1019,7 @@ class _DocumentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = AppLanguage();
     Color badgeBg;
     Color badgeText;
     String statusLabel;
@@ -1021,19 +1031,19 @@ class _DocumentCard extends StatelessWidget {
     if (isApproved) {
       badgeBg = const Color(0xFFD1FAE5);
       badgeText = const Color(0xFF065F46);
-      statusLabel = 'Approved (व्हेंडर मंजूर ✓)';
+      statusLabel = lang.tr(mr: 'मंजूर ✓', en: 'Approved ✓');
     } else if (isPending) {
       badgeBg = const Color(0xFFFEF3C7);
       badgeText = const Color(0xFF92400E);
-      statusLabel = 'Under Review (व्हेंडर पडताळणी चालू ⏳)';
+      statusLabel = lang.tr(mr: 'पडताळणी चालू ⏳', en: 'Under Review ⏳');
     } else if (isRejected) {
       badgeBg = const Color(0xFFFEE2E2);
       badgeText = const Color(0xFF991B1B);
-      statusLabel = 'Rejected (व्हेंडर अमान्य ❌)';
+      statusLabel = lang.tr(mr: 'अमान्य ❌', en: 'Rejected ❌');
     } else {
       badgeBg = const Color(0xFFF1F5F9);
       badgeText = const Color(0xFF475569);
-      statusLabel = 'Not Uploaded (अपलोड करा ⚠️)';
+      statusLabel = lang.tr(mr: 'अपलोड बाकी ⚠️', en: 'Not Uploaded ⚠️');
     }
 
     final hasPhoto = doc.fileUrl.isNotEmpty;
@@ -1158,7 +1168,7 @@ class _DocumentCard extends StatelessWidget {
                   if (doc.status == 'rejected' && doc.rejectionReason.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(
-                      'कारण: ${doc.rejectionReason}',
+                      lang.tr(mr: 'कारण: ${doc.rejectionReason}', en: 'Reason: ${doc.rejectionReason}'),
                       style: const TextStyle(fontSize: 9.5, color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1180,7 +1190,7 @@ class _DocumentCard extends StatelessWidget {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.visibility_outlined, size: 13, color: Color(0xFF1D4ED8)),
-                label: const Text('पहा', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: Text(lang.tr(mr: 'पहा', en: 'View'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                 onPressed: () => _openFullScreenView(context),
               ),
               const SizedBox(width: 6),
@@ -1228,6 +1238,7 @@ class _PendingDocumentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = AppLanguage();
     final isVideo = doc.type == 'video_kyc';
 
     return InkWell(
@@ -1283,7 +1294,7 @@ class _PendingDocumentCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: Icon(isVideo ? Icons.videocam_rounded : Icons.cloud_upload_outlined, size: 14),
-              label: Text(isVideo ? 'केवायसी' : 'Upload', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              label: Text(isVideo ? lang.tr(mr: 'केवायसी', en: 'KYC') : lang.tr(mr: 'अपलोड', en: 'Upload'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
               onPressed: onTap,
             ),
           ],

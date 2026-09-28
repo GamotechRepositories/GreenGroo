@@ -131,6 +131,11 @@ import {
   createGovtScheme,
   updateGovtScheme,
   deleteGovtScheme,
+  applyGovtScheme,
+  listMyGovtSchemeApplications,
+  listAllGovtSchemeApplications,
+  updateGovtSchemeApplicationStatus,
+  deleteGovtSchemeApplication,
 } from "./govtSchemeControllers.js";
 import {
   listMarketPrices,
@@ -153,6 +158,8 @@ router.get("/hr/vacancies/open", listOpenHrVacancies);
 router.post("/hr/candidates/apply", applyHrCandidate);
 router.get("/policies/live", optionalAuth, listLiveRolePolicies);
 router.get("/govt-schemes/live", optionalAuth, listLiveGovtSchemes);
+router.post("/govt-schemes/apply", optionalAuth, applyGovtScheme);
+router.get("/govt-schemes/applications/mine", optionalAuth, listMyGovtSchemeApplications);
 router.get("/market-prices/live", optionalAuth, listLiveMarketPrices);
 
 router.use(protect, requireAdmin);
@@ -163,6 +170,9 @@ router.put("/gift-cards/:id", updateGiftCard);
 router.delete("/gift-cards/:id", deleteGiftCard);
 
 router.get("/govt-schemes", listGovtSchemes);
+router.get("/govt-schemes/applications", listAllGovtSchemeApplications);
+router.put("/govt-schemes/applications/:id/status", updateGovtSchemeApplicationStatus);
+router.delete("/govt-schemes/applications/:id", deleteGovtSchemeApplication);
 router.get("/govt-schemes/:id", getGovtScheme);
 router.post("/govt-schemes", createGovtScheme);
 router.put("/govt-schemes/:id", updateGovtScheme);
