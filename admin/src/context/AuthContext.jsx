@@ -1,12 +1,8 @@
 import React, { createContext, useContext, useState } from 'react';
+import { readAdminToken as readStoredToken } from '../api/client';
+import { reconnectRealtime } from '../realtime/liveClient';
 
 const AuthContext = createContext();
-
-function readStoredToken() {
-  const token = localStorage.getItem('greengrocc_admin_token');
-  if (!token || token === 'demo_admin_jwt_token' || token === 'mock_jwt_token') return '';
-  return token;
-}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -27,6 +23,7 @@ export function AuthProvider({ children }) {
     setToken(jwtToken);
     localStorage.setItem('greengrocc_admin_user', JSON.stringify(userData));
     localStorage.setItem('greengrocc_admin_token', jwtToken);
+    reconnectRealtime();
   };
 
   const logout = () => {
@@ -34,6 +31,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     localStorage.removeItem('greengrocc_admin_user');
     localStorage.removeItem('greengrocc_admin_token');
+    reconnectRealtime();
   };
 
   return (

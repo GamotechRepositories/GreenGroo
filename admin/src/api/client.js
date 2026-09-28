@@ -1,20 +1,32 @@
 import axios from 'axios';
+import { configureRealtime, withLiveAdapter } from '../realtime/liveClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export const API_ORIGIN = API_BASE_URL.replace(/\/+$/, '').replace(/\/api$/, '');
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+export function readAdminToken() {
+  const token = localStorage.getItem('greengrocc_admin_token');
+  if (!token || token === 'demo_admin_jwt_token' || token === 'mock_jwt_token') return '';
+  return token;
+}
+
+const apiClient = withLiveAdapter(
+  axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 30000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  }),
+  axios
+);
+
+configureRealtime({ url: API_ORIGIN, getToken: readAdminToken });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('greengrocc_admin_token');
-  if (token && token !== 'demo_admin_jwt_token' && token !== 'mock_jwt_token') {
+  const token = readAdminToken();
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   // Let the browser set multipart boundary — default application/json breaks FormData

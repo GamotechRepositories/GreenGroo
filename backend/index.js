@@ -4,6 +4,10 @@ import express from "express";
 import cors from "cors";
 import { connectDB, errorHandler, notFound } from "@greengrocc/shared";
 import { initSocket } from "./shared/socket.js";
+import { startChangeFeed, notifyWriteRequest } from "./shared/realtime/changeFeed.js";
+import { startLiveViews } from "./shared/realtime/liveViews.js";
+import { LIVE_ROUTES } from "./realtime/liveRoutes.js";
+import { startCatalogPublisher } from "./realtime/catalogPublisher.js";
 // Ensure User model is registered for admin JWT role resolution
 import "./legacy/models/user.js";
 
@@ -84,6 +88,14 @@ app.use(
 );
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use((req, res, next) => {
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    res.on("finish", () => {
+      if (res.statusCode < 400) notifyWriteRequest();
+    });
+  }
+  next();
+});
 
 app.get("/", (_req, res) => {
   res.json({ message: "GreenGrocc API is running" });
@@ -166,7 +178,10 @@ connectDB("server").then(async () => {
     console.warn("[Firebase] Admin init failed:", err.message);
   }
   const server = http.createServer(app);
-  initSocket(server);
+  const io = initSocket(server);
+  startChangeFeed();
+  startLiveViews({ port: PORT, routes: LIVE_ROUTES });
+  startCatalogPublisher(io);
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`GreenGrocc backend running on port ${PORT}`);
     console.log(`Socket.io live on port ${PORT}`);

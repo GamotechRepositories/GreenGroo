@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import PickupTimeline, { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 
 function Info({ label, value }) {
   return (
@@ -30,7 +30,7 @@ export default function VendorPickupDetailPage() {
       .catch((err) => setError(err?.response?.data?.message || "Pickup not found"));
   };
 
-  usePolling(load, [pickupId], 5000);
+  useLive(() => load(), [pickupId]);
 
   const pickup = data?.pickup;
 

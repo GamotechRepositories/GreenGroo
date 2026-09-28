@@ -4,9 +4,9 @@ import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
-import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 import { mapsLink, useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
-import { ensureStoreRoom, subscribeToSocketEvent } from "../../services/socket";
+import { subscribeToSocketEvent } from "../../services/socket";
 import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, actionBtnDanger, isCodPayment, formatRupee } from "./orderUtils";
 
 export default function OrdersPage() {
@@ -53,9 +53,7 @@ export default function OrdersPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useLive(load, [load]);
 
   // Countdown tick for same-route window banners (1s so timer feels live)
   useEffect(() => {
@@ -63,18 +61,7 @@ export default function OrdersPage() {
     return () => clearInterval(id);
   }, []);
 
-  // Keep store room joined while on orders (fixes missed live events)
-  useEffect(() => {
-    if (!manager?.id) return undefined;
-    ensureStoreRoom(manager.id);
-    const keepAlive = setInterval(() => ensureStoreRoom(manager.id), 15000);
-    return () => clearInterval(keepAlive);
-  }, [manager?.id]);
-
-  // Socket + short backup poll so QR / proof appear without manual refresh
-  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: 5000 });
-
-  // Instant UI patches from sockets (before full silent reload finishes)
+  // Instant UI patches + toasts from store events
   useEffect(() => {
     const patchOrder = (orderId, patch) => {
       if (!orderId) return;

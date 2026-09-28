@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getManagerAllHarvestOrders, getMyOrder } from "../api/farmerApi";
-import { usePolling } from "../hooks/usePolling";
+import { useLive } from "../realtime/useLive";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
@@ -118,7 +118,7 @@ export default function OrderScanPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  usePolling(() => {
+  useLive(() => {
     const load = async () => {
       if (!orderCode) {
         setOrder(null);
@@ -146,7 +146,7 @@ export default function OrderScanPage() {
       }
     };
     load().finally(() => setLoading(false));
-  }, [orderCode, isManager], 8000);
+  }, [orderCode, isManager]);
 
   const grades = useMemo(() => (order ? gradeRows(order) : []), [order]);
 

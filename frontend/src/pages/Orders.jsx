@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getMyOrders } from "../api/api";
+import { useLive } from "../realtime/useLive";
 import BlinkitOrderCard from "../components/orders/BlinkitOrderCard";
 import DesktopOrderCard from "../components/orders/DesktopOrderCard";
 import { OrdersDesktopHeader } from "../components/orders/OrdersDesktopHeader";
@@ -46,7 +47,7 @@ function Orders() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async ({ silent = false } = {}) => {
     if (authLoading) {
       return;
     }
@@ -58,22 +59,20 @@ function Orders() {
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError("");
     try {
       const { data } = await getMyOrders();
       setOrders((data?.data || []).filter(isPlacedOrder));
     } catch {
-      setOrders([]);
+      if (!silent) setOrders([]);
       setError("Failed to load orders. Please try again.");
     } finally {
       setLoading(false);
     }
   }, [user, authLoading]);
 
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders, location.key]);
+  useLive(loadOrders, [loadOrders, location.key]);
 
   const filteredOrders = useMemo(
     () => filterOrders(orders, { filter, query: search }),

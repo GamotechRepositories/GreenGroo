@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { cancelOrder, createReturnClaim, getOrderById } from "../api/api";
+import { useLive } from "../realtime/useLive";
 import BlinkitOrderDetail from "../components/orders/BlinkitOrderDetail";
 import DesktopOrderDetail from "../components/orders/DesktopOrderDetail";
 
@@ -16,28 +17,30 @@ function OrderDetail() {
   const [returnError, setReturnError] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const loadOrder = async () => {
-      setLoading(true);
+  const loadOrder = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      if (!silent) setLoading(true);
       setError("");
       try {
         const { data } = await getOrderById(id);
         setOrder(data.data);
       } catch {
-        setError("Order not found");
-        setOrder(null);
+        if (!silent) {
+          setError("Order not found");
+          setOrder(null);
+        }
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [user, id]
+  );
 
-    loadOrder();
-  }, [user, id]);
+  useLive(loadOrder, [loadOrder]);
 
   const handleCancelOrder = async () => {
     if (!order || cancelling || order.status !== "confirm") return;

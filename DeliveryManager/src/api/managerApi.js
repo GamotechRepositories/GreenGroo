@@ -1,11 +1,20 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../config/apiBase.js";
+import { configureRealtime, withLiveAdapter } from "../realtime/liveClient";
 
 const API_URL = getApiBaseUrl();
 
-export const api = axios.create({
-  baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
+export const api = withLiveAdapter(
+  axios.create({
+    baseURL: API_URL,
+    headers: { "Content-Type": "application/json" },
+  }),
+  axios
+);
+
+configureRealtime({
+  url: API_URL,
+  getToken: () => String(api.defaults.headers.common.Authorization || "").replace(/^Bearer\s+/i, ""),
 });
 
 export function setAuthToken(token) {

@@ -7,7 +7,7 @@ import {
   getManagerFarmers,
 } from "../../api/managerPortApi";
 import { vendorApi } from "../../api/vendorApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import LoadingState from "../../components/ui/LoadingState";
 import EmptyState from "../../components/ui/EmptyState";
 import SpreadsheetViewport from "../../components/ui/SpreadsheetViewport";
@@ -1042,7 +1042,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     Promise.all([
       getManagerAllHarvestOrders().catch(() => ({ orders: [] })),
       getManagerAllProducts().catch(() => ({ products: [] })),
@@ -1055,7 +1055,7 @@ export default function ManagerEarningsPage({ defaultTab }) {
       })
       .catch((err) => toast.error(err.message || "Failed to load earning statement"))
       .finally(() => setLoading(false));
-  }, [], 8000);
+  }, []);
 
   const farmerRows = useMemo(() => {
     const map = new Map();

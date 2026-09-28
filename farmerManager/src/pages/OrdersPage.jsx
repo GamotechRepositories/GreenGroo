@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { acceptMyOrder, getMyOrders, rejectMyOrder } from "../api/farmerApi";
-import { usePolling } from "../hooks/usePolling";
+import { useLive } from "../realtime/useLive";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -156,12 +156,12 @@ function OrdersPage({ filter = "new" }) {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     getMyOrders({ filter })
       .then((data) => setOrders(Array.isArray(data) ? data.filter((o) => !isOrderDeleted(o)) : []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [filter], 5000);
+  }, [filter]);
 
   // Group unique farmers for filter dropdown & chips
   const farmerStats = useMemo(() => {

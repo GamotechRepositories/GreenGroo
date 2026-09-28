@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageShell } from "../../components/layout/ProductManagerLayout";
 import { staffApi } from "../../api/staffApi";
+import { useLive } from "../../realtime/useLive";
 
 function formatWhen(value) {
   if (!value) return "—";
@@ -31,11 +32,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-    const timer = window.setInterval(load, 15000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  useLive(load, [load]);
 
   const pending = requests.filter((request) => request.status === "pending");
   const approvedToday = requests.filter((request) => request.status === "approved").length;

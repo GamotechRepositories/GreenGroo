@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import BatchDetailView from "../../components/pickup/BatchDetailView";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 
 function backMeta(from) {
   if (from === "all") return { to: "/vendor/pickups/all", label: "← All Pickups" };
@@ -18,7 +18,7 @@ export default function VendorBatchPage() {
   const [error, setError] = useState("");
   const back = backMeta(location.state?.from);
 
-  usePolling(() => {
+  useLive(() => {
     vendorApi
       .getBatch(batchId)
       .then((r) => {
@@ -26,7 +26,7 @@ export default function VendorBatchPage() {
         setError("");
       })
       .catch((err) => setError(err?.response?.data?.message || "Batch not found"));
-  }, [batchId], 5000);
+  }, [batchId]);
 
   if (!data && !error) return <p className="p-6 text-xs text-gray-400">Loading…</p>;
   if (!data) return <p className="p-6 text-xs text-red-500">{error}</p>;

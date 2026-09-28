@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { useStoreRealtimeRefresh, KYC_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 
 export default function PendingDriversPage() {
   const { manager } = useAuth();
@@ -28,15 +28,7 @@ export default function PendingDriversPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // New KYC uploads / approvals push here — no continuous poll
-  useStoreRealtimeRefresh(() => load({ silent: true }), {
-    events: KYC_LIVE_EVENTS,
-    backupMs: null,
-  });
+  useLive(load, [load]);
 
   const handleRowClick = (riderId) => {
     navigate(`/drivers/pending/${riderId}`);

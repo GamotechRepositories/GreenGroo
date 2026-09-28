@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { driverApi } from "../../api/driverApi";
 import BatchDetailView from "../../components/pickup/BatchDetailView";
 import { formatVehicleId } from "../../components/ui/CopyId";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import { buildBatchQrPayload } from "../../utils/batchQr";
 
 function payloadFromPickups(batchId, pickups = []) {
@@ -54,7 +54,7 @@ export default function DriverBatchPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  usePolling(() => {
+  useLive(() => {
     driverApi
       .getBatch(id)
       .then((r) => {
@@ -70,7 +70,7 @@ export default function DriverBatchPage() {
       .catch((err) => {
         if (!seedPickups.length) setError(err?.response?.data?.message || "Batch not found");
       });
-  }, [id], 5000);
+  }, [id]);
 
   if (!data && !error) return <p className="p-6 text-xs text-gray-400">Loading…</p>;
   if (!data) return <p className="p-6 text-xs text-red-500">{error}</p>;

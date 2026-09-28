@@ -1,10 +1,16 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../config/env";
+import { withLiveAdapter } from "../realtime/liveClient";
+import { syncRealtimeToken } from "../realtime/setup";
+import "./staffApi";
 const VENDOR_STORAGE_KEY = "greengroo_vendor_auth";
 
-export const api = axios.create({
-  headers: { "Content-Type": "application/json" },
-});
+export const api = withLiveAdapter(
+  axios.create({
+    headers: { "Content-Type": "application/json" },
+  }),
+  axios
+);
 
 export function setVendorToken(token) {
   if (token) {
@@ -23,6 +29,7 @@ function getStoredVendorToken() {
 
 api.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  syncRealtimeToken();
   const token = getStoredVendorToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   else delete config.headers.Authorization;

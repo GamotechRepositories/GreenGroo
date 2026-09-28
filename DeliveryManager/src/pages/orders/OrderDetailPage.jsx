@@ -3,10 +3,9 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import LiveRiderTrack from "../../components/LiveRiderTrack";
-import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 import { useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
-import { useAuth } from "../../context/AuthContext";
-import { ensureStoreRoom, subscribeToSocketEvent } from "../../services/socket";
+import { subscribeToSocketEvent } from "../../services/socket";
 import {
   OrderStatusText,
   DriverAssignmentText,
@@ -28,7 +27,6 @@ export default function OrderDetailPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { manager } = useAuth();
   const initialOrder = location.state?.order || null;
 
   const [order, setOrder] = useState(initialOrder);
@@ -89,18 +87,7 @@ export default function OrderDetailPage() {
     }
   }, [orderId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!manager?.id) return undefined;
-    ensureStoreRoom(manager.id);
-    const keepAlive = setInterval(() => ensureStoreRoom(manager.id), 15000);
-    return () => clearInterval(keepAlive);
-  }, [manager?.id]);
-
-  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: 5000 });
+  useLive(load, [load]);
 
   useEffect(() => {
     const unsubs = [

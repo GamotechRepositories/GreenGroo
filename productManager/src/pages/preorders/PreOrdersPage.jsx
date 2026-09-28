@@ -103,7 +103,7 @@ export default function PreOrdersPage() {
     () => ({ ...(date ? { date } : {}), ...(storeId ? { storeId } : {}) }),
     [date, storeId]
   );
-  const { orders, stores, summary, today, tomorrow, loading, error, reload } = usePreOrders(15000, params);
+  const { orders, stores, summary, today, tomorrow, loading, error, reload } = usePreOrders(params);
 
   const notify = (text, tone = "success") => {
     setToast({ text, tone });

@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { useStoreRealtimeRefresh, DRIVER_DETAIL_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 
 export default function DriverDetailPage() {
   const { driverId } = useParams();
@@ -52,9 +52,9 @@ export default function DriverDetailPage() {
     }
   }, [driverId]);
 
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async ({ silent = false } = {}) => {
     try {
-      setHistoryLoading(true);
+      if (!silent) setHistoryLoading(true);
       // Month range gives enough days to pick from date-wise
       const res = await managerApi.getDriverActivityHistory(driverId, "month");
       if (res.data?.success) {
@@ -67,24 +67,11 @@ export default function DriverDetailPage() {
     }
   }, [driverId]);
 
-  useEffect(() => {
-    loadDriverDetails();
-  }, [loadDriverDetails]);
+  useLive(loadDriverDetails, [loadDriverDetails]);
 
-  useEffect(() => {
-    if (perfOpen) loadHistory();
-  }, [perfOpen, loadHistory]);
-
-  // Live only when rider status / docs change — no 15s poll flash
-  useStoreRealtimeRefresh(
-    () => {
-      loadDriverDetails({ silent: true });
-      if (perfOpen && selectedDate === todayStr) loadHistory();
-    },
-    {
-      events: DRIVER_DETAIL_LIVE_EVENTS,
-      backupMs: null,
-    }
+  useLive(
+    (opts) => (perfOpen ? loadHistory(opts) : undefined),
+    [perfOpen, loadHistory]
   );
 
   const handleToggleActive = async () => {

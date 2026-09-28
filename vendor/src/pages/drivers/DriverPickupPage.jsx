@@ -7,7 +7,7 @@ import BatchQrModal from "../../components/pickup/BatchQrModal";
 import OrderQrModal from "../../components/pickup/OrderQrModal";
 import CopyId, { CopyButton, isCopyableId } from "../../components/ui/CopyId";
 import { orderQrValue } from "../../utils/orderQr";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import { driverNextStep } from "../../utils/driverFlow";
 
 function Info({ label, value }) {
@@ -120,7 +120,7 @@ export default function DriverPickupPage() {
       .catch((err) => setError(err?.response?.data?.message || "Pickup not found"));
   };
 
-  usePolling(() => load(true), [pickupId], 5000);
+  useLive(() => load(true), [pickupId]);
 
   const run = async (fn, okMessage) => {
     setBusy(true);

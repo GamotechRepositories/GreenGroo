@@ -25,11 +25,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const clear = useCallback(() => {
-    disconnectSocket();
     setManager(null);
     setToken(null);
     setAuthToken(null);
     localStorage.removeItem(STORAGE_KEY);
+    disconnectSocket();
   }, []);
 
   useEffect(() => {

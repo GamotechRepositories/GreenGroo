@@ -1,16 +1,35 @@
 import axios from "axios";
+import { configureRealtime, reconnectRealtime, withLiveAdapter } from "../realtime/liveClient";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5001").replace(
   /\/+$/,
   ""
 );
 
-export const api = axios.create({
-  baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
-});
+export const api = withLiveAdapter(
+  axios.create({
+    baseURL: API_URL,
+    headers: { "Content-Type": "application/json" },
+  }),
+  axios
+);
 
 const AUTH_STORAGE_KEY = "greengroo_product_manager_auth";
+
+function storedToken() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    return raw ? JSON.parse(raw).token || "" : "";
+  } catch {
+    return "";
+  }
+}
+
+configureRealtime({
+  url: API_URL,
+  getToken: () =>
+    String(api.defaults.headers.common.Authorization || "").replace(/^Bearer\s+/i, "") || storedToken(),
+});
 
 api.interceptors.request.use((config) => {
   if (!config.headers.Authorization) {
@@ -27,11 +46,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let socketToken = null;
+
 export function setAuthToken(token) {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
     delete api.defaults.headers.common.Authorization;
+  }
+  if ((token || null) !== socketToken) {
+    socketToken = token || null;
+    reconnectRealtime();
   }
 }
 

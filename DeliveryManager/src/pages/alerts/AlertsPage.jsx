@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { managerApi } from "../../api/managerApi";
+import { useLive } from "../../realtime/useLive";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { Icon } from "../../components/ui/Icon";
@@ -24,9 +25,7 @@ export default function AlertsPage() {
     }
   }, [filter]);
 
-  useEffect(() => {
-    loadAlerts();
-  }, [loadAlerts]);
+  useLive(loadAlerts, [loadAlerts]);
 
   const onMarkRead = async (alertId) => {
     try {

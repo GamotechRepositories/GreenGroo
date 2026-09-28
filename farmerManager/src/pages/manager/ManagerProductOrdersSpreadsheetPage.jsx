@@ -6,7 +6,7 @@ import {
   getManagerAllHarvestOrders,
   updateManagerFarmerOrder,
 } from "../../api/farmerApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import StatusBadge from "../../components/ui/StatusBadge";
 import {
   canonicalOrderStatus,
@@ -117,9 +117,9 @@ export default function ManagerProductOrdersSpreadsheetPage() {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     loadData(true);
-  }, [productKey, productId, productNameParam], 5000);
+  }, [productKey, productId, productNameParam]);
 
   const productTitle =
     productNameParam ||

@@ -18,7 +18,7 @@ export default function VendorTopNavbar({ onOpenMobileMenu }) {
   const { vendor } = useVendorAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { requests } = useInventoryRequests(12000);
+  const { requests } = useInventoryRequests();
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
 
   const [query, setQuery] = useState("");

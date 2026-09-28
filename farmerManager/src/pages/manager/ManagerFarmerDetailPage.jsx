@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useLive } from "../../realtime/useLive";
 import { useParams, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -89,8 +90,8 @@ export default function ManagerFarmerDetailPage() {
       .then((res) => setDocuments(Array.isArray(res) ? res : res?.documents || []))
       .catch(() => setDocuments([]));
 
-  useEffect(() => {
-    setLoading(true);
+  useLive(({ initial }) => {
+    if (initial) setLoading(true);
     getManagerFarmerById(farmerId)
       .then(setFarmer)
       .catch(() => {})
@@ -98,16 +99,11 @@ export default function ManagerFarmerDetailPage() {
     getManagerFarmerCrops(farmerId).then(setCrops).catch(() => setCrops([]));
   }, [farmerId]);
 
-  useEffect(() => {
+  useLive(() => {
     if (tab === "Crops") getManagerFarmerCrops(farmerId).then(setCrops).catch(() => setCrops([]));
     if (tab === "Products") getManagerFarmerProducts(farmerId).then(setProducts).catch(() => {});
     if (tab === "Inventory") getManagerFarmerInventory(farmerId).then(setInventory).catch(() => {});
-    if (tab === "Orders") {
-      const loadOrders = () => getManagerFarmerOrders(farmerId).then(setOrders).catch(() => {});
-      loadOrders();
-      const timer = window.setInterval(loadOrders, 5000);
-      return () => window.clearInterval(timer);
-    }
+    if (tab === "Orders") getManagerFarmerOrders(farmerId).then(setOrders).catch(() => {});
     if (tab === "Earnings") {
       getManagerFarmerEarnings(farmerId)
         .then((res) => setEarnings(Array.isArray(res) ? res : (Array.isArray(res?.transactions) ? res.transactions : [])))

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getManagerBatch } from "../../api/farmerApi";
 import CopyId, { formatVehicleId } from "../../components/ui/CopyId";
 import { pickupLiveLabel, pickupStatusLabel } from "../../components/pickup/PickupTimeline";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
 import { parseOrderQrPayload } from "../../utils/orderQr";
 import QrScanModal from "../../components/pickup/QrScanModal";
@@ -212,7 +212,7 @@ export default function ManagerBatchPage() {
   const [scanOrder, setScanOrder] = useState(null);
   const [scanError, setScanError] = useState("");
 
-  usePolling(() => {
+  useLive(() => {
     getManagerBatch(id)
       .then((payload) => {
         const apiOrders = Array.isArray(payload?.pickups) ? payload.pickups : [];
@@ -226,7 +226,7 @@ export default function ManagerBatchPage() {
       .catch((err) => {
         if (!seedPickups.length) setError(err?.message || "Batch not found");
       });
-  }, [id], 5000);
+  }, [id]);
 
   const orders = data?.pickups || [];
   const first = orders[0] || {};

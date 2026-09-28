@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, MapPinned, RefreshCw } from 'lucide-react';
 import opsApi from '../../api/opsApi';
+import { useLive } from '../../realtime/useLive';
 import { BTN, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../../utils/ui';
 
 function statusTone(status) {
@@ -46,11 +47,7 @@ export default function DeliveryTracking() {
     }
   };
 
-  useEffect(() => {
-    load();
-    const timer = setInterval(load, 15000);
-    return () => clearInterval(timer);
-  }, []);
+  useLive(load, []);
 
   return (
     <div className="space-y-5 pb-10">
@@ -59,7 +56,7 @@ export default function DeliveryTracking() {
           <p className={PAGE_KICKER}>Operations</p>
           <h1 className={PAGE_TITLE}>Delivery Tracking</h1>
           <p className={PAGE_SUB}>
-            Live rider status and last known GPS location. Refreshes every 15 seconds.
+            Live rider status and last known GPS location. Updates instantly as riders move or change status.
           </p>
           <Link
             to="/delivery-team"

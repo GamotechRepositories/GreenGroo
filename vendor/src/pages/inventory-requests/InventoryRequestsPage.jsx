@@ -194,7 +194,7 @@ const FALLBACK_SEED_REQUESTS = [
 const STORAGE_KEY = 'greengroo_segregation_packaging_v1'
 
 export default function InventoryRequestsPage() {
-  const { requests: apiRequests, loading, error, reload } = useInventoryRequests(8000)
+  const { requests: apiRequests, loading, error, reload } = useInventoryRequests()
 
   // Packaging details persisted state: { [requestId]: { containerType, crateCount, packageStatus, note } }
   const [packagingState, setPackagingState] = useState(() => {

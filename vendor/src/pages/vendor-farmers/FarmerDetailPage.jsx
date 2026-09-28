@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useLive } from "../../realtime/useLive";
 import { Link, useParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 
@@ -157,8 +158,8 @@ export default function FarmerDetailPage() {
     }
   };
 
-  useEffect(() => {
-    setLoading(true);
+  useLive(({ initial }) => {
+    if (initial) setLoading(true);
     vendorApi
       .getFarmerById(farmerId)
       .then((r) => setFarmer(r.data))
@@ -170,7 +171,7 @@ export default function FarmerDetailPage() {
       .catch(() => setCrops([]));
   }, [farmerId]);
 
-  useEffect(() => {
+  useLive(() => {
     if (tab === "Crops") {
       vendorApi.getFarmerCrops(farmerId).then((r) => setCrops(asList(r))).catch(() => setCrops([]));
     }
@@ -181,11 +182,7 @@ export default function FarmerDetailPage() {
       vendorApi.getFarmerInventory(farmerId).then((r) => setInventory(asList(r))).catch(() => setInventory([]));
     }
     if (tab === "Orders") {
-      const loadOrders = () =>
-        vendorApi.getFarmerOrders(farmerId).then((r) => setOrders(asList(r))).catch(() => setOrders([]));
-      loadOrders();
-      const timer = window.setInterval(loadOrders, 5000);
-      return () => window.clearInterval(timer);
+      vendorApi.getFarmerOrders(farmerId).then((r) => setOrders(asList(r))).catch(() => setOrders([]));
     }
     if (tab === "Earnings") {
       vendorApi.getFarmerEarnings(farmerId).then((r) => setEarnings(asList(r))).catch(() => setEarnings([]));

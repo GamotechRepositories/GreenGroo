@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getManagerPickup, receiveManagerPickup, getManagerPickupReceipt } from "../../api/farmerApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
@@ -188,11 +188,11 @@ export default function ManagerReceivePage() {
     }));
   };
 
-  usePolling(() => {
+  useLive(() => {
     getManagerPickup(pickupId)
       .then(applyPickup)
       .catch((err) => setError(err.message || "Pickup not found"));
-  }, [pickupId], 5000);
+  }, [pickupId]);
 
   const qrOk = qrMatches(pickup, form.qr);
   const done = pickup?.status === "COLLECTION_CENTRE_RECEIVED" || pickup?.receiving?.status === "RECEIVED";

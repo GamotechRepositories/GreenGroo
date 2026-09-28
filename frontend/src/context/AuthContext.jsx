@@ -2,8 +2,17 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { useNavigate } from "react-router-dom";
 import api, { loginWithPhone, signupUser, updateMe } from "../api/api";
 import { STORAGE_KEY } from "../utils/authStorage";
+import { reconnectRealtime } from "../realtime/liveClient";
 
 const AuthContext = createContext(null);
+
+let realtimeToken;
+
+function syncRealtimeAuth(nextToken) {
+  if ((nextToken || null) === realtimeToken) return;
+  realtimeToken = nextToken || null;
+  reconnectRealtime();
+}
 
 async function fetchMeWithToken(token) {
   const res = await api.get("/api/users/me", {
@@ -31,12 +40,14 @@ export function AuthProvider({ children }) {
       STORAGE_KEY,
       JSON.stringify({ user: authUser, token: authToken })
     );
+    syncRealtimeAuth(authToken);
   };
 
   const clearCustomerAuth = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem(STORAGE_KEY);
+    syncRealtimeAuth(null);
   };
 
   const openAuthModal = useCallback(

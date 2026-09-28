@@ -1,11 +1,25 @@
 import { Server } from "socket.io";
+import { extractToken, identityFromToken } from "./realtime/identity.js";
+import { registerLiveSocket } from "./realtime/liveViews.js";
 
 let io = null;
 
 /**
- * Attach Socket.io to the existing HTTP server.
- * Rooms: store_<storeId>, rider_<riderId>
+ * Connections authenticate with `auth: { token }` (JWT). Rooms are derived
+ * from the token server-side (see realtime/identity.js):
+ *   store_<id>/store:<id>, rider_<id>, farmer_<id>, manager_<id>, vendor_<id>,
+ *   driver_<id>, user:<id>, role:<role>. Every socket also joins `public`.
+ *
+ * Unauthenticated sockets may still join rider/farmer rooms by id (the
+ * Flutter apps do not send a token yet) unless SOCKET_REQUIRE_AUTH=true.
  */
+const allowLegacyJoins = () => String(process.env.SOCKET_REQUIRE_AUTH || "").toLowerCase() !== "true";
+
+function handshakeToken(socket) {
+  const { auth = {}, headers = {}, query = {} } = socket.handshake || {};
+  return extractToken(auth.token || headers.authorization || query.token);
+}
+
 export function initSocket(server) {
   io = new Server(server, {
     cors: {
@@ -14,41 +28,45 @@ export function initSocket(server) {
     },
   });
 
+  io.use(async (socket, next) => {
+    const token = handshakeToken(socket);
+    if (token) socket.data.identity = await identityFromToken(token);
+    next();
+  });
+
   io.on("connection", (socket) => {
-    console.log("[socket] connected:", socket.id);
+    const identity = socket.data.identity || null;
+    socket.join("public");
+    if (identity) identity.rooms.forEach((room) => socket.join(room));
 
-    socket.on("join_store_room", (payload = {}) => {
-      const storeId = payload?.storeId ? String(payload.storeId) : "";
-      if (!storeId) return;
-      const room = `store_${storeId}`;
-      socket.join(room);
-      console.log(`[socket] ${socket.id} joined ${room}`);
-    });
+    const ownsRoom = (room) => Boolean(identity?.rooms.includes(room)) || identity?.role === "admin";
 
-    socket.on("join_rider_room", (payload = {}) => {
-      const riderId = payload?.riderId ? String(payload.riderId) : "";
-      if (!riderId) return;
-      const room = `rider_${riderId}`;
-      socket.join(room);
-      console.log(`[socket] ${socket.id} joined ${room}`);
-    });
-
-    const joinNamed = (event, prefix, key) => {
+    const joinChecked = (event, prefix, key, { legacy = false } = {}) => {
       socket.on(event, (payload = {}) => {
         const id = payload?.[key] ? String(payload[key]) : "";
         if (!id) return;
         const room = `${prefix}_${id}`;
-        socket.join(room);
+        if (ownsRoom(room) || (!identity && legacy && allowLegacyJoins())) {
+          socket.join(room);
+        }
       });
     };
-    joinNamed("join_farmer_room", "farmer", "farmerId");
-    joinNamed("join_manager_room", "manager", "managerId");
-    joinNamed("join_driver_room", "driver", "driverId");
-    joinNamed("join_vendor_room", "vendor", "vendorId");
+    joinChecked("join_store_room", "store", "storeId");
+    joinChecked("join_rider_room", "rider", "riderId", { legacy: true });
+    joinChecked("join_farmer_room", "farmer", "farmerId", { legacy: true });
+    joinChecked("join_manager_room", "manager", "managerId");
+    joinChecked("join_driver_room", "driver", "driverId");
+    joinChecked("join_vendor_room", "vendor", "vendorId");
 
-    socket.on("disconnect", (reason) => {
-      console.log("[socket] disconnected:", socket.id, reason);
+    socket.on("catalog:watch", (payload = {}) => {
+      const storeId = payload?.storeId ? String(payload.storeId) : "none";
+      [...socket.rooms]
+        .filter((room) => room.startsWith("catalog:"))
+        .forEach((room) => socket.leave(room));
+      socket.join(`catalog:${storeId}`);
     });
+
+    registerLiveSocket(socket);
   });
 
   return io;

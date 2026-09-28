@@ -5,7 +5,7 @@ import { getManagerPickup, assignManagerPickup, reassignManagerPickup } from "..
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
 import PickupTimeline, { pickupLiveLabel, pickupStatusLabel } from "../../components/pickup/PickupTimeline";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import {
   EXCEL_BTN,
   EXCEL_BTN_PRIMARY,
@@ -47,7 +47,7 @@ export default function ManagerPickupDetailPage() {
     }
   };
 
-  usePolling(() => load(true), [pickupId], 5000);
+  useLive(() => load(true), [pickupId]);
 
   if (!pickup && !error) return <p className="p-4 sm:p-6 lg:p-8 text-xs text-[#6B7280]">Loading pickup…</p>;
   if (!pickup) return <p className="p-4 sm:p-6 lg:p-8 text-xs text-red-600">{error}</p>;

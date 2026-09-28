@@ -4,8 +4,7 @@ import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
-import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
-import { ensureStoreRoom } from "../../services/socket";
+import { useLive } from "../../realtime/useLive";
 import {
   OrderStatusText,
   actionBtnDanger,
@@ -110,22 +109,14 @@ export default function PreOrdersPage() {
 
   useEffect(() => {
     setLoading(true);
-    load();
-  }, [load]);
+  }, [dateFilter]);
+
+  useLive(load, [load]);
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    if (!manager?.id) return undefined;
-    ensureStoreRoom(manager.id);
-    const keepAlive = setInterval(() => ensureStoreRoom(manager.id), 15000);
-    return () => clearInterval(keepAlive);
-  }, [manager?.id]);
-
-  useStoreRealtimeRefresh(() => load({ silent: true }), { backupMs: 15000 });
 
   const assignableRiders = useMemo(() => riders.filter(isAssignableRider), [riders]);
   const unavailableRiders = useMemo(

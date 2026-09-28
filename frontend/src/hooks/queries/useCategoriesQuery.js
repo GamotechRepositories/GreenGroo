@@ -17,7 +17,6 @@ export function useCategoriesQuery(paramsOrOptions = {}, maybeOptions = {}) {
       const list = res.data?.data || res.data;
       return Array.isArray(list) ? list : [];
     },
-    staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
     ...options,
   });

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import { pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import CopyId, { CopyButton, formatVehicleId } from "../../components/ui/CopyId";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 
 const COPY = {
   ready: {
@@ -145,13 +145,13 @@ export default function VendorPickupsPage({ mode = "ready" }) {
   const [loading, setLoading] = useState(true);
   const isBatchView = ["incoming", "centre", "all"].includes(mode);
 
-  usePolling(() => {
+  useLive(() => {
     vendorApi
       .getPickups({ filter: meta.filter })
       .then((r) => setRows(Array.isArray(r.data) ? r.data : []))
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
-  }, [meta.filter], 5000);
+  }, [meta.filter]);
 
   const pickups = useMemo(() => {
     if (mode === "incoming" || mode === "centre") {

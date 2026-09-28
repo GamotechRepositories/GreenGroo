@@ -38,6 +38,7 @@ import ProductShareMenu from "../components/product/ProductShareMenu";
 import ProductAdminShareMenu from "../components/product/ProductAdminShareMenu";
 import { updateProductShareMeta } from "../utils/productShare";
 import { tryOpenProductInApp } from "../utils/openMobileApp";
+import { onCatalogEvent } from "../realtime/useCatalogSync";
 import { getDummyProductById } from "../data/dummyCategoryProducts";
 
 const DEFAULT_MOQ = 1;
@@ -912,6 +913,15 @@ function ProductDetail() {
 
     fetchProduct();
   }, [id, user?.accountType]);
+
+  useEffect(
+    () =>
+      onCatalogEvent((event) => {
+        if (event.entity !== "product" || !event.data || String(event.id) !== String(id)) return;
+        setProduct((prev) => (prev && String(prev._id) === String(event.id) ? { ...prev, ...event.data } : prev));
+      }),
+    [id]
+  );
 
   useEffect(() => {
     let cancelled = false;

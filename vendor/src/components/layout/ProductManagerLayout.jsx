@@ -275,7 +275,7 @@ export default function ProductManagerLayout() {
   const vendor = useVendorAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { requests } = useInventoryRequests(12000)
+  const { requests } = useInventoryRequests()
   const pendingCount = requests.filter((request) => request.status === 'pending').length
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { getManagerAllHarvestOrders } from "../../api/farmerApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId from "../../components/ui/CopyId";
 import {
@@ -94,9 +94,9 @@ export default function ManagerStatusOrdersSheetPage() {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     if (bucket) loadData(true);
-  }, [bucket], 5000);
+  }, [bucket]);
 
   const rows = useMemo(() => {
     const query = q.toLowerCase().trim();

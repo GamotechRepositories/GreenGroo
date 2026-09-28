@@ -7,7 +7,7 @@ import CopyId, { CopyButton, formatVehicleId } from "../../components/ui/CopyId"
 import QrScanModal from "../../components/pickup/QrScanModal";
 import { isBatchQrPayload, parseBatchQrPayload } from "../../utils/batchQr";
 import { parseOrderQrPayload } from "../../utils/orderQr";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_BTN_PRIMARY, EXCEL_BTN, EXCEL_INPUT } from "../../utils/excelStyles";
 import { formatMoney, formatOrderDate, todayISODate, yesterdayISODate } from "../../utils/orderDisplay";
 
@@ -343,12 +343,12 @@ export default function ManagerPickupsPage({ mode = "ready" }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [scanError, setScanError] = useState("");
 
-  usePolling(() => {
+  useLive(() => {
     getManagerPickups({ filter: meta.filter })
       .then((data) => setGroups(data?.farmers || []))
       .catch(() => setGroups([]))
       .finally(() => setLoading(false));
-  }, [meta.filter], 5000);
+  }, [meta.filter]);
 
   const isIncoming = meta.filter === "incoming" || meta.filter === "centre";
   const isAll = meta.filter === "all";

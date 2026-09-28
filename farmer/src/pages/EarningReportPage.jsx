@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getMyQualityReport, getMyOrder } from "../api/farmerApi";
-import { usePolling } from "../hooks/usePolling";
+import { useLive } from "../realtime/useLive";
 import StatusBadge from "../components/ui/StatusBadge";
 import CopyId, { isCopyableId } from "../components/ui/CopyId";
 import LoadingState from "../components/ui/LoadingState";
@@ -166,7 +166,7 @@ export default function EarningReportPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  usePolling(() => {
+  useLive(() => {
     getMyQualityReport(orderId)
       .then((row) => {
         setData(row);
@@ -214,7 +214,7 @@ export default function EarningReportPage() {
           });
       })
       .finally(() => setLoading(false));
-  }, [orderId], 12000);
+  }, [orderId]);
 
   const unit = data?.unit || "Kg";
   const gq = data?.gradeQuality || {};

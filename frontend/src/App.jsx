@@ -8,12 +8,14 @@ import FloatingCornerActions from "./components/layout/FloatingCornerActions";
 import BumperBountyModal from "./components/grocery/BumperBountyModal";
 import CartSidebar from "./components/cart/CartSidebar";
 import AppRoutes from "./routes/AppRoutes";
+import { CatalogSync } from "./realtime/useCatalogSync";
 
 function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
       <LocationProvider>
+        <CatalogSync />
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>

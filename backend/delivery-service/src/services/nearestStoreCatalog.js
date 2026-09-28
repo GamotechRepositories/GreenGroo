@@ -81,7 +81,7 @@ function stemBoundaryRegex(name) {
   return `(^|[^A-Za-z0-9])${escapeRegex(stem)}[A-Za-z]{0,4}([^A-Za-z0-9]|$)`;
 }
 
-function mongoMatchForInventory(items) {
+export function mongoMatchForInventory(items) {
   if (!items.length) return { _id: { $in: [] } };
 
   const skus = [
@@ -172,7 +172,7 @@ function filterItemsByCategory(items, categoryName) {
   return items.filter((item) => accepted.has(String(item.category || "").toLowerCase()));
 }
 
-async function resolveMatchingProducts(items) {
+export async function resolveMatchingProducts(items) {
   if (!items.length) return [];
 
   const match = mongoMatchForInventory(items);

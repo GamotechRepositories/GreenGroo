@@ -19,9 +19,9 @@ const navItems = [
 export default function ProductManagerLayout() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const { requests } = useInventoryRequests(12000);
+  const { requests } = useInventoryRequests();
   const pendingCount = requests.filter((request) => request.status === "pending").length;
-  const { summary: preOrderSummary } = usePreOrders(20000);
+  const { summary: preOrderSummary } = usePreOrders();
   const badges = {
     "/inventory-requests": pendingCount,
     "/preorders": preOrderSummary.pending + preOrderSummary.preparing + preOrderSummary.ready,

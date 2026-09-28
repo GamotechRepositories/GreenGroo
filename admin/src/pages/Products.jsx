@@ -47,8 +47,8 @@ import {
   CheckCircle,
   Copy,
 } from 'lucide-react';
-import axios from 'axios';
 import apiClient, { API_ORIGIN as API_BASE } from '../api/client';
+import { useLive } from '../realtime/useLive';
 import categoryApi from '../api/categoryApi';
 import sectionApi from '../api/sectionApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
@@ -417,21 +417,17 @@ export default function Products() {
   const [specValInput, setSpecValInput] = useState('');
 
   // 1. Fetch initial data
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError('');
 
       // Fetch products, categories, sections in parallel
       // Use /products/all for true catalog stock (not dark-store overlay)
       const [prodRes, catRes, secRes] = await Promise.allSettled([
         apiClient.get('/products/all', { params: { limit: 500 } }),
-        axios.get(`${API_BASE}/api/categories/all`),
-        axios.get(`${API_BASE}/api/sections`),
+        apiClient.get('/categories/all'),
+        apiClient.get('/sections'),
       ]);
 
       if (prodRes.status === 'fulfilled') {
@@ -468,6 +464,8 @@ export default function Products() {
       setLoading(false);
     }
   };
+
+  useLive(fetchData, []);
 
   // Filtered categories for the chosen department in form
   const availableCategoriesForForm = useMemo(() => {

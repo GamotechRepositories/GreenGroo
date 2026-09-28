@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useLive } from "../../realtime/useLive";
 
 const REQUEST_STATUS = {
   pending: "bg-amber-50 text-amber-800 border-amber-200",
@@ -45,9 +46,7 @@ export default function StockPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useLive(load, [load]);
 
   const categories = Array.from(new Set(inventory.map((i) => i.category).filter(Boolean)));
   const pendingSkuSet = useMemo(

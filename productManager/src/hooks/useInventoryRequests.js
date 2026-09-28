@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { staffApi } from "../api/staffApi";
+import { useLive } from "../realtime/useLive";
 
-export function useInventoryRequests(pollMs = 10000) {
+export function useInventoryRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -18,12 +19,7 @@ export function useInventoryRequests(pollMs = 10000) {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-    if (!pollMs) return undefined;
-    const timer = window.setInterval(load, pollMs);
-    return () => window.clearInterval(timer);
-  }, [load, pollMs]);
+  useLive(load, [load]);
 
   return { requests, loading, error, reload: load };
 }

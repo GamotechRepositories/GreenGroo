@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { acceptMyOrder, getMyOrder, rejectMyOrder } from "../api/farmerApi";
 import PickupTimeline, { DriverInfo, PICKUP_STATUS_LABELS, pickupFlowStatus } from "../components/pickup/PickupTimeline";
-import { usePolling } from "../hooks/usePolling";
+import { useLive } from "../realtime/useLive";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
@@ -259,14 +259,14 @@ function OrderDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  usePolling(() => {
+  useLive(() => {
     getMyOrder(id)
       .then((data) => {
         setOrder(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [id], 5000);
+  }, [id]);
 
   const grades = useMemo(() => (order ? gradeRows(order) : []), [order]);
 

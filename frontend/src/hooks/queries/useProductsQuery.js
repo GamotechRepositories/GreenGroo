@@ -82,7 +82,6 @@ export function useHotSellingProductsQuery(options = {}) {
       });
       return (data.data || []).slice(0, HOME_PRODUCT_LIMIT);
     },
-    staleTime: 3 * 60 * 1000,
     ...options,
   });
 }
@@ -95,7 +94,6 @@ export function useRecentlyViewedProductsQuery(options = {}) {
     queryKey: [...queryKeys.products.recentlyViewed(ids), locationKey],
     queryFn: () => fetchProductsByIds(ids, HOME_PRODUCT_LIMIT),
     enabled: ids.length > 0,
-    staleTime: 60 * 1000,
     ...options,
   });
 }
@@ -108,7 +106,6 @@ export function useMostViewedProductsQuery(options = {}) {
     queryKey: [...queryKeys.products.mostViewed(ids), locationKey],
     queryFn: () => fetchProductsByIds(ids, HOME_PRODUCT_LIMIT),
     enabled: ids.length > 0,
-    staleTime: 60 * 1000,
     ...options,
   });
 }

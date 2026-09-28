@@ -1,10 +1,16 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../config/env";
+import { withLiveAdapter } from "../realtime/liveClient";
+import { syncRealtimeToken } from "../realtime/setup";
+import "./staffApi";
 export const DRIVER_STORAGE_KEY = "greengroo_driver_auth";
 
-export const driverHttp = axios.create({
-  headers: { "Content-Type": "application/json" },
-});
+export const driverHttp = withLiveAdapter(
+  axios.create({
+    headers: { "Content-Type": "application/json" },
+  }),
+  axios
+);
 
 function getStoredDriverToken() {
   try {
@@ -17,6 +23,7 @@ function getStoredDriverToken() {
 
 driverHttp.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  syncRealtimeToken();
   const token = getStoredDriverToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   else delete config.headers.Authorization;

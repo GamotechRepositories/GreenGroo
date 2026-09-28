@@ -4,7 +4,7 @@ import { driverApi } from "../../api/driverApi";
 import { pickupStatusLabel, pickupLiveLabel } from "../../components/pickup/PickupTimeline";
 import BatchQrModal from "../../components/pickup/BatchQrModal";
 import CopyId, { formatVehicleId } from "../../components/ui/CopyId";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import { canRunFromList, driverNextStep } from "../../utils/driverFlow";
 
 const COPY = {
@@ -86,7 +86,7 @@ export default function DriverDashboardPage({ mode = "assigned" }) {
       .catch(() => setData({ stats: {}, pickups: [] }))
       .finally(() => setLoading(false));
 
-  usePolling(load, [meta.filter], 5000);
+  useLive(() => load(), [meta.filter]);
 
   const stats = data.stats || {};
   const rows = data.pickups || [];

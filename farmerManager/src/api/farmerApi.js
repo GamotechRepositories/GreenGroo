@@ -1,5 +1,6 @@
 import { FARMER_STORAGE_KEY, VERIFICATION_STATUS } from "../utils/constants";
 import { getApiBaseUrl } from "../config/env";
+import { LIVE_FALLBACK, configureRealtime, liveGet, reconnectRealtime } from "../realtime/liveClient";
 
 function getStoredAuth() {
   try {
@@ -41,12 +42,32 @@ function getActiveManagerId() {
   return null;
 }
 
+configureRealtime({ url: getApiBaseUrl(), getToken: () => getStoredAuth()?.token || null });
+
+let realtimeToken;
+
+function syncRealtimeToken() {
+  const token = getStoredAuth()?.token || null;
+  if (realtimeToken !== undefined && token !== realtimeToken) reconnectRealtime();
+  realtimeToken = token;
+}
+
 async function apiFetch(path, options = {}) {
   const url = `${getApiBaseUrl()}${path}`;
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
+
+  syncRealtimeToken();
+  if (String(options.method || "GET").toUpperCase() === "GET") {
+    const token = String(headers.Authorization || "").replace(/^Bearer\s+/i, "");
+    try {
+      return await liveGet(path, token);
+    } catch (err) {
+      if (err !== LIVE_FALLBACK) throw err;
+    }
+  }
 
   let response;
   try {

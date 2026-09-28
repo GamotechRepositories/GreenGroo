@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { deleteManagerFarmerOrder, getManagerAllHarvestOrders, getManagerAllProducts } from "../../api/farmerApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import {
   formatMoney,
   formatOrderDate,
@@ -551,9 +551,9 @@ export default function ManagerOrdersPage() {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     loadData(true);
-  }, [], 5000);
+  }, []);
 
   const dateFilteredOrders = useMemo(
     () => orders.filter((o) => matchesOrderDateRange(o, dateFrom, dateTo)),

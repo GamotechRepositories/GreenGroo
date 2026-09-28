@@ -27,7 +27,7 @@ function formatWhen(value) {
 
 export default function InventoryRequestsPage() {
   const [activeTab, setActiveTab] = useState("pending");
-  const { requests, loading, error, reload } = useInventoryRequests(8000);
+  const { requests, loading, error, reload } = useInventoryRequests();
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
 

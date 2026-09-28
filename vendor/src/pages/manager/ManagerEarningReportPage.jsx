@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { vendorApi } from "../../api/vendorApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import LoadingState from "../../components/ui/LoadingState";
@@ -198,7 +198,7 @@ export default function ManagerEarningReportPage() {
       .finally(() => setLoading(false));
   };
 
-  usePolling(loadReport, [orderId], 12000);
+  useLive(() => loadReport(), [orderId]);
 
   const unit = data?.unit || "Kg";
   const gq = data?.gradeQuality || {};

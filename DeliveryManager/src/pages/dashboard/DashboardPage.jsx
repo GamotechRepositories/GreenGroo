@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { useStoreRealtimeRefresh } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 
 export default function DashboardPage() {
   const { manager } = useAuth();
@@ -25,13 +25,7 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  useStoreRealtimeRefresh(() => fetchDashboardData({ silent: true }), {
-    backupMs: null,
-  });
+  useLive(fetchDashboardData, []);
 
   const kpis = [
     {

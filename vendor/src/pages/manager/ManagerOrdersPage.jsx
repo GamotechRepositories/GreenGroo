@@ -8,7 +8,7 @@ import {
 } from "../../api/managerPortApi";
 import { staffApi } from "../../api/staffApi";
 import { useInventoryRequests } from "../../hooks/useInventoryRequests";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import {
   formatMoney,
   formatOrderDate,
@@ -866,7 +866,7 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
   // Darkstore orders state
   const darkstoreStatus = searchParams.get("ds_status") || "all";
   const darkstoreView = searchParams.get("ds_view") || DARKSTORE_VIEW_ALL;
-  const { requests: darkstoreRequests, loading: loadingDarkstore, error: errorDarkstore, reload: reloadDarkstore } = useInventoryRequests(8000);
+  const { requests: darkstoreRequests, loading: loadingDarkstore, error: errorDarkstore, reload: reloadDarkstore } = useInventoryRequests();
   const [busyReviewId, setBusyReviewId] = useState("");
 
   const setOrderType = (nextType) => {
@@ -1005,9 +1005,9 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     loadData(true);
-  }, [], 5000);
+  }, []);
 
   // Farmer Order calculations
   const dateFilteredOrders = useMemo(

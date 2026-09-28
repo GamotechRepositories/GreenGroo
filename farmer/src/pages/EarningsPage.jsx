@@ -18,7 +18,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { getMyOrders, getMyProducts } from "../api/farmerApi";
-import { usePolling } from "../hooks/usePolling";
+import { useLive } from "../realtime/useLive";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import SpreadsheetViewport from "../components/ui/SpreadsheetViewport";
@@ -993,7 +993,7 @@ function EarningsPage() {
   const [activeSheetId, setActiveSheetId] = useState("overview");
   const [isNewSheetModalOpen, setIsNewSheetModalOpen] = useState(false);
 
-  usePolling(() => {
+  useLive(() => {
     Promise.all([getMyOrders().catch(() => []), getMyProducts().catch(() => [])])
       .then(([rows, prods]) => {
         setOrders(Array.isArray(rows) ? rows.filter(isStatementOrder) : []);
@@ -1002,7 +1002,7 @@ function EarningsPage() {
       })
       .catch((err) => toast.error(err.message || "Failed to load earning statement"))
       .finally(() => setLoading(false));
-  }, [], 8000);
+  }, []);
 
   const products = useMemo(() => {
     const map = new Map();

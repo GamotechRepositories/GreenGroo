@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useLive } from "../../realtime/useLive";
 import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -145,11 +146,7 @@ export default function DashboardPage() {
     }
   }, [range, customStart, customEnd]);
 
-  useEffect(() => {
-    loadAll(false);
-    const timer = window.setInterval(() => loadAll(true), 15000);
-    return () => window.clearInterval(timer);
-  }, [loadAll]);
+  useLive(({ initial }) => loadAll(!initial), [loadAll]);
 
   const handleRangeChange = (newRange) => {
     setRange(newRange);

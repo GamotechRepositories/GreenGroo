@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, RefreshCw, Truck } from 'lucide-react';
 import opsApi from '../../api/opsApi';
+import { useLive } from '../../realtime/useLive';
 import { BTN, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
 
 const STATUS_FILTERS = [
@@ -38,8 +39,8 @@ export default function DeliveryManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const load = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [orderRes, riderRes] = await Promise.all([
         opsApi.list('delivery/orders', status === 'all' ? {} : { status }),
@@ -55,9 +56,7 @@ export default function DeliveryManagement() {
     }
   };
 
-  useEffect(() => {
-    load();
-  }, [status]);
+  useLive(load, [status]);
 
   const assign = async (orderId, riderId) => {
     if (!riderId) return;

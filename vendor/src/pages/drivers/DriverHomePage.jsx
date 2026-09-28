@@ -4,7 +4,7 @@ import { driverApi } from "../../api/driverApi";
 import { useDriverAuth } from "../../context/DriverAuthContext";
 import { pickupLiveLabel, pickupStatusLabel } from "../../components/pickup/PickupTimeline";
 import CopyId from "../../components/ui/CopyId";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import DriverDashboardCharts from "../../components/driver/DriverDashboardCharts";
 
 const PANEL = "rounded-xl border border-gray-200 bg-white shadow-sm";
@@ -23,13 +23,13 @@ export default function DriverHomePage() {
   const [data, setData] = useState({ stats: {}, pickups: [] });
   const [loading, setLoading] = useState(true);
 
-  usePolling(() => {
+  useLive(() => {
     driverApi
       .getPickups({ filter: "all" })
       .then((r) => setData(r.data || { stats: {}, pickups: [] }))
       .catch(() => setData({ stats: {}, pickups: [] }))
       .finally(() => setLoading(false));
-  }, [], 5000);
+  }, []);
 
   const stats = data.stats || {};
   const pickups = data.pickups || [];

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getManagerDashboard, getManagerAllHarvestOrders } from "../../api/farmerApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId from "../../components/ui/CopyId";
 import { managerOrderBucket } from "../../utils/orderDisplay";
@@ -84,7 +84,7 @@ export default function ManagerDashboardPage() {
   const [harvestOrders, setHarvestOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  usePolling(() => {
+  useLive(() => {
     Promise.all([
       getManagerDashboard(),
       getManagerAllHarvestOrders().catch(() => ({ orders: [] })),
@@ -102,7 +102,7 @@ export default function ManagerDashboardPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [], 5000);
+  }, []);
 
   const recent = latestTen(harvestOrders.length ? harvestOrders : stats?.recentOrders || []);
   const lowStock = stats?.lowStock || [];

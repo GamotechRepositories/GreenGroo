@@ -538,7 +538,7 @@ const validateRequiredFields = (payload) => {
 
 const sortOptions = { "categories.0": 1, subcategory: 1, createdAt: -1 };
 
-async function getPurchaseCountsByProductIds(productIds = []) {
+export async function getPurchaseCountsByProductIds(productIds = []) {
   if (!Array.isArray(productIds) || productIds.length === 0) {
     return new Map();
   }

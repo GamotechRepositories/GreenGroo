@@ -11,7 +11,7 @@ import {
   reassignManagerPickup,
 } from "../../api/farmerApi";
 import PickupTimeline, { pickupStatusLabel } from "../../components/pickup/PickupTimeline";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import StatusBadge from "../../components/ui/StatusBadge";
 import CopyId, { isCopyableId } from "../../components/ui/CopyId";
 import LoadingState from "../../components/ui/LoadingState";
@@ -231,7 +231,7 @@ export default function ManagerOrderDetailPage() {
   const [driverId, setDriverId] = useState("");
   const [assignBusy, setAssignBusy] = useState(false);
 
-  usePolling(() => {
+  useLive(() => {
     if (!orderId) {
       setLoading(false);
       setOrder(null);
@@ -259,7 +259,7 @@ export default function ManagerOrderDetailPage() {
         setPickupDetail(null);
         setLoading(false);
       });
-  }, [farmerId, orderId], 5000);
+  }, [farmerId, orderId]);
 
   const grades = useMemo(() => (order ? gradeRows(order) : []), [order]);
 

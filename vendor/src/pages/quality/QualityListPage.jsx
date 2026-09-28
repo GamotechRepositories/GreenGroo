@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useLive } from "../../realtime/useLive";
 import { useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 
@@ -38,20 +39,16 @@ export default function QualityListPage({ mode = "pending" }) {
   const [qrError, setQrError] = useState("");
   const [qrBusy, setQrBusy] = useState(false);
 
-  const load = () => {
-    setLoading(true);
-    vendorApi
+  const load = ({ initial = true } = {}) => {
+    if (initial) setLoading(true);
+    return vendorApi
       .getQualityPending({ bucket: meta.bucket })
       .then((r) => setRows(r.data?.items || []))
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 8000);
-    return () => clearInterval(t);
-  }, [meta.bucket]);
+  useLive(load, [meta.bucket]);
 
   const scan = async (e) => {
     e.preventDefault();

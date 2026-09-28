@@ -6,7 +6,7 @@ import {
   updateManagerFarmerOrder,
   deleteManagerFarmerOrder,
 } from "../../api/farmerApi";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import StatusBadge from "../../components/ui/StatusBadge";
 import {
   canonicalOrderStatus,
@@ -91,9 +91,9 @@ export default function ManagerFarmerOrdersSpreadsheetPage() {
     }
   };
 
-  usePolling(() => {
+  useLive(() => {
     loadData(true);
-  }, [farmerId], 5000);
+  }, [farmerId]);
 
   // Product Counts Map for quick chips
   const productCountMap = useMemo(() => {

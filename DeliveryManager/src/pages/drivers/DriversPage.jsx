@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { useStoreRealtimeRefresh, RIDER_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 
 const EMPTY = { name: "", phone: "", password: "" };
 
@@ -32,14 +32,7 @@ export default function DriversPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useStoreRealtimeRefresh(() => load({ silent: true }), {
-    events: RIDER_LIVE_EVENTS,
-    backupMs: null,
-  });
+  useLive(load, [load]);
 
   const onSubmit = async (e) => {
     e.preventDefault();

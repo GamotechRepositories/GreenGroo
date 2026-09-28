@@ -1,9 +1,14 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../config/env";
+import { withLiveAdapter } from "../realtime/liveClient";
+import { setRealtimeTokenSource, syncRealtimeToken } from "../realtime/setup";
 
-export const api = axios.create({
-  headers: { "Content-Type": "application/json" },
-});
+export const api = withLiveAdapter(
+  axios.create({
+    headers: { "Content-Type": "application/json" },
+  }),
+  axios
+);
 
 export function getActiveAuthToken() {
   const keys = [
@@ -29,8 +34,11 @@ export function getActiveAuthToken() {
   return null;
 }
 
+setRealtimeTokenSource(getActiveAuthToken);
+
 api.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  syncRealtimeToken();
   const token = getActiveAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

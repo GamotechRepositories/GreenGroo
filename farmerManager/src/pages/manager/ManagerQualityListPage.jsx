@@ -4,7 +4,7 @@ import { listManagerQuality } from "../../api/farmerApi";
 import EmptyState from "../../components/ui/EmptyState";
 import CopyId, { CopyButton } from "../../components/ui/CopyId";
 import StatusBadge from "../../components/ui/StatusBadge";
-import { usePolling } from "../../hooks/usePolling";
+import { useLive } from "../../realtime/useLive";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB } from "../../utils/excelStyles";
 
 const COPY = {
@@ -287,12 +287,12 @@ export default function ManagerQualityListPage({ mode = "pending" }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  usePolling(() => {
+  useLive(() => {
     listManagerQuality({ bucket: meta.bucket })
       .then((data) => setRows(data?.items || []))
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
-  }, [meta.bucket], 8000);
+  }, [meta.bucket]);
 
   const openRow = (row) => navigate(`/manager/quality/${row.orderId}`);
   const showRejected = mode === "completed";

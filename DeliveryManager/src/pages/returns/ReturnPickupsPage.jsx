@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { managerApi } from "../../api/managerApi";
 import { PageShell } from "../../components/layout/ManagerLayout";
+import { useLive } from "../../realtime/useLive";
 
 function pretty(status) {
   return String(status || "—").replaceAll("_", " ");
@@ -40,9 +41,7 @@ export default function ReturnPickupsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useLive(load, [load]);
 
   useEffect(() => {
     if (!toast) return undefined;

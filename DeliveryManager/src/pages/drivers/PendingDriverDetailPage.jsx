@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { managerApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
-import { useStoreRealtimeRefresh, KYC_LIVE_EVENTS } from "../../hooks/useStoreRealtimeRefresh";
+import { useLive } from "../../realtime/useLive";
 import { subscribeToSocketEvent } from "../../services/socket";
 
 const CHECK_ITEMS = [
@@ -85,14 +85,7 @@ export default function PendingDriverDetailPage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    loadRider();
-  }, [loadRider]);
-
-  useStoreRealtimeRefresh(() => loadRider({ silent: true }), {
-    events: KYC_LIVE_EVENTS,
-    backupMs: null,
-  });
+  useLive(loadRider, [loadRider]);
 
   useEffect(() => {
     return subscribeToSocketEvent("rider_document_updated", (payload = {}) => {

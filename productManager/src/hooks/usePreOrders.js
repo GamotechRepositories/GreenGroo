@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { staffApi } from "../api/staffApi";
+import { useLive } from "../realtime/useLive";
 
 const EMPTY_SUMMARY = {
   total: 0,
@@ -13,7 +14,7 @@ const EMPTY_SUMMARY = {
   cancelled: 0,
 };
 
-export function usePreOrders(pollMs = 15000, params = {}) {
+export function usePreOrders(params = {}) {
   const [data, setData] = useState({
     orders: [],
     stores: [],
@@ -43,12 +44,7 @@ export function usePreOrders(pollMs = 15000, params = {}) {
     }
   }, [paramsKey]);
 
-  useEffect(() => {
-    load();
-    if (!pollMs) return undefined;
-    const timer = window.setInterval(load, pollMs);
-    return () => window.clearInterval(timer);
-  }, [load, pollMs]);
+  useLive(load, [load]);
 
   return { ...data, loading, error, reload: load };
 }
