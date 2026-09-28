@@ -13,6 +13,11 @@ export const DEFAULT_STORE_SETTINGS = {
   ],
   giftHamperTiers: [],
   giftHampersEnabled: false,
+  preOrderSlots: [
+    { startTime: "09:00 AM", endTime: "12:00 PM", capacity: 50, isActive: true },
+    { startTime: "12:00 PM", endTime: "03:00 PM", capacity: 50, isActive: true },
+    { startTime: "03:00 PM", endTime: "06:00 PM", capacity: 50, isActive: true },
+  ],
   merchantUpiId: "",
   merchantUpiName: "GreenGrocc",
   merchantUpiAccounts: [],
@@ -185,6 +190,9 @@ export function serializeStoreSettings(doc, { admin = false } = {}) {
     shippingSlabs,
     giftHamperTiers,
     giftHampersEnabled: Boolean(source.giftHampersEnabled),
+    preOrderSlots: source.preOrderSlots?.length > 0 
+      ? source.preOrderSlots 
+      : DEFAULT_STORE_SETTINGS.preOrderSlots,
     merchantUpiAccounts: admin ? allAccounts : enabledAccounts,
     merchantUpiId: primaryAccount?.upiId || "",
     merchantUpiName:

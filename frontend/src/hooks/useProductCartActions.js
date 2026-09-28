@@ -17,10 +17,16 @@ function findCartLine(items, product) {
       (item) =>
         String(item._id) === String(product._id) &&
         (item.variantName || "") === variantName &&
-        (item.colorName || "") === colorName
+        (item.colorName || "") === colorName &&
+        (item.preOrderSlot || "") === (product.preOrderSlot || "")
     ) || null;
 
   if (exact) return exact;
+
+  if (product.preOrderSlot) {
+    const slotMatch = items.find((item) => String(item._id) === String(product._id) && (item.preOrderSlot || "") === product.preOrderSlot);
+    if (slotMatch) return slotMatch;
+  }
 
   return items.find((item) => String(item._id) === String(product._id)) || null;
 }
@@ -56,6 +62,7 @@ export function useProductCartActions() {
         variantName,
         colorName,
         flySource,
+        preOrderSlot: product.preOrderSlot || "",
       });
 
       if (result?.requiresLogin) {
@@ -84,6 +91,7 @@ export function useProductCartActions() {
           variantName: line.variantName || "",
           colorName: line.colorName || "",
           step,
+          preOrderSlot: line.preOrderSlot || "",
         });
         return { success: true };
       }
@@ -92,6 +100,7 @@ export function useProductCartActions() {
         variantName,
         colorName,
         flySource,
+        preOrderSlot: product.preOrderSlot || "",
       });
 
       if (result?.requiresLogin) {
@@ -112,6 +121,7 @@ export function useProductCartActions() {
         productId: line._id,
         variantName: line.variantName || "",
         colorName: line.colorName || "",
+        preOrderSlot: line.preOrderSlot || "",
         resolveNextQuantity: (currentQty) =>
           getDecreasedCartQuantityForProduct(product, currentQty, line.variantName || ""),
       });

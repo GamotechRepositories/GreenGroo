@@ -436,6 +436,7 @@ export const createCheckoutAttempt = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      preOrderSlot,
     } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
@@ -446,6 +447,7 @@ export const createCheckoutAttempt = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      preOrderSlot,
     });
 
     if (prepared.error) {
@@ -481,6 +483,7 @@ export const adminPlaceOrder = async (req, res) => {
       paymentMethod = "cod",
       paymentStatus = "unpaid",
       checkoutItems,
+      preOrderSlot = "",
     } = req.body;
 
     if (!userId) {
@@ -557,6 +560,7 @@ export const adminPlaceOrder = async (req, res) => {
       ...(normalizedPaymentStatus === PAYMENT_STATUS.PAID_10
         ? { codAdvancePaidAt: new Date() }
         : {}),
+      preOrderSlot,
     });
 
     void notifyOrderCreated(order);
@@ -582,6 +586,7 @@ export const placeOrder = async (req, res) => {
       couponCode,
       checkoutItems,
       rewardPointsToUse,
+      preOrderSlot,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -638,6 +643,7 @@ export const placeOrder = async (req, res) => {
       paymentStatus: "unpaid",
       message: orderMessage,
       attemptedOrderId,
+      preOrderSlot,
     });
 
     void notifyOrderCreated(order, {

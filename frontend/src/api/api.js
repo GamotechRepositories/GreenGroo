@@ -78,10 +78,10 @@ export const getNearestStore = (params) =>
 
 export const getCart = () => api.get("/api/cart");
 export const addToCartItem = (data) => api.post("/api/cart", data);
-export const removeFromCartItem = (productId, variantName = "", colorName = "") =>
-  api.delete(`/api/cart/${productId}`, { params: { variantName, colorName } });
-export const updateCartItemQty = (productId, quantity, variantName = "", colorName = "") =>
-  api.put(`/api/cart/${productId}`, { quantity, variantName, colorName });
+export const removeFromCartItem = (productId, variantName = "", colorName = "", preOrderSlot = "") =>
+  api.delete(`/api/cart/${productId}`, { params: { variantName, colorName, preOrderSlot } });
+export const updateCartItemQty = (productId, quantity, variantName = "", colorName = "", preOrderSlot = "") =>
+  api.put(`/api/cart/${productId}`, { quantity, variantName, colorName, preOrderSlot });
 
 export const getWishlist = () => api.get("/api/wishlist");
 export const toggleWishlistItem = (productId) =>

@@ -160,6 +160,7 @@ export const updateStoreSettings = async (req, res) => {
       cartNoticeEn,
       cartNoticeHi,
       envia,
+      preOrderSlots,
     } = req.body;
 
     const payload = {};
@@ -203,6 +204,19 @@ export const updateStoreSettings = async (req, res) => {
 
     if (giftHampersEnabled !== undefined) {
       payload.giftHampersEnabled = Boolean(giftHampersEnabled);
+    }
+
+    if (preOrderSlots !== undefined) {
+      if (Array.isArray(preOrderSlots)) {
+        payload.preOrderSlots = preOrderSlots.map(slot => ({
+          startTime: String(slot.startTime || "").trim(),
+          endTime: String(slot.endTime || "").trim(),
+          capacity: Number(slot.capacity) || 0,
+          isActive: Boolean(slot.isActive ?? true)
+        })).filter(slot => slot.startTime && slot.endTime);
+      } else {
+        return res.status(400).json({ success: false, message: "preOrderSlots must be an array" });
+      }
     }
 
     const defaultPayeeName = sanitizeText(merchantUpiName) || "GreenGrocc";

@@ -259,6 +259,9 @@ function BlinkitOrderDetail({
           />
           <DetailField label="Delivery Address" value={formatAddressLine(addr)} />
           <DetailField label="Order placed at" value={formatOrderDateTime(order.createdAt)} />
+          {order.preOrderSlot && (
+            <DetailField label="Pre-order slot" value={order.preOrderSlot} />
+          )}
           <ShipmentExtraDetails shipment={shipment} />
           {order.status === "delivered"
             ? shipments.map((_, index) => (

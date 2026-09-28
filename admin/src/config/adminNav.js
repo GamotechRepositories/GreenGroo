@@ -35,8 +35,8 @@ import {
   Wallet,
   UserPlus,
   Clock3,
-  PlusCircle,
   TrendingUp,
+  PlusCircle,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -100,6 +100,13 @@ export const NAV_GROUPS = [
           'Monitor price trends (rising, stable, falling)',
           'Sync daily mandi prices for farmers and operations',
         ],
+      },
+      {
+        name: 'Pre-Order Slots',
+        href: '/pre-order-slots',
+        icon: Clock3,
+        implemented: true,
+        description: 'Configure delivery time slots for next-day pre-orders.',
       },
       {
         name: 'Inventory',

@@ -243,7 +243,6 @@ export async function listUserMgmtStoreUsers(req, res, next) {
     const users = orClauses.length
       ? await User.find({
           role: { $ne: "admin" },
-          accountType,
           $or: orClauses,
         })
           .select("name phone email accountType shopName shopAddress gstNumber addresses createdAt")
@@ -262,9 +261,8 @@ export async function listUserMgmtStoreUsers(req, res, next) {
       let user = linkedUserId ? userById.get(linkedUserId) : null;
       if (!user && phone) user = userByPhone.get(phone) || null;
 
-      // Only include rows that match accountType via User; skip unmatched for typed lists
       if (!user) continue;
-      if (normalizeAccountType(user.accountType) !== accountType) continue;
+      if (normalizeAccountType(user.accountType || "retail") !== accountType) continue;
 
       const key = String(user._id);
       const qty = orderItemQty(order.items);

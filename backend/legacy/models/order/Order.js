@@ -186,7 +186,13 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       maxlength: 8,
     },
+    preOrderSlot: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
+
   { timestamps: true }
 );
 

@@ -22,6 +22,11 @@ const cartItemSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    preOrderSlot: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   { _id: true }
 );
