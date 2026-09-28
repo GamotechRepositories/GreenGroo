@@ -8,6 +8,7 @@ import { seedManagerStore } from "../../delivery-service/src/services/seedManage
 import { getIO } from "../../socket.js";
 import Product from "../models/Product.js";
 import { geocodeAddressString } from "./reverseGeocodeService.js";
+import { computePreOrderDate, normalizePreOrderSlot } from "../utils/preOrderHelpers.js";
 
 function formatCustomerAddress(address = {}) {
   const parts = [];
@@ -77,6 +78,7 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = []) {
 /**
  * Route a confirmed customer order to the dark store that covers that address.
  * Creates a StoreOrder so the correct Delivery Manager can confirm, deduct stock, and dispatch.
+ * Pre-orders are held (status "preorder_hold") for the Product Manager to prepare and forward.
  */
 export async function dispatchDeliveryOrder(ecommerceOrder) {
   try {
@@ -141,6 +143,12 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     const storePaymentMethod =
       ecommercePayMethod === "cod" || ecommercePayMethod === "COD" ? "COD" : ecommercePayMethod === "online" ? "online" : "COD";
 
+    const preOrderSlot = normalizePreOrderSlot(ecommerceOrder.preOrderSlot);
+    const isPreOrder = Boolean(preOrderSlot);
+    const preOrderDate = isPreOrder
+      ? ecommerceOrder.preOrderDate || computePreOrderDate(ecommerceOrder.createdAt || new Date())
+      : "";
+
     const storeOrder = await StoreOrder.create({
       orderNumber: orderNum,
       managerId: manager._id,
@@ -156,7 +164,11 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       customerLng: customerCoords?.lng ?? null,
       distanceKm: roundedDistance,
       items,
-      status: "order_received",
+      status: isPreOrder ? "preorder_hold" : "order_received",
+      isPreOrder,
+      preOrderSlot,
+      preOrderDate,
+      preOrderStage: isPreOrder ? "pending" : "",
       darkStoreQrCode: `DARKSTORE_${manager._id}`,
       otpCode,
       paymentMethod: storePaymentMethod,
@@ -171,25 +183,32 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     if (ecommerceOrder._id) {
       try {
         const Order = (await import("../models/order/Order.js")).default;
-        await Order.findByIdAndUpdate(ecommerceOrder._id, { deliveryOtp: otpCode });
+        await Order.findByIdAndUpdate(ecommerceOrder._id, {
+          deliveryOtp: otpCode,
+          ...(isPreOrder && !ecommerceOrder.preOrderDate ? { preOrderDate } : {}),
+        });
       } catch (err) {
         console.warn("[deliveryDispatcher] failed to save deliveryOtp on Order:", err.message);
       }
     }
 
     console.log(
-      `[deliveryDispatcher] Order ${orderNum} → ${manager.storeName || manager.area} (${reason})`
+      `[deliveryDispatcher] ${isPreOrder ? `Pre-order (${preOrderDate} ${preOrderSlot})` : "Order"} ${orderNum} → ${manager.storeName || manager.area} (${reason})`
     );
 
     try {
-      getIO().to(`store_${manager._id}`).emit("new_order_received", {
-        orderId: storeOrder._id.toString(),
-        orderNumber: storeOrder.orderNumber,
-        customerName: storeOrder.customerName,
-        customerPhone: storeOrder.customerPhone,
-        itemsCount: storeOrder.items.length,
-        storeName: manager.storeName || `${manager.area} Store`,
-      });
+      getIO().to(`store_${manager._id}`).emit(
+        isPreOrder ? "new_preorder_received" : "new_order_received",
+        {
+          orderId: storeOrder._id.toString(),
+          orderNumber: storeOrder.orderNumber,
+          customerName: storeOrder.customerName,
+          customerPhone: storeOrder.customerPhone,
+          itemsCount: storeOrder.items.length,
+          storeName: manager.storeName || `${manager.area} Store`,
+          ...(isPreOrder ? { preOrderSlot, preOrderDate } : {}),
+        }
+      );
     } catch (err) {
       console.warn("[deliveryDispatcher] socket emit failed:", err.message);
     }

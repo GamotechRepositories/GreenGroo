@@ -47,6 +47,8 @@ const storeOrderSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
+        /** Pre-order still with the Product Manager — not actionable by the Delivery Manager */
+        "preorder_hold",
         "incoming",
         "order_received",
         "stock_issue",
@@ -189,6 +191,27 @@ const storeOrderSchema = new mongoose.Schema(
       default: null,
     },
 
+    // ── Pre-order (next-day slot) workflow ──────────────────────────────────
+    // Product Manager prepares (pending → preparing → ready) and forwards to the
+    // Delivery Manager, who assigns a rider manually. Never auto-dispatched.
+    isPreOrder: { type: Boolean, default: false, index: true },
+    preOrderSlot: { type: String, default: "", trim: true },
+    /** YYYY-MM-DD (IST) */
+    preOrderDate: { type: String, default: "", trim: true, index: true },
+    preOrderStage: {
+      type: String,
+      enum: ["", "pending", "preparing", "ready", "forwarded"],
+      default: "",
+      index: true,
+    },
+    preparingAt: { type: Date },
+    readyAt: { type: Date },
+    forwardedAt: { type: Date },
+    forwardedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+    forwardedByName: { type: String, default: "", trim: true },
+    /** Note from Product Manager to Delivery Manager (packing / handling info) */
+    preOrderNote: { type: String, default: "", trim: true, maxlength: 500 },
+
     // ── Payment fields (extended for delivery workflow) ─────────────────────
     paymentMethod: {
       type: String,
@@ -254,6 +277,7 @@ const storeOrderSchema = new mongoose.Schema(
 
 storeOrderSchema.index({ managerId: 1, status: 1, createdAt: -1 });
 storeOrderSchema.index({ sourceOrderId: 1 }, { unique: true, sparse: true });
+storeOrderSchema.index({ isPreOrder: 1, preOrderDate: 1, preOrderStage: 1 });
 
 storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
   const items = this.items.map((item) => {
@@ -360,6 +384,16 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
       : null,
     routeCompatibility: this.routeCompatibility || null,
     sourceOrderId: this.sourceOrderId ? this.sourceOrderId.toString() : null,
+    // Pre-order
+    isPreOrder: Boolean(this.isPreOrder),
+    preOrderSlot: this.preOrderSlot || "",
+    preOrderDate: this.preOrderDate || "",
+    preOrderStage: this.preOrderStage || "",
+    preparingAt: this.preparingAt,
+    readyAt: this.readyAt,
+    forwardedAt: this.forwardedAt,
+    forwardedByName: this.forwardedByName || "",
+    preOrderNote: this.preOrderNote || "",
     // Payment
     paymentMethod: this.paymentMethod || "",
     paymentStatus: this.paymentStatus || "pending",

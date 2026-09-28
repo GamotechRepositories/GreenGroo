@@ -5,6 +5,7 @@ import ProductManagerLayout from "./components/layout/ProductManagerLayout";
 import LoginPage from "./pages/auth/LoginPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import InventoryRequestsPage from "./pages/inventory-requests/InventoryRequestsPage";
+import PreOrdersPage from "./pages/preorders/PreOrdersPage";
 import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
 import PoliciesPage from "./pages/policies/PoliciesPage";
 import SupportPage from "./pages/support/SupportPage";
@@ -19,6 +20,7 @@ function App() {
             <Route element={<ProductManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
+              <Route path="/preorders" element={<PreOrdersPage />} />
               <Route
                 path="/policies"
                 element={<PoliciesPage roleKey="product_manager" title="Policies" />}

@@ -158,6 +158,33 @@ export async function startAssignmentForOrder(orderId) {
   return assignNextDriver(orderId);
 }
 
+/**
+ * Pre-orders are assigned manually only. When an offer is declined or expires,
+ * put the order back in the manager's "ready to assign" queue instead of rotating.
+ */
+async function returnPreOrderToManualQueue(order, message) {
+  order.status = "packed";
+  order.assignmentStatus = "NONE";
+  order.currentOfferDriverId = null;
+  order.offeredRiderId = null;
+  order.offerStartedAt = null;
+  order.offerExpiresAt = null;
+  await order.save();
+
+  try {
+    getIO()
+      .to(`store_${order.managerId}`)
+      .emit("order_status_updated", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: "packed",
+        assignmentStatus: "NONE",
+        isPreOrder: true,
+        message,
+      });
+  } catch (_) {}
+}
+
 export async function assignNextDriver(orderId, opts = {}) {
   try {
     const timedOutDriverId = opts.timedOutDriverId
@@ -166,6 +193,14 @@ export async function assignNextDriver(orderId, opts = {}) {
 
     const order = await StoreOrder.findById(orderId);
     if (!order) return { success: false, message: "Order not found" };
+
+    if (order.isPreOrder) {
+      return {
+        success: false,
+        manualOnly: true,
+        message: "Pre-orders are assigned manually by the Delivery Manager",
+      };
+    }
 
     if (!["packed", "offered"].includes(order.status)) {
       return {
@@ -296,6 +331,13 @@ export async function offerToSpecificDriver(orderId, driverId) {
     const order = await StoreOrder.findById(orderId);
     if (!order) return { success: false, message: "Order not found" };
 
+    if (order.status === "preorder_hold") {
+      return {
+        success: false,
+        message: "Pre-order is still with the Product Manager — wait until it is forwarded",
+      };
+    }
+
     if (
       ["assigned", "pickup_verified", "out_for_delivery", "delivered", "delivery_failed", "cancelled"].includes(
         order.status
@@ -417,6 +459,13 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
       offerExpiresAt: expiresAt.toISOString(),
       timeoutSeconds: OFFER_TIMEOUT_SECONDS,
       remainingSeconds: OFFER_TIMEOUT_SECONDS,
+      ...(order.isPreOrder
+        ? {
+            isPreOrder: true,
+            preOrderSlot: order.preOrderSlot || "",
+            preOrderDate: order.preOrderDate || "",
+          }
+        : {}),
     };
 
     try {
@@ -468,6 +517,18 @@ async function sendOfferToDriver(order, selectedDriver, darkStore, distanceM) {
           String(fresh.currentOfferDriverId) === String(selectedDriver._id)
         ) {
           await recordOfferResponse(fresh._id, selectedDriver._id, "TIMEOUT");
+          if (fresh.isPreOrder) {
+            await returnPreOrderToManualQueue(
+              fresh,
+              `${selectedDriver.name || "Rider"} did not respond — assign another rider`
+            );
+            try {
+              const payload = { orderId: fresh._id.toString() };
+              getIO().to(`rider_${selectedDriver._id}`).emit("driver_offer_timeout", payload);
+              getIO().to(`rider_${selectedDriver._id}`).emit("order_offer_expired", payload);
+            } catch (_) {}
+            return;
+          }
           fresh.currentOfferDriverId = null;
           fresh.offeredRiderId = null;
           fresh.offerStartedAt = null;
@@ -666,6 +727,15 @@ export async function declineDriverOffer(orderId, driverId) {
     order.excludedDriverIds.push(driverId);
   }
 
+  if (order.isPreOrder) {
+    const decliner = await DeliveryBoy.findById(driverId).select("name phone");
+    await returnPreOrderToManualQueue(
+      order,
+      `${decliner?.name || decliner?.phone || "Rider"} declined — assign another rider`
+    );
+    return { success: true, rotated: false };
+  }
+
   order.currentOfferDriverId = null;
   order.offeredRiderId = null;
   order.offerStartedAt = null;
@@ -693,6 +763,7 @@ export async function retryWaitingAssignmentsForStore(darkStoreId) {
   const storeId = String(darkStoreId);
   const waitingOrders = await StoreOrder.find({
     managerId: darkStoreId,
+    isPreOrder: { $ne: true },
     status: { $in: ["packed", "offered"] },
     assignmentStatus: { $in: ["WAITING_FOR_DRIVER", "SEARCHING_FOR_DRIVER", null] },
   }).limit(20);

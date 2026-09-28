@@ -3,6 +3,9 @@ import { notifyOrderStatusChange } from "../../../legacy/services/orderNotificat
 import { reverseOrderRewardPoints } from "../../../legacy/controllers/rewardController.js";
 
 const CUSTOMER_STATUS_BY_STORE = {
+  preorder_hold: "confirm",
+  /** Pseudo-status: Product Manager started preparing a held pre-order */
+  preorder_preparing: "processing",
   incoming: "confirm",
   order_received: "confirm",
   stock_issue: "processing",

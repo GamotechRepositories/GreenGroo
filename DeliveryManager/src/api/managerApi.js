@@ -41,6 +41,7 @@ export const managerApi = {
   myLeaves: () =>
     api.get("/api/admin-ops/hr/leaves/mine").then((res) => res.data?.data || []),
   orders: (params) => api.get(`${BASE}/orders`, { params }),
+  preOrders: (params) => api.get(`${BASE}/preorders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
   listInventoryRequests: (params) =>
     api.get(`${BASE}/inventory-requests`, { params }),

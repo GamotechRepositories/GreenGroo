@@ -4,6 +4,9 @@ import { subscribeToSocketEvent } from "../services/socket";
 /** Events that mean store dashboard data may have changed. */
 export const STORE_LIVE_EVENTS = [
   "new_order_received",
+  "new_preorder_received",
+  "preorder_updated",
+  "preorder_forwarded",
   "order_status_updated",
   "order_packed",
   "driver_assigned",

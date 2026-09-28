@@ -20,6 +20,7 @@ import {
 } from "../utils/paymentHelpers.js";
 import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination.js";
 import { buildOrderSearchFilter } from "../utils/adminSearch.js";
+import { validatePreOrderSlot } from "../utils/preOrderHelpers.js";
 import {
   notifyOrderCreated,
   notifyPaymentFailed,
@@ -88,12 +89,22 @@ export const createRazorpayOrder = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      preOrderSlot,
     } = req.body;
 
     if (!["online", "cod_advance"].includes(paymentMode)) {
       return res.status(400).json({
         success: false,
         message: "Invalid payment mode",
+      });
+    }
+
+    const slotCheck = await validatePreOrderSlot(preOrderSlot);
+    if (slotCheck.error) {
+      return res.status(slotCheck.status).json({
+        success: false,
+        message: slotCheck.error,
+        code: slotCheck.code,
       });
     }
 
@@ -133,6 +144,7 @@ export const createRazorpayOrder = async (req, res) => {
         total: result.total,
         cart: result.cart,
         checkoutMode: result.checkoutMode,
+        preOrderSlot: slotCheck.preOrderSlot,
       },
       paymentMode === "cod_advance" ? "cod" : "online"
     );
@@ -195,6 +207,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      preOrderSlot,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
 
@@ -283,6 +296,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       ...(isCodAdvance ? { codAdvancePaidAt: new Date() } : {}),
       message: orderMessage,
       attemptedOrderId,
+      preOrderSlot,
     });
 
     void notifyOrderCreated(order, {
@@ -316,6 +330,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      preOrderSlot,
     } = req.body;
     const orderMessage = normalizeOrderMessage(req.body);
     const screenshot = typeof req.body.screenshot === "string"
@@ -395,6 +410,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       codAdvanceAmount: isCodAdvance ? payableAmount : 0,
       message: orderMessage,
       attemptedOrderId,
+      preOrderSlot,
     });
 
     void notifyOrderCreated(order, {

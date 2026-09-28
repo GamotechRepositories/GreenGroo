@@ -42,6 +42,13 @@ export const staffApi = {
     api.get("/api/staff/inventory-requests", { params }),
   reviewInventoryRequest: (requestId, data) =>
     api.patch(`/api/staff/inventory-requests/${requestId}`, data),
+  preOrders: (params) => api.get("/api/staff/preorders", { params }),
+  updatePreOrderStage: (orderId, stage) =>
+    api.patch(`/api/staff/preorders/${orderId}/stage`, { stage }),
+  forwardPreOrders: (orderIds, note = "") =>
+    api.post("/api/staff/preorders/forward", { orderIds, note }),
+  cancelPreOrder: (orderId, reason) =>
+    api.post(`/api/staff/preorders/${orderId}/cancel`, { reason }),
   liveAnnouncements: (role) =>
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role } })

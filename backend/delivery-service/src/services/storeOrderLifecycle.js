@@ -6,6 +6,7 @@ import { syncCustomerOrderFromStore } from "./syncCustomerOrderFromStore.js";
 import { getIO } from "../../../socket.js";
 
 const ASSIGNMENT_BY_STATUS = {
+  preorder_hold: "NONE",
   incoming: "NONE",
   order_received: "NONE",
   stock_issue: "NONE",

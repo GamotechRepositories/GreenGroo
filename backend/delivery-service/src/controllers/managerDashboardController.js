@@ -196,9 +196,12 @@ export const getDashboardSummary = async (req, res, next) => {
       ridersTotal,
       pendingDrivers,
       pendingInventoryRequests,
+      preOrdersWithProductManager,
+      preOrdersReadyToAssign,
     ] = await Promise.all([
       StoreOrder.countDocuments({
         managerId: manager._id,
+        isPreOrder: { $ne: true },
         status: { $in: ["incoming", "order_received", "stock_issue"] },
       }),
       StoreInventory.countDocuments({ managerId: manager._id, isActive: true }),
@@ -223,12 +226,24 @@ export const getDashboardSummary = async (req, res, next) => {
         managerId: manager._id,
         status: "pending",
       }),
+      StoreOrder.countDocuments({
+        managerId: manager._id,
+        isPreOrder: true,
+        status: "preorder_hold",
+      }),
+      StoreOrder.countDocuments({
+        managerId: manager._id,
+        isPreOrder: true,
+        status: { $in: ["packed", "offered"] },
+      }),
     ]);
 
     return res.json({
       success: true,
       manager: manager.toSafeJSON(),
       summary: {
+        preOrdersWithProductManager,
+        preOrdersReadyToAssign,
         incomingOrders: incoming,
         inventorySkus: inventoryCount,
         lowStockItems: lowStock,
@@ -252,9 +267,19 @@ export const listIncomingOrders = async (req, res, next) => {
       ? String(req.query.status).split(",")
       : ["incoming", "order_received", "stock_issue", "packed", "offered", "assigned", "out_for_delivery"];
 
+    // Pre-orders have their own queue; ?preOrder=include|only to see them here.
+    const preOrderMode = String(req.query.preOrder || "").toLowerCase();
+    const preOrderFilter =
+      preOrderMode === "include"
+        ? {}
+        : preOrderMode === "only"
+          ? { isPreOrder: true }
+          : { isPreOrder: { $ne: true } };
+
     const orders = await StoreOrder.find({
       managerId: manager._id,
       status: { $in: statusFilter },
+      ...preOrderFilter,
     }).sort({ createdAt: -1 });
 
     const riderIds = [
@@ -474,6 +499,7 @@ export const listRouteSuggestions = async (req, res, next) => {
 
     const waiting = await StoreOrder.find({
       managerId: manager._id,
+      isPreOrder: { $ne: true },
       status: { $in: ["packed", "offered", "assigned"] },
       routeBatchWindowEndsAt: { $gt: new Date() },
       pickupQrScanned: { $ne: true },
@@ -526,6 +552,12 @@ export const dispatchPackedOrderNow = async (req, res, next) => {
     const order = await StoreOrder.findOne({ _id: orderId, managerId: manager._id });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.isPreOrder) {
+      return res.status(400).json({
+        success: false,
+        message: "Pre-orders are assigned manually — pick a rider from the Pre-Orders tab",
+      });
     }
     if (order.status !== "packed") {
       return res.status(400).json({
@@ -971,6 +1003,13 @@ export const assignOrder = async (req, res, next) => {
     });
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.status === "preorder_hold") {
+      return res.status(400).json({
+        success: false,
+        message: "This pre-order is still being prepared by the Product Manager",
+      });
     }
 
     if (!["incoming", "order_received", "stock_issue", "packed", "offered"].includes(order.status)) {

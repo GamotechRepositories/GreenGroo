@@ -32,6 +32,7 @@ import {
 import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../../shared/store/giftHamper.js";
 import { dispatchDeliveryOrder } from "../services/deliveryDispatcher.js";
 import { previewGiftCard, consumeGiftCard } from "../../admin-ops-service/src/giftCardService.js";
+import { computePreOrderDate, normalizePreOrderSlot } from "./preOrderHelpers.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
@@ -933,6 +934,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     total,
     cart,
     checkoutMode,
+    preOrderSlot: normalizePreOrderSlot(options.preOrderSlot),
   };
 }
 
@@ -955,6 +957,7 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     paymentMethod: normalizedPaymentMethod,
     paymentStatus: "unpaid",
     status: "attempted",
+    preOrderSlot: normalizePreOrderSlot(prepared.preOrderSlot),
   };
 
   let order = await Order.findOne({ user: userId, status: "attempted" }).sort({
@@ -1050,7 +1053,7 @@ export async function completeAttemptedOrder({
   codAdvancePaidAt = null,
   paidAt,
   message = "",
-  preOrderSlot = "",
+  preOrderSlot,
 }) {
   const order = await findAttemptedOrderForCheckout(userId, attemptedOrderId);
 
@@ -1090,7 +1093,13 @@ export async function completeAttemptedOrder({
   order.codAdvanceRazorpayPaymentId = codAdvanceRazorpayPaymentId || "";
   order.codAdvancePaidAt = codAdvancePaidAt || null;
   order.paidAt = paidAt || null;
-  order.preOrderSlot = preOrderSlot || "";
+  // Payment callbacks may omit the slot — keep the one recorded on the checkout attempt.
+  order.preOrderSlot =
+    preOrderSlot !== undefined
+      ? normalizePreOrderSlot(preOrderSlot)
+      : normalizePreOrderSlot(order.preOrderSlot);
+  order.preOrderDate =
+    order.preOrderSlot && status !== "attempted" ? computePreOrderDate() : "";
 
   if (status !== "attempted") {
     order.createdAt = new Date();
@@ -1136,7 +1145,7 @@ export async function finalizeOrder({
   paidAt,
   message = "",
   attemptedOrderId,
-  preOrderSlot = "",
+  preOrderSlot,
 }) {
   const completed = await completeAttemptedOrder({
     attemptedOrderId,
@@ -1179,6 +1188,7 @@ export async function finalizeOrder({
     typeof message === "string" ? message.trim().slice(0, 500) : "";
 
   const giftHamper = await resolveGiftHamperSnapshot(total);
+  const normalizedSlot = normalizePreOrderSlot(preOrderSlot);
 
   const order = await Order.create({
     user: userId,
@@ -1207,7 +1217,10 @@ export async function finalizeOrder({
     ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
     ...(codAdvancePaidAt && { codAdvancePaidAt }),
     ...(paidAt && { paidAt }),
-    ...(preOrderSlot && { preOrderSlot }),
+    ...(normalizedSlot && {
+      preOrderSlot: normalizedSlot,
+      preOrderDate: status !== "attempted" ? computePreOrderDate() : "",
+    }),
   });
 
   if (status !== "attempted") {

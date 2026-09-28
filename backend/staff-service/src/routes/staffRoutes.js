@@ -11,6 +11,14 @@ import {
   listAllInventoryRequests,
   reviewInventoryRequest,
 } from "../../../delivery-service/src/controllers/inventoryRequestController.js";
+import {
+  cancelPreOrderByStaff,
+  forwardPreOrders,
+  listPreOrdersForStaff,
+  updatePreOrderStage,
+} from "../../../delivery-service/src/controllers/preOrderController.js";
+
+const PRE_ORDER_ROLES = ["product_manager", "segregation_manager", "admin"];
 
 const router = express.Router();
 
@@ -32,5 +40,10 @@ router.patch(
   requireRoles("product_manager", "vendor", "segregation_manager", "admin"),
   reviewInventoryRequest
 );
+
+router.get("/preorders", requireRoles(...PRE_ORDER_ROLES), listPreOrdersForStaff);
+router.post("/preorders/forward", requireRoles(...PRE_ORDER_ROLES), forwardPreOrders);
+router.patch("/preorders/:orderId/stage", requireRoles(...PRE_ORDER_ROLES), updatePreOrderStage);
+router.post("/preorders/:orderId/cancel", requireRoles(...PRE_ORDER_ROLES), cancelPreOrderByStaff);
 
 export default router;

@@ -191,6 +191,13 @@ const orderSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    /** Delivery day for pre-orders, YYYY-MM-DD in IST */
+    preOrderDate: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
   },
 
   { timestamps: true }

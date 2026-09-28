@@ -51,6 +51,7 @@ import {
   getIndiaPreviousMonthDateRange,
 } from "../../../shared/date/indiaDate.js";
 import { resolveCouponForCheckout } from "./couponController.js";
+import { validatePreOrderSlot } from "../utils/preOrderHelpers.js";
 
 const ACTIVE_PENDING_STATUSES = ["confirm", "processing", "shipping"];
 const REVENUE_STATUSES = ["confirm", "processing", "shipping", "delivered"];
@@ -604,6 +605,15 @@ export const placeOrder = async (req, res) => {
       });
     }
 
+    const slotCheck = await validatePreOrderSlot(preOrderSlot);
+    if (slotCheck.error) {
+      return res.status(slotCheck.status).json({
+        success: false,
+        message: slotCheck.error,
+        code: slotCheck.code,
+      });
+    }
+
     const result = await prepareOrderData(req.user._id, addressId, {
       checkoutMode,
       buyNow,
@@ -643,7 +653,7 @@ export const placeOrder = async (req, res) => {
       paymentStatus: "unpaid",
       message: orderMessage,
       attemptedOrderId,
-      preOrderSlot,
+      preOrderSlot: preOrderSlot === undefined ? undefined : slotCheck.preOrderSlot,
     });
 
     void notifyOrderCreated(order, {

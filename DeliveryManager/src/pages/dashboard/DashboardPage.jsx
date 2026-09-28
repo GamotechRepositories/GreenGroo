@@ -42,6 +42,13 @@ export default function DashboardPage() {
       urgent: (summary?.incomingOrders ?? 0) > 0,
     },
     {
+      label: "Pre-Orders to Assign",
+      value: summary?.preOrdersReadyToAssign ?? 0,
+      subtext: `${summary?.preOrdersWithProductManager ?? 0} still with Product Manager`,
+      to: "/preorders",
+      urgent: (summary?.preOrdersReadyToAssign ?? 0) > 0,
+    },
+    {
       label: "Riders Online",
       value: `${summary?.ridersOnline ?? 0} / ${summary?.ridersTotal ?? 0}`,
       subtext: "Available for delivery",
@@ -158,6 +165,16 @@ export default function DashboardPage() {
           <div>
             <p className="font-bold text-slate-900">Incoming Orders</p>
             <p className="text-xs text-slate-500 mt-0.5">Pack, dispatch & track orders</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/preorders"
+          className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 hover:bg-amber-50 hover:border-amber-200 transition group"
+        >
+          <div>
+            <p className="font-bold text-slate-900">Pre-Orders</p>
+            <p className="text-xs text-slate-500 mt-0.5">Next-day slot orders · assign riders manually</p>
           </div>
         </Link>
 

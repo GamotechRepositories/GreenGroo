@@ -15,6 +15,7 @@ import {
   MINI_TRACKER_LABELS,
   showOrderPaymentBadge,
   splitOrderShipments,
+  formatPreOrderSlot,
 } from "../../utils/orderUtils";
 import OrderItemImage from "./OrderItemImage";
 import OrderGiftHamperSection from "./OrderGiftHamperSection";
@@ -414,7 +415,7 @@ function DesktopOrderDetail({
                 />
                 <DetailRow label="Order placed" value={formatOrderDateTime(order.createdAt)} />
                 {order.preOrderSlot && (
-                  <DetailRow label="Pre-order slot" value={order.preOrderSlot} />
+                  <DetailRow label="Pre-order delivery" value={formatPreOrderSlot(order)} />
                 )}
                 <ShipmentExtraDetails shipment={shipment} />
               </div>

@@ -128,6 +128,7 @@ export async function findBatchWaitingOrders(StoreOrder, managerId, { excludeId 
   const now = new Date();
   const q = {
     managerId,
+    isPreOrder: { $ne: true },
     status: { $in: ["packed", "offered", "assigned"] },
     routeBatchWindowEndsAt: { $gt: now },
     pickupQrScanned: { $ne: true },
@@ -148,6 +149,7 @@ export async function findAssignableRouteAnchors(StoreOrder, managerId, { exclud
   const active = await StoreOrder.find({
     managerId,
     _id: excludeId ? { $ne: excludeId } : { $exists: true },
+    isPreOrder: { $ne: true },
     status: { $in: ["packed", "offered", "assigned"] },
     $or: [
       { routeBatchWindowEndsAt: { $gt: now }, pickupQrScanned: { $ne: true } },

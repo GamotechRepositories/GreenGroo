@@ -273,6 +273,14 @@ export async function attachOrdersToSameRider({
 export async function openSameRouteWindowAfterAccept(order, manager) {
   if (!order || !manager) return { windowOpened: false, attached: [] };
 
+  // Scheduled pre-orders are prepared in advance — no same-route wait, QR ready at once.
+  if (order.isPreOrder) {
+    order.pickupQrUnlocked = true;
+    order.routeBatchWindowEndsAt = undefined;
+    await order.save();
+    return { windowOpened: false, attached: [], routeBatchWindowEndsAt: null, pickupQrUnlocked: true };
+  }
+
   const now = new Date();
   order.pickupQrUnlocked = false;
   order.routeBatchWindowEndsAt = new Date(now.getTime() + BATCHING_WAIT_MS);
@@ -331,6 +339,7 @@ export async function openSameRouteWindowAfterAccept(order, manager) {
   const candidates = await StoreOrder.find({
     managerId: manager._id,
     _id: { $ne: order._id },
+    isPreOrder: { $ne: true },
     status: { $in: ["packed", "offered"] },
     assignedRiderId: null,
   }).sort({ packedAt: 1 });

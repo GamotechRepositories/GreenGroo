@@ -659,6 +659,8 @@ function Checkout() {
     paymentMethod,
     checkoutItemsPayload,
     isBuyNow,
+    hasPreOrderItems,
+    selectedPreOrderSlot,
   ]);
 
   useEffect(() => {

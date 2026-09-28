@@ -9,6 +9,7 @@ import {
   getOrderDisplayCode,
   getPrimaryProductId,
   splitOrderShipments,
+  formatPreOrderSlot,
 } from "../../utils/orderUtils";
 import Product3DImage from "./Product3DImage";
 import OrderGiftHamperSection from "./OrderGiftHamperSection";
@@ -260,7 +261,7 @@ function BlinkitOrderDetail({
           <DetailField label="Delivery Address" value={formatAddressLine(addr)} />
           <DetailField label="Order placed at" value={formatOrderDateTime(order.createdAt)} />
           {order.preOrderSlot && (
-            <DetailField label="Pre-order slot" value={order.preOrderSlot} />
+            <DetailField label="Pre-order delivery" value={formatPreOrderSlot(order)} />
           )}
           <ShipmentExtraDetails shipment={shipment} />
           {order.status === "delivered"

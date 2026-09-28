@@ -55,7 +55,8 @@ export default function OrderDetailPage() {
       const [ord, req] = await Promise.all([
         managerApi.orders({
           status:
-            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,delivery_failed,cancelled",
+            "preorder_hold,incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,delivery_failed,cancelled",
+          preOrder: "include",
         }),
         managerApi.listInventoryRequests({ status: "pending" }).catch(() => ({ data: { requests: [] } })),
       ]);

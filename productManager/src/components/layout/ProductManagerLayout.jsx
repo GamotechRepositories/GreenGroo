@@ -3,11 +3,13 @@ import { Icon, LogoIcon } from "../ui/Icon";
 import Header from "./Header";
 import { useAuth } from "../../context/AuthContext";
 import { useInventoryRequests } from "../../hooks/useInventoryRequests";
+import { usePreOrders } from "../../hooks/usePreOrders";
 import { staffApi } from "../../api/staffApi";
 import RoleAnnouncements from "../RoleAnnouncements";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: "home", end: true },
+  { to: "/preorders", label: "Pre-Orders", icon: "clock" },
   { to: "/inventory-requests", label: "Inventory Requests", icon: "box" },
   { to: "/policies", label: "Policies", icon: "box" },
   { to: "/support", label: "Support", icon: "box" },
@@ -19,6 +21,11 @@ export default function ProductManagerLayout() {
   const navigate = useNavigate();
   const { requests } = useInventoryRequests(12000);
   const pendingCount = requests.filter((request) => request.status === "pending").length;
+  const { summary: preOrderSummary } = usePreOrders(20000);
+  const badges = {
+    "/inventory-requests": pendingCount,
+    "/preorders": preOrderSummary.pending + preOrderSummary.preparing + preOrderSummary.ready,
+  };
 
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
@@ -50,9 +57,9 @@ export default function ProductManagerLayout() {
                 >
                   <Icon name={item.icon} size="sm" />
                   <span className="flex-1 text-left">{item.label}</span>
-                  {item.to === "/inventory-requests" && pendingCount > 0 ? (
+                  {badges[item.to] > 0 ? (
                     <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
-                      {pendingCount}
+                      {badges[item.to]}
                     </span>
                   ) : null}
                 </NavLink>

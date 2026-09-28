@@ -1,5 +1,6 @@
 
 export const STATUS_LABELS = {
+  preorder_hold: { text: "WITH PRODUCT MANAGER", className: "text-indigo-700" },
   order_received: { text: "NEW ORDER", className: "text-blue-700" },
   incoming: { text: "NEW ORDER", className: "text-blue-700" },
   packed: { text: "PACKED", className: "text-purple-700" },

@@ -31,6 +31,7 @@ import {
   createInventoryRequest,
   listMyInventoryRequests,
 } from "../controllers/inventoryRequestController.js";
+import { listManagerPreOrders } from "../controllers/preOrderController.js";
 import {
   getLiveRiders,
 } from "../controllers/gigController.js";
@@ -84,6 +85,7 @@ router.use(protect, requireDeliveryManager);
 router.get("/me", me);
 router.get("/dashboard", getDashboardSummary);
 router.get("/orders", listIncomingOrders);
+router.get("/preorders", listManagerPreOrders);
 router.get("/inventory", listInventory);
 router.get("/inventory-requests", listMyInventoryRequests);
 router.post("/inventory-requests", createInventoryRequest);
