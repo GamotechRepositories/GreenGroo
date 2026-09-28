@@ -40,7 +40,23 @@ class MarketPriceService extends ChangeNotifier {
     return dates.isEmpty ? null : dates.first;
   }
 
-  Future<void> fetchMarketPrices({String? date}) async {
+  Future<void>? _inFlight;
+  String? _inFlightDate;
+
+  /// Callers asking for the same prices while a request is running share that request.
+  Future<void> fetchMarketPrices({String? date}) {
+    final key = date ?? '';
+    final running = _inFlight;
+    if (running != null && _inFlightDate == key) return running;
+    _inFlightDate = key;
+    late final Future<void> request;
+    request = _loadMarketPrices(date).whenComplete(() {
+      if (identical(_inFlight, request)) _inFlight = null;
+    });
+    return _inFlight = request;
+  }
+
+  Future<void> _loadMarketPrices(String? date) async {
     _isLoading = true;
     notifyListeners();
 

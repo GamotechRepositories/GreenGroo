@@ -72,7 +72,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      FarmerState().fetchFromBackend();
+      FarmerState().refreshSchemes();
     });
   }
 
@@ -441,7 +441,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
             ),
           ),
           body: RefreshIndicator(
-            onRefresh: () => FarmerState().fetchFromBackend(),
+            onRefresh: () => FarmerState().refreshSchemes(),
             color: AppColors.primary,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),

@@ -150,7 +150,7 @@ class _CropsScreenState extends State<CropsScreen> {
             ),
           ),
           body: RefreshIndicator(
-            onRefresh: () => FarmerState().refresh(),
+            onRefresh: () => FarmerState().refreshCrops(),
             color: AppColors.primary,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),

@@ -19,6 +19,9 @@ const CONNECT_WAIT_MS = 4000;
 const SUBSCRIBE_TIMEOUT_MS = 15000;
 const RELEASE_GRACE_MS = 15000;
 const RERUN_DEBOUNCE_MS = 30;
+// A tab hidden this long drops its socket so the server stops recomputing views nobody sees;
+// becoming visible reconnects, which resubscribes and re-runs mounted tasks once.
+const HIDDEN_DISCONNECT_MS = 60000;
 
 const settings = { url: "", getToken: () => "" };
 let socket = null;
@@ -149,7 +152,27 @@ export function getSocket() {
   socket.on("live:patch", handlePatch);
   socket.on("live:error", handleLiveError);
   socket.on("sync", (event) => syncListeners.forEach((listener) => listener(event)));
+  pauseWhileHidden(socket);
   return socket;
+}
+
+function pauseWhileHidden(s) {
+  if (typeof document === "undefined") return;
+  let hiddenTimer = null;
+  let paused = false;
+  document.addEventListener("visibilitychange", () => {
+    clearTimeout(hiddenTimer);
+    if (document.visibilityState === "hidden") {
+      hiddenTimer = setTimeout(() => {
+        if (!s.active) return;
+        paused = true;
+        s.disconnect();
+      }, HIDDEN_DISCONNECT_MS);
+    } else if (paused) {
+      paused = false;
+      s.connect();
+    }
+  });
 }
 
 /** Re-authenticate the socket after login / logout. */

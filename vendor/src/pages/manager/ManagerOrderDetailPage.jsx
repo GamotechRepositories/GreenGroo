@@ -61,22 +61,26 @@ export default function ManagerOrderDetailPage() {
     (async () => {
       setLoading(true);
       try {
-        let found = null;
-        let fid = farmerIdParam;
-        if (fid) {
-          found = await getManagerFarmerOrderById(fid, orderId).catch(() => null);
-        }
-        if (!found) {
+        if (farmerIdParam) {
+          // getManagerFarmerOrderById already falls back to the all-farmers scan.
+          const [found, f] = await Promise.all([
+            getManagerFarmerOrderById(farmerIdParam, orderId).catch(() => null),
+            getManagerFarmerById(farmerIdParam).catch(() => null),
+          ]);
+          if (!cancelled) {
+            setOrder(found || null);
+            setFarmer(f);
+          }
+        } else {
           const all = await getManagerAllHarvestOrders().catch(() => ({ orders: [] }));
-          found = (all.orders || []).find(
+          const found = (all.orders || []).find(
             (o) => String(o.id || o.orderId || o._id) === String(orderId)
           );
-          if (found?.farmerId) fid = found.farmerId;
-        }
-        if (!cancelled) setOrder(found || null);
-        if (fid) {
-          const f = await getManagerFarmerById(fid).catch(() => null);
-          if (!cancelled) setFarmer(f);
+          if (!cancelled) setOrder(found || null);
+          if (found?.farmerId) {
+            const f = await getManagerFarmerById(found.farmerId).catch(() => null);
+            if (!cancelled) setFarmer(f);
+          }
         }
       } catch {
         if (!cancelled) setOrder(null);

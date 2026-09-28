@@ -1,7 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// The server answered with a non-2xx status. The host is reachable, so trying
+/// the other candidate hosts would only repeat the same failing request.
+class ApiHttpException implements Exception {
+  ApiHttpException(this.statusCode, this.message);
+  final int statusCode;
+  final String message;
+
+  @override
+  String toString() => 'Exception: $message';
+}
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -105,6 +117,7 @@ class ApiService {
       final response = await _client.get(uri, headers: _headers).timeout(timeout);
       return _handleResponse(response);
     } catch (e) {
+      if (e is ApiHttpException) rethrow;
       // If primary failed, try finding a working candidate
       for (final host in candidateHosts) {
         if (host == _baseUrl) continue;
@@ -113,6 +126,8 @@ class ApiService {
           final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 6));
           _baseUrl = host;
           return _handleResponse(response);
+        } on ApiHttpException {
+          rethrow;
         } catch (_) {}
       }
       rethrow;
@@ -127,6 +142,8 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
+      // A timed-out write may already have been applied; re-sending it elsewhere risks a duplicate.
+      if (e is ApiHttpException || e is TimeoutException) rethrow;
       for (final host in candidateHosts) {
         if (host == _baseUrl) continue;
         try {
@@ -136,6 +153,8 @@ class ApiService {
               .timeout(const Duration(seconds: 6));
           _baseUrl = host;
           return _handleResponse(response);
+        } on ApiHttpException {
+          rethrow;
         } catch (_) {}
       }
       rethrow;
@@ -150,6 +169,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
+      if (e is ApiHttpException || e is TimeoutException) rethrow;
       for (final host in candidateHosts) {
         if (host == _baseUrl) continue;
         try {
@@ -159,6 +179,8 @@ class ApiService {
               .timeout(const Duration(seconds: 6));
           _baseUrl = host;
           return _handleResponse(response);
+        } on ApiHttpException {
+          rethrow;
         } catch (_) {}
       }
       rethrow;
@@ -181,7 +203,7 @@ class ApiService {
           msg = decoded['message'];
         }
       } catch (_) {}
-      throw Exception(msg);
+      throw ApiHttpException(response.statusCode, msg);
     }
   }
 

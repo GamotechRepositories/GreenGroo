@@ -238,7 +238,8 @@ export default function ManagerOrderDetailPage() {
       setPickupDetail(null);
       return;
     }
-    loadManagerOrder(farmerId, decodeURIComponent(orderId))
+    // Returned so the follow-up farmer/pickup GETs belong to this live task and re-runs use the cache.
+    return loadManagerOrder(farmerId, decodeURIComponent(orderId))
       .then(async (data) => {
         setOrder(data);
         const pid = data?.pickup?.id || data?.pickup?.pickupId || data?.id || data?.orderId;

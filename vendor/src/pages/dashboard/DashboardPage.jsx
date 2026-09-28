@@ -116,12 +116,12 @@ export default function DashboardPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [customApplied, setCustomApplied] = useState(false);
+  // Filter the data is loaded for; custom dates only count once applied, not while typing.
+  const [applied, setApplied] = useState({ range: "all", start: "", end: "" });
 
-  const loadAll = useCallback(async (isSilent = false, overrideRange, overrideStart, overrideEnd) => {
+  const loadAll = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
-    const activeRange = overrideRange !== undefined ? overrideRange : range;
-    const activeStart = overrideStart !== undefined ? overrideStart : customStart;
-    const activeEnd = overrideEnd !== undefined ? overrideEnd : customEnd;
+    const { range: activeRange, start: activeStart, end: activeEnd } = applied;
 
     try {
       const params = {};
@@ -144,22 +144,27 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [range, customStart, customEnd]);
+  }, [applied]);
 
   useLive(({ initial }) => loadAll(!initial), [loadAll]);
+
+  const applyFilter = (next) =>
+    setApplied((prev) =>
+      prev.range === next.range && prev.start === next.start && prev.end === next.end ? prev : next
+    );
 
   const handleRangeChange = (newRange) => {
     setRange(newRange);
     if (newRange !== "custom") {
       setCustomApplied(false);
-      loadAll(false, newRange);
+      applyFilter({ range: newRange, start: "", end: "" });
     }
   };
 
   const handleApplyCustom = () => {
     if (!customStart || !customEnd) return;
     setCustomApplied(true);
-    loadAll(false, "custom", customStart, customEnd);
+    applyFilter({ range: "custom", start: customStart, end: customEnd });
   };
 
   const pendingRequests = requests.filter((r) => r.status === "pending");

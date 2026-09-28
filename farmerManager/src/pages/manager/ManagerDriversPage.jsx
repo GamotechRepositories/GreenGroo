@@ -79,12 +79,18 @@ export default function ManagerDriversPage() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    getManagerDrivers({ q, status: statusFilter })
+    getManagerDrivers({ q: searchQ, status: statusFilter })
       .then((data) => {
         if (!alive) return;
         const rows = Array.isArray(data) ? data : data?.drivers || [];
@@ -99,7 +105,7 @@ export default function ManagerDriversPage() {
     return () => {
       alive = false;
     };
-  }, [q, statusFilter]);
+  }, [searchQ, statusFilter]);
 
   const stats = useMemo(() => {
     const available = drivers.filter((d) => d.status === "Active" || d.status === "Available").length;

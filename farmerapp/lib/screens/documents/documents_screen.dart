@@ -78,7 +78,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     : const Icon(Icons.sync_rounded, color: Color(0xFF217346), size: 22),
                 tooltip: lang.tr(mr: 'ताजे करा', en: 'Refresh'),
                 onPressed: () async {
-                  await FarmerState().fetchFromBackend();
+                  await FarmerState().refreshDocuments();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -103,7 +103,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 : RefreshIndicator(
               color: const Color(0xFF217346),
               onRefresh: () async {
-                await FarmerState().fetchFromBackend();
+                await FarmerState().refreshDocuments();
               },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),

@@ -80,24 +80,24 @@ class FarmerSocketService {
 
       _socket!.on('govt_scheme_changed', (data) {
         debugPrint('[FarmerSocket] Event govt_scheme_changed: $data');
-        FarmerState().fetchFromBackend();
+        FarmerState().requestSync();
       });
 
       // Listen for document review updates
       _socket!.on('farmer_document_status_updated', (data) {
         debugPrint('[FarmerSocket] Event farmer_document_status_updated: $data');
-        FarmerState().fetchFromBackend();
+        FarmerState().requestSync();
       });
 
       // Listen for order updates
       _socket!.on('farmer_order_status_updated', (data) {
         debugPrint('[FarmerSocket] Event farmer_order_status_updated: $data');
-        FarmerState().fetchFromBackend();
+        FarmerState().requestSync();
       });
 
       _socket!.on('new_order_assigned', (data) {
         debugPrint('[FarmerSocket] Event new_order_assigned: $data');
-        FarmerState().fetchFromBackend();
+        FarmerState().requestSync();
       });
 
       // Listen for market price updates from Admin

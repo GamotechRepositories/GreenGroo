@@ -9,6 +9,7 @@ export default function AllFarmersPage() {
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [managerFilter, setManagerFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -20,13 +21,10 @@ export default function AllFarmersPage() {
   const load = () => {
     const seq = ++requestSeq.current;
     setLoading(true);
-    Promise.all([
-      vendorApi
-        .getFarmers({ q, status: statusFilter, managerId: managerFilter, page, limit: PAGE_SIZE })
-        .then((r) => r.data),
-      vendorApi.getManagers().then((r) => r.data),
-    ])
-      .then(([res, ms]) => {
+    vendorApi
+      .getFarmers({ q: searchQ, status: statusFilter, managerId: managerFilter, page, limit: PAGE_SIZE })
+      .then((r) => r.data)
+      .then((res) => {
         if (seq !== requestSeq.current) return;
         const rows = Array.isArray(res) ? res : res?.data || [];
         const meta = Array.isArray(res) ? null : res?.pagination || null;
@@ -36,7 +34,6 @@ export default function AllFarmersPage() {
         }
         setFarmers(rows);
         setPagination(meta);
-        setManagers(ms);
       })
       .catch(() => {})
       .finally(() => {
@@ -44,7 +41,19 @@ export default function AllFarmersPage() {
       });
   };
 
-  useEffect(() => { load(); }, [q, statusFilter, managerFilter, page]);
+  useEffect(() => {
+    vendorApi.getManagers().then((r) => setManagers(r.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchQ(q);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => { load(); }, [searchQ, statusFilter, managerFilter, page]);
 
   const handleAssignManager = async (farmerId, managerId) => {
     setAssigningFarmerId(farmerId);
@@ -102,7 +111,7 @@ export default function AllFarmersPage() {
         <input
           type="search"
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => setQ(e.target.value)}
           placeholder="Search farmer name or mobile…"
           className="max-w-xs border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]"
         />

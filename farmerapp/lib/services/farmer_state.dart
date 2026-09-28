@@ -8,10 +8,11 @@ import '../core/constants/farmer_constants.dart';
 import 'api_service.dart';
 import 'farmer_socket_service.dart';
 
-class FarmerState extends ChangeNotifier {
+class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   static final FarmerState _instance = FarmerState._internal();
   factory FarmerState() => _instance;
   FarmerState._internal() {
+    WidgetsFlutterBinding.ensureInitialized().addObserver(this);
     _ensureDocumentChecklist();
     initPreferences().then((_) {
       if (isLoggedIn) {
@@ -74,6 +75,9 @@ class FarmerState extends ChangeNotifier {
 
   void logout() {
     isLoggedIn = false;
+    _syncDebounce?.cancel();
+    _syncQueued = false;
+    _syncDeferred = false;
     ApiService().setToken(null);
     _persistProfile();
     FarmerSocketService.instance.disconnect();
@@ -85,6 +89,54 @@ class FarmerState extends ChangeNotifier {
     _persistProfile();
     fetchFromBackend();
     FarmerSocketService.instance.connect(profile.id);
+    notifyListeners();
+  }
+
+  Timer? _syncDebounce;
+  bool _syncQueued = false;
+  bool _inBackground = false;
+  bool _syncDeferred = false;
+
+  /// Push events call this instead of [fetchFromBackend]: bursts collapse into one sync,
+  /// an event during a running sync queues one follow-up, and while the app is in the
+  /// background the sync waits until it resumes.
+  void requestSync() {
+    if (!isLoggedIn) return;
+    if (_inBackground) {
+      _syncDeferred = true;
+      return;
+    }
+    _syncDebounce?.cancel();
+    _syncDebounce = Timer(const Duration(milliseconds: 800), () {
+      if (_syncing) {
+        _syncQueued = true;
+      } else {
+        fetchFromBackend();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _inBackground = false;
+      if (_syncDeferred) {
+        _syncDeferred = false;
+        requestSync();
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _inBackground = true;
+    }
+  }
+
+  /// Refreshes one section (pull-to-refresh on a single-section screen) instead of a full sync.
+  Future<void> refreshSchemes() => _refreshSection(_fetchSchemesSafe);
+  Future<void> refreshDocuments() => _refreshSection(_fetchDocumentsSafe);
+  Future<void> refreshCrops() => _refreshSection(_fetchCropsSafe);
+
+  Future<void> _refreshSection(Future<void> Function() fetch) async {
+    if (_syncing) return;
+    await fetch();
     notifyListeners();
   }
 
@@ -123,6 +175,10 @@ class FarmerState extends ChangeNotifier {
       _syncing = false;
       isLoadingFromBackend = false;
       notifyListeners();
+      if (_syncQueued) {
+        _syncQueued = false;
+        requestSync();
+      }
     }
   }
 
@@ -476,6 +532,9 @@ class FarmerState extends ChangeNotifier {
 
   Future<void> _fetchSchemesSafe() async {
     _schemesChanged = false;
+    final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+    // Independent requests: start both, but apply applications only if schemes succeeded (as before).
+    final appFuture = ApiService().fetchMySchemeApplications(fId).then<dynamic>((v) => v).catchError((_) => null);
     try {
       final schemeRes = await ApiService().fetchLiveGovtSchemes();
       if (schemeRes is List) {
@@ -496,8 +555,7 @@ class FarmerState extends ChangeNotifier {
           _schemesChanged = true;
         }
       }
-      final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
-      final appRes = await ApiService().fetchMySchemeApplications(fId);
+      final appRes = await appFuture;
       if (appRes is List) {
         final fetchedApps = appRes
             .whereType<Map>()

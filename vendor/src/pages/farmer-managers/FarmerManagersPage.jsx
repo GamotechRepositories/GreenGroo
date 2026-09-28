@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import CopyId from "../../components/ui/CopyId";
@@ -13,17 +13,25 @@ export default function FarmerManagersPage() {
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const requestSeq = useRef(0);
 
   const load = () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
-    vendorApi.getManagers({ q, status: statusFilter })
-      .then((r) => setManagers(r.data))
-      .catch(() => setManagers([]))
-      .finally(() => setLoading(false));
+    vendorApi.getManagers({ q: searchQ, status: statusFilter })
+      .then((r) => { if (seq === requestSeq.current) setManagers(r.data); })
+      .catch(() => { if (seq === requestSeq.current) setManagers([]); })
+      .finally(() => { if (seq === requestSeq.current) setLoading(false); });
   };
 
-  useEffect(() => { load(); }, [q, statusFilter]);
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => { load(); }, [searchQ, statusFilter]);
 
   const handleStatusToggle = async (mgr) => {
     const next = mgr.status === "Active" ? "Inactive" : "Active";

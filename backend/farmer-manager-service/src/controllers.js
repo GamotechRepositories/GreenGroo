@@ -46,6 +46,7 @@ import {
   INSPECTION_LIST_EXCLUDE,
 } from "./listProjections.js";
 import { PAGE_LIMITS, isPaginationRequested, getPageParams, paginatedResponse, containsRegex } from "./pagination.js";
+import { buildVendorDashboard, LOW_STOCK_EXPR } from "./dashboardStats.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -3308,10 +3309,18 @@ export async function updateFarmerLoginStatus(req, res) {
 export async function getFarmerDashboard(req, res) {
   try {
     const { farmerId } = req.params;
-    const [productAgg, orderAgg, earningAgg, recentOrders, lowStockProducts, recentEarnings] = await Promise.all([
+    const [[productFacet], orderAgg, earningAgg, recentOrders, recentEarnings] = await Promise.all([
       FarmerProduct.aggregate([
         { $match: { farmerId } },
-        { $group: { _id: null, totalProducts: { $sum: 1 }, availableStock: { $sum: { $ifNull: ["$stock", 0] } } } },
+        {
+          $facet: {
+            totals: [{ $group: { _id: null, totalProducts: { $sum: 1 }, availableStock: { $sum: { $ifNull: ["$stock", 0] } } } }],
+            lowStock: [
+              { $match: { $expr: LOW_STOCK_EXPR } },
+              { $project: { id: 1, name: 1, stock: 1, lowStockLimit: 1, grades: 1, unit: 1 } },
+            ],
+          },
+        },
       ]),
       FarmerOrder.aggregate([
         { $match: { farmerId } },
@@ -3335,14 +3344,11 @@ export async function getFarmerDashboard(req, res) {
         },
       ]),
       FarmerOrder.find({ farmerId }).sort({ orderDate: -1 }).limit(5).lean(),
-      FarmerProduct.find({ farmerId })
-        .select("id name stock lowStockLimit grades unit")
-        .lean()
-        .then((rows) => rows.filter((p) => Number(p.stock || 0) <= Number(p.lowStockLimit || 10))),
       FarmerEarning.find({ farmerId }).sort({ date: -1 }).limit(5).lean(),
     ]);
 
-    const p = productAgg[0] || { totalProducts: 0, availableStock: 0 };
+    const p = productFacet.totals[0] || { totalProducts: 0, availableStock: 0 };
+    const lowStockProducts = productFacet.lowStock;
     const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0, completedOrders: 0 };
     const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
 
@@ -4998,234 +5004,7 @@ export async function updateVendor(req, res) {
 
 export async function getVendorDashboard(req, res) {
   try {
-    const vendorId = req.user?.vendorId;
-    const range = String(req.query.range || "all").toLowerCase();
-    const customStart = req.query.startDate;
-    const customEnd = req.query.endDate;
-
-    const now = new Date();
-    let filterStart = null;
-    let filterEnd = null;
-
-    if (range === "today") {
-      filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    } else if (range === "yesterday") {
-      const y = new Date(now);
-      y.setDate(y.getDate() - 1);
-      filterStart = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0);
-      filterEnd = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59, 999);
-    } else if (range === "this_week" || range === "week") {
-      const day = now.getDay() || 7;
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - day + 1);
-      filterStart = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 0, 0, 0);
-      filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    } else if (range === "this_month" || range === "month") {
-      filterStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-      filterEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    } else if (range === "this_year" || range === "year") {
-      filterStart = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
-      filterEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else if (range === "custom" && customStart && customEnd) {
-      filterStart = new Date(customStart + "T00:00:00");
-      filterEnd = new Date(customEnd + "T23:59:59.999");
-    }
-
-    const matchesDate = (itemDate) => {
-      if (!filterStart || !filterEnd) return true;
-      if (!itemDate) return true;
-      const t = new Date(itemDate).getTime();
-      return !isNaN(t) && t >= filterStart.getTime() && t <= filterEnd.getTime();
-    };
-
-    const [
-      vendorFarmers,
-      managers,
-      crops,
-      products,
-      harvestOrders,
-      earnings,
-      pickups,
-      drivers,
-      qualityInspections,
-    ] = await Promise.all([
-      Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name status verificationStatus managerId managerName mobile location farmName createdAt").lean(),
-      FarmerManager.find(vendorId ? { $or: [{ vendorId }, { vendorId: { $exists: false } }, { vendorId: null }] } : {}).select("id name status mobile createdAt").lean().catch(() => []),
-      FarmerCrop.find({}).select("id farmerId cropName status sowingDate expectedHarvestDate createdAt").lean().catch(() => []),
-      FarmerProduct.find({}).select("id farmerId name category status stock lowStockLimit grades price createdAt").lean().catch(() => []),
-      FarmerHarvestOrder.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean().catch(() => []),
-      FarmerEarning.find({}).select("farmerId netEarnings status createdAt").lean().catch(() => []),
-      Pickup.find(vendorId ? { vendorId } : {}).select("id pickupNumber status driverName farmerName totalQuantity scheduledDate pickupDate createdAt").lean().catch(() => []),
-      PickupDriver.find(vendorId ? { vendorId } : {}).select("id name status mobile isAvailable verificationStatus createdAt").lean().catch(() => []),
-      QualityInspection.find({}).select("id orderId status result totalGradedKg gradeBreakdown createdAt").lean().catch(() => []),
-    ]);
-
-    let farmers = vendorFarmers;
-    if (!farmers.length) {
-      farmers = await Farmer.find({}).select("id farmerId name status verificationStatus managerId managerName mobile location farmName createdAt").lean();
-    }
-    const farmerMap = new Map();
-    farmers.forEach((f) => {
-      if (f.id) farmerMap.set(f.id, f.name);
-      if (f.farmerId) farmerMap.set(f.farmerId, f.name);
-    });
-
-    const filteredFarmers = filterStart ? farmers.filter((f) => matchesDate(f.createdAt)) : farmers;
-    const filteredManagers = filterStart ? managers.filter((m) => matchesDate(m.createdAt)) : managers;
-    const filteredCrops = filterStart ? crops.filter((c) => matchesDate(c.createdAt || c.sowingDate)) : crops;
-    const filteredProducts = filterStart ? products.filter((p) => matchesDate(p.createdAt)) : products;
-    const filteredOrders = filterStart ? harvestOrders.filter((o) => matchesDate(o.orderDate || o.createdAt)) : harvestOrders;
-    const filteredPickups = filterStart ? pickups.filter((p) => matchesDate(p.scheduledDate || p.pickupDate || p.createdAt)) : pickups;
-    const filteredDrivers = filterStart ? drivers.filter((d) => matchesDate(d.createdAt)) : drivers;
-    const filteredQuality = filterStart ? qualityInspections.filter((q) => matchesDate(q.createdAt)) : qualityInspections;
-    const filteredEarnings = filterStart ? earnings.filter((e) => matchesDate(e.createdAt)) : earnings;
-
-    // Card 1 – Total Farmer Managers
-    const totalManagers = filteredManagers.length;
-    const activeManagers = filteredManagers.filter((m) => m.status === "Active" || m.status === "ACTIVE").length;
-    const inactiveManagers = totalManagers - activeManagers;
-
-    // Card 2 – Total Farmers
-    const totalFarmers = filteredFarmers.length;
-    const activeFarmers = filteredFarmers.filter((f) => f.status === "Active" || f.status === "ACTIVE").length;
-    const farmerApprovalPending = filteredFarmers.filter((f) => ["Pending", "Pending Approval", "SUBMITTED", "pending"].includes(f.status) || f.verificationStatus === "Pending").length;
-    const farmerManagerAssignPending = filteredFarmers.filter((f) => !f.managerId || !f.managerName || f.managerName === "—" || f.managerName === "Unassigned").length;
-
-    // Card 3 – Total Crops
-    const totalCrops = filteredCrops.length;
-    const growingCrops = filteredCrops.filter((c) => ["Growing", "Sowing", "Planned"].includes(c.status)).length;
-    const harvestReadyCrops = filteredCrops.filter((c) => ["READY_FOR_HARVEST", "Ready for Harvest", "Harvested"].includes(c.status)).length;
-
-    // Card 4 – Total Products
-    const totalProducts = filteredProducts.length;
-    const productsApprovalPending = filteredProducts.filter((p) => ["Pending", "Pending Approval", "PENDING_APPROVAL", "SUBMITTED"].includes(p.status)).length;
-    const activeProducts = filteredProducts.filter((p) => ["Active", "Approved", "In Stock"].includes(p.status)).length;
-
-    // Card 5 – Available Inventory
-    const totalInventory = filteredProducts.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
-    const inventoryProductsCount = filteredProducts.length;
-    const lowStockProducts = filteredProducts
-      .filter((p) => Number(p.stock || 0) <= (Number(p.lowStockLimit) || 10))
-      .slice(0, 10)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        farmerName: farmerMap.get(p.farmerId) || "—",
-        stock: p.stock || 0,
-        lowStockLimit: p.lowStockLimit || 10,
-        category: p.category || "General",
-      }));
-    const lowStockCount = filteredProducts.filter((p) => Number(p.stock || 0) <= (Number(p.lowStockLimit) || 10)).length;
-
-    // Card 6 – Total Orders
-    const totalOrders = filteredOrders.length;
-    const pendingOrders = filteredOrders.filter((o) => ["New", "NEW", "Confirmed", "Approved", "Processing", "PREPARING", "ACCEPTED", "Ready for pickup", "READY_FOR_PICKUP"].includes(o.status)).length;
-    const rejectedOrders = filteredOrders.filter((o) => ["Rejected", "REJECTED", "Cancelled", "CANCELLED", "Failed"].includes(o.status)).length;
-    const completedOrders = filteredOrders.filter((o) => ["Completed", "COMPLETED", "GRADE_CONFIRMED", "ORDER_COMPLETED", "Received", "RECEIVED"].includes(o.status)).length;
-    const inProgressOrders = filteredOrders.filter((o) => ["IN_TRANSIT", "ARRIVED", "ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "DISPATCHED"].includes(o.status)).length;
-    const totalOrderValue = filteredOrders.reduce((sum, o) => sum + (Number(o.totalAmount || o.orderValue || o.amount || 0)), 0);
-
-    const recentOrders = filteredOrders.slice(0, 10).map((o) => ({
-      id: o.id || o.orderId,
-      orderNumber: o.orderNumber || o.id || o.orderId,
-      farmerId: o.farmerId,
-      farmerName: farmerMap.get(o.farmerId) || o.farmerName || "—",
-      productName: o.productName || o.cropName || (o.products && o.products[0]?.name) || "—",
-      totalQuantity: o.totalQuantity ?? o.orderedQuantity ?? 0,
-      unit: o.unit || "Kg",
-      totalAmount: o.totalAmount ?? o.orderValue ?? o.amount ?? 0,
-      status: o.status || "New",
-      orderDate: o.orderDate || o.createdAt,
-    }));
-
-    // Card 7 – Total Drivers
-    const totalDrivers = filteredDrivers.length;
-    const activeDrivers = filteredDrivers.filter((d) => d.status === "Active" || d.status === "ACTIVE").length;
-    const driverApprovalPending = filteredDrivers.filter((d) => ["Pending", "Inactive", "Suspended"].includes(d.status) || d.verificationStatus === "Pending").length;
-    const onDutyDrivers = filteredDrivers.filter((d) => d.isAvailable === false || d.status === "On Duty").length;
-
-    // Card 8 – Ready for Pickup
-    const readyPickups = filteredPickups.filter((p) => ["READY_FOR_PICKUP", "READY", "PENDING", "Draft", "Ready for pickup"].includes(p.status)).length;
-    const assignedPickups = filteredPickups.filter((p) => ["DRIVER_ASSIGNED", "PICKUP_SCHEDULED", "DISPATCHED", "ARRIVED", "DRIVER_ARRIVED"].includes(p.status)).length;
-
-    // Card 9 – All Pickups
-    const totalPickups = filteredPickups.length;
-    const incomingPickups = filteredPickups.filter((p) => ["IN_TRANSIT", "PICKED_UP", "PICKUP_CONFIRMED", "On the way to centre"].includes(p.status)).length;
-    const centrePickups = filteredPickups.filter((p) => ["ARRIVED_AT_CENTRE", "COLLECTION_CENTRE_RECEIVED", "RECEIVED_AT_COLLECTION_CENTRE", "UNLOADING", "WEIGHT_CHECK", "RECEIVED", "Received"].includes(p.status)).length;
-    const completedPickups = filteredPickups.filter((p) => ["COMPLETED", "RECEIVED", "Received"].includes(p.status)).length;
-    const transitPickups = incomingPickups;
-
-    // Card 10 – Quality & Grading
-    const totalInspections = filteredQuality.length;
-    const qualityPending = filteredQuality.filter((q) => ["QUALITY_PENDING", "Pending", "PENDING", "SUBMITTED"].includes(q.status)).length;
-    const qualityInProcess = filteredQuality.filter((q) => ["INSPECTION", "Quality Check", "QUALITY_CHECK", "GRADING", "Grading"].includes(q.status)).length;
-    const qualityCompleted = filteredQuality.filter((q) => ["GRADE_CONFIRMED", "ORDER_COMPLETED", "Completed", "COMPLETED", "Received"].includes(q.status)).length;
-
-    const totalEarnings = filteredEarnings.reduce((sum, e) => sum + (Number(e.netEarnings) || 0), 0);
-    const pendingEarnings = filteredEarnings.filter((e) => e.status === "Pending" || e.status === "PAYMENT_PENDING").reduce((sum, e) => sum + (Number(e.netEarnings) || 0), 0);
-    const paidEarnings = filteredEarnings.filter((e) => e.status === "Paid" || e.status === "PAID" || e.status === "PAYMENT_COMPLETED").reduce((sum, e) => sum + (Number(e.netEarnings) || 0), 0);
-
-    let gradeA = 0, gradeB = 0, gradeC = 0, rejected = 0;
-    filteredProducts.forEach((p) => {
-      if (Array.isArray(p.grades)) {
-        p.grades.forEach((g) => {
-          const qty = Number(g.quantity || g.stock || 0);
-          const lbl = String(g.label || g.name || g.grade || "").toUpperCase();
-          if (lbl.includes("A")) gradeA += qty;
-          else if (lbl.includes("B")) gradeB += qty;
-          else if (lbl.includes("C")) gradeC += qty;
-          else if (lbl.includes("REJECT")) rejected += qty;
-        });
-      }
-    });
-
-    res.json({
-      range,
-      totalFarmers,
-      activeFarmers,
-      farmerApprovalPending,
-      farmerManagerAssignPending,
-      totalManagers,
-      activeManagers,
-      inactiveManagers,
-      totalCrops,
-      growingCrops,
-      harvestReadyCrops,
-      totalProducts,
-      productsApprovalPending,
-      activeProducts,
-      totalInventory,
-      inventoryProductsCount,
-      lowStockCount,
-      lowStockProducts,
-      totalOrders,
-      pendingOrders,
-      rejectedOrders,
-      completedOrders,
-      inProgressOrders,
-      totalOrderValue,
-      recentOrders,
-      totalDrivers,
-      activeDrivers,
-      driverApprovalPending,
-      onDutyDrivers,
-      readyPickups,
-      assignedPickups,
-      totalPickups,
-      incomingPickups,
-      centrePickups,
-      completedPickups,
-      transitPickups,
-      totalInspections,
-      qualityPending,
-      qualityInProcess,
-      qualityCompleted,
-      totalEarnings,
-      pendingEarnings,
-      paidEarnings,
-      grades: { gradeA, gradeB, gradeC, rejected },
-    });
+    res.json(await buildVendorDashboard(req.user?.vendorId, req.query));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load dashboard" });
   }
@@ -5455,10 +5234,30 @@ export async function getManagerDashboard(req, res) {
       });
     }
 
-    const [productAgg, orderAgg, earningAgg, farmerOrders, harvestRows, lowStockProducts, pendingProductApprovals] = await Promise.all([
+    const [[productFacet], orderAgg, earningAgg, farmerOrders, harvestRows] = await Promise.all([
       FarmerProduct.aggregate([
         { $match: { farmerId: { $in: farmerIds } } },
-        { $group: { _id: null, totalProducts: { $sum: 1 }, totalInventory: { $sum: { $ifNull: ["$stock", 0] } } } },
+        {
+          $facet: {
+            totals: [
+              {
+                $group: {
+                  _id: null,
+                  totalProducts: { $sum: 1 },
+                  totalInventory: { $sum: { $ifNull: ["$stock", 0] } },
+                  pendingProductApprovals: {
+                    $sum: { $cond: [{ $in: ["$status", ["Pending Approval", "Pending", "PENDING_APPROVAL"]] }, 1, 0] },
+                  },
+                },
+              },
+            ],
+            lowStock: [
+              { $match: { $expr: LOW_STOCK_EXPR } },
+              { $limit: 20 },
+              { $project: { farmerId: 1, name: 1, grades: 1, stock: 1, lowStockLimit: 1 } },
+            ],
+          },
+        },
       ]),
       FarmerOrder.aggregate([
         { $match: { farmerId: { $in: farmerIds } } },
@@ -5488,17 +5287,11 @@ export async function getManagerDashboard(req, res) {
         .sort({ createdAt: -1 })
         .limit(20)
         .lean(),
-      FarmerProduct.find({ farmerId: { $in: farmerIds } })
-        .select("farmerId name grades stock lowStockLimit")
-        .lean()
-        .then((rows) => rows.filter((p) => Number(p.stock || 0) <= Number(p.lowStockLimit || 10)).slice(0, 20)),
-      FarmerProduct.countDocuments({
-        farmerId: { $in: farmerIds },
-        status: { $in: ["Pending Approval", "Pending", "PENDING_APPROVAL"] },
-      }),
     ]);
 
-    const p = productAgg[0] || { totalProducts: 0, totalInventory: 0 };
+    const p = productFacet.totals[0] || { totalProducts: 0, totalInventory: 0, pendingProductApprovals: 0 };
+    const { pendingProductApprovals } = p;
+    const lowStockProducts = productFacet.lowStock;
     const o = orderAgg[0] || { totalOrders: 0, pendingOrders: 0 };
     const e = earningAgg[0] || { totalEarnings: 0, pendingEarnings: 0 };
     const named = (ord) => ({
