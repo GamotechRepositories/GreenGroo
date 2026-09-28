@@ -309,8 +309,8 @@ class _FloatingNavTab extends StatelessWidget {
           iconWidget,
           if (badgeCount > 0)
             Positioned(
-              right: -7,
-              top: -5,
+              right: -6,
+              top: -4,
               child: _CartCountBadge(count: badgeCount),
             ),
         ],

@@ -138,13 +138,24 @@ connectDB("server").then(async () => {
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();
   try {
-    const { getFirebaseAdmin } = await import("./legacy/config/firebaseAdmin.js");
+    const { getFirebaseAdmin, getCustomerFirebaseAdmin } = await import(
+      "./legacy/config/firebaseAdmin.js"
+    );
     const appFb = getFirebaseAdmin();
     if (appFb) {
-      console.log("[Firebase] Admin ready — push notifications enabled.");
+      console.log("[Firebase Delivery] Admin ready — delivery push notifications enabled.");
     } else {
       console.warn(
-        "[Firebase] Admin not configured — put bulkserviceAccount.json in backend/legacy/config/ (top pushes disabled; inbox still works)."
+        "[Firebase Delivery] Admin not configured — put bulkserviceAccount.json in backend/legacy/config/ or set FIREBASE_* env vars."
+      );
+    }
+
+    const customerFb = getCustomerFirebaseAdmin();
+    if (customerFb) {
+      console.log("[Firebase Customer] Admin ready — customer push notifications enabled.");
+    } else {
+      console.warn(
+        "[Firebase Customer] Admin not configured — set CUSTOMER_FIREBASE_* env vars or put customerServiceAccount.json in backend/legacy/config/."
       );
     }
   } catch (err) {

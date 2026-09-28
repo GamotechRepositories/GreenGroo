@@ -47,7 +47,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       assetIcon: 'assets/images/categoriesIcon (1).png',
     ),
     FlipkartNavItem(
-      label: 'Shop',
+      label: 'Cart',
       icon: Icons.shopping_bag_outlined,
       activeIcon: Icons.shopping_bag_rounded,
       assetIcon: 'assets/images/cart.png',

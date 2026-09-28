@@ -14,7 +14,6 @@ import '../../core/utils/currency_formatter.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
-import '../../features/home/home_providers.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/address.dart';
@@ -27,7 +26,6 @@ import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
-import '../../widgets/product/cart_add_button.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -189,8 +187,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final addresses = ref.watch(addressControllerProvider.select((s) => s.addresses));
     final activeAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
 
-    final recommendedProducts = ref.watch(homeDealsProvider).value ?? const [];
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
       appBar: PreferredSize(
@@ -258,11 +254,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 const _GiftingCard(),
                 const SizedBox(height: 16),
 
-                // 4. "You might also like" Recommendation Carousel
-                if (recommendedProducts.isNotEmpty) ...[
-                  _YouMightAlsoLikeSection(products: recommendedProducts),
-                  const SizedBox(height: 16),
-                ],
+
 
                 // Important Store Notices
                 if (storeSettings != null) ...[
@@ -774,183 +766,6 @@ class _GiftingCard extends StatelessWidget {
             child: const Text(
               'Select',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- 4. "You might also like" Carousel ---
-class _YouMightAlsoLikeSection extends StatelessWidget {
-  const _YouMightAlsoLikeSection({required this.products});
-
-  final List<Product> products;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text(
-            'You might also like',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF1F2937),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 220,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: products.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return _RecommendationProductCard(product: product);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecommendationProductCard extends ConsumerWidget {
-  const _RecommendationProductCard({required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final image = product.productImages.isNotEmpty ? product.productImages.first : null;
-    final hasDiscount = product.discountedPercent > 0;
-
-    return Container(
-      width: 140,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                height: 90,
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                  child: image != null
-                      ? AppNetworkImage(
-                          imageUrl: image,
-                          fit: BoxFit.contain,
-                          width: 140,
-                          height: 90,
-                        )
-                      : const Icon(Icons.image_outlined, color: Colors.grey),
-                ),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: () => ref
-                      .read(wishlistControllerProvider.notifier)
-                      .toggleWishlist(product),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      size: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '250 g',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    CartAddButton(product: product),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      formatInr(product.discountedPrice),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
-                    if (hasDiscount) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        formatInr(product.price),
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          color: Colors.grey,
-                          decoration: TextDecoration.lineThrough,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                if (hasDiscount) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    '${product.discountedPercent}% OFF on MRP',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF2563EB),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF374151),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

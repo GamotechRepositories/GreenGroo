@@ -115,6 +115,11 @@ class CartController extends Notifier<CartState> {
       }
     });
 
+    final auth = ref.read(authControllerProvider);
+    if (auth.isLoggedIn && !auth.loading) {
+      Future.microtask(() => loadCart(silent: true));
+    }
+
     return const CartState();
   }
 

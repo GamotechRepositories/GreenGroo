@@ -133,7 +133,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     if (orders.isEmpty) {
       return RefreshableBody(
         onRefresh: _loadOrders,
-        child: _EmptyOrders(onBrowse: () => context.go(RoutePaths.product)),
+        child: _EmptyOrders(onBrowse: () => context.go(RoutePaths.home)),
       );
     }
 
@@ -351,12 +351,12 @@ class _EmptyOrders extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text(
-                'No orders yet',
+                'No orders yet!',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
               const SizedBox(height: 8),
               const Text(
-                "You haven't placed any orders yet. Browse products and checkout to see them here.",
+                "You haven't placed any orders yet. Order something fresh today!",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textSecondary, height: 1.4),
               ),
@@ -369,7 +369,7 @@ class _EmptyOrders extends StatelessWidget {
                     backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Browse Products'),
+                  child: const Text('Go to Home'),
                 ),
               ),
             ],

@@ -1,6 +1,6 @@
 import User from "../models/user.js";
 import Notification from "../models/Notification.js";
-import { getFirebaseMessaging } from "../config/firebaseAdmin.js";
+import { getCustomerFirebaseMessaging } from "../config/firebaseAdmin.js";
 
 const ORDERS_CHANNEL_ID = "orders";
 
@@ -82,20 +82,12 @@ async function handleMessagingError(error, userId) {
 
 export async function sendToToken(token, { title, body, data = {} }) {
   if (!isValidFcmToken(token)) {
-    return {
-      success: false,
-      error: "Invalid FCM token",
-      skipped: true,
-    };
+    return { success: false, error: "Invalid FCM token", skipped: true };
   }
 
-  const messaging = getFirebaseMessaging();
+  const messaging = getCustomerFirebaseMessaging();
   if (!messaging) {
-    return {
-      success: false,
-      error: "Firebase messaging is not configured",
-      skipped: true,
-    };
+    return { success: false, error: "Customer Firebase messaging is not configured", skipped: true };
   }
 
   try {
@@ -132,21 +124,16 @@ export async function sendToMultipleTokens(tokens, { title, body, data = {} }) {
   const validTokens = [...new Set(tokens.filter(isValidFcmToken).map((token) => token.trim()))];
 
   if (!validTokens.length) {
-    return {
-      success: false,
-      successCount: 0,
-      failureCount: 0,
-      error: "No valid FCM tokens provided",
-    };
+    return { success: false, successCount: 0, failureCount: 0, error: "No valid FCM tokens provided" };
   }
 
-  const messaging = getFirebaseMessaging();
+  const messaging = getCustomerFirebaseMessaging();
   if (!messaging) {
     return {
       success: false,
       successCount: 0,
       failureCount: validTokens.length,
-      error: "Firebase messaging is not configured",
+      error: "Customer Firebase messaging is not configured",
     };
   }
 

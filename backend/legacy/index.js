@@ -35,7 +35,7 @@ import adminNotificationRoutes from "./routes/adminNotificationRoutes.js";
 import testFcmRoutes from "./routes/testFcmRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
-import { getFirebaseAdmin } from "./config/firebaseAdmin.js";
+import { getFirebaseAdmin, getCustomerFirebaseAdmin } from "./config/firebaseAdmin.js";
 
 const app = express();
 // Default 5001 — macOS AirPlay Receiver often occupies port 5000.
@@ -101,6 +101,7 @@ connectDB().then(async () => {
 
   try {
     getFirebaseAdmin();
+    getCustomerFirebaseAdmin();
   } catch (error) {
     console.warn("Firebase Admin startup warning:", error.message);
   }

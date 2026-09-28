@@ -3,7 +3,7 @@ plugins {
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
     // Enable after adding android/app/google-services.json:
-    // id("com.google.gms.google-services")
+    id("com.google.gms.google-services")
 }
 
 import java.util.Properties

@@ -44,6 +44,8 @@ class PushNotificationPayload {
 
   Map<String, dynamic> toNavigationMap() {
     return {
+      // Spread data first so explicit fields below take priority.
+      ...data,
       'title': title ?? '',
       'body': body ?? '',
       'type': type ?? '',
@@ -51,7 +53,6 @@ class PushNotificationPayload {
       'offerId': offerId ?? '',
       'notificationId': notificationId ?? '',
       'messageId': messageId ?? '',
-      ...data,
     };
   }
 }
