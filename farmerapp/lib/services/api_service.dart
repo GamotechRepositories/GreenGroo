@@ -8,7 +8,15 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  String _baseUrl = 'https://api.greengrocc.com';
+  static const List<String> candidateHosts = [
+    'http://192.168.0.102:5001',
+    'http://10.0.2.2:5001',
+    'http://localhost:5001',
+    'http://127.0.0.1:5001',
+    'https://api.greengrocc.com',
+  ];
+
+  String _baseUrl = 'http://192.168.0.102:5001';
   String? _token;
   final http.Client _client = http.Client();
 
@@ -16,6 +24,7 @@ class ApiService {
   String? get token => _token;
 
   Future<void> init() async {
+    String? envUrl;
     // 1. Try reading .env asset
     try {
       final envString = await rootBundle.loadString('.env');
@@ -28,15 +37,14 @@ class ApiService {
 
         if (key == 'VITE_API_URL' || key == 'API_BASE_URL' || key == 'API_URL') {
           if (value.isNotEmpty) {
-            _baseUrl = value.replaceAll(RegExp(r'/+$'), ''); // strip trailing slashes
+            envUrl = value.replaceAll(RegExp(r'/+$'), '');
+            _baseUrl = envUrl;
           }
         }
       }
-    } catch (_) {
-      // .env not bundled or error reading
-    }
+    } catch (_) {}
 
-    // 2. Load stored token
+    // 2. Load stored token & custom URL
     try {
       final prefs = await SharedPreferences.getInstance();
       _token = prefs.getString('farmer_jwt_token');
@@ -45,6 +53,23 @@ class ApiService {
         _baseUrl = customUrl.replaceAll(RegExp(r'/+$'), '');
       }
     } catch (_) {}
+
+    // 3. Fast auto-probe for the active reachable host
+    final probeList = [
+      if (envUrl != null && envUrl.isNotEmpty) envUrl,
+      _baseUrl,
+      ...candidateHosts,
+    ];
+
+    for (final host in probeList.toSet()) {
+      try {
+        final res = await _client.get(Uri.parse('$host/health')).timeout(const Duration(milliseconds: 1500));
+        if (res.statusCode == 200) {
+          _baseUrl = host;
+          break;
+        }
+      } catch (_) {}
+    }
   }
 
   void setBaseUrl(String url) async {
@@ -74,26 +99,70 @@ class ApiService {
     return map;
   }
 
-  Future<dynamic> get(String endpoint, {Duration timeout = const Duration(seconds: 5)}) async {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await _client.get(uri, headers: _headers).timeout(timeout);
-    return _handleResponse(response);
+  Future<dynamic> get(String endpoint, {Duration timeout = const Duration(seconds: 15)}) async {
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response = await _client.get(uri, headers: _headers).timeout(timeout);
+      return _handleResponse(response);
+    } catch (e) {
+      // If primary failed, try finding a working candidate
+      for (final host in candidateHosts) {
+        if (host == _baseUrl) continue;
+        try {
+          final uri = Uri.parse('$host$endpoint');
+          final response = await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 6));
+          _baseUrl = host;
+          return _handleResponse(response);
+        } catch (_) {}
+      }
+      rethrow;
+    }
   }
 
   Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await _client
-        .post(uri, headers: _headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 5));
-    return _handleResponse(response);
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response = await _client
+          .post(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      for (final host in candidateHosts) {
+        if (host == _baseUrl) continue;
+        try {
+          final uri = Uri.parse('$host$endpoint');
+          final response = await _client
+              .post(uri, headers: _headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 6));
+          _baseUrl = host;
+          return _handleResponse(response);
+        } catch (_) {}
+      }
+      rethrow;
+    }
   }
 
   Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    final response = await _client
-        .put(uri, headers: _headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 5));
-    return _handleResponse(response);
+    try {
+      final uri = Uri.parse('$_baseUrl$endpoint');
+      final response = await _client
+          .put(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      for (final host in candidateHosts) {
+        if (host == _baseUrl) continue;
+        try {
+          final uri = Uri.parse('$host$endpoint');
+          final response = await _client
+              .put(uri, headers: _headers, body: jsonEncode(body))
+              .timeout(const Duration(seconds: 6));
+          _baseUrl = host;
+          return _handleResponse(response);
+        } catch (_) {}
+      }
+      rethrow;
+    }
   }
 
   dynamic _handleResponse(http.Response response) {
@@ -118,18 +187,20 @@ class ApiService {
 
   Future<bool> checkHealth() async {
     try {
-      final res = await _client.get(Uri.parse('$_baseUrl/health')).timeout(const Duration(milliseconds: 1500));
+      final res = await _client.get(Uri.parse('$_baseUrl/health')).timeout(const Duration(milliseconds: 2000));
       if (res.statusCode == 200) return true;
     } catch (_) {}
 
-    // Fallback attempt: if on USB with adb reverse
-    try {
-      final localRes = await _client.get(Uri.parse('http://localhost:5001/health')).timeout(const Duration(milliseconds: 1200));
-      if (localRes.statusCode == 200) {
-        _baseUrl = 'http://localhost:5001';
-        return true;
-      }
-    } catch (_) {}
+    for (final host in candidateHosts) {
+      if (host == _baseUrl) continue;
+      try {
+        final res = await _client.get(Uri.parse('$host/health')).timeout(const Duration(milliseconds: 1500));
+        if (res.statusCode == 200) {
+          _baseUrl = host;
+          return true;
+        }
+      } catch (_) {}
+    }
 
     return false;
   }
@@ -175,6 +246,34 @@ class ApiService {
       return await get('/api/farmers/me');
     } catch (_) {
       return await get('/api/farmers/$farmerId');
+    }
+  }
+
+  Future<dynamic> updateFarmerProfile(String farmerId, Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmers/me/profile', body);
+    } catch (_) {
+      try {
+        return await put('/api/farmers/$farmerId', body);
+      } catch (_) {
+        return await put('/api/farmer/$farmerId', body);
+      }
+    }
+  }
+
+  Future<dynamic> updateFarmerFarm(Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmers/me/farm', body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<dynamic> updateFarmerFarmLocation(Map<String, dynamic> body) async {
+    try {
+      return await put('/api/farmers/me/farm-location', body);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -239,6 +338,19 @@ class ApiService {
       if (res is List) return res;
     } catch (_) {}
     return [];
+  }
+
+  Future<dynamic> fetchMySchemeApplications(String farmerId) async {
+    try {
+      final res = await get('/api/admin-ops/govt-schemes/applications/mine?farmerId=$farmerId');
+      if (res is Map && res['data'] is List) return res['data'];
+      if (res is List) return res;
+    } catch (_) {}
+    return [];
+  }
+
+  Future<dynamic> applyGovtScheme(Map<String, dynamic> body) async {
+    return post('/api/admin-ops/govt-schemes/apply', body);
   }
 
   Future<dynamic> uploadDocument(String farmerId, Map<String, dynamic> body) async {

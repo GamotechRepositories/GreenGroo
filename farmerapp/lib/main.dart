@@ -6,6 +6,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/documents/documents_screen.dart';
 import 'services/farmer_state.dart';
 import 'services/api_service.dart';
+import 'services/app_language.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -22,6 +23,7 @@ void main() async {
     ),
   );
   await ApiService().init();
+  await AppLanguage().init();
   await FarmerState().initPreferences();
 
   // Listen for real-time document verification notifications from vendor
@@ -88,13 +90,18 @@ class FarmerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'GreenGrocc Farmer',
-      debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: rootScaffoldMessengerKey,
-      navigatorKey: rootNavigatorKey,
-      theme: AppTheme.lightTheme,
-      home: const _SessionGate(),
+    return ListenableBuilder(
+      listenable: AppLanguage(),
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'GreenGrocc Farmer',
+          debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
+          navigatorKey: rootNavigatorKey,
+          theme: AppTheme.lightTheme,
+          home: const _SessionGate(),
+        );
+      },
     );
   }
 }

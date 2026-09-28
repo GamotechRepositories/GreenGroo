@@ -9,6 +9,7 @@ import '../../services/farmer_state.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import 'earning_report_screen.dart';
 import '../main_shell.dart';
+import '../../services/app_language.dart';
 
 class EarningsScreen extends StatefulWidget {
   const EarningsScreen({super.key, this.embeddedInShell = false});
@@ -53,8 +54,14 @@ class EarningsScreenState extends State<EarningsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final products = FarmerState().products;
-        final rawOrders = FarmerState().orders;
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.ordersReady);
+        if (isLoading) {
+          return const EarningsSkeletonLoader();
+        }
+
+        final products = state.products;
+        final rawOrders = state.orders;
         final orders = rawOrders.where(_isStatementOrder).toList();
 
         // Build list of workbook sheets
@@ -138,6 +145,7 @@ class EarningsScreenState extends State<EarningsScreen> {
         final bool isSubSheet = _activeSheetId != null && _activeSheetId != 'overview';
         final bool showRouteBack = !widget.embeddedInShell && Navigator.canPop(context);
 
+        final lang = AppLanguage();
         return PopScope(
           // Inside the shell, never veto or pop. A stale canPop check used to call
           // Navigator.pop after the drawer closed and removed the home route.
@@ -154,22 +162,24 @@ class EarningsScreenState extends State<EarningsScreen> {
               leading: isSubSheet
                   ? IconButton(
                       icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
-                      tooltip: 'Back to Overview',
+                      tooltip: lang.tr(mr: 'मागे जा', en: 'Back to Overview'),
                       onPressed: _showOverview,
                     )
                   : (showRouteBack
                       ? IconButton(
                           icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
-                          tooltip: 'Back',
+                          tooltip: lang.tr(mr: 'मागे', en: 'Back'),
                           onPressed: () => Navigator.pop(context),
                         )
                       : IconButton(
                           icon: const Icon(Icons.menu, color: Color(0xFF217346)),
-                          tooltip: 'मेनू उघडा (Menu)',
+                          tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
                           onPressed: () => MainShell.openDrawer(context),
                         )),
               title: Text(
-                currentSheet['isOverview'] == true ? 'Earning Statement (उत्पन्न हिशोब)' : 'Sheet · ${currentSheet['title'] ?? 'Produce'}',
+                currentSheet['isOverview'] == true
+                    ? lang.tr(mr: 'उत्पन्न हिशोब', en: 'Earning Statement')
+                    : 'Sheet · ${currentSheet['title'] ?? 'Produce'}',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -185,6 +195,119 @@ class EarningsScreenState extends State<EarningsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 🌟 TOP HERO BANNER WITH EARNINGS BACKGROUND
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Container(
+                      width: double.infinity,
+                      height: 130,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.asset(
+                              'assets/images/earnings_banner_bg.png',
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF166534), Color(0xFF15803D)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Subtle gradient for contrast
+                            Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    stops: const [0.0, 0.55, 1.0],
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.72),
+                                      Colors.black.withValues(alpha: 0.45),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF16A34A),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          lang.tr(mr: '💰 नफा व उत्पन्न', en: '💰 Profit & Earnings'),
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        lang.tr(
+                                          mr: '₹${_formatCurrency(totalRevenue)} एकूण उत्पन्न',
+                                          en: '₹${_formatCurrency(totalRevenue)} Total Revenue',
+                                        ),
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    lang.tr(mr: 'माझे उत्पन्न व हिशोब', en: 'My Earnings & Statement'),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    lang.tr(
+                                      mr: 'पारदर्शक हिशोब, थेट बँक खात्यात वेळेवर जमा!',
+                                      en: 'Transparent accounting, timely direct bank deposits!',
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                   // 1. Title, Subtitle and Action Buttons matching photo
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -694,15 +817,15 @@ class EarningsScreenState extends State<EarningsScreen> {
           children: [
             Icon(Icons.assignment_turned_in_outlined, size: 46, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            const Text(
-              'कोणतीही पूर्ण झालेली ऑर्डर (Completed Order) नाही',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+            Text(
+              AppLanguage().tr(mr: 'कोणतीही पूर्ण झालेली ऑर्डर नाही', en: 'No completed orders yet'),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
-            const Text(
-              'ऑर्डर पूर्ण (Delivered / Graded) झाल्यानंतरच तिचा उत्पन्न हिशोब येथे दिसेल.',
-              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+            Text(
+              AppLanguage().tr(mr: 'ऑर्डर पूर्ण झाल्यानंतरच तिचा उत्पन्न हिशोब येथे दिसेल.', en: 'Earning statement will appear here once orders are completed.'),
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -889,7 +1012,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                             onTap: () {
                               Clipboard.setData(ClipboardData(text: product.productId));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Product ID copied'), duration: Duration(seconds: 1), backgroundColor: Color(0xFF217346)),
+                                SnackBar(content: Text(AppLanguage().tr(mr: 'उत्पादन आयडी कॉपी केला', en: 'Product ID copied')), duration: const Duration(seconds: 1), backgroundColor: const Color(0xFF217346)),
                               );
                             },
                             child: Column(
@@ -951,19 +1074,19 @@ class EarningsScreenState extends State<EarningsScreen> {
                     Container(
                       color: const Color(0xFFE8F0EA),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Expanded(flex: 2, child: Text('Grade', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151)))),
-                          Expanded(flex: 2, child: Center(child: Text('Qty', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
-                          Expanded(flex: 2, child: Center(child: Text('Rate', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
-                          Expanded(flex: 2, child: Center(child: Text('Rejected', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))))),
+                          Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'दर्जा', en: 'Grade'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151)))),
+                          Expanded(flex: 2, child: Center(child: Text(AppLanguage().tr(mr: 'प्रमाण', en: 'Qty'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
+                          Expanded(flex: 2, child: Center(child: Text(AppLanguage().tr(mr: 'दर', en: 'Rate'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF374151))))),
+                          Expanded(flex: 2, child: Center(child: Text(AppLanguage().tr(mr: 'नाकारलेले', en: 'Rejected'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF991B1B))))),
                         ],
                       ),
                     ),
                     const Divider(height: 1, thickness: 1, color: Color(0xFF9CA3AF)),
                     // Grade A
                     _buildGradeTableRow(
-                      'Grade A',
+                      AppLanguage().tr(mr: 'दर्जा A', en: 'Grade A'),
                       '${gradeAQty.toInt()} ${product.unit}',
                       '₹${gradeARate.toInt()}/${product.unit}',
                       '${gradeARejected.toInt()} ${product.unit}',
@@ -973,7 +1096,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                     const Divider(height: 1, thickness: 0.5, color: Color(0xFF9CA3AF)),
                     // Grade B
                     _buildGradeTableRow(
-                      'Grade B',
+                      AppLanguage().tr(mr: 'दर्जा B', en: 'Grade B'),
                       '${gradeBQty.toInt()} ${product.unit}',
                       '₹${gradeBRate.toInt()}/${product.unit}',
                       '${gradeBRejected.toInt()} ${product.unit}',
@@ -983,7 +1106,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                     const Divider(height: 1, thickness: 0.5, color: Color(0xFF9CA3AF)),
                     // Grade C
                     _buildGradeTableRow(
-                      'Grade C',
+                      AppLanguage().tr(mr: 'दर्जा C', en: 'Grade C'),
                       '${gradeCQty.toInt()} ${product.unit}',
                       '₹${gradeCRate.toInt()}/${product.unit}',
                       '${gradeCRejected.toInt()} ${product.unit}',
@@ -1008,7 +1131,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                     Expanded(
                       child: Column(
                         children: [
-                          const Text('Total', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                          Text(AppLanguage().tr(mr: 'एकूण', en: 'Total'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                           const SizedBox(height: 2),
                           Text('₹${_formatCurrency(prodTotal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF217346))),
                         ],
@@ -1018,7 +1141,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                     Expanded(
                       child: Column(
                         children: [
-                          const Text('Deposited', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                          Text(AppLanguage().tr(mr: 'जमा झाले', en: 'Deposited'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                           const SizedBox(height: 2),
                           Text('₹${_formatCurrency(prodDeposited)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
                         ],
@@ -1028,7 +1151,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                     Expanded(
                       child: Column(
                         children: [
-                          const Text('Pending', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                          Text(AppLanguage().tr(mr: 'बाकी', en: 'Pending'), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
                           const SizedBox(height: 2),
                           Text('₹${_formatCurrency(prodPending)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
                         ],
@@ -1052,7 +1175,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     icon: const Icon(Icons.table_chart_outlined, size: 14),
-                    label: Text(openCount > 0 ? 'View Sheet' : 'Open Sheet', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: Text(openCount > 0 ? AppLanguage().tr(mr: 'शीट पहा', en: 'View Sheet') : AppLanguage().tr(mr: 'शीट उघडा', en: 'Open Sheet'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       final pKey = product.productId.isNotEmpty ? product.productId : product.id;
                       setState(() {
@@ -1076,7 +1199,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     icon: const Icon(Icons.add, size: 14),
-                    label: Text(openCount > 0 ? '+ Sheet ${openCount + 1}' : '+ New Sheet', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    label: Text(openCount > 0 ? AppLanguage().tr(mr: '+ शीट ${openCount + 1}', en: '+ Sheet ${openCount + 1}') : AppLanguage().tr(mr: '+ नवीन शीट', en: '+ New Sheet'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                     onPressed: () => _openNewSheetModal(products, prefilledProduct: product, allSheets: allSheets),
                   ),
                 ],
@@ -2385,11 +2508,11 @@ class EarningsScreenState extends State<EarningsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Text('📑', style: TextStyle(fontSize: 16)),
-                            SizedBox(width: 8),
-                            Text('Add / Create New Sheet', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            const Text('📑', style: TextStyle(fontSize: 16)),
+                            const SizedBox(width: 8),
+                            Text(AppLanguage().tr(mr: 'नवीन शीट जोडा / तयार करा', en: 'Add / Create New Sheet'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         IconButton(
@@ -2398,14 +2521,14 @@ class EarningsScreenState extends State<EarningsScreen> {
                         ),
                       ],
                     ),
-                    const Text(
-                      'Create a fresh sheet tab for any crop or produce — previous orders are excluded so you can record only new incoming orders.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    Text(
+                      AppLanguage().tr(mr: 'कोणत्याही पिकासाठी स्वतंत्र शीट टॅब तयार करा — जुन्या ऑर्डर्स वगळून नवीन ऑर्डर्स नोंदवा.', en: 'Create a fresh sheet tab for any crop or produce — previous orders are excluded so you can record only new incoming orders.'),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 14),
 
                     // Select Product
-                    const Text('Select Product / Crop', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                    Text(AppLanguage().tr(mr: 'उत्पादन / पीक निवडा', en: 'Select Product / Crop'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<ProductItem>(
                       initialValue: products.any((p) => p.id == selected?.id)
@@ -2429,12 +2552,12 @@ class EarningsScreenState extends State<EarningsScreen> {
                     const SizedBox(height: 12),
 
                     // Sheet Title
-                    const Text('Sheet Title', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                    Text(AppLanguage().tr(mr: 'शीटचे नाव', en: 'Sheet Title'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                     const SizedBox(height: 4),
                     TextField(
                       controller: titleController,
                       decoration: InputDecoration(
-                        hintText: 'e.g. Tomato - Sept Batch',
+                        hintText: AppLanguage().tr(mr: 'उदा. टोमॅटो - सप्टेंबर बॅच', en: 'e.g. Tomato - Sept Batch'),
                         hintStyle: const TextStyle(fontSize: 11),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -2503,7 +2626,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                             Navigator.pop(ctx);
                           }
                         },
-                        child: const Text('Create Sheet', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        child: Text(AppLanguage().tr(mr: 'शीट तयार करा', en: 'Create Sheet'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

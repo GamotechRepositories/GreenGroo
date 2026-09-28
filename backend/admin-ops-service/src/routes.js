@@ -131,7 +131,20 @@ import {
   createGovtScheme,
   updateGovtScheme,
   deleteGovtScheme,
+  applyGovtScheme,
+  listMyGovtSchemeApplications,
+  listAllGovtSchemeApplications,
+  updateGovtSchemeApplicationStatus,
+  deleteGovtSchemeApplication,
 } from "./govtSchemeControllers.js";
+import {
+  listMarketPrices,
+  listLiveMarketPrices,
+  getMarketPrice,
+  createMarketPrice,
+  updateMarketPrice,
+  deleteMarketPrice,
+} from "./marketPriceControllers.js";
 
 const router = express.Router();
 
@@ -145,6 +158,9 @@ router.get("/hr/vacancies/open", listOpenHrVacancies);
 router.post("/hr/candidates/apply", applyHrCandidate);
 router.get("/policies/live", optionalAuth, listLiveRolePolicies);
 router.get("/govt-schemes/live", optionalAuth, listLiveGovtSchemes);
+router.post("/govt-schemes/apply", optionalAuth, applyGovtScheme);
+router.get("/govt-schemes/applications/mine", optionalAuth, listMyGovtSchemeApplications);
+router.get("/market-prices/live", optionalAuth, listLiveMarketPrices);
 
 router.use(protect, requireAdmin);
 
@@ -154,10 +170,19 @@ router.put("/gift-cards/:id", updateGiftCard);
 router.delete("/gift-cards/:id", deleteGiftCard);
 
 router.get("/govt-schemes", listGovtSchemes);
+router.get("/govt-schemes/applications", listAllGovtSchemeApplications);
+router.put("/govt-schemes/applications/:id/status", updateGovtSchemeApplicationStatus);
+router.delete("/govt-schemes/applications/:id", deleteGovtSchemeApplication);
 router.get("/govt-schemes/:id", getGovtScheme);
 router.post("/govt-schemes", createGovtScheme);
 router.put("/govt-schemes/:id", updateGovtScheme);
 router.delete("/govt-schemes/:id", deleteGovtScheme);
+
+router.get("/market-prices", listMarketPrices);
+router.get("/market-prices/:id", getMarketPrice);
+router.post("/market-prices", createMarketPrice);
+router.put("/market-prices/:id", updateMarketPrice);
+router.delete("/market-prices/:id", deleteMarketPrice);
 
 router.get("/policies/roles", listPolicyRoles);
 router.get("/policies", listRolePolicies);

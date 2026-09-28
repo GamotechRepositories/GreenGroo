@@ -25,6 +25,7 @@ import { seedDefaultCategoriesIfEmpty } from "./product-service/src/controllers/
 import { seedDefaultCouponsIfEmpty } from "./legacy/controllers/couponController.js";
 import { seedDefaultAdminIfEmpty } from "./legacy/controllers/userController.js";
 import rewardRoutes from "./legacy/routes/rewardRoutes.js";
+import storeSettingsRoutes from "./legacy/routes/storeSettingsRoutes.js";
 import { seedDefaultRewardSettingsIfEmpty } from "./legacy/controllers/rewardController.js";
 import { initIncentiveCron } from "./delivery-service/src/services/incentiveCronService.js";
 import { initShiftEndOfflineCron } from "./delivery-service/src/services/shiftEndOfflineService.js";
@@ -114,6 +115,7 @@ for (const { path, router } of allRoutes) {
 app.use("/api/admin/dark-stores", adminDarkStoreRoutes);
 app.use("/api/stores", storeCatalogRoutes);
 app.use("/api/rewards", rewardRoutes);
+app.use("/api/settings", storeSettingsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,15 +1,16 @@
 import { getUnitPriceForQuantity, getVariantStock } from "./productPricing";
 
-export function matchesCartLine(item, productId, variantName = "", colorName = "") {
+export function matchesCartLine(item, productId, variantName = "", colorName = "", preOrderSlot = "") {
   return (
     String(item._id) === String(productId) &&
     (item.variantName || "") === (variantName || "") &&
-    (item.colorName || "") === (colorName || "")
+    (item.colorName || "") === (colorName || "") &&
+    (item.preOrderSlot || "") === (preOrderSlot || "")
   );
 }
 
-export function findCartLine(items, productId, variantName = "", colorName = "") {
-  return items.find((item) => matchesCartLine(item, productId, variantName, colorName)) || null;
+export function findCartLine(items, productId, variantName = "", colorName = "", preOrderSlot = "") {
+  return items.find((item) => matchesCartLine(item, productId, variantName, colorName, preOrderSlot)) || null;
 }
 
 export function mapCartItems(cart) {
@@ -41,6 +42,8 @@ export function mapCartItems(cart) {
         productImages: item.product.productImages,
         stock: getVariantStock(item.product, variantName),
         quantity: item.quantity,
+        preOrderSlot: item.preOrderSlot || "",
+        section: item.product.section,
       };
     });
 }
@@ -61,13 +64,14 @@ function pricingFromLine(item) {
   };
 }
 
-export function buildCartLine(product, quantity, variantName = "", colorName = "") {
+export function buildCartLine(product, quantity, variantName = "", colorName = "", preOrderSlot = "") {
   const qty = Number(quantity) || 0;
 
   return {
     _id: product._id,
     variantName: variantName || "",
     colorName: colorName || "",
+    preOrderSlot: preOrderSlot || "",
     name: product.name,
     brandName: product.brandName,
     price: product.price,
@@ -92,22 +96,23 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
         : product.productImages) || [],
     stock: getVariantStock(product, variantName || ""),
     quantity: qty,
+    section: product.section,
   };
 }
 
-export function removeLine(items, productId, variantName = "", colorName = "") {
-  return items.filter((item) => !matchesCartLine(item, productId, variantName, colorName));
+export function removeLine(items, productId, variantName = "", colorName = "", preOrderSlot = "") {
+  return items.filter((item) => !matchesCartLine(item, productId, variantName, colorName, preOrderSlot));
 }
 
-export function setLineQuantity(items, productId, variantName, colorName, quantity) {
+export function setLineQuantity(items, productId, variantName, colorName, quantity, preOrderSlot = "") {
   const qty = Number(quantity);
 
   if (!Number.isFinite(qty) || qty < 1) {
-    return removeLine(items, productId, variantName, colorName);
+    return removeLine(items, productId, variantName, colorName, preOrderSlot);
   }
 
   return items.map((item) => {
-    if (!matchesCartLine(item, productId, variantName, colorName)) return item;
+    if (!matchesCartLine(item, productId, variantName, colorName, preOrderSlot)) return item;
 
     const pricing = pricingFromLine(item);
     return {
@@ -118,14 +123,14 @@ export function setLineQuantity(items, productId, variantName, colorName, quanti
   });
 }
 
-export function addOrMergeLine(items, product, quantity, variantName = "", colorName = "") {
+export function addOrMergeLine(items, product, quantity, variantName = "", colorName = "", preOrderSlot = "") {
   const qty = Number(quantity);
   if (!Number.isFinite(qty) || qty < 1) return items;
 
-  const existing = findCartLine(items, product._id, variantName, colorName);
+  const existing = findCartLine(items, product._id, variantName, colorName, preOrderSlot);
   if (existing) {
-    return setLineQuantity(items, product._id, variantName, colorName, existing.quantity + qty);
+    return setLineQuantity(items, product._id, variantName, colorName, existing.quantity + qty, preOrderSlot);
   }
 
-  return [...items, buildCartLine(product, qty, variantName, colorName)];
+  return [...items, buildCartLine(product, qty, variantName, colorName, preOrderSlot)];
 }

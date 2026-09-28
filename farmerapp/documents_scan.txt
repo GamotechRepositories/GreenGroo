@@ -1,0 +1,92 @@
+52 [EN]: title: Column(
+55 [EN]: Text(
+56: lang.tr(mr: 'शेतकरी कागदपत्रे', en: 'Farmer Documents'),
+59 [EN]: Text(
+60: lang.tr(mr: 'केवायसी व पडताळणी', en: 'KYC & Verification Status'),
+68: tooltip: lang.tr(mr: 'कागदपत्र अपलोड करा', en: 'Upload Document'),
+79: tooltip: lang.tr(mr: 'ताजे करा', en: 'Refresh'),
+85 [EN]: content: Text(
+87: mr: 'कागदपत्र स्थिती ताजी केली! ✓',
+102: ? const AppLoader(message: 'कागदपत्रे लोड होत आहेत...')
+154 [EN]: Text(
+156: ? 'शेतकरी केवायसी प्रमाणित (100% Verified)'
+158: ? 'व्हेंडर पडताळणी चालू (Vendor Review Pending)'
+160: ? 'काही कागदपत्रे अमान्य आहेत (Action Needed)'
+162: ? 'कागदपत्रे अपलोड केली आहेत (Uploaded)'
+163: : 'केवायसी कागदपत्रे प्रलंबित (Upload Required)'))),
+167 [EN]: Text(
+169: ? 'केवायसी पडताळणीसाठी खालील बटणावर दाबून कागदपत्र अपलोड करा.'
+170: : '${uploadedDocs.length} अपलोड केलेली कागदपत्रे • $approvedCount मंजूर • $pendingCount पडताळणी चालू${rejectedCount > 0 ? ' • $rejectedCount अमान्य' : ''}',
+184 [EN]: Text(
+185: 'अपलोड केलेली कागदपत्रे (${uploadedDocs.length})',
+195: label: const Text('+ नवीन जोडा', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+220 [EN]: Text(
+221: 'आवश्यक कागदपत्रे - अपलोड करा (${pendingDocs.length})',
+282 [EN]: const Text(
+283: 'कागदपत्र निवडा (Select Document)',
+292 [EN]: const Text(
+293: 'अपलोड करण्यासाठी खालीलपैकी कागदपत्राचा प्रकार निवडा:',
+320 [EN]: title: Text(
+324 [EN]: subtitle: Text(
+325: isUploaded ? 'आधीच अपलोड केलेले आहे (${doc.status})' : 'अपलोड करण्यासाठी टॅप करा',
+390: content: Text('व्हिडिओ केवायसी यशस्वीपणे रेकॉर्ड झाली! व्हेंडर पडताळणी प्रलंबित आहे. (Video KYC Submitted ⏳)'),
+404 [EN]: title: 'Upload ${doc.title} (${doc.marathiTitle})',
+405: subtitle: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा',
+413: content: Text('${doc.title} ${isPdf ? 'PDF फाईल' : 'कागदपत्र'} अपलोड झाले! व्हेंडर पडताळणी प्रलंबित आहे. (Vendor Review Pending ⏳)'),
+440: content: Text('व्हिडिओ केवायसी यशस्वीपणे रेकॉर्ड झाली! व्हेंडर पडताळणी प्रलंबित आहे. (Video KYC Submitted ⏳)'),
+454 [EN]: title: 'Upload ${doc.title} (${doc.marathiTitle})',
+455: subtitle: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा',
+464: content: Text('${doc.title} ${isPdf ? 'PDF फाईल' : 'कागदपत्र'} अपलोड झाले! व्हेंडर पडताळणी प्रलंबित आहे. (Vendor Review Pending ⏳)'),
+478: content: Text('कागदपत्र अपलोड केलेले नाही! (Document not uploaded)'),
+513: content: Text('${doc.title} डाउनलोड / सेव्ह पर्याय उघडला! ✓'),
+522: content: Text('डाउनलोड करताना त्रुटी: $e'),
+552 [EN]: title: Column(
+555 [EN]: Text(
+559 [EN]: Text(
+573: tooltip: 'Re-upload / बदला',
+605 [EN]: Text(
+611 [EN]: Text(
+622 [EN]: child: Text(
+623: doc.status == 'approved' ? 'Approved (व्हेंडर मंजूर ✓)' : 'Under Review (व्हेंडर पडताळणी चालू ⏳)',
+643 [EN]: label: const Text('Download / Share Video', style: TextStyle(fontWeight: FontWeight.bold)),
+674 [EN]: Text(
+680 [EN]: Text(
+691 [EN]: child: Text(
+692: doc.status == 'approved' ? 'Approved (व्हेंडर मंजूर ✓)' : 'Under Review (व्हेंडर पडताळणी चालू ⏳)',
+712 [EN]: label: const Text('Download / Share PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+746 [EN]: title: Row(
+771 [EN]: Text(doc.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+772 [EN]: Text(doc.marathiTitle, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+802 [EN]: Text(
+807 [EN]: Text(
+808: 'व्हिडिओ पाहण्यासाठी टॅप करा (Tap to view video)',
+842: Text('मोठा फोटो पाहण्यासाठी टॅप करा (Zoom)', style: TextStyle(color: Colors.white, fontSize: 10)),
+864 [EN]: Text(
+870: const Text('PDF Document (कागदपत्र फाईल)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+888: Text('अजून कोणतेही कागदपत्र अपलोड केलेले नाही.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+897: const Text('Status (स्थिती): ', style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+899 [EN]: child: Text(
+901: ? 'Approved by Vendor (व्हेंडर मंजूर ✓)'
+903: ? 'Under Review (व्हेंडर पडताळणी चालू ⏳)'
+904: : (doc.status == 'rejected' ? 'Rejected by Vendor (व्हेंडर अमान्य ❌)' : 'Not Uploaded (अपलोड बाकी ⚠️)')),
+935 [EN]: child: Text(
+936: 'अमान्य कारण (Rejection Reason):\n${doc.rejectionReason}',
+953: child: const Text('Close (बंद)', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+984: label: Text(hasFile ? 'बदला' : 'Upload', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+1037: statusLabel = 'Approved (व्हेंडर मंजूर ✓)';
+1041: statusLabel = 'Under Review (व्हेंडर पडताळणी चालू ⏳)';
+1045: statusLabel = 'Rejected (व्हेंडर अमान्य ❌)';
+1049: statusLabel = 'Not Uploaded (अपलोड करा ⚠️)';
+1142 [EN]: child: Text(
+1156 [EN]: child: const Text('PDF', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+1161 [EN]: Text(
+1169 [EN]: child: Text(statusLabel, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: badgeText)),
+1173 [EN]: Text(
+1174: 'कारण: ${doc.rejectionReason}',
+1196: label: const Text('पहा', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+1221 [EN]: label: Text(
+1223: ? (isNotUploaded ? 'व्हिडिओ केवायसी' : (isApproved ? 'पुन्हा केवायसी' : 'अपडेट केवायसी'))
+1224: : (isNotUploaded ? 'अपलोड' : (isApproved ? 'बदला' : 'अपडेट')),
+1276 [EN]: Text(
+1282 [EN]: Text(
+1299: label: Text(isVideo ? 'केवायसी' : 'Upload', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),

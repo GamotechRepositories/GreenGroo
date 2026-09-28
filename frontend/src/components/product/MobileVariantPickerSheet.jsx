@@ -35,7 +35,7 @@ function resolveColorForVariant(product, variant, variantName) {
   return getAvailableColors(product, variantName)[0]?.name?.trim() || "";
 }
 
-function VariantRow({ product, variant, image, onClose }) {
+function VariantRow({ product, variant, image, onClose, preOrderSlot }) {
   const { items, addToCart, incrementCartItem, decrementCartItem } = useCart();
   const { openAuthModal } = useAuth();
   const [adding, setAdding] = useState(false);
@@ -69,6 +69,7 @@ function VariantRow({ product, variant, image, onClose }) {
         variantName,
         colorName,
         flySource,
+        preOrderSlot,
       });
 
       if (result?.requiresLogin) {
@@ -92,6 +93,7 @@ function VariantRow({ product, variant, image, onClose }) {
       variantName: cartLine.variantName || "",
       colorName: cartLine.colorName || "",
       step,
+      preOrderSlot: cartLine.preOrderSlot || "",
     });
   };
 
@@ -102,6 +104,7 @@ function VariantRow({ product, variant, image, onClose }) {
       productId: cartLine._id,
       variantName: cartLine.variantName || "",
       colorName: cartLine.colorName || "",
+      preOrderSlot: cartLine.preOrderSlot || "",
       resolveNextQuantity: (currentQty) =>
         getDecreasedCartQuantityForProduct(product, currentQty, cartLine.variantName || ""),
     });
@@ -170,7 +173,7 @@ function VariantRow({ product, variant, image, onClose }) {
   );
 }
 
-function MobileVariantPickerSheet({ product, open, onClose }) {
+function MobileVariantPickerSheet({ product, open, onClose, preOrderSlot = "" }) {
   useEffect(() => {
     if (!open) return undefined;
 
@@ -233,6 +236,7 @@ function MobileVariantPickerSheet({ product, open, onClose }) {
                 variant={variant}
                 image={image}
                 onClose={onClose}
+                preOrderSlot={preOrderSlot}
               />
             ))}
           </div>

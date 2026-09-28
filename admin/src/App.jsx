@@ -11,6 +11,8 @@ import Farmer360Page from './pages/erp/Farmer360Page';
 import LocationMastersPage from './pages/erp/LocationMastersPage';
 import ErpListPage from './pages/erp/ErpListPage';
 import Products from './pages/Products';
+import MarketPricesPage from './pages/ops/MarketPricesPage';
+import PreOrderSlots from './pages/PreOrderSlots';
 import DarkStores from './pages/DarkStores';
 import Coupons from './pages/Coupons';
 import RewardPoints from './pages/RewardPoints';
@@ -77,6 +79,8 @@ export default function App() {
               <Route path="erp/farmers/:id" element={<Farmer360Page />} />
               <Route path="erp/:resource" element={<ErpListPage />} />
               <Route path="products" element={<Products />} />
+              <Route path="market-prices" element={<MarketPricesPage />} />
+              <Route path="pre-order-slots" element={<PreOrderSlots />} />
               <Route path="inventory" element={<InventoryHubPage />} />
               <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />

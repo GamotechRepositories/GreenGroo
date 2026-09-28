@@ -1,0 +1,2 @@
+d:\GreenGroo\farmerapp\lib\screens\products\product_detail_screen.dart:655: labelText: AppLanguage().tr(mr: 'मूळ दर / ${_product.unit} (₹)', en: 'Base Price / ${_product.unit} (₹)'),
+d:\GreenGroo\farmerapp\lib\screens\products\product_detail_screen.dart:1012: label: Text(AppLanguage().tr(mr: 'लाईव्ह फोटो काढा / अपलोड करा', en: 'Take Live Photo / Upload'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

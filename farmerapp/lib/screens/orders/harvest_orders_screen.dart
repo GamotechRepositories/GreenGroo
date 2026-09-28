@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
+import '../../services/app_language.dart';
 import '../../models/farmer_models.dart';
 import 'order_detail_screen.dart';
 
@@ -108,6 +109,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
         final totalHarvestQty = filteredList.fold<double>(0.0, (sum, o) => sum + (o.quantity > 0 ? o.quantity : o.orderedQuantity));
         final totalHarvestValue = filteredList.fold<double>(0.0, (sum, o) => sum + (o.totalAmount > 0 ? o.totalAmount : (o.quantity * o.rate)));
 
+        final lang = AppLanguage();
         return Scaffold(
           backgroundColor: const Color(0xFFF9FAFB),
           appBar: AppBar(
@@ -117,16 +119,16 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
               icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
               onPressed: () => Navigator.pop(context),
             ),
-            title: const Column(
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Harvest Orders (काढणी ऑर्डर्स)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+                  lang.tr(mr: 'काढणी ऑर्डर्स', en: 'Harvest Orders'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
                 ),
                 Text(
-                  'All Completed Orders & Harvest Records',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  lang.tr(mr: 'पूर्ण झालेल्या ऑर्डर्स व काढणी नोंदी', en: 'All Completed Orders & Harvest Records'),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
                 ),
               ],
             ),
@@ -150,13 +152,13 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'COMPLETED ORDERS',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.3),
+                            Text(
+                              lang.tr(mr: 'पूर्ण ऑर्डर्स', en: 'COMPLETED ORDERS'),
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.3),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${filteredList.length} Orders',
+                              lang.tr(mr: '${filteredList.length} ऑर्डर्स', en: '${filteredList.length} Orders'),
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
                             ),
                           ],
@@ -168,9 +170,9 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'TOTAL HARVEST',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.3),
+                            Text(
+                              lang.tr(mr: 'एकूण काढणी', en: 'TOTAL HARVEST'),
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.3),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -186,9 +188,9 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'TOTAL VALUE',
-                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.3),
+                            Text(
+                              lang.tr(mr: 'एकूण रक्कम', en: 'TOTAL VALUE'),
+                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF065F46), letterSpacing: 0.3),
                             ),
                             const SizedBox(height: 2),
                             Text(

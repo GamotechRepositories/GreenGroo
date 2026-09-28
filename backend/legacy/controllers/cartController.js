@@ -21,10 +21,11 @@ const normalizeVariantName = (value) =>
 const normalizeColorName = (value) =>
   typeof value === "string" ? value.trim() : "";
 
-const matchesCartItem = (item, productId, variantName, colorName) =>
+const matchesCartItem = (item, productId, variantName, colorName, preOrderSlot) =>
   String(item?.product || "") === String(productId || "") &&
   normalizeVariantName(item.variantName) === normalizeVariantName(variantName) &&
-  normalizeColorName(item.colorName) === normalizeColorName(colorName);
+  normalizeColorName(item.colorName) === normalizeColorName(colorName) &&
+  (item.preOrderSlot || "") === (preOrderSlot || "");
 
 function validateCartQuantity(product, variantName, qty) {
   const moq = getMinOrderQuantity(product, variantName);
@@ -89,7 +90,7 @@ export const getCart = async (req, res) => {
 
 export const addToCart = async (req, res) => {
   try {
-    const { productId, quantity, variantName, colorName } = req.body;
+    const { productId, quantity, variantName, colorName, preOrderSlot } = req.body;
     const normalizedVariantName = normalizeVariantName(variantName);
     const normalizedColorName = normalizeColorName(colorName);
 
@@ -201,6 +202,7 @@ export const addToCart = async (req, res) => {
               quantity: qty,
               variantName: normalizedVariantName,
               colorName: resolvedColorName,
+              preOrderSlot: preOrderSlot || "",
             },
           ],
         });
@@ -211,7 +213,7 @@ export const addToCart = async (req, res) => {
 
           cart.email = getUserContactEmail(req.user);
           const existingIndex = cart.items.findIndex((item) =>
-            matchesCartItem(item, productId, normalizedVariantName, resolvedColorName)
+            matchesCartItem(item, productId, normalizedVariantName, resolvedColorName, preOrderSlot)
           );
 
           if (existingIndex >= 0) {
@@ -222,6 +224,7 @@ export const addToCart = async (req, res) => {
               quantity: qty,
               variantName: normalizedVariantName,
               colorName: resolvedColorName,
+              preOrderSlot: preOrderSlot || "",
             });
           }
 
@@ -233,7 +236,7 @@ export const addToCart = async (req, res) => {
     } else {
       cart.email = getUserContactEmail(req.user);
       const existingIndex = cart.items.findIndex((item) =>
-        matchesCartItem(item, productId, normalizedVariantName, resolvedColorName)
+        matchesCartItem(item, productId, normalizedVariantName, resolvedColorName, preOrderSlot)
       );
 
       if (existingIndex >= 0) {

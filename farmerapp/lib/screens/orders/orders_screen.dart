@@ -8,6 +8,7 @@ import 'harvest_orders_screen.dart';
 import 'order_detail_screen.dart';
 import 'order_prepare_screen.dart';
 import '../main_shell.dart';
+import '../../services/app_language.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -74,11 +75,18 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allOrders = FarmerState().orders.where((order) {
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.ordersReady);
+        if (isLoading) {
+          return const OrdersSkeletonLoader();
+        }
+
+        final allOrders = state.orders.where((order) {
           final status = order.status.trim().toUpperCase();
           return status != 'DELETED' && status != 'DELETED_ORDER';
         }).toList();
 
+        final lang = AppLanguage();
         return Scaffold(
           backgroundColor: const Color(0xFFF9FAFB),
           appBar: AppBar(
@@ -86,19 +94,19 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
             elevation: 0.5,
             leading: IconButton(
               icon: const Icon(Icons.menu, color: Color(0xFF217346)),
-              tooltip: 'मेनू उघडा (Menu)',
+              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
               onPressed: () => MainShell.openDrawer(context),
             ),
-            title: const Text(
-              'Farmer Orders (ऑर्डर्स)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
+            title: Text(
+              lang.tr(mr: 'शेतकरी ऑर्डर्स', en: 'Farmer Orders'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
             ),
             actions: [
               TextButton.icon(
                 icon: const Icon(Icons.assignment_outlined, size: 16, color: Color(0xFF217346)),
-                label: const Text(
-                  'Harvest Batches',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
+                label: Text(
+                  lang.tr(mr: 'काढणी ऑर्डर्स', en: 'Harvest Batches'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
                 ),
                 onPressed: () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const HarvestOrdersScreen()));
@@ -117,8 +125,9 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
               unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
               tabs: _tabs.map((tab) {
                 final count = allOrders.where((o) => _matchesFilter(o, tab['key']!)).length;
+                final tabLabel = lang.isMarathi ? tab['marathi']! : tab['label']!;
                 return Tab(
-                  text: '${tab['label']} ($count)',
+                  text: '$tabLabel ($count)',
                 );
               }).toList(),
             ),

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import ProductImageFrame from "./ProductImageFrame";
 import MobileVariantPickerSheet from "./MobileVariantPickerSheet";
+
 import {
   getProductListPriceInfo,
   getTotalProductStock,
@@ -94,11 +95,13 @@ function QuickCommerceProductCard({
   const handleAdd = (e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
+    if (disabled) return;
     if (multiVariant) {
       setVariantSheetOpen(true);
       return;
     }
-    (onIncrease ?? onAdd)?.(product, e?.currentTarget);
+    const flySource = e?.currentTarget;
+    onAdd?.(product, flySource);
   };
 
   const addButton = (
@@ -288,6 +291,8 @@ function QuickCommerceProductCard({
           onClose={() => setVariantSheetOpen(false)}
         />
       ) : null}
+
+
     </div>
   );
 }

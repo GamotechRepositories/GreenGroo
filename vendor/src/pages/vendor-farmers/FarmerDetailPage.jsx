@@ -75,7 +75,9 @@ function asList(res) {
 }
 
 function getUploadedFarmerDocs(docs = []) {
-  return (docs || []).filter((d) => Boolean(d.fileUrl || d.fileName));
+  return (docs || []).filter(
+    (d) => Boolean(d && (d.fileUrl || d.fileName) && d.status !== "Not Uploaded" && d.status !== "not_uploaded")
+  );
 }
 
 export default function FarmerDetailPage() {

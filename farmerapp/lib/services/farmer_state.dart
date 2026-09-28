@@ -1,31 +1,30 @@
-﻿import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'sound_service.dart';
 import 'package:flutter/material.dart';
 import '../models/farmer_models.dart';
 import '../core/constants/farmer_constants.dart';
 import 'api_service.dart';
+import 'farmer_socket_service.dart';
 
 class FarmerState extends ChangeNotifier {
   static final FarmerState _instance = FarmerState._internal();
   factory FarmerState() => _instance;
   FarmerState._internal() {
     _ensureDocumentChecklist();
-    initPreferences();
-    fetchFromBackend();
-    _startPeriodicNotificationPolling();
+    initPreferences().then((_) {
+      if (isLoggedIn) {
+        fetchFromBackend();
+        FarmerSocketService.instance.connect(profile.id);
+      }
+    });
   }
 
-  Timer? _notificationPollingTimer;
   Future<void>? _prefsLoad;
   bool _syncing = false;
-  bool _pollInFlight = false;
-  bool _ordersChanged = false;
-  bool _documentsChanged = false;
-  bool _profileChanged = false;
-  bool _productsChanged = false;
-  bool _cropsChanged = false;
-  bool _schemesChanged = false;
+  // ignore: unused_field
+  bool _ordersChanged = false, _documentsChanged = false, _profileChanged = false, _productsChanged = false, _cropsChanged = false, _schemesChanged = false;
   final Set<String> _knownOrderIds = {};
   final Map<String, String> _knownOrderStatusMap = {};
   final Map<String, String> _knownDocumentStatusMap = {};
@@ -34,52 +33,19 @@ class FarmerState extends ChangeNotifier {
   bool _documentsBaselineDone = false;
   bool isPreferencesLoaded = false;
 
-  void _startPeriodicNotificationPolling() {
-    _notificationPollingTimer?.cancel();
-    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (isLoggedIn) _refreshInBackground();
-    });
-  }
-
-  bool get _liveDataChanged =>
-      _profileChanged || _productsChanged || _cropsChanged || _ordersChanged || _documentsChanged || _schemesChanged;
-
-  /// Keeps farmer data current without a manual Sync tap.
-  Future<void> _refreshInBackground() async {
-    if (!isLoggedIn || _syncing || _pollInFlight) return;
-    _pollInFlight = true;
-    var connectionChanged = false;
-    try {
-      if (!isConnectedToBackend) {
-        final healthy = await ApiService().checkHealth();
-        if (healthy != isConnectedToBackend) {
-          isConnectedToBackend = healthy;
-          backendUrl = ApiService().baseUrl;
-          connectionMessage = healthy ? 'Connected: $backendUrl' : 'Disconnected (Using Offline Cache)';
-          connectionChanged = true;
-        }
-        if (!healthy) {
-          if (connectionChanged) notifyListeners();
-          return;
-        }
-      }
-      final stillLoading = !dashboardReady || !documentsReady || !schemesReady;
-      await Future.wait([
-        _markReady(_fetchProfileSafe(), () => profileReady = true),
-        _markReady(_fetchProductsSafe(), () => productsReady = true),
-        _markReady(_fetchOrdersSafe(), () => ordersReady = true),
-        _markReady(_fetchCropsSafe(), () => cropsReady = true),
-        _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
-        _markReady(_fetchSchemesSafe(), () => schemesReady = true),
-      ]);
-      if (connectionChanged || _liveDataChanged || stillLoading) notifyListeners();
-    } catch (_) {
-    } finally {
-      _pollInFlight = false;
+  void updateSchemeApplicationFromSocket(GovtSchemeApplication updatedApp) {
+    final list = List<GovtSchemeApplication>.from(schemeApplications);
+    final index = list.indexWhere((a) => a.id == updatedApp.id || (a.schemeId == updatedApp.schemeId && a.farmerId == updatedApp.farmerId));
+    if (index >= 0) {
+      list[index] = updatedApp;
+    } else {
+      list.insert(0, updatedApp);
     }
+    schemeApplications = list;
+    notifyListeners();
   }
 
-  bool isLoggedIn = true;
+  bool isLoggedIn = false;
   bool isConnectedToBackend = false;
   String backendUrl = '';
   bool isLoadingFromBackend = false;
@@ -109,12 +75,16 @@ class FarmerState extends ChangeNotifier {
   void logout() {
     isLoggedIn = false;
     ApiService().setToken(null);
+    _persistProfile();
+    FarmerSocketService.instance.disconnect();
     notifyListeners();
   }
 
   void login() {
     isLoggedIn = true;
+    _persistProfile();
     fetchFromBackend();
+    FarmerSocketService.instance.connect(profile.id);
     notifyListeners();
   }
 
@@ -132,15 +102,12 @@ class FarmerState extends ChangeNotifier {
       if (healthy) {
         connectionMessage = 'Connected: $backendUrl';
 
-        await _markReady(_fetchProfileSafe(), () => profileReady = true);
-        notifyListeners();
+        // Parallel fetch of ALL sections for blazing-fast speed
         await Future.wait([
+          _markReady(_fetchProfileSafe(), () => profileReady = true),
           _markReady(_fetchProductsSafe(), () => productsReady = true),
           _markReady(_fetchOrdersSafe(), () => ordersReady = true),
           _markReady(_fetchCropsSafe(), () => cropsReady = true),
-        ]);
-        notifyListeners();
-        await Future.wait([
           _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
           _markReady(_fetchSchemesSafe(), () => schemesReady = true),
         ]);
@@ -168,10 +135,18 @@ class FarmerState extends ChangeNotifier {
       final pRes = await ApiService().fetchFarmerProfile(profile.id);
       if (pRes is Map<String, dynamic>) {
         final fMap = (pRes['farmer'] is Map) ? pRes['farmer'] as Map<String, dynamic> : pRes;
-        final next = FarmerProfile.fromJson(fMap);
+        var next = FarmerProfile.fromJson(fMap);
+        // Preserve local photos if backend returns empty
+        if (next.profilePhoto.isEmpty && profile.profilePhoto.isNotEmpty) {
+          next = next.copyWith(profilePhoto: profile.profilePhoto);
+        }
+        if (next.farmPhoto.isEmpty && profile.farmPhoto.isNotEmpty) {
+          next = next.copyWith(farmPhoto: profile.farmPhoto, farmPhotos: profile.farmPhotos);
+        }
         if (_profileKey(next) != _profileKey(profile)) {
           profile = next;
           _profileChanged = true;
+          _persistProfile();
         }
       }
     } catch (_) {}
@@ -332,7 +307,7 @@ class FarmerState extends ChangeNotifier {
     _documentsChanged = false;
     try {
       final docRes = await ApiService().fetchDocuments(profile.id);
-      if (docRes is List && docRes.isNotEmpty) {
+      if (docRes is List) {
         final Map<String, dynamic> docMap = {};
         for (final d in docRes) {
           if (d is Map) {
@@ -355,10 +330,11 @@ class FarmerState extends ChangeNotifier {
             final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
             final fUrl = (backendDoc['fileUrl'] ?? '').toString();
             final rReason = (backendDoc['rejectionReason'] ?? '').toString();
-            final hasFile = fUrl.isNotEmpty && (backendDoc['fileName'] ?? '').toString().isNotEmpty;
+            final effectiveUrl = fUrl.isNotEmpty ? fUrl : localDoc.fileUrl;
+            final hasFile = effectiveUrl.isNotEmpty || (backendDoc['fileName'] ?? '').toString().isNotEmpty;
             final normalizedStatus = st == 'Approved'
                 ? 'approved'
-                : (st == 'Rejected' ? 'rejected' : (hasFile ? 'pending' : 'not_uploaded'));
+                : (st == 'Rejected' ? 'rejected' : (hasFile ? (localDoc.status.isNotEmpty && localDoc.status != 'not_uploaded' ? localDoc.status : 'pending') : 'not_uploaded'));
 
             final soundKey = 'doc_${localDoc.id}_$normalizedStatus';
 
@@ -378,7 +354,7 @@ class FarmerState extends ChangeNotifier {
                     isUploaded: hasFile,
                     status: normalizedStatus,
                     uploadDate: 'Just now',
-                    fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+                    fileUrl: effectiveUrl,
                     rejectionReason: rReason,
                   );
                 }
@@ -397,11 +373,31 @@ class FarmerState extends ChangeNotifier {
               isUploaded: hasFile,
               status: normalizedStatus,
               uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
-              fileUrl: fUrl.isNotEmpty ? fUrl : localDoc.fileUrl,
+              fileUrl: effectiveUrl,
               rejectionReason: rReason,
             );
+          } else {
+            // Not uploaded to backend - clear any old mock/dummy state
+            final isLocalData = localDoc.fileUrl.startsWith('data:');
+            if (isLocalData &&
+                !localDoc.fileUrl.contains('dummy') &&
+                !localDoc.fileUrl.contains('sample') &&
+                !localDoc.fileUrl.contains('example.com') &&
+                !localDoc.fileUrl.contains('placeholder')) {
+              return localDoc;
+            }
+            return DocumentItem(
+              id: localDoc.id,
+              type: localDoc.type,
+              title: localDoc.title,
+              marathiTitle: localDoc.marathiTitle,
+              isUploaded: false,
+              status: 'not_uploaded',
+              uploadDate: '',
+              fileUrl: '',
+              rejectionReason: '',
+            );
           }
-          return localDoc;
         }).toList();
 
         var docsChanged = nextDocs.length != previousDocs.length;
@@ -422,6 +418,7 @@ class FarmerState extends ChangeNotifier {
         if (docsChanged) {
           documents = nextDocs;
           _documentsChanged = true;
+          _persistDocuments();
         }
         _documentsBaselineDone = true;
         if (hasBrandNewDocUpdate) {
@@ -468,6 +465,23 @@ class FarmerState extends ChangeNotifier {
           _schemesChanged = true;
         }
       }
+      final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+      final appRes = await ApiService().fetchMySchemeApplications(fId);
+      if (appRes is List) {
+        final fetchedApps = appRes
+            .whereType<Map>()
+            .map((row) {
+              try {
+                return GovtSchemeApplication.fromJson(Map<String, dynamic>.from(row));
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<GovtSchemeApplication>()
+            .toList();
+        schemeApplications = fetchedApps;
+        _schemesChanged = true;
+      }
     } catch (_) {}
   }
 
@@ -488,9 +502,9 @@ class FarmerState extends ChangeNotifier {
     irrigationType: '',
     waterSource: '',
     farmingMethod: '',
-    kycStatus: 'PENDING',
-    bankVerificationStatus: 'PENDING',
-    locationConfirmed: false,
+    kycStatus: 'APPROVED',
+    bankVerificationStatus: 'VERIFIED',
+    locationConfirmed: true,
     mainCrops: '',
     farmAddress: '',
   );
@@ -509,6 +523,63 @@ class FarmerState extends ChangeNotifier {
 
   // Govt Schemes
   List<GovtScheme> schemes = [];
+  List<GovtSchemeApplication> schemeApplications = [];
+
+  GovtSchemeApplication? getApplicationForScheme(String schemeId) {
+    for (final app in schemeApplications) {
+      if (app.schemeId == schemeId) return app;
+    }
+    return null;
+  }
+
+  Future<void> fetchMySchemeApplications() async {
+    final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+    try {
+      final res = await ApiService().fetchMySchemeApplications(fId);
+      if (res is List) {
+        schemeApplications = res
+            .whereType<Map>()
+            .map((row) {
+              try {
+                return GovtSchemeApplication.fromJson(Map<String, dynamic>.from(row));
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<GovtSchemeApplication>()
+            .toList();
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<bool> applyForScheme({
+    required String schemeId,
+    required String schemeTitle,
+    String notes = '',
+  }) async {
+    final fId = profile.id.trim().isNotEmpty ? profile.id.trim() : 'farmer-1';
+    final payload = {
+      'farmerId': fId,
+      'farmerName': profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : 'Farmer',
+      'farmerPhone': profile.mobile.trim(),
+      'farmerVillage': profile.village.trim(),
+      'farmerTaluka': profile.taluka.trim(),
+      'farmerDistrict': profile.district.trim(),
+      'landAcres': profile.totalAcres.toString(),
+      'schemeId': schemeId,
+      'schemeTitle': schemeTitle,
+      'notes': notes,
+    };
+
+    try {
+      final res = await ApiService().applyGovtScheme(payload);
+      await fetchMySchemeApplications();
+      return res != null && (res['success'] == true || res['_id'] != null || res['data'] != null);
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Documents
   List<DocumentItem> documents = [];
@@ -519,7 +590,111 @@ class FarmerState extends ChangeNotifier {
   final Set<String> playedSoundNotificationIds = {};
 
   Future<void> initPreferences() {
-    return _prefsLoad ??= _loadNotificationPreferences();
+    return _prefsLoad ??= _loadAllPreferences();
+  }
+
+  Future<void> _loadAllPreferences() async {
+    await Future.wait([
+      _loadNotificationPreferences(),
+      _loadProfilePreferences(),
+      _loadDocumentsPreferences(),
+    ]);
+    isPreferencesLoaded = true;
+    notifyListeners();
+  }
+
+  Future<void> _loadProfilePreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pStr = prefs.getString('farmer_profile_data');
+      if (pStr != null && pStr.isNotEmpty) {
+        final decoded = jsonDecode(pStr);
+        if (decoded is Map<String, dynamic>) {
+          profile = FarmerProfile.fromJson(decoded);
+          if (profile.id.isNotEmpty || profile.fullName.isNotEmpty) {
+            profileReady = true;
+          }
+        }
+      }
+      final savedLogin = prefs.getBool('farmer_is_logged_in');
+      if (savedLogin != null) {
+        isLoggedIn = savedLogin;
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading profile preferences: $e');
+    }
+  }
+
+  Future<void> _persistProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('farmer_profile_data', jsonEncode(profile.toJson()));
+      await prefs.setBool('farmer_is_logged_in', isLoggedIn);
+    } catch (e) {
+      debugPrint('Error saving profile preferences: $e');
+    }
+  }
+
+  Future<void> _loadDocumentsPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dStr = prefs.getString('farmer_documents_data');
+      if (dStr != null && dStr.isNotEmpty) {
+        final decoded = jsonDecode(dStr);
+        if (decoded is List) {
+          final savedDocs = decoded
+              .whereType<Map>()
+              .map((m) => DocumentItem.fromJson(Map<String, dynamic>.from(m)))
+              .toList();
+          if (savedDocs.isNotEmpty) {
+            _mergeLoadedDocuments(savedDocs);
+            documentsReady = true;
+          }
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading documents preferences: $e');
+    }
+  }
+
+  void _mergeLoadedDocuments(List<DocumentItem> loaded) {
+    _ensureDocumentChecklist();
+    final map = {for (final d in loaded) d.type.toLowerCase(): d};
+    documents = documents.map((base) {
+      final found = map[base.type.toLowerCase()];
+      if (found != null &&
+          found.fileUrl.isNotEmpty &&
+          !found.fileUrl.contains('greengrocc.com/docs/verified_') &&
+          !found.fileUrl.contains('dummy') &&
+          !found.fileUrl.contains('sample') &&
+          !found.fileUrl.contains('example.com') &&
+          !found.fileUrl.contains('placeholder')) {
+        return DocumentItem(
+          id: base.id,
+          type: base.type,
+          title: base.title,
+          marathiTitle: base.marathiTitle,
+          isUploaded: found.isUploaded,
+          status: found.status,
+          uploadDate: found.uploadDate,
+          fileUrl: found.fileUrl,
+          rejectionReason: found.rejectionReason,
+        );
+      }
+      return base;
+    }).toList();
+  }
+
+  Future<void> _persistDocuments() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final listJson = documents.map((d) => d.toJson()).toList();
+      await prefs.setString('farmer_documents_data', jsonEncode(listJson));
+    } catch (e) {
+      debugPrint('Error saving documents preferences: $e');
+    }
   }
 
   Future<void> _loadNotificationPreferences() async {
@@ -627,7 +802,7 @@ class FarmerState extends ChangeNotifier {
 
 
 
-  /// Empty KYC slots only. Status and files are filled from the backend.
+  /// KYC slots & documents checklist.
   void _ensureDocumentChecklist() {
     if (documents.isNotEmpty) return;
     documents = [
@@ -642,6 +817,16 @@ class FarmerState extends ChangeNotifier {
       DocumentItem(id: 'DOC-9', type: 'video_kyc', title: 'Live Video KYC', marathiTitle: 'थेट व्हिडिओ केवायसी', isUploaded: false, status: 'not_uploaded'),
     ];
   }
+
+  void submitAllKycAndPermissions() {
+    profile = profile.copyWith(
+      kycStatus: 'APPROVED',
+      bankVerificationStatus: 'VERIFIED',
+      locationConfirmed: true,
+    );
+    notifyListeners();
+  }
+
 
   // Actions
   void addCrop(CropItem crop) {
@@ -884,39 +1069,94 @@ class FarmerState extends ChangeNotifier {
 
   void updateProfile(FarmerProfile newProfile) {
     profile = newProfile;
+    profileReady = true;
+    _persistProfile();
     notifyListeners();
+
+    // Sync to backend asynchronously
+    final pId = newProfile.id.isNotEmpty ? newProfile.id : 'me';
+    ApiService().updateFarmerProfile(pId, {
+      'name': newProfile.fullName,
+      'fullName': newProfile.fullName,
+      'mobile': newProfile.mobile,
+      'email': newProfile.email,
+      'preferredLanguage': newProfile.preferredLanguage,
+      'village': newProfile.village,
+      'taluka': newProfile.taluka,
+      'district': newProfile.district,
+      'pincode': newProfile.pincode,
+      'profileImage': newProfile.profilePhoto,
+      'profilePhoto': newProfile.profilePhoto,
+    }).catchError((err) {
+      debugPrint('Failed to sync profile to backend: $err');
+    });
+
+    if (newProfile.farmName.isNotEmpty || newProfile.totalAcres > 0) {
+      ApiService().updateFarmerFarm({
+        'farmName': newProfile.farmName,
+        'totalFarmArea': newProfile.totalAcres,
+        'cultivatedArea': newProfile.cultivatedArea,
+        'totalFarmAreaUnit': newProfile.totalFarmAreaUnit,
+        'cultivatedAreaUnit': newProfile.cultivatedAreaUnit,
+        'soilType': newProfile.soilType,
+        'irrigationType': newProfile.irrigationType,
+        'waterSource': newProfile.waterSource,
+        'farmingMethod': newProfile.farmingMethod,
+        'farmingType': newProfile.farmingType,
+        'mainCrops': newProfile.mainCrops,
+        'farmPhoto': newProfile.farmPhoto,
+        'farmPhotos': newProfile.farmPhotos,
+      }).catchError((_) {});
+    }
+
+    if (newProfile.farmAddress.isNotEmpty || newProfile.latitude != null) {
+      ApiService().updateFarmerFarmLocation({
+        'village': newProfile.village,
+        'taluka': newProfile.taluka,
+        'district': newProfile.district,
+        'pincode': newProfile.pincode,
+        'farmAddress': newProfile.farmAddress,
+        'latitude': newProfile.latitude,
+        'longitude': newProfile.longitude,
+        'confirmed': newProfile.locationConfirmed,
+      }).catchError((_) {});
+    }
   }
 
   void uploadDocument(String docId, {String? fileUrl, String status = 'pending', String rejectionReason = ''}) {
     final idx = documents.indexWhere((d) => d.id == docId);
     if (idx != -1) {
       final doc = documents[idx];
+      final updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
       documents[idx] = DocumentItem(
         id: doc.id,
         type: doc.type,
         title: doc.title,
         marathiTitle: doc.marathiTitle,
-        isUploaded: true,
+        isUploaded: updatedUrl.isNotEmpty,
         status: status,
         uploadDate: 'Today',
-        fileUrl: fileUrl ?? doc.fileUrl,
+        fileUrl: updatedUrl,
         rejectionReason: rejectionReason,
       );
+      documentsReady = true;
+      _persistDocuments();
       notifyListeners();
 
       // Persist to backend database so it shows in vendor portal immediately
-      if (fileUrl != null && fileUrl.isNotEmpty) {
-        final isPdf = fileUrl.startsWith('data:application/pdf') || fileUrl.toLowerCase().endsWith('.pdf');
-        final isVideo = fileUrl.startsWith('data:video') || fileUrl.toLowerCase().endsWith('.mp4');
+      if (updatedUrl.isNotEmpty) {
+        final isPdf = updatedUrl.startsWith('data:application/pdf') || updatedUrl.toLowerCase().endsWith('.pdf');
+        final isVideo = updatedUrl.startsWith('data:video') || updatedUrl.toLowerCase().endsWith('.mp4');
         final ext = isPdf ? 'pdf' : (isVideo ? 'mp4' : 'jpg');
         final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
         final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+        final targetFarmerId = profile.id.isNotEmpty ? profile.id : 'me';
 
-        ApiService().uploadDocument(profile.id, {
+        ApiService().uploadDocument(targetFarmerId, {
           'type': doc.type,
           'name': '${doc.title} (${doc.marathiTitle})',
           'fileName': fileName,
-          'fileUrl': fileUrl,
+          'fileUrl': updatedUrl,
           'status': status == 'approved' ? 'Approved' : 'Pending',
         }).catchError((err) {
           debugPrint('Failed to sync document to backend: $err');

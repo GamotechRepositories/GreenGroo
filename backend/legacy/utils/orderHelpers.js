@@ -1050,6 +1050,7 @@ export async function completeAttemptedOrder({
   codAdvancePaidAt = null,
   paidAt,
   message = "",
+  preOrderSlot = "",
 }) {
   const order = await findAttemptedOrderForCheckout(userId, attemptedOrderId);
 
@@ -1089,6 +1090,7 @@ export async function completeAttemptedOrder({
   order.codAdvanceRazorpayPaymentId = codAdvanceRazorpayPaymentId || "";
   order.codAdvancePaidAt = codAdvancePaidAt || null;
   order.paidAt = paidAt || null;
+  order.preOrderSlot = preOrderSlot || "";
 
   if (status !== "attempted") {
     order.createdAt = new Date();
@@ -1134,6 +1136,7 @@ export async function finalizeOrder({
   paidAt,
   message = "",
   attemptedOrderId,
+  preOrderSlot = "",
 }) {
   const completed = await completeAttemptedOrder({
     attemptedOrderId,
@@ -1164,6 +1167,7 @@ export async function finalizeOrder({
     codAdvancePaidAt,
     paidAt,
     message,
+    preOrderSlot,
   });
 
   if (completed) {
@@ -1203,6 +1207,7 @@ export async function finalizeOrder({
     ...(codAdvanceRazorpayPaymentId && { codAdvanceRazorpayPaymentId }),
     ...(codAdvancePaidAt && { codAdvancePaidAt }),
     ...(paidAt && { paidAt }),
+    ...(preOrderSlot && { preOrderSlot }),
   });
 
   if (status !== "attempted") {

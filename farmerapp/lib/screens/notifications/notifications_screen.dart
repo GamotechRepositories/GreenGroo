@@ -2,6 +2,7 @@ import '../../services/sound_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../orders/order_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
@@ -176,6 +177,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       listenable: FarmerState(),
       builder: (context, _) {
         final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && state.orders.isEmpty && state.documents.isEmpty);
+        if (isLoading) {
+          return const NotificationsSkeletonLoader();
+        }
+
         final allLiveNotifications = _buildLiveNotifications(context, state);
 
         final unreadCount = allLiveNotifications.where((n) => !n.isRead).length;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 import '../../core/utils/photo_picker_sheet.dart';
@@ -8,6 +9,7 @@ import 'add_crop_screen.dart';
 import 'crop_detail_screen.dart';
 import '../products/add_product_screen.dart';
 import '../main_shell.dart';
+import '../../services/app_language.dart';
 
 class CropsScreen extends StatefulWidget {
   const CropsScreen({super.key});
@@ -17,6 +19,7 @@ class CropsScreen extends StatefulWidget {
 }
 
 class _CropsScreenState extends State<CropsScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _search = '';
 
   Widget _buildStatusBadge(String status) {
@@ -57,12 +60,12 @@ class _CropsScreenState extends State<CropsScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Text(
-            'Delete crop?',
+          title: Text(
+            AppLanguage().tr(mr: 'पीक हटवायचे?', en: 'Delete crop?'),
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
-          content: const Text(
-            'This will also remove the crop plan. This cannot be undone.',
+          content: Text(
+            AppLanguage().tr(mr: 'यामुळे पीक नियोजन देखील हटवले जाईल. ही कृती परत करता येणार नाही.', en: 'This will also remove the crop plan. This cannot be undone.'),
             style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
           ),
           actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -74,7 +77,7 @@ class _CropsScreenState extends State<CropsScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -89,14 +92,14 @@ class _CropsScreenState extends State<CropsScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Crop "${crop.cropName}" deleted'),
+                      content: Text(AppLanguage().tr(mr: '"${crop.cropName}" पीक हटवले', en: 'Crop "${crop.cropName}" deleted')),
                       backgroundColor: Colors.red[700],
                       duration: const Duration(seconds: 2),
                     ),
                   );
                 }
               },
-              child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLanguage().tr(mr: 'हटवा', en: 'Delete'), style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
         );
@@ -109,7 +112,13 @@ class _CropsScreenState extends State<CropsScreen> {
     return ListenableBuilder(
       listenable: FarmerState(),
       builder: (context, _) {
-        final allCrops = FarmerState().crops;
+        final state = FarmerState();
+        final isLoading = !state.isPreferencesLoaded || (state.isLoadingFromBackend && !state.cropsReady);
+        if (isLoading) {
+          return const CropsSkeletonLoader();
+        }
+
+        final allCrops = state.crops;
         final crops = allCrops.where((c) {
           final q = _search.trim().toLowerCase();
           if (q.isEmpty) return true;
@@ -118,19 +127,22 @@ class _CropsScreenState extends State<CropsScreen> {
               c.businessId.toLowerCase().contains(q);
         }).toList();
 
+        final lang = AppLanguage();
         return Scaffold(
+          key: _scaffoldKey,
+          drawer: const FarmerSidebarDrawer(),
           backgroundColor: const Color(0xFFF8FAFC),
           appBar: AppBar(
             backgroundColor: Colors.white,
             elevation: 0.5,
             leading: IconButton(
-              icon: const Icon(Icons.menu, color: AppColors.primaryDark),
-              tooltip: 'मेनू उघडा (Menu)',
-              onPressed: () => MainShell.openDrawer(context),
+              icon: const Icon(Icons.menu_rounded, color: AppColors.primaryDark, size: 24),
+              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
-            title: const Text(
-              'My Crops',
-              style: TextStyle(
+            title: Text(
+              lang.tr(mr: 'माझी पिके', en: 'My Crops'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF0F172A),
@@ -146,6 +158,116 @@ class _CropsScreenState extends State<CropsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 🌟 TOP HERO BANNER WITH CROPS BACKGROUND
+                  Container(
+                    width: double.infinity,
+                    height: 130,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.asset(
+                            'assets/images/my_crops_banner_bg.png',
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Color(0xFF166534), Color(0xFF15803D)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Subtle gradient for high contrast text
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  stops: const [0.0, 0.55, 1.0],
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.72),
+                                    Colors.black.withValues(alpha: 0.45),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF16A34A),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        lang.tr(mr: '🌾 पीक व्यवस्थापन', en: '🌾 Crop Management'),
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      lang.tr(
+                                        mr: '${allCrops.length} पिके नोंदणीकृत',
+                                        en: '${allCrops.length} Crops Registered',
+                                      ),
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  lang.tr(mr: 'माझी शेती, माझी पिके', en: 'My Farm, My Crops'),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  lang.tr(
+                                    mr: 'योग्य नियोजन, उत्तम उत्पादन व भरघोस उत्पन्न!',
+                                    en: 'Proper planning, higher yield & maximum profit!',
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   // Search Bar & Add Crop Button in 1 Row
                   Row(
                     children: [
@@ -154,7 +276,7 @@ class _CropsScreenState extends State<CropsScreen> {
                           height: 42,
                           child: TextField(
                             decoration: InputDecoration(
-                              hintText: 'Search crop or variety (उदा. Tomato)...',
+                              hintText: lang.tr(mr: 'पीक किंवा वाण शोधा (उदा. टोमॅटो)...', en: 'Search crop or variety (e.g. Tomato)...'),
                               hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                               prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF64748B)),
                               suffixIcon: _search.isNotEmpty
@@ -195,7 +317,7 @@ class _CropsScreenState extends State<CropsScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Add Crop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: Text(lang.tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen()));
                           },
@@ -207,7 +329,7 @@ class _CropsScreenState extends State<CropsScreen> {
 
                   // Crop List / Empty State
                   if (crops.isEmpty && allCrops.isEmpty && !FarmerState().cropsReady)
-                    const AppLoader(message: 'पिके लोड होत आहेत...')
+                    AppLoader(message: lang.tr(mr: 'पिके लोड होत आहेत...', en: 'Loading crops...'))
                   else if (crops.isEmpty)
                     Container(
                       width: double.infinity,
@@ -230,13 +352,13 @@ class _CropsScreenState extends State<CropsScreen> {
                             child: const Icon(Icons.eco_outlined, size: 28, color: Color(0xFF64748B)),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No crops yet',
+                          Text(
+                            lang.tr(mr: 'अद्याप कोणतीही पिके नाहीत', en: 'No crops yet'),
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Add your first crop to start crop planning.',
+                          Text(
+                            lang.tr(mr: 'पीक नियोजन सुरू करण्यासाठी तुमचे पहिले पीक जोडा.', en: 'Add your first crop to start crop planning.'),
                             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                             textAlign: TextAlign.center,
                           ),
@@ -248,7 +370,7 @@ class _CropsScreenState extends State<CropsScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.add, size: 16),
-                            label: const Text('Add Crop', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: Text(lang.tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontWeight: FontWeight.bold)),
                             onPressed: () {
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCropScreen()));
                             },
@@ -429,7 +551,7 @@ class _CropsScreenState extends State<CropsScreen> {
                                             MaterialPageRoute(builder: (_) => CropDetailScreen(crop: crop)),
                                           );
                                         },
-                                        child: const Text('View', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        child: Text(lang.tr(mr: 'पहा', en: 'View'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ),
                                   ),
@@ -453,7 +575,7 @@ class _CropsScreenState extends State<CropsScreen> {
                                             MaterialPageRoute(builder: (_) => AddCropScreen(editCrop: crop)),
                                           );
                                         },
-                                        child: const Text('Edit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        child: Text(lang.tr(mr: 'बदल', en: 'Edit'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ),
                                   ),
@@ -479,7 +601,7 @@ class _CropsScreenState extends State<CropsScreen> {
                                             ),
                                           );
                                         },
-                                        child: const Text('Product', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        child: Text(lang.tr(mr: 'उत्पादन', en: 'Product'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ),
                                   ),
@@ -498,7 +620,7 @@ class _CropsScreenState extends State<CropsScreen> {
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                         ),
                                         onPressed: () => _confirmDelete(crop),
-                                        child: const Text('Delete', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        child: Text(lang.tr(mr: 'हटवा', en: 'Delete'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                       ),
                                     ),
                                   ),

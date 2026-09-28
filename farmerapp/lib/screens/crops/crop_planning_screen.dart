@@ -1,3 +1,4 @@
+import '../../services/app_language.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -47,11 +48,11 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
           backgroundColor: const Color(0xFFF8FAFC),
           appBar: AppBar(
             elevation: 0.5,
-            title: const Column(
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Crop Planning (पीक नियोजन)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                Text('२२ टप्पे • फोटो/PDF अपलोड • नियोजन', style: TextStyle(fontSize: 10.5, color: AppColors.muted)),
+                Text(AppLanguage().tr(mr: 'पीक नियोजन', en: 'Crop Planning'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                Text(AppLanguage().tr(mr: '२२ टप्पे • अहवाल/फोटो अपलोड • नियोजन', en: '22 Stages • Reports/Photo Upload • Planning'), style: const TextStyle(fontSize: 10.5, color: AppColors.muted)),
               ],
             ),
           ),
@@ -69,13 +70,16 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                     border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.timeline_rounded, color: AppColors.primary, size: 16),
-                      SizedBox(width: 6),
+                    children: [
+                      const Icon(Icons.timeline_rounded, color: AppColors.primary, size: 16),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          '२२ टप्प्यांचे पीक नियोजन • अहवाल/फोटो अपलोड • मध्यभागी टप्पे जोडा',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                          AppLanguage().tr(
+                            mr: '२२ टप्प्यांचे पीक नियोजन • अहवाल/फोटो अपलोड • मध्यभागी टप्पे जोडा',
+                            en: '22-Stage Crop Planning • Report/Photo Upload • Insert Stages',
+                          ),
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
                       ),
                     ],
@@ -85,7 +89,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
 
                 // Crops List
                 if (!FarmerState().cropsReady && crops.isEmpty)
-                  const AppLoader(message: 'पिके लोड होत आहेत...')
+                  AppLoader(message: AppLanguage().tr(mr: 'पिके लोड होत आहेत...', en: 'Loading crops...'))
                 else
                 ListView.separated(
                   shrinkWrap: true,
@@ -164,7 +168,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          'वाण: ${crop.variety} • ${crop.acreage} ${crop.areaUnit} • लागवड: ${crop.sowingDate}',
+                                          '${AppLanguage().tr(mr: "वाण: ", en: "Variety: ")}${crop.variety} • ${crop.acreage} ${crop.areaUnit} • ${AppLanguage().tr(mr: "लागवड: ", en: "Sowing: ")}${crop.sowingDate}',
                                           style: const TextStyle(fontSize: 10, color: AppColors.muted),
                                         ),
                                         const SizedBox(height: 4),
@@ -183,7 +187,10 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                             ),
                                             const SizedBox(width: 6),
                                             Text(
-                                              'टप्पा ${crop.stageIndex + 1}/${stagesList.length} (${(progress * 100).round()}%)',
+                                              AppLanguage().tr(
+                                                mr: 'टप्पा ${crop.stageIndex + 1}/${stagesList.length} (${(progress * 100).round()}%)',
+                                                en: 'Stage ${crop.stageIndex + 1}/${stagesList.length} (${(progress * 100).round()}%)',
+                                              ),
                                               style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.primary),
                                             ),
                                           ],
@@ -239,10 +246,10 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
-                                        children: const [
-                                          Text('पुढील टप्पा', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
-                                          SizedBox(width: 2),
-                                          Icon(Icons.arrow_forward_ios, size: 9, color: Colors.white),
+                                        children: [
+                                          Text(AppLanguage().tr(mr: 'पुढील टप्पा', en: 'Next Stage'), style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 2),
+                                          const Icon(Icons.arrow_forward_ios, size: 9, color: Colors.white),
                                         ],
                                       ),
                                     ),
@@ -280,7 +287,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                               children: [
                                                 Icon(Icons.add, size: 10, color: Colors.teal.shade700),
                                                 Text(
-                                                  ' मध्यभागी टप्पा जोडा',
+                                                  AppLanguage().tr(mr: ' मध्यभागी टप्पा जोडा', en: ' Insert Stage Here'),
                                                   style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
                                                 ),
                                               ],
@@ -347,24 +354,15 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                             Text(iconStr, style: const TextStyle(fontSize: 12)),
                                             const SizedBox(width: 4),
                                             Expanded(
-                                              child: RichText(
-                                                overflow: TextOverflow.ellipsis,
-                                                text: TextSpan(
-                                                  children: [
-                                                    TextSpan(
-                                                      text: 'टप्पा $stageNumber: $marathiName ',
-                                                      style: TextStyle(
-                                                        fontSize: 11.5,
-                                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                                                        color: isCurrent ? AppColors.primaryDark : (isDone ? AppColors.text : const Color(0xFF475569)),
-                                                      ),
-                                                    ),
-                                                    TextSpan(
-                                                      text: '($stageName)',
-                                                      style: const TextStyle(fontSize: 9.5, color: AppColors.muted),
-                                                    ),
-                                                  ],
+                                              child: Text(
+                                                AppLanguage().isMarathi ? 'टप्पा $stageNumber: $marathiName' : 'Stage $stageNumber: $stageName',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
+                                                  color: isCurrent ? AppColors.primaryDark : (isDone ? AppColors.text : const Color(0xFF475569)),
                                                 ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                             if (isCustom)
@@ -385,7 +383,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                                   color: AppColors.primary,
                                                   borderRadius: BorderRadius.circular(3),
                                                 ),
-                                                child: const Text('सध्याचा', style: TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.bold)),
+                                                child: Text(AppLanguage().tr(mr: 'सध्याचा', en: 'Current'), style: const TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.bold)),
                                               ),
                                           ],
                                         ),
@@ -400,7 +398,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            '📋 दाखवायचे: $displayReq',
+                                            AppLanguage().tr(mr: '📋 दाखवायचे: $displayReq', en: '📋 Required: $displayReq'),
                                             style: const TextStyle(fontSize: 9.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                                           ),
                                         ),
@@ -423,31 +421,31 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                                 if (stageLog['date'] != null)
                                                   Text('📅 ${stageLog['date']}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.text)),
                                                 if (stageLog['activity'] != null)
-                                                  Text('🚜 काम: ${stageLog['activity']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '🚜 काम: ${stageLog["activity"]}', en: '🚜 Activity: ${stageLog["activity"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['soilReport'] != null)
-                                                  Text('🧪 अहवाल: ${stageLog['soilReport']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '🧪 अहवाल: ${stageLog["soilReport"]}', en: '🧪 Report: ${stageLog["soilReport"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['seedName'] != null)
-                                                  Text('🌱 बियाणे: ${stageLog['seedName']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '🌱 बियाणे: ${stageLog["seedName"]}', en: '🌱 Seed: ${stageLog["seedName"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['treatment'] != null)
-                                                  Text('💊 प्रक्रिया: ${stageLog['treatment']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '💊 प्रक्रिया: ${stageLog["treatment"]}', en: '💊 Treatment: ${stageLog["treatment"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['variety'] != null)
-                                                  Text('🌾 वाण: ${stageLog['variety']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '🌾 वाण: ${stageLog["variety"]}', en: '🌾 Variety: ${stageLog["variety"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['fertilizerName'] != null)
-                                                  Text('🧪 खत: ${stageLog['fertilizerName']} (${stageLog['quantity'] ?? ''})', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '🧪 खत: ${stageLog["fertilizerName"]} (${stageLog["quantity"] ?? ""})', en: '🧪 Fertilizer: ${stageLog["fertilizerName"]} (${stageLog["quantity"] ?? ""})'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['irrigationType'] != null)
-                                                  Text('💧 पाणी: ${stageLog['irrigationType']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '💧 पाणी: ${stageLog["irrigationType"]}', en: '💧 Irrigation: ${stageLog["irrigationType"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['observation'] != null)
-                                                  Text('👀 निरीक्षण: ${stageLog['observation']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '👀 निरीक्षण: ${stageLog["observation"]}', en: '👀 Observation: ${stageLog["observation"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['sprayName'] != null)
-                                                  Text('🔄 फवारणी: ${stageLog['sprayName']} (${stageLog['dose'] ?? ''})', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '🔄 फवारणी: ${stageLog["sprayName"]} (${stageLog["dose"] ?? ""})', en: '🔄 Spray: ${stageLog["sprayName"]} (${stageLog["dose"] ?? ""})'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['height'] != null)
-                                                  Text('📏 उंची: ${stageLog['height']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '📏 उंची: ${stageLog["height"]}', en: '📏 Height: ${stageLog["height"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['product'] != null)
-                                                  Text('📦 औषध: ${stageLog['product']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '📦 औषध: ${stageLog["product"]}', en: '📦 Product: ${stageLog["product"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['expectedHarvestDate'] != null)
-                                                  Text('📅 काढणी: ${stageLog['expectedHarvestDate']}', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '📅 काढणी: ${stageLog["expectedHarvestDate"]}', en: '📅 Harvest Date: ${stageLog["expectedHarvestDate"]}'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                                 if (stageLog['harvestDate'] != null)
-                                                  Text('✅ काढणी: ${stageLog['harvestDate']} (${stageLog['expectedQuantity'] ?? ''})', style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
+                                                  Text(AppLanguage().tr(mr: '✅ काढणी: ${stageLog["harvestDate"]} (${stageLog["expectedQuantity"] ?? ""})', en: '✅ Harvest: ${stageLog["harvestDate"]} (${stageLog["expectedQuantity"] ?? ""})'), style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B))),
                                               ],
                                             ),
                                           ),
@@ -456,7 +454,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                             Padding(
                                               padding: const EdgeInsets.only(top: 2, left: 2),
                                               child: Text(
-                                                '🔄 फवारण्या (${(stageLog['repeats'] as List).length}): ${(stageLog['repeats'] as List).map((r) => "${r['date']} (${r['spray']})").join(' • ')}',
+                                                AppLanguage().tr(mr: '🔄 फवारण्या (${(stageLog["repeats"] as List).length}): ${(stageLog["repeats"] as List).map((r) => "${r['date']} (${r['spray']})").join(' • ')}', en: '🔄 Sprays (${(stageLog["repeats"] as List).length}): ${(stageLog["repeats"] as List).map((r) => "${r['date']} (${r['spray']})").join(' • ')}'),
                                                 style: const TextStyle(fontSize: 9.5, color: Colors.orange, fontWeight: FontWeight.w600),
                                               ),
                                             ),
@@ -538,7 +536,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                                   children: [
                                                     Icon(Icons.cloud_upload_outlined, size: 11, color: Colors.blue.shade800),
                                                     const SizedBox(width: 3),
-                                                    Text('📤 अपलोड', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
+                                                    Text(AppLanguage().tr(mr: '📤 अपलोड', en: '📤 Upload'), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
                                                   ],
                                                 ),
                                               ),
@@ -562,7 +560,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                                     children: [
                                                       Icon(Icons.replay, size: 11, color: Colors.orange.shade800),
                                                       const SizedBox(width: 3),
-                                                      Text('🔄 फवारणी', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
+                                                      Text(AppLanguage().tr(mr: '🔄 फवारणी', en: '🔄 Spray'), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
                                                     ],
                                                   ),
                                                 ),
@@ -587,7 +585,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                                     Icon(Icons.edit, size: 10, color: isCurrent ? Colors.white : AppColors.text),
                                                     const SizedBox(width: 3),
                                                     Text(
-                                                      stageLog == null ? 'नोंद करा' : 'बदल करा',
+                                                      stageLog == null ? AppLanguage().tr(mr: 'नोंद करा', en: 'Log Entry') : AppLanguage().tr(mr: 'बदल करा', en: 'Edit Log'),
                                                       style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: isCurrent ? Colors.white : AppColors.text),
                                                     ),
                                                   ],
@@ -602,13 +600,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                                 onTap: () {
                                                   FarmerState().updateCropStage(crop.id, stageName);
                                                   ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(content: Text('टप्पा "$marathiName" सेट केला!')),
+                                                    SnackBar(content: Text(AppLanguage().tr(mr: 'टप्पा "$marathiName" सेट केला!', en: 'Stage "$stageName" set!'))),
                                                   );
                                                 },
                                                 borderRadius: BorderRadius.circular(4),
                                                 child: Padding(
                                                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                                                  child: const Text('सेट करा', style: TextStyle(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                                  child: Text(AppLanguage().tr(mr: 'सेट करा', en: 'Set Stage'), style: const TextStyle(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
                                                 ),
                                               ),
                                             ],
@@ -640,13 +638,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
       FarmerState().updateCropStage(crop.id, nextStage['name']);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('पुढील टप्पा "${nextStage['marathi'] ?? nextStage['name']}" वर अपडेट केले गेले!'),
+          content: Text(AppLanguage().tr(mr: 'पुढील टप्पा "${nextStage["marathi"] ?? nextStage["name"]}" वर अपडेट केले गेले!', en: 'Updated to next stage "${nextStage["name"]}"!')),
           backgroundColor: AppColors.primary,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('हे पीक आधीच शेवटच्या टप्प्यावर आहे.')),
+        SnackBar(content: Text(AppLanguage().tr(mr: 'हे पीक आधीच शेवटच्या टप्प्यावर आहे.', en: 'This crop is already at the final stage.'))),
       );
     }
   }
@@ -693,16 +691,16 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '+ नवीन टप्पा जोडा (Add Stage in Between)',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                          Text(
+                            AppLanguage().tr(mr: '+ नवीन टप्पा जोडा', en: '+ Add Custom Stage'),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                           ),
                           IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.pop(context)),
                         ],
                       ),
                       const Divider(height: 12),
 
-                      const Text('टप्पा कुठे जोडायचा? (Insert Position)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'टप्पा कुठे जोडायचा?', en: 'Insert Position'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 3),
                       DropdownButtonFormField<int>(
                         initialValue: selectedPosition.clamp(0, stagesList.length),
@@ -715,12 +713,12 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                             final st = stagesList[i];
                             return DropdownMenuItem<int>(
                               value: i + 1,
-                              child: Text('टप्पा ${i + 1} नंतर: ${st['marathi'] ?? st['name']}', style: const TextStyle(fontSize: 10.5), overflow: TextOverflow.ellipsis),
+                              child: Text(AppLanguage().tr(mr: 'टप्पा ${i + 1} नंतर: ${st["marathi"] ?? st["name"]}', en: 'After Stage ${i + 1}: ${st["name"]}'), style: const TextStyle(fontSize: 10.5), overflow: TextOverflow.ellipsis),
                             );
                           }),
                           DropdownMenuItem<int>(
                             value: stagesList.length,
-                            child: const Text('शेवटी (At the End)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            child: Text(AppLanguage().tr(mr: 'शेवटी', en: 'At the End'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                           ),
                         ],
                         onChanged: (val) {
@@ -729,13 +727,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      const Text('टप्प्याचे नाव - मराठीत (Stage Name in Marathi)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'टप्प्याचे नाव', en: 'Stage Name'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 3),
                       TextField(
                         controller: nameMarathiCtrl,
                         style: const TextStyle(fontSize: 11.5),
                         decoration: InputDecoration(
-                          hintText: 'उदा. तणनाशक फवारणी / विशेष ड्रेंचिंग',
+                          hintText: AppLanguage().tr(mr: 'उदा. तणनाशक फवारणी / विशेष ड्रेंचिंग', en: 'e.g. Herbicide Spray / Special Drenching'),
                           hintStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -757,13 +755,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      const Text('काय दाखवायचे? (Display Requirement)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'काय दाखवायचे?', en: 'Display Requirement'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 3),
                       TextField(
                         controller: displayReqCtrl,
                         style: const TextStyle(fontSize: 11.5),
                         decoration: InputDecoration(
-                          hintText: 'उदा. Date + Activity + Spray Name',
+                          hintText: AppLanguage().tr(mr: 'उदा. Date + Activity + Spray Name', en: 'e.g. Date + Activity + Spray Name'),
                           hintStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -774,7 +772,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       // Icon & Repeat Spray Checkbox
                       Row(
                         children: [
-                          const Text('चिन्ह (Icon): ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text(AppLanguage().tr(mr: 'चिन्ह (Icon): ', en: 'Icon: '), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           const SizedBox(width: 6),
                           ...['🌱', '🚜', '💧', '🧪', '🌿', '🔄', '📋', '✅'].map((ic) {
                             final isSel = selectedIcon == ic;
@@ -800,7 +798,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                         contentPadding: EdgeInsets.zero,
                         value: canRepeatSpray,
                         dense: true,
-                        title: const Text('🔄 पुन्हा फवारणी (Repeat Spray Option) सुरू ठेवा', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                        title: Text(AppLanguage().tr(mr: '🔄 पुन्हा फवारणी पर्याय सुरू ठेवा', en: '🔄 Enable Repeat Spray Option'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                         onChanged: (val) => setModalState(() => canRepeatSpray = val ?? false),
                       ),
                       const SizedBox(height: 12),
@@ -820,7 +818,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
 
                             if (marathi.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('कृपया टप्प्याचे नाव प्रविष्ट करा')),
+                                SnackBar(content: Text(AppLanguage().tr(mr: 'कृपया टप्प्याचे नाव प्रविष्ट करा', en: 'Please enter stage name'))),
                               );
                               return;
                             }
@@ -849,12 +847,12 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                             setState(() {});
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('नवीन टप्पा "$marathi" जोडला गेला! (एकूण टप्पे: ${list.length})'),
+                                content: Text(AppLanguage().tr(mr: 'नवीन टप्पा "$marathi" जोडला गेला! (एकूण टप्पे: ${list.length})', en: 'New stage "$marathi" added! (Total stages: ${list.length})')),
                                 backgroundColor: AppColors.primary,
                               ),
                             );
                           },
-                          child: const Text('टप्पा जोडा (Insert Custom Stage)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: Text(AppLanguage().tr(mr: 'टप्पा जोडा', en: 'Insert Stage'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -915,7 +913,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('फोटो निवडताना एरर: $e')),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'फोटो निवडताना एरर: $e', en: 'Error picking photo: $e'))),
                   );
                 }
               }
@@ -956,7 +954,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('PDF निवडताना एरर: $e')),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'PDF निवडताना एरर: $e', en: 'Error picking PDF: $e'))),
                   );
                 }
               }
@@ -982,7 +980,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              '📤 अहवाल/फोटो अपलोड ($stageName)',
+                              AppLanguage().tr(mr: '📤 अहवाल/फोटो अपलोड ($stageName)', en: '📤 Upload Report/Photo ($stageName)'),
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                             ),
                           ),
@@ -991,7 +989,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       ),
                       const Divider(height: 10),
 
-                      const Text('दस्तऐवज प्रकार निवडा (Document Type)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'दस्तऐवज प्रकार निवडा', en: 'Document Type'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 3),
                       DropdownButtonFormField<String>(
                         initialValue: docType,
@@ -999,14 +997,14 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: 'लॅब अहवाल / Report', child: Text('🧪 लॅब अहवाल / Test Report', style: TextStyle(fontSize: 11))),
-                          DropdownMenuItem(value: 'पिकाचा थेट फोटो (Field Photo)', child: Text('📸 पिकाचा थेट फोटो / Field Photo', style: TextStyle(fontSize: 11))),
-                          DropdownMenuItem(value: 'खत/औषध पावती / Bill Receipt', child: Text('🧾 खत / औषध पावती (Bill Receipt)', style: TextStyle(fontSize: 11))),
-                          DropdownMenuItem(value: 'माती परीक्षण अहवाल (Soil Report)', child: Text('🌱 माती परीक्षण अहवाल (Soil Report)', style: TextStyle(fontSize: 11))),
-                          DropdownMenuItem(value: 'पाणी चाचणी अहवाल (Water Report)', child: Text('💧 पाणी चाचणी अहवाल (Water Report)', style: TextStyle(fontSize: 11))),
-                          DropdownMenuItem(value: 'तपासणी प्रमाणपत्र (Inspection Cert)', child: Text('📋 तपासणी प्रमाणपत्र (Inspection Cert)', style: TextStyle(fontSize: 11))),
-                          DropdownMenuItem(value: 'इतर अहवाल (Other File)', child: Text('📄 इतर अहवाल / Other File', style: TextStyle(fontSize: 11))),
+                        items: [
+                          DropdownMenuItem(value: 'लॅब अहवाल / Report', child: Text(AppLanguage().tr(mr: '🧪 लॅब अहवाल', en: '🧪 Test Report'), style: const TextStyle(fontSize: 11))),
+                          DropdownMenuItem(value: 'पिकाचा थेट फोटो (Field Photo)', child: Text(AppLanguage().tr(mr: '📸 पिकाचा थेट फोटो', en: '📸 Crop / Field Photo'), style: const TextStyle(fontSize: 11))),
+                          DropdownMenuItem(value: 'खत/औषध पावती / Bill Receipt', child: Text(AppLanguage().tr(mr: '🧾 खत / औषध पावती', en: '🧾 Fertilizer / Medicine Bill'), style: const TextStyle(fontSize: 11))),
+                          DropdownMenuItem(value: 'माती परीक्षण अहवाल (Soil Report)', child: Text(AppLanguage().tr(mr: '🌱 माती परीक्षण अहवाल', en: '🌱 Soil Test Report'), style: const TextStyle(fontSize: 11))),
+                          DropdownMenuItem(value: 'पाणी चाचणी अहवाल (Water Report)', child: Text(AppLanguage().tr(mr: '💧 पाणी चाचणी अहवाल', en: '💧 Water Test Report'), style: const TextStyle(fontSize: 11))),
+                          DropdownMenuItem(value: 'तपासणी प्रमाणपत्र (Inspection Cert)', child: Text(AppLanguage().tr(mr: '📋 तपासणी प्रमाणपत्र', en: '📋 Inspection Certificate'), style: const TextStyle(fontSize: 11))),
+                          DropdownMenuItem(value: 'इतर अहवाल (Other File)', child: Text(AppLanguage().tr(mr: '📄 इतर अहवाल / फाईल', en: '📄 Other Report / File'), style: const TextStyle(fontSize: 11))),
                         ],
                         onChanged: (val) {
                           if (val != null) setModalState(() => docType = val);
@@ -1015,7 +1013,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       const SizedBox(height: 10),
 
                       // Photo / PDF Selection Action Buttons
-                      const Text('फोटो किंवा PDF निवडा (Select Photo / PDF)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'फोटो किंवा PDF निवडा', en: 'Select Photo / PDF'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -1028,7 +1026,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                               ),
                               icon: const Icon(Icons.camera_alt, size: 14),
-                              label: const Text('कॅमेरा', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                              label: Text(AppLanguage().tr(mr: 'कॅमेरा', en: 'Camera'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                               onPressed: () => pickPhoto(ImageSource.camera),
                             ),
                           ),
@@ -1042,7 +1040,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                               ),
                               icon: const Icon(Icons.photo_library, size: 14),
-                              label: const Text('गॅलरी', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                              label: Text(AppLanguage().tr(mr: 'गॅलरी', en: 'Gallery'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                               onPressed: () => pickPhoto(ImageSource.gallery),
                             ),
                           ),
@@ -1056,7 +1054,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                               ),
                               icon: const Icon(Icons.picture_as_pdf, size: 14),
-                              label: const Text('PDF फाईल', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                              label: Text(AppLanguage().tr(mr: 'PDF फाईल', en: 'PDF File'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                               onPressed: pickPdf,
                             ),
                           ),
@@ -1103,7 +1101,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          isPdf ? '📄 PDF डॉक्युमेंट निवडले' : '📸 फोटो निवडला गेला',
+                                          isPdf ? AppLanguage().tr(mr: '📄 PDF डॉक्युमेंट निवडले', en: '📄 PDF Document selected') : AppLanguage().tr(mr: '📸 फोटो निवडला गेला', en: '📸 Photo selected'),
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.bold,
@@ -1137,10 +1135,10 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                                   padding: const EdgeInsets.symmetric(vertical: 4),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(Icons.cloud_upload_outlined, size: 18, color: Colors.blue),
-                                      SizedBox(width: 6),
-                                      Text('कॅमेरा, गॅलरी किंवा PDF फाईल निवडा (कमाल 20 MB)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                    children: [
+                                      const Icon(Icons.cloud_upload_outlined, size: 18, color: Colors.blue),
+                                      const SizedBox(width: 6),
+                                      Text(AppLanguage().tr(mr: 'कॅमेरा, गॅलरी किंवा PDF फाईल निवडा (कमाल 20 MB)', en: 'Select Camera, Gallery or PDF file (max 20 MB)'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                                     ],
                                   ),
                                 ),
@@ -1148,7 +1146,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      const Text('फाईलचे नाव (File Name)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'फाईलचे नाव', en: 'File Name'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 3),
                       TextField(
                         controller: fileNameCtrl,
@@ -1160,13 +1158,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       ),
                       const SizedBox(height: 10),
 
-                      const Text('नोंद किंवा तपशील (Note / Remarks)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'नोंद किंवा तपशील', en: 'Note / Remarks'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 3),
                       TextField(
                         controller: noteCtrl,
                         style: const TextStyle(fontSize: 11.5),
                         decoration: InputDecoration(
-                          hintText: 'उदा. लॅबचे नाव, रिझल्ट किंवा शेतातील स्थिती...',
+                          hintText: AppLanguage().tr(mr: 'उदा. लॅबचे नाव, रिझल्ट किंवा शेतातील स्थिती...', en: 'e.g. Lab name, result or field status...'),
                           hintStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1208,12 +1206,12 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                             setState(() {});
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('$docType टप्पा #${stageIdx + 1} ला यशस्वीरीत्या जोडले गेले!'),
+                                content: Text(AppLanguage().tr(mr: '$docType टप्पा #${stageIdx + 1} ला यशस्वीरीत्या जोडले गेले!', en: '$docType attached to Stage #${stageIdx + 1}!')),
                                 backgroundColor: AppColors.primary,
                               ),
                             );
                           },
-                          child: const Text('अपलोड करा (Save & Attach)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: Text(AppLanguage().tr(mr: 'अपलोड करा', en: 'Save & Attach'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -1303,11 +1301,11 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                         Icon(isPdfFile ? Icons.picture_as_pdf : Icons.insert_drive_file, color: isPdfFile ? Colors.red : AppColors.primary, size: 40),
                         const SizedBox(height: 6),
                         Text(
-                          isPdfFile ? 'PDF दस्तऐवज (PDF Document)' : 'फाईल तपशील',
+                          isPdfFile ? AppLanguage().tr(mr: 'PDF दस्तऐवज', en: 'PDF Document') : AppLanguage().tr(mr: 'फाईल तपशील', en: 'File Details'),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                         ),
                         Text(
-                          'प्रकार: $fileType • आकार: $fileSize',
+                          AppLanguage().tr(mr: 'प्रकार: $fileType • आकार: $fileSize', en: 'Type: $fileType • Size: $fileSize'),
                           style: const TextStyle(fontSize: 10, color: AppColors.muted),
                         ),
                       ],
@@ -1327,13 +1325,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('📁 प्रकार: $fileType', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                      Text('${AppLanguage().tr(mr: "📁 प्रकार: ", en: "📁 Type: ")}$fileType', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                       if (fileDate.isNotEmpty)
-                        Text('📅 दिनांक: $fileDate • 💾 आकार: $fileSize', style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+                        Text('${AppLanguage().tr(mr: "📅 दिनांक: ", en: "📅 Date: ")}$fileDate • ${AppLanguage().tr(mr: "💾 आकार: ", en: "💾 Size: ")}$fileSize', style: const TextStyle(fontSize: 10, color: AppColors.muted)),
                       if (fileNote.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: Text('📝 नोंद: $fileNote', style: const TextStyle(fontSize: 10.5, color: AppColors.text, fontWeight: FontWeight.w500)),
+                          child: Text('${AppLanguage().tr(mr: "📝 नोंद: ", en: "📝 Note: ")}$fileNote', style: const TextStyle(fontSize: 10.5, color: AppColors.text, fontWeight: FontWeight.w500)),
                         ),
                     ],
                   ),
@@ -1352,7 +1350,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                         icon: const Icon(Icons.delete_outline, size: 14),
-                        label: const Text('काढून टाका (Delete)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                        label: Text(AppLanguage().tr(mr: 'काढून टाका', en: 'Delete'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                         onPressed: () {
                           final cropLogs = _stageLogs[crop.id] ?? {};
                           final updated = cropLogs[stageIdx] ?? {};
@@ -1366,7 +1364,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                           Navigator.pop(ctx);
                           setState(() {});
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('अहवाल यशस्वीरीत्या काढून टाकण्यात आला.')),
+                            SnackBar(content: Text(AppLanguage().tr(mr: 'अहवाल यशस्वीरीत्या काढून टाकण्यात आला.', en: 'Attachment deleted successfully.'))),
                           );
                         },
                       ),
@@ -1381,7 +1379,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('बंद करा (Close)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                        child: Text(AppLanguage().tr(mr: 'बंद करा', en: 'Close'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -1428,7 +1426,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          '🔄 पुन्हा फवारणी नोंदवा ($stageName)',
+                          AppLanguage().tr(mr: '🔄 पुन्हा फवारणी नोंदवा ($stageName)', en: '🔄 Record Repeat Spray ($stageName)'),
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
                       ),
@@ -1437,7 +1435,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                   ),
                   const Divider(height: 10),
 
-                  const Text('फवारणी दिनांक (Date)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(AppLanguage().tr(mr: 'फवारणी दिनांक', en: 'Spray Date'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 3),
                   TextField(
                     controller: dateCtrl,
@@ -1450,13 +1448,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  const Text('औषध / स्प्रे नाव (Spray / Medicine Name)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(AppLanguage().tr(mr: 'औषध / स्प्रे नाव', en: 'Spray / Medicine Name'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 3),
                   TextField(
                     controller: sprayCtrl,
                     style: const TextStyle(fontSize: 11.5),
                     decoration: InputDecoration(
-                      hintText: 'उदा. Proclaim / Tilt / Pegasus',
+                      hintText: AppLanguage().tr(mr: 'उदा. प्रोक्लेम / टिल्ट / पेगासस', en: 'e.g. Proclaim / Tilt / Pegasus'),
                       hintStyle: const TextStyle(fontSize: 11),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1464,13 +1462,13 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  const Text('प्रमाण / डोस (Dose & Target)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(AppLanguage().tr(mr: 'प्रमाण / डोस', en: 'Dose / Quantity'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 3),
                   TextField(
                     controller: doseCtrl,
                     style: const TextStyle(fontSize: 11.5),
                     decoration: InputDecoration(
-                      hintText: 'उदा. 1 gm/Ltr पाणी किंवा 200 ml/एकर',
+                      hintText: AppLanguage().tr(mr: 'उदा. १ ग्रॅम/लिटर पाणी किंवा २०० मिली/एकर', en: 'e.g. 1 gm/Ltr water or 200 ml/Acre'),
                       hintStyle: const TextStyle(fontSize: 11),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1506,12 +1504,12 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                         setState(() {});
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('पुन्हा फवारणी #${repeats.length} यशस्वीरीत्या नोंदवली गेली!'),
+                            content: Text(AppLanguage().tr(mr: 'पुन्हा फवारणी #${repeats.length} यशस्वीरीत्या नोंदवली गेली!', en: 'Repeat Spray #${repeats.length} recorded successfully!')),
                             backgroundColor: AppColors.primary,
                           ),
                         );
                       },
-                      child: const Text('नोंद जतन करा (Save Repeat Spray)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      child: Text(AppLanguage().tr(mr: 'नोंद जतन करा', en: 'Save Repeat Spray'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -1562,7 +1560,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'टप्पा ${stageIdx + 1}: ${stage['marathi'] ?? stage['name']}',
+                          AppLanguage().isMarathi ? 'टप्पा ${stageIdx + 1}: ${stage["marathi"] ?? stage["name"]}' : 'Stage ${stageIdx + 1}: ${stage["name"]}',
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
                       ),
@@ -1576,11 +1574,11 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text('काय दाखवायचे: ${stage['display'] ?? 'नोंद व अहवाल'}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                    child: Text(AppLanguage().tr(mr: 'काय दाखवायचे: ${stage["display"] ?? "नोंद व अहवाल"}', en: 'Required: ${stage["display"] ?? "Log & Report"}'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
                   ),
                   const Divider(height: 10),
 
-                  const Text('दिनांक (Date)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(AppLanguage().tr(mr: 'दिनांक', en: 'Date'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 3),
                   TextField(
                     controller: dateCtrl,
@@ -1595,8 +1593,8 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
 
                   Text(
                     stage['canRepeat'] == true
-                        ? 'औषध / कीटकनाशक / स्प्रे नाव'
-                        : (stage['name'].toString().contains('Fertilizer') ? 'खताचे नाव (Fertilizer Name)' : 'काम / तपशील (Activity / Product Name)'),
+                        ? AppLanguage().tr(mr: 'औषध / कीटकनाशक नाव', en: 'Medicine / Pesticide Name')
+                        : (stage['name'].toString().contains('Fertilizer') ? AppLanguage().tr(mr: 'खताचे नाव', en: 'Fertilizer Name') : AppLanguage().tr(mr: 'काम / उत्पादनाचे नाव', en: 'Activity / Product Name')),
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 3),
@@ -1604,7 +1602,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                     controller: primaryCtrl,
                     style: const TextStyle(fontSize: 11.5),
                     decoration: InputDecoration(
-                      hintText: 'उदा. माहिती प्रविष्ट करा...',
+                      hintText: AppLanguage().tr(mr: 'उदा. माहिती प्रविष्ट करा...', en: 'e.g. Enter details...'),
                       hintStyle: const TextStyle(fontSize: 11),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1614,8 +1612,8 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
 
                   Text(
                     stage['canRepeat'] == true
-                        ? 'डोस / प्रमाण (Dose per Acre / Ltr)'
-                        : (stage['name'].toString().contains('Fertilizer') ? 'प्रमाण / मात्रा (Quantity)' : 'निरीक्षण / अहवाल तपशील (Observation)'),
+                        ? AppLanguage().tr(mr: 'डोस / प्रमाण', en: 'Dose / Quantity')
+                        : (stage['name'].toString().contains('Fertilizer') ? AppLanguage().tr(mr: 'प्रमाण / मात्रा', en: 'Quantity') : AppLanguage().tr(mr: 'निरीक्षण / अहवाल तपशील', en: 'Observation Details')),
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 3),
@@ -1623,7 +1621,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                     controller: secondaryCtrl,
                     style: const TextStyle(fontSize: 11.5),
                     decoration: InputDecoration(
-                      hintText: 'उदा. निरीक्षण किंवा मात्रा...',
+                      hintText: AppLanguage().tr(mr: 'उदा. निरीक्षण किंवा मात्रा...', en: 'e.g. Observation or quantity...'),
                       hintStyle: const TextStyle(fontSize: 11),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1640,7 +1638,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
                     icon: const Icon(Icons.cloud_upload_outlined, size: 14),
-                    label: const Text('📤 या टप्प्यासाठी अहवाल / फोटो जोडा (Add Photo/PDF)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                    label: Text(AppLanguage().tr(mr: '📤 या टप्प्यासाठी अहवाल / फोटो जोडा', en: '📤 Attach Report / Photo for this stage'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       Navigator.pop(context);
                       _openStageUploadModal(context, crop, stageIdx, stage['marathi'] ?? stage['name']);
@@ -1680,12 +1678,12 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                         setState(() {});
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('टप्पा #${stageIdx + 1} ची नोंद यशस्वीरीत्या जतन झाली!'),
+                            content: Text(AppLanguage().tr(mr: 'टप्पा #${stageIdx + 1} ची नोंद यशस्वीरीत्या जतन झाली!', en: 'Stage #${stageIdx + 1} log saved successfully!')),
                             backgroundColor: AppColors.primary,
                           ),
                         );
                       },
-                      child: const Text('जतन करा (Save Stage Log)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      child: Text(AppLanguage().tr(mr: 'जतन करा', en: 'Save Stage Log'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

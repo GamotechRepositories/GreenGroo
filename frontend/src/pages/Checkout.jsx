@@ -383,6 +383,18 @@ function Checkout() {
   const [giftCardError, setGiftCardError] = useState("");
   const [applyingGiftCard, setApplyingGiftCard] = useState(false);
 
+  const hasPreOrderItems = useMemo(() => {
+    return checkoutItems.some(item => {
+      const slug = (item.section?.slug || item.section || "").toLowerCase();
+      const storeType = (item.storeType || "").toLowerCase();
+      return slug === "greengrocc" || slug === "preorder" || slug === "main" || storeType === "main" || item.section?.name?.toLowerCase() === "preorder";
+    });
+  }, [checkoutItems]);
+  const [selectedPreOrderSlot, setSelectedPreOrderSlot] = useState("");
+  const preOrderSlots = useMemo(() => {
+    return storeSettings?.preOrderSlots?.filter(s => s.isActive) || [];
+  }, [storeSettings]);
+
   // Reward Points state
   const [rewardSettings, setRewardSettings] = useState(null);
   const [userRewardPoints, setUserRewardPoints] = useState(user?.rewardPoints || 0);
@@ -624,6 +636,7 @@ function Checkout() {
         giftCardCode: appliedGiftCardRef.current?.code || undefined,
         rewardPointsToUse: rewardPointsToUseRef.current || undefined,
         customerLocation: checkoutCustomerLocation(),
+        preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -782,6 +795,7 @@ function Checkout() {
       giftCardCode: appliedGiftCardRef.current?.code || undefined,
       rewardPointsToUse: rewardPointsToUseRef.current || undefined,
       customerLocation: checkoutCustomerLocation(),
+      preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
     });
     const paymentData = data.data;
 
@@ -817,6 +831,7 @@ function Checkout() {
             giftCardCode: appliedGiftCardRef.current?.code || undefined,
             rewardPointsToUse: rewardPointsToUseRef.current || undefined,
             customerLocation: checkoutCustomerLocation(),
+            preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
@@ -863,6 +878,7 @@ function Checkout() {
           giftCardCode: appliedGiftCardRef.current?.code || undefined,
           rewardPointsToUse: rewardPointsToUseRef.current || undefined,
           customerLocation: checkoutCustomerLocation(),
+          preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
         });
 
         await completeOrderSuccess("Order confirmed. Pay the full amount on delivery.");
@@ -1655,6 +1671,52 @@ function Checkout() {
                     </div>
                   )}
 
+                  {/* PreOrder Slot Picker inline */}
+                  {hasPreOrderItems && (
+                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                      <h3 className="mb-2 text-sm font-bold text-emerald-900 flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Pre-order Delivery Slot
+                      </h3>
+                      <p className="mb-3 text-xs text-emerald-700">
+                        Please select a delivery slot for your pre-order items.
+                      </p>
+                      {preOrderSlots.length === 0 ? (
+                        <p className="text-xs text-red-600 font-semibold">No slots available right now.</p>
+                      ) : (
+                        <div className="grid gap-2">
+                          {preOrderSlots.map((slot, i) => {
+                            const slotStr = `${slot.startTime} - ${slot.endTime}`;
+                            const isSelected = selectedPreOrderSlot === slotStr;
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => setSelectedPreOrderSlot(slotStr)}
+                                className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-all ${
+                                  isSelected
+                                    ? "border-emerald-500 bg-emerald-100/50 shadow-sm"
+                                    : "border-emerald-200/60 bg-white hover:border-emerald-300 hover:bg-emerald-50/80"
+                                }`}
+                              >
+                                <span className={`font-semibold ${isSelected ? "text-emerald-900" : "text-emerald-800"}`}>
+                                  {slotStr}
+                                </span>
+                                {isSelected && (
+                                  <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Error */}
                   {orderError && (
                     <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-600 ring-1 ring-red-100">
@@ -1665,7 +1727,7 @@ function Checkout() {
                   {/* Place order button */}
                   <button
                     type="button"
-                    disabled={!selectedAddressId || placingOrder || !minimumOrderMet}
+                    disabled={!selectedAddressId || placingOrder || !minimumOrderMet || (hasPreOrderItems && !selectedPreOrderSlot)}
                     onClick={handlePlaceOrder}
                     className="pulse-glow mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0C831F] to-[#16a34a] px-4 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:mt-5"
                   >

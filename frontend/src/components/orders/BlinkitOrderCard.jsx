@@ -157,6 +157,14 @@ function BlinkitOrderCard({ order }) {
                 ) : null}
               </div>
               <p className="mt-1 text-xs text-text-secondary">{formatPlacedAtLabel(order.createdAt)}</p>
+              {order.preOrderSlot ? (
+                <p className="mt-1 text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Slot: {order.preOrderSlot}
+                </p>
+              ) : null}
             </div>
             <p className="shrink-0 text-[15px] font-bold text-text-primary">
               {formatOrderPrice(order.total, { withDecimals: false })}

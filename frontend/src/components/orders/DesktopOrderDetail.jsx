@@ -413,6 +413,9 @@ function DesktopOrderDetail({
                   }
                 />
                 <DetailRow label="Order placed" value={formatOrderDateTime(order.createdAt)} />
+                {order.preOrderSlot && (
+                  <DetailRow label="Pre-order slot" value={order.preOrderSlot} />
+                )}
                 <ShipmentExtraDetails shipment={shipment} />
               </div>
             </section>

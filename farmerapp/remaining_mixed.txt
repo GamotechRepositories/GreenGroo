@@ -1,0 +1,47 @@
+=== crops_screen.dart ===
+29: if (s.contains('progress') || s.contains('वाढ') || s.contains('सुरू')) {
+32: } else if (s.contains('harvest') || s.contains('काढणी')) {
+35: } else if (s.contains('sold') || s.contains('विक्री') || s.contains('completed')) {
+140: tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
+144: lang.tr(mr: 'माझी पिके', en: 'My Crops'),
+227: lang.tr(mr: '🌾 पीक व्यवस्थापन', en: '🌾 Crop Management'),
+234: mr: '${allCrops.length} पिके नोंदणीकृत',
+243: lang.tr(mr: 'माझी शेती, माझी पिके', en: 'My Farm, My Crops'),
+254: mr: 'योग्य नियोजन, उत्तम उत्पादन व भरघोस उत्पन्न!',
+279: hintText: lang.tr(mr: 'पीक किंवा वाण शोधा (उदा. टोमॅटो)...', en: 'Search crop or variety (e.g. Tomato)...'),
+320: label: Text(lang.tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+332: const AppLoader(message: 'पिके लोड होत आहेत...')
+356: lang.tr(mr: 'अद्याप कोणतीही पिके नाहीत', en: 'No crops yet'),
+361: lang.tr(mr: 'पीक नियोजन सुरू करण्यासाठी तुमचे पहिले पीक जोडा.', en: 'Add your first crop to start crop planning.'),
+373: label: Text(lang.tr(mr: 'पीक जोडा', en: 'Add Crop'), style: const TextStyle(fontWeight: FontWeight.bold)),
+554: child: Text(lang.tr(mr: 'पहा', en: 'View'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+578: child: Text(lang.tr(mr: 'बदल', en: 'Edit'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+604: child: Text(lang.tr(mr: 'उत्पादन', en: 'Product'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+623: child: Text(lang.tr(mr: 'हटवा', en: 'Delete'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+=== add_crop_screen.dart ===
+=== crop_detail_screen.dart ===
+=== crop_planning_screen.dart ===
+79: mr: '२२ टप्प्यांचे पीक नियोजन • अहवाल/फोटो अपलोड • मध्यभागी टप्पे जोडा',
+171: 'वाण: ${crop.variety} • ${crop.acreage} ${crop.areaUnit} • लागवड: ${crop.sowingDate}',
+191: mr: 'टप्पा ${crop.stageIndex + 1}/${stagesList.length} (${(progress * 100).round()}%)',
+250: Text('पुढील टप्पा', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+307: final displayReq = (stage['display'] ?? 'नोंद व अहवाल') as String;
+873: String docType = 'लॅब अहवाल / Report';
+916: SnackBar(content: Text('फोटो निवडताना एरर: $e')),
+957: SnackBar(content: Text('PDF निवडताना एरर: $e')),
+1001: DropdownMenuItem(value: 'लॅब अहवाल / Report', child: Text('🧪 लॅब अहवाल / Test Report', style: TextStyle(fontSize: 11))),
+1002: DropdownMenuItem(value: 'पिकाचा थेट फोटो (Field Photo)', child: Text('📸 पिकाचा थेट फोटो / Field Photo', style: TextStyle(fontSize: 11))),
+1003: DropdownMenuItem(value: 'खत/औषध पावती / Bill Receipt', child: Text('🧾 खत / औषध पावती (Bill Receipt)', style: TextStyle(fontSize: 11))),
+1004: DropdownMenuItem(value: 'माती परीक्षण अहवाल (Soil Report)', child: Text('🌱 माती परीक्षण अहवाल (Soil Report)', style: TextStyle(fontSize: 11))),
+1005: DropdownMenuItem(value: 'पाणी चाचणी अहवाल (Water Report)', child: Text('💧 पाणी चाचणी अहवाल (Water Report)', style: TextStyle(fontSize: 11))),
+1006: DropdownMenuItem(value: 'तपासणी प्रमाणपत्र (Inspection Cert)', child: Text('📋 तपासणी प्रमाणपत्र (Inspection Cert)', style: TextStyle(fontSize: 11))),
+1007: DropdownMenuItem(value: 'इतर अहवाल (Other File)', child: Text('📄 इतर अहवाल / Other File', style: TextStyle(fontSize: 11))),
+1328: Text('📁 प्रकार: $fileType', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+1330: Text('📅 दिनांक: $fileDate • 💾 आकार: $fileSize', style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+1334: child: Text('📝 नोंद: $fileNote', style: const TextStyle(fontSize: 10.5, color: AppColors.text, fontWeight: FontWeight.w500)),
+1457: hintText: 'उदा. Proclaim / Tilt / Pegasus',
+1471: hintText: 'उदा. 1 gm/Ltr पाणी किंवा 200 ml/एकर',
+1597: : (stage['name'].toString().contains('Fertilizer') ? 'खताचे नाव (Fertilizer Name)' : 'काम / तपशील (Activity / Product Name)'),
+1615: ? 'डोस / प्रमाण (Dose per Acre / Ltr)'
+1616: : (stage['name'].toString().contains('Fertilizer') ? 'प्रमाण / मात्रा (Quantity)' : 'निरीक्षण / अहवाल तपशील (Observation)'),
+1624: hintText: 'उदा. निरीक्षण किंवा मात्रा...',

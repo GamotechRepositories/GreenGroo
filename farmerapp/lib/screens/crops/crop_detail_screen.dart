@@ -1,3 +1,4 @@
+import '../../services/app_language.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
@@ -17,12 +18,12 @@ class CropDetailScreen extends StatelessWidget {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete crop?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: const Text('This will also remove the crop plan. This cannot be undone.', style: TextStyle(fontSize: 13, color: AppColors.muted)),
+        title: Text(AppLanguage().tr(mr: 'पीक हटवायचे?', en: 'Delete crop?'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Text(AppLanguage().tr(mr: 'यामुळे पीक नियोजन देखील हटवले जाईल. ही कृती परत करता येणार नाही.', en: 'This will also remove the crop plan. This cannot be undone.'), style: const TextStyle(fontSize: 13, color: AppColors.muted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+            child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: const TextStyle(color: AppColors.muted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -35,10 +36,10 @@ class CropDetailScreen extends StatelessWidget {
               Navigator.pop(dialogCtx); // close dialog
               Navigator.pop(context); // go back from detail
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Crop deleted successfully'), backgroundColor: Colors.red),
+                SnackBar(content: Text(AppLanguage().tr(mr: 'पीक यशस्वीरीत्या हटवले', en: 'Crop deleted successfully')), backgroundColor: Colors.red),
               );
             },
-            child: const Text('Delete'),
+            child: Text(AppLanguage().tr(mr: 'हटवा', en: 'Delete')),
           ),
         ],
       ),
@@ -56,7 +57,7 @@ class CropDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-            tooltip: 'Edit Crop',
+            tooltip: AppLanguage().tr(mr: 'पीक संपादित करा', en: 'Edit Crop'),
             onPressed: () {
               Navigator.push(
                 context,
@@ -66,7 +67,7 @@ class CropDetailScreen extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(Icons.delete_outline, color: Colors.red.shade600),
-            tooltip: 'Delete Crop',
+            tooltip: AppLanguage().tr(mr: 'पीक हटवा', en: 'Delete Crop'),
             onPressed: () => _confirmDelete(context),
           ),
         ],
@@ -129,7 +130,7 @@ class CropDetailScreen extends StatelessWidget {
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: businessId));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Crop ID copied to clipboard'), duration: Duration(seconds: 2)),
+                        SnackBar(content: Text(AppLanguage().tr(mr: 'पीक आयडी कॉपी केले', en: 'Crop ID copied to clipboard')), duration: const Duration(seconds: 2)),
                       );
                     },
                     child: Container(
@@ -173,7 +174,7 @@ class CropDetailScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.add_shopping_cart, size: 16),
-                    label: const Text('Add Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: Text(AppLanguage().tr(mr: 'उत्पादन जोडा', en: 'Add Product'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -192,7 +193,7 @@ class CropDetailScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.timeline, size: 16),
-                    label: const Text('Plan Production', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: Text(AppLanguage().tr(mr: 'पीक नियोजन', en: 'Plan Production'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -224,24 +225,24 @@ class CropDetailScreen extends StatelessWidget {
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                       border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                     ),
-                    child: const Text(
-                      'Crop Details (तपशील)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    child: Text(
+                      AppLanguage().tr(mr: 'पीक तपशील', en: 'Crop Details'),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                   ),
-                  _DetailRow(label: 'Crop Name', value: crop.cropName),
-                  _DetailRow(label: 'Crop ID', value: businessId, isMonospace: true),
-                  _DetailRow(label: 'Variety', value: crop.variety),
-                  _DetailRow(label: 'Area', value: '${crop.acreage} ${crop.areaUnit}'),
-                  _DetailRow(label: 'Sowing Date', value: crop.sowingDate),
-                  _DetailRow(label: 'Expected Harvest Date', value: crop.estHarvestDate),
-                  _DetailRow(label: 'Estimated Quantity', value: '${crop.estimatedQuantity.toStringAsFixed(0)} ${crop.unit}'),
-                  _DetailRow(label: 'Farming Method', value: crop.farmingMethod),
-                  _DetailRow(label: 'Irrigation Type', value: crop.irrigationType),
-                  _DetailRow(label: 'Organic / Conventional', value: crop.farmingType),
-                  _DetailRow(label: 'Soil Type', value: crop.soilType),
-                  _DetailRow(label: 'Farm Name', value: crop.farmName),
-                  _DetailRow(label: 'Farm Location', value: crop.farmLocation, isLast: true),
+                  _DetailRow(label: AppLanguage().tr(mr: 'पिकाचे नाव', en: 'Crop Name'), value: crop.cropName),
+                  _DetailRow(label: AppLanguage().tr(mr: 'पीक आयडी', en: 'Crop ID'), value: businessId, isMonospace: true),
+                  _DetailRow(label: AppLanguage().tr(mr: 'वाण', en: 'Variety'), value: crop.variety),
+                  _DetailRow(label: AppLanguage().tr(mr: 'क्षेत्र', en: 'Area'), value: '${crop.acreage} ${crop.areaUnit}'),
+                  _DetailRow(label: AppLanguage().tr(mr: 'लागवड तारीख', en: 'Sowing Date'), value: crop.sowingDate),
+                  _DetailRow(label: AppLanguage().tr(mr: 'अंदाजे काढणी तारीख', en: 'Expected Harvest Date'), value: crop.estHarvestDate),
+                  _DetailRow(label: AppLanguage().tr(mr: 'अंदाजे उत्पादन', en: 'Estimated Quantity'), value: '${crop.estimatedQuantity.toStringAsFixed(0)} ${crop.unit}'),
+                  _DetailRow(label: AppLanguage().tr(mr: 'शेती पद्धत', en: 'Farming Method'), value: crop.farmingMethod),
+                  _DetailRow(label: AppLanguage().tr(mr: 'सिंचन प्रकार', en: 'Irrigation Type'), value: crop.irrigationType),
+                  _DetailRow(label: AppLanguage().tr(mr: 'सेंद्रिय / रासायनिक', en: 'Organic / Conventional'), value: crop.farmingType),
+                  _DetailRow(label: AppLanguage().tr(mr: 'मातीचा प्रकार', en: 'Soil Type'), value: crop.soilType),
+                  _DetailRow(label: AppLanguage().tr(mr: 'शेताचे नाव', en: 'Farm Name'), value: crop.farmName),
+                  _DetailRow(label: AppLanguage().tr(mr: 'शेताचे ठिकाण', en: 'Farm Location'), value: crop.farmLocation, isLast: true),
                 ],
               ),
             ),
@@ -262,12 +263,12 @@ class CropDetailScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        '26-Stage Lifecycle Progress',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      Text(
+                        AppLanguage().tr(mr: '२६-टप्पे जीवनचक्र प्रगती', en: '26-Stage Lifecycle Progress'),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       ),
                       Text(
-                        'टप्पा ${crop.stageIndex + 1}/26',
+                        AppLanguage().tr(mr: 'टप्पा ${crop.stageIndex + 1}/26', en: 'Stage ${crop.stageIndex + 1}/26'),
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ],
@@ -284,7 +285,7 @@ class CropDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'सध्याचा टप्पा: ${crop.status}',
+                    AppLanguage().tr(mr: 'सध्याचा टप्पा: ${crop.status}', en: 'Current Stage: ${crop.status}'),
                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],

@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import '../../core/constants/farmer_constants.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
@@ -11,6 +12,8 @@ import '../auth/login_screen.dart';
 import '../main_shell.dart';
 import '../documents/documents_screen.dart';
 import 'farmer_liveness_check_screen.dart';
+import 'farm_location_map_view.dart';
+import '../../services/app_language.dart';
 
 enum ProfileStep {
   farmerProfile,
@@ -34,7 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isEditingKyc = false;
   bool _isEditingFarm = false;
   bool _isEditingLocation = false;
-  bool _videoKycCompleted = true;
+  bool _videoKycCompleted = false;
 
   // Controllers for Farmer Profile
   late TextEditingController _nameController;
@@ -121,6 +124,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _latitude = p.latitude ?? 0;
     _longitude = p.longitude ?? 0;
     _locationConfirmed = p.locationConfirmed;
+    _videoKycCompleted = FarmerState().documents.any((d) => d.type == 'video_kyc' && (d.status.toLowerCase() == 'approved' || d.isUploaded));
+
+    _loadSavedBankDetails();
+  }
+
+  Future<void> _loadSavedBankDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final holder = prefs.getString('farmer_bank_holder');
+      final name = prefs.getString('farmer_bank_name');
+      final accNo = prefs.getString('farmer_bank_acc_no');
+      final ifsc = prefs.getString('farmer_bank_ifsc');
+      final branch = prefs.getString('farmer_bank_branch');
+      final accType = prefs.getString('farmer_bank_acc_type');
+      final aadhaar = prefs.getString('farmer_aadhaar');
+      final pan = prefs.getString('farmer_pan');
+      final upi = prefs.getString('farmer_upi_id');
+
+      if (mounted) {
+        setState(() {
+          if (holder != null && holder.isNotEmpty) _bankHolderController.text = holder;
+          if (name != null && name.isNotEmpty) _bankNameController.text = name;
+          if (accNo != null && accNo.isNotEmpty) _bankAccountNoController.text = accNo;
+          if (ifsc != null && ifsc.isNotEmpty) _bankIfscController.text = ifsc;
+          if (branch != null && branch.isNotEmpty) _bankBranchController.text = branch;
+          if (accType != null && accType.isNotEmpty) _bankAccountType = accType;
+          if (aadhaar != null && aadhaar.isNotEmpty) _aadhaarController.text = aadhaar;
+          if (pan != null && pan.isNotEmpty) _panCardController.text = pan;
+          if (upi != null && upi.isNotEmpty) _upiIdController.text = upi;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -153,7 +188,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _saveBankAndIdentityDetails() {
+  Future<void> _saveBankAndIdentityDetails() async {
     if (_bankHolderController.text.trim().isEmpty) {
       _showToast('कृपया खातेदाराचे नाव प्रविष्ट करा (Enter account holder name)');
       return;
@@ -170,6 +205,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _showToast('कृपया आधार क्रमांक प्रविष्ट करा (Enter Aadhaar number)');
       return;
     }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('farmer_bank_holder', _bankHolderController.text.trim());
+      await prefs.setString('farmer_bank_name', _bankNameController.text.trim());
+      await prefs.setString('farmer_bank_acc_no', _bankAccountNoController.text.trim());
+      await prefs.setString('farmer_bank_ifsc', _bankIfscController.text.trim());
+      await prefs.setString('farmer_bank_branch', _bankBranchController.text.trim());
+      await prefs.setString('farmer_bank_acc_type', _bankAccountType);
+      await prefs.setString('farmer_aadhaar', _aadhaarController.text.trim());
+      await prefs.setString('farmer_pan', _panCardController.text.trim());
+      await prefs.setString('farmer_upi_id', _upiIdController.text.trim());
+    } catch (_) {}
+
+    final current = FarmerState().profile;
+    final updated = current.copyWith(
+      bankVerificationStatus: 'PENDING',
+    );
+    FarmerState().updateProfile(updated);
+
     setState(() => _isEditingKyc = false);
     _showToast('बँक व ओळख तपशील जतन झाले ✓ (Bank & Identity details saved)');
   }
@@ -266,8 +321,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : 'शेताचे स्थान जतन झाले ✓ (Farm location saved)');
   }
 
+  Future<void> _openMapLocationPicker() async {
+    final result = await FarmLocationMapPickerSheet.show(
+      context,
+      initialLat: _latitude,
+      initialLng: _longitude,
+      currentVillage: _locVillageController.text.trim(),
+      currentTaluka: _locTalukaController.text.trim(),
+      currentDistrict: _locDistrictController.text.trim(),
+      currentPincode: _locPincodeController.text.trim(),
+      currentAddress: _farmAddressController.text.trim(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _latitude = result.latitude;
+        _longitude = result.longitude;
+        if (result.village.isNotEmpty) _locVillageController.text = result.village;
+        if (result.taluka.isNotEmpty) _locTalukaController.text = result.taluka;
+        if (result.district.isNotEmpty) _locDistrictController.text = result.district;
+        if (result.pincode.isNotEmpty) _locPincodeController.text = result.pincode;
+        if (result.formattedAddress.isNotEmpty) _farmAddressController.text = result.formattedAddress;
+        _locationConfirmed = true;
+      });
+      _saveFarmLocation(confirm: true);
+    }
+  }
+
   void _useCurrentGpsLocation() {
-    _showToast('GPS स्थान उपलब्ध नाही');
+    _openMapLocationPicker();
   }
 
   void _changeProfilePhoto(BuildContext context, FarmerProfile profile) {
@@ -359,21 +441,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context, _) {
         final profile = FarmerState().profile;
 
+        final lang = AppLanguage();
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
             leading: IconButton(
               icon: const Icon(Icons.menu, color: AppColors.primary),
-              tooltip: 'मेनू उघडा (Menu)',
+              tooltip: lang.tr(mr: 'मेनू उघडा', en: 'Open Menu'),
               onPressed: () => MainShell.openDrawer(context),
             ),
-            title: const Text(
-              'Farmer & Farm Profile (प्रोफाईल)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            title: Text(
+              lang.tr(mr: 'शेतकरी व शेत प्रोफाईल', en: 'Farmer & Farm Profile'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
-          body: !FarmerState().profileReady
-              ? const AppLoader(message: 'प्रोफाईल लोड होत आहे...')
+          body: (!FarmerState().isPreferencesLoaded || (FarmerState().isLoadingFromBackend && !FarmerState().profileReady))
+              ? const ProfileSkeletonLoader()
               : SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Column(
@@ -477,42 +560,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required ProfileStep step,
   }) {
     final isActive = _currentStep == step;
+    final lang = AppLanguage();
+    final stepText = lang.tr(mr: marathi, en: title);
+
     return InkWell(
       onTap: () => setState(() => _currentStep = step),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
           color: isActive ? AppColors.primaryLight.withValues(alpha: 0.5) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 9.5,
-                height: 1.15,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
-                color: isActive ? AppColors.primary : const Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              marathi,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8.5,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? AppColors.primaryDark : const Color(0xFF9CA3AF),
-              ),
-            ),
-          ],
+        child: Text(
+          stepText,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10.5,
+            height: 1.15,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+            color: isActive ? AppColors.primaryDark : const Color(0xFF6B7280),
+          ),
         ),
       ),
     );
@@ -847,8 +917,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _kycBadge('आधार (Aadhaar)', 'लिंक केले ✓'),
-                  _kycBadge('बँक खाते', 'तपासले ✓'),
+                  _kycBadge('आधार (Aadhaar)', _aadhaarController.text.trim().isNotEmpty ? 'लिंक केले ✓' : 'बाकी (Pending)'),
+                  _kycBadge('बँक खाते', _bankAccountNoController.text.trim().isNotEmpty ? 'तपासले ✓' : 'बाकी (Pending)'),
                   _kycBadge('कागदपत्रे', '$approvedDocs/$totalDocs मंजूर'),
                 ],
               ),
@@ -1670,63 +1740,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Map graphic representation card
-                    Container(
-                      height: 110,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0F2FE),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                    // Interactive OpenStreetMap Canvas View
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: InteractiveOsmMap(
+                          initialLat: _latitude,
+                          initialLng: _longitude,
+                          initialZoom: 15.0,
+                          height: 220,
+                          isInteractive: true,
+                          onExpandRequested: _openMapLocationPicker,
+                          onLocationChanged: (geo) {
+                            setState(() {
+                              _latitude = geo.latitude;
+                              _longitude = geo.longitude;
+                              if (geo.village.isNotEmpty) _locVillageController.text = geo.village;
+                              if (geo.taluka.isNotEmpty) _locTalukaController.text = geo.taluka;
+                              if (geo.district.isNotEmpty) _locDistrictController.text = geo.district;
+                              if (geo.pincode.isNotEmpty) _locPincodeController.text = geo.pincode;
+                              if (geo.formattedAddress.isNotEmpty) _farmAddressController.text = geo.formattedAddress;
+                            });
+                          },
+                        ),
                       ),
-                      child: Stack(
-                        alignment: Alignment.center,
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Coordinates & Address Display
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
                         children: [
-                          Positioned.fill(
-                            child: Opacity(
-                              opacity: 0.15,
-                              child: GridView.builder(
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8),
-                                itemBuilder: (_, _) => Container(decoration: BoxDecoration(border: Border.all(color: Colors.blue))),
-                              ),
+                          const Icon(Icons.explore_outlined, size: 16, color: Color(0xFF0369A1)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (_latitude == 0 && _longitude == 0)
+                                      ? 'GPS: 18.5204° N, 73.8567° E (डिफॉल्ट)'
+                                      : 'GPS: ${_latitude.toStringAsFixed(5)}° N, ${_longitude.toStringAsFixed(5)}° E',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                ),
+                                Text(
+                                  [_locVillageController.text.trim(), _locTalukaController.text.trim(), _locDistrictController.text.trim()]
+                                      .where((s) => s.isNotEmpty)
+                                      .join(', '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                ),
+                              ],
                             ),
-                          ),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.pin_drop, size: 36, color: AppColors.primary),
-                              const SizedBox(height: 4),
-                              Text(
-                                (_latitude == 0 && _longitude == 0)
-                                    ? 'GPS नोंदवलेले नाही'
-                                    : 'Lat: ${_latitude.toStringAsFixed(4)}°, Lng: ${_longitude.toStringAsFixed(4)}°',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
-                              ),
-                              Text(
-                                [profile.village, profile.taluka, profile.state].where((part) => part.isNotEmpty).join(', '),
-                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF0369A1)),
-                              ),
-                            ],
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // GPS Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    // Map Action Buttons (Full Map Picker & GPS)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0284C7),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.map_outlined, size: 16),
+                            label: const Text(
+                              'नकाशावर निवडा 🗺️',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: _openMapLocationPicker,
+                          ),
                         ),
-                        icon: const Icon(Icons.my_location, size: 16),
-                        label: const Text('Use Current GPS Location (माझे सध्याचे लोकेशन वापरा)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        onPressed: _useCurrentGpsLocation,
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.my_location, size: 16),
+                            label: const Text(
+                              'GPS लोकेशन',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: _useCurrentGpsLocation,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

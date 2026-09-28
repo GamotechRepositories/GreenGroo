@@ -540,4 +540,72 @@ export const GovernmentScheme =
   mongoose.models.AdminGovernmentScheme ||
   mongoose.model("AdminGovernmentScheme", governmentSchemeSchema);
 
+const farmerSchemeApplicationSchema = new mongoose.Schema(
+  {
+    farmerId: { type: String, required: true, trim: true, index: true },
+    farmerName: { type: String, default: "", trim: true },
+    farmerPhone: { type: String, default: "", trim: true },
+    farmerVillage: { type: String, default: "", trim: true },
+    farmerTaluka: { type: String, default: "", trim: true },
+    farmerDistrict: { type: String, default: "", trim: true },
+    landAcres: { type: String, default: "", trim: true },
+    schemeId: { type: mongoose.Schema.Types.ObjectId, ref: "AdminGovernmentScheme", required: true, index: true },
+    schemeTitle: { type: String, required: true, trim: true },
+    schemeCategory: { type: String, default: "", trim: true },
+    subsidyAmount: { type: String, default: "", trim: true },
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    notes: { type: String, default: "", trim: true },
+    adminNotes: { type: String, default: "", trim: true },
+    appliedAt: { type: Date, default: Date.now },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+farmerSchemeApplicationSchema.index({ farmerId: 1, schemeId: 1 });
+farmerSchemeApplicationSchema.index({ status: 1, createdAt: -1 });
+
+export const FarmerSchemeApplication =
+  mongoose.models.AdminFarmerSchemeApplication ||
+  mongoose.model("AdminFarmerSchemeApplication", farmerSchemeApplicationSchema);
+
+const marketPriceSchema = new mongoose.Schema(
+  {
+    marketName: { type: String, required: true, trim: true, index: true },
+    productName: { type: String, required: true, trim: true, index: true },
+    variety: { type: String, required: true, trim: true, default: "Standard" },
+    price: { type: Number, required: true, min: 0 },
+    minPrice: { type: Number, default: 0, min: 0 },
+    maxPrice: { type: Number, default: 0, min: 0 },
+    unit: { type: String, default: "Quintal", trim: true },
+    priceDate: { type: String, default: () => new Date().toISOString().slice(0, 10), index: true },
+    district: { type: String, default: "Pune", trim: true },
+    state: { type: String, default: "Maharashtra", trim: true },
+    trend: {
+      type: String,
+      enum: ["up", "stable", "down"],
+      default: "stable",
+    },
+    arrivalQuantity: { type: Number, default: 0 },
+    arrivalUnit: { type: String, default: "Quintal", trim: true },
+    notes: { type: String, default: "", trim: true },
+    isActive: { type: Boolean, default: true, index: true },
+    isGreenGroo: { type: Boolean, default: false, index: true },
+  },
+  { timestamps: true }
+);
+
+marketPriceSchema.index({ marketName: 1, productName: 1, variety: 1, priceDate: 1 });
+
+export const MarketPrice =
+  mongoose.models.AdminMarketPrice ||
+  mongoose.model("AdminMarketPrice", marketPriceSchema);
+
 export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };
+

@@ -76,7 +76,7 @@ class FarmerProfile {
     List<String>? farmPhotos,
     List<String>? farmVideos,
   })  : _totalFarmAreaUnit = totalFarmAreaUnit ?? 'Acre',
-        _cultivatedArea = cultivatedArea,
+        _cultivatedArea = cultivatedArea ?? totalAcres,
         _cultivatedAreaUnit = cultivatedAreaUnit ?? 'Acre',
         _farmingType = farmingType ?? '',
         _mainCrops = mainCrops ?? '',
@@ -226,6 +226,44 @@ class FarmerProfile {
       farmVideos: (farm['farmVideos'] is List) ? List<String>.from(farm['farmVideos'].map((e) => e.toString())) : [],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'fullName': fullName,
+    'name': fullName,
+    'mobile': mobile,
+    'email': email,
+    'preferredLanguage': preferredLanguage,
+    'farmName': farmName,
+    'totalAcres': totalAcres,
+    'farmArea': totalAcres,
+    'totalFarmAreaUnit': totalFarmAreaUnit,
+    'cultivatedArea': cultivatedArea,
+    'cultivatedAreaUnit': cultivatedAreaUnit,
+    'soilType': soilType,
+    'irrigationType': irrigationType,
+    'waterSource': waterSource,
+    'farmingMethod': farmingMethod,
+    'farmType': farmingMethod,
+    'farmingType': farmingType,
+    'mainCrops': mainCrops,
+    'village': village,
+    'taluka': taluka,
+    'district': district,
+    'state': state,
+    'pincode': pincode,
+    'farmAddress': farmAddress,
+    'latitude': latitude,
+    'longitude': longitude,
+    'locationConfirmed': locationConfirmed,
+    'kycStatus': kycStatus,
+    'bankVerificationStatus': bankVerificationStatus,
+    'profilePhoto': profilePhoto,
+    'profileImage': profilePhoto,
+    'farmPhoto': farmPhoto,
+    'farmPhotos': farmPhotos,
+    'farmVideos': farmVideos,
+  };
 }
 
 class CropItem {
@@ -581,6 +619,17 @@ class FarmerOrderItem {
     final s = _weighbridgeStatus;
     return (s != null && s.isNotEmpty) ? s : '';
   }
+  final String driverName;
+  final String driverPhone;
+  final String vehicleNumber;
+  final String driverStatus;
+  final String day;
+  final bool hasDriverAssigned;
+
+  bool get isDriverAssigned =>
+      hasDriverAssigned ||
+      (driverName.trim().isNotEmpty && driverName.trim().toLowerCase() != 'unassigned') ||
+      (driverPhone.trim().isNotEmpty && driverPhone.trim() != '1800123456');
 
   FarmerOrderItem({
     required this.id,
@@ -625,6 +674,12 @@ class FarmerOrderItem {
     String? collectionCentreId,
     String? inspectorName,
     String? weighbridgeStatus,
+    this.driverName = '',
+    this.driverPhone = '',
+    this.vehicleNumber = '',
+    this.driverStatus = '',
+    this.day = '',
+    this.hasDriverAssigned = false,
   })  : _productId = productId ?? '',
         _collectionCentre = collectionCentre ?? '',
         _collectionCentreId = collectionCentreId ?? '',
@@ -872,6 +927,26 @@ class FarmerOrderItem {
       collectionCentreId: json['collectionCentreId']?.toString() ?? (json['pickup'] is Map ? json['pickup']['collectionCentreId']?.toString() : null) ?? '',
       inspectorName: json['inspectorName']?.toString() ?? (json['inspection'] is Map ? json['inspection']['inspectorName']?.toString() : null) ?? json['receivedBy']?.toString() ?? '',
       weighbridgeStatus: json['weighbridgeStatus']?.toString() ?? '',
+      driverName: json['driverName']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['driverName']?.toString() : null) ??
+          (json['assignedDriver'] is Map ? json['assignedDriver']['name']?.toString() : null) ??
+          '',
+      driverPhone: json['driverMobile']?.toString() ??
+          json['driverPhone']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['driverMobile']?.toString() : null) ??
+          (json['assignedDriver'] is Map ? json['assignedDriver']['mobile']?.toString() : null) ??
+          '',
+      vehicleNumber: json['vehicleNumber']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['vehicleNumber']?.toString() : null) ??
+          (json['assignedDriver'] is Map ? json['assignedDriver']['vehicleNumber']?.toString() : null) ??
+          '',
+      driverStatus: json['driverStatus']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['driverStatus']?.toString() : null) ??
+          '',
+      day: json['day']?.toString() ?? '',
+      hasDriverAssigned: json['hasDriverAssigned'] == true ||
+          (json['driverName'] != null && json['driverName'].toString().trim().isNotEmpty) ||
+          (json['pickup'] is Map && json['pickup']['driverName'] != null && json['pickup']['driverName'].toString().trim().isNotEmpty),
     );
   }
 }
@@ -1021,4 +1096,97 @@ class DocumentItem {
     this.fileUrl = '',
     this.rejectionReason = '',
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'title': title,
+    'marathiTitle': marathiTitle,
+    'isUploaded': isUploaded,
+    'status': status,
+    'uploadDate': uploadDate,
+    'fileUrl': fileUrl,
+    'rejectionReason': rejectionReason,
+  };
+
+  factory DocumentItem.fromJson(Map<String, dynamic> json) => DocumentItem(
+    id: json['id']?.toString() ?? '',
+    type: json['type']?.toString() ?? '',
+    title: json['title']?.toString() ?? '',
+    marathiTitle: json['marathiTitle']?.toString() ?? '',
+    isUploaded: json['isUploaded'] == true || (json['fileUrl'] != null && json['fileUrl'].toString().isNotEmpty),
+    status: json['status']?.toString() ?? 'not_uploaded',
+    uploadDate: json['uploadDate']?.toString() ?? '',
+    fileUrl: json['fileUrl']?.toString() ?? '',
+    rejectionReason: json['rejectionReason']?.toString() ?? '',
+  );
 }
+
+class GovtSchemeApplication {
+  final String id;
+  final String farmerId;
+  final String farmerName;
+  final String farmerPhone;
+  final String farmerVillage;
+  final String farmerTaluka;
+  final String farmerDistrict;
+  final String landAcres;
+  final String schemeId;
+  final String schemeTitle;
+  final String schemeCategory;
+  final String subsidyAmount;
+  final String status; // pending, accepted, approved, rejected
+  final String notes;
+  final String adminNotes;
+  final String appliedAt;
+  final String reviewedAt;
+
+  GovtSchemeApplication({
+    required this.id,
+    required this.farmerId,
+    required this.farmerName,
+    required this.farmerPhone,
+    this.farmerVillage = '',
+    this.farmerTaluka = '',
+    this.farmerDistrict = '',
+    this.landAcres = '',
+    required this.schemeId,
+    required this.schemeTitle,
+    this.schemeCategory = '',
+    this.subsidyAmount = '',
+    required this.status,
+    this.notes = '',
+    this.adminNotes = '',
+    this.appliedAt = '',
+    this.reviewedAt = '',
+  });
+
+  factory GovtSchemeApplication.fromJson(Map<String, dynamic> json) {
+    final schemeObj = json['schemeId'] is Map ? json['schemeId'] as Map<String, dynamic> : null;
+    final sId = schemeObj != null ? (schemeObj['_id'] ?? schemeObj['id'] ?? '') : (json['schemeId'] ?? '');
+    final sTitle = (json['schemeTitle'] ?? (schemeObj != null ? schemeObj['title'] : '') ?? '').toString();
+    final sCategory = (json['schemeCategory'] ?? (schemeObj != null ? schemeObj['category'] : '') ?? '').toString();
+    final sSubsidy = (json['subsidyAmount'] ?? (schemeObj != null ? (schemeObj['subsidyAmount'] ?? schemeObj['maxBenefit']) : '') ?? '').toString();
+
+    return GovtSchemeApplication(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      farmerId: (json['farmerId'] ?? '').toString(),
+      farmerName: (json['farmerName'] ?? '').toString(),
+      farmerPhone: (json['farmerPhone'] ?? '').toString(),
+      farmerVillage: (json['farmerVillage'] ?? '').toString(),
+      farmerTaluka: (json['farmerTaluka'] ?? '').toString(),
+      farmerDistrict: (json['farmerDistrict'] ?? '').toString(),
+      landAcres: (json['landAcres'] ?? '').toString(),
+      schemeId: sId.toString(),
+      schemeTitle: sTitle.isNotEmpty ? sTitle : 'Govt Scheme',
+      schemeCategory: sCategory,
+      subsidyAmount: sSubsidy,
+      status: (json['status'] ?? 'pending').toString().toLowerCase(),
+      notes: (json['notes'] ?? '').toString(),
+      adminNotes: (json['adminNotes'] ?? '').toString(),
+      appliedAt: (json['appliedAt'] ?? json['createdAt'] ?? '').toString(),
+      reviewedAt: (json['reviewedAt'] ?? '').toString(),
+    );
+  }
+}
+

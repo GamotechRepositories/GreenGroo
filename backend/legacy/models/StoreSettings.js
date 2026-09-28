@@ -17,6 +17,16 @@ const shippingSlabSchema = new mongoose.Schema(
 );
 
 
+const preOrderSlotSchema = new mongoose.Schema(
+  {
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
+    capacity: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const giftHamperGiftSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 160 },
@@ -169,6 +179,14 @@ const storeSettingsSchema = new mongoose.Schema(
     giftHampersEnabled: {
       type: Boolean,
       default: false,
+    },
+    preOrderSlots: {
+      type: [preOrderSlotSchema],
+      default: () => [
+        { startTime: "09:00 AM", endTime: "12:00 PM", capacity: 50, isActive: true },
+        { startTime: "12:00 PM", endTime: "03:00 PM", capacity: 50, isActive: true },
+        { startTime: "03:00 PM", endTime: "06:00 PM", capacity: 50, isActive: true },
+      ],
     },
     merchantUpiId: {
       type: String,

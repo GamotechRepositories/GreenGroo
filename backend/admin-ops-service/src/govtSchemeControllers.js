@@ -1,4 +1,5 @@
-import { GovernmentScheme } from "./models.js";
+import { GovernmentScheme, FarmerSchemeApplication } from "./models.js";
+import { getIO } from "../../shared/socket.js";
 
 const STATUS_LABELS = {
   active: "Active (अर्जासाठी खुले)",
@@ -6,6 +7,13 @@ const STATUS_LABELS = {
   upcoming: "Upcoming (लवकरच सुरू)",
   closed: "Closed",
 };
+
+function safeEmit(fn) {
+  try {
+    const io = getIO();
+    if (io) fn(io);
+  } catch (_) {}
+}
 
 function mapScheme(doc) {
   if (!doc) return null;
@@ -93,6 +101,7 @@ export async function createGovtScheme(req, res, next) {
       isActive: body.isActive !== false,
     });
 
+    safeEmit((io) => io.emit("govt_scheme_changed", { action: "create", id: row._id }));
     res.status(201).json({ success: true, data: mapScheme(row) });
   } catch (err) {
     next(err);
@@ -135,6 +144,7 @@ export async function updateGovtScheme(req, res, next) {
     }
 
     await row.save();
+    safeEmit((io) => io.emit("govt_scheme_changed", { action: "update", id: row._id }));
     res.json({ success: true, data: mapScheme(row) });
   } catch (err) {
     next(err);
@@ -147,7 +157,211 @@ export async function deleteGovtScheme(req, res, next) {
     if (!row) {
       return res.status(404).json({ success: false, message: "Scheme not found" });
     }
+    safeEmit((io) => io.emit("govt_scheme_changed", { action: "delete", id: req.params.id }));
     res.json({ success: true, message: "Scheme deleted" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// -------------------------------------------------------------
+// FARMER SCHEME APPLICATIONS CONTROLLERS
+// -------------------------------------------------------------
+
+export async function applyGovtScheme(req, res, next) {
+  try {
+    const body = req.body || {};
+    const farmerId = String(body.farmerId || req.user?.id || req.user?._id || "").trim();
+    const schemeId = String(body.schemeId || "").trim();
+
+    if (!farmerId) {
+      return res.status(400).json({ success: false, message: "Farmer ID is required" });
+    }
+    if (!schemeId) {
+      return res.status(400).json({ success: false, message: "Scheme ID is required" });
+    }
+
+    const scheme = await GovernmentScheme.findById(schemeId).lean();
+    if (!scheme) {
+      return res.status(404).json({ success: false, message: "Scheme not found" });
+    }
+
+    // Check if application already exists for this farmer & scheme
+    let existing = await FarmerSchemeApplication.findOne({ farmerId, schemeId });
+    if (existing) {
+      if (existing.status === "pending") {
+        return res.json({
+          success: true,
+          message: "Application is already submitted and pending review",
+          data: existing,
+        });
+      }
+      if (existing.status === "accepted" || existing.status === "approved") {
+        return res.json({
+          success: true,
+          message: "Application has already been accepted/approved",
+          data: existing,
+        });
+      }
+      // If rejected, allow re-applying
+      existing.status = "pending";
+      existing.notes = String(body.notes || existing.notes || "").trim();
+      existing.farmerName = String(body.farmerName || existing.farmerName || "").trim();
+      existing.farmerPhone = String(body.farmerPhone || existing.farmerPhone || "").trim();
+      existing.farmerVillage = String(body.farmerVillage || existing.farmerVillage || "").trim();
+      existing.farmerTaluka = String(body.farmerTaluka || existing.farmerTaluka || "").trim();
+      existing.farmerDistrict = String(body.farmerDistrict || existing.farmerDistrict || "").trim();
+      existing.landAcres = String(body.landAcres || existing.landAcres || "").trim();
+      existing.adminNotes = "";
+      existing.appliedAt = new Date();
+      existing.reviewedAt = null;
+      existing.reviewedBy = "";
+      await existing.save();
+      safeEmit((io) => {
+        io.to(`farmer_${farmerId}`).emit("scheme_application_updated", existing);
+        io.emit("govt_scheme_application_updated", existing);
+      });
+      return res.status(200).json({
+        success: true,
+        message: "Application resubmitted successfully",
+        data: existing,
+      });
+    }
+
+    const appDoc = await FarmerSchemeApplication.create({
+      farmerId,
+      farmerName: String(body.farmerName || "").trim(),
+      farmerPhone: String(body.farmerPhone || "").trim(),
+      farmerVillage: String(body.farmerVillage || "").trim(),
+      farmerTaluka: String(body.farmerTaluka || "").trim(),
+      farmerDistrict: String(body.farmerDistrict || "").trim(),
+      landAcres: String(body.landAcres || "").trim(),
+      schemeId: scheme._id,
+      schemeTitle: scheme.title,
+      schemeCategory: scheme.category,
+      subsidyAmount: scheme.subsidyAmount || scheme.maxBenefit || "",
+      status: "pending",
+      notes: String(body.notes || "").trim(),
+      appliedAt: new Date(),
+    });
+
+    safeEmit((io) => {
+      io.to(`farmer_${farmerId}`).emit("scheme_application_created", appDoc);
+      io.emit("govt_scheme_application_created", appDoc);
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Application submitted successfully",
+      data: appDoc,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listMyGovtSchemeApplications(req, res, next) {
+  try {
+    const farmerId = String(req.query.farmerId || req.user?.id || req.user?._id || "").trim();
+    if (!farmerId) {
+      return res.json({ success: true, data: [] });
+    }
+    const apps = await FarmerSchemeApplication.find({ farmerId })
+      .populate("schemeId")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ success: true, data: apps });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listAllGovtSchemeApplications(req, res, next) {
+  try {
+    const filter = {};
+    if (req.query.status && req.query.status !== "all") {
+      filter.status = String(req.query.status);
+    }
+    if (req.query.schemeId && req.query.schemeId !== "all") {
+      filter.schemeId = req.query.schemeId;
+    }
+    if (req.query.search) {
+      const q = String(req.query.search).trim();
+      filter.$or = [
+        { farmerName: { $regex: q, $options: "i" } },
+        { farmerPhone: { $regex: q, $options: "i" } },
+        { farmerVillage: { $regex: q, $options: "i" } },
+        { schemeTitle: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const apps = await FarmerSchemeApplication.find(filter)
+      .populate("schemeId")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const allApps = await FarmerSchemeApplication.find({}).lean();
+    const stats = {
+      total: allApps.length,
+      pending: allApps.filter((a) => a.status === "pending").length,
+      accepted: allApps.filter((a) => a.status === "accepted" || a.status === "approved").length,
+      rejected: allApps.filter((a) => a.status === "rejected").length,
+    };
+
+    res.json({ success: true, data: apps, stats });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateGovtSchemeApplicationStatus(req, res, next) {
+  try {
+    const appDoc = await FarmerSchemeApplication.findById(req.params.id);
+    if (!appDoc) {
+      return res.status(404).json({ success: false, message: "Application not found" });
+    }
+
+    const body = req.body || {};
+    const nextStatus = String(body.status || "").toLowerCase().trim();
+    if (["pending", "accepted", "approved", "rejected"].includes(nextStatus)) {
+      appDoc.status = nextStatus === "approved" ? "accepted" : nextStatus;
+    }
+    if (body.adminNotes !== undefined) {
+      appDoc.adminNotes = String(body.adminNotes || "").trim();
+    }
+    appDoc.reviewedAt = new Date();
+    appDoc.reviewedBy = String(body.reviewedBy || req.user?.name || "Admin").trim();
+
+    await appDoc.save();
+
+    safeEmit((io) => {
+      io.to(`farmer_${appDoc.farmerId}`).emit("scheme_application_updated", appDoc);
+      io.emit("govt_scheme_application_updated", appDoc);
+    });
+
+    res.json({
+      success: true,
+      message: `Status updated to ${appDoc.status}`,
+      data: appDoc,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteGovtSchemeApplication(req, res, next) {
+  try {
+    const appDoc = await FarmerSchemeApplication.findByIdAndDelete(req.params.id);
+    if (!appDoc) {
+      return res.status(404).json({ success: false, message: "Application not found" });
+    }
+
+    safeEmit((io) => {
+      io.to(`farmer_${appDoc.farmerId}`).emit("scheme_application_deleted", { id: appDoc._id });
+      io.emit("govt_scheme_application_deleted", { id: appDoc._id });
+    });
+
+    res.json({ success: true, message: "Application deleted successfully" });
   } catch (err) {
     next(err);
   }
