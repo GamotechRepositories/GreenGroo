@@ -13,6 +13,7 @@ import {
 import { getIO } from "../../shared/socket.js";
 import { syncQualityToErp } from "../../erp-service/src/services/harvestSync.js";
 import { parsePickupQr } from "./pickupControllers.js";
+import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, INSPECTION_LIST_EXCLUDE } from "./listProjections.js";
 
 const QUALITY_PENDING = "QUALITY_PENDING";
 const INSPECTION = "INSPECTION";
@@ -394,6 +395,45 @@ async function findOrder(orderId) {
     ord = await FarmerHarvestOrder.findOne({ $or: [{ id: orderId }, { orderId }] });
   }
   return ord;
+}
+
+// First doc (in query order) per key, matching findOne({ $or: [{ field: key }, ...] }) semantics.
+function firstByKeys(docs, fields, map = new Map()) {
+  for (const doc of docs) {
+    for (const field of fields) {
+      const key = doc?.[field];
+      if (key && !map.has(String(key))) map.set(String(key), doc);
+    }
+  }
+  return map;
+}
+
+// Batch equivalent of findOrder(): FarmerOrder first, FarmerHarvestOrder for keys it misses.
+async function loadOrdersByKeys(keys, cache) {
+  const missing = [...new Set(keys.filter(Boolean).map(String))].filter((key) => !cache.has(key));
+  if (!missing.length) return cache;
+  const byKey = firstByKeys(
+    await FarmerOrder.find({ $or: [{ id: { $in: missing } }, { orderId: { $in: missing } }] }),
+    ["id", "orderId"]
+  );
+  const harvestKeys = missing.filter((key) => !byKey.has(key));
+  if (harvestKeys.length) {
+    const harvest = firstByKeys(
+      await FarmerHarvestOrder.find({ $or: [{ id: { $in: harvestKeys } }, { orderId: { $in: harvestKeys } }] }),
+      ["id", "orderId"]
+    );
+    harvestKeys.forEach((key) => {
+      if (harvest.has(key)) byKey.set(key, harvest.get(key));
+    });
+  }
+  missing.forEach((key) => cache.set(key, byKey.get(key) || null));
+  return cache;
+}
+
+async function orderFromCache(cache, orderId) {
+  const key = orderId ? String(orderId) : "";
+  if (key && cache.has(key)) return cache.get(key);
+  return findOrder(orderId);
 }
 
 async function ensureInspection(pickup, order) {
@@ -1118,11 +1158,15 @@ export async function listQualityPending(req, res) {
       farmerId: { $in: farmerIds },
       status: { $in: RECEIVED_STATUSES },
       "receiving.status": "RECEIVED",
-    }).lean();
+    })
+      .select(PICKUP_LIST_EXCLUDE)
+      .lean();
 
+    const orderCache = new Map();
     if (statuses.includes(QUALITY_PENDING)) {
+      await loadOrdersByKeys(pickups.map((p) => p.orderId), orderCache);
       for (const pickup of pickups) {
-        const order = await findOrder(pickup.orderId);
+        const order = await orderFromCache(orderCache, pickup.orderId);
         await ensureInspection(pickup, order);
       }
     }
@@ -1131,24 +1175,57 @@ export async function listQualityPending(req, res) {
     const inspections = await QualityInspection.find({
       $or: [{ pickupId: { $in: pickupIds } }, { farmerId: { $in: farmerIds } }],
       status: { $in: statuses },
-    }).sort({ updatedAt: -1 });
+    })
+      .select(INSPECTION_LIST_EXCLUDE)
+      .sort({ updatedAt: -1 });
+
+    const localPickupOf = (inspection) =>
+      pickups.find((p) => p.id === inspection.pickupId || p.orderId === inspection.orderId);
+    const unresolvedKeys = [
+      ...new Set(inspections.filter((i) => !localPickupOf(i)).map((i) => i.orderId).filter(Boolean).map(String)),
+    ];
+    const extraPickups = unresolvedKeys.length
+      ? firstByKeys(
+          await Pickup.find({
+            $or: [{ orderId: { $in: unresolvedKeys } }, { id: { $in: unresolvedKeys } }, { pickupId: { $in: unresolvedKeys } }],
+          })
+            .select(PICKUP_LIST_EXCLUDE)
+            .lean(),
+          ["orderId", "id", "pickupId"]
+        )
+      : new Map();
+
+    const resolved = [];
+    for (const inspection of inspections) {
+      const pickup = localPickupOf(inspection)
+        || (inspection.orderId && extraPickups.get(String(inspection.orderId)))
+        || (await findPickupForOrder(inspection.orderId));
+      if (pickup) resolved.push({ inspection, pickup });
+    }
+
+    const farmerKeys = [
+      ...new Set(resolved.flatMap(({ inspection, pickup }) => [inspection.farmerId, pickup.farmerId]).filter(Boolean).map(String)),
+    ];
+    const centreKeys = [...new Set(resolved.map(({ pickup }) => pickup.collectionCentreId).filter(Boolean).map(String))];
+    const [farmerDocs, , centreDocs] = await Promise.all([
+      farmerKeys.length ? Farmer.find({ id: { $in: farmerKeys } }).select(FARMER_LIST_EXCLUDE).lean() : [],
+      loadOrdersByKeys(resolved.map(({ inspection }) => inspection.orderId), orderCache),
+      centreKeys.length ? CollectionCentre.find({ id: { $in: centreKeys } }).lean() : [],
+    ]);
+    const farmerById = firstByKeys(farmerDocs, ["id"]);
+    const centreById = firstByKeys(centreDocs, ["id"]);
 
     const rows = [];
-    for (const inspection of inspections) {
-      const pickup = pickups.find((p) => p.id === inspection.pickupId || p.orderId === inspection.orderId)
-        || (await findPickupForOrder(inspection.orderId));
-      if (!pickup) continue;
+    for (const { inspection, pickup } of resolved) {
       try {
-        await assertQualityAccess(req, pickup);
+        await assertQualityAccess(req, pickup, farmerById.get(String(pickup.farmerId)) || null);
       } catch {
         continue;
       }
       if (!isWeightVerified(pickup)) continue;
-      const order = await findOrder(inspection.orderId);
-      const farmer = await Farmer.findOne({ id: inspection.farmerId }).lean();
-      const centre = pickup.collectionCentreId
-        ? await CollectionCentre.findOne({ id: pickup.collectionCentreId }).lean()
-        : null;
+      const order = await orderFromCache(orderCache, inspection.orderId);
+      const farmer = farmerById.get(String(inspection.farmerId)) || null;
+      const centre = pickup.collectionCentreId ? centreById.get(String(pickup.collectionCentreId)) || null : null;
       rows.push(await presentInspection(inspection, pickup, order, farmer, centre));
     }
     res.json({ items: rows, bucket, count: rows.length });

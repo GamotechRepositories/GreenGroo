@@ -12,6 +12,8 @@ import {
 import { getIO } from "../../shared/socket.js";
 import { generateId } from "../../erp-service/src/services/idGenerator.js";
 import { resolveLocation, cityCode } from "../../erp-service/src/services/locationResolver.js";
+import { FARMER_LIST_EXCLUDE, PICKUP_LIST_EXCLUDE, DRIVER_LIST_EXCLUDE } from "./listProjections.js";
+import { PAGE_LIMITS, isPaginationRequested, getPageParams, paginatedResponse } from "./pagination.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 const CC_ID_RE = /^GGC-CC-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-\d{3}$/;
@@ -702,15 +704,64 @@ async function applyOrderStatus(order, status, note) {
   await order.save();
 }
 
-async function enrichPickup(pickup) {
-  const plain = toPlain(pickup);
-  const [farmer, manager, driver, centre, order] = await Promise.all([
-    Farmer.findOne({ id: plain.farmerId }).lean(),
-    plain.managerId ? FarmerManager.findOne({ id: plain.managerId }).lean() : null,
-    plain.driverId ? PickupDriver.findOne({ id: plain.driverId }).lean() : null,
-    plain.collectionCentreId ? CollectionCentre.findOne({ id: plain.collectionCentreId }).lean() : null,
-    FarmerOrder.findOne({ $or: [{ id: plain.orderId }, { orderId: plain.orderId }] }).lean(),
+// First doc (in query order) per key, matching findOne({ $or: [{ field: key }, ...] }) semantics.
+function firstByKeys(docs, fields) {
+  const map = new Map();
+  for (const doc of docs) {
+    for (const field of fields) {
+      const key = doc?.[field];
+      if (key && !map.has(String(key))) map.set(String(key), doc);
+    }
+  }
+  return map;
+}
+
+function lookup(map, key) {
+  return key ? map.get(String(key)) || null : null;
+}
+
+async function loadPickupRelations(plains) {
+  const unique = (field) => [...new Set(plains.map((p) => p[field]).filter(Boolean).map(String))];
+  const farmerIds = unique("farmerId");
+  const managerIds = unique("managerId");
+  const driverIds = unique("driverId");
+  const centreIds = unique("collectionCentreId");
+  const orderIds = unique("orderId");
+  const [farmers, managers, drivers, centres, orders] = await Promise.all([
+    farmerIds.length ? Farmer.find({ id: { $in: farmerIds } }).select(FARMER_LIST_EXCLUDE).lean() : [],
+    managerIds.length ? FarmerManager.find({ id: { $in: managerIds } }).lean() : [],
+    driverIds.length ? PickupDriver.find({ id: { $in: driverIds } }).select(DRIVER_LIST_EXCLUDE).lean() : [],
+    centreIds.length ? CollectionCentre.find({ id: { $in: centreIds } }).lean() : [],
+    orderIds.length
+      ? FarmerOrder.find({ $or: [{ id: { $in: orderIds } }, { orderId: { $in: orderIds } }] }).lean()
+      : [],
   ]);
+  return {
+    farmers: firstByKeys(farmers, ["id"]),
+    managers: firstByKeys(managers, ["id"]),
+    drivers: firstByKeys(drivers, ["id"]),
+    centres: firstByKeys(centres, ["id"]),
+    orders: firstByKeys(orders, ["id", "orderId"]),
+  };
+}
+
+async function enrichPickups(pickups) {
+  const plains = pickups.map((p) => toPlain(p));
+  const relations = await loadPickupRelations(plains);
+  return plains.map((plain) => presentPickup(plain, relations));
+}
+
+async function enrichPickup(pickup) {
+  const [row] = await enrichPickups([pickup]);
+  return row;
+}
+
+function presentPickup(plain, relations) {
+  const farmer = lookup(relations.farmers, plain.farmerId);
+  const manager = lookup(relations.managers, plain.managerId);
+  const driver = lookup(relations.drivers, plain.driverId);
+  const centre = lookup(relations.centres, plain.collectionCentreId);
+  const order = lookup(relations.orders, plain.orderId);
   const flat = flattenOrder(order || {});
   const receiving = plain.receiving || {};
   return {
@@ -958,7 +1009,7 @@ export async function getVendorDriver(req, res) {
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     const { password: _pw, ...safe } = toPlain(driver);
     const pickups = await Pickup.find({ vendorId, driverId: driver.id }).sort({ updatedAt: -1 }).lean();
-    const enriched = await Promise.all(pickups.map((p) => enrichPickup(p)));
+    const enriched = await enrichPickups(pickups);
     res.json({
       ...safe,
       driverId: driver.id,
@@ -1048,6 +1099,15 @@ export async function deleteVendorDriver(req, res) {
 // ----------------------------------------------------
 // VENDOR — PICKUPS
 // ----------------------------------------------------
+async function findPickupPage(filter, query) {
+  const { page, limit, skip } = getPageParams(query, PAGE_LIMITS.pickups);
+  const [total, pickups] = await Promise.all([
+    Pickup.countDocuments(filter),
+    Pickup.find(filter).select(PICKUP_LIST_EXCLUDE).sort({ updatedAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+  ]);
+  return { page, limit, total, pickups };
+}
+
 export async function listVendorPickups(req, res) {
   try {
     const vendorId = vendorIdOf(req);
@@ -1095,8 +1155,12 @@ export async function listVendorPickups(req, res) {
     }
     if (req.query.driverId) filter.driverId = req.query.driverId;
     if (req.query.status) filter.status = req.query.status;
-    const pickups = await Pickup.find(filter).sort({ updatedAt: -1 }).lean();
-    res.json(await Promise.all(pickups.map((p) => enrichPickup(p))));
+    if (isPaginationRequested(req.query)) {
+      const { page, limit, total, pickups } = await findPickupPage(filter, req.query);
+      return res.json(paginatedResponse(await enrichPickups(pickups), total, page, limit));
+    }
+    const pickups = await Pickup.find(filter).select(PICKUP_LIST_EXCLUDE).sort({ updatedAt: -1 }).lean();
+    res.json(await enrichPickups(pickups));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to list pickups" });
   }
@@ -1471,10 +1535,12 @@ async function managerFarmerIds(req) {
 
 export async function listManagerPickups(req, res) {
   try {
-    const farmers = await managerFarmerIds(req);
-    const farmerIds = farmers.map((f) => f.id);
     const vendorId = req.user?.vendorId;
-    if (vendorId) await backfillReadyPickups(vendorId);
+    const [farmers] = await Promise.all([
+      managerFarmerIds(req),
+      vendorId ? backfillReadyPickups(vendorId) : null,
+    ]);
+    const farmerIds = farmers.map((f) => f.id);
     const filter = { farmerId: { $in: farmerIds } };
     if (vendorId) filter.vendorId = vendorId;
     const filterKey = String(req.query.filter || "requests");
@@ -1524,8 +1590,11 @@ export async function listManagerPickups(req, res) {
         },
       ];
     }
-    const pickups = await Pickup.find(filter).sort({ updatedAt: -1 }).lean();
-    const enriched = await Promise.all(pickups.map((p) => enrichPickup(p)));
+    const paged = isPaginationRequested(req.query) ? await findPickupPage(filter, req.query) : null;
+    const pickups = paged
+      ? paged.pickups
+      : await Pickup.find(filter).select(PICKUP_LIST_EXCLUDE).sort({ updatedAt: -1 }).lean();
+    const enriched = await enrichPickups(pickups);
     const groups = {};
     for (const f of farmers) groups[f.id] = { farmerId: f.id, farmerName: f.name, pickups: [] };
     for (const p of enriched) {
@@ -1534,8 +1603,12 @@ export async function listManagerPickups(req, res) {
       }
       groups[p.farmerId].pickups.push(p);
     }
+    const farmerGroups = Object.values(groups).filter((g) => g.pickups.length);
+    if (paged) {
+      return res.json({ ...paginatedResponse(enriched, paged.total, paged.page, paged.limit), farmers: farmerGroups });
+    }
     res.json({
-      farmers: Object.values(groups).filter((g) => g.pickups.length),
+      farmers: farmerGroups,
       pickups: enriched,
     });
   } catch (err) {
@@ -1815,9 +1888,9 @@ export async function getVendorBatch(req, res) {
     const vendorId = vendorIdOf(req);
     const batchId = String(req.params.batchId || "").trim();
     if (!batchId) return res.status(400).json({ message: "Batch ID is required" });
-    const pickups = await Pickup.find({ vendorId, collectionBatchId: batchId }).sort({ createdAt: 1 });
+    const pickups = await Pickup.find({ vendorId, collectionBatchId: batchId }).select(PICKUP_LIST_EXCLUDE).sort({ createdAt: 1 });
     if (!pickups.length) return res.status(404).json({ message: "Batch not found" });
-    const orders = await Promise.all(pickups.map((p) => enrichPickup(p)));
+    const orders = await enrichPickups(pickups);
     res.json(batchPayload(batchId, orders));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load batch" });
@@ -1833,15 +1906,15 @@ export async function getManagerBatch(req, res) {
     const vendorId = req.user?.vendorId;
     const ownedQuery = { collectionBatchId: batchId, farmerId: { $in: farmerIds } };
     if (vendorId) ownedQuery.vendorId = vendorId;
-    const owned = await Pickup.find(ownedQuery).sort({ createdAt: 1 });
+    const owned = await Pickup.find(ownedQuery).select(PICKUP_LIST_EXCLUDE).sort({ createdAt: 1 });
     if (!owned.length) return res.status(404).json({ message: "Batch not found" });
     let pickups = owned;
     const batchVendorId = owned[0].vendorId || vendorId;
     if (batchVendorId) {
-      const all = await Pickup.find({ collectionBatchId: batchId, vendorId: batchVendorId }).sort({ createdAt: 1 });
+      const all = await Pickup.find({ collectionBatchId: batchId, vendorId: batchVendorId }).select(PICKUP_LIST_EXCLUDE).sort({ createdAt: 1 });
       if (all.length) pickups = all;
     }
-    const orders = await Promise.all(pickups.map((p) => enrichPickup(p)));
+    const orders = await enrichPickups(pickups);
     res.json(batchPayload(batchId, orders));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load batch" });

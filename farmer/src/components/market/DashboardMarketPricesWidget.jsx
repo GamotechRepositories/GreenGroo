@@ -79,7 +79,7 @@ export default function DashboardMarketPricesWidget() {
                       <td className={`${EXCEL_CELL} font-bold text-[#1F2937]`}>
                         <div className="flex items-center gap-2">
                           {crop.image ? (
-                            <img src={crop.image} alt={crop.cropName} className="h-6 w-6 rounded object-cover" />
+                            <img src={crop.image} alt={crop.cropName} loading="lazy" decoding="async" className="h-6 w-6 rounded object-cover" />
                           ) : null}
                           <div>
                             <span>{crop.cropName}</span>

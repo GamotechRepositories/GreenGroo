@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getManagerAllHarvestOrders, getMyOrder } from "../api/farmerApi";
-import { useLive } from "../realtime/useLive";
+import { keepIfSame, usePolling } from "../hooks/usePolling";
 import StatusBadge from "../components/ui/StatusBadge";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
@@ -118,7 +118,7 @@ export default function OrderScanPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useLive(() => {
+  usePolling(() => {
     const load = async () => {
       if (!orderCode) {
         setOrder(null);
@@ -128,7 +128,7 @@ export default function OrderScanPage() {
       if (!isManager) {
         try {
           const data = await getMyOrder(orderCode);
-          setOrder(data);
+          setOrder((prev) => keepIfSame(prev, data));
           return;
         } catch {
           setOrder(null);
@@ -138,7 +138,7 @@ export default function OrderScanPage() {
       try {
         const harvest = await getManagerAllHarvestOrders();
         const list = Array.isArray(harvest?.orders) ? harvest.orders : [];
-        setOrder(list.find((o) => matchesScannedOrder(o, orderCode)) || null);
+        setOrder((prev) => keepIfSame(prev, list.find((o) => matchesScannedOrder(o, orderCode)) || null));
       } catch {
         setOrder(null);
       } finally {
@@ -146,7 +146,7 @@ export default function OrderScanPage() {
       }
     };
     load().finally(() => setLoading(false));
-  }, [orderCode, isManager]);
+  }, [orderCode, isManager], 8000);
 
   const grades = useMemo(() => (order ? gradeRows(order) : []), [order]);
 

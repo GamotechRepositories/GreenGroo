@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { acceptMyOrder, getMyOrders, rejectMyOrder } from "../api/farmerApi";
-import { useLive } from "../realtime/useLive";
+import { keepIfSame, usePolling } from "../hooks/usePolling";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -160,12 +160,14 @@ function OrdersPage({ filter = "new" }) {
     }
   };
 
-  useLive(() => {
+  usePolling(() => {
     getMyOrders({ filter })
-      .then((data) => setOrders(Array.isArray(data) ? data.filter((o) => !isOrderDeleted(o)) : []))
+      .then((data) =>
+        setOrders((prev) => keepIfSame(prev, Array.isArray(data) ? data.filter((o) => !isOrderDeleted(o)) : []))
+      )
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [filter]);
+  }, [filter], 5000);
 
   const gradeColumns = useMemo(() => {
     const set = new Set(DEFAULT_GRADES);

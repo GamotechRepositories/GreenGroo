@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getManagerFarmers, deleteManagerFarmer } from "../../api/farmerApi";
 import CopyId from "../../components/ui/CopyId";
@@ -100,37 +100,60 @@ function FarmerMobileCard({ f, deletingId, onDelete }) {
   );
 }
 
+const PAGE_SIZE = 25;
+
 export default function ManagerFarmersPage() {
   const [farmers, setFarmers] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState(null);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const next = q.trim();
+    if (next === searchQ) return undefined;
+    const t = setTimeout(() => {
+      setSearchQ(next);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q, searchQ]);
 
   const loadFarmers = () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
-    getManagerFarmers()
-      .then(setFarmers)
-      .catch(() => setFarmers([]))
-      .finally(() => setLoading(false));
+    getManagerFarmers({ q: searchQ, status: statusFilter, page, limit: PAGE_SIZE })
+      .then((res) => {
+        if (seq !== requestSeq.current) return;
+        const rows = Array.isArray(res) ? res : res?.data || [];
+        const meta = Array.isArray(res) ? null : res?.pagination || null;
+        if (meta && rows.length === 0 && page > 1) {
+          setPage(Math.min(page - 1, meta.totalPages));
+          return;
+        }
+        setFarmers(rows);
+        setPagination(meta);
+      })
+      .catch(() => {
+        if (seq !== requestSeq.current) return;
+        setFarmers([]);
+        setPagination(null);
+      })
+      .finally(() => {
+        if (seq === requestSeq.current) setLoading(false);
+      });
   };
 
   useEffect(() => {
     loadFarmers();
-  }, []);
+  }, [searchQ, statusFilter, page]);
 
-  const displayedFarmers = farmers.filter((f) => {
-    if (statusFilter && f.status !== statusFilter) return false;
-    if (!q.trim()) return true;
-    const needle = q.trim().toLowerCase();
-    return (
-      f.name?.toLowerCase().includes(needle) ||
-      f.mobile?.includes(needle) ||
-      f.farmName?.toLowerCase().includes(needle) ||
-      f.farmerCode?.toLowerCase().includes(needle) ||
-      String(f.farmerId || f.id || "").toLowerCase().includes(needle)
-    );
-  });
+  const displayedFarmers = farmers;
+  const totalFarmers = pagination?.total ?? farmers.length;
 
   const handleDelete = async (farmer) => {
     const ok = window.confirm(
@@ -155,7 +178,7 @@ export default function ManagerFarmersPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <h1 className={EXCEL_PAGE_TITLE}>My Farmers</h1>
-          <p className={EXCEL_PAGE_SUB}>{displayedFarmers.length} farmers assigned to you</p>
+          <p className={EXCEL_PAGE_SUB}>{totalFarmers} farmers assigned to you</p>
         </div>
         <Link
           to="/manager/farmers/add"
@@ -175,7 +198,10 @@ export default function ManagerFarmersPage() {
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className={`${EXCEL_INPUT} w-full sm:max-w-[140px]`}
         >
           <option value="">All Status</option>
@@ -264,6 +290,36 @@ export default function ManagerFarmersPage() {
             </div>
           </div>
         </>
+      )}
+
+      {pagination && pagination.total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#6B7280]">
+          <span>
+            Showing {(pagination.page - 1) * pagination.limit + 1}–
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={loading || !pagination.hasPreviousPage}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className={`${EXCEL_BTN} disabled:opacity-40`}
+            >
+              Prev
+            </button>
+            <span>
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={loading || !pagination.hasNextPage}
+              onClick={() => setPage((p) => p + 1)}
+              className={`${EXCEL_BTN} disabled:opacity-40`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

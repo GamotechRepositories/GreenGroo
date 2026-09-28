@@ -38,6 +38,14 @@ import {
   productIdHasVariety,
 } from "../../erp-service/src/services/farmerSync.js";
 import { overlayQualityOnOrder, presentInspection } from "./qualityControllers.js";
+import {
+  FARMER_LIST_EXCLUDE,
+  PICKUP_LIST_EXCLUDE,
+  CROP_LIST_EXCLUDE,
+  PRODUCT_LIST_EXCLUDE,
+  INSPECTION_LIST_EXCLUDE,
+} from "./listProjections.js";
+import { PAGE_LIMITS, isPaginationRequested, getPageParams, paginatedResponse, containsRegex } from "./pagination.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -204,7 +212,7 @@ function accessibleFarmerQuery(req, farmerId) {
   return query;
 }
 
-async function getAssignedFarmers(req, select = "-password") {
+async function getAssignedFarmers(req, select = FARMER_LIST_EXCLUDE) {
   return Farmer.find(assignedFarmerQuery(req)).select(select).sort({ createdAt: -1 }).lean();
 }
 
@@ -406,6 +414,8 @@ function isOrderPaidString(val) {
   );
 }
 
+const DELETED_ORDER_STATUS_RX = /^\s*(DELETED|CANCELLED|CANCELED|DELETED_ORDER)\s*$/i;
+
 function isOrderDeleted(item) {
   if (!item) return true;
   if (item.isDeleted === true || item.deleted === true) return true;
@@ -551,7 +561,23 @@ export async function getFarmers(req, res) {
     if (managerId) query.managerId = managerId;
     if (location) query.farmLocation = { $regex: location, $options: "i" };
 
-    let farmerDocs = await Farmer.find(query).select("-password").sort({ createdAt: -1 }).lean();
+    if (isPaginationRequested(req.query)) {
+      const { page, limit, skip } = getPageParams(req.query, PAGE_LIMITS.farmers);
+      const needle = q.trim();
+      if (needle) {
+        const rx = containsRegex(needle);
+        const matchingManagers = await FarmerManager.find({ name: rx }).select("id").lean();
+        query.$or = [{ name: rx }, { mobile: rx }, { farmName: rx }, { farmerCode: rx }];
+        if (matchingManagers.length) query.$or.push({ managerId: { $in: matchingManagers.map((m) => m.id) } });
+      }
+      const [total, pageDocs] = await Promise.all([
+        Farmer.countDocuments(query),
+        Farmer.find(query).select(FARMER_LIST_EXCLUDE).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+      ]);
+      return res.json(paginatedResponse(await enrichFarmerDocsBatch(pageDocs), total, page, limit));
+    }
+
+    let farmerDocs = await Farmer.find(query).select(FARMER_LIST_EXCLUDE).sort({ createdAt: -1 }).lean();
 
     let enriched = await enrichFarmerDocsBatch(farmerDocs);
 
@@ -1264,6 +1290,19 @@ function deriveCropStatus(sowingDate, harvestDate) {
   return "Planned";
 }
 
+// Mutates each lean crop's status in place; write failures are ignored so the list still loads.
+async function persistDerivedCropStatuses(crops) {
+  const updates = [];
+  for (const crop of crops) {
+    const derived = deriveCropStatus(crop.sowingDate, crop.expectedHarvestDate);
+    if (derived && derived !== crop.status) {
+      crop.status = derived;
+      updates.push({ updateOne: { filter: { id: crop.id }, update: { $set: { status: derived } } } });
+    }
+  }
+  if (updates.length) await FarmerCrop.bulkWrite(updates, { ordered: false }).catch(() => {});
+}
+
 function validateCropPayload(payload) {
   const cropName = String(payload.cropName || payload.crop || "").trim();
   const variety = String(payload.variety || "").trim();
@@ -1480,9 +1519,11 @@ async function normalizeProductList(products) {
 export async function listFarmerCrops(req, res) {
   try {
     const farmerId = authFarmerId(req);
-    const farmer = await Farmer.findOne({ id: farmerId }).lean();
+    const [farmer, crops] = await Promise.all([
+      Farmer.findOne({ id: farmerId }).lean(),
+      FarmerCrop.find({ farmerId }).sort({ createdAt: -1 }),
+    ]);
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    const crops = await FarmerCrop.find({ farmerId }).sort({ createdAt: -1 });
     const normalized = await normalizeCropList(crops);
     res.json(normalized.map((c) => publicCrop(c, farmer)));
   } catch (err) {
@@ -2216,9 +2257,11 @@ function applyProductFields(product, parsed, farmer, crop) {
 export async function listMyProducts(req, res) {
   try {
     const farmerId = authFarmerId(req);
-    const farmer = await Farmer.findOne({ id: farmerId }).lean();
+    const [farmer, products] = await Promise.all([
+      Farmer.findOne({ id: farmerId }).lean(),
+      FarmerProduct.find({ farmerId }).sort({ createdAt: -1 }),
+    ]);
     if (!farmer) return res.status(404).json({ message: "Farmer not found" });
-    const products = await FarmerProduct.find({ farmerId }).sort({ createdAt: -1 });
     const upgraded = await normalizeProductList(products);
     const cropIds = [...new Set(products.map((p) => p.cropId).filter(Boolean))];
     const crops = cropIds.length
@@ -2892,8 +2935,8 @@ export async function listMyOrders(req, res) {
     const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId].filter(Boolean)).map(String))];
     const productIds = [...new Set(orders.map((o) => flattenOrderFields(o).productId).filter(Boolean))];
     const [inspections, pickups, products] = await Promise.all([
-      orderIds.length ? QualityInspection.find({ orderId: { $in: orderIds } }).lean() : [],
-      orderIds.length ? Pickup.find({ orderId: { $in: orderIds } }).lean() : [],
+      orderIds.length ? QualityInspection.find({ orderId: { $in: orderIds } }).select(INSPECTION_LIST_EXCLUDE).lean() : [],
+      orderIds.length ? Pickup.find({ orderId: { $in: orderIds } }).select(PICKUP_LIST_EXCLUDE).lean() : [],
       productIds.length
         ? FarmerProduct.find({
             farmerId: { $in: ids },
@@ -2912,12 +2955,6 @@ export async function listMyOrders(req, res) {
       if (item?.orderId) pickupByOrder.set(String(item.orderId), item);
     });
     const driverIds = [...new Set(pickups.map((item) => item.driverId).filter(Boolean).map(String))];
-    const drivers = driverIds.length
-      ? await PickupDriver.find({ id: { $in: driverIds } })
-          .select("id name mobile vehicleNumber vehicleType licenseNumber assignedArea")
-          .lean()
-      : [];
-    const driverById = new Map(drivers.map((driver) => [String(driver.id), driver]));
 
     const farmerMap = new Map();
     farmers.forEach((f) => {
@@ -2925,17 +2962,26 @@ export async function listMyOrders(req, res) {
       if (f.farmerId) farmerMap.set(String(f.farmerId), f);
     });
     const missingFarmerIds = [...new Set(orders.map((order) => String(order.farmerId || "")).filter((id) => id && !farmerMap.has(id)))];
-    if (missingFarmerIds.length) {
-      const extraFarmers = await Farmer.find({
-        $or: [{ id: { $in: missingFarmerIds } }, { farmerId: { $in: missingFarmerIds } }],
-      })
-        .select("-password")
-        .lean();
-      extraFarmers.forEach((f) => {
-        if (f.id) farmerMap.set(String(f.id), f);
-        if (f.farmerId) farmerMap.set(String(f.farmerId), f);
-      });
-    }
+
+    const [drivers, extraFarmers] = await Promise.all([
+      driverIds.length
+        ? PickupDriver.find({ id: { $in: driverIds } })
+            .select("id name mobile vehicleNumber vehicleType licenseNumber assignedArea")
+            .lean()
+        : [],
+      missingFarmerIds.length
+        ? Farmer.find({
+            $or: [{ id: { $in: missingFarmerIds } }, { farmerId: { $in: missingFarmerIds } }],
+          })
+            .select(FARMER_LIST_EXCLUDE)
+            .lean()
+        : [],
+    ]);
+    const driverById = new Map(drivers.map((driver) => [String(driver.id), driver]));
+    extraFarmers.forEach((f) => {
+      if (f.id) farmerMap.set(String(f.id), f);
+      if (f.farmerId) farmerMap.set(String(f.farmerId), f);
+    });
     const preloaded = { products, pickups: pickupByOrder, drivers: driverById };
 
     let rows = [];
@@ -3689,6 +3735,15 @@ export async function getStockHistory(req, res) {
     const query = { farmerId };
     if (productId) query.productId = productId;
 
+    if (isPaginationRequested(req.query)) {
+      const { page, limit, skip } = getPageParams(req.query, PAGE_LIMITS.stockHistory);
+      const [total, history] = await Promise.all([
+        FarmerStockHistory.countDocuments(query),
+        FarmerStockHistory.find(query).sort({ at: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+      ]);
+      return res.json(paginatedResponse(history, total, page, limit));
+    }
+
     const history = await FarmerStockHistory.find(query).sort({ at: -1 }).lean();
     res.json(history);
   } catch (err) {
@@ -3740,19 +3795,38 @@ export async function getFarmerOrders(req, res) {
       query.status = { $nin: ["DELETED", "Deleted", "deleted", "CANCELLED", "Cancelled", "cancelled"] };
     }
 
-    let orders = await FarmerOrder.find(query).sort({ orderDate: -1, createdAt: -1 }).lean();
-    if (q) {
-      const needle = q.toLowerCase();
-      orders = orders.filter(
-        (o) =>
-          String(o.id || "").toLowerCase().includes(needle) ||
-          (o.customer?.name && o.customer.name.toLowerCase().includes(needle))
-      );
+    let orders;
+    let paged = null;
+    if (isPaginationRequested(req.query)) {
+      paged = getPageParams(req.query, PAGE_LIMITS.orders);
+      // Same exclusions as isOrderDeleted(), pushed into the query so every page is full.
+      const conditions = [{ deleted: { $ne: true } }, { status: { $not: DELETED_ORDER_STATUS_RX } }];
+      if (q) {
+        const rx = containsRegex(q);
+        conditions.push({ $or: [{ id: rx }, { "customer.name": rx }] });
+      }
+      query.$and = conditions;
+      const [total, pageOrders] = await Promise.all([
+        FarmerOrder.countDocuments(query),
+        FarmerOrder.find(query).sort({ orderDate: -1, createdAt: -1, _id: -1 }).skip(paged.skip).limit(paged.limit).lean(),
+      ]);
+      paged.total = total;
+      orders = pageOrders;
+    } else {
+      orders = await FarmerOrder.find(query).sort({ orderDate: -1, createdAt: -1 }).lean();
+      if (q) {
+        const needle = q.toLowerCase();
+        orders = orders.filter(
+          (o) =>
+            String(o.id || "").toLowerCase().includes(needle) ||
+            (o.customer?.name && o.customer.name.toLowerCase().includes(needle))
+        );
+      }
     }
 
     const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId]).filter(Boolean).map(String))];
     const pickups = orderIds.length
-      ? await Pickup.find({ orderId: { $in: orderIds } }).lean()
+      ? await Pickup.find({ orderId: { $in: orderIds } }).select(PICKUP_LIST_EXCLUDE).lean()
       : [];
     const pickupByOrder = new Map();
     pickups.forEach((p) => {
@@ -3761,7 +3835,7 @@ export async function getFarmerOrders(req, res) {
 
     const driverIds = [...new Set(pickups.map((p) => p.driverId).filter(Boolean).map(String))];
     const drivers = driverIds.length
-      ? await PickupDriver.find({ id: { $in: driverIds } }).lean()
+      ? await PickupDriver.find({ id: { $in: driverIds } }).select("id name mobile vehicleNumber").lean()
       : [];
     const driverById = new Map(drivers.map((d) => [String(d.id), d]));
 
@@ -3800,6 +3874,7 @@ export async function getFarmerOrders(req, res) {
       };
     });
 
+    if (paged) return res.json(paginatedResponse(mapped, paged.total, paged.page, paged.limit));
     res.json(mapped);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch orders" });
@@ -4964,17 +5039,8 @@ export async function getVendorDashboard(req, res) {
       return !isNaN(t) && t >= filterStart.getTime() && t <= filterEnd.getTime();
     };
 
-    let farmers = await Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name status verificationStatus managerId managerName mobile location farmName createdAt").lean();
-    if (!farmers.length) {
-      farmers = await Farmer.find({}).select("id farmerId name status verificationStatus managerId managerName mobile location farmName createdAt").lean();
-    }
-    const farmerMap = new Map();
-    farmers.forEach((f) => {
-      if (f.id) farmerMap.set(f.id, f.name);
-      if (f.farmerId) farmerMap.set(f.farmerId, f.name);
-    });
-
     const [
+      vendorFarmers,
       managers,
       crops,
       products,
@@ -4984,6 +5050,7 @@ export async function getVendorDashboard(req, res) {
       drivers,
       qualityInspections,
     ] = await Promise.all([
+      Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name status verificationStatus managerId managerName mobile location farmName createdAt").lean(),
       FarmerManager.find(vendorId ? { $or: [{ vendorId }, { vendorId: { $exists: false } }, { vendorId: null }] } : {}).select("id name status mobile createdAt").lean().catch(() => []),
       FarmerCrop.find({}).select("id farmerId cropName status sowingDate expectedHarvestDate createdAt").lean().catch(() => []),
       FarmerProduct.find({}).select("id farmerId name category status stock lowStockLimit grades price createdAt").lean().catch(() => []),
@@ -4993,6 +5060,16 @@ export async function getVendorDashboard(req, res) {
       PickupDriver.find(vendorId ? { vendorId } : {}).select("id name status mobile isAvailable verificationStatus createdAt").lean().catch(() => []),
       QualityInspection.find({}).select("id orderId status result totalGradedKg gradeBreakdown createdAt").lean().catch(() => []),
     ]);
+
+    let farmers = vendorFarmers;
+    if (!farmers.length) {
+      farmers = await Farmer.find({}).select("id farmerId name status verificationStatus managerId managerName mobile location farmName createdAt").lean();
+    }
+    const farmerMap = new Map();
+    farmers.forEach((f) => {
+      if (f.id) farmerMap.set(f.id, f.name);
+      if (f.farmerId) farmerMap.set(f.farmerId, f.name);
+    });
 
     const filteredFarmers = filterStart ? farmers.filter((f) => matchesDate(f.createdAt)) : farmers;
     const filteredManagers = filterStart ? managers.filter((m) => matchesDate(m.createdAt)) : managers;
@@ -5157,27 +5234,25 @@ export async function getVendorDashboard(req, res) {
 export async function getVendorAllCrops(req, res) {
   try {
     const vendorId = req.user.vendorId;
-    let farmers = await Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean();
+    const [vendorFarmers, allFarmers, crops] = await Promise.all([
+      Farmer.find(vendorId ? { vendorId } : {}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean(),
+      Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean(),
+      FarmerCrop.find({})
+        .select(CROP_LIST_EXCLUDE)
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+    let farmers = vendorFarmers;
     if (!farmers.length) {
       farmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").sort({ createdAt: -1 }).lean();
     }
     const farmerMap = new Map();
-    const allFarmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean();
     allFarmers.forEach((f) => {
       if (f.id) farmerMap.set(f.id, f);
       if (f.farmerId) farmerMap.set(f.farmerId, f);
     });
 
-    const crops = await FarmerCrop.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-    for (const crop of crops) {
-      const derived = deriveCropStatus(crop.sowingDate, crop.expectedHarvestDate);
-      if (derived && derived !== crop.status) {
-        crop.status = derived;
-        await FarmerCrop.updateOne({ id: crop.id }, { $set: { status: derived } }).catch(() => {});
-      }
-    }
+    await persistDerivedCropStatuses(crops);
     res.json({
       farmers,
       crops: crops.map((c) => {
@@ -5197,12 +5272,45 @@ export async function getVendorAllCrops(req, res) {
   }
 }
 
+function applyProductPageFilters(filter, { status, category, q } = {}) {
+  if (status) filter.status = String(status);
+  if (category) filter.category = String(category);
+  const needle = String(q || "").trim();
+  if (needle) {
+    const rx = containsRegex(needle);
+    filter.$or = [{ name: rx }, { productName: rx }, { cropName: rx }, { variety: rx }, { sku: rx }, { productId: rx }];
+  }
+  return filter;
+}
+
+async function findProductPage(filter, query) {
+  const { page, limit, skip } = getPageParams(query, PAGE_LIMITS.products);
+  const [total, products] = await Promise.all([
+    FarmerProduct.countDocuments(filter),
+    FarmerProduct.find(filter).select(PRODUCT_LIST_EXCLUDE).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+  ]);
+  return { page, limit, total, products };
+}
+
 export async function getVendorAllProducts(req, res) {
   try {
     const vendorId = req.user.vendorId;
-    const farmers = await Farmer.find({ vendorId }).select("id name mobile farmName").sort({ createdAt: -1 }).lean();
+    if (isPaginationRequested(req.query)) {
+      const filter = applyProductPageFilters({ vendorId }, req.query);
+      if (req.query.farmerId) filter.farmerId = String(req.query.farmerId);
+      const [farmers, { page, limit, total, products }] = await Promise.all([
+        Farmer.find({ vendorId }).select("id name mobile farmName").sort({ createdAt: -1 }).lean(),
+        findProductPage(filter, req.query),
+      ]);
+      const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+      const rows = products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—"));
+      return res.json({ ...paginatedResponse(rows, total, page, limit), farmers });
+    }
+    const [farmers, products] = await Promise.all([
+      Farmer.find({ vendorId }).select("id name mobile farmName").sort({ createdAt: -1 }).lean(),
+      FarmerProduct.find({ vendorId }).select(PRODUCT_LIST_EXCLUDE).sort({ createdAt: -1 }).lean(),
+    ]);
     const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
-    const products = await FarmerProduct.find({ vendorId }).select("-images").sort({ createdAt: -1 }).lean();
     res.json({
       farmers,
       products: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
@@ -5283,15 +5391,32 @@ export async function getManagerFarmers(req, res) {
     const { q = "", status = "", lite = "" } = req.query;
     const query = assignedFarmerQuery(req);
     if (status) query.status = status;
-    const farmerDocs = await Farmer.find(query).select("-password").sort({ createdAt: -1 }).lean();
     const isLite = lite === "1" || lite === "true";
-    let enriched = isLite
-      ? farmerDocs.map((f) => ({
-          ...f,
-          loginEnabled: f.loginEnabled !== false,
-          initials: initials(f.name),
-        }))
-      : await enrichFarmerDocsBatch(farmerDocs);
+    const toRows = async (docs) =>
+      isLite
+        ? docs.map((f) => ({
+            ...f,
+            loginEnabled: f.loginEnabled !== false,
+            initials: initials(f.name),
+          }))
+        : enrichFarmerDocsBatch(docs);
+
+    if (isPaginationRequested(req.query)) {
+      const { page, limit, skip } = getPageParams(req.query, PAGE_LIMITS.farmers);
+      const needle = q.trim();
+      if (needle) {
+        const rx = containsRegex(needle);
+        query.$or = [{ name: rx }, { mobile: rx }, { farmName: rx }, { farmerCode: rx }, { farmerId: rx }, { id: rx }];
+      }
+      const [total, pageDocs] = await Promise.all([
+        Farmer.countDocuments(query),
+        Farmer.find(query).select(FARMER_LIST_EXCLUDE).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+      ]);
+      return res.json(paginatedResponse(await toRows(pageDocs), total, page, limit));
+    }
+
+    const farmerDocs = await Farmer.find(query).select(FARMER_LIST_EXCLUDE).sort({ createdAt: -1 }).lean();
+    let enriched = await toRows(farmerDocs);
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
       enriched = enriched.filter(
@@ -5430,28 +5555,26 @@ function attachFarmerMeta(farmers) {
 
 export async function getManagerAllCrops(req, res) {
   try {
-    let farmers = attachFarmerMeta(await getAssignedFarmers(req));
+    const [assignedFarmers, allFarmers, crops] = await Promise.all([
+      getAssignedFarmers(req),
+      Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean(),
+      FarmerCrop.find({})
+        .select(CROP_LIST_EXCLUDE)
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+    let farmers = attachFarmerMeta(assignedFarmers);
     if (!farmers.length) {
-      const allFarmersList = await Farmer.find({}).select("-password").sort({ createdAt: -1 }).lean();
+      const allFarmersList = await Farmer.find({}).select(FARMER_LIST_EXCLUDE).sort({ createdAt: -1 }).lean();
       farmers = attachFarmerMeta(allFarmersList);
     }
     const farmerMap = new Map();
-    const allFarmers = await Farmer.find({}).select("id farmerId name mobile farmName farmLocation location farmerCode managerName").lean();
     allFarmers.forEach((f) => {
       if (f.id) farmerMap.set(f.id, f);
       if (f.farmerId) farmerMap.set(f.farmerId, f);
     });
 
-    const crops = await FarmerCrop.find({})
-      .sort({ createdAt: -1 })
-      .lean();
-    for (const crop of crops) {
-      const derived = deriveCropStatus(crop.sowingDate, crop.expectedHarvestDate);
-      if (derived && derived !== crop.status) {
-        crop.status = derived;
-        await FarmerCrop.updateOne({ id: crop.id }, { $set: { status: derived } }).catch(() => {});
-      }
-    }
+    await persistDerivedCropStatuses(crops);
     res.json({
       farmers,
       crops: crops.map((c) => {
@@ -5475,10 +5598,22 @@ export async function getManagerAllProducts(req, res) {
   try {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
     const farmerIds = farmers.map((f) => f.id);
-    if (!farmerIds.length) return res.json({ farmers, products: [] });
     const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
+    if (isPaginationRequested(req.query)) {
+      const requested = req.query.farmerId ? String(req.query.farmerId) : "";
+      const scopedIds = requested ? farmerIds.filter((id) => id === requested) : farmerIds;
+      if (!scopedIds.length) {
+        const { page, limit } = getPageParams(req.query, PAGE_LIMITS.products);
+        return res.json({ ...paginatedResponse([], 0, page, limit), farmers });
+      }
+      const filter = applyProductPageFilters({ farmerId: { $in: scopedIds } }, req.query);
+      const { page, limit, total, products } = await findProductPage(filter, req.query);
+      const rows = products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—"));
+      return res.json({ ...paginatedResponse(rows, total, page, limit), farmers });
+    }
+    if (!farmerIds.length) return res.json({ farmers, products: [] });
     const products = await FarmerProduct.find({ farmerId: { $in: farmerIds } })
-      .select("-images")
+      .select(PRODUCT_LIST_EXCLUDE)
       .sort({ createdAt: -1 })
       .lean();
     res.json({
@@ -5494,8 +5629,32 @@ export async function getManagerAllOrders(req, res) {
   try {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
     const farmerIds = farmers.map((f) => f.id);
-    if (!farmerIds.length) return res.json({ farmers, orders: [] });
     const farmerMap = new Map(farmers.map((f) => [f.id, f]));
+    const withFarmer = (o) => {
+      const f = farmerMap.get(o.farmerId);
+      return {
+        ...o,
+        farmerName: f?.name || "—",
+        farmerMobile: f?.mobile || "",
+        farmerLocation: f?.farmLocation || "",
+      };
+    };
+    if (isPaginationRequested(req.query)) {
+      const { page, limit, skip } = getPageParams(req.query, PAGE_LIMITS.orders);
+      if (!farmerIds.length) return res.json({ ...paginatedResponse([], 0, page, limit), farmers });
+      const filter = {
+        farmerId: { $in: farmerIds },
+        isDeleted: { $ne: true },
+        deleted: { $ne: true },
+        status: { $not: DELETED_ORDER_STATUS_RX },
+      };
+      const [total, orders] = await Promise.all([
+        FarmerOrder.countDocuments(filter),
+        FarmerOrder.find(filter).sort({ orderDate: -1, _id: -1 }).skip(skip).limit(limit).lean(),
+      ]);
+      return res.json({ ...paginatedResponse(orders.map(withFarmer), total, page, limit), farmers });
+    }
+    if (!farmerIds.length) return res.json({ farmers, orders: [] });
     const orders = await FarmerOrder.find({
       farmerId: { $in: farmerIds },
       isDeleted: { $ne: true },
@@ -5505,15 +5664,7 @@ export async function getManagerAllOrders(req, res) {
       .lean();
     res.json({
       farmers,
-      orders: orders.filter((o) => !isOrderDeleted(o)).map((o) => {
-        const f = farmerMap.get(o.farmerId);
-        return {
-          ...o,
-          farmerName: f?.name || "—",
-          farmerMobile: f?.mobile || "",
-          farmerLocation: f?.farmLocation || "",
-        };
-      }),
+      orders: orders.filter((o) => !isOrderDeleted(o)).map(withFarmer),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch orders" });
@@ -5561,12 +5712,19 @@ export async function getManagerAllStockHistory(req, res) {
     const farmerIds = farmers.map((f) => f.id);
     const { farmerId } = req.query;
     const ids = farmerId && farmerIds.includes(farmerId) ? [farmerId] : farmerIds;
-    if (!ids.length) return res.json({ farmers, history: [] });
+    const paged = isPaginationRequested(req.query) ? getPageParams(req.query, PAGE_LIMITS.stockHistory) : null;
+    if (!ids.length) {
+      if (paged) return res.json({ ...paginatedResponse([], 0, paged.page, paged.limit), farmers });
+      return res.json({ farmers, history: [] });
+    }
     const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
-    const history = await FarmerStockHistory.find({ farmerId: { $in: ids } })
-      .sort({ at: -1 })
-      .limit(500)
-      .lean();
+    const historyFilter = { farmerId: { $in: ids } };
+    const [history, total] = await Promise.all([
+      paged
+        ? FarmerStockHistory.find(historyFilter).sort({ at: -1, _id: -1 }).skip(paged.skip).limit(paged.limit).lean()
+        : FarmerStockHistory.find(historyFilter).sort({ at: -1 }).limit(500).lean(),
+      paged ? FarmerStockHistory.countDocuments(historyFilter) : null,
+    ]);
 
     const refs = [
       ...new Set(
@@ -5679,6 +5837,7 @@ export async function getManagerAllStockHistory(req, res) {
       };
     });
 
+    if (paged) return res.json({ ...paginatedResponse(enriched, total, paged.page, paged.limit), farmers });
     res.json({
       farmers,
       history: enriched,
@@ -5796,9 +5955,10 @@ export async function assignFarmerManager(req, res) {
 export async function getHarvestOrders(req, res) {
   try {
     let ids = [];
+    let assignedFarmers = [];
     if (req.user?.role === "FARMER_MANAGER") {
-      const farmers = await getAssignedFarmers(req);
-      ids = farmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
+      assignedFarmers = await getAssignedFarmers(req);
+      ids = assignedFarmers.flatMap((f) => [f.id, f.farmerId].filter(Boolean));
     } else {
       const farmerId = req.params.farmerId || req.query.farmerId || req.user?.farmerId || req.user?.id;
       if (farmerId && farmerId !== "all" && farmerId !== "ALL") {
@@ -5851,13 +6011,10 @@ export async function getHarvestOrders(req, res) {
       });
 
     const farmerMap = new Map();
-    if (req.user?.role === "FARMER_MANAGER") {
-      const farmers = await getAssignedFarmers(req);
-      farmers.forEach((f) => {
-        if (f.id) farmerMap.set(String(f.id), f);
-        if (f.farmerId) farmerMap.set(String(f.farmerId), f);
-      });
-    }
+    assignedFarmers.forEach((f) => {
+      if (f.id) farmerMap.set(String(f.id), f);
+      if (f.farmerId) farmerMap.set(String(f.farmerId), f);
+    });
 
     const combined = mergeHarvestLists(harvestWithNames, mapped)
       .filter((row) => !isOrderDeleted(row))

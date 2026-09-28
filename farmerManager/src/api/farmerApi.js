@@ -729,11 +729,13 @@ export async function getManagerDashboard() {
   });
 }
 
-export async function getManagerFarmers({ q = "", status = "", lite = false } = {}) {
+export async function getManagerFarmers({ q = "", status = "", lite = false, page, limit } = {}) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (status) params.set("status", status);
   if (lite) params.set("lite", "1");
+  if (page) params.set("page", String(page));
+  if (limit) params.set("limit", String(limit));
   return apiFetch(`/api/farmer-manager/farmers?${params.toString()}`, {
     headers: managerAuthHeaders(),
   });

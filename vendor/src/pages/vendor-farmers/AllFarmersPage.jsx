@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+
+const PAGE_SIZE = 25;
 
 export default function AllFarmersPage() {
   const [farmers, setFarmers] = useState([]);
@@ -9,21 +11,40 @@ export default function AllFarmersPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [managerFilter, setManagerFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const [assigningFarmerId, setAssigningFarmerId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const requestSeq = useRef(0);
 
   const load = () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     Promise.all([
-      vendorApi.getFarmers({ q, status: statusFilter, managerId: managerFilter }).then((r) => r.data),
+      vendorApi
+        .getFarmers({ q, status: statusFilter, managerId: managerFilter, page, limit: PAGE_SIZE })
+        .then((r) => r.data),
       vendorApi.getManagers().then((r) => r.data),
     ])
-      .then(([fs, ms]) => { setFarmers(fs); setManagers(ms); })
+      .then(([res, ms]) => {
+        if (seq !== requestSeq.current) return;
+        const rows = Array.isArray(res) ? res : res?.data || [];
+        const meta = Array.isArray(res) ? null : res?.pagination || null;
+        if (meta && rows.length === 0 && page > 1) {
+          setPage(Math.min(page - 1, meta.totalPages));
+          return;
+        }
+        setFarmers(rows);
+        setPagination(meta);
+        setManagers(ms);
+      })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (seq === requestSeq.current) setLoading(false);
+      });
   };
 
-  useEffect(() => { load(); }, [q, statusFilter, managerFilter]);
+  useEffect(() => { load(); }, [q, statusFilter, managerFilter, page]);
 
   const handleAssignManager = async (farmerId, managerId) => {
     setAssigningFarmerId(farmerId);
@@ -81,13 +102,13 @@ export default function AllFarmersPage() {
         <input
           type="search"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => { setQ(e.target.value); setPage(1); }}
           placeholder="Search farmer name or mobile…"
           className="max-w-xs border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-[#217346]"
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           className="border border-gray-200 px-3 py-1.5 text-xs outline-none"
         >
           <option value="">All Status</option>
@@ -96,7 +117,7 @@ export default function AllFarmersPage() {
         </select>
         <select
           value={managerFilter}
-          onChange={(e) => setManagerFilter(e.target.value)}
+          onChange={(e) => { setManagerFilter(e.target.value); setPage(1); }}
           className="border border-gray-200 px-3 py-1.5 text-xs outline-none"
         >
           <option value="">All Managers</option>
@@ -174,6 +195,34 @@ export default function AllFarmersPage() {
           </tbody>
         </table>
       </div>
+
+      {pagination && pagination.total > 0 && (
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>
+            Showing {(pagination.page - 1) * pagination.limit + 1}–
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} farmers
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={loading || !pagination.hasPreviousPage}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <span>Page {pagination.page} of {pagination.totalPages}</span>
+            <button
+              type="button"
+              disabled={loading || !pagination.hasNextPage}
+              onClick={() => setPage((p) => p + 1)}
+              className="border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

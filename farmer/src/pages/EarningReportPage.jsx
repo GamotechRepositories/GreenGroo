@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getMyQualityReport, getMyOrder } from "../api/farmerApi";
-import { useLive } from "../realtime/useLive";
+import { keepIfSame, usePolling } from "../hooks/usePolling";
 import StatusBadge from "../components/ui/StatusBadge";
 import CopyId, { isCopyableId } from "../components/ui/CopyId";
 import LoadingState from "../components/ui/LoadingState";
@@ -135,7 +135,7 @@ function ReportPhotos({ photos }) {
             className="overflow-hidden rounded-lg border border-[#D4D4D4] bg-white p-0.5 text-left"
             onClick={() => setPreview(p)}
           >
-            <img src={p.url} alt={p.label || "Quality"} className="h-16 w-full object-cover" />
+            <img src={p.url} alt={p.label || "Quality"} loading="lazy" decoding="async" className="h-16 w-full object-cover" />
             <p className="truncate px-0.5 py-0.5 text-[9px] text-[#6B7280]">{p.label || "Photo"}</p>
           </button>
         ))}
@@ -166,10 +166,10 @@ export default function EarningReportPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useLive(() => {
+  usePolling(() => {
     getMyQualityReport(orderId)
       .then((row) => {
-        setData(row);
+        setData((prev) => keepIfSame(prev, row));
         setError("");
       })
       .catch((err) => {
@@ -201,7 +201,7 @@ export default function EarningReportPage() {
                 collectionCentreId: ord.collectionCentreId || "CC-SNG-01",
                 inspectorName: ord.inspectorName || "Quality Officer",
               };
-              setData(mapped);
+              setData((prev) => keepIfSame(prev, mapped));
               setError("");
             } else {
               setData(null);
@@ -214,7 +214,7 @@ export default function EarningReportPage() {
           });
       })
       .finally(() => setLoading(false));
-  }, [orderId]);
+  }, [orderId], 12000);
 
   const unit = data?.unit || "Kg";
   const gq = data?.gradeQuality || {};

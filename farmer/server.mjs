@@ -2,6 +2,7 @@ import http from "node:http";
 import https from "node:https";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,16 +62,34 @@ function proxy(req, res) {
   req.pipe(upstream);
 }
 
-function sendFile(file, res) {
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
+const ASSETS_DIR = path.join(DIST, "assets") + path.sep;
+
+function sendFile(file, req, res) {
+  const ext = path.extname(file).toLowerCase();
+  const gzip = COMPRESSIBLE.has(ext) && /\bgzip\b/.test(String(req.headers["accept-encoding"] || ""));
+  const headers = {
+    "content-type": MIME[ext] || "application/octet-stream",
+    // Vite emits content-hashed filenames under /assets, so they never change once deployed.
+    "cache-control": file.startsWith(ASSETS_DIR) ? "public, max-age=31536000, immutable" : "no-cache",
+  };
+  if (gzip) {
+    headers["content-encoding"] = "gzip";
+    headers.vary = "Accept-Encoding";
+  }
   const stream = fs.createReadStream(file);
   stream.on("open", () => {
-    res.writeHead(200, { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream" });
+    res.writeHead(200, headers);
   });
   stream.on("error", () => {
     if (!res.headersSent) res.writeHead(404);
     res.end("Not found");
   });
-  stream.pipe(res);
+  if (gzip) {
+    stream.pipe(zlib.createGzip()).pipe(res);
+  } else {
+    stream.pipe(res);
+  }
 }
 
 function serveStatic(req, res) {
@@ -88,7 +107,7 @@ function serveStatic(req, res) {
     if (err || !stat.isFile()) {
       file = path.join(DIST, "index.html");
     }
-    sendFile(file, res);
+    sendFile(file, req, res);
   });
 }
 

@@ -104,6 +104,8 @@ function CropDetailPage() {
                 key={i}
                 src={src}
                 alt={`${crop.cropName} ${i + 1}`}
+                loading="lazy"
+                decoding="async"
                 className="h-28 w-full rounded-xl border border-slate-200 object-cover"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";

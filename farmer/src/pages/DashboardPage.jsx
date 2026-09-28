@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { getDashboardCharts, getEarnings, getHarvestOrders } from "../api/farmerApi";
 import StatCard from "../components/ui/StatCard";
 import LoadingState from "../components/ui/LoadingState";
 import ProductGradeChart from "../components/products/ProductGradeChart";
-import FarmerDashboardCharts from "../components/dashboard/FarmerDashboardCharts";
 import {
   EXCEL_BTN,
   EXCEL_PAGE_TITLE,
@@ -13,6 +12,9 @@ import {
   EXCEL_PANEL_HEAD,
   EXCEL_SELECT,
 } from "../utils/excelStyles";
+
+const loadDashboardCharts = () => import("../components/dashboard/FarmerDashboardCharts");
+const FarmerDashboardCharts = lazy(loadDashboardCharts);
 
 function formatCurrency(n) {
   return new Intl.NumberFormat("en-IN", {
@@ -30,6 +32,7 @@ function DashboardPage() {
   const [selectedProductId, setSelectedProductId] = useState("");
 
   useEffect(() => {
+    loadDashboardCharts().catch(() => {});
     (async () => {
       try {
         const [result, hoList, earningsList] = await Promise.all([
@@ -85,12 +88,14 @@ function DashboardPage() {
         <StatCard title="Pending Earnings" value={formatCurrency(stats.pendingEarnings || stats.pendingPayments || 0)} />
       </div>
 
-      <FarmerDashboardCharts
-        harvestOrders={harvestOrders}
-        earnings={earnings}
-        products={products}
-        stats={stats}
-      />
+      <Suspense fallback={<LoadingState rows={4} />}>
+        <FarmerDashboardCharts
+          harvestOrders={harvestOrders}
+          earnings={earnings}
+          products={products}
+          stats={stats}
+        />
+      </Suspense>
 
       <section className={`${EXCEL_PANEL} p-3`}>
         <ProductGradeChart rows={all.rows} summary={all.summary} title="All Products Summary" />

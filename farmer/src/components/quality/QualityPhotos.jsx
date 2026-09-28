@@ -147,7 +147,7 @@ export default function QualityPhotos({ photos, onChange, disabled, compact = fa
         <div className={`grid ${compact ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-2 sm:grid-cols-4"}`}>
           {photos.map((p, i) => (
             <div key={`${i}-${(p.url || "").slice(-12)}`} className={`border border-[#D4D4D4] ${compact ? "p-0.5" : "p-1"}`}>
-              <img src={p.url} alt={p.label || "Quality"} className={`${compact ? "h-14" : "h-20"} w-full object-cover`} />
+              <img src={p.url} alt={p.label || "Quality"} loading="lazy" decoding="async" className={`${compact ? "h-14" : "h-20"} w-full object-cover`} />
               <p className={`truncate text-[#6B7280] ${compact ? "mt-0.5 text-[9px]" : "mt-1 text-[10px]"}`}>{p.label || "Photo"}</p>
               <div className={`grid grid-cols-2 ${compact ? "mt-0.5 gap-0.5" : "mt-1 gap-1"}`}>
                 <button type="button" className={`${EXCEL_BTN} ${compact ? "!min-h-6 !rounded-md !px-1 !py-0.5 !text-[9px]" : "px-1 text-[11px]"}`} onClick={() => setPreview(p)}>{compact ? "View" : "Preview"}</button>

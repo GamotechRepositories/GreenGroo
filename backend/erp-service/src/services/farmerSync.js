@@ -158,7 +158,11 @@ export function productIdFromCropId(cropId = "") {
  * Same cropName + variety → one shared Product ID across every farmer
  * (mirrors ensureSharedCropBusinessId). Document `id` stays unique per row.
  */
-export async function ensureSharedProductBusinessId(product) {
+// Media fields hold base64 photos (MBs per product); ID normalization never reads them,
+// and save() only writes modified paths, so siblings are loaded without them.
+const PRODUCT_MEDIA_EXCLUDE = "-images -image -media";
+
+export async function ensureSharedProductBusinessId(product, { select } = {}) {
   if (!product) return product;
   const cropName = String(product.cropName || product.productName || product.name || "").trim();
   const variety = String(product.variety || "").trim();
@@ -188,7 +192,9 @@ export async function ensureSharedProductBusinessId(product) {
         { productName: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
       ],
       ...(variety ? { variety: new RegExp(`^${escapeRegex(variety)}$`, "i") } : {}),
-    }).sort({ createdAt: 1 });
+    })
+      .select("id productId createdAt")
+      .sort({ createdAt: 1 });
     const withVar = productSiblingsPreview.find((p) => productIdHasVariety(p.productId || p.id));
     const anchor = withVar || productSiblingsPreview[0];
     if (anchor) serial = productIdSerial(anchor.productId || anchor.id);
@@ -204,7 +210,9 @@ export async function ensureSharedProductBusinessId(product) {
       { productName: new RegExp(`^${escapeRegex(cropName)}$`, "i") },
     ],
     ...(variety ? { variety: new RegExp(`^${escapeRegex(variety)}$`, "i") } : {}),
-  }).sort({ createdAt: 1 });
+  })
+    .select(PRODUCT_MEDIA_EXCLUDE)
+    .sort({ createdAt: 1 });
 
   for (const sibling of siblings) {
     const oldProductId = String(sibling.productId || sibling.id || "").trim();
@@ -259,12 +267,14 @@ export async function ensureSharedProductBusinessId(product) {
     );
   }
 
-  const fresh = await FarmerProduct.findById(product._id);
+  const fresh = select
+    ? await FarmerProduct.findById(product._id).select(select)
+    : await FarmerProduct.findById(product._id);
   return fresh || product;
 }
 
-export async function upgradeFarmerProductId(product) {
-  return ensureSharedProductBusinessId(product);
+export async function upgradeFarmerProductId(product, options) {
+  return ensureSharedProductBusinessId(product, options);
 }
 
 export async function assignFarmerBusinessId(payload = {}) {

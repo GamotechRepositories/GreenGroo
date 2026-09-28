@@ -2,10 +2,18 @@ import { FARMER_STORAGE_KEY, VERIFICATION_STATUS } from "../utils/constants";
 import { getApiBaseUrl } from "../config/env";
 import { LIVE_FALLBACK, configureRealtime, liveGet, reconnectRealtime } from "../realtime/liveClient";
 
+// Every request reads auth (often twice); re-parse only when the stored string changes.
+let authCacheRaw;
+let authCacheValue = null;
+
 function getStoredAuth() {
   try {
     const raw = localStorage.getItem(FARMER_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (raw !== authCacheRaw) {
+      authCacheValue = raw ? JSON.parse(raw) : null;
+      authCacheRaw = raw;
+    }
+    return authCacheValue;
   } catch {
     return null;
   }
@@ -458,7 +466,7 @@ export async function getDashboardCharts() {
   if (!farmerId) return { stats: {}, all: { rows: [] }, products: [] };
   const [stats, products] = await Promise.all([
     apiFetch(`/api/farmers/${farmerId}/dashboard`),
-    apiFetch(`/api/farmers/${farmerId}/products`),
+    apiFetch(`/api/farmers/${farmerId}/products?view=summary`),
   ]);
 
   const productItems = products.map((product) => {

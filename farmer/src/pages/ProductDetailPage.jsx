@@ -153,7 +153,7 @@ function ProductDetailPage() {
         <div className="grid gap-2 p-3 sm:grid-cols-2 md:grid-cols-4">
           {photos.length ? (
             photos.map((src, i) => (
-              <img key={i} src={src} alt={`${product.productName} ${i + 1}`} className="h-28 w-full rounded border border-[#D4D4D4] object-cover" />
+              <img key={i} src={src} alt={`${product.productName} ${i + 1}`} loading="lazy" decoding="async" className="h-28 w-full rounded border border-[#D4D4D4] object-cover" />
             ))
           ) : (
             <p className="p-2 text-xs text-[#6B7280]">No photos uploaded.</p>

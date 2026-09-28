@@ -63,6 +63,8 @@ function ProductPhoto({ src, name, className }) {
     <img
       src={src}
       alt={name || "Product"}
+      loading="lazy"
+      decoding="async"
       className={`object-cover ${className}`}
       onError={() => setBroken(true)}
     />

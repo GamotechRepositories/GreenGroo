@@ -2,6 +2,7 @@ import "dotenv/config";
 import http from "http";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import { connectDB, errorHandler, notFound } from "@greengrocc/shared";
 import { initSocket } from "./shared/socket.js";
 import { startChangeFeed, notifyWriteRequest } from "./shared/realtime/changeFeed.js";
@@ -86,6 +87,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
+app.use(compression({ threshold: 1024 }));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use((req, res, next) => {

@@ -18,7 +18,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { getMyOrders, getMyProducts } from "../api/farmerApi";
-import { useLive } from "../realtime/useLive";
+import { keepIfSame, usePolling } from "../hooks/usePolling";
 import LoadingState from "../components/ui/LoadingState";
 import EmptyState from "../components/ui/EmptyState";
 import SpreadsheetViewport from "../components/ui/SpreadsheetViewport";
@@ -300,6 +300,8 @@ function ProductPhoto({ src, name, className }) {
     <img
       src={src}
       alt={name || "Product"}
+      loading="lazy"
+      decoding="async"
       className={`object-cover ${className}`}
       onError={() => setBroken(true)}
     />
@@ -993,16 +995,16 @@ function EarningsPage() {
   const [activeSheetId, setActiveSheetId] = useState("overview");
   const [isNewSheetModalOpen, setIsNewSheetModalOpen] = useState(false);
 
-  useLive(() => {
+  usePolling(() => {
     Promise.all([getMyOrders().catch(() => []), getMyProducts().catch(() => [])])
       .then(([rows, prods]) => {
-        setOrders(Array.isArray(rows) ? rows.filter(isStatementOrder) : []);
+        setOrders((prev) => keepIfSame(prev, Array.isArray(rows) ? rows.filter(isStatementOrder) : []));
         const list = Array.isArray(prods) ? prods : prods?.products || [];
-        setCatalog(Array.isArray(list) ? list : []);
+        setCatalog((prev) => keepIfSame(prev, Array.isArray(list) ? list : []));
       })
       .catch((err) => toast.error(err.message || "Failed to load earning statement"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [], 8000);
 
   const products = useMemo(() => {
     const map = new Map();

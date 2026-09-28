@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import FarmerSidebar from "./FarmerSidebar";
@@ -7,6 +7,7 @@ import { FarmerToaster } from "../ui/FarmerToaster";
 import { fetchDocuments, fetchFarmerProfile, selectIsManager } from "../../store/farmerSlice";
 import { getLiveAnnouncements, getLiveCalendar } from "../../api/farmerApi";
 import RoleAnnouncements from "../RoleAnnouncements";
+import LoadingState from "../ui/LoadingState";
 import "../../styles/farmer.css";
 
 function FarmerLayout() {
@@ -50,7 +51,9 @@ function FarmerLayout() {
             load={() => getLiveAnnouncements("farmer")}
             loadCalendar={() => getLiveCalendar("farmer")}
           />
-          <Outlet context={{ search, setSearch }} />
+          <Suspense fallback={<LoadingState rows={6} />}>
+            <Outlet context={{ search, setSearch }} />
+          </Suspense>
         </main>
       </div>
       <FarmerToaster />
