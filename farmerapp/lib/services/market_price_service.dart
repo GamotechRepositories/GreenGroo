@@ -6,7 +6,6 @@ class MarketPriceService extends ChangeNotifier {
   static final MarketPriceService _instance = MarketPriceService._internal();
   factory MarketPriceService() => _instance;
   MarketPriceService._internal() {
-    _initFallbackData();
     fetchMarketPrices();
   }
 
@@ -28,63 +27,6 @@ class MarketPriceService extends ChangeNotifier {
     return list;
   }
 
-  static String _getDateOffset(int days) {
-    final d = DateTime.now().add(Duration(days: days));
-    return d.toIso8601String().substring(0, 10);
-  }
-
-  void _initFallbackData() {
-    final baseSeeds = [
-      (id: 'MP-GG-1', m: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)', p: 'Tomato (टोमॅटो)', v: 'Hybrid Super Grade', pr: 2850.0, min: 2500.0, max: 3100.0, dist: 'Pune Hub', t: 'up', arr: 3200.0, gg: true),
-      (id: 'MP-GG-2', m: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)', p: 'Onion (कांदा)', v: 'Garwa / Export', pr: 2250.0, min: 1950.0, max: 2500.0, dist: 'Nashik Hub', t: 'up', arr: 5400.0, gg: true),
-      (id: 'MP-GG-3', m: 'GreenGroo Direct (ग्रीनग्रू खरेदी केंद्र)', p: 'Potato (बटाटा)', v: 'Jyoti Premium', pr: 2300.0, min: 2000.0, max: 2500.0, dist: 'Pune Hub', t: 'up', arr: 2800.0, gg: true),
-      (id: 'MP-1', m: 'Mumbai Vashi APMC', p: 'Tomato (टोमॅटो)', v: 'Desi Special', pr: 2600.0, min: 2200.0, max: 3000.0, dist: 'Mumbai', t: 'up', arr: 2100.0, gg: false),
-      (id: 'MP-2', m: 'Pune APMC (गुलटेकडी)', p: 'Tomato (टोमॅटो)', v: 'Hybrid No.1', pr: 2400.0, min: 2000.0, max: 2800.0, dist: 'Pune', t: 'up', arr: 1850.0, gg: false),
-      (id: 'MP-3', m: 'Nashik APMC (पिंपळगाव)', p: 'Tomato (टोमॅटो)', v: 'Hybrid 1057', pr: 2350.0, min: 1950.0, max: 2700.0, dist: 'Nashik', t: 'stable', arr: 3200.0, gg: false),
-      (id: 'MP-4', m: 'Nashik APMC (पिंपळगाव)', p: 'Onion (कांदा)', v: 'Lal Kaanda', pr: 2100.0, min: 1700.0, max: 2450.0, dist: 'Nashik', t: 'up', arr: 8600.0, gg: false),
-      (id: 'MP-5', m: 'Pune APMC (गुलटेकडी)', p: 'Onion (कांदा)', v: 'Garwa / Unhali', pr: 1850.0, min: 1500.0, max: 2200.0, dist: 'Pune', t: 'stable', arr: 4200.0, gg: false),
-      (id: 'MP-6', m: 'Solapur APMC', p: 'Onion (कांदा)', v: 'Regular Lal', pr: 1750.0, min: 1400.0, max: 2050.0, dist: 'Solapur', t: 'down', arr: 5100.0, gg: false),
-      (id: 'MP-7', m: 'Mumbai Vashi APMC', p: 'Potato (बटाटा)', v: 'Jyoti Grade-A', pr: 2150.0, min: 1850.0, max: 2400.0, dist: 'Mumbai', t: 'up', arr: 2800.0, gg: false),
-      (id: 'MP-8', m: 'Pune APMC (गुलटेकडी)', p: 'Potato (बटाटा)', v: 'Jyoti / Local', pr: 1900.0, min: 1600.0, max: 2200.0, dist: 'Pune', t: 'stable', arr: 3100.0, gg: false),
-      (id: 'MP-9', m: 'Kolhapur APMC', p: 'Green Chilli (हिरवी मिरची)', v: 'G4 Green', pr: 4500.0, min: 3800.0, max: 5200.0, dist: 'Kolhapur', t: 'up', arr: 920.0, gg: false),
-      (id: 'MP-10', m: 'Pune APMC (गुलटेकडी)', p: 'Green Chilli (हिरवी मिरची)', v: 'Lavangi / Local', pr: 4000.0, min: 3500.0, max: 4600.0, dist: 'Pune', t: 'stable', arr: 1100.0, gg: false),
-      (id: 'MP-11', m: 'Solapur APMC', p: 'Pomegranate (डाळिंब)', v: 'Bhagwa Super', pr: 9500.0, min: 8000.0, max: 11500.0, dist: 'Solapur', t: 'up', arr: 650.0, gg: false),
-      (id: 'MP-12', m: 'Pune APMC (गुलटेकडी)', p: 'Pomegranate (डाळिंब)', v: 'Bhagwa Standard', pr: 8500.0, min: 7200.0, max: 9800.0, dist: 'Pune', t: 'stable', arr: 820.0, gg: false),
-      (id: 'MP-13', m: 'Sangli APMC', p: 'Turmeric (हळद)', v: 'Rajapore Salem', pr: 13800.0, min: 12500.0, max: 15200.0, dist: 'Sangli', t: 'up', arr: 1200.0, gg: false),
-      (id: 'MP-14', m: 'Kolhapur APMC', p: 'Turmeric (हळद)', v: 'Local Salem', pr: 12500.0, min: 11200.0, max: 13900.0, dist: 'Kolhapur', t: 'stable', arr: 880.0, gg: false),
-    ];
-
-    final List<MarketPriceItem> generated = [];
-    final offsets = [0, -1, -2, -3, -4, -5, -6];
-
-    for (final off in offsets) {
-      final dateStr = _getDateOffset(off);
-      for (final s in baseSeeds) {
-        final delta = off * 25.0 * (s.t == 'up' ? -1 : s.t == 'down' ? 1 : (off % 2 == 0 ? 1 : -1));
-        final finalPrice = (s.pr + delta).clamp(s.min, s.max);
-        generated.add(
-          MarketPriceItem(
-            id: '${s.id}_$off',
-            marketName: s.m,
-            productName: s.p,
-            variety: s.v,
-            price: finalPrice,
-            minPrice: s.min,
-            maxPrice: s.max,
-            unit: 'Quintal',
-            priceDate: dateStr,
-            district: s.dist,
-            state: 'Maharashtra',
-            trend: s.t,
-            arrivalQuantity: s.arr,
-            isGreenGroo: s.gg,
-          ),
-        );
-      }
-    }
-    _items = generated;
-  }
-
   Future<void> fetchMarketPrices({String? date}) async {
     _isLoading = true;
     notifyListeners();
@@ -101,20 +43,17 @@ class MarketPriceService extends ChangeNotifier {
 
       if (res != null && res is Map && res['data'] is List) {
         final List list = res['data'];
-        if (list.isNotEmpty) {
-          final loaded = list
-              .map((item) => MarketPriceItem.fromJson(Map<String, dynamic>.from(item)))
-              .toList();
+        final loaded = list
+            .map((item) => MarketPriceItem.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
 
-          // Merge loaded with fallback
-          final Map<String, MarketPriceItem> map = {};
-          for (final item in _items) {
-            map['${item.marketName}_${_normalizeProductName(item.productName)}_${item.priceDate.isNotEmpty ? item.priceDate.substring(0, 10) : ""}'] = item;
-          }
-          for (final item in loaded) {
-            map['${item.marketName}_${_normalizeProductName(item.productName)}_${item.priceDate.isNotEmpty ? item.priceDate.substring(0, 10) : ""}'] = item;
-          }
-          _items = map.values.toList();
+        if (date != null && date.isNotEmpty && date != 'all') {
+          // Replace or merge items for this date
+          final dateStr = date.substring(0, 10);
+          final retained = _items.where((i) => !i.priceDate.startsWith(dateStr)).toList();
+          _items = [...retained, ...loaded];
+        } else {
+          _items = loaded;
         }
       }
     } catch (_) {
@@ -123,6 +62,26 @@ class MarketPriceService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void handleSocketPriceUpdate(Map<String, dynamic> raw) {
+    try {
+      final item = MarketPriceItem.fromJson(raw);
+      final idx = _items.indexWhere((i) => i.id == item.id);
+      if (idx >= 0) {
+        _items[idx] = item;
+      } else {
+        _items.insert(0, item);
+      }
+      notifyListeners();
+    } catch (_) {
+      fetchMarketPrices();
+    }
+  }
+
+  void handleSocketPriceDelete(String id) {
+    _items.removeWhere((i) => i.id == id);
+    notifyListeners();
   }
 
   static String _normalizeProductName(String name) {
@@ -136,6 +95,11 @@ class MarketPriceService extends ChangeNotifier {
     if (lower.contains('soybean') || lower.contains('सोयाबीन')) return 'Soybean (सोयाबीन)';
     if (lower.contains('ginger') || lower.contains('आले')) return 'Ginger (आले)';
     if (lower.contains('garlic') || lower.contains('लसूण')) return 'Garlic (लसूण)';
+    if (lower.contains('wheat') || lower.contains('गहू')) return 'Wheat (गहू)';
+    if (lower.contains('coriander') || lower.contains('कोथिंबीर')) return 'Coriander (कोथिंबीर)';
+    if (lower.contains('fenugreek') || lower.contains('मेथी')) return 'Fenugreek (मेथी)';
+    if (lower.contains('cauliflower') || lower.contains('फ्लॉवर')) return 'Cauliflower (फ्लॉवर)';
+    if (lower.contains('cabbage') || lower.contains('कोबी')) return 'Cabbage (कोबी)';
     return name;
   }
 
@@ -150,6 +114,11 @@ class MarketPriceService extends ChangeNotifier {
     if (lower.contains('soybean') || lower.contains('सोयाबीन')) return '🌱';
     if (lower.contains('ginger') || lower.contains('आले')) return '🫚';
     if (lower.contains('garlic') || lower.contains('लसूण')) return '🧄';
+    if (lower.contains('wheat') || lower.contains('गहू')) return '🌾';
+    if (lower.contains('coriander') || lower.contains('कोथिंबीर')) return '🌿';
+    if (lower.contains('fenugreek') || lower.contains('मेथी')) return '🌱';
+    if (lower.contains('cauliflower') || lower.contains('फ्लॉवर')) return '🥦';
+    if (lower.contains('cabbage') || lower.contains('कोबी')) return '🥬';
     return '🌾';
   }
 

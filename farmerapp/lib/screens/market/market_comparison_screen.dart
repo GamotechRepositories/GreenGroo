@@ -115,15 +115,102 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
             color: const Color(0xFF16A34A),
             onRefresh: () => service.fetchMarketPrices(),
             child: comparisons.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildDateRow(),
-                        const SizedBox(height: 20),
-                        const Text('या तारखेचे बाजार भाव उपलब्ध नाहीत', style: TextStyle(color: Color(0xFF64748B))),
-                      ],
-                    ),
+                ? ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    children: [
+                      _buildDateRow(),
+                      const SizedBox(height: 40),
+                      Center(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFFDCFCE7)),
+                                ),
+                                child: const Icon(
+                                  Icons.storefront_outlined,
+                                  color: Color(0xFF16A34A),
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _selectedDateIndex == 0
+                                    ? lang.tr(
+                                        mr: 'आजचे बाजारभाव अजून जोडलेले नाहीत',
+                                        en: "Today's market prices not added yet",
+                                      )
+                                    : (targetDate != null
+                                        ? lang.tr(
+                                            mr: '$targetDate चे बाजारभाव उपलब्ध नाहीत',
+                                            en: 'No market rates available on $targetDate',
+                                          )
+                                        : lang.tr(
+                                            mr: 'या तारखेचे बाजारभाव उपलब्ध नाहीत',
+                                            en: 'No market rates available for this date',
+                                          )),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                lang.tr(
+                                  mr: 'ॲडमिनने दर अपडेट केल्यानंतर ते येथे आपोआप दिसतील.',
+                                  en: 'Rates will appear here automatically once updated by Admin.',
+                                ),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF16A34A),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                ),
+                                icon: const Icon(Icons.refresh_rounded, size: 16),
+                                label: Text(
+                                  lang.tr(mr: 'ताजे दर आणा', en: 'Refresh Rates'),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                                onPressed: () => service.fetchMarketPrices(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 : SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),

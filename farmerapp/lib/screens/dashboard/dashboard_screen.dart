@@ -9,6 +9,7 @@ import '../notifications/notifications_screen.dart';
 import '../schemes/schemes_screen.dart';
 import '../main_shell.dart';
 import '../market/market_comparison_screen.dart';
+import '../orders/order_detail_screen.dart';
 import '../../services/market_price_service.dart';
 import '../../services/app_language.dart';
 
@@ -61,6 +62,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     }
+  }
+
+  String _formatPickupDateWithDay(String dateStr, String dayStr) {
+    if (dateStr.trim().isEmpty) return AppLanguage().tr(mr: 'लवकरच', en: 'Soon');
+    String cleanDate = dateStr.trim();
+    String cleanDay = dayStr.trim();
+
+    final parsed = DateTime.tryParse(cleanDate);
+    if (parsed != null) {
+      cleanDate = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+      if (cleanDay.isEmpty) {
+        const weekdaysEn = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const weekdaysMr = ['सोमवार', 'मंगळवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार', 'रविवार'];
+        final dayIdx = (parsed.weekday - 1).clamp(0, 6);
+        cleanDay = AppLanguage().tr(mr: weekdaysMr[dayIdx], en: weekdaysEn[dayIdx]);
+      }
+    }
+    if (cleanDay.isNotEmpty) {
+      return '$cleanDate ($cleanDay)';
+    }
+    return cleanDate;
   }
 
   @override
@@ -118,10 +140,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final harvestOrdersVal = '${liveOrders.length}';
         final totalStockVal = totalStock > 0 ? '${totalStock.toStringAsFixed(0)} Kg' : '0 Kg';
 
-        // Real pickup orders
+        // Real pickup orders (STRICTLY only show when driver is assigned)
         final pickupOrders = liveOrders.where((o) {
           final s = o.status.toUpperCase();
-          return s == 'READY_FOR_PICKUP' || s.contains('READY') || s == 'ACCEPTED';
+          final isNotDone = !s.contains('COMPLETED') && !s.contains('REJECT') && !s.contains('CANCEL') && !s.contains('DELETED');
+          return isNotDone && o.isDriverAssigned;
         }).toList();
 
         final topPadding = MediaQuery.of(context).padding.top;
@@ -484,49 +507,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: pickupOrders.isNotEmpty
                         ? Builder(builder: (context) {
                             final currentPickup = pickupOrders.first;
-                            final phoneToCall = currentPickup.buyerPhone.isNotEmpty ? currentPickup.buyerPhone : '1800123456';
+                            final phoneToCall = currentPickup.driverPhone.trim().isNotEmpty
+                                ? currentPickup.driverPhone.trim()
+                                : currentPickup.buyerPhone.trim();
+                            final driverName = currentPickup.driverName.trim().isNotEmpty
+                                ? currentPickup.driverName.trim()
+                                : AppLanguage().tr(mr: 'असाइन केलेला ड्रायव्हर', en: 'Assigned Driver');
+                            final driverStatus = currentPickup.driverStatus.trim().isNotEmpty
+                                ? currentPickup.driverStatus.trim()
+                                : (currentPickup.status.trim().isNotEmpty ? currentPickup.status.trim() : 'Assigned');
+                            final vehicleNo = currentPickup.vehicleNumber.trim();
+                            final pickupDateFormatted = _formatPickupDateWithDay(currentPickup.pickupDate, currentPickup.day);
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Driver Info Header
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.all(8),
+                                      width: 44,
+                                      height: 44,
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFEFF6FF),
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: const Color(0xFFDBEAFE)),
                                       ),
-                                      child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF2563EB), size: 22),
+                                      child: const Icon(
+                                        Icons.sports_motorsports_rounded,
+                                        color: Color(0xFF2563EB),
+                                        size: 24,
+                                      ),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  driverName,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 13.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF111827),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 14),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            vehicleNo.isNotEmpty
+                                                ? '$vehicleNo • ${phoneToCall.isNotEmpty ? phoneToCall : "ड्रायव्हर"}'
+                                                : (phoneToCall.isNotEmpty ? '📞 $phoneToCall' : AppLanguage().tr(mr: 'ड्रायव्हर असाइन केला आहे', en: 'Driver Assigned')),
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF4B5563), fontWeight: FontWeight.w500),
+                                          ),
+                                          const SizedBox(height: 1),
                                           Text(
                                             'Order #${currentPickup.orderCode.isNotEmpty ? currentPickup.orderCode : currentPickup.id}',
-                                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
-                                          ),
-                                          Text(
-                                            AppLanguage().tr(
-                                              mr: 'खरेदीदार: ${currentPickup.buyerName.isNotEmpty ? currentPickup.buyerName : "GreenGrocc Buyer"}',
-                                              en: 'Buyer: ${currentPickup.buyerName.isNotEmpty ? currentPickup.buyerName : "GreenGrocc Buyer"}',
-                                            ),
-                                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B7280)),
+                                            style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF), fontWeight: FontWeight.w600),
                                           ),
                                         ],
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFEF3C7),
+                                        color: const Color(0xFFEFF6FF),
                                         borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFBFDBFE)),
                                       ),
                                       child: Text(
-                                        currentPickup.status,
-                                        style: const TextStyle(color: Color(0xFFB45309), fontSize: 10, fontWeight: FontWeight.bold),
+                                        driverStatus,
+                                        style: const TextStyle(
+                                          color: Color(0xFF1D4ED8),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -534,45 +598,94 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 const SizedBox(height: 12),
                                 const Divider(height: 1, color: Color(0xFFF3F4F6)),
                                 const SizedBox(height: 10),
+
+                                // Details Grid (Date & Day, Time, Product & Qty, Amount)
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(AppLanguage().tr(mr: 'तारीख / वेळ', en: 'Date / Time'), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          currentPickup.pickupDate.isNotEmpty ? currentPickup.pickupDate : AppLanguage().tr(mr: 'लवकरच', en: 'Soon'),
-                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      flex: 5,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            AppLanguage().tr(mr: 'पिकअप तारीख व वार', en: 'Pickup Date & Day'),
+                                            style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280)),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            pickupDateFormatted,
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(AppLanguage().tr(mr: 'उत्पादन व माल', en: 'Product & Qty'), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '${currentPickup.quantity} ${currentPickup.unit}',
-                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
-                                        ),
-                                      ],
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 4,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            AppLanguage().tr(mr: 'पिकअप वेळ', en: 'Pickup Time'),
+                                            style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280)),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            currentPickup.pickupSlot.isNotEmpty ? currentPickup.pickupSlot : AppLanguage().tr(mr: 'लवकरच', en: 'Soon'),
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(AppLanguage().tr(mr: 'रक्कम', en: 'Amount'), style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280))),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '₹ ${_formatRupees(currentPickup.totalAmount)}',
-                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
-                                        ),
-                                      ],
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 5,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            AppLanguage().tr(mr: 'उत्पादन व माल', en: 'Product & Qty'),
+                                            style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280)),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${currentPickup.productName} • ${currentPickup.quantity} ${currentPickup.unit}',
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 4,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            AppLanguage().tr(mr: 'एकूण रक्कम', en: 'Total Amount'),
+                                            style: const TextStyle(fontSize: 9.5, color: Color(0xFF6B7280)),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '₹ ${_formatRupees(currentPickup.totalAmount)}',
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 12),
+
+                                // Action Buttons (Call Driver & View Order Details)
                                 Row(
                                   children: [
                                     Expanded(
@@ -580,11 +693,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: const Color(0xFF2563EB),
                                           side: const BorderSide(color: Color(0xFF2563EB)),
-                                          padding: const EdgeInsets.symmetric(vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          padding: const EdgeInsets.symmetric(vertical: 9),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
-                                        icon: const Icon(Icons.phone_rounded, size: 14),
-                                        label: Text(AppLanguage().tr(mr: 'संपर्क करा', en: 'Call'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                        icon: const Icon(Icons.phone_rounded, size: 15),
+                                        label: Text(
+                                          AppLanguage().tr(mr: 'कॉल करा', en: 'Call Driver'),
+                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                        ),
                                         onPressed: () => _makePhoneCall(phoneToCall),
                                       ),
                                     ),
@@ -594,12 +710,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: const Color(0xFF16A34A),
                                           foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          padding: const EdgeInsets.symmetric(vertical: 9),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                         ),
-                                        icon: const Icon(Icons.check_circle_outline, size: 14),
-                                        label: Text(AppLanguage().tr(mr: 'तपशील पहा', en: 'View Details'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                        onPressed: () => MainShell.setTab(context, 2),
+                                        icon: const Icon(Icons.receipt_long_rounded, size: 15),
+                                        label: Text(
+                                          AppLanguage().tr(mr: 'तपशील पहा', en: 'View Details'),
+                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => OrderDetailScreen(orderId: currentPickup.id),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ],
@@ -612,17 +738,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               const SizedBox(height: 6),
                               const Icon(Icons.local_shipping_outlined, size: 36, color: Color(0xFF94A3B8)),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                               Text(
-                                AppLanguage().tr(mr: 'सध्या कोणतीही उचल नियोजित नाही', en: 'No pickup scheduled currently'),
+                                AppLanguage().tr(
+                                  mr: 'सध्या ड्रायव्हर असाइन केलेला पिकअप नाही',
+                                  en: 'No driver assigned for pickup yet',
+                                ),
+                                textAlign: TextAlign.center,
                                 style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
-                                AppLanguage().tr(mr: 'नवीन ऑर्डर आल्यानंतर पिकअप माहिती येथे दिसेल.', en: 'Pickup info will appear here once orders arrive.'),
-                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B7280)),
+                                AppLanguage().tr(
+                                  mr: 'ड्रायव्हर असाइन झाल्यानंतर पिकअप दिनांक, वेळ, ड्रायव्हर संपर्क व स्थिती येथे दिसेल.',
+                                  en: 'Pickup date, time, driver info & live status will appear here once driver is assigned.',
+                                ),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B7280), height: 1.3),
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 12),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF16A34A),
@@ -631,7 +765,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: const Icon(Icons.list_alt_rounded, size: 14),
-                                label: Text(AppLanguage().tr(mr: 'ऑर्डर्स तपासा', en: 'Check Orders'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                label: Text(
+                                  AppLanguage().tr(mr: 'सर्व ऑर्डर्स तपासा', en: 'Check All Orders'),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
                                 onPressed: () => MainShell.setTab(context, 2),
                               ),
                             ],
@@ -2802,18 +2939,35 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
             child: Column(
               children: [
                 _buildDateSelectorRow(),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                const Icon(Icons.storefront_outlined, size: 28, color: Color(0xFF94A3B8)),
+                const SizedBox(height: 8),
                 Text(
-                  targetDate != null
+                  _selectedDateIndex == 0
                       ? AppLanguage().tr(
-                          mr: '$targetDate रोजी बाजार भाव उपलब्ध नाहीत',
-                          en: 'No market rates available on $targetDate',
+                          mr: 'आजचे बाजारभाव ॲडमिनने अजून जोडलेले नाहीत',
+                          en: "Today's market prices not updated by Admin yet",
                         )
-                      : AppLanguage().tr(
-                          mr: 'या तारखेचे बाजार भाव उपलब्ध नाहीत',
-                          en: 'No market rates available for this date',
-                        ),
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                      : (targetDate != null
+                          ? AppLanguage().tr(
+                              mr: '$targetDate रोजी बाजारभाव उपलब्ध नाहीत',
+                              en: 'No market rates available on $targetDate',
+                            )
+                          : AppLanguage().tr(
+                              mr: 'या तारखेचे बाजारभाव उपलब्ध नाहीत',
+                              en: 'No market rates available for this date',
+                            )),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  AppLanguage().tr(
+                    mr: 'ॲडमिनने दर अपडेट केल्यानंतर येथे दिसतील.',
+                    en: 'Will be visible once Admin updates rates.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),

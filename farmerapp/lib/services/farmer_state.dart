@@ -307,7 +307,7 @@ class FarmerState extends ChangeNotifier {
     _documentsChanged = false;
     try {
       final docRes = await ApiService().fetchDocuments(profile.id);
-      if (docRes is List && docRes.isNotEmpty) {
+      if (docRes is List) {
         final Map<String, dynamic> docMap = {};
         for (final d in docRes) {
           if (d is Map) {
@@ -331,7 +331,7 @@ class FarmerState extends ChangeNotifier {
             final fUrl = (backendDoc['fileUrl'] ?? '').toString();
             final rReason = (backendDoc['rejectionReason'] ?? '').toString();
             final effectiveUrl = fUrl.isNotEmpty ? fUrl : localDoc.fileUrl;
-            final hasFile = effectiveUrl.isNotEmpty || (backendDoc['fileName'] ?? '').toString().isNotEmpty || localDoc.isUploaded;
+            final hasFile = effectiveUrl.isNotEmpty || (backendDoc['fileName'] ?? '').toString().isNotEmpty;
             final normalizedStatus = st == 'Approved'
                 ? 'approved'
                 : (st == 'Rejected' ? 'rejected' : (hasFile ? (localDoc.status.isNotEmpty && localDoc.status != 'not_uploaded' ? localDoc.status : 'pending') : 'not_uploaded'));
@@ -376,8 +376,28 @@ class FarmerState extends ChangeNotifier {
               fileUrl: effectiveUrl,
               rejectionReason: rReason,
             );
+          } else {
+            // Not uploaded to backend - clear any old mock/dummy state
+            final isLocalData = localDoc.fileUrl.startsWith('data:');
+            if (isLocalData &&
+                !localDoc.fileUrl.contains('dummy') &&
+                !localDoc.fileUrl.contains('sample') &&
+                !localDoc.fileUrl.contains('example.com') &&
+                !localDoc.fileUrl.contains('placeholder')) {
+              return localDoc;
+            }
+            return DocumentItem(
+              id: localDoc.id,
+              type: localDoc.type,
+              title: localDoc.title,
+              marathiTitle: localDoc.marathiTitle,
+              isUploaded: false,
+              status: 'not_uploaded',
+              uploadDate: '',
+              fileUrl: '',
+              rejectionReason: '',
+            );
           }
-          return localDoc;
         }).toList();
 
         var docsChanged = nextDocs.length != previousDocs.length;
@@ -644,7 +664,13 @@ class FarmerState extends ChangeNotifier {
     final map = {for (final d in loaded) d.type.toLowerCase(): d};
     documents = documents.map((base) {
       final found = map[base.type.toLowerCase()];
-      if (found != null) {
+      if (found != null &&
+          found.fileUrl.isNotEmpty &&
+          !found.fileUrl.contains('greengrocc.com/docs/verified_') &&
+          !found.fileUrl.contains('dummy') &&
+          !found.fileUrl.contains('sample') &&
+          !found.fileUrl.contains('example.com') &&
+          !found.fileUrl.contains('placeholder')) {
         return DocumentItem(
           id: base.id,
           type: base.type,
@@ -780,15 +806,15 @@ class FarmerState extends ChangeNotifier {
   void _ensureDocumentChecklist() {
     if (documents.isNotEmpty) return;
     documents = [
-      DocumentItem(id: 'DOC-1', type: 'aadhaar', title: 'Aadhaar Card', marathiTitle: 'आधार कार्ड', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-2', type: 'farmer_id', title: 'Farmer ID', marathiTitle: 'शेतकरी ओळखपत्र', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-3', type: 'land_712', title: '7/12 Extract', marathiTitle: '७/१२ उतारा', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-4', type: 'land_8a', title: '8A Extract', marathiTitle: '८-अ उतारा', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-5', type: 'bank', title: 'Bank Passbook', marathiTitle: 'बँक पासबुक', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-6', type: 'farmer_photo', title: 'Farmer Photo', marathiTitle: 'शेतकरी फोटो', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-7', type: 'address_proof', title: 'Address Proof', marathiTitle: 'रहिवासी दाखला', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-8', type: 'pan', title: 'PAN Card', marathiTitle: 'पॅन कार्ड', isUploaded: true, status: 'approved'),
-      DocumentItem(id: 'DOC-9', type: 'video_kyc', title: 'Live Video KYC', marathiTitle: 'थेट व्हिडिओ केवायसी', isUploaded: true, status: 'approved'),
+      DocumentItem(id: 'DOC-1', type: 'aadhaar', title: 'Aadhaar Card', marathiTitle: 'आधार कार्ड', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-2', type: 'farmer_id', title: 'Farmer ID', marathiTitle: 'शेतकरी ओळखपत्र', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-3', type: 'land_712', title: '7/12 Extract', marathiTitle: '७/१२ उतारा', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-4', type: 'land_8a', title: '8A Extract', marathiTitle: '८-अ उतारा', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-5', type: 'bank', title: 'Bank Passbook', marathiTitle: 'बँक पासबुक', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-6', type: 'farmer_photo', title: 'Farmer Photo', marathiTitle: 'शेतकरी फोटो', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-7', type: 'address_proof', title: 'Address Proof', marathiTitle: 'रहिवासी दाखला', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-8', type: 'pan', title: 'PAN Card', marathiTitle: 'पॅन कार्ड', isUploaded: false, status: 'not_uploaded'),
+      DocumentItem(id: 'DOC-9', type: 'video_kyc', title: 'Live Video KYC', marathiTitle: 'थेट व्हिडिओ केवायसी', isUploaded: false, status: 'not_uploaded'),
     ];
   }
 
@@ -798,15 +824,6 @@ class FarmerState extends ChangeNotifier {
       bankVerificationStatus: 'VERIFIED',
       locationConfirmed: true,
     );
-    documents = documents.map((d) => DocumentItem(
-      id: d.id,
-      type: d.type,
-      title: d.title,
-      marathiTitle: d.marathiTitle,
-      isUploaded: true,
-      status: 'approved',
-      fileUrl: d.fileUrl.isNotEmpty ? d.fileUrl : 'https://greengrocc.com/docs/verified_${d.type}.pdf',
-    )).toList();
     notifyListeners();
   }
 

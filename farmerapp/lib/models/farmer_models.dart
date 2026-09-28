@@ -76,7 +76,7 @@ class FarmerProfile {
     List<String>? farmPhotos,
     List<String>? farmVideos,
   })  : _totalFarmAreaUnit = totalFarmAreaUnit ?? 'Acre',
-        _cultivatedArea = cultivatedArea,
+        _cultivatedArea = cultivatedArea ?? totalAcres,
         _cultivatedAreaUnit = cultivatedAreaUnit ?? 'Acre',
         _farmingType = farmingType ?? '',
         _mainCrops = mainCrops ?? '',
@@ -619,6 +619,17 @@ class FarmerOrderItem {
     final s = _weighbridgeStatus;
     return (s != null && s.isNotEmpty) ? s : '';
   }
+  final String driverName;
+  final String driverPhone;
+  final String vehicleNumber;
+  final String driverStatus;
+  final String day;
+  final bool hasDriverAssigned;
+
+  bool get isDriverAssigned =>
+      hasDriverAssigned ||
+      (driverName.trim().isNotEmpty && driverName.trim().toLowerCase() != 'unassigned') ||
+      (driverPhone.trim().isNotEmpty && driverPhone.trim() != '1800123456');
 
   FarmerOrderItem({
     required this.id,
@@ -663,6 +674,12 @@ class FarmerOrderItem {
     String? collectionCentreId,
     String? inspectorName,
     String? weighbridgeStatus,
+    this.driverName = '',
+    this.driverPhone = '',
+    this.vehicleNumber = '',
+    this.driverStatus = '',
+    this.day = '',
+    this.hasDriverAssigned = false,
   })  : _productId = productId ?? '',
         _collectionCentre = collectionCentre ?? '',
         _collectionCentreId = collectionCentreId ?? '',
@@ -910,6 +927,26 @@ class FarmerOrderItem {
       collectionCentreId: json['collectionCentreId']?.toString() ?? (json['pickup'] is Map ? json['pickup']['collectionCentreId']?.toString() : null) ?? '',
       inspectorName: json['inspectorName']?.toString() ?? (json['inspection'] is Map ? json['inspection']['inspectorName']?.toString() : null) ?? json['receivedBy']?.toString() ?? '',
       weighbridgeStatus: json['weighbridgeStatus']?.toString() ?? '',
+      driverName: json['driverName']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['driverName']?.toString() : null) ??
+          (json['assignedDriver'] is Map ? json['assignedDriver']['name']?.toString() : null) ??
+          '',
+      driverPhone: json['driverMobile']?.toString() ??
+          json['driverPhone']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['driverMobile']?.toString() : null) ??
+          (json['assignedDriver'] is Map ? json['assignedDriver']['mobile']?.toString() : null) ??
+          '',
+      vehicleNumber: json['vehicleNumber']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['vehicleNumber']?.toString() : null) ??
+          (json['assignedDriver'] is Map ? json['assignedDriver']['vehicleNumber']?.toString() : null) ??
+          '',
+      driverStatus: json['driverStatus']?.toString() ??
+          (json['pickup'] is Map ? json['pickup']['driverStatus']?.toString() : null) ??
+          '',
+      day: json['day']?.toString() ?? '',
+      hasDriverAssigned: json['hasDriverAssigned'] == true ||
+          (json['driverName'] != null && json['driverName'].toString().trim().isNotEmpty) ||
+          (json['pickup'] is Map && json['pickup']['driverName'] != null && json['pickup']['driverName'].toString().trim().isNotEmpty),
     );
   }
 }

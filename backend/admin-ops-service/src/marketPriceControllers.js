@@ -1,4 +1,5 @@
 import { MarketPrice } from "./models.js";
+import { getIO } from "../../shared/socket.js";
 
 function getIsoDateOffset(daysOffset = 0) {
   const d = new Date();
@@ -6,285 +7,15 @@ function getIsoDateOffset(daysOffset = 0) {
   return d.toISOString().slice(0, 10);
 }
 
-const BASE_CROPS = [
-  {
-    marketName: "GreenGroo Direct Center",
-    productName: "Tomato",
-    variety: "Hybrid Super Grade",
-    basePrice: 2850,
-    minPrice: 2500,
-    maxPrice: 3100,
-    unit: "Quintal",
-    district: "Pune Hub",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 3200,
-    arrivalUnit: "Quintal",
-    notes: "Direct farmgate purchase. 0% middleman commission, 24h instant payout.",
-    isActive: true,
-    isGreenGroo: true,
-  },
-  {
-    marketName: "GreenGroo Direct Center",
-    productName: "Onion",
-    variety: "Garwa / Export",
-    basePrice: 2250,
-    minPrice: 1950,
-    maxPrice: 2500,
-    unit: "Quintal",
-    district: "Nashik Hub",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 5400,
-    arrivalUnit: "Quintal",
-    notes: "Direct farm procurement with doorstep pickup.",
-    isActive: true,
-    isGreenGroo: true,
-  },
-  {
-    marketName: "GreenGroo Direct Center",
-    productName: "Potato",
-    variety: "Jyoti Premium",
-    basePrice: 2300,
-    minPrice: 2000,
-    maxPrice: 2500,
-    unit: "Quintal",
-    district: "Pune Hub",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 2800,
-    arrivalUnit: "Quintal",
-    notes: "Direct procurement center at Manchar Hub.",
-    isActive: true,
-    isGreenGroo: true,
-  },
-  {
-    marketName: "Pune APMC",
-    productName: "Tomato",
-    variety: "Hybrid No.1",
-    basePrice: 2400,
-    minPrice: 2000,
-    maxPrice: 2800,
-    unit: "Quintal",
-    district: "Pune",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 1850,
-    arrivalUnit: "Quintal",
-    notes: "Good quality arrivals from Narayangaon & Junnar.",
-    isActive: true,
-  },
-  {
-    marketName: "Mumbai Vashi APMC",
-    productName: "Tomato",
-    variety: "Desi Special",
-    basePrice: 2600,
-    minPrice: 2200,
-    maxPrice: 3000,
-    unit: "Quintal",
-    district: "Mumbai",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 2100,
-    arrivalUnit: "Quintal",
-    notes: "High retail demand in MMR region.",
-    isActive: true,
-  },
-  {
-    marketName: "Nashik APMC",
-    productName: "Onion",
-    variety: "Lal Kaanda",
-    basePrice: 2100,
-    minPrice: 1700,
-    maxPrice: 2450,
-    unit: "Quintal",
-    district: "Nashik",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 8600,
-    arrivalUnit: "Quintal",
-    notes: "Major trading volume today.",
-    isActive: true,
-  },
-  {
-    marketName: "Pune APMC",
-    productName: "Onion",
-    variety: "Garwa / Unhali",
-    basePrice: 1850,
-    minPrice: 1500,
-    maxPrice: 2200,
-    unit: "Quintal",
-    district: "Pune",
-    state: "Maharashtra",
-    trend: "stable",
-    arrivalQuantity: 4200,
-    arrivalUnit: "Quintal",
-    notes: "Steady supply from Khed and Shirur talukas.",
-    isActive: true,
-  },
-  {
-    marketName: "Solapur APMC",
-    productName: "Onion",
-    variety: "Regular Lal",
-    basePrice: 1750,
-    minPrice: 1400,
-    maxPrice: 2050,
-    unit: "Quintal",
-    district: "Solapur",
-    state: "Maharashtra",
-    trend: "down",
-    arrivalQuantity: 5100,
-    arrivalUnit: "Quintal",
-    notes: "Higher arrivals caused mild price easing.",
-    isActive: true,
-  },
-  {
-    marketName: "Mumbai Vashi APMC",
-    productName: "Potato",
-    variety: "Jyoti Grade-A",
-    basePrice: 2150,
-    minPrice: 1850,
-    maxPrice: 2400,
-    unit: "Quintal",
-    district: "Mumbai",
-    state: "Maharashtra",
-    trend: "up",
-    arrivalQuantity: 2800,
-    arrivalUnit: "Quintal",
-    notes: "Strong demand from central Mumbai distributors.",
-    isActive: true,
-  },
-  {
-    marketName: "Pune APMC",
-    productName: "Potato",
-    variety: "Jyoti / Local",
-    basePrice: 1900,
-    minPrice: 1600,
-    maxPrice: 2200,
-    unit: "Quintal",
-    district: "Pune",
-    state: "Maharashtra",
-    trend: "stable",
-    arrivalQuantity: 3100,
-    arrivalUnit: "Quintal",
-    notes: "Fresh arrivals from Manchar cold stores.",
-    isActive: true,
-  },
-  {
-    marketName: "Kolhapur APMC",
-    productName: "Green Chilli",
-    variety: "G4 Green",
-    basePrice: 4500,
-    minPrice: 3800,
-    maxPrice: 5200,
-    unit: "Quintal",
-    district: "Kolhapur",
-    state: "Maharashtra",
-    trend: "stable",
-    arrivalQuantity: 920,
-    arrivalUnit: "Quintal",
-    notes: "Strong demand from local processing units.",
-    isActive: true,
-  },
-  {
-    marketName: "Solapur APMC",
-    productName: "Pomegranate",
-    variety: "Bhagwa Super",
-    basePrice: 9500,
-    minPrice: 8000,
-    maxPrice: 11500,
-    unit: "Quintal",
-    district: "Solapur",
-    state: "Maharashtra",
-    trend: "down",
-    arrivalQuantity: 650,
-    arrivalUnit: "Quintal",
-    notes: "Export grade arrivals fetch higher rates.",
-    isActive: true,
-  },
-  {
-    marketName: "Sangli APMC",
-    productName: "Turmeric",
-    variety: "Rajapore Salem",
-    basePrice: 13800,
-    minPrice: 12500,
-    maxPrice: 15200,
-    unit: "Quintal",
-    district: "Sangli",
-    state: "Maharashtra",
-    trend: "stable",
-    arrivalQuantity: 1200,
-    arrivalUnit: "Quintal",
-    notes: "Steady auctions in spice yard.",
-    isActive: true,
-  },
-];
-
-function generateMultiDateSeeds() {
-  const seeds = [];
-  const dayOffsets = [0, -1, -2, -3, -4, -5, -6];
-
-  for (const offset of dayOffsets) {
-    const pDate = getIsoDateOffset(offset);
-    for (const crop of BASE_CROPS) {
-      const delta = offset * 25 * (crop.trend === "up" ? -1 : crop.trend === "down" ? 1 : (offset % 2 === 0 ? 1 : -1));
-      const finalPrice = Math.max(crop.minPrice, crop.basePrice + delta);
-      const minP = Math.max(500, crop.minPrice + delta);
-      const maxP = Math.max(minP, crop.maxPrice + delta);
-
-      seeds.push({
-        marketName: crop.marketName,
-        productName: crop.productName,
-        variety: crop.variety,
-        price: finalPrice,
-        minPrice: minP,
-        maxPrice: maxP,
-        unit: crop.unit,
-        priceDate: pDate,
-        district: crop.district,
-        state: crop.state,
-        trend: crop.trend,
-        arrivalQuantity: Math.max(100, crop.arrivalQuantity + (offset * 50)),
-        arrivalUnit: crop.arrivalUnit,
-        notes: crop.notes,
-        isActive: true,
-        isGreenGroo: Boolean(crop.isGreenGroo),
-      });
-    }
-  }
-  return seeds;
-}
-
-export async function seedDefaultMarketPricesIfEmpty() {
+function safeEmit(fn) {
   try {
-    const todayStr = getIsoDateOffset(0);
-    const todayCount = await MarketPrice.countDocuments({ priceDate: todayStr });
-
-    if (todayCount === 0) {
-      const multiDaySeeds = generateMultiDateSeeds();
-      for (const seed of multiDaySeeds) {
-        await MarketPrice.findOneAndUpdate(
-          {
-            marketName: seed.marketName,
-            productName: seed.productName,
-            variety: seed.variety,
-            priceDate: seed.priceDate,
-          },
-          { $set: seed },
-          { upsert: true, new: true }
-        );
-      }
-      console.log(`[MarketPrice] Synced date-wise market price records.`);
-    }
-  } catch (err) {
-    console.warn("[MarketPrice] Seed check failed:", err.message);
-  }
+    const io = getIO();
+    if (io) fn(io);
+  } catch (_) {}
 }
 
 export async function listMarketPrices(req, res, next) {
   try {
-    await seedDefaultMarketPricesIfEmpty();
-
     const filter = {};
     if (req.query.status && req.query.status !== "all") {
       filter.isActive = req.query.status === "active";
@@ -340,7 +71,6 @@ export async function listMarketPrices(req, res, next) {
 
 export async function listLiveMarketPrices(req, res, next) {
   try {
-    await seedDefaultMarketPricesIfEmpty();
     const filter = { isActive: true };
     if (req.query.marketName && req.query.marketName !== "all") {
       filter.marketName = String(req.query.marketName);
@@ -362,7 +92,7 @@ export async function listLiveMarketPrices(req, res, next) {
 
     const rows = await MarketPrice.find(filter)
       .sort({ priceDate: -1, updatedAt: -1 })
-      .limit(300)
+      .limit(500)
       .lean();
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -441,6 +171,11 @@ export async function createMarketPrice(req, res, next) {
       isGreenGroo: isGg,
     });
 
+    safeEmit((io) => {
+      io.emit("market_price_updated", row);
+      io.emit("market_prices_changed", { action: "create", id: row._id });
+    });
+
     res.status(201).json({ success: true, data: row });
   } catch (err) {
     next(err);
@@ -497,6 +232,12 @@ export async function updateMarketPrice(req, res, next) {
     if (isActive !== undefined) row.isActive = Boolean(isActive);
 
     await row.save();
+
+    safeEmit((io) => {
+      io.emit("market_price_updated", row);
+      io.emit("market_prices_changed", { action: "update", id: row._id });
+    });
+
     res.json({ success: true, data: row });
   } catch (err) {
     next(err);
@@ -507,6 +248,12 @@ export async function deleteMarketPrice(req, res, next) {
   try {
     const row = await MarketPrice.findByIdAndDelete(req.params.id);
     if (!row) return res.status(404).json({ success: false, message: "Market price not found" });
+
+    safeEmit((io) => {
+      io.emit("market_price_deleted", { id: req.params.id });
+      io.emit("market_prices_changed", { action: "delete", id: req.params.id });
+    });
+
     res.json({ success: true, message: "Market price removed successfully" });
   } catch (err) {
     next(err);

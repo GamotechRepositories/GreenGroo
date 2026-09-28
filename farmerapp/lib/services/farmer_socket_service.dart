@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io_client;
 import 'api_service.dart';
 import 'farmer_state.dart';
+import 'market_price_service.dart';
 import '../models/farmer_models.dart';
 
 class FarmerSocketService {
@@ -97,6 +98,30 @@ class FarmerSocketService {
       _socket!.on('new_order_assigned', (data) {
         debugPrint('[FarmerSocket] Event new_order_assigned: $data');
         FarmerState().fetchFromBackend();
+      });
+
+      // Listen for market price updates from Admin
+      _socket!.on('market_price_updated', (data) {
+        debugPrint('[FarmerSocket] Event market_price_updated: $data');
+        if (data is Map) {
+          MarketPriceService().handleSocketPriceUpdate(Map<String, dynamic>.from(data));
+        } else {
+          MarketPriceService().fetchMarketPrices();
+        }
+      });
+
+      _socket!.on('market_price_deleted', (data) {
+        debugPrint('[FarmerSocket] Event market_price_deleted: $data');
+        if (data is Map && data['id'] != null) {
+          MarketPriceService().handleSocketPriceDelete(data['id'].toString());
+        } else {
+          MarketPriceService().fetchMarketPrices();
+        }
+      });
+
+      _socket!.on('market_prices_changed', (data) {
+        debugPrint('[FarmerSocket] Event market_prices_changed: $data');
+        MarketPriceService().fetchMarketPrices();
       });
     } catch (e) {
       debugPrint('[FarmerSocket] Init error: $e');

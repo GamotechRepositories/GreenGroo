@@ -2901,6 +2901,17 @@ async function enrichOwnOrder(order, farmer, inspectionDoc = null, preloaded = n
       : null,
     pickupDate: pickup?.pickupDate || pickup?.scheduledDate || order.pickupDate || "",
     pickupTime: pickup?.pickupTime || pickup?.scheduledTime || order.pickupTime || "",
+    driverId: pickup?.driverId || "",
+    driverName: driver?.name || pickup?.driverName || order.driverName || "",
+    driverMobile: driver?.mobile || pickup?.driverMobile || order.driverMobile || order.driverPhone || "",
+    driverPhone: driver?.mobile || pickup?.driverMobile || order.driverMobile || order.driverPhone || "",
+    vehicleNumber: driver?.vehicleNumber || pickup?.vehicleNumber || order.vehicleNumber || "",
+    driverStatus: pickup?.driverStatus || pickup?.status || "",
+    hasDriverAssigned: Boolean(
+      (driver?.name && driver.name.trim().length > 0) ||
+      (pickup?.driverName && pickup.driverName.trim().length > 0) ||
+      (pickup?.driverId && pickup.driverId.trim().length > 0)
+    ),
     qrPayload,
     ...qualityOverlay,
   });
@@ -3775,7 +3786,7 @@ export async function getFarmerOrders(req, res) {
       query.status = { $nin: ["DELETED", "Deleted", "deleted", "CANCELLED", "Cancelled", "cancelled"] };
     }
 
-    let orders = await FarmerOrder.find(query).sort({ orderDate: -1 }).lean();
+    let orders = await FarmerOrder.find(query).sort({ orderDate: -1, createdAt: -1 }).lean();
     if (q) {
       const needle = q.toLowerCase();
       orders = orders.filter(
@@ -3784,7 +3795,58 @@ export async function getFarmerOrders(req, res) {
           (o.customer?.name && o.customer.name.toLowerCase().includes(needle))
       );
     }
-    res.json(orders.filter((o) => !isOrderDeleted(o)).map(withCanonicalOrderStatus));
+
+    const orderIds = [...new Set(orders.flatMap((o) => [o.id, o.orderId]).filter(Boolean).map(String))];
+    const pickups = orderIds.length
+      ? await Pickup.find({ orderId: { $in: orderIds } }).lean()
+      : [];
+    const pickupByOrder = new Map();
+    pickups.forEach((p) => {
+      if (p.orderId) pickupByOrder.set(String(p.orderId), p);
+    });
+
+    const driverIds = [...new Set(pickups.map((p) => p.driverId).filter(Boolean).map(String))];
+    const drivers = driverIds.length
+      ? await PickupDriver.find({ id: { $in: driverIds } }).lean()
+      : [];
+    const driverById = new Map(drivers.map((d) => [String(d.id), d]));
+
+    const mapped = orders.filter((o) => !isOrderDeleted(o)).map((o) => {
+      const canonical = withCanonicalOrderStatus(o);
+      const p = pickupByOrder.get(String(o.id)) || pickupByOrder.get(String(o.orderId || ""));
+      const d = p?.driverId ? driverById.get(String(p.driverId)) : null;
+
+      const driverName = d?.name || p?.driverName || o.driverName || "";
+      const driverMobile = d?.mobile || p?.driverMobile || o.driverMobile || o.driverPhone || "";
+      const vehicleNumber = d?.vehicleNumber || p?.vehicleNumber || o.vehicleNumber || "";
+      const driverStatus = p?.driverStatus || p?.status || o.driverStatus || "";
+
+      return {
+        ...canonical,
+        pickupDate: p?.pickupDate || p?.scheduledDate || o.pickupDate || "",
+        pickupTime: p?.pickupTime || p?.scheduledTime || o.pickupTime || "",
+        pickupSlot: p?.pickupTime || p?.scheduledTime || o.pickupSlot || o.pickupTime || "",
+        day: o.day || "",
+        driverId: p?.driverId || o.driverId || "",
+        driverName,
+        driverMobile,
+        driverPhone: driverMobile,
+        vehicleNumber,
+        driverStatus,
+        hasDriverAssigned: Boolean((driverName && driverName.trim().length > 0) || (driverMobile && driverMobile.trim().length > 0) || p?.driverId),
+        pickup: p
+          ? {
+              ...p,
+              driverName,
+              driverMobile,
+              vehicleNumber,
+              driverStatus,
+            }
+          : null,
+      };
+    });
+
+    res.json(mapped);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch orders" });
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
+import '../../services/app_language.dart';
 import 'order_prepare_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -518,6 +520,113 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
+
+                  // Assigned Driver Card
+                  if (order.isDriverAssigned) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF86EFAC)),
+                            ),
+                            child: const Icon(
+                              Icons.sports_motorsports_rounded,
+                              color: Color(0xFF16A34A),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      order.driverName.isNotEmpty
+                                          ? order.driverName
+                                          : AppLanguage().tr(mr: 'असाइन केलेला ड्रायव्हर', en: 'Assigned Driver'),
+                                      style: const TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF14532D),
+                                      ),
+                                    ),
+                                    if (order.driverStatus.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDCFCE7),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xFF86EFAC)),
+                                        ),
+                                        child: Text(
+                                          order.driverStatus,
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF15803D),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  order.vehicleNumber.isNotEmpty
+                                      ? '${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "ड्रायव्हर"}'
+                                      : (order.driverPhone.isNotEmpty ? '📞 ${order.driverPhone}' : AppLanguage().tr(mr: 'ड्रायव्हर असाइन केला आहे', en: 'Driver Assigned')),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF166534),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (order.driverPhone.trim().isNotEmpty)
+                            IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.all(8),
+                              ),
+                              icon: const Icon(Icons.phone_rounded, size: 16),
+                              tooltip: 'Call Driver',
+                              onPressed: () {
+                                final clean = order.driverPhone.replaceAll(RegExp(r'\D'), '');
+                                if (clean.isNotEmpty) {
+                                  launchUrl(Uri.parse('tel:$clean'), mode: LaunchMode.externalApplication);
+                                }
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
 
                   // Card 2: Grades Table Card
                   Container(
