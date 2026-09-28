@@ -48,12 +48,10 @@ import {
   Copy,
 } from 'lucide-react';
 import axios from 'axios';
-import apiClient from '../api/client';
+import apiClient, { API_ORIGIN as API_BASE } from '../api/client';
 import categoryApi from '../api/categoryApi';
 import sectionApi from '../api/sectionApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
-
-const API_BASE = 'http://localhost:5001';
 
 const SECTION_THEMES = [
   { slug: 'greengrocc', name: 'GreenGrocc', color: 'emerald', dot: 'bg-emerald-500', bg: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },

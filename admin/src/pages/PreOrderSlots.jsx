@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { PAGE_TITLE, PAGE_SUB, PANEL, BTN_PRIMARY } from '../utils/ui';
-
-// Adjust based on your environment
-const API_BASE = 'http://localhost:5001';
+import { API_ORIGIN as API_BASE } from '../api/client';
 
 export default function PreOrderSlots() {
   const [slots, setSlots] = useState([]);
