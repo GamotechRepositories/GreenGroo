@@ -12,19 +12,32 @@ class MarketPriceService extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  bool _hasLoaded = false;
+  bool get hasLoaded => _hasLoaded;
+
+  String _lastError = '';
+  String get lastError => _lastError;
+
   List<MarketPriceItem> _items = [];
   List<MarketPriceItem> get items => _items;
+
+  static String _dayOf(String raw) => raw.length >= 10 ? raw.substring(0, 10) : raw;
 
   List<String> get availableDates {
     final set = <String>{};
     for (final item in _items) {
-      if (item.priceDate.isNotEmpty) {
-        set.add(item.priceDate.substring(0, 10));
+      if (item.isActive && item.priceDate.isNotEmpty) {
+        set.add(_dayOf(item.priceDate));
       }
     }
     final list = set.toList();
     list.sort((a, b) => b.compareTo(a)); // newest first
     return list;
+  }
+
+  String? get latestDate {
+    final dates = availableDates;
+    return dates.isEmpty ? null : dates.first;
   }
 
   Future<void> fetchMarketPrices({String? date}) async {
@@ -38,26 +51,33 @@ class MarketPriceService extends ChangeNotifier {
 
       final res = await ApiService().get(
         uri,
-        timeout: const Duration(seconds: 4),
+        timeout: const Duration(seconds: 12),
       );
 
       if (res != null && res is Map && res['data'] is List) {
         final List list = res['data'];
-        final loaded = list
-            .map((item) => MarketPriceItem.fromJson(Map<String, dynamic>.from(item)))
-            .toList();
+        final loaded = <MarketPriceItem>[];
+        for (final item in list) {
+          if (item is! Map) continue;
+          try {
+            loaded.add(MarketPriceItem.fromJson(Map<String, dynamic>.from(item)));
+          } catch (_) {}
+        }
 
         if (date != null && date.isNotEmpty && date != 'all') {
-          // Replace or merge items for this date
-          final dateStr = date.substring(0, 10);
+          final dateStr = _dayOf(date);
           final retained = _items.where((i) => !i.priceDate.startsWith(dateStr)).toList();
           _items = [...retained, ...loaded];
         } else {
           _items = loaded;
         }
+        _lastError = '';
+        _hasLoaded = true;
+      } else {
+        _lastError = 'Invalid market price response';
       }
-    } catch (_) {
-      // Keep existing data gracefully
+    } catch (e) {
+      _lastError = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -67,8 +87,14 @@ class MarketPriceService extends ChangeNotifier {
   void handleSocketPriceUpdate(Map<String, dynamic> raw) {
     try {
       final item = MarketPriceItem.fromJson(raw);
+      if (item.id.isEmpty) {
+        fetchMarketPrices();
+        return;
+      }
       final idx = _items.indexWhere((i) => i.id == item.id);
-      if (idx >= 0) {
+      if (!item.isActive) {
+        if (idx >= 0) _items.removeAt(idx);
+      } else if (idx >= 0) {
         _items[idx] = item;
       } else {
         _items.insert(0, item);
@@ -77,6 +103,15 @@ class MarketPriceService extends ChangeNotifier {
     } catch (_) {
       fetchMarketPrices();
     }
+  }
+
+  /// Multiplier that converts a price per [unit] into a price per Quintal, or null for non-weight units.
+  static double? _perQuintalFactor(String unit) {
+    final u = unit.trim().toLowerCase();
+    if (u.isEmpty || u == 'quintal' || u == 'qtl' || u == 'क्विंटल') return 1;
+    if (u == 'kg' || u == 'kgs' || u == 'किलो') return 100;
+    if (u == 'ton' || u == 'tonne' || u == 'टन') return 0.1;
+    return null;
   }
 
   void handleSocketPriceDelete(String id) {
@@ -122,70 +157,85 @@ class MarketPriceService extends ChangeNotifier {
     return '🌾';
   }
 
-  /// Compares all prices for the same product across different markets for a given date
+  /// Compares the latest price of each market for the same product.
+  /// With [date] only that day's rates are used; without it each market's newest rate is used.
   List<ProductMarketComparison> getComparisons({String? date}) {
     final Map<String, List<MarketPriceItem>> grouped = {};
+    final Map<String, String> groupUnit = {};
+    final Map<String, String> groupName = {};
 
     final sourceItems = (date != null && date.isNotEmpty && date != 'all')
         ? _items.where((i) => i.priceDate.startsWith(date)).toList()
         : _items;
 
     for (final item in sourceItems) {
-      if (!item.isActive) continue;
-      final key = _normalizeProductName(item.productName);
+      if (!item.isActive || item.price <= 0) continue;
+      final name = _normalizeProductName(item.productName);
+      final factor = _perQuintalFactor(item.unit);
+      final unit = factor != null ? 'Quintal' : item.unit;
+      final key = factor != null ? name : '$name|${item.unit.toLowerCase()}';
       grouped.putIfAbsent(key, () => []).add(item);
+      groupUnit[key] = unit;
+      groupName[key] = name;
     }
 
     final List<ProductMarketComparison> comparisons = [];
 
-    grouped.forEach((productKey, productItems) {
+    grouped.forEach((groupKey, productItems) {
       if (productItems.isEmpty) return;
+      final productKey = groupName[groupKey] ?? groupKey;
+      final displayUnit = groupUnit[groupKey] ?? 'Quintal';
 
-      // Deduplicate by marketName (keep latest or highest quote)
+      // One quote per market: the newest date wins; the API already lists newest updates first.
       final Map<String, MarketPriceItem> marketMap = {};
       for (final p in productItems) {
-        final existing = marketMap[p.marketName];
-        if (existing == null || p.price > existing.price) {
-          marketMap[p.marketName] = p;
+        final marketKey = p.marketName.trim().toLowerCase();
+        final existing = marketMap[marketKey];
+        if (existing == null || _dayOf(p.priceDate).compareTo(_dayOf(existing.priceDate)) > 0) {
+          marketMap[marketKey] = p;
         }
       }
 
-      final uniqueItems = marketMap.values.toList();
-      uniqueItems.sort((a, b) => b.price.compareTo(a.price)); // highest first
+      double norm(MarketPriceItem m, double value) => value * (_perQuintalFactor(m.unit) ?? 1);
 
-      final minPrice = uniqueItems.map((e) => e.price).reduce((a, b) => a < b ? a : b);
-      final maxPrice = uniqueItems.first.price;
+      final uniqueItems = marketMap.values.toList();
+      uniqueItems.sort((a, b) => norm(b, b.price).compareTo(norm(a, a.price))); // highest first
+
+      final prices = uniqueItems.map((e) => norm(e, e.price)).toList();
+      final minPrice = prices.reduce((a, b) => a < b ? a : b);
+      final maxPrice = prices.first;
       final bestMarket = uniqueItems.first.marketName;
-      final avgPrice = uniqueItems.fold<double>(0.0, (acc, e) => acc + e.price) / uniqueItems.length;
-      final bestAdvantage = minPrice > 0 ? ((maxPrice - minPrice) / minPrice * 100) : 0.0;
+      final avgPrice = prices.fold<double>(0.0, (acc, p) => acc + p) / prices.length;
+      final bestAdvantage = uniqueItems.length > 1 && minPrice > 0 ? ((maxPrice - minPrice) / minPrice * 100) : 0.0;
 
       MarketRateComparison? ggComp;
       final List<MarketRateComparison> rates = uniqueItems.map((m) {
-        final pctHigher = minPrice > 0 ? ((m.price - minPrice) / minPrice * 100) : 0.0;
+        final price = norm(m, m.price);
+        final pctHigher = minPrice > 0 ? ((price - minPrice) / minPrice * 100) : 0.0;
         final c = MarketRateComparison(
           marketName: m.marketName,
           district: m.district,
-          price: m.price,
-          minPrice: m.minPrice > 0 ? m.minPrice : m.price,
-          maxPrice: m.maxPrice > 0 ? m.maxPrice : m.price,
-          unit: m.unit,
+          price: price,
+          minPrice: m.minPrice > 0 ? norm(m, m.minPrice) : price,
+          maxPrice: m.maxPrice > 0 ? norm(m, m.maxPrice) : price,
+          unit: displayUnit,
           trend: m.trend,
           percentHigher: pctHigher,
-          isBest: m.price >= maxPrice && maxPrice > minPrice,
+          isBest: price >= maxPrice && maxPrice > minPrice,
           arrivalQuantity: m.arrivalQuantity,
           isGreenGroo: m.isGreenGroo,
         );
-        if (m.isGreenGroo) {
+        if (m.isGreenGroo && (ggComp == null || price > ggComp!.price)) {
           ggComp = c;
         }
         return c;
       }).toList();
 
-      final nonGgMarkets = uniqueItems.where((x) => !x.isGreenGroo).toList();
+      final nonGgPrices = uniqueItems.where((x) => !x.isGreenGroo).map((x) => norm(x, x.price)).toList();
       double ggVsAvgPercent = 0.0;
       double ggDiffAmount = 0.0;
-      if (ggComp != null && nonGgMarkets.isNotEmpty) {
-        final nonGgAvg = nonGgMarkets.fold<double>(0.0, (acc, e) => acc + e.price) / nonGgMarkets.length;
+      if (ggComp != null && nonGgPrices.isNotEmpty) {
+        final nonGgAvg = nonGgPrices.fold<double>(0.0, (acc, p) => acc + p) / nonGgPrices.length;
         if (nonGgAvg > 0) {
           ggDiffAmount = ggComp!.price - nonGgAvg;
           ggVsAvgPercent = (ggDiffAmount / nonGgAvg) * 100;
@@ -197,7 +247,7 @@ class MarketPriceService extends ChangeNotifier {
           productName: productKey,
           cleanProductName: productKey.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim(),
           emoji: _getEmojiForProduct(productKey),
-          unit: uniqueItems.first.unit,
+          unit: displayUnit,
           minPrice: minPrice,
           maxPrice: maxPrice,
           avgPrice: avgPrice,

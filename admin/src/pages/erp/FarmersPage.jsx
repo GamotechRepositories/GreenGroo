@@ -294,6 +294,15 @@ export default function FarmersPage() {
                       <div className="flex flex-wrap gap-1.5">
                         <Pill tone={statusTone(f.kycStatus)}>KYC {pretty(f.kycStatus)}</Pill>
                         <Pill tone={statusTone(f.bankStatus)}>Bank {pretty(f.bankStatus)}</Pill>
+                        {f.documentsPending ? (
+                          <Pill tone="amber">{f.documentsPending} docs to review</Pill>
+                        ) : f.documentsRejected ? (
+                          <Pill tone="rose">{f.documentsRejected} docs rejected</Pill>
+                        ) : (
+                          <Pill tone={f.documentCount ? 'green' : 'slate'}>
+                            {f.documentCount ? `${f.documentsApproved}/${f.documentCount} docs approved` : 'No docs'}
+                          </Pill>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500">
                         <span>{f.cropCount || 0} crops</span>

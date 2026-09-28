@@ -15,6 +15,7 @@ import {
   listFarmers,
   listFarmerManagers,
   getFarmer360,
+  reviewFarmerDocument,
   receiveGrn,
   detectId,
   report,
@@ -35,6 +36,11 @@ router.post("/ids/generate", requirePermission("erp:write"), generateBusinessId)
 router.get("/farmers", requirePermission("erp:read"), listFarmers);
 router.get("/farmer-managers", requirePermission("erp:read"), listFarmerManagers);
 router.get("/farmers/:id", requirePermission("erp:read"), getFarmer360);
+router.patch(
+  "/farmers/:id/documents/:documentId/status",
+  requirePermission("erp:write"),
+  reviewFarmerDocument
+);
 
 router.post("/goods_receipts/:id/receive", requirePermission("erp:write"), (req, res, next) => {
   req.body.grnId = req.body.grnId || req.params.id;

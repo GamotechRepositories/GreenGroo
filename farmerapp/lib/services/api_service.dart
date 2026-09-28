@@ -354,15 +354,11 @@ class ApiService {
   }
 
   Future<dynamic> uploadDocument(String farmerId, Map<String, dynamic> body) async {
-    try {
-      return await post('/api/farmers/$farmerId/documents', body);
-    } catch (_) {
-      try {
-        return await post('/api/farmer/documents', body);
-      } catch (_) {
-        return await post('/api/vendor/farmers/$farmerId/documents', body);
-      }
-    }
+    final uri = Uri.parse('$_baseUrl/api/farmers/$farmerId/documents');
+    final response = await _client
+        .post(uri, headers: _headers, body: jsonEncode(body))
+        .timeout(const Duration(seconds: 60));
+    return _handleResponse(response);
   }
 
   Future<dynamic> createProduct(String farmerId, Map<String, dynamic> body) async {

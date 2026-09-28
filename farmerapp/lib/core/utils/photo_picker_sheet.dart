@@ -154,8 +154,23 @@ Future<void> showAppPhotoPicker(
   String subtitle = 'कॅमेऱ्याने फोटो काढा, गॅलरी किंवा PDF फाईल निवडा',
   String? presetCategory,
   bool allowPdf = true,
+  bool allowSamples = true,
 }) async {
   final ImagePicker picker = ImagePicker();
+
+  void onPickFailed(Object error) {
+    if (!context.mounted) return;
+    if (allowSamples) {
+      _showFallbackDialog(context, onPhotoSelected, presetCategory);
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('फाईल निवडता आली नाही. पुन्हा प्रयत्न करा. ($error)'),
+        backgroundColor: const Color(0xFFDC2626),
+      ),
+    );
+  }
 
   Future<void> pickWithSource(ImageSource source) async {
     try {
@@ -171,9 +186,7 @@ Future<void> showAppPhotoPicker(
         onPhotoSelected(base64Str);
       }
     } catch (e) {
-      if (context.mounted) {
-        _showFallbackDialog(context, onPhotoSelected, presetCategory);
-      }
+      onPickFailed(e);
     }
   }
 
@@ -202,17 +215,7 @@ Future<void> showAppPhotoPicker(
         }
       }
     } catch (e) {
-      if (context.mounted) {
-        // If native plugin requires fresh build, offer fallback options
-        _showFallbackDialog(context, onPhotoSelected, presetCategory);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('नवीन प्लगइनसाठी ॲप पुन्हा सुरु (Re-run) करा किंवा खालील पर्यायांमधून निवडा.'),
-            backgroundColor: Color(0xFFC2410C),
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
+      onPickFailed(e);
     }
   }
 
@@ -325,6 +328,7 @@ Future<void> showAppPhotoPicker(
               ),
 
             // Option 4: Presets & Image URL
+            if (allowSamples)
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               leading: Container(

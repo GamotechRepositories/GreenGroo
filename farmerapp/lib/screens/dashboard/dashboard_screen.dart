@@ -2927,7 +2927,13 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
           targetDate = null;
         }
 
-        final comparisons = MarketPriceService().getComparisons(date: targetDate);
+        final service = MarketPriceService();
+        var comparisons = service.getComparisons(date: targetDate);
+        String? fallbackDate;
+        if (comparisons.isEmpty && _selectedDateIndex == 0 && service.latestDate != null) {
+          fallbackDate = service.latestDate;
+          comparisons = service.getComparisons(date: fallbackDate);
+        }
         if (comparisons.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(16),
@@ -3028,21 +3034,23 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      AppLanguage().tr(
-                        mr: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
-                        en: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% Higher Rate 📈',
+                  if (selected.bestAdvantagePercent > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                      child: Text(
+                        AppLanguage().tr(
+                          mr: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
+                          en: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% Higher Rate 📈',
+                        ),
+                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
 
@@ -3050,6 +3058,16 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
 
               // Date Selector Row (आज, काल, २ दिवस आधी, तारीख निवडा, सर्व)
               _buildDateSelectorRow(),
+              if (fallbackDate != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  AppLanguage().tr(
+                    mr: 'आजचे दर अजून आलेले नाहीत — $fallbackDate चे ताजे दर',
+                    en: "Today's rates not added yet — latest rates from $fallbackDate",
+                  ),
+                  style: const TextStyle(fontSize: 10, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                ),
+              ],
 
               const SizedBox(height: 10),
 

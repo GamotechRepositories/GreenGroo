@@ -237,12 +237,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           farmerName: _nameController.text.trim().isNotEmpty
               ? _nameController.text.trim()
               : FarmerState().profile.fullName,
-          onCompleted: (String? videoUrl) {
-            setState(() => _videoKycCompleted = true);
-            if (videoUrl != null && videoUrl.isNotEmpty) {
-              FarmerState().uploadDocument('DOC-9', fileUrl: videoUrl, status: 'pending');
+          onCompleted: (String? videoUrl) async {
+            if (videoUrl == null || videoUrl.isEmpty) return;
+            try {
+              await FarmerState().uploadDocument('DOC-9', fileUrl: videoUrl, status: 'pending');
+              if (!mounted) return;
+              setState(() => _videoKycCompleted = true);
+              _showToast('थेट चेहरा केवायसी पडताळणी यशस्वी! व्हिडिओ व्हेंडरकडे पाठवला ✓');
+            } catch (e) {
+              _showToast('व्हिडिओ केवायसी अपलोड अयशस्वी: $e');
             }
-            _showToast('थेट चेहरा केवायसी पडताळणी यशस्वी! व्हिडिओ व्हेंडरकडे पाठवला ✓');
           },
         ),
       ),
@@ -1327,9 +1331,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: '${doc.marathiTitle} कॅमेरा किंवा गॅलरीमधून निवडा',
                 presetCategory: 'Document',
                 allowPdf: true,
-                onPhotoSelected: (photoStr) {
-                  FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
-                  _showToast('${doc.title} यशस्वीरीत्या अपलोड केले! व्हेंडर पडताळणी चालू आहे.');
+                onPhotoSelected: (photoStr) async {
+                  try {
+                    await FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
+                    _showToast('${doc.title} यशस्वीरीत्या अपलोड केले! व्हेंडर पडताळणी चालू आहे.');
+                  } catch (e) {
+                    _showToast('अपलोड अयशस्वी: $e');
+                  }
                 },
               );
             },

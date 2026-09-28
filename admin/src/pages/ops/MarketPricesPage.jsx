@@ -49,6 +49,43 @@ const isGreenGrooRecord = (row) =>
   Boolean(row?.isGreenGroo) ||
   String(row?.marketName || '').toLowerCase().includes('greengroo');
 
+const localToday = () => {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+};
+
+// Multiplier to a per-Quintal price; null for units that are not weight based.
+const perQuintalFactor = (unit = '') => {
+  const u = String(unit || '').trim().toLowerCase();
+  if (!u || u === 'quintal' || u === 'qtl') return 1;
+  if (u === 'kg' || u === 'kgs') return 100;
+  if (u === 'ton' || u === 'tonne') return 0.1;
+  return null;
+};
+
+const comparableUnit = (unit) => (perQuintalFactor(unit) != null ? 'Quintal' : unit || 'Unit');
+
+const comparablePrice = (row, value = row?.price) =>
+  Number(value || 0) * (perQuintalFactor(row?.unit) ?? 1);
+
+const analysisKey = (row) => {
+  const name = normalizeCrop(stripMarathi(row?.productName || ''));
+  return perQuintalFactor(row?.unit) != null ? name : `${name}|${String(row?.unit || '').toLowerCase()}`;
+};
+
+// Newest quote per market; rows arrive newest first so ties keep the latest update.
+const latestPerMarket = (list) => {
+  const map = new Map();
+  list.forEach((row) => {
+    const key = stripMarathi(row.marketName || '').toLowerCase();
+    const prev = map.get(key);
+    if (!prev || String(row.priceDate || '') > String(prev.priceDate || '')) map.set(key, row);
+  });
+  return Array.from(map.values());
+};
+
 const GREENGROO_HUBS = [
   'GreenGroo Direct Center',
   'GreenGroo Hub - Pune',
@@ -108,7 +145,7 @@ const UNIT_OPTIONS = [
   { value: 'Ton', label: 'Ton' },
 ];
 
-const INITIAL_FORM = {
+const makeInitialForm = () => ({
   marketName: '',
   productName: '',
   variety: '',
@@ -116,7 +153,7 @@ const INITIAL_FORM = {
   minPrice: '',
   maxPrice: '',
   unit: 'Quintal',
-  priceDate: new Date().toISOString().slice(0, 10),
+  priceDate: localToday(),
   district: 'Pune',
   state: 'Maharashtra',
   trend: 'stable',
@@ -125,7 +162,7 @@ const INITIAL_FORM = {
   notes: '',
   isActive: true,
   isGreenGroo: false,
-};
+});
 
 export default function MarketPricesPage() {
   const [rows, setRows] = useState([]);
@@ -147,8 +184,9 @@ export default function MarketPricesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isGreenGrooMode, setIsGreenGrooMode] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm] = useState(makeInitialForm);
   const [formErrors, setFormErrors] = useState({});
+  const [filterOptions, setFilterOptions] = useState({ markets: [], products: [], dates: [] });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -163,6 +201,11 @@ export default function MarketPricesPage() {
       const res = await opsApi.list('market-prices', params);
       setRows(Array.isArray(res.data) ? res.data : []);
       setStats(res.stats || null);
+      setFilterOptions({
+        markets: Array.isArray(res.filters?.markets) ? res.filters.markets : [],
+        products: Array.isArray(res.filters?.products) ? res.filters.products : [],
+        dates: Array.isArray(res.filters?.dates) ? res.filters.dates : [],
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load market prices.');
     } finally {
@@ -174,55 +217,51 @@ export default function MarketPricesPage() {
     loadData();
   }, [loadData]);
 
-  // Unique markets, products, and dates
+  // Unique markets, products, and dates (full lists from the server so filters never shrink the choices)
   const uniqueMarkets = useMemo(() => {
-    const set = new Set(rows.map((r) => stripMarathi(r.marketName)).filter(Boolean));
-    return Array.from(set).sort();
-  }, [rows]);
+    const source = filterOptions.markets.length ? filterOptions.markets : rows.map((r) => r.marketName);
+    return Array.from(new Set(source.filter(Boolean))).sort();
+  }, [filterOptions.markets, rows]);
 
   const uniqueProducts = useMemo(() => {
-    const set = new Set(rows.map((r) => stripMarathi(r.productName)).filter(Boolean));
-    return Array.from(set).sort();
-  }, [rows]);
+    const source = filterOptions.products.length ? filterOptions.products : rows.map((r) => r.productName);
+    return Array.from(new Set(source.filter(Boolean))).sort();
+  }, [filterOptions.products, rows]);
 
   const uniqueDates = useMemo(() => {
-    const set = new Set(rows.map((r) => r.priceDate ? String(r.priceDate).slice(0, 10) : '').filter(Boolean));
-    return Array.from(set).sort().reverse();
-  }, [rows]);
+    const source = filterOptions.dates.length
+      ? filterOptions.dates
+      : rows.map((r) => (r.priceDate ? String(r.priceDate).slice(0, 10) : ''));
+    return Array.from(new Set(source.filter(Boolean))).sort().reverse();
+  }, [filterOptions.dates, rows]);
 
-  // Product price comparison (GreenGroo vs APMC)
+  // Product price comparison (GreenGroo vs APMC) on each market's latest active quote, per Quintal
   const productAnalysis = useMemo(() => {
-    const map = {};
+    const groups = {};
     rows.forEach((row) => {
+      if (row.isActive === false || !(Number(row.price) > 0)) return;
       const rawName = stripMarathi(row.productName || '').trim();
       if (!rawName) return;
-      const cleanKey = normalizeCrop(rawName);
-      if (!map[cleanKey]) {
-        map[cleanKey] = {
-          productName: rawName,
-          unit: row.unit || 'Quintal',
-          greenGrooRow: null,
-          apmcRows: [],
-        };
+      const key = analysisKey(row);
+      if (!groups[key]) {
+        groups[key] = { key, productName: rawName, unit: comparableUnit(row.unit), rows: [] };
       }
-      const isGg = isGreenGrooRecord(row);
-
-      if (isGg) {
-        if (!map[cleanKey].greenGrooRow || Number(row.price) > Number(map[cleanKey].greenGrooRow.price)) {
-          map[cleanKey].greenGrooRow = row;
-        }
-      } else {
-        map[cleanKey].apmcRows.push(row);
-      }
+      groups[key].rows.push(row);
     });
 
-    return Object.values(map).map((p) => {
-      const apmcPrices = p.apmcRows.map((r) => Number(r.price)).filter((x) => x > 0);
+    return Object.values(groups).map((p) => {
+      const latest = latestPerMarket(p.rows);
+      const greenGrooRow =
+        latest
+          .filter((r) => isGreenGrooRecord(r))
+          .sort((a, b) => comparablePrice(b) - comparablePrice(a))[0] || null;
+      const apmcRows = latest.filter((r) => !isGreenGrooRecord(r));
+      const apmcPrices = apmcRows.map((r) => comparablePrice(r)).filter((x) => x > 0);
       const apmcMin = apmcPrices.length ? Math.min(...apmcPrices) : 0;
       const apmcMax = apmcPrices.length ? Math.max(...apmcPrices) : 0;
       const apmcAvg = apmcPrices.length ? apmcPrices.reduce((a, b) => a + b, 0) / apmcPrices.length : 0;
 
-      const ggPrice = p.greenGrooRow ? Number(p.greenGrooRow.price) : 0;
+      const ggPrice = greenGrooRow ? comparablePrice(greenGrooRow) : 0;
       let diffPercent = 0;
       let diffAmount = 0;
       let status = 'none';
@@ -237,6 +276,8 @@ export default function MarketPricesPage() {
 
       return {
         ...p,
+        greenGrooRow,
+        apmcRows,
         apmcMin,
         apmcMax,
         apmcAvg,
@@ -278,7 +319,7 @@ export default function MarketPricesPage() {
 
   const openCreateModal = () => {
     setEditingItem(null);
-    setForm({ ...INITIAL_FORM, isGreenGroo: false });
+    setForm({ ...makeInitialForm(), isGreenGroo: false });
     setIsGreenGrooMode(false);
     setFormErrors({});
     setModalOpen(true);
@@ -287,7 +328,7 @@ export default function MarketPricesPage() {
   const openGreenGrooModal = (prefillProduct = '') => {
     setEditingItem(null);
     setForm({
-      ...INITIAL_FORM,
+      ...makeInitialForm(),
       marketName: 'GreenGroo Direct Center',
       productName: prefillProduct || 'Tomato',
       variety: 'Hybrid',
@@ -316,7 +357,7 @@ export default function MarketPricesPage() {
       minPrice: item.minPrice !== undefined ? String(item.minPrice) : '',
       maxPrice: item.maxPrice !== undefined ? String(item.maxPrice) : '',
       unit: item.unit || 'Quintal',
-      priceDate: item.priceDate ? String(item.priceDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      priceDate: item.priceDate ? String(item.priceDate).slice(0, 10) : localToday(),
       district: item.district || 'Pune',
       state: item.state || 'Maharashtra',
       trend: item.trend || 'stable',
@@ -333,18 +374,27 @@ export default function MarketPricesPage() {
   // Live comparison inside modal
   const apmcRatesForCurrentProduct = useMemo(() => {
     if (!form.productName) return [];
-    const normalized = normalizeCrop(form.productName);
-    return rows.filter((r) => !r.isGreenGroo && normalizeCrop(r.productName) === normalized);
-  }, [form.productName, rows]);
+    const key = analysisKey({ productName: form.productName, unit: form.unit });
+    return latestPerMarket(
+      rows.filter(
+        (r) =>
+          r.isActive !== false &&
+          Number(r.price) > 0 &&
+          !isGreenGrooRecord(r) &&
+          r._id !== editingItem?._id &&
+          analysisKey(r) === key
+      )
+    );
+  }, [form.productName, form.unit, rows, editingItem]);
 
   const apmcAvgForCurrentProduct = useMemo(() => {
     if (!apmcRatesForCurrentProduct.length) return 0;
-    const sum = apmcRatesForCurrentProduct.reduce((acc, r) => acc + (Number(r.price) || 0), 0);
+    const sum = apmcRatesForCurrentProduct.reduce((acc, r) => acc + comparablePrice(r), 0);
     return sum / apmcRatesForCurrentProduct.length;
   }, [apmcRatesForCurrentProduct]);
 
   const liveComparison = useMemo(() => {
-    const enteredPrice = Number(form.price) || 0;
+    const enteredPrice = comparablePrice({ unit: form.unit }, form.price);
     if (!enteredPrice || apmcAvgForCurrentProduct <= 0) return null;
     const diffAmount = enteredPrice - apmcAvgForCurrentProduct;
     const diffPercent = (diffAmount / apmcAvgForCurrentProduct) * 100;
@@ -355,7 +405,7 @@ export default function MarketPricesPage() {
       apmcAvg: apmcAvgForCurrentProduct,
       count: apmcRatesForCurrentProduct.length,
     };
-  }, [form.price, apmcAvgForCurrentProduct, apmcRatesForCurrentProduct.length]);
+  }, [form.price, form.unit, apmcAvgForCurrentProduct, apmcRatesForCurrentProduct.length]);
 
   const validateForm = () => {
     const errors = {};
@@ -364,6 +414,11 @@ export default function MarketPricesPage() {
     if (!form.variety?.trim()) errors.variety = 'Variety is required';
     if (form.price === '' || isNaN(Number(form.price)) || Number(form.price) < 0) {
       errors.price = 'Valid price is required';
+    }
+    const minValue = form.minPrice !== '' ? Number(form.minPrice) : Number(form.price);
+    const maxValue = form.maxPrice !== '' ? Number(form.maxPrice) : Number(form.price);
+    if (Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue > maxValue) {
+      errors.price = 'Min price cannot be more than Max price';
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -543,7 +598,7 @@ export default function MarketPricesPage() {
             const hasGg = Boolean(item.greenGrooRow);
             return (
               <div
-                key={item.productName}
+                key={item.key}
                 className={`rounded-lg border p-2.5 transition text-xs ${
                   hasGg
                     ? item.status === 'higher'
@@ -563,13 +618,13 @@ export default function MarketPricesPage() {
                   <div className="bg-white/80 p-1.5 rounded border border-slate-100">
                     <span className="text-[10px] text-emerald-700 font-bold block">GreenGroo</span>
                     <span className="font-extrabold text-emerald-950">
-                      {hasGg ? `₹${item.ggPrice}` : '-'}
+                      {hasGg ? `₹${Math.round(item.ggPrice).toLocaleString('en-IN')}` : '-'}
                     </span>
                   </div>
                   <div className="bg-white/80 p-1.5 rounded border border-slate-100">
                     <span className="text-[10px] text-slate-400 font-bold block">APMC Avg</span>
                     <span className="font-bold text-slate-700">
-                      {item.apmcAvg > 0 ? `₹${Math.round(item.apmcAvg)}` : '-'}
+                      {item.apmcAvg > 0 ? `₹${Math.round(item.apmcAvg).toLocaleString('en-IN')}` : '-'}
                     </span>
                   </div>
                 </div>
@@ -615,6 +670,11 @@ export default function MarketPricesPage() {
             );
           })}
         </div>
+        {!loading && productAnalysis.length === 0 && (
+          <p className="mt-3 text-center text-[11px] text-slate-400">
+            No active prices yet. Add an APMC or GreenGroo price to see the comparison.
+          </p>
+        )}
       </div>
 
       {/* Scope Filter Tabs - Compact */}
@@ -679,7 +739,7 @@ export default function MarketPricesPage() {
               <option value="all">All Markets</option>
               {uniqueMarkets.map((m) => (
                 <option key={m} value={m}>
-                  {m}
+                  {stripMarathi(m) || m}
                 </option>
               ))}
             </select>
@@ -695,7 +755,7 @@ export default function MarketPricesPage() {
               <option value="all">All Products</option>
               {uniqueProducts.map((p) => (
                 <option key={p} value={p}>
-                  {p}
+                  {stripMarathi(p) || p}
                 </option>
               ))}
             </select>
@@ -724,7 +784,7 @@ export default function MarketPricesPage() {
               <option value="all">📅 All Dates</option>
               {uniqueDates.map((d) => (
                 <option key={d} value={d}>
-                  {d === new Date().toISOString().slice(0, 10) ? `📍 Today (${d})` : d}
+                  {d === localToday() ? `📍 Today (${d})` : d}
                 </option>
               ))}
             </select>
@@ -854,9 +914,7 @@ export default function MarketPricesPage() {
                       {/* Comparison vs APMC / GreenGroo */}
                       <td className={`${TD} py-2.5 px-3`}>
                         {(() => {
-                          const analysis = productAnalysis.find(
-                            (a) => normalizeCrop(a.productName) === normalizeCrop(row.productName)
-                          );
+                          const analysis = productAnalysis.find((a) => a.key === analysisKey(row));
 
                           if (isGg) {
                             if (!analysis || analysis.apmcRows.length === 0) {
@@ -881,7 +939,7 @@ export default function MarketPricesPage() {
                             }
                           } else {
                             if (analysis && analysis.ggPrice > 0) {
-                              const diffFromGg = ((Number(row.price) - analysis.ggPrice) / analysis.ggPrice) * 100;
+                              const diffFromGg = ((comparablePrice(row) - analysis.ggPrice) / analysis.ggPrice) * 100;
                               if (diffFromGg < -0.05) {
                                 return (
                                   <span className="text-[10.5px] text-amber-800 font-medium bg-amber-50 px-1.5 py-0.5 rounded">
@@ -1175,7 +1233,7 @@ export default function MarketPricesPage() {
                       APMC Comparison ({liveComparison.count} markets)
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      Avg: ₹{Math.round(liveComparison.apmcAvg)}/{form.unit}
+                      Avg: ₹{Math.round(liveComparison.apmcAvg)}/{comparableUnit(form.unit)}
                     </span>
                   </div>
 

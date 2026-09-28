@@ -303,16 +303,79 @@ class FarmerState extends ChangeNotifier {
     } catch (_) {}
   }
 
+  // Documents are stored inline as base64 in MongoDB (16 MB record limit).
+  static const int _maxDocumentPayloadChars = 14 * 1000 * 1000;
+
+  bool _isDummyFileUrl(String url) {
+    final lower = url.toLowerCase();
+    if (!lower.startsWith('http://') && !lower.startsWith('https://')) return false;
+    return lower.contains('dummy') ||
+        lower.contains('sample') ||
+        lower.contains('example.com') ||
+        lower.contains('placeholder') ||
+        lower.contains('unsplash.com') ||
+        lower.contains('greengrocc.com/docs/verified_');
+  }
+
+  String _normalizeDocStatus(String raw, bool hasFile) {
+    final status = raw.toLowerCase().replaceAll('_', ' ').trim();
+    if (!hasFile || status == 'not uploaded' || status.isEmpty) return 'not_uploaded';
+    if (status == 'approved') return 'approved';
+    if (status == 'rejected') return 'rejected';
+    return 'pending';
+  }
+
+  DocumentItem _documentFromBackend(Map backendDoc, {DocumentItem? localDoc}) {
+    final type = (backendDoc['type'] ?? localDoc?.type ?? '').toString().toLowerCase();
+    final fileUrl = (backendDoc['fileUrl'] ?? '').toString();
+    final hasFile = fileUrl.isNotEmpty && !_isDummyFileUrl(fileUrl);
+    final status = _normalizeDocStatus((backendDoc['status'] ?? '').toString(), hasFile);
+    final titles = _documentTitles[type];
+    return DocumentItem(
+      id: localDoc?.id ?? (backendDoc['id'] ?? 'doc-$type').toString(),
+      type: type,
+      title: localDoc?.title ?? titles?.$1 ?? (backendDoc['name'] ?? type).toString(),
+      marathiTitle: localDoc?.marathiTitle ?? titles?.$2 ?? '',
+      isUploaded: hasFile,
+      status: status,
+      uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : '',
+      fileUrl: hasFile ? fileUrl : '',
+      rejectionReason: (backendDoc['rejectionReason'] ?? '').toString(),
+    );
+  }
+
+  static const Map<String, (String, String)> _documentTitles = {
+    'aadhaar': ('Aadhaar Card', 'आधार कार्ड'),
+    'farmer_id': ('Farmer ID', 'शेतकरी ओळखपत्र'),
+    'land_712': ('7/12 Extract', '७/१२ उतारा'),
+    'land_8a': ('8A Extract', '८-अ उतारा'),
+    'bank': ('Bank Passbook', 'बँक पासबुक'),
+    'farmer_photo': ('Farmer Photo', 'शेतकरी फोटो'),
+    'address_proof': ('Address Proof', 'रहिवासी दाखला'),
+    'pan': ('PAN Card', 'पॅन कार्ड'),
+    'video_kyc': ('Live Video KYC', 'थेट व्हिडिओ केवायसी'),
+    'soil_report': ('Soil Testing Report', 'मृदा चाचणी अहवाल'),
+    'organic_cert': ('Organic Certificate', 'सेंद्रिय शेती प्रमाणपत्र'),
+    'water_testing': ('Water Testing Report', 'पाणी चाचणी अहवाल'),
+    'crop_insurance': ('Crop Insurance', 'पीक विमा पावती'),
+    'gap_cert': ('GAP Certificate', 'जीएपी प्रमाणपत्र'),
+    'other': ('Other Document', 'इतर कागदपत्र'),
+  };
+
   Future<void> _fetchDocumentsSafe() async {
     _documentsChanged = false;
     try {
+      if (profile.id.trim().isEmpty) return;
       final docRes = await ApiService().fetchDocuments(profile.id);
       if (docRes is List) {
-        final Map<String, dynamic> docMap = {};
+        final Map<String, Map> docMap = {};
         for (final d in docRes) {
           if (d is Map) {
             final type = (d['type'] ?? '').toString().toLowerCase();
-            if (type.isNotEmpty) docMap[type] = d;
+            final url = (d['fileUrl'] ?? '').toString();
+            if (type.isNotEmpty && url.isNotEmpty && !_isDummyFileUrl(url)) {
+              docMap[type] = d;
+            }
           }
         }
 
@@ -327,78 +390,46 @@ class FarmerState extends ChangeNotifier {
         final nextDocs = previousDocs.map((localDoc) {
           final backendDoc = docMap[localDoc.type.toLowerCase()];
           if (backendDoc != null) {
-            final st = (backendDoc['status'] ?? 'Not Uploaded').toString();
-            final fUrl = (backendDoc['fileUrl'] ?? '').toString();
-            final rReason = (backendDoc['rejectionReason'] ?? '').toString();
-            final effectiveUrl = fUrl.isNotEmpty ? fUrl : localDoc.fileUrl;
-            final hasFile = effectiveUrl.isNotEmpty || (backendDoc['fileName'] ?? '').toString().isNotEmpty;
-            final normalizedStatus = st == 'Approved'
-                ? 'approved'
-                : (st == 'Rejected' ? 'rejected' : (hasFile ? (localDoc.status.isNotEmpty && localDoc.status != 'not_uploaded' ? localDoc.status : 'pending') : 'not_uploaded'));
-
-            final soundKey = 'doc_${localDoc.id}_$normalizedStatus';
+            final next = _documentFromBackend(backendDoc, localDoc: localDoc);
+            final soundKey = 'doc_${localDoc.id}_${next.status}';
 
             if (_documentsBaselineDone) {
               final prevStatus = _knownDocumentStatusMap[localDoc.id];
               if (prevStatus != null &&
-                  prevStatus != normalizedStatus &&
-                  (normalizedStatus == 'approved' || normalizedStatus == 'rejected')) {
+                  prevStatus != next.status &&
+                  (next.status == 'approved' || next.status == 'rejected')) {
                 if (!playedSoundNotificationIds.contains(soundKey)) {
                   hasBrandNewDocUpdate = true;
                   playedSoundNotificationIds.add(soundKey);
-                  latestUpdatedDoc = DocumentItem(
-                    id: localDoc.id,
-                    type: localDoc.type,
-                    title: localDoc.title,
-                    marathiTitle: localDoc.marathiTitle,
-                    isUploaded: hasFile,
-                    status: normalizedStatus,
-                    uploadDate: 'Just now',
-                    fileUrl: effectiveUrl,
-                    rejectionReason: rReason,
-                  );
+                  latestUpdatedDoc = next;
                 }
               }
             } else {
               playedSoundNotificationIds.add(soundKey);
             }
 
-            _knownDocumentStatusMap[localDoc.id] = normalizedStatus;
-
-            return DocumentItem(
-              id: localDoc.id,
-              type: localDoc.type,
-              title: localDoc.title,
-              marathiTitle: localDoc.marathiTitle,
-              isUploaded: hasFile,
-              status: normalizedStatus,
-              uploadDate: backendDoc['uploadedAt'] != null ? 'Uploaded' : localDoc.uploadDate,
-              fileUrl: effectiveUrl,
-              rejectionReason: rReason,
-            );
-          } else {
-            // Not uploaded to backend - clear any old mock/dummy state
-            final isLocalData = localDoc.fileUrl.startsWith('data:');
-            if (isLocalData &&
-                !localDoc.fileUrl.contains('dummy') &&
-                !localDoc.fileUrl.contains('sample') &&
-                !localDoc.fileUrl.contains('example.com') &&
-                !localDoc.fileUrl.contains('placeholder')) {
-              return localDoc;
-            }
-            return DocumentItem(
-              id: localDoc.id,
-              type: localDoc.type,
-              title: localDoc.title,
-              marathiTitle: localDoc.marathiTitle,
-              isUploaded: false,
-              status: 'not_uploaded',
-              uploadDate: '',
-              fileUrl: '',
-              rejectionReason: '',
-            );
+            _knownDocumentStatusMap[localDoc.id] = next.status;
+            return next;
           }
+          return DocumentItem(
+            id: localDoc.id,
+            type: localDoc.type,
+            title: localDoc.title,
+            marathiTitle: localDoc.marathiTitle,
+            isUploaded: false,
+            status: 'not_uploaded',
+            uploadDate: '',
+            fileUrl: '',
+            rejectionReason: '',
+          );
         }).toList();
+
+        final knownTypes = nextDocs.map((d) => d.type.toLowerCase()).toSet();
+        for (final entry in docMap.entries) {
+          if (knownTypes.contains(entry.key)) continue;
+          final extra = _documentFromBackend(entry.value);
+          if (extra.isUploaded) nextDocs.add(extra);
+        }
 
         var docsChanged = nextDocs.length != previousDocs.length;
         if (!docsChanged) {
@@ -664,20 +695,14 @@ class FarmerState extends ChangeNotifier {
     final map = {for (final d in loaded) d.type.toLowerCase(): d};
     documents = documents.map((base) {
       final found = map[base.type.toLowerCase()];
-      if (found != null &&
-          found.fileUrl.isNotEmpty &&
-          !found.fileUrl.contains('greengrocc.com/docs/verified_') &&
-          !found.fileUrl.contains('dummy') &&
-          !found.fileUrl.contains('sample') &&
-          !found.fileUrl.contains('example.com') &&
-          !found.fileUrl.contains('placeholder')) {
+      if (found != null && found.fileUrl.isNotEmpty && !_isDummyFileUrl(found.fileUrl)) {
         return DocumentItem(
           id: base.id,
           type: base.type,
           title: base.title,
           marathiTitle: base.marathiTitle,
-          isUploaded: found.isUploaded,
-          status: found.status,
+          isUploaded: true,
+          status: _normalizeDocStatus(found.status, true),
           uploadDate: found.uploadDate,
           fileUrl: found.fileUrl,
           rejectionReason: found.rejectionReason,
@@ -1123,46 +1148,53 @@ class FarmerState extends ChangeNotifier {
     }
   }
 
-  void uploadDocument(String docId, {String? fileUrl, String status = 'pending', String rejectionReason = ''}) {
-    final idx = documents.indexWhere((d) => d.id == docId);
-    if (idx != -1) {
-      final doc = documents[idx];
-      final updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
-      documents[idx] = DocumentItem(
-        id: doc.id,
-        type: doc.type,
-        title: doc.title,
-        marathiTitle: doc.marathiTitle,
-        isUploaded: updatedUrl.isNotEmpty,
-        status: status,
-        uploadDate: 'Today',
-        fileUrl: updatedUrl,
-        rejectionReason: rejectionReason,
-      );
-      documentsReady = true;
-      _persistDocuments();
-      notifyListeners();
-
-      // Persist to backend database so it shows in vendor portal immediately
-      if (updatedUrl.isNotEmpty) {
-        final isPdf = updatedUrl.startsWith('data:application/pdf') || updatedUrl.toLowerCase().endsWith('.pdf');
-        final isVideo = updatedUrl.startsWith('data:video') || updatedUrl.toLowerCase().endsWith('.mp4');
-        final ext = isPdf ? 'pdf' : (isVideo ? 'mp4' : 'jpg');
-        final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
-        final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-        final targetFarmerId = profile.id.isNotEmpty ? profile.id : 'me';
-
-        ApiService().uploadDocument(targetFarmerId, {
-          'type': doc.type,
-          'name': '${doc.title} (${doc.marathiTitle})',
-          'fileName': fileName,
-          'fileUrl': updatedUrl,
-          'status': status == 'approved' ? 'Approved' : 'Pending',
-        }).catchError((err) {
-          debugPrint('Failed to sync document to backend: $err');
-        });
-      }
+  Future<void> uploadDocument(String docId, {String? fileUrl, String status = 'pending', String rejectionReason = ''}) async {
+    if (documents.isEmpty) _ensureDocumentChecklist();
+    final idx = documents.indexWhere((d) => d.id == docId || d.type == docId);
+    if (idx == -1) {
+      throw Exception('Document type not found');
     }
+    final doc = documents[idx];
+    final updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
+    if (updatedUrl.isEmpty || _isDummyFileUrl(updatedUrl)) {
+      throw Exception('Choose a real document file');
+    }
+    if (updatedUrl.length > _maxDocumentPayloadChars) {
+      throw Exception('फाईल खूप मोठी आहे (कमाल 10 MB). File too large (max 10 MB)');
+    }
+    final targetFarmerId = profile.id.trim();
+    if (targetFarmerId.isEmpty) {
+      throw Exception('Farmer login required');
+    }
+
+    final isPdf = updatedUrl.startsWith('data:application/pdf') || updatedUrl.toLowerCase().endsWith('.pdf');
+    final isVideo = updatedUrl.startsWith('data:video') || updatedUrl.toLowerCase().endsWith('.mp4');
+    final ext = isPdf ? 'pdf' : (isVideo ? 'mp4' : 'jpg');
+    final sanitizedTitle = doc.title.replaceAll(RegExp(r'[^\w\s-]'), '').replaceAll(' ', '_');
+    final fileName = '${sanitizedTitle}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+    await ApiService().uploadDocument(targetFarmerId, {
+      'type': doc.type,
+      'name': '${doc.title} (${doc.marathiTitle})',
+      'fileName': fileName,
+      'fileUrl': updatedUrl,
+      'status': status == 'approved' ? 'Approved' : 'Pending',
+    });
+
+    documents[idx] = DocumentItem(
+      id: doc.id,
+      type: doc.type,
+      title: doc.title,
+      marathiTitle: doc.marathiTitle,
+      isUploaded: true,
+      status: status == 'approved' ? 'approved' : 'pending',
+      uploadDate: 'Today',
+      fileUrl: updatedUrl,
+      rejectionReason: rejectionReason,
+    );
+    documentsReady = true;
+    _persistDocuments();
+    notifyListeners();
   }
 
   // Dashboard calculations

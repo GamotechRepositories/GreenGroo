@@ -1,9 +1,11 @@
 import { MarketPrice } from "./models.js";
 import { getIO } from "../../shared/socket.js";
 
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
 function getIsoDateOffset(daysOffset = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + daysOffset);
+  const d = new Date(Date.now() + IST_OFFSET_MS);
+  d.setUTCDate(d.getUTCDate() + daysOffset);
   return d.toISOString().slice(0, 10);
 }
 
@@ -14,8 +16,58 @@ function safeEmit(fn) {
   } catch (_) {}
 }
 
+const LEGACY_SEED_ROWS = [
+  ["GreenGroo Direct Center", "Tomato", "Hybrid Super Grade", "Direct farmgate purchase. 0% middleman commission, 24h instant payout."],
+  ["GreenGroo Direct Center", "Onion", "Garwa / Export", "Direct farm procurement with doorstep pickup."],
+  ["GreenGroo Direct Center", "Potato", "Jyoti Premium", "Direct procurement center at Manchar Hub."],
+  ["Pune APMC", "Tomato", "Hybrid No.1", "Good quality arrivals from Narayangaon & Junnar."],
+  ["Mumbai Vashi APMC", "Tomato", "Desi Special", "High retail demand in MMR region."],
+  ["Nashik APMC", "Onion", "Lal Kaanda", "Major trading volume today."],
+  ["Pune APMC", "Onion", "Garwa / Unhali", "Steady supply from Khed and Shirur talukas."],
+  ["Solapur APMC", "Onion", "Regular Lal", "Higher arrivals caused mild price easing."],
+  ["Mumbai Vashi APMC", "Potato", "Jyoti Grade-A", "Strong demand from central Mumbai distributors."],
+  ["Pune APMC", "Potato", "Jyoti / Local", "Fresh arrivals from Manchar cold stores."],
+  ["Kolhapur APMC", "Green Chilli", "G4 Green", "Strong demand from local processing units."],
+  ["Solapur APMC", "Pomegranate", "Bhagwa Super", "Export grade arrivals fetch higher rates."],
+  ["Sangli APMC", "Turmeric", "Rajapore Salem", "Steady auctions in spice yard."],
+];
+
+let legacyPurgePromise = null;
+
+/** Removes the demo rows the old auto-seeder wrote. Rows entered by admin are untouched. */
+export function purgeLegacySeedMarketPrices() {
+  if (!legacyPurgePromise) {
+    legacyPurgePromise = MarketPrice.deleteMany({
+      $or: LEGACY_SEED_ROWS.map(([marketName, productName, variety, notes]) => ({
+        marketName,
+        productName,
+        variety,
+        notes,
+      })),
+    })
+      .then((result) => {
+        if (result?.deletedCount) {
+          console.log(`[MarketPrice] Removed ${result.deletedCount} legacy demo price rows.`);
+          safeEmit((io) => io.emit("market_prices_changed", { action: "purge" }));
+        }
+      })
+      .catch((err) => {
+        legacyPurgePromise = null;
+        console.warn("[MarketPrice] Legacy demo cleanup failed:", err.message);
+      });
+  }
+  return legacyPurgePromise;
+}
+
+function parsePrice(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : NaN;
+}
+
 export async function listMarketPrices(req, res, next) {
   try {
+    await purgeLegacySeedMarketPrices();
     const filter = {};
     if (req.query.status && req.query.status !== "all") {
       filter.isActive = req.query.status === "active";
@@ -71,6 +123,7 @@ export async function listMarketPrices(req, res, next) {
 
 export async function listLiveMarketPrices(req, res, next) {
   try {
+    await purgeLegacySeedMarketPrices();
     const filter = { isActive: true };
     if (req.query.marketName && req.query.marketName !== "all") {
       filter.marketName = String(req.query.marketName);
@@ -140,13 +193,20 @@ export async function createMarketPrice(req, res, next) {
     if (!variety || !String(variety).trim()) {
       return res.status(400).json({ success: false, message: "Variety is required" });
     }
-    if (price === undefined || price === null || price === "" || isNaN(Number(price))) {
+    const numPrice = parsePrice(price);
+    if (numPrice === null || Number.isNaN(numPrice)) {
       return res.status(400).json({ success: false, message: "Valid Price is required" });
     }
-
-    const numPrice = Number(price);
-    const numMin = minPrice !== undefined && minPrice !== "" ? Number(minPrice) : numPrice;
-    const numMax = maxPrice !== undefined && maxPrice !== "" ? Number(maxPrice) : numPrice;
+    const parsedMin = parsePrice(minPrice);
+    const parsedMax = parsePrice(maxPrice);
+    if (Number.isNaN(parsedMin) || Number.isNaN(parsedMax)) {
+      return res.status(400).json({ success: false, message: "Min and Max price must be valid numbers" });
+    }
+    const numMin = parsedMin ?? numPrice;
+    const numMax = parsedMax ?? numPrice;
+    if (numMin > numMax) {
+      return res.status(400).json({ success: false, message: "Min price cannot be more than Max price" });
+    }
     const isGg =
       Boolean(isGreenGroo) ||
       String(marketName).toLowerCase().includes("greengroo") ||
@@ -163,7 +223,7 @@ export async function createMarketPrice(req, res, next) {
       priceDate: priceDate ? String(priceDate).slice(0, 10) : getIsoDateOffset(0),
       district: district ? String(district).trim() : "Pune",
       state: state ? String(state).trim() : "Maharashtra",
-      trend: trend || "stable",
+      trend: ["up", "stable", "down"].includes(trend) ? trend : "stable",
       arrivalQuantity: arrivalQuantity ? Number(arrivalQuantity) : 0,
       arrivalUnit: arrivalUnit ? String(arrivalUnit).trim() : "Quintal",
       notes: notes ? String(notes).trim() : "",
@@ -218,14 +278,23 @@ export async function updateMarketPrice(req, res, next) {
     if (isGreenGroo !== undefined) row.isGreenGroo = Boolean(isGreenGroo);
     if (productName !== undefined) row.productName = String(productName).trim();
     if (variety !== undefined) row.variety = String(variety).trim();
-    if (price !== undefined && price !== "" && !isNaN(Number(price))) row.price = Number(price);
-    if (minPrice !== undefined && minPrice !== "" && !isNaN(Number(minPrice))) row.minPrice = Number(minPrice);
-    if (maxPrice !== undefined && maxPrice !== "" && !isNaN(Number(maxPrice))) row.maxPrice = Number(maxPrice);
+    const nextPrice = parsePrice(price);
+    const nextMin = parsePrice(minPrice);
+    const nextMax = parsePrice(maxPrice);
+    if (Number.isNaN(nextPrice) || Number.isNaN(nextMin) || Number.isNaN(nextMax)) {
+      return res.status(400).json({ success: false, message: "Prices must be valid numbers" });
+    }
+    if (nextPrice !== null) row.price = nextPrice;
+    if (nextMin !== null) row.minPrice = nextMin;
+    if (nextMax !== null) row.maxPrice = nextMax;
+    if (Number(row.minPrice) > Number(row.maxPrice)) {
+      return res.status(400).json({ success: false, message: "Min price cannot be more than Max price" });
+    }
     if (unit !== undefined) row.unit = String(unit).trim();
     if (priceDate !== undefined) row.priceDate = String(priceDate).slice(0, 10);
     if (district !== undefined) row.district = String(district).trim();
     if (state !== undefined) row.state = String(state).trim();
-    if (trend !== undefined) row.trend = trend;
+    if (trend !== undefined && ["up", "stable", "down"].includes(trend)) row.trend = trend;
     if (arrivalQuantity !== undefined) row.arrivalQuantity = Number(arrivalQuantity) || 0;
     if (arrivalUnit !== undefined) row.arrivalUnit = String(arrivalUnit).trim();
     if (notes !== undefined) row.notes = String(notes).trim();

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Banknote,
+  FileText,
   Leaf,
   Loader2,
   MapPin,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import erpApi from '../../api/erpApi';
 import { BTN, PAGE_KICKER, PANEL } from '../../utils/ui';
+import FarmerDocumentsPanel from './FarmerDocumentsPanel';
 
 const TABS = [
   'Overview',
@@ -149,9 +151,13 @@ export default function Farmer360Page() {
     };
   }, [id]);
 
+  const reload = () => erpApi.farmer(id).then((res) => setData(res.data));
+
   const farmer = data?.farmer || {};
   const photos = farmer.farmPhotos || [];
   const videos = farmer.farmVideos || [];
+  const documents = useMemo(() => data?.documents || [], [data]);
+  const pendingDocs = documents.filter((d) => d.status === 'Pending').length;
 
   const stats = useMemo(() => {
     if (!data) return [];
@@ -160,10 +166,10 @@ export default function Farmer360Page() {
       { label: 'Crops', value: data.crops?.length || 0, icon: Leaf },
       { label: 'Products', value: data.products?.length || 0, icon: Package },
       { label: 'Orders', value: data.orders?.length || 0, icon: ShoppingCart },
-      { label: 'Harvest qty', value: data.production || 0, icon: Leaf },
+      { label: 'Documents', value: documents.length, icon: FileText },
       { label: 'Earnings', value: money(data.payments), icon: Banknote },
     ];
-  }, [data]);
+  }, [data, documents.length]);
 
   if (loading) {
     return (
@@ -211,15 +217,17 @@ export default function Farmer360Page() {
             Farmer 360
           </p>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end">
-            <img
-              src={
-                farmer.profileImage ||
-                farmer.profilePhoto ||
-                'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=300'
-              }
-              alt=""
-              className="h-24 w-24 rounded-2xl object-cover ring-2 ring-white/30"
-            />
+            {farmer.profileImage || farmer.profilePhoto ? (
+              <img
+                src={farmer.profileImage || farmer.profilePhoto}
+                alt=""
+                className="h-24 w-24 rounded-2xl object-cover ring-2 ring-white/30"
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-white/15 text-3xl font-bold ring-2 ring-white/30">
+                {String(displayName).trim().charAt(0).toUpperCase() || 'F'}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="font-mono text-xs text-emerald-100/90">{farmer.farmerId}</p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{displayName}</h1>
@@ -278,6 +286,11 @@ export default function Farmer360Page() {
             }`}
           >
             {name}
+            {name === 'Documents' && pendingDocs > 0 ? (
+              <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                {pendingDocs}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -526,40 +539,7 @@ export default function Farmer360Page() {
       )}
 
       {tab === 'Documents' && (
-        <Table
-          rows={data.documents}
-          rowKey={(row) => row.id}
-          columns={[
-            { key: 'type', label: 'Type' },
-            {
-              key: 'fileName',
-              label: 'File',
-              render: (row) => row.fileName || row.name,
-            },
-            {
-              key: 'status',
-              label: 'Status',
-              render: (row) => <Pill tone={statusTone(row.status)}>{pretty(row.status)}</Pill>,
-            },
-            {
-              key: 'fileUrl',
-              label: 'Link',
-              render: (row) =>
-                row.fileUrl ? (
-                  <a
-                    href={row.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-semibold text-emerald-700 hover:underline"
-                  >
-                    Open
-                  </a>
-                ) : (
-                  '—'
-                ),
-            },
-          ]}
-        />
+        <FarmerDocumentsPanel farmerId={farmer.farmerId} documents={documents} onUpdated={reload} />
       )}
 
       {tab === 'Pickups' && (

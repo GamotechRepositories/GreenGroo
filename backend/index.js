@@ -35,6 +35,7 @@ import storeCatalogRoutes from "./delivery-service/src/routes/storeCatalogRoutes
 import adminOpsRoutes from "./admin-ops-service/src/routes.js";
 import { seedDefaultPricingRule } from "./admin-ops-service/src/pricingAttach.js";
 import { seedDefaultRolePoliciesIfEmpty } from "./admin-ops-service/src/policyControllers.js";
+import { purgeLegacySeedMarketPrices } from "./admin-ops-service/src/marketPriceControllers.js";
 
 const PORT = process.env.PORT || 5001;
 
@@ -136,6 +137,7 @@ connectDB("server").then(async () => {
   await seedDefaultRewardSettingsIfEmpty();
   await seedDefaultPricingRule();
   await seedDefaultRolePoliciesIfEmpty();
+  await purgeLegacySeedMarketPrices();
   initIncentiveCron();
   initShiftEndOfflineCron();
   initShiftStartNotifyCron();

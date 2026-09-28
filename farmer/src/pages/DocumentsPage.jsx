@@ -56,37 +56,49 @@ function DocumentsPage() {
     load();
   }, []);
 
-  const byType = useMemo(() => {
-    const map = Object.fromEntries(docs.map((d) => [d.type, d]));
-    return DOCUMENT_TYPES.map((t) => ({
-      ...t,
-      ...(map[t.id] || {
-        status: VERIFICATION_STATUS.NOT_UPLOADED,
-        fileName: "",
-        fileUrl: "",
-        uploadedAt: null,
-        adminRemarks: "",
-      }),
-    }));
-  }, [docs]);
+  const identityIds = useMemo(
+    () => new Set(["aadhaar", "pan", "bank", "address", "address_proof", "farmer_id", "land_712", "land_8a", "farmer_photo", "video_kyc"]),
+    []
+  );
 
-  const identityDocs = useMemo(() => {
-    return byType.filter(
-      (d) =>
-        ["aadhaar", "pan", "bank", "address"].includes(d.id) &&
-        d.status !== VERIFICATION_STATUS.NOT_UPLOADED &&
-        Boolean(d.fileUrl || d.fileName)
-    );
-  }, [byType]);
+  const catalog = useMemo(() => {
+    const rows = [];
+    const seen = new Set();
+    for (const item of [...DOCUMENT_TYPES, ...CERTIFICATE_TYPES]) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      rows.push(item);
+    }
+    return rows;
+  }, []);
 
-  const certificateDocs = useMemo(() => {
-    return byType.filter(
-      (d) =>
-        !["aadhaar", "pan", "bank", "address"].includes(d.id) &&
-        d.status !== VERIFICATION_STATUS.NOT_UPLOADED &&
-        Boolean(d.fileUrl || d.fileName)
-    );
-  }, [byType]);
+  const uploadedDocs = useMemo(() => {
+    const byType = Object.fromEntries(docs.map((d) => [d.type, d]));
+    const named = catalog
+      .map((item) => {
+        const saved = byType[item.id] || {};
+        return { ...item, ...saved, id: item.id, type: saved.type || item.id };
+      })
+      .filter((d) => d.fileUrl && d.status !== VERIFICATION_STATUS.NOT_UPLOADED);
+    const extras = docs
+      .filter((d) => d.fileUrl && !catalog.some((item) => item.id === d.type))
+      .map((d) => ({
+        ...d,
+        id: d.type || d.id,
+        name: d.name || d.type,
+      }));
+    return [...named, ...extras];
+  }, [catalog, docs]);
+
+  const identityDocs = useMemo(
+    () => uploadedDocs.filter((d) => identityIds.has(d.id) || identityIds.has(d.type)),
+    [identityIds, uploadedDocs]
+  );
+
+  const certificateDocs = useMemo(
+    () => uploadedDocs.filter((d) => !identityIds.has(d.id) && !identityIds.has(d.type)),
+    [identityIds, uploadedDocs]
+  );
 
   const handleUpload = async (e) => {
     e.preventDefault();

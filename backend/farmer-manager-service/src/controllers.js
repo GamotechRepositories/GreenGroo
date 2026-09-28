@@ -64,31 +64,6 @@ async function generateUniqueFarmerId() {
   return `farmer-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-function defaultKycDocumentShells({ farmerId, vendorId, managerId }) {
-  const types = [
-    { type: "aadhaar", name: "Aadhaar Card (आधार कार्ड)" },
-    { type: "farmer_id", name: "Farmer ID (शेतकरी ओळखपत्र)" },
-    { type: "land_712", name: "7/12 Extract (७/१२ उतारा)" },
-    { type: "land_8a", name: "8A Extract (८-अ उतारा)" },
-    { type: "bank", name: "Bank Passbook (बँक पासबुक)" },
-    { type: "farmer_photo", name: "Farmer Photo (शेतकरी फोटो)" },
-    { type: "address_proof", name: "Address Proof (रहिवासी दाखला)" },
-    { type: "pan", name: "PAN Card (पॅन कार्ड)" },
-  ];
-  return types.map((d) => ({
-    id: `doc-${farmerId}-${d.type}`,
-    vendorId,
-    managerId: managerId || "",
-    farmerId,
-    name: d.name,
-    type: d.type,
-    fileName: "",
-    fileUrl: "",
-    uploadedAt: null,
-    status: "Not Uploaded",
-  }));
-}
-
 function isAdult(dateOfBirth) {
   const dob = new Date(dateOfBirth);
   if (Number.isNaN(dob.getTime())) return false;
@@ -148,6 +123,19 @@ export async function seedInitialData() {
       FarmerDocument.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
       FarmerHarvestOrder.deleteMany({ farmerId: { $in: dummyFarmerIds } }),
     ]);
+
+    await FarmerDocument.deleteMany({
+      $or: [
+        { fileUrl: { $in: [null, ""] } },
+        { fileUrl: { $exists: false } },
+        {
+          fileUrl: {
+            $regex: "^https?://.*(dummy|sample|example\\.com|placeholder|unsplash\\.com|greengrocc\\.com/docs/verified_)",
+            $options: "i",
+          },
+        },
+      ],
+    });
 
     ensureFarmerIndexes().catch(() => {});
   } catch (err) {
@@ -679,33 +667,6 @@ export async function createFarmer(req, res) {
       links: { farmerId: farmer.farmerId || farmer.id, farmId: farmer.farm?.farmId || "" },
     });
 
-    // Create default document shells
-    const defaultDocTypes = [
-      { type: "aadhaar", name: "Aadhaar Card (आधार कार्ड)" },
-      { type: "farmer_id", name: "Farmer ID (शेतकरी ओळखपत्र)" },
-      { type: "land_712", name: "7/12 Extract (७/१२ उतारा)" },
-      { type: "land_8a", name: "8A Extract (८-अ उतारा)" },
-      { type: "bank", name: "Bank Passbook (बँक पासबुक)" },
-      { type: "farmer_photo", name: "Farmer Photo (शेतकरी फोटो)" },
-      { type: "address_proof", name: "Address Proof (रहिवासी दाखला)" },
-      { type: "pan", name: "PAN Card (पॅन कार्ड)" },
-    ];
-
-    const docsToCreate = defaultDocTypes.map((d) => ({
-      id: `doc-${farmer.id}-${d.type}`,
-      vendorId,
-      managerId: farmer.managerId,
-      farmerId: farmer.id,
-      name: d.name,
-      type: d.type,
-      fileName: payload.documents?.[d.type]?.name || payload.documents?.[d.type] || "",
-      fileUrl: payload.documents?.[d.type]?.url || payload.documents?.[d.type] || "",
-      uploadedAt: payload.documents?.[d.type] ? new Date() : null,
-      status: payload.documents?.[d.type] ? "Pending" : "Not Uploaded",
-    }));
-
-    await FarmerDocument.insertMany(docsToCreate);
-
     const enriched = await enrichFarmerDoc(farmer);
     res.status(201).json(enriched);
   } catch (err) {
@@ -985,13 +946,6 @@ export async function registerFarmer(req, res) {
       entityId: farmer.farmerId || farmer.id,
       links: { farmerId: farmer.farmerId || farmer.id, farmId: farmer.farm?.farmId || "" },
     });
-    await FarmerDocument.insertMany(
-      defaultKycDocumentShells({
-        farmerId: farmer.id,
-        vendorId,
-        managerId: farmer.managerId,
-      })
-    );
 
     const token = signToken({
       id: farmer.id,
@@ -4364,17 +4318,36 @@ const DEFAULT_FARMER_DOCS = [
   },
 ];
 
+const DUMMY_DOCUMENT_URL = /^https?:\/\/.*(dummy|sample|example\.com|placeholder|unsplash\.com|greengrocc\.com\/docs\/verified_)/i;
+
+export function isRealFarmerDocument(doc) {
+  const url = String(doc?.fileUrl || "").trim();
+  if (!url || DUMMY_DOCUMENT_URL.test(url)) return false;
+  const status = String(doc?.status || "").toLowerCase().replace(/[\s_]+/g, " ");
+  if (status === "not uploaded") return false;
+  return true;
+}
+
+async function resolveFarmerRecord(farmerKey) {
+  const key = String(farmerKey || "").trim();
+  if (!key || key === "me") return null;
+  return Farmer.findOne({
+    isDeleted: { $ne: true },
+    $or: [{ id: key }, { farmerId: key }, { farmerCode: key }],
+  });
+}
+
+function documentOwnerKeys(farmer, fallback) {
+  return [...new Set([fallback, farmer?.id, farmer?.farmerId, farmer?.farmerCode].filter(Boolean))];
+}
+
 export async function getFarmerDocuments(req, res) {
   try {
     const { farmerId } = req.params;
-    const docs = await FarmerDocument.find({
-      farmerId,
-      $or: [
-        { fileUrl: { $exists: true, $ne: "" } },
-        { fileName: { $exists: true, $ne: "" } },
-      ],
-    }).lean();
-    res.json(docs);
+    const farmer = await resolveFarmerRecord(farmerId);
+    const keys = documentOwnerKeys(farmer, farmerId);
+    const docs = await FarmerDocument.find({ farmerId: { $in: keys } }).sort({ uploadedAt: -1, createdAt: -1 }).lean();
+    res.json(docs.filter(isRealFarmerDocument));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch documents" });
   }
@@ -4386,8 +4359,17 @@ export async function uploadFarmerDocument(req, res) {
     const { type, fileName, fileUrl, name, status } = req.body;
     if (!type) return res.status(400).json({ message: "Document type is required" });
     if (!fileName && !fileUrl) return res.status(400).json({ message: "Choose a file to upload" });
+    if (!String(fileUrl || "").trim() || DUMMY_DOCUMENT_URL.test(String(fileUrl))) {
+      return res.status(400).json({ message: "Choose a real document file to upload" });
+    }
+    // Stored inline in MongoDB, which caps a record at 16 MB.
+    if (String(fileUrl).length > 14_000_000) {
+      return res.status(413).json({ message: "File too large (max 10 MB)" });
+    }
 
-    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] });
+    const farmer = await resolveFarmerRecord(farmerId);
+    const canonicalId = farmer?.id || farmerId;
+    const ownerKeys = documentOwnerKeys(farmer, farmerId);
     const vendorId = farmer?.vendorId || req.user?.vendorId || "vendor-1";
     const managerId = farmer?.managerId || req.user?.managerId || "";
 
@@ -4411,17 +4393,18 @@ export async function uploadFarmerDocument(req, res) {
     };
     const docType = String(type || "other").trim().toLowerCase();
 
-    let doc = await FarmerDocument.findOne({ farmerId, type: docType });
+    let doc = await FarmerDocument.findOne({ farmerId: { $in: ownerKeys }, type: docType });
     if (!doc) {
       doc = new FarmerDocument({
-        id: `doc-${farmerId}-${docType}`,
+        id: `doc-${canonicalId}-${docType}-${Date.now()}`,
         vendorId,
         managerId,
-        farmerId,
+        farmerId: canonicalId,
         name: name || names[docType] || docType.toUpperCase(),
         type: docType,
       });
     }
+    doc.farmerId = canonicalId;
 
     doc.name = name || doc.name || names[docType] || docType.toUpperCase();
     doc.fileName = fileName || doc.fileName || `${docType}_document`;
@@ -4432,6 +4415,8 @@ export async function uploadFarmerDocument(req, res) {
     doc.uploadedBy = req.user?.role || "FARMER";
 
     await doc.save();
+    await syncFarmerKycFromDocuments(farmer, ownerKeys);
+    emitFarmerDocumentUpdate(farmer, doc);
     res.json(doc);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to upload document" });
@@ -4441,11 +4426,11 @@ export async function uploadFarmerDocument(req, res) {
 export async function submitFarmerKyc(req, res) {
   try {
     const { farmerId } = req.params;
-    const farmer = await Farmer.findOne({ id: farmerId });
+    const farmer = await resolveFarmerRecord(farmerId);
     if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
 
-    const docs = await FarmerDocument.find({ farmerId }).lean();
-    const required = ["aadhaar", "pan", "address", "bank"];
+    const docs = await FarmerDocument.find({ farmerId: { $in: documentOwnerKeys(farmer, farmerId) } }).lean();
+    const required = ["aadhaar", "pan", "address_proof", "bank"];
     const missing = required.filter((type) => {
       const doc = docs.find((d) => d.type === type);
       return !doc || doc.status === "Not Uploaded" || !doc.fileName;
@@ -4475,58 +4460,98 @@ export async function submitFarmerKyc(req, res) {
   }
 }
 
+const REQUIRED_KYC_DOC_TYPES = ["aadhaar", "pan", "address_proof", "bank"];
+const DOC_STATUS_MAP = { approved: "Approved", rejected: "Rejected", pending: "Pending" };
+
+async function syncFarmerKycFromDocuments(farmer, ownerKeys) {
+  if (!farmer) return;
+  const docs = (await FarmerDocument.find({ farmerId: { $in: ownerKeys } }).lean()).filter(isRealFarmerDocument);
+  const byType = Object.fromEntries(docs.map((d) => [d.type, d]));
+  const required = REQUIRED_KYC_DOC_TYPES.map((type) => byType[type]);
+
+  if (required.every((d) => d?.status === "Approved")) {
+    farmer.verificationStatus = "Approved";
+    farmer.kycStatus = "APPROVED";
+    farmer.status = "Active";
+  } else if (required.some((d) => d?.status === "Rejected")) {
+    farmer.verificationStatus = "Rejected";
+    farmer.kycStatus = "REJECTED";
+  } else if (required.every(Boolean)) {
+    farmer.verificationStatus = "Pending";
+    farmer.kycStatus = "SUBMITTED";
+  }
+
+  const bank = byType.bank?.status;
+  if (bank === "Approved") farmer.bankVerificationStatus = "VERIFIED";
+  else if (bank === "Rejected") farmer.bankVerificationStatus = "REJECTED";
+  else if (bank === "Pending") farmer.bankVerificationStatus = "PENDING";
+
+  await farmer.save();
+}
+
+function emitFarmerDocumentUpdate(farmer, doc) {
+  try {
+    const io = getIO();
+    const payload = {
+      farmerId: farmer?.id || doc.farmerId,
+      documentId: doc.id,
+      type: doc.type,
+      status: doc.status,
+      rejectionReason: doc.rejectionReason || "",
+      kycStatus: farmer?.kycStatus || "",
+    };
+    const rooms = new Set();
+    [doc.farmerId, farmer?.id, farmer?.farmerId]
+      .filter(Boolean)
+      .forEach((id) => rooms.add(`farmer_${id}`));
+    if (farmer?.managerId) rooms.add(`manager_${farmer.managerId}`);
+    if (farmer?.vendorId) rooms.add(`vendor_${farmer.vendorId}`);
+    rooms.forEach((room) => io.to(room).emit("farmer_document_status_updated", payload));
+  } catch {
+    // Socket is optional; the farmer app also refreshes on pull.
+  }
+}
+
 export async function updateFarmerDocumentStatus(req, res) {
   try {
     const { farmerId, documentId } = req.params;
-    const { status, rejectionReason } = req.body;
+    const { rejectionReason } = req.body;
+    const status = DOC_STATUS_MAP[String(req.body.status || "").trim().toLowerCase()];
+    if (!status) {
+      return res.status(400).json({ message: "Status must be Approved, Rejected or Pending" });
+    }
+    if (status === "Rejected" && !String(rejectionReason || "").trim()) {
+      return res.status(400).json({ message: "Rejection reason is required" });
+    }
+    const farmerRecord = await resolveFarmerRecord(farmerId);
+    const ownerKeys = documentOwnerKeys(farmerRecord, farmerId);
 
     let doc = await FarmerDocument.findOne({
+      farmerId: { $in: ownerKeys },
       $or: [
-        { id: documentId, farmerId },
-        { type: documentId, farmerId },
-        { id: `doc-${farmerId}-${documentId}`, farmerId },
+        { id: documentId },
+        { type: documentId },
+        { id: `doc-${farmerId}-${documentId}` },
+        { id: `doc-${farmerRecord?.id || farmerId}-${documentId}` },
       ],
     });
 
     if (!doc && mongoose.isValidObjectId(documentId)) {
-      doc = await FarmerDocument.findOne({ _id: documentId, farmerId });
+      doc = await FarmerDocument.findOne({ _id: documentId, farmerId: { $in: ownerKeys } });
     }
 
-    if (!doc) {
-      // If document record didn't exist yet, create it with new status
-      doc = new FarmerDocument({
-        id: String(documentId).startsWith("doc-") ? documentId : `doc-${farmerId}-${documentId}`,
-        vendorId: req.user?.vendorId || "vendor-1",
-        managerId: req.user?.managerId || "",
-        farmerId,
-        name: documentId.toUpperCase(),
-        type: documentId,
-        status: status || "Pending",
-        rejectionReason: rejectionReason || "",
-      });
+    if (!doc || !isRealFarmerDocument(doc)) {
+      return res.status(404).json({ message: "Uploaded document not found" });
     }
+    doc.farmerId = farmerRecord?.id || doc.farmerId;
 
-    doc.status = status || doc.status;
-    if (rejectionReason !== undefined) {
-      doc.rejectionReason = rejectionReason;
-    }
+    doc.status = status;
+    doc.rejectionReason = status === "Rejected" ? String(rejectionReason).trim() : "";
+    doc.adminRemarks = String(req.body.adminRemarks ?? doc.adminRemarks ?? "");
     await doc.save();
 
-    // Check farmer verification status
-    const farmerDocs = await FarmerDocument.find({ farmerId });
-    const reqTypes = ["aadhaar", "pan", "address_proof", "bank"];
-    const reqDocs = farmerDocs.filter((d) => reqTypes.includes(d.type));
-
-    const farmer = await Farmer.findOne({ $or: [{ id: farmerId }, { farmerId }] });
-    if (farmer) {
-      if (reqDocs.length > 0 && reqDocs.every((d) => d.status === "Approved")) {
-        farmer.verificationStatus = "Approved";
-        farmer.status = "Active";
-      } else if (reqDocs.some((d) => d.status === "Rejected")) {
-        farmer.verificationStatus = "Rejected";
-      }
-      await farmer.save();
-    }
+    await syncFarmerKycFromDocuments(farmerRecord, ownerKeys);
+    emitFarmerDocumentUpdate(farmerRecord, doc);
 
     res.json(doc);
   } catch (err) {
@@ -5523,12 +5548,8 @@ export async function getManagerAllDocuments(req, res) {
     const allIds = [...new Set([...farmerIds, ...farmers.map((f) => f.farmerId).filter(Boolean)])];
     const documents = await FarmerDocument.find({
       farmerId: { $in: allIds },
-      $or: [
-        { fileUrl: { $exists: true, $ne: "" } },
-        { fileName: { $exists: true, $ne: "" } },
-      ],
     }).lean();
-    res.json({ farmers, documents });
+    res.json({ farmers, documents: documents.filter(isRealFarmerDocument) });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch documents" });
   }

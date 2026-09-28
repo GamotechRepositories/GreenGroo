@@ -17,6 +17,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
   int _selectedProductIndex = 0;
   int _selectedDateIndex = 0; // 0: Today, 1: Yesterday, 2: 2 Days Ago, -1: Custom Date, 3: All
   DateTime? _customDate;
+  bool _initialProductApplied = false;
 
   static const List<Color> _chartColors = [
     Color(0xFF16A34A), // Emerald Green
@@ -55,16 +56,23 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
           targetDate = null;
         }
 
-        final comparisons = service.getComparisons(date: targetDate);
+        var comparisons = service.getComparisons(date: targetDate);
+        String? fallbackDate;
+        if (comparisons.isEmpty && _selectedDateIndex == 0 && service.latestDate != null) {
+          fallbackDate = service.latestDate;
+          comparisons = service.getComparisons(date: fallbackDate);
+        }
 
-        if (widget.initialProduct != null && widget.initialProduct!.isNotEmpty) {
+        if (!_initialProductApplied && comparisons.isNotEmpty && widget.initialProduct != null && widget.initialProduct!.isNotEmpty) {
+          _initialProductApplied = true;
           final idx = comparisons.indexWhere((c) =>
               c.productName.toLowerCase().contains(widget.initialProduct!.toLowerCase()) ||
               widget.initialProduct!.toLowerCase().contains(c.cleanProductName.toLowerCase()));
-          if (idx != -1 && _selectedProductIndex == 0) {
+          if (idx != -1) {
             _selectedProductIndex = idx;
           }
         }
+        final loadFailed = service.items.isEmpty && service.lastError.isNotEmpty;
 
         if (service.isLoading && comparisons.isEmpty) {
           return const MarketComparisonSkeletonLoader();
@@ -155,7 +163,12 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                _selectedDateIndex == 0
+                                loadFailed
+                                    ? lang.tr(
+                                        mr: 'बाजारभाव लोड झाले नाहीत',
+                                        en: 'Could not load market prices',
+                                      )
+                                    : _selectedDateIndex == 0
                                     ? lang.tr(
                                         mr: 'आजचे बाजारभाव अजून जोडलेले नाहीत',
                                         en: "Today's market prices not added yet",
@@ -178,10 +191,15 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                lang.tr(
-                                  mr: 'ॲडमिनने दर अपडेट केल्यानंतर ते येथे आपोआप दिसतील.',
-                                  en: 'Rates will appear here automatically once updated by Admin.',
-                                ),
+                                loadFailed
+                                    ? lang.tr(
+                                        mr: 'इंटरनेट तपासा आणि पुन्हा प्रयत्न करा.',
+                                        en: 'Check your internet connection and try again.',
+                                      )
+                                    : lang.tr(
+                                        mr: 'ॲडमिनने दर अपडेट केल्यानंतर ते येथे आपोआप दिसतील.',
+                                        en: 'Rates will appear here automatically once updated by Admin.',
+                                      ),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 12,
@@ -220,6 +238,16 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                       children: [
                         // Date selector
                         _buildDateRow(),
+                        if (fallbackDate != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            lang.tr(
+                              mr: 'आजचे दर अजून आलेले नाहीत — $fallbackDate चे ताजे दर दाखवत आहोत',
+                              en: "Today's rates are not added yet — showing latest rates from $fallbackDate",
+                            ),
+                            style: const TextStyle(fontSize: 10.5, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                          ),
+                        ],
                         const SizedBox(height: 12),
 
                         // Top Summary Card
@@ -514,18 +542,20 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFF16A34A),
-                                              borderRadius: BorderRadius.circular(8),
+                                          if (selected.bestAdvantagePercent > 0) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF16A34A),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
+                                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                              ),
                                             ),
-                                            child: Text(
-                                              '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
-                                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                            ),
-                                          ),
+                                          ],
                                         ],
                                       ),
                                       const SizedBox(height: 3),
@@ -535,7 +565,9 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                       ),
                                       const SizedBox(height: 3),
                                       Text(
-                                        'कमाल दर ₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit} (इतर बाजारांपेक्षा ₹${(selected.maxPrice - selected.minPrice).toStringAsFixed(0)} जास्त)',
+                                        selected.markets.length > 1
+                                            ? 'कमाल दर ₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit} (इतर बाजारांपेक्षा ₹${(selected.maxPrice - selected.minPrice).toStringAsFixed(0)} जास्त)'
+                                            : 'दर ₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit} (तुलनेसाठी एकच बाजार)',
                                         style: const TextStyle(fontSize: 11, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                                       ),
                                     ],

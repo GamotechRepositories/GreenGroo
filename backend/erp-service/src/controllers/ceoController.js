@@ -13,6 +13,10 @@ import {
   Pickup,
   QualityInspection,
 } from "../../../farmer-manager-service/src/models.js";
+import {
+  isRealFarmerDocument,
+  updateFarmerDocumentStatus,
+} from "../../../farmer-manager-service/src/controllers.js";
 import { Farm, Crop, Article, Batch } from "../models/index.js";
 import { getCeoDashboard } from "../services/ceoDashboardService.js";
 import { TraceabilityService } from "../services/traceabilityService.js";
@@ -99,12 +103,13 @@ export async function listFarmers(req, res) {
     const allKeys = [...new Set(items.flatMap(farmerKeys))];
     const managerIds = [...new Set(items.map((f) => f.managerId).filter(Boolean))];
     const vendorIds = [...new Set(items.map((f) => f.vendorId).filter(Boolean))];
-    const [farms, erpCrops, farmerCrops, products, orders, managers, vendors] = await Promise.all([
+    const [farms, erpCrops, farmerCrops, products, orders, allDocuments, managers, vendors] = await Promise.all([
       Farm.find({ farmerId: { $in: allKeys } }).lean(),
       Crop.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerCrop.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerProduct.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerOrder.find({ farmerId: { $in: allKeys } }).lean(),
+      FarmerDocument.find({ farmerId: { $in: allKeys } }).select("farmerId fileUrl status").lean(),
       managerIds.length
         ? FarmerManager.find({ id: { $in: managerIds } }).select("id name mobile").lean()
         : [],
@@ -114,6 +119,11 @@ export async function listFarmers(req, res) {
     ]);
     const managerById = Object.fromEntries(managers.map((m) => [m.id, m]));
     const vendorById = Object.fromEntries(vendors.map((v) => [v.id, v]));
+    const documents = allDocuments.filter(isRealFarmerDocument);
+    const docsFor = (f) => {
+      const keys = new Set(farmerKeys(f));
+      return documents.filter((d) => keys.has(d.farmerId));
+    };
     res.json({
       success: true,
       page,
@@ -121,6 +131,7 @@ export async function listFarmers(req, res) {
       total,
       items: items.map((f) => {
         const cropCount = countByFarmer(farmerCrops, f) || countByFarmer(erpCrops, f);
+        const docs = docsFor(f);
         return {
           farmerId: f.farmerId || f.id,
           sourceId: f.id,
@@ -140,6 +151,10 @@ export async function listFarmers(req, res) {
           cropCount,
           productCount: countByFarmer(products, f),
           orderCount: countByFarmer(orders, f),
+          documentCount: docs.length,
+          documentsPending: docs.filter((d) => d.status === "Pending").length,
+          documentsApproved: docs.filter((d) => d.status === "Approved").length,
+          documentsRejected: docs.filter((d) => d.status === "Rejected").length,
           managerId: f.managerId,
           managerName: managerById[f.managerId]?.name || "",
           vendorId: f.vendorId,
@@ -298,7 +313,7 @@ export async function getFarmer360(req, res) {
       batches,
       orders,
       earnings,
-      documents,
+      documents: (documents || []).filter(isRealFarmerDocument),
       harvests,
       pickups,
       inspections,
@@ -309,6 +324,14 @@ export async function getFarmer360(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "Failed to load farmer" });
   }
+}
+
+export function reviewFarmerDocument(req, res) {
+  const params = {
+    farmerId: decodeURIComponent(String(req.params.id || "")).trim(),
+    documentId: decodeURIComponent(String(req.params.documentId || "")).trim(),
+  };
+  return updateFarmerDocumentStatus({ params, body: req.body || {}, user: req.user }, res);
 }
 
 export async function receiveGrn(req, res) {

@@ -32,7 +32,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         }
 
         final allDocs = state.documents;
-        final uploadedDocs = allDocs.where((d) => d.isUploaded || d.fileUrl.isNotEmpty || (d.status != 'not_uploaded' && d.status.isNotEmpty)).toList();
+        final uploadedDocs = allDocs.where((d) => d.isUploaded && d.fileUrl.isNotEmpty && d.status != 'not_uploaded').toList();
         final pendingDocs = allDocs.where((d) => !uploadedDocs.contains(d)).toList();
         final approvedCount = uploadedDocs.where((d) => d.status == 'approved').length;
         final pendingCount = uploadedDocs.where((d) => d.status == 'pending').length;
@@ -382,16 +382,23 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         MaterialPageRoute(
           builder: (_) => FarmerLivenessCheckScreen(
             farmerName: FarmerState().profile.fullName,
-            onCompleted: (String? videoUrl) {
-              if (videoUrl != null && videoUrl.isNotEmpty) {
-                FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
+            onCompleted: (String? videoUrl) async {
+              if (videoUrl == null || videoUrl.isEmpty) return;
+              try {
+                await FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(AppLanguage().tr(mr: 'व्हिडिओ केवायसी यशस्वीपणे सबमिट झाली! पडताळणी प्रलंबित आहे ⏳', en: 'Video KYC submitted successfully! Review pending ⏳')),
+                    backgroundColor: const Color(0xFFC2410C),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(AppLanguage().tr(mr: 'अपलोड अयशस्वी: $e', en: 'Upload failed: $e')), backgroundColor: const Color(0xFFDC2626)),
+                );
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppLanguage().tr(mr: 'व्हिडिओ केवायसी यशस्वीपणे सबमिट झाली! पडताळणी प्रलंबित आहे ⏳', en: 'Video KYC submitted successfully! Review pending ⏳')),
-                  backgroundColor: Color(0xFFC2410C),
-                  duration: Duration(seconds: 4),
-                ),
-              );
             },
           ),
         ),
@@ -405,15 +412,24 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       subtitle: AppLanguage().tr(mr: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा', en: 'Take photo with camera, choose from gallery or pick PDF'),
       presetCategory: 'Document',
       allowPdf: true,
-      onPhotoSelected: (photoStr) {
-        FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLanguage().tr(mr: '${doc.marathiTitle.isNotEmpty ? doc.marathiTitle : doc.title} अपलोड झाले! पडताळणी प्रलंबित आहे ⏳', en: '${doc.title} uploaded! Vendor review pending ⏳')),
-            backgroundColor: const Color(0xFFC2410C),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      allowSamples: false,
+      onPhotoSelected: (photoStr) async {
+        try {
+          await FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLanguage().tr(mr: '${doc.marathiTitle.isNotEmpty ? doc.marathiTitle : doc.title} अपलोड झाले! पडताळणी प्रलंबित आहे ⏳', en: '${doc.title} uploaded! Vendor review pending ⏳')),
+              backgroundColor: const Color(0xFFC2410C),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } catch (e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLanguage().tr(mr: 'अपलोड अयशस्वी: $e', en: 'Upload failed: $e')), backgroundColor: const Color(0xFFDC2626)),
+          );
+        }
       },
     );
   }
@@ -430,16 +446,23 @@ class _DocumentCard extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => FarmerLivenessCheckScreen(
             farmerName: FarmerState().profile.fullName,
-            onCompleted: (String? videoUrl) {
-              if (videoUrl != null && videoUrl.isNotEmpty) {
-                FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
+            onCompleted: (String? videoUrl) async {
+              if (videoUrl == null || videoUrl.isEmpty) return;
+              try {
+                await FarmerState().uploadDocument(doc.id, fileUrl: videoUrl, status: 'pending');
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(AppLanguage().tr(mr: 'व्हिडिओ केवायसी यशस्वीपणे सबमिट झाली! पडताळणी प्रलंबित आहे ⏳', en: 'Video KYC submitted successfully! Review pending ⏳')),
+                    backgroundColor: const Color(0xFFC2410C),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(AppLanguage().tr(mr: 'अपलोड अयशस्वी: $e', en: 'Upload failed: $e')), backgroundColor: const Color(0xFFDC2626)),
+                );
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppLanguage().tr(mr: 'व्हिडिओ केवायसी यशस्वीपणे सबमिट झाली! पडताळणी प्रलंबित आहे ⏳', en: 'Video KYC submitted successfully! Review pending ⏳')),
-                  backgroundColor: Color(0xFFC2410C),
-                  duration: Duration(seconds: 4),
-                ),
-              );
             },
           ),
         ),
@@ -453,16 +476,24 @@ class _DocumentCard extends StatelessWidget {
       subtitle: AppLanguage().tr(mr: 'कॅमेऱ्याने फोटो काढा, गॅलरी मधून किंवा PDF फाईल निवडा', en: 'Take photo with camera, choose from gallery or pick PDF'),
       presetCategory: 'Document',
       allowPdf: true,
-      onPhotoSelected: (photoStr) {
-        // Document goes to 'pending' state until vendor explicitly approves it
-        FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLanguage().tr(mr: '${doc.marathiTitle.isNotEmpty ? doc.marathiTitle : doc.title} अपलोड झाले! पडताळणी प्रलंबित आहे ⏳', en: '${doc.title} uploaded! Vendor review pending ⏳')),
-            backgroundColor: const Color(0xFFC2410C),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      allowSamples: false,
+      onPhotoSelected: (photoStr) async {
+        try {
+          await FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLanguage().tr(mr: '${doc.marathiTitle.isNotEmpty ? doc.marathiTitle : doc.title} अपलोड झाले! पडताळणी प्रलंबित आहे ⏳', en: '${doc.title} uploaded! Vendor review pending ⏳')),
+              backgroundColor: const Color(0xFFC2410C),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } catch (e) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLanguage().tr(mr: 'अपलोड अयशस्वी: $e', en: 'Upload failed: $e')), backgroundColor: const Color(0xFFDC2626)),
+          );
+        }
       },
     );
   }
