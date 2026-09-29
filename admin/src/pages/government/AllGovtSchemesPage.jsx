@@ -14,32 +14,18 @@ import {
   XCircle,
   FileText,
   Edit3,
-  X,
   Phone,
   MapPin,
 } from 'lucide-react';
 import opsApi from '../../api/opsApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
+import { AppStatusBadge, ApplicationStatusModal } from './schemeApplicationShared';
 
 const STATUS_STYLES = {
   active: 'bg-emerald-50 text-emerald-800 ring-emerald-100',
   closing_soon: 'bg-amber-50 text-amber-800 ring-amber-100',
   upcoming: 'bg-violet-50 text-violet-800 ring-violet-100',
   closed: 'bg-slate-100 text-slate-600 ring-slate-200',
-};
-
-const APP_STATUS_STYLES = {
-  pending: 'bg-amber-50 text-amber-800 ring-amber-200 border-amber-200',
-  accepted: 'bg-emerald-50 text-emerald-800 ring-emerald-200 border-emerald-200',
-  approved: 'bg-emerald-50 text-emerald-800 ring-emerald-200 border-emerald-200',
-  rejected: 'bg-rose-50 text-rose-800 ring-rose-200 border-rose-200',
-};
-
-const APP_STATUS_LABELS = {
-  pending: 'Pending (प्रलंबित)',
-  accepted: 'Accepted (मंजूर)',
-  approved: 'Approved (मंजूर)',
-  rejected: 'Rejected (अमान्य)',
 };
 
 export default function AllGovtSchemesPage() {
@@ -62,12 +48,7 @@ export default function AllGovtSchemesPage() {
   const [appSearch, setAppSearch] = useState('');
   const [appStatus, setAppStatus] = useState('all');
 
-  // Status update modal state
   const [selectedApp, setSelectedApp] = useState(null);
-  const [modalStatus, setModalStatus] = useState('pending');
-  const [modalNotes, setModalNotes] = useState('');
-  const [modalSaving, setModalSaving] = useState(false);
-  const [modalError, setModalError] = useState('');
 
   const loadSchemes = useCallback(async () => {
     setLoading(true);
@@ -137,32 +118,6 @@ export default function AllGovtSchemesPage() {
       await loadApplications();
     } catch (err) {
       setAppError(err.response?.data?.message || 'Failed to delete application');
-    }
-  };
-
-  const openStatusModal = (app) => {
-    setSelectedApp(app);
-    setModalStatus(app.status === 'approved' ? 'accepted' : app.status || 'pending');
-    setModalNotes(app.adminNotes || '');
-    setModalError('');
-  };
-
-  const handleSaveStatus = async (e) => {
-    e.preventDefault();
-    if (!selectedApp) return;
-    setModalSaving(true);
-    setModalError('');
-    try {
-      await opsApi.update('govt-schemes/applications', `${selectedApp._id}/status`, {
-        status: modalStatus,
-        adminNotes: modalNotes,
-      });
-      setSelectedApp(null);
-      await loadApplications();
-    } catch (err) {
-      setModalError(err.response?.data?.message || 'Failed to update status');
-    } finally {
-      setModalSaving(false);
     }
   };
 
@@ -484,20 +439,7 @@ export default function AllGovtSchemesPage() {
                         </td>
 
                         <td className="px-3 py-3">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold ${
-                              APP_STATUS_STYLES[row.status] || APP_STATUS_STYLES.pending
-                            }`}
-                          >
-                            {row.status === 'accepted' || row.status === 'approved' ? (
-                              <CheckCircle2 className="h-3 w-3" />
-                            ) : row.status === 'rejected' ? (
-                              <XCircle className="h-3 w-3" />
-                            ) : (
-                              <Clock className="h-3 w-3" />
-                            )}
-                            {APP_STATUS_LABELS[row.status] || row.status}
-                          </span>
+                          <AppStatusBadge status={row.status} />
                         </td>
 
                         <td className="px-3 py-3 text-xs">
@@ -521,7 +463,7 @@ export default function AllGovtSchemesPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
-                              onClick={() => openStatusModal(row)}
+                              onClick={() => setSelectedApp(row)}
                               className={`${BTN_PRIMARY} py-1 px-2.5 text-xs font-medium`}
                               title="Update Status"
                             >
@@ -548,100 +490,12 @@ export default function AllGovtSchemesPage() {
         </div>
       )}
 
-      {/* ======================= STATUS UPDATE MODAL ======================= */}
       {selectedApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Update Application Status</h3>
-                <p className="text-xs text-slate-500">
-                  {selectedApp.farmerName} • {selectedApp.schemeTitle}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedApp(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {modalError && (
-              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                {modalError}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveStatus} className="mt-4 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                  Application Status (अर्जाची स्थिती)
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { key: 'pending', label: 'Pending (प्रलंबित)', color: 'border-amber-500 bg-amber-50 text-amber-900' },
-                    { key: 'accepted', label: 'Accepted (मंजूर)', color: 'border-emerald-500 bg-emerald-50 text-emerald-900' },
-                    { key: 'rejected', label: 'Rejected (अमान्य)', color: 'border-rose-500 bg-rose-50 text-rose-900' },
-                  ].map((s) => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setModalStatus(s.key)}
-                      className={`rounded-xl border-2 p-2.5 text-center text-xs font-bold transition-all ${
-                        modalStatus === s.key ? s.color : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                  Admin Remarks / Rejection Reason (शेरा / कारण)
-                </label>
-                <textarea
-                  rows={3}
-                  value={modalNotes}
-                  onChange={(e) => setModalNotes(e.target.value)}
-                  placeholder="उदा. 'कागदपत्रे तपासली, मंजुरी मिळाली आहे' किंवा '7/12 उतारा अपूर्ण असल्याने अमान्य'..."
-                  className={INPUT}
-                />
-                <p className="mt-1 text-[11px] text-slate-500">
-                  This note will be visible to the farmer in their mobile application.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedApp(null)}
-                  className={BTN}
-                  disabled={modalSaving}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalSaving}
-                  className={BTN_PRIMARY}
-                >
-                  {modalSaving ? (
-                    <>
-                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save & Update'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <ApplicationStatusModal
+          app={selectedApp}
+          onClose={() => setSelectedApp(null)}
+          onSaved={loadApplications}
+        />
       )}
     </div>
   );

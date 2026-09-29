@@ -56,7 +56,11 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
               ],
             ),
           ),
-          body: SingleChildScrollView(
+          body: RefreshIndicator(
+            color: AppColors.primary,
+            onRefresh: () => FarmerState().refreshCrops(),
+            child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -625,6 +629,7 @@ class _CropPlanningScreenState extends State<CropPlanningScreen> {
                 ),
               ],
             ),
+          ),
           ),
         );
       },

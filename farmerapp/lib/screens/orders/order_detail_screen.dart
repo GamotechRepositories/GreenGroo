@@ -369,7 +369,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         return Scaffold(
           backgroundColor: const Color(0xFFF9FAFB),
           body: SafeArea(
-            child: SingleChildScrollView(
+            child: RefreshIndicator(
+              color: const Color(0xFF217346),
+              onRefresh: () => FarmerState().refreshOrders(),
+              child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -929,6 +933,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ],
               ),
+            ),
             ),
           ),
         );

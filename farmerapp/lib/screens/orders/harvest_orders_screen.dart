@@ -133,7 +133,11 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
               ],
             ),
           ),
-          body: SingleChildScrollView(
+          body: RefreshIndicator(
+            color: const Color(0xFF217346),
+            onRefresh: () => FarmerState().refreshOrders(),
+            child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,6 +328,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                   ),
               ],
             ),
+          ),
           ),
         );
       },

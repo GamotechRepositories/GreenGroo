@@ -90,6 +90,22 @@ class EarningReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final latest = FarmerState().orders.where((o) => o.id == order.id);
+        if (latest.isEmpty || identical(latest.first, order)) return _buildReport(context);
+        return EarningReportScreen(
+          order: latest.first,
+          rate: rate,
+          unit: unit,
+          productTitle: productTitle,
+        )._buildReport(context);
+      },
+    );
+  }
+
+  Widget _buildReport(BuildContext context) {
     final profile = FarmerState().profile;
     final isPaid = order.paymentStatus.toUpperCase() == 'PAID' || order.status == 'Completed';
 
@@ -203,7 +219,11 @@ class EarningReportScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+          color: const Color(0xFF217346),
+          onRefresh: () => FarmerState().refreshOrders(),
+          child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,6 +437,7 @@ class EarningReportScreen extends StatelessWidget {
               const SizedBox(height: 20),
             ],
           ),
+        ),
         ),
       ),
     );

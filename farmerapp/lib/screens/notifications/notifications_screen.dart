@@ -2,6 +2,7 @@ import '../../services/sound_service.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_loader.dart';
+import '../../core/widgets/pull_to_refresh.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../orders/order_detail_screen.dart';
@@ -324,7 +325,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   child: filteredList.isEmpty
                       ? (allLiveNotifications.isEmpty && (!state.ordersReady || !state.documentsReady || !state.schemesReady))
                           ? const AppLoader(message: 'सूचना लोड होत आहेत...')
-                          : Center(
+                          : PullToRefresh(
+                          onRefresh: () => state.fetchFromBackend(),
+                          child: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -341,10 +344,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               ),
                             ],
                           ),
+                        ),
                         )
                       : RefreshIndicator(
                           onRefresh: () => state.fetchFromBackend(),
                           child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.all(10),
                             itemCount: filteredList.length,
                             separatorBuilder: (context, index) => const SizedBox(height: 8),

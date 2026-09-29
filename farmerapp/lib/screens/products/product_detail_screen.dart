@@ -59,6 +59,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _product = widget.product;
   }
 
+  Future<void> _refresh() async {
+    await FarmerState().refreshProducts();
+    final latest = FarmerState().products.where((p) => p.id == _product.id);
+    if (mounted && latest.isNotEmpty) setState(() => _product = latest.first);
+  }
+
   void _copyId(String id) {
     Clipboard.setData(ClipboardData(text: id));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -169,7 +175,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+          color: const Color(0xFF217346),
+          onRefresh: _refresh,
+          child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,6 +463,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(height: 50),
           ],
         ),
+      ),
       ),
     ),
   );

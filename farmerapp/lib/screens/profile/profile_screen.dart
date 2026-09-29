@@ -461,7 +461,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           body: (!FarmerState().isPreferencesLoaded || (FarmerState().isLoadingFromBackend && !FarmerState().profileReady))
               ? const ProfileSkeletonLoader()
-              : SingleChildScrollView(
+              : RefreshIndicator(
+            color: AppColors.primary,
+            onRefresh: () => Future.wait([
+              FarmerState().refreshProfile(),
+              FarmerState().refreshDocuments(),
+            ]),
+            child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,6 +510,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 36),
               ],
             ),
+          ),
           ),
         );
       },

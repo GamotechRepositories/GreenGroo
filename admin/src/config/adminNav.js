@@ -358,6 +358,13 @@ export const NAV_GROUPS = [
         implemented: true,
         description: 'Add a new government scheme for farmers.',
       },
+      {
+        name: 'All Applications',
+        href: '/government/applications',
+        icon: ClipboardList,
+        implemented: true,
+        description: 'Every farmer and the government schemes they applied for.',
+      },
     ],
   },
   {

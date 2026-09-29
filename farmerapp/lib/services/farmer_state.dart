@@ -133,6 +133,9 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refreshSchemes() => _refreshSection(_fetchSchemesSafe);
   Future<void> refreshDocuments() => _refreshSection(_fetchDocumentsSafe);
   Future<void> refreshCrops() => _refreshSection(_fetchCropsSafe);
+  Future<void> refreshProducts() => _refreshSection(_fetchProductsSafe);
+  Future<void> refreshOrders() => _refreshSection(_fetchOrdersSafe);
+  Future<void> refreshProfile() => _refreshSection(_fetchProfileSafe);
 
   Future<void> _refreshSection(Future<void> Function() fetch) async {
     if (_syncing) return;

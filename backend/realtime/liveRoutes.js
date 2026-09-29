@@ -78,6 +78,11 @@ export const LIVE_ROUTES = [
     deps: ["storeorders", "deliveryboys"],
     ignoreFields: { deliveryboys: RIDER_PRESENCE_FIELDS },
   },
+  {
+    path: "/api/admin-ops/govt-schemes/applications",
+    exact: true,
+    deps: ["adminfarmerschemeapplications", "admingovernmentschemes"],
+  },
   { path: "/api/admin/dark-stores", deps: ["deliverymanagers", "storeinventories", "storeorders"] },
   { path: "/api/products/all", deps: CATALOG_COLLECTIONS },
   { path: "/api/categories", deps: ["greengrocccategories"], public: true },

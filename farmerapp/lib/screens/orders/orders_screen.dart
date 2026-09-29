@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/widgets/pull_to_refresh.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../services/farmer_state.dart';
 import '../../models/farmer_models.dart';
@@ -142,7 +143,10 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                   if (allOrders.isEmpty && !FarmerState().ordersReady) {
                     return const OrderListSkeleton();
                   }
-                  return Center(
+                  return PullToRefresh(
+                    color: const Color(0xFF217346),
+                    onRefresh: () => FarmerState().refreshOrders(),
+                    child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
@@ -169,17 +173,23 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                         ],
                       ),
                     ),
+                  ),
                   );
                 }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final order = filtered[index];
-                    return _OrderMobileCard(order: order);
-                  },
+                return RefreshIndicator(
+                  color: const Color(0xFF217346),
+                  onRefresh: () => FarmerState().refreshOrders(),
+                  child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final order = filtered[index];
+                      return _OrderMobileCard(order: order);
+                    },
+                  ),
                 );
               }).toList(),
             ),

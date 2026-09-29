@@ -61,6 +61,7 @@ import {
 } from './pages/ops/AssetsManagementPage';
 import AllGovtSchemesPage from './pages/government/AllGovtSchemesPage';
 import CreateGovtSchemePage from './pages/government/CreateGovtSchemePage';
+import AllSchemeApplicationsPage from './pages/government/AllSchemeApplicationsPage';
 
 export default function App() {
   return (
@@ -136,6 +137,7 @@ export default function App() {
               <Route path="government/schemes" element={<AllGovtSchemesPage />} />
               <Route path="government/schemes/create" element={<CreateGovtSchemePage />} />
               <Route path="government/schemes/:id/edit" element={<CreateGovtSchemePage />} />
+              <Route path="government/applications" element={<AllSchemeApplicationsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

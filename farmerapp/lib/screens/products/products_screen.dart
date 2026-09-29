@@ -176,7 +176,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ],
           ),
           body: SafeArea(
-            child: SingleChildScrollView(
+            child: RefreshIndicator(
+              color: const Color(0xFF217346),
+              onRefresh: () => FarmerState().refreshProducts(),
+              child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,6 +441,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 const SizedBox(height: 80),
               ],
             ),
+          ),
           ),
         ),
       );

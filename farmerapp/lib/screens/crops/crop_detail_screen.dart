@@ -48,6 +48,16 @@ class CropDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: FarmerState(),
+      builder: (context, _) {
+        final latest = FarmerState().crops.where((c) => c.id == crop.id);
+        return _buildScaffold(context, latest.isNotEmpty ? latest.first : crop);
+      },
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, CropItem crop) {
     final businessId = crop.businessId;
 
     return Scaffold(
@@ -72,7 +82,11 @@ class CropDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () => FarmerState().refreshCrops(),
+        child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,6 +308,7 @@ class CropDetailScreen extends StatelessWidget {
             const SizedBox(height: 40),
           ],
         ),
+      ),
       ),
     );
   }

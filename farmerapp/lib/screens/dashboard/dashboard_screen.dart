@@ -266,8 +266,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 6),
             ],
           ),
-          body: SingleChildScrollView(
+          body: RefreshIndicator(
+            color: const Color(0xFF16A34A),
+            onRefresh: () => Future.wait([
+              FarmerState().refresh(),
+              MarketPriceService().fetchMarketPrices(),
+            ]),
+            child: SingleChildScrollView(
             controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,6 +988,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+          ),
         );
       },
     );
@@ -1317,6 +1325,36 @@ class _OverviewStatCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // HELPER METHODS PRESERVED
 // ---------------------------------------------------------------------------
+
+/// Statuses between "ready" and completion (driver assignment, pickup, transit, centre
+/// receipt, quality check). The order stays "Ready" on the dashboard until it completes.
+const Set<String> _pickupStageStatuses = {
+  'READY_FOR_PICKUP',
+  'DRIVER_ASSIGNED',
+  'DISPATCHED',
+  'DRIVER_ARRIVED',
+  'ORDER_VERIFIED',
+  'QR_VERIFIED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'ARRIVED_AT_CENTRE',
+  'COLLECTION_CENTRE_RECEIVED',
+  'INSPECTION',
+  'GRADING',
+  'GRADE_CONFIRMED',
+};
+
+String _orderStatusBucket(FarmerOrderItem order) {
+  final s = order.status.trim().toUpperCase();
+  if (s.startsWith('DELETED')) return '';
+  if (s.contains('REJECT') || s.contains('CANCEL')) return 'rejected';
+  if (s.contains('COMPLET') || s.contains('DELIVER')) return 'completed';
+  if (s.contains('READY') || _pickupStageStatuses.contains(s) || order.isDriverAssigned) return 'ready';
+  if (s == 'PREPARING' || s == 'PACKING') return 'preparing';
+  if (s == 'ACCEPTED' || s == 'CONFIRMED') return 'accepted';
+  if (s == 'NEW' || s == 'PENDING') return 'new';
+  return '';
+}
 
 bool _isEarningOrder(FarmerOrderItem order) {
   final status = order.status.trim().toUpperCase();
@@ -1862,35 +1900,15 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
       return true;
     }).toList();
 
-    final newCount = filtered.where((o) {
-      final s = o.status.toUpperCase();
-      return s == 'NEW' || s == 'PENDING';
-    }).length;
+    final buckets = filtered.map(_orderStatusBucket).toList();
+    int countOf(String bucket) => buckets.where((b) => b == bucket).length;
 
-    final acceptedCount = filtered.where((o) {
-      final s = o.status.toUpperCase();
-      return s == 'ACCEPTED' || s == 'CONFIRMED';
-    }).length;
-
-    final preparingCount = filtered.where((o) {
-      final s = o.status.toUpperCase();
-      return s == 'PREPARING' || s == 'PACKING';
-    }).length;
-
-    final readyCount = filtered.where((o) {
-      final s = o.status.toUpperCase();
-      return s == 'READY_FOR_PICKUP' || s.contains('READY');
-    }).length;
-
-    final completedCount = filtered.where((o) {
-      final s = o.status.toUpperCase();
-      return s == 'COMPLETED' || s == 'DELIVERED';
-    }).length;
-
-    final rejectedCount = filtered.where((o) {
-      final s = o.status.toUpperCase();
-      return s == 'REJECTED' || s == 'CANCELLED';
-    }).length;
+    final newCount = countOf('new');
+    final acceptedCount = countOf('accepted');
+    final preparingCount = countOf('preparing');
+    final readyCount = countOf('ready');
+    final completedCount = countOf('completed');
+    final rejectedCount = countOf('rejected');
 
     final total = newCount + acceptedCount + preparingCount + readyCount + completedCount + rejectedCount;
     final maxCount = [newCount, acceptedCount, preparingCount, readyCount, completedCount, rejectedCount]

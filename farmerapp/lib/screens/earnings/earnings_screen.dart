@@ -190,7 +190,14 @@ class EarningsScreenState extends State<EarningsScreen> {
           body: SafeArea(
             top: false,
             bottom: true,
-            child: SingleChildScrollView(
+            child: RefreshIndicator(
+              color: const Color(0xFF217346),
+              onRefresh: () => Future.wait([
+                FarmerState().refreshOrders(),
+                FarmerState().refreshProducts(),
+              ]),
+              child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,6 +352,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                     ),
                 ],
               ),
+            ),
             ),
           ),
         ),

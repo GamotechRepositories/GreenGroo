@@ -154,7 +154,8 @@ class _SchemesScreenState extends State<SchemesScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
-                padding: const EdgeInsets.all(20),
+                // paddingOf excludes the keyboard inset, so the nav-bar gap drops while typing.
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.paddingOf(modalContext).bottom),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -445,7 +446,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
             color: AppColors.primary,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.fromLTRB(14, 14, 14, 14 + MediaQuery.paddingOf(context).bottom),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
