@@ -47,6 +47,14 @@ import {
 } from "./listProjections.js";
 import { PAGE_LIMITS, isPaginationRequested, getPageParams, paginatedResponse, containsRegex } from "./pagination.js";
 import { buildVendorDashboard, LOW_STOCK_EXPR } from "./dashboardStats.js";
+import { createMemoryCache } from "../../shared/cache/memoryCache.js";
+
+const cropsCatalogCache = createMemoryCache({
+  name: "crops-catalog",
+  ttlMs: 60_000,
+  collections: [FarmerCrop.collection.collectionName],
+  maxEntries: 1,
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || "greengroo-secret";
 function signToken(payload) {
@@ -1426,37 +1434,41 @@ async function loadOwnCrop(req, res) {
 
 export async function getPublicCropsCatalog(req, res) {
   try {
-    const crops = await FarmerCrop.find({}).sort({ createdAt: -1 }).lean();
-    const seen = new Set();
-    const catalog = [];
-    for (const c of crops) {
-      const name = String(c.cropName || c.name || "").trim();
-      const variety = String(c.variety || "").trim();
-      const key = `${name.toLowerCase()}:::${variety.toLowerCase()}`;
-      if (!name || seen.has(key)) continue;
-      seen.add(key);
-      const photoList = Array.isArray(c.photos) && c.photos.length > 0 
-        ? c.photos 
-        : (c.media?.mainPhoto || c.image ? [c.media?.mainPhoto || c.image] : []);
-      catalog.push({
-        id: c.cropId || c.id,
-        cropId: c.cropId || c.id,
-        cropName: name,
-        variety: variety || "General",
-        category: c.category || "",
-        unit: c.unit || "Kg",
-        areaUnit: c.areaUnit || "Acre",
-        farmingMethod: c.farmingMethod || "Conventional",
-        farmingType: c.farmingType || "Conventional",
-        irrigationType: c.irrigationType || "Drip",
-        photos: photoList,
-        estimatedQuantity: c.estimatedQuantity || "",
-      });
-    }
-    res.json(catalog);
+    res.json(await cropsCatalogCache.get("crops:catalog", buildCropsCatalog));
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to load crop catalog" });
   }
+}
+
+async function buildCropsCatalog() {
+  const crops = await FarmerCrop.find({}).sort({ createdAt: -1 }).lean();
+  const seen = new Set();
+  const catalog = [];
+  for (const c of crops) {
+    const name = String(c.cropName || c.name || "").trim();
+    const variety = String(c.variety || "").trim();
+    const key = `${name.toLowerCase()}:::${variety.toLowerCase()}`;
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    const photoList = Array.isArray(c.photos) && c.photos.length > 0
+      ? c.photos
+      : (c.media?.mainPhoto || c.image ? [c.media?.mainPhoto || c.image] : []);
+    catalog.push({
+      id: c.cropId || c.id,
+      cropId: c.cropId || c.id,
+      cropName: name,
+      variety: variety || "General",
+      category: c.category || "",
+      unit: c.unit || "Kg",
+      areaUnit: c.areaUnit || "Acre",
+      farmingMethod: c.farmingMethod || "Conventional",
+      farmingType: c.farmingType || "Conventional",
+      irrigationType: c.irrigationType || "Drip",
+      photos: photoList,
+      estimatedQuantity: c.estimatedQuantity || "",
+    });
+  }
+  return catalog;
 }
 
 function cropAlreadyCanonical(crop) {

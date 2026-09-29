@@ -71,6 +71,7 @@ export async function uploadBufferToS3({ buffer, mimeType, folder = "uploads", o
       Key: s3Key,
       Body: buffer,
       ContentType: mimeType || "image/jpeg",
+      CacheControl: "public, max-age=31536000, immutable",
     })
   );
 

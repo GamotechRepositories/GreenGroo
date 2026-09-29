@@ -21,6 +21,8 @@ const getS3Client = () => {
 const BUCKET_NAME = () => process.env.AWS_BUCKET_NAME || "";
 const REGION = () => process.env.AWS_REGION || "ap-south-1";
 const CLOUDFRONT_URL = () => (process.env.CLOUDFRONT_URL || "").replace(/\/$/, "");
+// Keys are unique per upload and never overwritten, so objects can be cached indefinitely.
+const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -96,6 +98,7 @@ router.post("/", upload.any(), async (req, res) => {
             Key: s3Key,
             Body: file.buffer,
             ContentType: file.mimetype,
+            CacheControl: IMMUTABLE_CACHE_CONTROL,
           })
         );
 

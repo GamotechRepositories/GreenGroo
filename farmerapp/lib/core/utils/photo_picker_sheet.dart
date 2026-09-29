@@ -6,6 +6,33 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../constants/app_colors.dart';
 
+/// Decoded bytes of inline base64 images, reused across rebuilds. Handing
+/// Image.memory the same Uint8List instance lets Flutter's ImageCache hit
+/// instead of decoding the picture again on every rebuild.
+class _DecodedImageCache {
+  static const int _maxBytes = 24 * 1024 * 1024;
+  static final Map<String, Uint8List> _entries = <String, Uint8List>{};
+  static int _bytes = 0;
+
+  static Uint8List decode(String source, String b64) {
+    final cached = _entries.remove(source);
+    if (cached != null) {
+      _entries[source] = cached;
+      return cached;
+    }
+    final bytes = base64Decode(b64);
+    if (bytes.length <= _maxBytes ~/ 4) {
+      _entries[source] = bytes;
+      _bytes += bytes.length;
+      while (_bytes > _maxBytes && _entries.isNotEmpty) {
+        final oldest = _entries.keys.first;
+        _bytes -= _entries.remove(oldest)!.length;
+      }
+    }
+    return bytes;
+  }
+}
+
 /// Helper widget to render images whether they are Base64 strings, Network URLs, or PDF documents.
 class AppImageWidget extends StatelessWidget {
   final String imageStr;
@@ -25,10 +52,20 @@ class AppImageWidget extends StatelessWidget {
     this.borderRadius,
   });
 
+  /// Decode width for fixed-size boxes. The 3x margin keeps BoxFit.cover crops
+  /// of wide or tall photos sharp; Flutter never upscales past the source size.
+  int? _decodeWidth(BuildContext context) {
+    final w = width, h = height;
+    if (w == null || h == null || !w.isFinite || !h.isFinite || w <= 0 || h <= 0) return null;
+    final side = w > h ? w : h;
+    return (side * MediaQuery.devicePixelRatioOf(context) * 3).round();
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget content;
     final clean = imageStr.trim();
+    final decodeWidth = _decodeWidth(context);
 
     if (clean.isEmpty) {
       content = fallback ?? _buildDefaultFallback();
@@ -60,12 +97,14 @@ class AppImageWidget extends StatelessWidget {
       try {
         final commaIdx = clean.indexOf(',');
         final b64 = commaIdx != -1 ? clean.substring(commaIdx + 1) : clean;
-        final bytes = base64Decode(b64);
+        final bytes = _DecodedImageCache.decode(clean, b64);
         content = Image.memory(
           bytes,
           width: width,
           height: height,
           fit: fit,
+          cacheWidth: decodeWidth,
+          gaplessPlayback: true,
           errorBuilder: (_, _, _) => fallback ?? _buildDefaultFallback(),
         );
       } catch (_) {
@@ -77,6 +116,7 @@ class AppImageWidget extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        cacheWidth: decodeWidth,
         errorBuilder: (_, _, _) => fallback ?? _buildDefaultFallback(),
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
@@ -109,12 +149,17 @@ class AppImageWidget extends StatelessWidget {
       }
     } else if (clean.length > 100 && !clean.contains(' ') && RegExp(r'^[A-Za-z0-9+/=\s]+$').hasMatch(clean)) {
       try {
-        final bytes = base64Decode(clean.replaceAll('\n', '').replaceAll('\r', '').replaceAll(' ', ''));
+        final bytes = _DecodedImageCache.decode(
+          clean,
+          clean.replaceAll('\n', '').replaceAll('\r', '').replaceAll(' ', ''),
+        );
         content = Image.memory(
           bytes,
           width: width,
           height: height,
           fit: fit,
+          cacheWidth: decodeWidth,
+          gaplessPlayback: true,
           errorBuilder: (_, _, _) => fallback ?? _buildDefaultFallback(),
         );
       } catch (_) {

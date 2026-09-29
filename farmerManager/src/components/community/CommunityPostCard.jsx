@@ -34,6 +34,8 @@ export default function CommunityPostCard({ post, onLikePost, onAddComment }) {
               src={post.authorAvatar}
               alt={post.author}
               className="h-9 w-9 rounded-full object-cover border border-slate-300"
+              loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-emerald-100 text-xs font-bold text-emerald-800">

@@ -1,5 +1,13 @@
 import { RolePolicy, POLICY_ROLE_KEYS } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
+import { createMemoryCache } from "../../shared/cache/memoryCache.js";
+
+const livePoliciesCache = createMemoryCache({
+  name: "role-policies-live",
+  ttlMs: 10 * 60_000,
+  collections: [RolePolicy.collection.collectionName],
+  maxEntries: POLICY_ROLE_KEYS.length + 1,
+});
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
@@ -160,6 +168,7 @@ function defaultPoliciesForRole(roleKey) {
 export async function seedDefaultRolePoliciesIfEmpty() {
   try {
     let created = 0;
+    let updated = 0;
     for (const roleKey of POLICY_ROLE_KEYS) {
       const count = await RolePolicy.countDocuments({ roleKey });
       if (count > 0) continue;
@@ -185,6 +194,7 @@ export async function seedDefaultRolePoliciesIfEmpty() {
       if (exists) {
         if (def.pageKey && !exists.pageKey) {
           await RolePolicy.updateOne({ _id: exists._id }, { $set: { pageKey: def.pageKey } });
+          updated += 1;
         }
         continue;
       }
@@ -200,8 +210,10 @@ export async function seedDefaultRolePoliciesIfEmpty() {
       const key = inferPageKeyFromTitle(row.title);
       if (!key) continue;
       await RolePolicy.updateOne({ _id: row._id }, { $set: { pageKey: key } });
+      updated += 1;
     }
 
+    if (created > 0 || updated > 0) livePoliciesCache.invalidate();
     if (created > 0) {
       console.log(`[Policies] Seeded ${created} default role policies`);
     }
@@ -219,8 +231,11 @@ export async function listLiveRolePolicies(req, res, next) {
         ? { status: "published", roleKey: "all" }
         : { status: "published", roleKey: { $in: [roleKey, "all"] } };
 
-    const rows = await RolePolicy.find(filter).sort({ sortOrder: 1, updatedAt: -1 }).lean();
-    return ok(res, rows.map(serializePolicy), { roleKey, count: rows.length });
+    const data = await livePoliciesCache.get(`role-policies:live:${roleKey}`, async () => {
+      const rows = await RolePolicy.find(filter).sort({ sortOrder: 1, updatedAt: -1 }).lean();
+      return rows.map(serializePolicy);
+    });
+    return ok(res, data, { roleKey, count: data.length });
   } catch (error) {
     next(error);
   }
@@ -333,6 +348,7 @@ export async function createRolePolicy(req, res, next) {
       createdBy: req.user?.email || req.user?.name || req.user?.id || "",
     });
 
+    livePoliciesCache.invalidate();
     return ok(res, serializePolicy(row), { message: "Policy created" });
   } catch (error) {
     next(error);
@@ -372,6 +388,7 @@ export async function updateRolePolicy(req, res, next) {
     }
 
     await row.save();
+    livePoliciesCache.invalidate();
     return ok(res, serializePolicy(row), { message: "Policy updated" });
   } catch (error) {
     next(error);
@@ -382,6 +399,7 @@ export async function deleteRolePolicy(req, res, next) {
   try {
     const row = await RolePolicy.findByIdAndDelete(req.params.id);
     if (!row) return fail(res, 404, "Policy not found");
+    livePoliciesCache.invalidate();
     return ok(res, { id: String(row._id) }, { message: "Policy deleted" });
   } catch (error) {
     next(error);

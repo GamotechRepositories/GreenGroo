@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
+import { fileToCompressedImageDataUrl } from "../../utils/imageCompress";
 
 const INPUT = "w-full border border-[#D4D4D4] px-2.5 py-1.5 text-xs outline-none focus:border-[#217346]";
 const BTN = "border border-[#D4D4D4] bg-white px-4 py-2 text-xs font-semibold hover:bg-[#F2F2F2] disabled:opacity-50";
@@ -19,15 +20,6 @@ function asList(res) {
 
 function cropIdOf(crop) {
   return crop?.cropId || crop?.id || "";
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function emptyForm() {
@@ -409,7 +401,7 @@ export default function VendorProductAddPage() {
                     setErrors((prev) => ({ ...prev, mainPhoto: "Image must be under 2 MB" }));
                     return;
                   }
-                  setField("mainPhoto", await fileToDataUrl(file));
+                  setField("mainPhoto", await fileToCompressedImageDataUrl(file));
                 }}
               />
               {errors.mainPhoto ? <p className="mt-0.5 text-[10px] text-[#DC2626]">{errors.mainPhoto}</p> : null}

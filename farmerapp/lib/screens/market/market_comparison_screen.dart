@@ -32,7 +32,9 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
   @override
   void initState() {
     super.initState();
-    MarketPriceService().fetchMarketPrices();
+    // fetchMarketPrices notifies listeners synchronously (the dashboard listens too),
+    // which must not happen while this route is being built.
+    WidgetsBinding.instance.addPostFrameCallback((_) => MarketPriceService().fetchMarketPrices());
   }
 
   @override

@@ -214,11 +214,9 @@ async function publishDueAnnouncements() {
 }
 
 async function publishDueShifts() {
-  const today = todayYmd();
-  await HrShift.updateMany(
-    { status: "scheduled", date: { $lte: today } },
-    { $set: { status: "published" } }
-  );
+  const filter = { status: "scheduled", date: { $lte: todayYmd() } };
+  if (!(await HrShift.exists(filter))) return;
+  await HrShift.updateMany(filter, { $set: { status: "published" } });
 }
 
 function announcementKind(row) {

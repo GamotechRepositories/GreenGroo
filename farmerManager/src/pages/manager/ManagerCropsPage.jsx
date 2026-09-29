@@ -44,6 +44,8 @@ function CropPhoto({ src, name, className }) {
       src={src}
       alt={name || "Crop"}
       className={`object-cover ${className}`}
+      loading="lazy"
+      decoding="async"
       onError={() => setBroken(true)}
     />
   );

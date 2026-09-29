@@ -1,5 +1,13 @@
 import { GovernmentScheme, FarmerSchemeApplication } from "./models.js";
 import { getIO } from "../../shared/socket.js";
+import { createMemoryCache } from "../../shared/cache/memoryCache.js";
+
+const liveSchemesCache = createMemoryCache({
+  name: "govt-schemes-live",
+  ttlMs: 10 * 60_000,
+  collections: [GovernmentScheme.collection.collectionName],
+  maxEntries: 1,
+});
 
 const STATUS_LABELS = {
   active: "Active (अर्जासाठी खुले)",
@@ -52,13 +60,16 @@ export async function listGovtSchemes(req, res, next) {
 
 export async function listLiveGovtSchemes(req, res, next) {
   try {
-    const rows = await GovernmentScheme.find({
-      isActive: true,
-      status: { $ne: "closed" },
-    })
-      .sort({ createdAt: -1 })
-      .lean();
-    res.json({ success: true, data: rows.map(mapScheme) });
+    const payload = await liveSchemesCache.get("govt-schemes:live", async () => {
+      const rows = await GovernmentScheme.find({
+        isActive: true,
+        status: { $ne: "closed" },
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+      return { success: true, data: rows.map(mapScheme) };
+    });
+    res.json(payload);
   } catch (err) {
     next(err);
   }
@@ -101,6 +112,7 @@ export async function createGovtScheme(req, res, next) {
       isActive: body.isActive !== false,
     });
 
+    liveSchemesCache.invalidate();
     safeEmit((io) => io.emit("govt_scheme_changed", { action: "create", id: row._id }));
     res.status(201).json({ success: true, data: mapScheme(row) });
   } catch (err) {
@@ -144,6 +156,7 @@ export async function updateGovtScheme(req, res, next) {
     }
 
     await row.save();
+    liveSchemesCache.invalidate();
     safeEmit((io) => io.emit("govt_scheme_changed", { action: "update", id: row._id }));
     res.json({ success: true, data: mapScheme(row) });
   } catch (err) {
@@ -157,6 +170,7 @@ export async function deleteGovtScheme(req, res, next) {
     if (!row) {
       return res.status(404).json({ success: false, message: "Scheme not found" });
     }
+    liveSchemesCache.invalidate();
     safeEmit((io) => io.emit("govt_scheme_changed", { action: "delete", id: req.params.id }));
     res.json({ success: true, message: "Scheme deleted" });
   } catch (err) {

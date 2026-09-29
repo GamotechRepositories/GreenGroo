@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { fileToCompressedImageDataUrl } from "../../utils/imageCompress";
 
 const MAX_SLOT = 4;
 const MAX_VIDEO = 1;
@@ -23,11 +24,11 @@ function readImageFile(file, onDone) {
     alert(`Image must be under ${MAX_IMAGE_MB} MB.`);
     return;
   }
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (typeof reader.result === "string") onDone(reader.result);
-  };
-  reader.readAsDataURL(file);
+  fileToCompressedImageDataUrl(file)
+    .then((dataUrl) => {
+      if (dataUrl) onDone(dataUrl);
+    })
+    .catch(() => alert("Could not read the selected image."));
 }
 
 function PhotoTile({ label, required, value, error, onChange }) {

@@ -91,7 +91,7 @@ const MOBILE_REJECT =
 
 function productThumb(p, name) {
   if (p.image) {
-    return <img src={p.image} alt={name} className="h-12 w-12 shrink-0 rounded-xl border border-[#D4D4D4] object-cover" />;
+    return <img src={p.image} alt={name} loading="lazy" decoding="async" className="h-12 w-12 shrink-0 rounded-xl border border-[#D4D4D4] object-cover" />;
   }
   return (
     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#E8F5E9] text-sm font-bold text-[#217346]">
@@ -355,7 +355,7 @@ export default function ManagerProductsPage() {
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {p.image ? (
-                          <img src={p.image} alt={name} className="h-7 w-7 rounded border border-[#D4D4D4] object-cover" />
+                          <img src={p.image} alt={name} loading="lazy" decoding="async" className="h-7 w-7 rounded border border-[#D4D4D4] object-cover" />
                         ) : (
                           <div className="flex h-7 w-7 items-center justify-center rounded bg-[#E8F5E9] text-[10px] font-bold text-[#217346]">
                             {String(name || "P").charAt(0)}

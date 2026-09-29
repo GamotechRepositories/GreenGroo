@@ -1,5 +1,13 @@
 import { MarketPrice } from "./models.js";
 import { getIO } from "../../shared/socket.js";
+import { createMemoryCache } from "../../shared/cache/memoryCache.js";
+
+const livePricesCache = createMemoryCache({
+  name: "market-prices-live",
+  ttlMs: 2 * 60_000,
+  collections: [MarketPrice.collection.collectionName],
+  maxEntries: 50,
+});
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
@@ -47,6 +55,7 @@ export function purgeLegacySeedMarketPrices() {
     })
       .then((result) => {
         if (result?.deletedCount) {
+          livePricesCache.invalidate();
           console.log(`[MarketPrice] Removed ${result.deletedCount} legacy demo price rows.`);
           safeEmit((io) => io.emit("market_prices_changed", { action: "purge" }));
         }
@@ -143,11 +152,14 @@ export async function listLiveMarketPrices(req, res, next) {
       };
     }
 
-    const rows = await MarketPrice.find(filter)
-      .sort({ priceDate: -1, updatedAt: -1 })
-      .limit(500)
-      .lean();
-    res.json({ success: true, data: rows });
+    const payload = await livePricesCache.get(`market-prices:live:${JSON.stringify(filter)}`, async () => {
+      const rows = await MarketPrice.find(filter)
+        .sort({ priceDate: -1, updatedAt: -1 })
+        .limit(500)
+        .lean();
+      return { success: true, data: rows };
+    });
+    res.json(payload);
   } catch (err) {
     next(err);
   }
@@ -231,6 +243,7 @@ export async function createMarketPrice(req, res, next) {
       isGreenGroo: isGg,
     });
 
+    livePricesCache.invalidate();
     safeEmit((io) => {
       io.emit("market_price_updated", row);
       io.emit("market_prices_changed", { action: "create", id: row._id });
@@ -302,6 +315,7 @@ export async function updateMarketPrice(req, res, next) {
 
     await row.save();
 
+    livePricesCache.invalidate();
     safeEmit((io) => {
       io.emit("market_price_updated", row);
       io.emit("market_prices_changed", { action: "update", id: row._id });
@@ -318,6 +332,7 @@ export async function deleteMarketPrice(req, res, next) {
     const row = await MarketPrice.findByIdAndDelete(req.params.id);
     if (!row) return res.status(404).json({ success: false, message: "Market price not found" });
 
+    livePricesCache.invalidate();
     safeEmit((io) => {
       io.emit("market_price_deleted", { id: req.params.id });
       io.emit("market_prices_changed", { action: "delete", id: req.params.id });

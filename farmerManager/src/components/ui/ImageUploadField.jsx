@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import Modal from "./Modal";
+import { fileToCompressedImageDataUrl } from "../../utils/imageCompress";
 import {
   EXCEL_BTN,
   EXCEL_BTN_DANGER,
@@ -52,13 +53,11 @@ function ImageUploadField({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onChange?.(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    fileToCompressedImageDataUrl(file)
+      .then((dataUrl) => {
+        if (dataUrl) onChange?.(dataUrl);
+      })
+      .catch(() => alert("Could not read the selected image."));
     e.target.value = "";
   };
 

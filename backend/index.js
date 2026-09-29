@@ -7,6 +7,7 @@ import { connectDB, errorHandler, notFound } from "@greengrocc/shared";
 import { initSocket } from "./shared/socket.js";
 import { startChangeFeed, notifyWriteRequest } from "./shared/realtime/changeFeed.js";
 import { startLiveViews } from "./shared/realtime/liveViews.js";
+import { memoryCacheStats } from "./shared/cache/memoryCache.js";
 import { LIVE_ROUTES } from "./realtime/liveRoutes.js";
 import { startCatalogPublisher } from "./realtime/catalogPublisher.js";
 // Ensure User model is registered for admin JWT role resolution
@@ -120,6 +121,7 @@ app.get("/health", (_req, res) => {
       "erp",
       "admin-ops",
     ],
+    caches: memoryCacheStats(),
   });
 });
 

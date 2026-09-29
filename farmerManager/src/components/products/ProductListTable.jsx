@@ -184,6 +184,8 @@ function ProductListTable({
             src={imgSrc}
             alt={row.name}
             className="h-7 w-7 rounded object-cover border border-[#E5E7EB]"
+            loading="lazy"
+            decoding="async"
             onError={(e) => {
               e.currentTarget.src = "/categories/grocery.webp";
             }}

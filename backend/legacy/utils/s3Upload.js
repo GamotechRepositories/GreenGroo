@@ -79,6 +79,7 @@ export async function uploadBufferToS3({ buffer, mimeType, folder, originalName 
       Key: key,
       Body: buffer,
       ContentType: mimeType || "application/octet-stream",
+      CacheControl: "public, max-age=31536000, immutable",
     })
   );
 
