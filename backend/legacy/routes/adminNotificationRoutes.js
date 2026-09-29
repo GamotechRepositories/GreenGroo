@@ -1,7 +1,9 @@
 import express from "express";
 import { protect, requireAdmin } from "../middleware/authMiddleware.js";
 import {
+  cancelScheduledNotification,
   createAdminInboxAlert,
+  getScheduledNotifications,
   getAdminInboxAlerts,
   getAdminInboxSummary,
   getPromotionalAudienceStats,
@@ -25,6 +27,8 @@ router.put("/inbox/:id/read", markAdminInboxAlertRead);
 router.get("/promotional/audience", getPromotionalAudienceStats);
 router.get("/promotional/history", getPromotionalNotificationHistory);
 router.post("/promotional/send", sendPromotionalNotification);
+router.get("/promotional/scheduled", getScheduledNotifications);
+router.delete("/promotional/scheduled/:id", cancelScheduledNotification);
 router.post("/send", sendAdminNotification);
 router.post("/multicast", sendAdminMulticast);
 

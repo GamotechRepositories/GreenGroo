@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  BellRing,
   Building2,
   ChevronRight,
   Loader2,
@@ -115,23 +116,32 @@ export function UserManagementTypePage() {
         {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <Link
+            <div
               key={card.type}
-              to={`/user-management/${card.type}`}
               className={`${PANEL} group flex flex-col gap-4 p-5 transition hover:border-emerald-300 hover:shadow-md`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#217346] transition group-hover:bg-emerald-100">
-                  <Icon className="h-6 w-6" />
+              <Link to={`/user-management/${card.type}`} className="flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#217346] transition group-hover:bg-emerald-100">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:text-emerald-600" />
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:text-emerald-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">{card.title}</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-500">{card.description}</p>
+                </div>
+              </Link>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Link to={`/user-management/${card.type}`} className="text-sm font-semibold text-[#217346]">
+                  View zones →
+                </Link>
+                <Link to={`/user-management/${card.type}/notifications`} className={BTN}>
+                  <BellRing className="mr-1.5 h-4 w-4" />
+                  Send notification
+                </Link>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">{card.title}</h2>
-                <p className="mt-1 text-sm leading-relaxed text-slate-500">{card.description}</p>
-              </div>
-              <span className="text-sm font-semibold text-[#217346]">View zones →</span>
-            </Link>
+            </div>
           );
         })}
       </div>
@@ -185,10 +195,16 @@ export function UserManagementZonesPage() {
             Select a city zone to see dark stores for {accountLabel(accountType).toLowerCase()}s.
           </p>
         </div>
-        <Link to="/user-management" className={BTN}>
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/user-management/${accountType}/notifications`} className={BTN_PRIMARY}>
+            <BellRing className="mr-1.5 h-4 w-4" />
+            Send notification
+          </Link>
+          <Link to="/user-management" className={BTN}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Back
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">

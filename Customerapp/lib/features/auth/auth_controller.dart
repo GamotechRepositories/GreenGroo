@@ -194,6 +194,14 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    try {
+      await ref
+          .read(apiServiceProvider)
+          .deleteFcmToken()
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Best effort: the next login on this phone reassigns the token anyway.
+    }
     await ref.read(authStorageProvider).clear();
     state = const AuthState(loading: false);
   }

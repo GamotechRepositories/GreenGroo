@@ -1,6 +1,6 @@
-import notificationRoutes from "./routes/notificationRoutes.js";
-import adminNotificationRoutes from "./routes/adminNotificationRoutes.js";
-import testFcmRoutes from "./routes/testFcmRoutes.js";
+import notificationRoutes from "../../legacy/routes/notificationRoutes.js";
+import adminNotificationRoutes from "../../legacy/routes/adminNotificationRoutes.js";
+import testFcmRoutes from "../../legacy/routes/testFcmRoutes.js";
 
 export default [
   { path: "/api/notifications", router: notificationRoutes },

@@ -3,14 +3,24 @@ import Order from "../models/order/Order.js";
 import Payment from "../models/payment/Payment.js";
 import SupportMessage from "../models/support/SupportMessage.js";
 import Notification from "../models/Notification.js";
+import ScheduledNotification from "../models/ScheduledNotification.js";
 import {
   sendCustomNotification,
   sendOffer,
   sendToMultipleTokens,
 } from "../services/notificationService.js";
+import {
+  AUDIENCE_LABELS,
+  armScheduler,
+  audienceFilter,
+  broadcastPromotionalNotification,
+  normalizeAudience,
+} from "../services/promotionalBroadcast.js";
+
+const MIN_SCHEDULE_LEAD_MS = 60 * 1000;
+const MAX_SCHEDULE_AHEAD_MS = 90 * 24 * 60 * 60 * 1000;
 
 const PROMOTIONAL_TYPES = new Set(["offer", "promotional"]);
-const BROADCAST_BATCH_SIZE = 25;
 
 function parseSinceDate(value) {
   if (!value) return null;
@@ -255,68 +265,25 @@ function buildPromotionalPayload({ linkTarget = "none", productId = "" } = {}) {
   return data;
 }
 
-async function deliverPromotionalToUser(userId, { title, body, data }) {
-  const hasNavigation =
-    data.linkTarget && data.linkTarget !== "none" && data.linkTarget !== "general";
-
-  if (hasNavigation || data.offerId) {
-    return sendOffer(userId, { title, body, data });
+function normalizeImageUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
   }
-
-  return sendCustomNotification(userId, {
-    title,
-    body,
-    type: "promotional",
-    data: { ...data, type: "promotional" },
-  });
-}
-
-async function broadcastPromotionalNotification({ title, body, data }) {
-  const users = await User.find({ role: "user" }).select("_id").lean();
-  const summary = {
-    targetedUsers: users.length,
-    inAppSaved: 0,
-    pushDelivered: 0,
-    pushFailed: 0,
-    noToken: 0,
-  };
-
-  for (let index = 0; index < users.length; index += BROADCAST_BATCH_SIZE) {
-    const batch = users.slice(index, index + BROADCAST_BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map((user) => deliverPromotionalToUser(user._id, { title, body, data }))
-    );
-
-    results.forEach((result) => {
-      if (!result?.notification) return;
-
-      summary.inAppSaved += 1;
-
-      if (result.delivered) {
-        summary.pushDelivered += 1;
-        return;
-      }
-
-      if (result.reason === "No FCM token registered") {
-        summary.noToken += 1;
-        return;
-      }
-
-      if (result.error) {
-        summary.pushFailed += 1;
-      }
-    });
-  }
-
-  return summary;
 }
 
 export const getPromotionalAudienceStats = async (req, res) => {
   try {
+    const audience = normalizeAudience(req.query.accountType);
+    const filter = audienceFilter(audience);
     const [totalUsers, pushEnabledUsers] = await Promise.all([
-      User.countDocuments({ role: "user" }),
+      User.countDocuments(filter),
       User.countDocuments({
-        role: "user",
+        ...filter,
         fcmToken: { $exists: true, $ne: "" },
       }),
     ]);
@@ -324,6 +291,8 @@ export const getPromotionalAudienceStats = async (req, res) => {
     return res.json({
       success: true,
       data: {
+        audience,
+        audienceLabel: AUDIENCE_LABELS[audience],
         totalUsers,
         pushEnabledUsers,
         inAppOnlyUsers: Math.max(totalUsers - pushEnabledUsers, 0),
@@ -340,10 +309,12 @@ export const getPromotionalAudienceStats = async (req, res) => {
 export const getPromotionalNotificationHistory = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
+    const audience = req.query.accountType ? normalizeAudience(req.query.accountType) : null;
     const history = await Notification.aggregate([
       {
         $match: {
           type: { $in: [...PROMOTIONAL_TYPES] },
+          ...(audience ? { "data.audience": audience } : {}),
         },
       },
       {
@@ -353,6 +324,8 @@ export const getPromotionalNotificationHistory = async (req, res) => {
             body: "$body",
             linkTarget: "$data.linkTarget",
             offerId: "$data.offerId",
+            audience: "$data.audience",
+            imageUrl: "$data.imageUrl",
             minuteBucket: {
               $dateToString: {
                 format: "%Y-%m-%d %H:%M",
@@ -383,6 +356,8 @@ export const getPromotionalNotificationHistory = async (req, res) => {
         type: item.type,
         linkTarget: item._id.linkTarget || "none",
         productId: item._id.offerId || "",
+        audience: item._id.audience || "all",
+        imageUrl: item._id.imageUrl || "",
         recipients: item.recipients,
         pushDelivered: item.pushDelivered,
         createdAt: item.createdAt,
@@ -396,19 +371,113 @@ export const getPromotionalNotificationHistory = async (req, res) => {
   }
 };
 
+function mapScheduled(job) {
+  return {
+    id: job._id,
+    audience: job.audience,
+    title: job.title,
+    body: job.body,
+    imageUrl: job.imageUrl,
+    linkTarget: job.data?.linkTarget || "none",
+    productId: job.data?.offerId || "",
+    sendAt: job.sendAt,
+    status: job.status,
+    summary: job.summary,
+    error: job.error,
+    sentAt: job.sentAt,
+    createdAt: job.createdAt,
+  };
+}
+
+export const getScheduledNotifications = async (req, res) => {
+  try {
+    const audience = normalizeAudience(req.query.accountType);
+    const jobs = await ScheduledNotification.find({
+      audience,
+      status: { $in: ["scheduled", "sending", "failed"] },
+    })
+      .sort({ sendAt: 1 })
+      .limit(50);
+    return res.json({ success: true, data: jobs.map(mapScheduled) });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load scheduled notifications",
+    });
+  }
+};
+
+export const cancelScheduledNotification = async (req, res) => {
+  try {
+    const job = await ScheduledNotification.findOneAndUpdate(
+      { _id: req.params.id, status: { $in: ["scheduled", "failed"] } },
+      { $set: { status: "cancelled" } },
+      { new: true }
+    );
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Scheduled notification not found or already sent",
+      });
+    }
+    void armScheduler();
+    return res.json({ success: true, data: mapScheduled(job) });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to cancel scheduled notification",
+    });
+  }
+};
+
 export const sendPromotionalNotification = async (req, res) => {
   try {
-    const { title, body, linkTarget = "none", productId = "" } = req.body;
+    const {
+      title,
+      body = "",
+      linkTarget = "none",
+      productId = "",
+      accountType,
+      imageUrl,
+      scheduleAt,
+    } = req.body;
 
-    if (!title?.trim() || !body?.trim()) {
+    if (!title?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "title and message are required",
+        message: "Title is required",
       });
     }
 
+    let sendAt = null;
+    if (scheduleAt) {
+      sendAt = new Date(scheduleAt);
+      const lead = sendAt.getTime() - Date.now();
+      if (Number.isNaN(sendAt.getTime()) || lead < MIN_SCHEDULE_LEAD_MS) {
+        return res.status(400).json({
+          success: false,
+          message: "Scheduled time must be at least 1 minute in the future",
+        });
+      }
+      if (lead > MAX_SCHEDULE_AHEAD_MS) {
+        return res.status(400).json({
+          success: false,
+          message: "Notifications can be scheduled up to 90 days ahead",
+        });
+      }
+    }
+
+    const normalizedImageUrl = normalizeImageUrl(imageUrl);
+    if (normalizedImageUrl === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Image URL must be a valid https:// link",
+      });
+    }
+    const audience = normalizeAudience(accountType);
+
     const trimmedTitle = title.trim().slice(0, 200);
-    const trimmedBody = body.trim().slice(0, 1000);
+    const trimmedBody = String(body || "").trim().slice(0, 1000);
     const normalizedTarget = String(linkTarget || "none").trim().toLowerCase();
 
     if (normalizedTarget === "product" && !String(productId || "").trim()) {
@@ -423,15 +492,35 @@ export const sendPromotionalNotification = async (req, res) => {
       productId,
     });
 
+    if (sendAt) {
+      const job = await ScheduledNotification.create({
+        audience,
+        title: trimmedTitle,
+        body: trimmedBody,
+        imageUrl: normalizedImageUrl,
+        data,
+        sendAt,
+        createdBy: req.user?._id || null,
+      });
+      void armScheduler();
+      return res.status(201).json({
+        success: true,
+        message: `Notification scheduled for ${AUDIENCE_LABELS[audience].toLowerCase()}`,
+        data: { scheduled: true, item: mapScheduled(job) },
+      });
+    }
+
     const summary = await broadcastPromotionalNotification({
       title: trimmedTitle,
       body: trimmedBody,
       data,
+      audience,
+      imageUrl: normalizedImageUrl,
     });
 
     return res.status(200).json({
       success: true,
-      message: "Promotional notification sent to all customers",
+      message: `Notification sent to ${AUDIENCE_LABELS[audience].toLowerCase()}`,
       data: summary,
     });
   } catch (error) {
@@ -479,6 +568,7 @@ export const sendAdminNotification = async (req, res) => {
         title: trimmedTitle,
         body: trimmedBody,
         data: payloadData,
+        audience: normalizeAudience(req.body.accountType),
       });
 
       return res.status(200).json({

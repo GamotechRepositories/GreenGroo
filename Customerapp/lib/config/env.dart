@@ -1,5 +1,4 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter/foundation.dart';
 
 class Env {
   Env._();
@@ -8,20 +7,10 @@ class Env {
     await dotenv.load(fileName: '.env');
   }
 
-  /// Same backend as web frontend (`VITE_API_URL` / live API).
+  /// Live backend — used by every build (debug and release).
   static const productionApiUrl = 'https://api.greengrocc.com';
 
-  static String get apiUrl {
-    // Production/release builds must always use live backend.
-    if (kReleaseMode) {
-      return productionApiUrl;
-    }
-
-    final raw = dotenv.env['API_URL']?.trim();
-    final url =
-        raw != null && raw.isNotEmpty ? raw : productionApiUrl;
-    return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
-  }
+  static String get apiUrl => productionApiUrl;
 
   static String get merchantUpiId => dotenv.env['MERCHANT_UPI_ID']?.trim() ?? '';
 
@@ -40,14 +29,6 @@ class Env {
   /// Warnings for misconfigured `.env` (logged at startup in debug).
   static List<String> validate() {
     final issues = <String>[];
-    final url = apiUrl.toLowerCase();
-
-    if (url.contains('localhost') || url.contains('127.0.0.1')) {
-      issues.add(
-        'API_URL uses localhost — on a physical device use your PC LAN IP '
-        '(e.g. http://192.168.1.35:5001).',
-      );
-    }
 
     if (merchantUpiId.isEmpty) {
       issues.add('MERCHANT_UPI_ID is empty — UPI QR checkout will not work.');

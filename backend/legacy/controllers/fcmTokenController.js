@@ -25,6 +25,12 @@ export const saveFcmToken = async (req, res) => {
       });
     }
 
+    // A phone belongs to whoever signed in on it last.
+    await User.updateMany(
+      { fcmToken: token, _id: { $ne: req.user._id } },
+      { $set: { fcmToken: "", lastTokenUpdatedAt: new Date() } }
+    );
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
       {
@@ -56,6 +62,21 @@ export const saveFcmToken = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || "Failed to save FCM token",
+    });
+  }
+};
+
+/** Called on logout so the phone stops receiving this account's pushes. */
+export const clearFcmToken = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: { fcmToken: "", lastTokenUpdatedAt: new Date() },
+    });
+    res.status(200).json({ success: true, message: "FCM token cleared" });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to clear FCM token",
     });
   }
 };

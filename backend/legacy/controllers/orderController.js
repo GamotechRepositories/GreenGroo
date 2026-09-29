@@ -761,6 +761,7 @@ export const cancelOrder = async (req, res) => {
       });
     }
 
+    const previousStatus = order.status;
     order.status = "cancelled";
     if (order.paymentMethod === "online" && order.paymentStatus === "paid") {
       order.paymentStatus = "refundable";
@@ -768,6 +769,7 @@ export const cancelOrder = async (req, res) => {
 
     await order.save();
     await reverseOrderRewardPoints(order);
+    void notifyOrderStatusChange(order, previousStatus);
 
     res.status(200).json({
       success: true,

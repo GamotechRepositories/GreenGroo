@@ -53,6 +53,7 @@ import {
   UserManagementStoresPage,
   UserManagementUsersPage,
 } from './pages/ops/UserManagementPage';
+import UserNotificationsPage from './pages/ops/UserNotificationsPage';
 import {
   AssetsZonesPage,
   AssetsStoresPage,
@@ -113,6 +114,7 @@ export default function App() {
               <Route path="delivery-tracking" element={<DeliveryTracking />} />
               <Route path="user-management" element={<UserManagementTypePage />} />
               <Route path="user-management/:accountType" element={<UserManagementZonesPage />} />
+              <Route path="user-management/:accountType/notifications" element={<UserNotificationsPage />} />
               <Route path="user-management/:accountType/zones/:zoneKey" element={<UserManagementStoresPage />} />
               <Route
                 path="user-management/:accountType/zones/:zoneKey/stores/:storeId"

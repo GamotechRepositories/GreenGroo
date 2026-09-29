@@ -80,7 +80,39 @@ async function handleMessagingError(error, userId) {
   return message;
 }
 
-export async function sendToToken(token, { title, body, data = {} }) {
+/**
+ * `notification` + high priority makes Android show the push from the system
+ * tray even when the app is killed; `data` is used for tap navigation.
+ */
+function buildMessage({ title, body, data = {}, imageUrl = "" }) {
+  const image = String(imageUrl || "").trim();
+  return {
+    notification: {
+      title,
+      ...(body ? { body } : {}),
+      ...(image ? { imageUrl: image } : {}),
+    },
+    data: stringifyDataPayload(data),
+    android: {
+      priority: "high",
+      notification: {
+        channelId: ORDERS_CHANNEL_ID,
+        priority: "high",
+        sound: "default",
+        defaultVibrateTimings: true,
+        visibility: "public",
+        ...(image ? { imageUrl: image } : {}),
+      },
+    },
+    apns: {
+      headers: { "apns-priority": "10" },
+      payload: { aps: { sound: "default", "mutable-content": 1 } },
+      ...(image ? { fcmOptions: { imageUrl: image } } : {}),
+    },
+  };
+}
+
+export async function sendToToken(token, { title, body, data = {}, imageUrl = "" }) {
   if (!isValidFcmToken(token)) {
     return { success: false, error: "Invalid FCM token", skipped: true };
   }
@@ -93,18 +125,7 @@ export async function sendToToken(token, { title, body, data = {} }) {
   try {
     const messageId = await messaging.send({
       token: token.trim(),
-      notification: {
-        title,
-        body,
-      },
-      data: stringifyDataPayload(data),
-      android: {
-        priority: "high",
-        notification: {
-          channelId: ORDERS_CHANNEL_ID,
-          priority: "high",
-        },
-      },
+      ...buildMessage({ title, body, data, imageUrl }),
     });
 
     return {
@@ -120,7 +141,7 @@ export async function sendToToken(token, { title, body, data = {} }) {
   }
 }
 
-export async function sendToMultipleTokens(tokens, { title, body, data = {} }) {
+export async function sendToMultipleTokens(tokens, { title, body, data = {}, imageUrl = "" }) {
   const validTokens = [...new Set(tokens.filter(isValidFcmToken).map((token) => token.trim()))];
 
   if (!validTokens.length) {
@@ -140,15 +161,7 @@ export async function sendToMultipleTokens(tokens, { title, body, data = {} }) {
   try {
     const response = await messaging.sendEachForMulticast({
       tokens: validTokens,
-      notification: { title, body },
-      data: stringifyDataPayload(data),
-      android: {
-        priority: "high",
-        notification: {
-          channelId: ORDERS_CHANNEL_ID,
-          priority: "high",
-        },
-      },
+      ...buildMessage({ title, body, data, imageUrl }),
     });
 
     return {
@@ -360,6 +373,32 @@ export async function sendDelivered(order) {
   });
 }
 
+export async function sendOrderCancelled(order) {
+  const ref = orderRef(order);
+  const refund =
+    order?.paymentStatus === "refundable"
+      ? " Your refund will be processed to the original payment method."
+      : "";
+  return deliverToUser(order.user, {
+    title: "Order Cancelled",
+    body: `${ref} has been cancelled.${refund}`,
+    type: "order_cancelled",
+    order,
+    data: buildOrderData(order, { type: "order_cancelled" }),
+  });
+}
+
+export async function sendOrderReturned(order) {
+  const ref = orderRef(order);
+  return deliverToUser(order.user, {
+    title: "Return Update",
+    body: `${ref} has been marked for return. We will keep you posted on the refund.`,
+    type: "order_returned",
+    order,
+    data: buildOrderData(order, { type: "order_returned" }),
+  });
+}
+
 export async function sendPaymentSuccess(order, extra = {}) {
   return deliverToUser(order.user, {
     title: "Payment Received",
@@ -412,6 +451,93 @@ export async function sendCustomNotification(userId, { title, body, type = "cust
     type,
     data: stringifyDataPayload({ ...data, type }),
   });
+}
+
+const MULTICAST_LIMIT = 500;
+const INSERT_CHUNK = 1000;
+// Not "invalid-argument": in a broadcast that can mean a bad payload, not a bad token.
+const DEAD_TOKEN_ERROR_CODES = new Set([
+  "messaging/invalid-registration-token",
+  "messaging/registration-token-not-registered",
+]);
+
+/**
+ * Save an in-app notification for every user and push to all registered
+ * devices using FCM multicast (500 tokens per call), so large audiences are
+ * reached within seconds.
+ */
+export async function broadcastToUsers(users, { title, body, type, data = {}, imageUrl = "" }) {
+  const payloadData = stringifyDataPayload({ ...data, type });
+  const summary = { targetedUsers: users.length, inAppSaved: 0, pushDelivered: 0, pushFailed: 0, noToken: 0 };
+  if (!users.length) return summary;
+
+  const notificationIdByUser = new Map();
+  for (let i = 0; i < users.length; i += INSERT_CHUNK) {
+    const docs = await Notification.insertMany(
+      users.slice(i, i + INSERT_CHUNK).map((user) => ({
+        user: user._id,
+        title,
+        body,
+        type,
+        data: { ...payloadData, ...(imageUrl ? { imageUrl } : {}) },
+        fcmSent: false,
+      })),
+      { ordered: false }
+    );
+    docs.forEach((doc) => notificationIdByUser.set(String(doc.user), doc._id));
+  }
+  summary.inAppSaved = notificationIdByUser.size;
+
+  const withToken = users.filter((user) => isValidFcmToken(user.fcmToken));
+  summary.noToken = users.length - withToken.length;
+  if (!withToken.length) return summary;
+
+  const messaging = getCustomerFirebaseMessaging();
+  if (!messaging) {
+    summary.pushFailed = withToken.length;
+    summary.error = "Customer Firebase messaging is not configured";
+    return summary;
+  }
+
+  const delivered = [];
+  const invalidUsers = [];
+  for (let i = 0; i < withToken.length; i += MULTICAST_LIMIT) {
+    const batch = withToken.slice(i, i + MULTICAST_LIMIT);
+    try {
+      const response = await messaging.sendEachForMulticast({
+        tokens: batch.map((user) => user.fcmToken.trim()),
+        ...buildMessage({ title, body, data: payloadData, imageUrl }),
+      });
+      response.responses.forEach((res, index) => {
+        const user = batch[index];
+        if (res.success) {
+          delivered.push(notificationIdByUser.get(String(user._id)));
+          return;
+        }
+        summary.pushFailed += 1;
+        const code = res.error?.code || res.error?.errorInfo?.code || "";
+        if (DEAD_TOKEN_ERROR_CODES.has(code)) invalidUsers.push(user._id);
+      });
+    } catch (error) {
+      console.error("NotificationService: broadcast batch failed —", error.message);
+      summary.pushFailed += batch.length;
+    }
+  }
+
+  summary.pushDelivered = delivered.length;
+  await Promise.all([
+    delivered.length
+      ? Notification.updateMany({ _id: { $in: delivered.filter(Boolean) } }, { $set: { fcmSent: true } })
+      : null,
+    invalidUsers.length
+      ? User.updateMany(
+          { _id: { $in: invalidUsers } },
+          { $set: { fcmToken: "", lastTokenUpdatedAt: new Date() } }
+        )
+      : null,
+  ]);
+
+  return summary;
 }
 
 export async function sendTestNotification(userId) {

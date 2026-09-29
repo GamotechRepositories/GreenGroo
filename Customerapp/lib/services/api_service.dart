@@ -151,6 +151,9 @@ class ApiService {
         },
       );
 
+  Future<Response<dynamic>> deleteFcmToken() =>
+      _dio.delete('/api/users/fcm-token');
+
   Future<Response<dynamic>> getNotifications({
     int page = 1,
     int limit = 20,

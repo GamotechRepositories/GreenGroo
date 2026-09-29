@@ -16,7 +16,7 @@ const notificationSchema = new mongoose.Schema(
     },
     body: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
       maxlength: 1000,
     },
