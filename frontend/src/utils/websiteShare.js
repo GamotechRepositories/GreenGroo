@@ -66,7 +66,7 @@ export function buildWebsiteShareContent(shareUrl = getWebsiteShareUrl()) {
 export async function getShareableWebsiteFile() {
   const blob = await fetchImageBlob(SITE_SHARE_IMAGE_URL);
   if (!blob) {
-    const localResponse = await fetch("/favicon.png").catch(() => null);
+    const localResponse = await fetch("/assets/payment/favicon.png").catch(() => null);
     if (!localResponse?.ok) return null;
     const localBlob = await localResponse.blob();
     return new File([localBlob], "greengrocc-logo.png", {
