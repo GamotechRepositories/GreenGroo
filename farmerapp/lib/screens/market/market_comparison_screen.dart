@@ -116,7 +116,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF16A34A)),
                       )
                     : const Icon(Icons.sync_rounded, color: Color(0xFF16A34A), size: 22),
-                tooltip: 'ताजे दर आणा (Refresh)',
+                tooltip: AppLanguage().tr(mr: 'ताजे दर आणा', en: 'Refresh'),
                 onPressed: () => service.fetchMarketPrices(),
               ),
             ],
@@ -282,28 +282,28 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                       color: Colors.white.withValues(alpha: 0.2),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Text(
-                                      'LIVE MANDI RATES',
+                                    child: Text(
+                                      AppLanguage().tr(mr: 'थेट मंडी दर', en: 'LIVE MANDI RATES'),
                                       style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                                     ),
                                   ),
                                   const Spacer(),
                                   const Icon(Icons.trending_up_rounded, color: Color(0xFF86EFAC), size: 20),
                                   const SizedBox(width: 4),
-                                  const Text(
-                                    'कमाल नफा संधी',
+                                  Text(
+                                    AppLanguage().tr(mr: 'कमाल नफा संधी', en: 'Maximum Profit Opportunity'),
                                     style: TextStyle(color: Color(0xFF86EFAC), fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 10),
-                              const Text(
-                                'विविध बाजार समित्यांमधील दरांची तुलना',
+                              Text(
+                                AppLanguage().tr(mr: 'विविध बाजार समित्यांमधील दरांची तुलना', en: 'Compare rates across market committees'),
                                 style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 4),
-                              const Text(
-                                'कोणत्या मार्केटला शेतमाल विकल्यास जास्त भाव मिळेल हे खालील डोनट चार्ट व तुलना तक्त्यावरून समजून घ्या.',
+                              Text(
+                                AppLanguage().tr(mr: 'कोणत्या मार्केटला शेतमाल विकल्यास जास्त भाव मिळेल हे खालील डोनट चार्ट व तुलना तक्त्यावरून समजून घ्या.', en: 'See which market gives the best price for your produce using the donut chart and comparison table below.'),
                                 style: TextStyle(color: Color(0xFFDCFCE7), fontSize: 11, height: 1.3),
                               ),
                             ],
@@ -313,8 +313,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                         const SizedBox(height: 16),
 
                         // Product Selection Horizontal Bar
-                        const Text(
-                          'शेतमाल निवडा (Select Product)',
+                        Text(
+                          AppLanguage().tr(mr: 'शेतमाल निवडा', en: 'Select Product'),
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                         ),
                         const SizedBox(height: 8),
@@ -421,13 +421,13 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                           color: Colors.white.withValues(alpha: 0.22),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
-                                        child: const Row(
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text('🌿', style: TextStyle(fontSize: 11)),
                                             SizedBox(width: 4),
                                             Text(
-                                              'GREENGROO थेट खरेदी दर',
+                                              AppLanguage().tr(mr: 'GREENGROO थेट खरेदी दर', en: 'GREENGROO DIRECT PURCHASE RATE'),
                                               style: TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 10.5,
@@ -449,8 +449,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                         ),
                                         child: Text(
                                           selected.greenGrooVsAvgPercent >= 0
-                                              ? '+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% जास्त भाव 📈'
-                                              : '${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% कमी भाव 📉',
+                                              ? AppLanguage().tr(mr: '+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% जास्त भाव 📈', en: '+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% higher price 📈')
+                                              : AppLanguage().tr(mr: '${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% कमी भाव 📉', en: '${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% lower price 📉'),
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 10,
@@ -474,7 +474,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                         ),
                                       ),
                                       Text(
-                                        ' / ${selected.unit}',
+                                        ' / ${AppLanguage().pick(selected.unit)}',
                                         style: const TextStyle(
                                           color: Color(0xFFA7F3D0),
                                           fontSize: 13,
@@ -484,8 +484,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                       const Spacer(),
                                       Text(
                                         selected.greenGrooDiffAmount >= 0
-                                            ? '+₹${selected.greenGrooDiffAmount.toStringAsFixed(0)} जादा नफा'
-                                            : '-₹${selected.greenGrooDiffAmount.abs().toStringAsFixed(0)} फरक',
+                                            ? AppLanguage().tr(mr: '+₹${selected.greenGrooDiffAmount.toStringAsFixed(0)} जादा नफा', en: '+₹${selected.greenGrooDiffAmount.toStringAsFixed(0)} extra profit')
+                                            : AppLanguage().tr(mr: '-₹${selected.greenGrooDiffAmount.abs().toStringAsFixed(0)} फरक', en: '-₹${selected.greenGrooDiffAmount.abs().toStringAsFixed(0)} difference'),
                                         style: const TextStyle(
                                           color: Color(0xFFD1FAE5),
                                           fontSize: 12,
@@ -495,8 +495,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 6),
-                                  const Text(
-                                    '✓ थेट बांधावरून खरेदी • ०% कमिशन • २४ तासांत खात्यात थेट पेमेंट • बाजार समितीपेक्षा हमीभाव',
+                                  Text(
+                                    AppLanguage().tr(mr: '✓ थेट बांधावरून खरेदी • ०% कमिशन • २४ तासांत खात्यात थेट पेमेंट • बाजार समितीपेक्षा हमीभाव', en: '✓ Direct farm-gate purchase • 0% commission • Payment to your account within 24 hours • Assured price above market committee'),
                                     style: TextStyle(
                                       color: Color(0xFFD1FAE5),
                                       fontSize: 10.5,
@@ -536,9 +536,9 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                       Row(
                                         crossAxisAlignment: CrossAxisAlignment.center,
                                         children: [
-                                          const Expanded(
+                                          Expanded(
                                             child: Text(
-                                              'सर्वाधिक फायदेशीर बाजार समिती',
+                                              AppLanguage().tr(mr: 'सर्वाधिक फायदेशीर बाजार समिती', en: 'Most Profitable Market'),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
@@ -553,7 +553,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈',
+                                                AppLanguage().tr(mr: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% जास्त भाव 📈', en: '+${selected.bestAdvantagePercent.toStringAsFixed(1)}% higher price 📈'),
                                                 style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                               ),
                                             ),
@@ -568,8 +568,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                       const SizedBox(height: 3),
                                       Text(
                                         selected.markets.length > 1
-                                            ? 'कमाल दर ₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit} (इतर बाजारांपेक्षा ₹${(selected.maxPrice - selected.minPrice).toStringAsFixed(0)} जास्त)'
-                                            : 'दर ₹${selected.maxPrice.toStringAsFixed(0)}/${selected.unit} (तुलनेसाठी एकच बाजार)',
+                                            ? AppLanguage().tr(mr: 'कमाल दर ₹${selected.maxPrice.toStringAsFixed(0)}/${AppLanguage().pick(selected.unit)} (इतर बाजारांपेक्षा ₹${(selected.maxPrice - selected.minPrice).toStringAsFixed(0)} जास्त)', en: 'Max rate ₹${selected.maxPrice.toStringAsFixed(0)}/${AppLanguage().pick(selected.unit)} (₹${(selected.maxPrice - selected.minPrice).toStringAsFixed(0)} higher than other markets)')
+                                            : AppLanguage().tr(mr: 'दर ₹${selected.maxPrice.toStringAsFixed(0)}/${AppLanguage().pick(selected.unit)} (तुलनेसाठी एकच बाजार)', en: 'Rate ₹${selected.maxPrice.toStringAsFixed(0)}/${AppLanguage().pick(selected.unit)} (only one market to compare)'),
                                         style: const TextStyle(fontSize: 11, color: Color(0xFF334155), fontWeight: FontWeight.w500),
                                       ),
                                     ],
@@ -608,7 +608,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                           const SizedBox(width: 6),
                                           Expanded(
                                             child: Text(
-                                              '${selected.productName} — बाजार तुलना Donut Chart',
+                                              AppLanguage().tr(mr: '${selected.productName} — बाजार तुलना डोनट चार्ट', en: '${selected.productName} — Market Comparison Donut Chart'),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
@@ -625,7 +625,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
-                                        '${selected.markets.length} बाजार',
+                                        AppLanguage().tr(mr: '${selected.markets.length} बाजार', en: '${selected.markets.length} Markets'),
                                         style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                                       ),
                                     ),
@@ -663,8 +663,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                                   color: Color(0xFF16A34A),
                                                 ),
                                               ),
-                                              const Text(
-                                                'कमाल दर',
+                                              Text(
+                                                AppLanguage().tr(mr: 'कमाल दर', en: 'Max Rate'),
                                                 style: TextStyle(
                                                   fontSize: 9,
                                                   fontWeight: FontWeight.bold,
@@ -727,7 +727,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                                   Text(
                                                     m.percentHigher > 0
                                                         ? '(+${m.percentHigher.toStringAsFixed(1)}%)'
-                                                        : '(Base)',
+                                                        : AppLanguage().tr(mr: '(आधार)', en: '(Base)'),
                                                     style: TextStyle(
                                                       fontSize: 9,
                                                       fontWeight: FontWeight.bold,
@@ -750,8 +750,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                           const SizedBox(height: 16),
 
                           // Detailed Markets Comparison Cards
-                          const Text(
-                            'सर्व बाजारांमधील दर व तुलना तपशील',
+                          Text(
+                            AppLanguage().tr(mr: 'सर्व बाजारांमधील दर व तुलना तपशील', en: 'Rates & comparison across all markets'),
                             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                           ),
                           const SizedBox(height: 8),
@@ -846,8 +846,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                                   color: const Color(0xFFDCFCE7),
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
-                                                child: const Text(
-                                                  '★ सर्वोच्च भाव',
+                                                child: Text(
+                                                  AppLanguage().tr(mr: '★ सर्वोच्च भाव', en: '★ Highest Price'),
                                                   style: TextStyle(color: Color(0xFF16A34A), fontSize: 9.5, fontWeight: FontWeight.bold),
                                                 ),
                                               ),
@@ -857,8 +857,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                         const SizedBox(height: 2),
                                         Text(
                                           isGg
-                                              ? 'GreenGroo थेट शेतकरी खरेदी हमीभाव • ०% कमिशन'
-                                              : 'किमान: ₹${m.minPrice.toStringAsFixed(0)} • कमाल: ₹${m.maxPrice.toStringAsFixed(0)} • ${m.district}',
+                                              ? AppLanguage().tr(mr: 'GreenGroo थेट शेतकरी खरेदी हमीभाव • ०% कमिशन', en: 'GreenGroo direct farmer purchase assured price • 0% commission')
+                                              : AppLanguage().tr(mr: 'किमान: ₹${m.minPrice.toStringAsFixed(0)} • कमाल: ₹${m.maxPrice.toStringAsFixed(0)} • ${m.district}', en: 'Min: ₹${m.minPrice.toStringAsFixed(0)} • Max: ₹${m.maxPrice.toStringAsFixed(0)} • ${m.district}'),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
@@ -899,8 +899,8 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                           ),
                                           child: Text(
                                             selected.greenGrooVsAvgPercent >= 0
-                                                ? '+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% जास्त भाव'
-                                                : '${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% कमी भाव',
+                                                ? AppLanguage().tr(mr: '+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% जास्त भाव', en: '+${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% higher price')
+                                                : AppLanguage().tr(mr: '${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% कमी भाव', en: '${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}% lower price'),
                                             style: TextStyle(
                                               fontSize: 9.5,
                                               fontWeight: FontWeight.bold,
@@ -921,7 +921,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                                             ),
                                           ),
                                           child: Text(
-                                            m.percentHigher > 0 ? '+${m.percentHigher.toStringAsFixed(1)}% जास्त' : 'Base Rate',
+                                            m.percentHigher > 0 ? AppLanguage().tr(mr: '+${m.percentHigher.toStringAsFixed(1)}% जास्त', en: '+${m.percentHigher.toStringAsFixed(1)}% higher') : AppLanguage().tr(mr: 'आधार दर', en: 'Base Rate'),
                                             style: TextStyle(
                                               fontSize: 9.5,
                                               fontWeight: FontWeight.bold,
@@ -951,15 +951,15 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _dateFilterChip(0, 'आजचे दर (Today)'),
+          _dateFilterChip(0, AppLanguage().tr(mr: 'आजचे दर', en: 'Today')),
           const SizedBox(width: 6),
-          _dateFilterChip(1, 'कालचे दर (Yesterday)'),
+          _dateFilterChip(1, AppLanguage().tr(mr: 'कालचे दर', en: 'Yesterday')),
           const SizedBox(width: 6),
-          _dateFilterChip(2, '२ दिवस आधी (2 Days)'),
+          _dateFilterChip(2, AppLanguage().tr(mr: '२ दिवस आधी', en: '2 Days')),
           const SizedBox(width: 6),
           _buildCustomDatePickerChip(),
           const SizedBox(width: 6),
-          _dateFilterChip(3, 'सर्व दिवस (All Dates)'),
+          _dateFilterChip(3, AppLanguage().tr(mr: 'सर्व दिवस', en: 'All Dates')),
         ],
       ),
     );
@@ -1024,7 +1024,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
             Text(
               isSel && _customDate != null
                   ? '${_customDate!.day}/${_customDate!.month}/${_customDate!.year}'
-                  : '📅 तारीख निवडा (Select Date)',
+                  : AppLanguage().tr(mr: '📅 तारीख निवडा', en: '📅 Select Date'),
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: isSel ? FontWeight.bold : FontWeight.w600,

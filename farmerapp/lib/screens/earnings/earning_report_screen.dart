@@ -56,7 +56,7 @@ class EarningReportScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '$label copied: $text',
+                AppLanguage().tr(mr: '$label कॉपी केले: $text', en: '$label copied: $text'),
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
@@ -132,7 +132,7 @@ class EarningReportScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Invoice · INV-${order.orderCode}',
+          AppLanguage().tr(mr: 'बीजक · INV-${order.orderCode}', en: 'Invoice · INV-${order.orderCode}'),
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -142,7 +142,7 @@ class EarningReportScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.visibility_outlined, color: Color(0xFF217346), size: 20),
-            tooltip: 'View / Preview Invoice',
+            tooltip: AppLanguage().tr(mr: 'बीजक पहा', en: 'View / Preview Invoice'),
             onPressed: () {
               Navigator.push(
                 context,
@@ -160,7 +160,7 @@ class EarningReportScreen extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.share_outlined, color: Color(0xFF217346), size: 20),
-            tooltip: 'Share Receipt',
+            tooltip: AppLanguage().tr(mr: 'पावती शेअर करा', en: 'Share Receipt'),
             onPressed: () async {
               try {
                 await InvoicePdfService.shareReceipt(
@@ -176,8 +176,8 @@ class EarningReportScreen extends StatelessWidget {
                     SnackBar(
                       content: Text(
                         e.toString().contains('MissingPluginException')
-                            ? 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.'
-                            : 'Failed to share: $e',
+                            ? AppLanguage().tr(mr: 'नवीन PDF प्लगइनसाठी कृपया ॲप पूर्णपणे पुन्हा सुरू करा.', en: 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.')
+                            : AppLanguage().tr(mr: 'शेअर करता आले नाही: $e', en: 'Failed to share: $e'),
                       ),
                       backgroundColor: const Color(0xFFDC2626),
                       duration: const Duration(seconds: 4),
@@ -189,7 +189,7 @@ class EarningReportScreen extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.download_outlined, color: Color(0xFF217346), size: 20),
-            tooltip: 'Download PDF',
+            tooltip: AppLanguage().tr(mr: 'PDF डाउनलोड करा', en: 'Download PDF'),
             onPressed: () async {
               try {
                 await InvoicePdfService.downloadPdf(
@@ -205,8 +205,8 @@ class EarningReportScreen extends StatelessWidget {
                     SnackBar(
                       content: Text(
                         e.toString().contains('MissingPluginException')
-                            ? 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.'
-                            : 'Failed to generate PDF: $e',
+                            ? AppLanguage().tr(mr: 'नवीन PDF प्लगइनसाठी कृपया ॲप पूर्णपणे पुन्हा सुरू करा.', en: 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.')
+                            : AppLanguage().tr(mr: 'PDF तयार करता आली नाही: $e', en: 'Failed to generate PDF: $e'),
                       ),
                       backgroundColor: const Color(0xFFDC2626),
                       duration: const Duration(seconds: 4),
@@ -237,8 +237,8 @@ class EarningReportScreen extends StatelessWidget {
                     children: [
                       const Icon(Icons.arrow_back, size: 13, color: Color(0xFF217346)),
                       const SizedBox(width: 4),
-                      const Text(
-                        'Back to Earning Statement',
+                      Text(
+                        AppLanguage().tr(mr: 'उत्पन्न विवरणाकडे परत', en: 'Back to Earning Statement'),
                         style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
                       ),
                       const SizedBox(width: 4),
@@ -381,8 +381,8 @@ class EarningReportScreen extends StatelessWidget {
                               SnackBar(
                                 content: Text(
                                   e.toString().contains('MissingPluginException')
-                                      ? 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.'
-                                      : 'Failed to share receipt: $e',
+                                      ? AppLanguage().tr(mr: 'नवीन PDF प्लगइनसाठी कृपया ॲप पूर्णपणे पुन्हा सुरू करा.', en: 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.')
+                                      : AppLanguage().tr(mr: 'पावती शेअर करता आली नाही: $e', en: 'Failed to share receipt: $e'),
                                 ),
                                 backgroundColor: const Color(0xFFDC2626),
                                 duration: const Duration(seconds: 4),
@@ -420,8 +420,8 @@ class EarningReportScreen extends StatelessWidget {
                               SnackBar(
                                 content: Text(
                                   e.toString().contains('MissingPluginException')
-                                      ? 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.'
-                                      : 'Failed to download PDF: $e',
+                                      ? AppLanguage().tr(mr: 'नवीन PDF प्लगइनसाठी कृपया ॲप पूर्णपणे पुन्हा सुरू करा.', en: 'Please restart the app (press R or stop and flutter run) to compile newly added PDF plugin.')
+                                      : AppLanguage().tr(mr: 'PDF डाउनलोड करता आली नाही: $e', en: 'Failed to download PDF: $e'),
                                 ),
                                 backgroundColor: const Color(0xFFDC2626),
                                 duration: const Duration(seconds: 4),
@@ -558,7 +558,7 @@ class EarningReportScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     InkWell(
-                      onTap: () => _copyToClipboard(context, 'INV-${order.orderCode}', 'Invoice ID'),
+                      onTap: () => _copyToClipboard(context, 'INV-${order.orderCode}', AppLanguage().tr(mr: 'बीजक क्रमांक', en: 'Invoice ID')),
                       borderRadius: BorderRadius.circular(4),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 0.5),
@@ -580,15 +580,15 @@ class EarningReportScreen extends StatelessWidget {
                       ),
                     ),
                     InkWell(
-                      onTap: () => _copyToClipboard(context, order.orderCode, 'Order ID'),
+                      onTap: () => _copyToClipboard(context, order.orderCode, AppLanguage().tr(mr: 'ऑर्डर क्रमांक', en: 'Order ID')),
                       borderRadius: BorderRadius.circular(4),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 0.5),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Order ID: ',
+                            Text(
+                              AppLanguage().tr(mr: 'ऑर्डर क्रमांक: ', en: 'Order ID: '),
                               style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
                             ),
                             Flexible(
@@ -606,7 +606,7 @@ class EarningReportScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Date: ${_formatShortDate(order.pickupDate)}',
+                      AppLanguage().tr(mr: 'तारीख: ${_formatShortDate(order.pickupDate)}', en: 'Date: ${_formatShortDate(order.pickupDate)}'),
                       style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
                     ),
                   ],
@@ -625,7 +625,7 @@ class EarningReportScreen extends StatelessWidget {
             border: Border.all(color: isPaid ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
           ),
           child: Text(
-            isPaid ? '✓ Paid' : '⏳ Pending',
+            isPaid ? AppLanguage().tr(mr: '✓ पैसे मिळाले', en: '✓ Paid') : AppLanguage().tr(mr: '⏳ प्रलंबित', en: '⏳ Pending'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w900,
@@ -657,13 +657,13 @@ class EarningReportScreen extends StatelessWidget {
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Text('👨‍🌾', style: TextStyle(fontSize: 11)),
                     SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Farmer (Supplier / Payee)',
+                        AppLanguage().tr(mr: 'शेतकरी (पुरवठादार / प्राप्तकर्ता)', en: 'Farmer (Supplier / Payee)'),
                         style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF065F46), letterSpacing: 0.2),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -672,10 +672,10 @@ class EarningReportScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              _buildInfoRow('Farmer Name', farmerName),
-              _buildCopyableInfoRow(context, 'Farmer ID', farmerId),
-              _buildInfoRow('Mobile Number', mobile),
-              _buildInfoRow('Village / Location', location),
+              _buildInfoRow(AppLanguage().tr(mr: 'शेतकऱ्याचे नाव', en: 'Farmer Name'), farmerName),
+              _buildCopyableInfoRow(context, AppLanguage().tr(mr: 'शेतकरी ओळख क्रमांक', en: 'Farmer ID'), farmerId),
+              _buildInfoRow(AppLanguage().tr(mr: 'मोबाईल क्रमांक', en: 'Mobile Number'), mobile),
+              _buildInfoRow(AppLanguage().tr(mr: 'गाव / ठिकाण', en: 'Village / Location'), location),
             ],
           ),
         ),
@@ -692,13 +692,13 @@ class EarningReportScreen extends StatelessWidget {
                 decoration: const BoxDecoration(
                   border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Text('🏬', style: TextStyle(fontSize: 11)),
                     SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Collection Centre (Received At)',
+                        AppLanguage().tr(mr: 'संकलन केंद्र (प्राप्त ठिकाण)', en: 'Collection Centre (Received At)'),
                         style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF065F46), letterSpacing: 0.2),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -707,10 +707,10 @@ class EarningReportScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              _buildInfoRow('Centre Name', order.collectionCentre),
-              _buildCopyableInfoRow(context, 'Centre ID', order.collectionCentreId),
-              _buildInfoRow('Inspected By', order.inspectorName),
-              _buildInfoRow('Weighbridge Status', order.weighbridgeStatus),
+              _buildInfoRow(AppLanguage().tr(mr: 'केंद्राचे नाव', en: 'Centre Name'), order.collectionCentre),
+              _buildCopyableInfoRow(context, AppLanguage().tr(mr: 'केंद्र क्रमांक', en: 'Centre ID'), order.collectionCentreId),
+              _buildInfoRow(AppLanguage().tr(mr: 'तपासणी करणारे', en: 'Inspected By'), order.inspectorName),
+              _buildInfoRow(AppLanguage().tr(mr: 'वजनकाटा स्थिती', en: 'Weighbridge Status'), order.weighbridgeStatus),
             ],
           ),
         ),
@@ -804,7 +804,7 @@ class EarningReportScreen extends StatelessWidget {
     final dt = _parseAnyDate(raw);
     if (dt == null) return 'Monday';
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return days[(dt.weekday - 1) % 7];
+    return AppLanguage().pick(days[(dt.weekday - 1) % 7]);
   }
 
   String _formatOrderTime(String? raw) {
@@ -827,7 +827,7 @@ class EarningReportScreen extends StatelessWidget {
   // --- 4. Produce & Order Specifications ---
   Widget _buildProduceSpecs(BuildContext context) {
     final crop = order.cropName.isNotEmpty ? order.cropName : (order.productName.isNotEmpty ? order.productName : productTitle);
-    final varName = order.variety.isNotEmpty ? order.variety : 'Standard Grade';
+    final varName = order.variety.isNotEmpty ? order.variety : AppLanguage().tr(mr: 'मानक ग्रेड', en: 'Standard Grade');
 
     // 1. Order Date, Time, Day
     final orderDateStr = _formatFullDate(order.createdAt, fallback: order.pickupDate.isNotEmpty ? order.pickupDate : '07/09/2026');
@@ -837,7 +837,7 @@ class EarningReportScreen extends StatelessWidget {
     // 2. Pickup Date, Time Slot, Day
     final pickupDateStr = _formatFullDate(order.pickupDate, fallback: '08/09/2026');
     final pickupDayStr = _getDayName(order.pickupDate);
-    final pickupSlotStr = order.pickupSlot.isNotEmpty ? order.pickupSlot : 'Morning 8:00 AM';
+    final pickupSlotStr = order.pickupSlot.isNotEmpty ? order.pickupSlot : AppLanguage().tr(mr: 'सकाळी 8:00', en: 'Morning 8:00 AM');
 
     // 3. Received Date, Time, Day
     final receivedDateStr = pickupDateStr;
@@ -850,12 +850,12 @@ class EarningReportScreen extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'PRODUCE & ORDER SPECIFICATIONS',
+            Text(
+              AppLanguage().tr(mr: 'शेतमाल व ऑर्डर तपशील', en: 'PRODUCE & ORDER SPECIFICATIONS'),
               style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF334155), letterSpacing: 0.3),
             ),
             InkWell(
-              onTap: () => _copyToClipboard(context, order.orderCode, 'Batch / Order ID'),
+              onTap: () => _copyToClipboard(context, order.orderCode, AppLanguage().tr(mr: 'बॅच / ऑर्डर क्रमांक', en: 'Batch / Order ID')),
               borderRadius: BorderRadius.circular(4),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -868,7 +868,7 @@ class EarningReportScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Batch: ${order.orderCode}',
+                      AppLanguage().tr(mr: 'बॅच: ${order.orderCode}', en: 'Batch: ${order.orderCode}'),
                       style: const TextStyle(fontSize: 8.5, fontFamily: 'monospace', fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                     ),
                     const SizedBox(width: 3),
@@ -888,8 +888,8 @@ class EarningReportScreen extends StatelessWidget {
           children: [
             TableRow(
               children: [
-                _buildSpecCell('Produce / Crop', crop),
-                _buildSpecCell('Variety', varName),
+                _buildSpecCell(AppLanguage().tr(mr: 'शेतमाल / पीक', en: 'Produce / Crop'), crop),
+                _buildSpecCell(AppLanguage().tr(mr: 'वाण', en: 'Variety'), varName),
               ],
             ),
             TableRow(
@@ -1020,8 +1020,8 @@ class EarningReportScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'GRADE-WISE QUALITY SETTLEMENT & VALUATION',
+        Text(
+          AppLanguage().tr(mr: 'ग्रेडनुसार गुणवत्ता हिशोब व मूल्यांकन', en: 'GRADE-WISE QUALITY SETTLEMENT & VALUATION'),
           style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: 0.3),
         ),
         const SizedBox(height: 6),
@@ -1043,7 +1043,7 @@ class EarningReportScreen extends StatelessWidget {
                     Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'मागणी\nप्रमाण', en: 'ORDERED\nQTY'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
                     Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'नाकारलेले\nप्रमाण', en: 'REJECTED\nQTY'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
                     Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'अंतिम\nप्रमाण', en: 'FINAL\nQTY'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
-                    Expanded(flex: 2, child: Text('${AppLanguage().tr(mr: 'दर', en: 'RATE')}\n/ \${unit.toUpperCase()}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Expanded(flex: 2, child: Text('${AppLanguage().tr(mr: 'दर', en: 'RATE')}\n/ ${AppLanguage().tr(mr: AppLanguage().pick(unit), en: unit.toUpperCase())}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
                     Expanded(flex: 3, child: Text(AppLanguage().tr(mr: 'एकूण\nरक्कम (₹)', en: 'TOTAL\nAMOUNT (₹)'), textAlign: TextAlign.right, style: const TextStyle(fontSize: 8.0, height: 1.1, fontWeight: FontWeight.w900, color: Colors.white))),
                   ],
                 ),
@@ -1164,14 +1164,14 @@ class EarningReportScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'PAYMENT & SETTLEMENT STATUS',
+              Text(
+                AppLanguage().tr(mr: 'पेमेंट व हिशोब स्थिती', en: 'PAYMENT & SETTLEMENT STATUS'),
                 style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF065F46), letterSpacing: 0.3),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Status: ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                  Text(AppLanguage().tr(mr: 'स्थिती: ', en: 'Status: '), style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                   Text(
                     isPaid ? 'PAID' : 'PENDING',
                     style: TextStyle(
@@ -1193,21 +1193,21 @@ class EarningReportScreen extends StatelessWidget {
             children: [
               TableRow(
                 children: [
-                  _buildPaymentCell('Net Payable Amount', '₹ ${_formatCurrency(totalNetAmt)}', isBigGreen: true),
-                  _buildPaymentCell('Payment Method', isPaid ? 'Direct Bank Transfer (IMPS)' : 'Direct Bank Transfer (Pending)'),
+                  _buildPaymentCell(AppLanguage().tr(mr: 'निव्वळ देय रक्कम', en: 'Net Payable Amount'), '₹ ${_formatCurrency(totalNetAmt)}', isBigGreen: true),
+                  _buildPaymentCell(AppLanguage().tr(mr: 'पेमेंट पद्धत', en: 'Payment Method'), isPaid ? AppLanguage().tr(mr: 'थेट बँक हस्तांतरण (IMPS)', en: 'Direct Bank Transfer (IMPS)') : AppLanguage().tr(mr: 'थेट बँक हस्तांतरण (प्रलंबित)', en: 'Direct Bank Transfer (Pending)')),
                 ],
               ),
               TableRow(
                 children: [
-                  _buildCopyablePaymentCell(context, 'Transaction ID / UTR', txnId),
-                  _buildPaymentCell('Settlement Date', settlementDate),
+                  _buildCopyablePaymentCell(context, AppLanguage().tr(mr: 'व्यवहार क्रमांक / UTR', en: 'Transaction ID / UTR'), txnId),
+                  _buildPaymentCell(AppLanguage().tr(mr: 'हिशोब तारीख', en: 'Settlement Date'), settlementDate),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Notes: Quality settlement processed and credited to farmer bank account.',
+          Text(
+            AppLanguage().tr(mr: 'टीप: गुणवत्ता हिशोब पूर्ण होऊन रक्कम शेतकऱ्याच्या बँक खात्यात जमा झाली.', en: 'Notes: Quality settlement processed and credited to farmer bank account.'),
             style: TextStyle(fontSize: 8.5, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
           ),
         ],
@@ -1288,17 +1288,17 @@ class EarningReportScreen extends StatelessWidget {
     if (order.gradeAQty > 0 || gARej > 0 || order.orderedQuantity >= 200) {
       gradeCards.add(
         _buildSingleGradeQualityCard(
-          gradeLabel: 'Grade A',
+          gradeLabel: AppLanguage().tr(mr: 'ग्रेड A', en: 'Grade A'),
           dotColor: const Color(0xFF059669),
           rejectedQty: gARej,
-          rejectionReason: 'None',
+          rejectionReason: AppLanguage().tr(mr: 'काही नाही', en: 'None'),
           params: [
-            {'label': 'Freshness', 'val': 'Excellent'},
-            {'label': 'Size', 'val': 'Uniform'},
-            {'label': 'Moisture', 'val': 'Normal'},
-            {'label': 'Damage', 'val': 'None'},
-            {'label': 'Cleanliness', 'val': 'Clean'},
-            {'label': 'Overall', 'val': 'Excellent'},
+            {'label': AppLanguage().tr(mr: 'ताजेपणा', en: 'Freshness'), 'val': AppLanguage().tr(mr: 'उत्कृष्ट', en: 'Excellent')},
+            {'label': AppLanguage().tr(mr: 'आकार', en: 'Size'), 'val': AppLanguage().tr(mr: 'एकसारखा', en: 'Uniform')},
+            {'label': AppLanguage().tr(mr: 'ओलावा', en: 'Moisture'), 'val': AppLanguage().tr(mr: 'सामान्य', en: 'Normal')},
+            {'label': AppLanguage().tr(mr: 'नुकसान', en: 'Damage'), 'val': AppLanguage().tr(mr: 'काही नाही', en: 'None')},
+            {'label': AppLanguage().tr(mr: 'स्वच्छता', en: 'Cleanliness'), 'val': AppLanguage().tr(mr: 'स्वच्छ', en: 'Clean')},
+            {'label': AppLanguage().tr(mr: 'एकूण', en: 'Overall'), 'val': AppLanguage().tr(mr: 'उत्कृष्ट', en: 'Excellent')},
           ],
         ),
       );
@@ -1308,17 +1308,17 @@ class EarningReportScreen extends StatelessWidget {
     if (order.gradeBQty > 0 || gBRej > 0 || order.orderedQuantity >= 80) {
       gradeCards.add(
         _buildSingleGradeQualityCard(
-          gradeLabel: 'Grade B',
+          gradeLabel: AppLanguage().tr(mr: 'ग्रेड B', en: 'Grade B'),
           dotColor: const Color(0xFF1E40AF),
           rejectedQty: gBRej,
-          rejectionReason: 'Damaged',
+          rejectionReason: AppLanguage().tr(mr: 'खराब', en: 'Damaged'),
           params: [
-            {'label': 'Freshness', 'val': 'Good'},
-            {'label': 'Size', 'val': 'Medium'},
-            {'label': 'Moisture', 'val': 'Normal'},
-            {'label': 'Damage', 'val': 'Minor'},
-            {'label': 'Cleanliness', 'val': 'Clean'},
-            {'label': 'Overall', 'val': 'Commercial'},
+            {'label': AppLanguage().tr(mr: 'ताजेपणा', en: 'Freshness'), 'val': AppLanguage().tr(mr: 'चांगला', en: 'Good')},
+            {'label': AppLanguage().tr(mr: 'आकार', en: 'Size'), 'val': AppLanguage().tr(mr: 'मध्यम', en: 'Medium')},
+            {'label': AppLanguage().tr(mr: 'ओलावा', en: 'Moisture'), 'val': AppLanguage().tr(mr: 'सामान्य', en: 'Normal')},
+            {'label': AppLanguage().tr(mr: 'नुकसान', en: 'Damage'), 'val': AppLanguage().tr(mr: 'किरकोळ', en: 'Minor')},
+            {'label': AppLanguage().tr(mr: 'स्वच्छता', en: 'Cleanliness'), 'val': AppLanguage().tr(mr: 'स्वच्छ', en: 'Clean')},
+            {'label': AppLanguage().tr(mr: 'एकूण', en: 'Overall'), 'val': AppLanguage().tr(mr: 'व्यावसायिक', en: 'Commercial')},
           ],
         ),
       );
@@ -1328,17 +1328,17 @@ class EarningReportScreen extends StatelessWidget {
     if (order.gradeCQty > 0 || gCRej > 0) {
       gradeCards.add(
         _buildSingleGradeQualityCard(
-          gradeLabel: 'Grade C',
+          gradeLabel: AppLanguage().tr(mr: 'ग्रेड C', en: 'Grade C'),
           dotColor: const Color(0xFF92400E),
           rejectedQty: gCRej,
-          rejectionReason: 'Sub-Standard',
+          rejectionReason: AppLanguage().tr(mr: 'निकृष्ट दर्जा', en: 'Sub-Standard'),
           params: [
-            {'label': 'Freshness', 'val': 'Fair'},
-            {'label': 'Size', 'val': 'Variable'},
-            {'label': 'Moisture', 'val': 'Normal'},
-            {'label': 'Damage', 'val': 'High'},
-            {'label': 'Cleanliness', 'val': 'Sorted'},
-            {'label': 'Overall', 'val': 'Standard'},
+            {'label': AppLanguage().tr(mr: 'ताजेपणा', en: 'Freshness'), 'val': AppLanguage().tr(mr: 'ठीक', en: 'Fair')},
+            {'label': AppLanguage().tr(mr: 'आकार', en: 'Size'), 'val': AppLanguage().tr(mr: 'बदलता', en: 'Variable')},
+            {'label': AppLanguage().tr(mr: 'ओलावा', en: 'Moisture'), 'val': AppLanguage().tr(mr: 'सामान्य', en: 'Normal')},
+            {'label': AppLanguage().tr(mr: 'नुकसान', en: 'Damage'), 'val': AppLanguage().tr(mr: 'जास्त', en: 'High')},
+            {'label': AppLanguage().tr(mr: 'स्वच्छता', en: 'Cleanliness'), 'val': AppLanguage().tr(mr: 'वर्गीकृत', en: 'Sorted')},
+            {'label': AppLanguage().tr(mr: 'एकूण', en: 'Overall'), 'val': AppLanguage().tr(mr: 'मानक', en: 'Standard')},
           ],
         ),
       );
@@ -1347,8 +1347,8 @@ class EarningReportScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'QUALITY INSPECTION PARAMETERS & QUALITY REMARKS',
+        Text(
+          AppLanguage().tr(mr: 'गुणवत्ता तपासणी निकष व शेरा', en: 'QUALITY INSPECTION PARAMETERS & QUALITY REMARKS'),
           style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF334155), letterSpacing: 0.3),
         ),
         const SizedBox(height: 8),
@@ -1364,11 +1364,11 @@ class EarningReportScreen extends StatelessWidget {
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: RichText(
-            text: const TextSpan(
+            text: TextSpan(
               style: TextStyle(fontSize: 9, color: Color(0xFF475569)),
               children: [
-                TextSpan(text: 'Inspector Remarks: ', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                TextSpan(text: 'Quality verified and graded according to GreenGrocc standards.'),
+                TextSpan(text: AppLanguage().tr(mr: 'तपासणीकर्त्याचा शेरा: ', en: 'Inspector Remarks: '), style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                TextSpan(text: AppLanguage().tr(mr: 'GreenGrocc मानकांनुसार गुणवत्ता तपासून ग्रेड दिली.', en: 'Quality verified and graded according to GreenGrocc standards.')),
               ],
             ),
           ),
@@ -1404,7 +1404,7 @@ class EarningReportScreen extends StatelessWidget {
                   Container(width: 6, height: 6, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
                   const SizedBox(width: 5),
                   Text(
-                    '$gradeLabel Parameters',
+                    AppLanguage().tr(mr: '$gradeLabel निकष', en: '$gradeLabel Parameters'),
                     style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                   ),
                 ],
@@ -1418,7 +1418,7 @@ class EarningReportScreen extends StatelessWidget {
                     border: Border.all(color: const Color(0xFFFCA5A5), width: 0.7),
                   ),
                   child: Text(
-                    'Rejected: ${rejectedQty.toStringAsFixed(0)} $unit ($rejectionReason)',
+                    AppLanguage().tr(mr: 'नाकारले: ${rejectedQty.toStringAsFixed(0)} $unit ($rejectionReason)', en: 'Rejected: ${rejectedQty.toStringAsFixed(0)} $unit ($rejectionReason)'),
                     style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
                   ),
                 ),
@@ -1463,13 +1463,13 @@ class EarningReportScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFF86EFAC)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.verified, size: 14, color: Color(0xFF166534)),
             SizedBox(width: 4),
             Text(
-              'Verified Quality Seal · GreenGrocc',
+              AppLanguage().tr(mr: 'पडताळलेली गुणवत्ता मोहोर · GreenGrocc', en: 'Verified Quality Seal · GreenGrocc'),
               style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
             ),
           ],
@@ -1501,7 +1501,7 @@ class InvoicePdfPreviewScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         title: Text(
-          'View Invoice · INV-${order.orderCode}',
+          AppLanguage().tr(mr: 'बीजक पहा · INV-${order.orderCode}', en: 'View Invoice · INV-${order.orderCode}'),
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -1518,7 +1518,7 @@ class InvoicePdfPreviewScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined, color: Color(0xFF217346), size: 20),
-            tooltip: 'Share Receipt',
+            tooltip: AppLanguage().tr(mr: 'पावती शेअर करा', en: 'Share Receipt'),
             onPressed: () async {
               await InvoicePdfService.shareReceipt(
                 order: order,

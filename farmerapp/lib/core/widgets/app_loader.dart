@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../../services/app_language.dart';
 
 /// Centered spinner used while a screen is waiting on backend data.
 class AppLoader extends StatelessWidget {
-  const AppLoader({super.key, this.message = 'लोड होत आहे...'});
+  const AppLoader({super.key, this.message});
 
-  final String message;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +24,7 @@ class AppLoader extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              message,
+              message ?? AppLanguage().tr(mr: 'लोड होत आहे...', en: 'Loading...'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 12.5, color: AppColors.muted, fontWeight: FontWeight.w600),
             ),

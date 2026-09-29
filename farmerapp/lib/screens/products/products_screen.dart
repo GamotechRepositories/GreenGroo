@@ -399,13 +399,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
-                          'No products yet',
+                        Text(
+                          AppLanguage().tr(mr: 'अजून उत्पादने नाहीत', en: 'No products yet'),
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                         ),
                         const SizedBox(height: 3),
-                        const Text(
-                          'Create a product from a crop to start listing harvest.',
+                        Text(
+                          AppLanguage().tr(mr: 'विक्री सुरू करण्यासाठी पिकापासून उत्पादन तयार करा.', en: 'Create a product from a crop to start listing harvest.'),
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                         ),
@@ -469,12 +469,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
         statusColor = const Color(0xFF64748B);
       }
 
-      final pName = product.productName.isNotEmpty ? product.productName : 'Product';
+      final pName = product.productName.isNotEmpty ? product.productName : AppLanguage().tr(mr: 'उत्पादन', en: 'Product');
       final pVariety = product.variety;
       final pBid = product.displayBusinessId;
       final pStock = product.stockQuantity;
       final pUnit = product.unit.isNotEmpty ? product.unit : 'Kg';
-      final pHarvest = product.harvestDate.isNotEmpty ? product.harvestDate : 'Available';
+      final pHarvest = product.harvestDate.isNotEmpty ? product.harvestDate : AppLanguage().tr(mr: 'उपलब्ध', en: 'Available');
 
       return Container(
         padding: const EdgeInsets.all(14),

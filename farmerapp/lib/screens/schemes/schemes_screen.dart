@@ -715,7 +715,7 @@ class _SchemesScreenState extends State<SchemesScreen> {
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
                               label: Text(
-                                cat == 'All Schemes' ? lang.tr(mr: 'सर्व योजना', en: 'All Schemes') : cat,
+                                cat == 'All Schemes' ? lang.tr(mr: 'सर्व योजना', en: 'All Schemes') : lang.pick(cat),
                                 style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : AppColors.text),
                               ),
                               selected: isSelected,
@@ -1247,7 +1247,7 @@ class _SchemeCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${lang.tr(mr: 'स्थिती', en: 'Status')}: ${app.status.toUpperCase()}',
+              AppLanguage().tr(mr: '${lang.tr(mr: 'स्थिती', en: 'Status')}: ${AppLanguage().pick(app.status)}', en: '${lang.tr(mr: 'स्थिती', en: 'Status')}: ${app.status.toUpperCase()}'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             if (app.adminNotes.isNotEmpty) ...[
@@ -1347,7 +1347,7 @@ class _SchemeCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            '${lang.tr(mr: 'वर्ग', en: 'Category')}: ${scheme.category}',
+                            AppLanguage().tr(mr: '${lang.tr(mr: 'वर्ग', en: 'Category')}: ${AppLanguage().pick(scheme.category)}', en: '${lang.tr(mr: 'वर्ग', en: 'Category')}: ${scheme.category}'),
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                           ),
                         ),
@@ -1539,7 +1539,7 @@ class _ApplicationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      application.schemeCategory.isNotEmpty ? application.schemeCategory : 'Government Scheme',
+                      application.schemeCategory.isNotEmpty ? application.schemeCategory : AppLanguage().tr(mr: 'शासकीय योजना', en: 'Government Scheme'),
                       style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
                     ),
                   ],

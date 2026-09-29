@@ -99,7 +99,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           ),
           body: SafeArea(
             child: !FarmerState().documentsReady
-                ? const AppLoader(message: 'कागदपत्रे लोड होत आहेत...')
+                ? AppLoader(message: AppLanguage().tr(mr: 'कागदपत्रे लोड होत आहेत...', en: 'Loading documents...'))
                 : RefreshIndicator(
               color: const Color(0xFF217346),
               onRefresh: () async {
@@ -153,21 +153,21 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                               children: [
                                 Text(
                                   isAllVerified
-                                      ? 'शेतकरी केवायसी प्रमाणित (100% Verified)'
+                                      ? AppLanguage().tr(mr: 'शेतकरी केवायसी प्रमाणित', en: 'Farmer KYC 100% Verified')
                                       : (pendingCount > 0
-                                          ? 'व्हेंडर पडताळणी चालू (Vendor Review Pending)'
+                                          ? AppLanguage().tr(mr: 'व्हेंडर पडताळणी चालू', en: 'Vendor Review Pending')
                                           : (rejectedCount > 0
-                                              ? 'काही कागदपत्रे अमान्य आहेत (Action Needed)'
+                                              ? AppLanguage().tr(mr: 'काही कागदपत्रे अमान्य आहेत', en: 'Some documents rejected - action needed')
                                               : (uploadedDocs.isNotEmpty
-                                                  ? 'कागदपत्रे अपलोड केली आहेत (Uploaded)'
-                                                  : 'केवायसी कागदपत्रे प्रलंबित (Upload Required)'))),
+                                                  ? AppLanguage().tr(mr: 'कागदपत्रे अपलोड केली आहेत', en: 'Documents uploaded')
+                                                  : AppLanguage().tr(mr: 'केवायसी कागदपत्रे प्रलंबित', en: 'KYC documents required')))),
                                   style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   uploadedDocs.isEmpty
-                                      ? 'केवायसी पडताळणीसाठी खालील बटणावर दाबून कागदपत्र अपलोड करा.'
-                                      : '${uploadedDocs.length} अपलोड केलेली कागदपत्रे • $approvedCount मंजूर • $pendingCount पडताळणी चालू${rejectedCount > 0 ? ' • $rejectedCount अमान्य' : ''}',
+                                      ? AppLanguage().tr(mr: 'केवायसी पडताळणीसाठी खालील बटणावर दाबून कागदपत्र अपलोड करा.', en: 'Tap the button below to upload documents for KYC verification.')
+                                      : AppLanguage().tr(mr: '${uploadedDocs.length} अपलोड केलेली कागदपत्रे • $approvedCount मंजूर • $pendingCount पडताळणी चालू${rejectedCount > 0 ? ' • $rejectedCount अमान्य' : ''}', en: '${uploadedDocs.length} documents uploaded • $approvedCount approved • $pendingCount under review${rejectedCount > 0 ? ' • $rejectedCount rejected' : ''}'),
                                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                                 ),
                               ],
@@ -182,7 +182,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'अपलोड केलेली कागदपत्रे (${uploadedDocs.length})',
+                          AppLanguage().tr(mr: 'अपलोड केलेली कागदपत्रे (${uploadedDocs.length})', en: 'Uploaded Documents (${uploadedDocs.length})'),
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.text),
                         ),
                         TextButton.icon(
@@ -218,7 +218,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                           const Icon(Icons.upload_file_rounded, size: 18, color: Color(0xFF217346)),
                           const SizedBox(width: 6),
                           Text(
-                            'आवश्यक कागदपत्रे - अपलोड करा (${pendingDocs.length})',
+                            AppLanguage().tr(mr: 'आवश्यक कागदपत्रे - अपलोड करा (${pendingDocs.length})', en: 'Required Documents - Upload (${pendingDocs.length})'),
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                           ),
                         ],
@@ -280,8 +280,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'कागदपत्र निवडा (Select Document)',
+                    Text(
+                      AppLanguage().tr(mr: 'कागदपत्र निवडा', en: 'Select Document'),
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                     ),
                     IconButton(
@@ -290,8 +290,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     ),
                   ],
                 ),
-                const Text(
-                  'अपलोड करण्यासाठी खालीलपैकी कागदपत्राचा प्रकार निवडा:',
+                Text(
+                  AppLanguage().tr(mr: 'अपलोड करण्यासाठी खालीलपैकी कागदपत्राचा प्रकार निवडा:', en: 'Select the type of document to upload:'),
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 12),
@@ -319,7 +319,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                           ),
                         ),
                         title: Text(
-                          '${doc.title} (${doc.marathiTitle})',
+                          doc.displayTitle,
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                         subtitle: Text(
@@ -537,7 +537,7 @@ class _DocumentCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${doc.title} डाउनलोड / सेव्ह पर्याय उघडला! ✓'),
+            content: Text(AppLanguage().tr(mr: '${doc.displayTitle} डाउनलोड / सेव्ह पर्याय उघडला! ✓', en: '${doc.displayTitle} download / save options opened! ✓')),
             backgroundColor: const Color(0xFF217346),
           ),
         );
@@ -546,7 +546,7 @@ class _DocumentCard extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('डाउनलोड करताना त्रुटी: $e'),
+            content: Text(AppLanguage().tr(mr: 'डाउनलोड करताना त्रुटी: $e', en: 'Download error: $e')),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -580,19 +580,15 @@ class _DocumentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  doc.title,
+                  doc.displayTitle,
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                Text(
-                  doc.marathiTitle,
-                  style: const TextStyle(fontSize: 11, color: Colors.white70),
                 ),
               ],
             ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.download_rounded, color: Colors.white),
-                tooltip: 'Download / Share',
+                tooltip: AppLanguage().tr(mr: 'डाउनलोड / शेअर', en: 'Download / Share'),
                 onPressed: () => _downloadDocument(context),
               ),
               IconButton(
@@ -636,7 +632,7 @@ class _DocumentCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          doc.marathiTitle,
+                          doc.displayTitle,
                           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                         ),
                         const SizedBox(height: 16),
@@ -705,7 +701,7 @@ class _DocumentCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              doc.marathiTitle,
+                              doc.displayTitle,
                               style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                             ),
                             const SizedBox(height: 16),
@@ -795,8 +791,7 @@ class _DocumentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(doc.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  Text(doc.marathiTitle, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                  Text(doc.displayTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -925,10 +920,10 @@ class _DocumentCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     doc.status == 'approved'
-                        ? 'Approved by Vendor (व्हेंडर मंजूर ✓)'
+                        ? AppLanguage().tr(mr: 'व्हेंडर मंजूर ✓', en: 'Approved by Vendor ✓')
                         : (doc.status == 'pending'
-                            ? 'Under Review (व्हेंडर पडताळणी चालू ⏳)'
-                            : (doc.status == 'rejected' ? 'Rejected by Vendor (व्हेंडर अमान्य ❌)' : 'Not Uploaded (अपलोड बाकी ⚠️)')),
+                            ? AppLanguage().tr(mr: 'व्हेंडर पडताळणी चालू ⏳', en: 'Under Review ⏳')
+                            : (doc.status == 'rejected' ? AppLanguage().tr(mr: 'व्हेंडर अमान्य ❌', en: 'Rejected by Vendor ❌') : AppLanguage().tr(mr: 'अपलोड बाकी ⚠️', en: 'Not Uploaded ⚠️'))),
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       fontSize: 11.5,
@@ -985,7 +980,7 @@ class _DocumentCard extends StatelessWidget {
                   if (hasFile) ...[
                     IconButton(
                       icon: const Icon(Icons.visibility_outlined, size: 20, color: Color(0xFF2563EB)),
-                      tooltip: 'View Document',
+                      tooltip: AppLanguage().tr(mr: 'कागदपत्र पहा', en: 'View Document'),
                       onPressed: () {
                         Navigator.pop(ctx);
                         _openFullScreenView(context);
@@ -993,7 +988,7 @@ class _DocumentCard extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF059669)),
-                      tooltip: 'Download / Share',
+                      tooltip: AppLanguage().tr(mr: 'डाउनलोड / शेअर', en: 'Download / Share'),
                       onPressed: () {
                         Navigator.pop(ctx);
                         _downloadDocument(context);
@@ -1168,7 +1163,7 @@ class _DocumentCard extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          doc.title,
+                          doc.displayTitle,
                           style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.text),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1185,10 +1180,6 @@ class _DocumentCard extends StatelessWidget {
                         ),
                       ],
                     ],
-                  ),
-                  Text(
-                    doc.marathiTitle,
-                    style: const TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                   const SizedBox(height: 4),
                   Container(
@@ -1248,8 +1239,8 @@ class _DocumentCard extends StatelessWidget {
               ),
               label: Text(
                 doc.type == 'video_kyc'
-                    ? (isNotUploaded ? 'व्हिडिओ केवायसी' : (isApproved ? 'पुन्हा केवायसी' : 'अपडेट केवायसी'))
-                    : (isNotUploaded ? 'अपलोड' : (isApproved ? 'बदला' : 'अपडेट')),
+                    ? (isNotUploaded ? AppLanguage().tr(mr: 'व्हिडिओ केवायसी', en: 'Video KYC') : (isApproved ? AppLanguage().tr(mr: 'पुन्हा केवायसी', en: 'Redo KYC') : AppLanguage().tr(mr: 'अपडेट केवायसी', en: 'Update KYC')))
+                    : (isNotUploaded ? AppLanguage().tr(mr: 'अपलोड', en: 'Upload') : (isApproved ? AppLanguage().tr(mr: 'बदला', en: 'Change') : AppLanguage().tr(mr: 'अपडेट', en: 'Update'))),
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
               ),
               onPressed: () => _uploadDocumentPhoto(context),
@@ -1303,14 +1294,9 @@ class _PendingDocumentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    doc.title,
+                    doc.displayTitle,
                     style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.text),
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    doc.marathiTitle,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
                 ],
               ),

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../constants/app_colors.dart';
 
+import '../../services/app_language.dart';
 /// Decoded bytes of inline base64 images, reused across rebuilds. Handing
 /// Image.memory the same Uint8List instance lets Flutter's ImageCache hit
 /// instead of decoding the picture again on every rebuild.
@@ -78,7 +79,7 @@ class AppImageWidget extends StatelessWidget {
           borderRadius: borderRadius ?? BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFFECACA)),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -86,7 +87,7 @@ class AppImageWidget extends StatelessWidget {
               Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
               SizedBox(height: 2),
               Text(
-                'PDF DOC',
+                AppLanguage().tr(mr: 'PDF कागदपत्र', en: 'PDF DOC'),
                 style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
               ),
             ],
@@ -195,12 +196,14 @@ class AppImageWidget extends StatelessWidget {
 Future<void> showAppPhotoPicker(
   BuildContext context, {
   required ValueChanged<String> onPhotoSelected,
-  String title = 'फोटो / डॉक्युमेंट निवडा (Upload)',
-  String subtitle = 'कॅमेऱ्याने फोटो काढा, गॅलरी किंवा PDF फाईल निवडा',
+  String? title,
+  String? subtitle,
   String? presetCategory,
   bool allowPdf = true,
   bool allowSamples = true,
 }) async {
+  final String sheetTitle = title ?? AppLanguage().tr(mr: 'फोटो / डॉक्युमेंट निवडा', en: 'Upload Photo / Document');
+  final String sheetSubtitle = subtitle ?? AppLanguage().tr(mr: 'कॅमेऱ्याने फोटो काढा, गॅलरी किंवा PDF फाईल निवडा', en: 'Take a photo, choose from gallery or pick a PDF file');
   final ImagePicker picker = ImagePicker();
 
   void onPickFailed(Object error) {
@@ -211,7 +214,7 @@ Future<void> showAppPhotoPicker(
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('फाईल निवडता आली नाही. पुन्हा प्रयत्न करा. ($error)'),
+        content: Text(AppLanguage().tr(mr: 'फाईल निवडता आली नाही. पुन्हा प्रयत्न करा. ($error)', en: 'Could not pick the file. Please try again. ($error)')),
         backgroundColor: const Color(0xFFDC2626),
       ),
     );
@@ -289,12 +292,12 @@ Future<void> showAppPhotoPicker(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title,
+                        sheetTitle,
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        subtitle,
+                        sheetSubtitle,
                         style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                       ),
                     ],
@@ -320,8 +323,8 @@ Future<void> showAppPhotoPicker(
                 ),
                 child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF059669), size: 22),
               ),
-              title: const Text('Live Camera Photo (कॅमेरा वापरा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-              subtitle: const Text('कॅमेऱ्याने लाईव्ह फोटो क्लिक करा (Live Camera Click)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              title: Text(AppLanguage().tr(mr: 'कॅमेरा वापरा', en: 'Live Camera Photo'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              subtitle: Text(AppLanguage().tr(mr: 'कॅमेऱ्याने लाईव्ह फोटो क्लिक करा', en: 'Live Camera Click'), style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -341,8 +344,8 @@ Future<void> showAppPhotoPicker(
                 ),
                 child: const Icon(Icons.photo_library_rounded, color: Color(0xFF2563EB), size: 22),
               ),
-              title: const Text('Choose from Gallery (गॅलरी निवडा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-              subtitle: const Text('मोबाईलमधील सेव्ह असलेला फोटो अपलोड करा (JPG, PNG)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              title: Text(AppLanguage().tr(mr: 'गॅलरी निवडा', en: 'Choose from Gallery'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              subtitle: Text(AppLanguage().tr(mr: 'मोबाईलमधील सेव्ह असलेला फोटो अपलोड करा (JPG, PNG)', en: 'Upload a saved photo from your phone (JPG, PNG)'), style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -363,8 +366,8 @@ Future<void> showAppPhotoPicker(
                   ),
                   child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFDC2626), size: 22),
                 ),
-                title: const Text('Upload PDF File (PDF फाईल अपलोड करा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF991B1B))),
-                subtitle: const Text('मोबाईलमधील ७/१२, ८-अ, केवायसी PDF कागदपत्र निवडा', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                title: Text(AppLanguage().tr(mr: 'PDF फाईल अपलोड करा', en: 'Upload PDF File'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF991B1B))),
+                subtitle: Text(AppLanguage().tr(mr: 'मोबाईलमधील ७/१२, ८-अ, केवायसी PDF कागदपत्र निवडा', en: 'Choose a 7/12, 8A or KYC PDF document from your phone'), style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -385,8 +388,8 @@ Future<void> showAppPhotoPicker(
                 ),
                 child: const Icon(Icons.collections_rounded, color: Color(0xFF7E22CE), size: 22),
               ),
-              title: const Text('Sample Presets / Web URL (नमुना किंवा URL)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-              subtitle: const Text('नमुना कागदपत्र किंवा डायरेक्ट URL द्वारे जोडा', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              title: Text(AppLanguage().tr(mr: 'नमुना किंवा URL', en: 'Sample Presets / Web URL'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              subtitle: Text(AppLanguage().tr(mr: 'नमुना कागदपत्र किंवा डायरेक्ट URL द्वारे जोडा', en: 'Add via a sample document or direct URL'), style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
               trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
               onTap: () {
                 Navigator.pop(ctx);
@@ -408,26 +411,26 @@ void _showFallbackDialog(
   final urlController = TextEditingController();
 
   final presets = [
-    {'title': 'Tomato (टोमॅटो)', 'url': 'https://images.unsplash.com/photo-1592841200221-a6898f307baa?w=500'},
-    {'title': 'Onion (कांदा)', 'url': 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=500'},
-    {'title': 'Brinjal (वांगी)', 'url': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=500'},
-    {'title': 'Farm Field (शेत/मळा)', 'url': 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=500'},
-    {'title': 'Vegetables (भाजीपाला)', 'url': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=500'},
-    {'title': 'Green Crop (पीक)', 'url': 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=500'},
-    {'title': 'Document / KYC (कागदपत्र)', 'url': 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500'},
+    {'title': AppLanguage().tr(mr: 'टोमॅटो', en: 'Tomato'), 'url': 'https://images.unsplash.com/photo-1592841200221-a6898f307baa?w=500'},
+    {'title': AppLanguage().tr(mr: 'कांदा', en: 'Onion'), 'url': 'https://images.unsplash.com/photo-1580201092675-a0a6a6cafbb1?w=500'},
+    {'title': AppLanguage().tr(mr: 'वांगी', en: 'Brinjal'), 'url': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=500'},
+    {'title': AppLanguage().tr(mr: 'शेत/मळा', en: 'Farm Field'), 'url': 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=500'},
+    {'title': AppLanguage().tr(mr: 'भाजीपाला', en: 'Vegetables'), 'url': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=500'},
+    {'title': AppLanguage().tr(mr: 'पीक', en: 'Green Crop'), 'url': 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=500'},
+    {'title': AppLanguage().tr(mr: 'कागदपत्र', en: 'Document / KYC'), 'url': 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=500'},
   ];
 
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Row(
+      title: Row(
         children: [
           Icon(Icons.add_photo_alternate_outlined, color: Color(0xFF217346)),
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Sample Photo / URL (फोटो निवडा)',
+              AppLanguage().tr(mr: 'फोटो निवडा', en: 'Sample Photo / URL'),
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
           ),
@@ -438,8 +441,8 @@ void _showFallbackDialog(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Choose a sample photo below or paste an image URL:',
+            Text(
+              AppLanguage().tr(mr: 'खालील नमुना फोटो निवडा किंवा फोटो URL टाका:', en: 'Choose a sample photo below or paste an image URL:'),
               style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 12),
@@ -462,8 +465,8 @@ void _showFallbackDialog(
               }).toList(),
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Or enter Image URL / Base64:',
+            Text(
+              AppLanguage().tr(mr: 'किंवा फोटो URL / Base64 टाका:', en: 'Or enter Image URL / Base64:'),
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
             ),
             const SizedBox(height: 6),
@@ -485,7 +488,7 @@ void _showFallbackDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+          child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: Color(0xFF64748B))),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -500,7 +503,7 @@ void _showFallbackDialog(
             }
             Navigator.pop(ctx);
           },
-          child: const Text('Apply Photo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          child: Text(AppLanguage().tr(mr: 'फोटो लावा', en: 'Apply Photo'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
       ],
     ),

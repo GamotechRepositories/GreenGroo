@@ -92,14 +92,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, _) {
         final state = FarmerState();
 
-        // Shimmer Skeleton Loader while initializing/loading from backend
-        final isInitialLoading = !state.isPreferencesLoaded ||
-            state.isLoadingFromBackend ||
-            !state.dashboardReady;
-
-        if (isInitialLoading) {
+        if (!state.isPreferencesLoaded) {
           return const _DashboardSkeletonLoader();
         }
+        final overviewReady = state.productsReady && state.cropsReady && state.ordersReady;
 
         final profile = state.profile;
         final crops = state.crops;
@@ -138,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Real formatted metric values
         final totalProductsVal = '${products.length}';
         final harvestOrdersVal = '${liveOrders.length}';
-        final totalStockVal = totalStock > 0 ? '${totalStock.toStringAsFixed(0)} Kg' : '0 Kg';
+        final totalStockVal = totalStock > 0 ? AppLanguage().tr(mr: '${totalStock.toStringAsFixed(0)} किलो', en: '${totalStock.toStringAsFixed(0)} Kg') : AppLanguage().tr(mr: '0 किलो', en: '0 Kg');
 
         // Real pickup orders (STRICTLY only show when driver is assigned)
         final pickupOrders = liveOrders.where((o) {
@@ -215,8 +211,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'GreenGrocc Farmer',
+                      Text(
+                        AppLanguage().tr(mr: 'GreenGrocc शेतकरी', en: 'GreenGrocc Farmer'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -268,8 +264,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           body: RefreshIndicator(
             color: const Color(0xFF16A34A),
+            edgeOffset: topPadding + kToolbarHeight,
             onRefresh: () => Future.wait([
-              FarmerState().refresh(),
+              FarmerState().refreshDashboard(),
               MarketPriceService().fetchMarketPrices(),
             ]),
             child: SingleChildScrollView(
@@ -329,10 +326,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         // Hero Content positioned neatly below navbar
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                            16,
+                            12,
                             topPadding + kToolbarHeight + 4,
-                            16,
-                            14,
+                            12,
+                            10,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,8 +407,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: _MarketPriceComparisonDonutCard(),
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _MarketPriceComparisonDonutCard(),
+                  ),
                 ),
 
 // 4. 📊 REAL FARM OVERVIEW (शेत थेट आढावा)
@@ -424,8 +424,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   marathiActionLabel: 'तपशील पहा',
                   onAction: () => MainShell.setTab(context, 3),
                 ),
+                if (!overviewReady)
+                  const _SectionSkeleton(height: 78)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
                       Expanded(
@@ -481,8 +484,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   marathiActionLabel: 'सर्व ऑर्डर्स →',
                   onAction: () => MainShell.setTab(context, 2),
                 ),
+                if (!state.ordersReady)
+                  const _SectionSkeleton(height: 230)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _OrderStatusBaChart(
                     orders: liveOrders,
                   ),
@@ -495,10 +501,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: 'Upcoming Pickup',
                   marathiTitle: 'आगामी वाहन उचल',
                 ),
+                if (!state.ordersReady)
+                  const _SectionSkeleton(height: 150)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -572,13 +581,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           const SizedBox(height: 2),
                                           Text(
                                             vehicleNo.isNotEmpty
-                                                ? '$vehicleNo • ${phoneToCall.isNotEmpty ? phoneToCall : "ड्रायव्हर"}'
+                                                ? AppLanguage().tr(mr: '$vehicleNo • ${phoneToCall.isNotEmpty ? phoneToCall : "ड्रायव्हर"}', en: '$vehicleNo • ${phoneToCall.isNotEmpty ? phoneToCall : "Driver"}')
                                                 : (phoneToCall.isNotEmpty ? '📞 $phoneToCall' : AppLanguage().tr(mr: 'ड्रायव्हर असाइन केला आहे', en: 'Driver Assigned')),
                                             style: const TextStyle(fontSize: 11, color: Color(0xFF4B5563), fontWeight: FontWeight.w500),
                                           ),
                                           const SizedBox(height: 1),
                                           Text(
-                                            'Order #${currentPickup.orderCode.isNotEmpty ? currentPickup.orderCode : currentPickup.id}',
+                                            AppLanguage().tr(mr: 'ऑर्डर #${currentPickup.orderCode.isNotEmpty ? currentPickup.orderCode : currentPickup.id}', en: 'Order #${currentPickup.orderCode.isNotEmpty ? currentPickup.orderCode : currentPickup.id}'),
                                             style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF), fontWeight: FontWeight.w600),
                                           ),
                                         ],
@@ -592,7 +601,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         border: Border.all(color: const Color(0xFFBFDBFE)),
                                       ),
                                       child: Text(
-                                        driverStatus,
+                                        AppLanguage().pick(driverStatus),
                                         style: const TextStyle(
                                           color: Color(0xFF1D4ED8),
                                           fontSize: 10,
@@ -602,7 +611,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                                 const Divider(height: 1, color: Color(0xFFF3F4F6)),
                                 const SizedBox(height: 10),
 
@@ -690,7 +699,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
 
                                 // Action Buttons (Call Driver & View Order Details)
                                 Row(
@@ -763,7 +772,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(fontSize: 10.5, color: Color(0xFF6B7280), height: 1.3),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF16A34A),
@@ -793,8 +802,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   marathiActionLabel: 'पासबुक पहा →',
                   onAction: () => MainShell.setTab(context, 3),
                 ),
+                if (!state.ordersReady)
+                  const _SectionSkeleton(height: 160)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _EarningsCardsWithFilter(
                     settledOrders: settledOrders,
                     liveOrders: liveOrders,
@@ -808,8 +820,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: 'Earnings Trend',
                   marathiTitle: 'उत्पन्न कल',
                 ),
+                if (!state.ordersReady)
+                  const _SectionSkeleton(height: 220)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _EarningsTrendLineChart(
                     orders: settledOrders,
                     totalEarned: totalEarned,
@@ -824,8 +839,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: 'Product Rejection %',
                   marathiTitle: 'नाकारलेले शेतमाल',
                 ),
+                if (!state.productsReady || !state.ordersReady)
+                  const _SectionSkeleton(height: 220)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _ProductRejectionRateChart(
                     products: products,
                     orders: liveOrders,
@@ -839,8 +857,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: 'Crop Production',
                   marathiTitle: 'पिकानुसार उत्पादन',
                 ),
+                if (!state.cropsReady)
+                  const _SectionSkeleton(height: 200)
+                else
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: _CropProductionBarChart(
                     crops: crops,
                   ),
@@ -856,11 +877,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   marathiActionLabel: 'सर्व योजना →',
                   onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SchemesScreen())),
                 ),
+                if (!state.schemesReady)
+                  const _SectionSkeleton(height: 140)
+                else
                 SizedBox(
                   height: 140,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     children: state.schemes.isNotEmpty
                         ? state.schemes.take(4).map((s) => _SchemeMiniCard(
                               title: s.title,
@@ -912,7 +936,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 36),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
                   child: InkWell(
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                     borderRadius: BorderRadius.circular(14),
@@ -1013,7 +1037,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         : null;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -1692,7 +1716,7 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
     final currentSum = pointsData.fold<double>(0.0, (acc, item) => acc + item.amount);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -1736,11 +1760,11 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.trending_up_rounded, size: 13, color: Color(0xFF16A34A)),
                     SizedBox(width: 3),
                     Text(
-                      'Live Trend',
+                      AppLanguage().tr(mr: 'थेट कल', en: 'Live Trend'),
                       style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
                     ),
                   ],
@@ -1749,7 +1773,7 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Date Filter Pills
           SingleChildScrollView(
@@ -1769,7 +1793,7 @@ class _EarningsTrendLineChartState extends State<_EarningsTrendLineChart> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Line Chart
           SizedBox(
@@ -1924,7 +1948,7 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -2002,7 +2026,7 @@ class _OrderStatusBaChartState extends State<_OrderStatusBaChart> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Bar Chart Columns
           SizedBox(
@@ -2134,18 +2158,18 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
     if (widget.products.isEmpty && widget.orders.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Column(
-          children: const [
+          children: [
             Icon(Icons.donut_large_rounded, size: 30, color: Color(0xFF94A3B8)),
             SizedBox(height: 6),
             Text(
-              'कोणतीही उत्पादने किंवा ऑर्डर्स नोंदवलेली नाहीत',
+              AppLanguage().tr(mr: 'कोणतीही उत्पादने किंवा ऑर्डर्स नोंदवलेली नाहीत', en: 'No products or orders recorded'),
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
             ),
           ],
@@ -2242,7 +2266,7 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -2377,7 +2401,7 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
 
           // Donut Chart + Percent Breakdown
           Row(
@@ -2482,7 +2506,7 @@ class _ProductRejectionRateChartState extends State<_ProductRejectionRateChart> 
                               ),
                             ),
                             Text(
-                              hasRejection ? '${item.rejected.toStringAsFixed(0)} Kg (${item.rate.toStringAsFixed(1)}%)' : '०%',
+                              hasRejection ? AppLanguage().tr(mr: '${item.rejected.toStringAsFixed(0)} किलो (${item.rate.toStringAsFixed(1)}%)', en: '${item.rejected.toStringAsFixed(0)} Kg (${item.rate.toStringAsFixed(1)}%)') : AppLanguage().tr(mr: '०%', en: '0%'),
                               style: TextStyle(
                                 fontSize: 8.5,
                                 fontWeight: hasRejection ? FontWeight.bold : FontWeight.normal,
@@ -2766,18 +2790,18 @@ class _CropProductionBarChart extends StatelessWidget {
     if (crops.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Column(
-          children: const [
+          children: [
             Icon(Icons.grass_outlined, size: 30, color: Color(0xFF94A3B8)),
             SizedBox(height: 6),
             Text(
-              'अद्याप कोणतीही पिके नोंदवलेली नाहीत',
+              AppLanguage().tr(mr: 'अद्याप कोणतीही पिके नोंदवलेली नाहीत', en: 'No crops recorded yet'),
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF374151)),
             ),
           ],
@@ -2789,7 +2813,7 @@ class _CropProductionBarChart extends StatelessWidget {
     final maxAcreage = crops.fold<double>(0.1, (acc, c) => c.acreage > acc ? c.acreage : acc);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -2828,13 +2852,13 @@ class _CropProductionBarChart extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           ...crops.map((c) {
             final pct = totalAcreage > 0 ? (c.acreage / totalAcreage * 100) : 0.0;
             final ratio = maxAcreage > 0 ? (c.acreage / maxAcreage).clamp(0.05, 1.0) : 0.05;
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2952,9 +2976,30 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
           fallbackDate = service.latestDate;
           comparisons = service.getComparisons(date: fallbackDate);
         }
+        if (comparisons.isEmpty && service.isLoading) {
+          return _SkeletonShimmer(
+            child: Container(
+              height: 200,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _skeletonBox(width: 120, height: 12, borderRadius: 4),
+                  const SizedBox(height: 10),
+                  Expanded(child: _skeletonBox(width: double.infinity, borderRadius: 10)),
+                ],
+              ),
+            ),
+          );
+        }
         if (comparisons.isEmpty) {
           return Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -2963,7 +3008,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
             child: Column(
               children: [
                 _buildDateSelectorRow(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 const Icon(Icons.storefront_outlined, size: 28, color: Color(0xFF94A3B8)),
                 const SizedBox(height: 8),
                 Text(
@@ -3012,7 +3057,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
         }).toList();
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -3132,7 +3177,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
 
               // Donut Chart + Market Percent breakdown
               Row(
@@ -3229,7 +3274,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
                                         : '(${selected.greenGrooVsAvgPercent.toStringAsFixed(1)}%)')
                                     : (m.percentHigher > 0
                                         ? '(+${m.percentHigher.toStringAsFixed(1)}%)'
-                                        : '(Base)'),
+                                        : AppLanguage().tr(mr: '(आधार)', en: '(Base)')),
                                 style: TextStyle(
                                   fontSize: 8,
                                   fontWeight: FontWeight.bold,
@@ -3368,6 +3413,38 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
 // ==========================================
 // 🌟 SKELETON SHIMMER LOADER FOR FAST DASHBOARD
 // ==========================================
+/// Placeholder for a single dashboard section whose data has not loaded yet.
+class _SectionSkeleton extends StatelessWidget {
+  final double height;
+  const _SectionSkeleton({required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: _SkeletonShimmer(
+        child: Container(
+          height: height,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _skeletonBox(width: 120, height: 12, borderRadius: 4),
+              const SizedBox(height: 10),
+              Expanded(child: _skeletonBox(width: double.infinity, borderRadius: 10)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SkeletonShimmer extends StatefulWidget {
   final Widget child;
   const _SkeletonShimmer({required this.child});

@@ -69,7 +69,7 @@ class EarningsScreenState extends State<EarningsScreen> {
           {
             'id': 'overview',
             'sheetId': 'overview',
-            'title': 'Summary Overview',
+            'title': AppLanguage().tr(mr: 'सारांश आढावा', en: 'Summary Overview'),
             'icon': '📊',
             'badge': products.length,
             'isOverview': true,
@@ -179,7 +179,7 @@ class EarningsScreenState extends State<EarningsScreen> {
               title: Text(
                 currentSheet['isOverview'] == true
                     ? lang.tr(mr: 'उत्पन्न हिशोब', en: 'Earning Statement')
-                    : 'Sheet · ${currentSheet['title'] ?? 'Produce'}',
+                    : AppLanguage().tr(mr: 'शीट · ${currentSheet['title'] ?? 'उत्पादन'}', en: 'Sheet · ${currentSheet['title'] ?? 'Produce'}'),
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -489,8 +489,7 @@ class EarningsScreenState extends State<EarningsScreen> {
     if (raw == null || raw.isEmpty) return '—';
     final dt = _parseAnyDate(raw);
     if (dt == null) return raw.isNotEmpty ? raw : '—';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-    final mName = months[(dt.month - 1) % 12];
+    final mName = AppLanguage().monthShort(dt.month);
     final dayStr = dt.day.toString().padLeft(2, '0');
     return '$dayStr $mName ${dt.year}';
   }
@@ -500,7 +499,7 @@ class EarningsScreenState extends State<EarningsScreen> {
     final dt = _parseAnyDate(raw);
     if (dt == null) return '';
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return dayNames[(dt.weekday - 1) % 7];
+    return AppLanguage().pick(dayNames[(dt.weekday - 1) % 7]);
   }
 
   String _parsePickupTime(String? raw) {
@@ -542,12 +541,12 @@ class EarningsScreenState extends State<EarningsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Icon(Icons.copy_outlined, size: 13, color: Color(0xFF475569)),
                 SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    'Duplicate Sheet',
+                    AppLanguage().tr(mr: 'शीटची प्रत बनवा', en: 'Duplicate Sheet'),
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -573,12 +572,12 @@ class EarningsScreenState extends State<EarningsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Icon(Icons.download_outlined, size: 13, color: Color(0xFF217346)),
                 SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    'Export Sheet',
+                    AppLanguage().tr(mr: 'शीट निर्यात करा', en: 'Export Sheet'),
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -604,12 +603,12 @@ class EarningsScreenState extends State<EarningsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Icon(Icons.add, size: 14),
                 SizedBox(width: 3),
                 Flexible(
                   child: Text(
-                    'New Sheet',
+                    AppLanguage().tr(mr: 'नवीन शीट', en: 'New Sheet'),
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -647,9 +646,9 @@ class EarningsScreenState extends State<EarningsScreen> {
           TableRow(
             decoration: const BoxDecoration(color: Color(0xFFE8F0EA)),
             children: [
-              _buildSummaryHeaderCell('Total ₹'),
-              _buildSummaryHeaderCell('Deposited ₹'),
-              _buildSummaryHeaderCell('Pending ₹'),
+              _buildSummaryHeaderCell(AppLanguage().tr(mr: 'एकूण ₹', en: 'Total ₹')),
+              _buildSummaryHeaderCell(AppLanguage().tr(mr: 'जमा ₹', en: 'Deposited ₹')),
+              _buildSummaryHeaderCell(AppLanguage().tr(mr: 'प्रलंबित ₹', en: 'Pending ₹')),
             ],
           ),
           // Values Row
@@ -716,7 +715,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                 children: allSheets.map((sheet) {
                   final isActive = sheet['id'] == _activeSheetId;
                   final String rawTitle = sheet['title']?.toString() ?? '';
-                  final String title = rawTitle.isNotEmpty ? rawTitle : 'Produce';
+                  final String title = rawTitle.isNotEmpty ? rawTitle : AppLanguage().tr(mr: 'उत्पादन', en: 'Produce');
 
                   return GestureDetector(
                     onTap: () {
@@ -967,7 +966,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                                       border: Border.all(color: const Color(0xFFA7F3D0)),
                                     ),
                                     child: Text(
-                                      '📄 $openCount Sheet${openCount == 1 ? '' : 's'}',
+                                      AppLanguage().tr(mr: '📄 $openCount शीट', en: '📄 $openCount Sheet${openCount == 1 ? '' : 's'}'),
                                       style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
                                     ),
                                   ),
@@ -979,7 +978,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                                     border: Border.all(color: const Color(0xFFBBF7D0)),
                                   ),
                                   child: Text(
-                                    product.status.isNotEmpty ? product.status : 'Active',
+                                    AppLanguage().pick(product.status.isNotEmpty ? product.status : 'Active'),
                                     style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
                                   ),
                                 ),
@@ -1026,7 +1025,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('PRODUCT ID', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                                Text(AppLanguage().tr(mr: 'उत्पादन क्रमांक', en: 'PRODUCT ID'), style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                                 const SizedBox(height: 1),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -1058,9 +1057,9 @@ class EarningsScreenState extends State<EarningsScreen> {
                     // Row 2: Harvest Date | Available From | Available Until | Orders
                     Row(
                       children: [
-                        Expanded(flex: 3, child: _buildDetailItem('HARVEST DATE', _formatCropDate(product.harvestDate))),
-                        Expanded(flex: 3, child: _buildDetailItem('AVAILABLE FROM', _formatCropDate(product.availableFrom))),
-                        Expanded(flex: 3, child: _buildDetailItem('AVAILABLE UNTIL', _formatCropDate(product.availableUntil))),
+                        Expanded(flex: 3, child: _buildDetailItem(AppLanguage().tr(mr: 'काढणी तारीख', en: 'HARVEST DATE'), _formatCropDate(product.harvestDate))),
+                        Expanded(flex: 3, child: _buildDetailItem(AppLanguage().tr(mr: 'उपलब्ध पासून', en: 'AVAILABLE FROM'), _formatCropDate(product.availableFrom))),
+                        Expanded(flex: 3, child: _buildDetailItem(AppLanguage().tr(mr: 'उपलब्ध पर्यंत', en: 'AVAILABLE UNTIL'), _formatCropDate(product.availableUntil))),
                         Expanded(flex: 2, child: _buildDetailItem('ORDERS', '${matchedOrders.length}')),
                       ],
                     ),
@@ -1248,7 +1247,7 @@ class EarningsScreenState extends State<EarningsScreen> {
   // 4. Product Specific Excel Spreadsheet Table View (Fits 100% on a single screen)
   Widget _buildProductSheetContent(Map<String, dynamic> sheet, List<FarmerOrderItem> allOrders) {
     final ProductItem? product = sheet['product'] as ProductItem?;
-    final String sheetTitle = sheet['title']?.toString() ?? 'Product Sheet';
+    final String sheetTitle = sheet['title']?.toString() ?? AppLanguage().tr(mr: 'उत्पादन शीट', en: 'Product Sheet');
 
     final matchedOrders = product != null
         ? allOrders.where((o) => _orderMatchesProduct(o, product) && _isOrderInSheet(o, sheet)).toList()
@@ -1293,12 +1292,12 @@ class EarningsScreenState extends State<EarningsScreen> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xFFBACCC0)),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.arrow_back, size: 10, color: Color(0xFF15803D)),
                           SizedBox(width: 2),
-                          Text('Overview', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                          Text(AppLanguage().tr(mr: 'आढावा', en: 'Overview'), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
                         ],
                       ),
                     ),
@@ -1410,12 +1409,12 @@ class EarningsScreenState extends State<EarningsScreen> {
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: const Color(0xFFBACCC0)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.arrow_back, size: 10, color: Color(0xFF15803D)),
                               SizedBox(width: 2),
-                              Text('Overview', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                              Text(AppLanguage().tr(mr: 'आढावा', en: 'Overview'), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
                             ],
                           ),
                         ),
@@ -1596,7 +1595,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          'Qty\n$unit',
+                          AppLanguage().tr(mr: 'प्रमाण\n${AppLanguage().pick(unit)}', en: 'Qty\n$unit'),
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 7.5, height: 1.05, fontWeight: FontWeight.w600, color: fg),
                         ),
@@ -1612,7 +1611,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            'Rate\n₹',
+                            AppLanguage().tr(mr: 'दर\n₹', en: 'Rate\n₹'),
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 7.5, height: 1.05, fontWeight: FontWeight.w600, color: fg),
                           ),
@@ -1647,7 +1646,7 @@ class EarningsScreenState extends State<EarningsScreen> {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  'Rejected',
+                  AppLanguage().tr(mr: 'नाकारले', en: 'Rejected'),
                   style: TextStyle(fontSize: 8.0, fontWeight: FontWeight.bold, color: fg),
                 ),
               ),
@@ -1662,7 +1661,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      'Qty\n$unit',
+                      AppLanguage().tr(mr: 'प्रमाण\n${AppLanguage().pick(unit)}', en: 'Qty\n$unit'),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 7.5, height: 1.05, fontWeight: FontWeight.w600, color: fg),
                     ),
@@ -1678,24 +1677,24 @@ class EarningsScreenState extends State<EarningsScreen> {
     return Row(
       children: [
         fullSpanHeader('#', '', wIndex),
-        fullSpanHeader('Order', 'Date', wOrderDate),
-        fullSpanHeader('Pickup Date', '& Time', wPickupDate),
+        fullSpanHeader(AppLanguage().tr(mr: 'ऑर्डर', en: 'Order'), AppLanguage().tr(mr: 'तारीख', en: 'Date'), wOrderDate),
+        fullSpanHeader(AppLanguage().tr(mr: 'पिकअप तारीख', en: 'Pickup Date'), AppLanguage().tr(mr: 'व वेळ', en: '& Time'), wPickupDate),
         gradeBlock(
-          grade: 'Grade A',
+          grade: AppLanguage().tr(mr: 'ग्रेड A', en: 'Grade A'),
           bg: const Color(0xFFD1FAE5),
           fg: const Color(0xFF065F46),
           gradeQtyW: wGradeQty,
           gradeRateW: wGradeRate,
         ),
         gradeBlock(
-          grade: 'Grade B',
+          grade: AppLanguage().tr(mr: 'ग्रेड B', en: 'Grade B'),
           bg: const Color(0xFFDBEAFE),
           fg: const Color(0xFF1E40AF),
           gradeQtyW: wGradeQty,
           gradeRateW: wGradeRate,
         ),
         gradeBlock(
-          grade: 'Grade C',
+          grade: AppLanguage().tr(mr: 'ग्रेड C', en: 'Grade C'),
           bg: const Color(0xFFFEF3C7),
           fg: const Color(0xFF92400E),
           gradeQtyW: wGradeQty,
@@ -1706,8 +1705,8 @@ class EarningsScreenState extends State<EarningsScreen> {
           fg: const Color(0xFF991B1B),
           width: wRejected,
         ),
-        fullSpanHeader('Amount', '₹', wAmount),
-        fullSpanHeader('Payment', 'Status', wPayment),
+        fullSpanHeader(AppLanguage().tr(mr: 'रक्कम', en: 'Amount'), '₹', wAmount),
+        fullSpanHeader(AppLanguage().tr(mr: 'पेमेंट', en: 'Payment'), AppLanguage().tr(mr: 'स्थिती', en: 'Status'), wPayment),
       ],
     );
   }
@@ -1927,7 +1926,7 @@ class EarningsScreenState extends State<EarningsScreen> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                isPaid ? 'Paid' : 'Pending',
+                isPaid ? AppLanguage().tr(mr: 'पैसे मिळाले', en: 'Paid') : AppLanguage().tr(mr: 'प्रलंबित', en: 'Pending'),
                 style: TextStyle(
                   fontSize: 7.0,
                   fontWeight: FontWeight.bold,
@@ -1984,10 +1983,10 @@ class EarningsScreenState extends State<EarningsScreen> {
           ),
           padding: const EdgeInsets.only(left: 4),
           alignment: Alignment.centerLeft,
-          child: const FittedBox(
+          child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              'Total',
+              AppLanguage().tr(mr: 'एकूण', en: 'Total'),
               style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
             ),
           ),
@@ -2129,12 +2128,12 @@ class EarningsScreenState extends State<EarningsScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Fresh Sheet: $title',
+              AppLanguage().tr(mr: 'नवीन शीट: $title', en: 'Fresh Sheet: $title'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 4),
             Text(
-              'Ready to record new incoming orders for ${prodName ?? title}.',
+              AppLanguage().tr(mr: '${prodName ?? title} साठी नवीन ऑर्डर नोंदवण्यास तयार.', en: 'Ready to record new incoming orders for ${prodName ?? title}.'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
             ),
@@ -2146,7 +2145,7 @@ class EarningsScreenState extends State<EarningsScreen> {
 
   void _duplicateSheet(Map<String, dynamic> sheet) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final title = '${sheet['title']} (Copy)';
+    final title = AppLanguage().tr(mr: '${sheet['title']} (प्रत)', en: '${sheet['title']} (Copy)');
     final newId = 'custom_$now';
     setState(() {
       _customSheets.add({
@@ -2172,7 +2171,7 @@ class EarningsScreenState extends State<EarningsScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Duplicated sheet: $title'),
+        content: Text(AppLanguage().tr(mr: 'शीटची प्रत बनवली: $title', en: 'Duplicated sheet: $title')),
         backgroundColor: const Color(0xFF217346),
         duration: const Duration(seconds: 2),
       ),
@@ -2447,7 +2446,7 @@ class EarningsScreenState extends State<EarningsScreen> {
                 const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Excel / CSV Exported: $fileName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Text(AppLanguage().tr(mr: 'Excel / CSV निर्यात झाले: $fileName', en: 'Excel / CSV Exported: $fileName'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -2460,7 +2459,7 @@ class EarningsScreenState extends State<EarningsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to export sheet: $e'),
+            content: Text(AppLanguage().tr(mr: 'शीट निर्यात करता आली नाही: $e', en: 'Failed to export sheet: $e')),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -2488,7 +2487,7 @@ class EarningsScreenState extends State<EarningsScreen> {
       if (prod == null) return '';
       final count = getExistingCount(prod);
       final clean = prod.productName.split('(')[0].trim();
-      return count == 0 ? clean : '$clean (Sheet ${count + 1})';
+      return count == 0 ? clean : AppLanguage().tr(mr: '$clean (शीट ${count + 1})', en: '$clean (Sheet ${count + 1})');
     }
 
     final titleController = TextEditingController(text: computeTitle(selected));

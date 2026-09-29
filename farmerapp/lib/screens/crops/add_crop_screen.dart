@@ -39,7 +39,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
       case 'Ready for Harvest': return AppLanguage().tr(mr: 'काढणीस तयार', en: 'Ready for Harvest');
       case 'Harvested': return AppLanguage().tr(mr: 'काढणी पूर्ण', en: 'Harvested');
       case 'Closed': return AppLanguage().tr(mr: 'बंद', en: 'Closed');
-      default: return val;
+      default: return AppLanguage().pick(val);
     }
   }
 
@@ -520,8 +520,8 @@ class _AddCropScreenState extends State<AddCropScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'CROP ID',
+                        Text(
+                          AppLanguage().tr(mr: 'पीक क्रमांक', en: 'CROP ID'),
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Color(0xFF047857)),
                         ),
                         Text(
@@ -543,8 +543,8 @@ class _AddCropScreenState extends State<AddCropScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'CROP ID PREVIEW',
+                        Text(
+                          AppLanguage().tr(mr: 'पीक क्रमांक पूर्वावलोकन', en: 'CROP ID PREVIEW'),
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Color(0xFF64748B)),
                         ),
                         Text(
@@ -577,16 +577,16 @@ class _AddCropScreenState extends State<AddCropScreen> {
                             hint: Text(AppLanguage().tr(mr: 'पीक निवडा', en: 'Select Crop'), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
                             decoration: _inputDecoration(),
                             isDense: true,
-                            items: registeredCrops.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)))).toList(),
+                            items: registeredCrops.map((c) => DropdownMenuItem(value: c, child: Text(_translateOption(c), style: const TextStyle(fontSize: 12)))).toList(),
                             onChanged: _onCropSelected,
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) => val == null || val.isEmpty ? AppLanguage().tr(mr: 'आवश्यक', en: 'Required') : null,
                           ),
                           if (_selectedCrop == 'Other') ...[
                             const SizedBox(height: 4),
                             TextFormField(
                               controller: _customCropController,
-                              decoration: _inputDecoration(hint: 'Crop name'),
-                              validator: (v) => _selectedCrop == 'Other' && (v == null || v.trim().isEmpty) ? 'Enter crop name' : null,
+                              decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'पिकाचे नाव', en: 'Crop name')),
+                              validator: (v) => _selectedCrop == 'Other' && (v == null || v.trim().isEmpty) ? AppLanguage().tr(mr: 'पिकाचे नाव लिहा', en: 'Enter crop name') : null,
                               onChanged: (_) => setState(() {}),
                             ),
                           ],
@@ -609,20 +609,20 @@ class _AddCropScreenState extends State<AddCropScreen> {
                             isDense: true,
                             items: _selectedCrop == null
                                 ? []
-                                : availableVarieties.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
+                                : availableVarieties.map((v) => DropdownMenuItem(value: v, child: Text(_translateOption(v), style: const TextStyle(fontSize: 12)))).toList(),
                             onChanged: _selectedCrop == null
                                 ? null
                                 : (val) {
                                     setState(() => _selectedVariety = val);
                                   },
-                            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                            validator: (val) => val == null || val.isEmpty ? AppLanguage().tr(mr: 'आवश्यक', en: 'Required') : null,
                           ),
                           if (_selectedVariety == 'Other') ...[
                             const SizedBox(height: 4),
                             TextFormField(
                               controller: _customVarietyController,
-                              decoration: _inputDecoration(hint: 'Variety name'),
-                              validator: (v) => _selectedVariety == 'Other' && (v == null || v.trim().isEmpty) ? 'Enter variety' : null,
+                              decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'वाणाचे नाव', en: 'Variety name')),
+                              validator: (v) => _selectedVariety == 'Other' && (v == null || v.trim().isEmpty) ? AppLanguage().tr(mr: 'वाण लिहा', en: 'Enter variety') : null,
                               onChanged: (_) => setState(() {}),
                             ),
                           ],
@@ -668,7 +668,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
                               suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty) return 'Required';
+                              if (v == null || v.trim().isEmpty) return AppLanguage().tr(mr: 'आवश्यक', en: 'Required');
                               final n = double.tryParse(v);
                               if (n == null || n <= 0) return '> 0';
                               return null;
@@ -707,7 +707,7 @@ class _AddCropScreenState extends State<AddCropScreen> {
                               suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty) return 'Required';
+                              if (v == null || v.trim().isEmpty) return AppLanguage().tr(mr: 'आवश्यक', en: 'Required');
                               final n = double.tryParse(v);
                               if (n == null || n <= 0) return '> 0';
                               return null;
@@ -816,11 +816,11 @@ class _AddCropScreenState extends State<AddCropScreen> {
                             isDense: true,
                             items: _farmingMethods.map((m) => DropdownMenuItem(value: m, child: Text(_translateOption(m), style: const TextStyle(fontSize: 11)))).toList(),
                             onChanged: (val) => setState(() => _selectedFarmingMethod = val),
-                            validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                            validator: (v) => v == null || v.isEmpty ? AppLanguage().tr(mr: 'आवश्यक', en: 'Required') : null,
                           ),
                           if (_selectedFarmingMethod == 'Other') ...[
                             const SizedBox(height: 4),
-                            TextFormField(controller: _customFarmingMethodController, decoration: _inputDecoration(hint: 'Method name')),
+                            TextFormField(controller: _customFarmingMethodController, decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'पद्धतीचे नाव', en: 'Method name'))),
                           ],
                         ],
                       ),
@@ -838,11 +838,11 @@ class _AddCropScreenState extends State<AddCropScreen> {
                             isDense: true,
                             items: _irrigationTypes.map((i) => DropdownMenuItem(value: i, child: Text(_translateOption(i), style: const TextStyle(fontSize: 11)))).toList(),
                             onChanged: (val) => setState(() => _selectedIrrigationType = val),
-                            validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                            validator: (v) => v == null || v.isEmpty ? AppLanguage().tr(mr: 'आवश्यक', en: 'Required') : null,
                           ),
                           if (_selectedIrrigationType == 'Other') ...[
                             const SizedBox(height: 4),
-                            TextFormField(controller: _customIrrigationController, decoration: _inputDecoration(hint: 'Irrigation name')),
+                            TextFormField(controller: _customIrrigationController, decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'सिंचनाचे नाव', en: 'Irrigation name'))),
                           ],
                         ],
                       ),
@@ -947,11 +947,11 @@ class _AddCropScreenState extends State<AddCropScreen> {
                             borderRadius: BorderRadius.circular(6),
                             color: const Color(0xFFF8FAFC),
                           ),
-                          child: const Column(
+                          child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.add_a_photo_outlined, size: 16, color: Color(0xFF64748B)),
-                              Text('Photo', style: TextStyle(fontSize: 8, color: Color(0xFF64748B))),
+                              Text(AppLanguage().tr(mr: 'फोटो', en: 'Photo'), style: TextStyle(fontSize: 8, color: Color(0xFF64748B))),
                             ],
                           ),
                         ),

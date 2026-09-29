@@ -52,15 +52,15 @@ void main() async {
                 children: [
                   Text(
                     isApproved
-                        ? 'कागदपत्र मंजूर ✓ (${doc.title})'
-                        : 'कागदपत्र अमान्य ❌ (${doc.title})',
+                        ? AppLanguage().tr(mr: 'कागदपत्र मंजूर ✓ (${doc.displayTitle})', en: 'Document approved ✓ (${doc.displayTitle})')
+                        : AppLanguage().tr(mr: 'कागदपत्र अमान्य ❌ (${doc.displayTitle})', en: 'Document rejected ❌ (${doc.displayTitle})'),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     isApproved
-                        ? 'व्हेंडरने तुमचे कागदपत्र मंजूर केले आहे.'
-                        : (doc.rejectionReason.isNotEmpty ? 'कारण: ${doc.rejectionReason}' : 'कृपया पुन्हा अपलोड करा.'),
+                        ? AppLanguage().tr(mr: 'व्हेंडरने तुमचे कागदपत्र मंजूर केले आहे.', en: 'The vendor has approved your document.')
+                        : (doc.rejectionReason.isNotEmpty ? AppLanguage().tr(mr: 'कारण: ${doc.rejectionReason}', en: 'Reason: ${doc.rejectionReason}') : AppLanguage().tr(mr: 'कृपया पुन्हा अपलोड करा.', en: 'Please upload again.')),
                     style: const TextStyle(fontSize: 11, color: Colors.white70),
                   ),
                 ],
@@ -69,7 +69,7 @@ void main() async {
           ],
         ),
         action: SnackBarAction(
-          label: 'पहा',
+          label: AppLanguage().tr(mr: 'पहा', en: 'View'),
           textColor: Colors.amberAccent,
           onPressed: () {
             final ctx = rootNavigatorKey.currentContext;
@@ -85,23 +85,47 @@ void main() async {
   runApp(const FarmerApp());
 }
 
-class FarmerApp extends StatelessWidget {
+class FarmerApp extends StatefulWidget {
   const FarmerApp({super.key});
 
   @override
+  State<FarmerApp> createState() => _FarmerAppState();
+}
+
+class _FarmerAppState extends State<FarmerApp> {
+  @override
+  void initState() {
+    super.initState();
+    AppLanguage().addListener(_onLanguageChanged);
+  }
+
+  @override
+  void dispose() {
+    AppLanguage().removeListener(_onLanguageChanged);
+    super.dispose();
+  }
+
+  /// Screens read AppLanguage() directly instead of listening to it, so every element
+  /// (including pushed pages, dialogs and sheets) is rebuilt to switch text immediately.
+  void _onLanguageChanged() {
+    if (!mounted) return;
+    void rebuild(Element element) {
+      element.markNeedsBuild();
+      element.visitChildren(rebuild);
+    }
+
+    (context as Element).visitChildren(rebuild);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: AppLanguage(),
-      builder: (context, _) {
-        return MaterialApp(
-          title: 'GreenGrocc Farmer',
-          debugShowCheckedModeBanner: false,
-          scaffoldMessengerKey: rootScaffoldMessengerKey,
-          navigatorKey: rootNavigatorKey,
-          theme: AppTheme.lightTheme,
-          home: const _SessionGate(),
-        );
-      },
+    return MaterialApp(
+      title: 'GreenGrocc Farmer',
+      debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
+      navigatorKey: rootNavigatorKey,
+      theme: AppTheme.lightTheme,
+      home: const _SessionGate(),
     );
   }
 }

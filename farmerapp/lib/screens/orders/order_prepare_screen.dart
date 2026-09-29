@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
 import '../../services/farmer_state.dart';
 
+import '../../services/app_language.dart';
 class OrderPrepareScreen extends StatefulWidget {
   final String orderId;
 
@@ -105,8 +106,8 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order marked ready for pickup! (पिकअपसाठी तयार)'),
+          SnackBar(
+            content: Text(AppLanguage().tr(mr: 'ऑर्डर पिकअपसाठी तयार म्हणून नोंदवली!', en: 'Order marked ready for pickup!')),
             backgroundColor: Color(0xFF217346),
           ),
         );
@@ -115,7 +116,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(AppLanguage().tr(mr: 'त्रुटी: $e', en: 'Error: $e')), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -158,8 +159,8 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
               icon: const Icon(Icons.arrow_back, color: Color(0xFF217346)),
               onPressed: () => Navigator.pop(context),
             ),
-            title: const Text(
-              'Order Preparation',
+            title: Text(
+              AppLanguage().tr(mr: 'ऑर्डर तयारी', en: 'Order Preparation'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
             ),
           ),
@@ -193,7 +194,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Order Info', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+                              Text(AppLanguage().tr(mr: 'ऑर्डर माहिती', en: 'Order Info'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
                               Text(
                                 order.orderCode,
                                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
@@ -205,13 +206,13 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                           padding: const EdgeInsets.all(14),
                           child: Column(
                             children: [
-                              _SummaryRow(label: 'Product', value: '${order.productName}${order.variety.isNotEmpty ? " (${order.variety})" : ""}'),
+                              _SummaryRow(label: AppLanguage().tr(mr: 'उत्पादन', en: 'Product'), value: '${order.productName}${order.variety.isNotEmpty ? " (${order.variety})" : ""}'),
                               const SizedBox(height: 8),
-                              _SummaryRow(label: 'Ordered Quantity', value: '${order.quantity.toStringAsFixed(0)} ${order.unit}'),
+                              _SummaryRow(label: AppLanguage().tr(mr: 'ऑर्डर प्रमाण', en: 'Ordered Quantity'), value: '${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}'),
                               const SizedBox(height: 8),
-                              _SummaryRow(label: 'Pickup Slot', value: '${order.pickupDate} • ${order.pickupSlot}'),
+                              _SummaryRow(label: AppLanguage().tr(mr: 'पिकअप वेळ', en: 'Pickup Slot'), value: '${order.pickupDate} • ${order.pickupSlot}'),
                               const SizedBox(height: 8),
-                              _SummaryRow(label: 'Buyer', value: order.buyerName),
+                              _SummaryRow(label: AppLanguage().tr(mr: 'खरेदीदार', en: 'Buyer'), value: order.buyerName),
                             ],
                           ),
                         ),
@@ -241,7 +242,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
                             border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
                           ),
-                          child: const Text('Packing & Lot Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+                          child: Text(AppLanguage().tr(mr: 'पॅकिंग व लॉट तपशील', en: 'Packing & Lot Details'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(14),
@@ -253,7 +254,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                                 children: [
                                   Expanded(
                                     child: _FormField(
-                                      label: 'Packed Quantity (${order.unit}) *',
+                                      label: AppLanguage().tr(mr: 'पॅक केलेले प्रमाण (${AppLanguage().pick(order.unit)}) *', en: 'Packed Quantity (${AppLanguage().pick(order.unit)}) *'),
                                       controller: _packedQtyCtrl,
                                       keyboardType: TextInputType.number,
                                     ),
@@ -261,7 +262,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _FormField(
-                                      label: 'Number of Packages *',
+                                      label: AppLanguage().tr(mr: 'पॅकेजची संख्या *', en: 'Number of Packages *'),
                                       controller: _packageCountCtrl,
                                       keyboardType: TextInputType.number,
                                     ),
@@ -277,7 +278,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Package Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                                        Text(AppLanguage().tr(mr: 'पॅकेज प्रकार', en: 'Package Type'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
                                         const SizedBox(height: 6),
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -290,7 +291,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                                             child: DropdownButton<String>(
                                               isExpanded: true,
                                               value: _packageType,
-                                              items: _packageTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13)))).toList(),
+                                              items: _packageTypes.map((t) => DropdownMenuItem(value: t, child: Text(AppLanguage().pick(t), style: const TextStyle(fontSize: 13)))).toList(),
                                               onChanged: (val) {
                                                 if (val != null) setState(() => _packageType = val);
                                               },
@@ -303,7 +304,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _FormField(
-                                      label: 'Per Package (${order.unit})',
+                                      label: AppLanguage().tr(mr: 'प्रति पॅकेज (${AppLanguage().pick(order.unit)})', en: 'Per Package (${AppLanguage().pick(order.unit)})'),
                                       controller: _packageWeightCtrl,
                                       keyboardType: TextInputType.number,
                                     ),
@@ -316,7 +317,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Packing Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                                  Text(AppLanguage().tr(mr: 'पॅकिंग तारीख', en: 'Packing Date'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
                                   const SizedBox(height: 6),
                                   InkWell(
                                     onTap: () => _selectPackingDate(context),
@@ -343,10 +344,10 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
 
                               // Notes
                               _FormField(
-                                label: 'Packing Notes (Optional)',
+                                label: AppLanguage().tr(mr: 'पॅकिंग टीप (ऐच्छिक)', en: 'Packing Notes (Optional)'),
                                 controller: _notesCtrl,
                                 maxLines: 2,
-                                hintText: 'e.g. Graded into 15 crates with moisture wrapping',
+                                hintText: AppLanguage().tr(mr: 'उदा. ओलावा संरक्षणासह १५ क्रेटमध्ये वर्गवारी केली', en: 'e.g. Graded into 15 crates with moisture wrapping'),
                               ),
                             ],
                           ),
@@ -368,7 +369,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Back', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          child: Text(AppLanguage().tr(mr: 'मागे', en: 'Back'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -385,7 +386,7 @@ class _OrderPrepareScreenState extends State<OrderPrepareScreen> {
                               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                               : const Icon(Icons.check_circle_outline, size: 18),
                           label: Text(
-                            _isSaving ? 'Saving...' : 'Mark Ready for Pickup',
+                            _isSaving ? AppLanguage().tr(mr: 'जतन होत आहे...', en: 'Saving...') : AppLanguage().tr(mr: 'पिकअपसाठी तयार करा', en: 'Mark Ready for Pickup'),
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                           ),
                           onPressed: _isSaving ? null : () => _markReady(order),

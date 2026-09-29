@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../models/farmer_models.dart';
 import '../main_shell.dart';
 
+import '../../services/app_language.dart';
 class RegistrationSuccessScreen extends StatelessWidget {
   final FarmerProfile farmer;
 
@@ -51,8 +52,8 @@ class RegistrationSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
 
-                const Text(
-                  'REGISTRATION SUCCESS',
+                Text(
+                  AppLanguage().tr(mr: 'नोंदणी यशस्वी', en: 'REGISTRATION SUCCESS'),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -62,8 +63,8 @@ class RegistrationSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
 
-                const Text(
-                  'Farmer account created',
+                Text(
+                  AppLanguage().tr(mr: 'शेतकरी खाते तयार झाले', en: 'Farmer account created'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
@@ -73,13 +74,13 @@ class RegistrationSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'शेतकरी खाते यशस्वीरित्या तयार झाले!',
+                  AppLanguage().tr(mr: 'शेतकरी खाते यशस्वीरित्या तयार झाले!', en: 'Your account is ready to use!'),
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.green.shade800),
                 ),
                 const SizedBox(height: 8),
 
                 Text(
-                  'Welcome, ${farmer.fullName}. Next, complete your farmer profile, farm profile and farm location.',
+                  AppLanguage().tr(mr: 'स्वागत आहे, ${farmer.fullName}. पुढे तुमची शेतकरी प्रोफाईल, शेतीचा तपशील आणि शेताचे स्थान पूर्ण करा.', en: 'Welcome, ${farmer.fullName}. Next, complete your farmer profile, farm profile and farm location.'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12, color: AppColors.muted, height: 1.4),
                 ),
@@ -97,15 +98,15 @@ class RegistrationSuccessScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _summaryRow('Farmer ID:', farmerId),
+                      _summaryRow(AppLanguage().tr(mr: 'शेतकरी ओळख क्रमांक:', en: 'Farmer ID:'), farmerId),
                       const SizedBox(height: 6),
-                      _summaryRow('Farmer Code:', farmerCode),
+                      _summaryRow(AppLanguage().tr(mr: 'शेतकरी कोड:', en: 'Farmer Code:'), farmerCode),
                       const SizedBox(height: 6),
-                      _summaryRow('Mobile:', '+91 ${farmer.mobile}'),
+                      _summaryRow(AppLanguage().tr(mr: 'मोबाईल:', en: 'Mobile:'), '+91 ${farmer.mobile}'),
                       const SizedBox(height: 6),
-                      _summaryBadgeRow('Registration:', 'REGISTERED ✓', isGreen: true),
+                      _summaryBadgeRow(AppLanguage().tr(mr: 'नोंदणी:', en: 'Registration:'), AppLanguage().tr(mr: 'नोंदणीकृत ✓', en: 'REGISTERED ✓'), isGreen: true),
                       const SizedBox(height: 6),
-                      _summaryBadgeRow('KYC Status:', 'PENDING ⏳', isGreen: false),
+                      _summaryBadgeRow(AppLanguage().tr(mr: 'केवायसी स्थिती:', en: 'KYC Status:'), AppLanguage().tr(mr: 'प्रलंबित ⏳', en: 'PENDING ⏳'), isGreen: false),
                     ],
                   ),
                 ),
@@ -123,8 +124,8 @@ class RegistrationSuccessScreen extends StatelessWidget {
                       elevation: 0,
                     ),
                     icon: const Icon(Icons.arrow_forward, size: 16),
-                    label: const Text(
-                      'Continue to Farmer Profile (प्रोफाईलकडे जा)',
+                    label: Text(
+                      AppLanguage().tr(mr: 'प्रोफाईलकडे जा', en: 'Continue to Farmer Profile'),
                       style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () {

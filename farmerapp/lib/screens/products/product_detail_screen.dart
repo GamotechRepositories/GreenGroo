@@ -96,21 +96,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 22),
             SizedBox(width: 8),
-            Text('Delete product?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+            Text(AppLanguage().tr(mr: 'उत्पादन हटवायचे?', en: 'Delete product?'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
           ],
         ),
-        content: const Text(
-          'Only draft products can be deleted. This action cannot be undone.',
+        content: Text(
+          AppLanguage().tr(mr: 'फक्त मसुदा उत्पादने हटवता येतात. ही क्रिया परत घेता येणार नाही.', en: 'Only draft products can be deleted. This action cannot be undone.'),
           style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+            child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -123,15 +123,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Navigator.pop(ctx);
               FarmerState().deleteProduct(_product.id);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Product deleted successfully'),
+                SnackBar(
+                  content: Text(AppLanguage().tr(mr: 'उत्पादन यशस्वीरीत्या हटवले', en: 'Product deleted successfully')),
                   backgroundColor: Color(0xFFDC2626),
                   duration: Duration(seconds: 2),
                 ),
               );
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(AppLanguage().tr(mr: 'हटवा', en: 'Delete'), style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -161,7 +161,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, color: Color(0xFF217346), size: 20),
-            tooltip: 'Edit Product',
+            tooltip: AppLanguage().tr(mr: 'उत्पादन संपादित करा', en: 'Edit Product'),
             onPressed: () async {
               final updated = await Navigator.push<ProductItem>(
                 context,
@@ -316,18 +316,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 8,
                 children: [
-                  _buildInfoItem('Product ID', p.displayBusinessId, isMono: true),
-                  _buildInfoItem('Product Name', p.productName),
-                  _buildInfoItem('Crop', p.cropLinked),
-                  _buildInfoItem('Variety', p.variety.isNotEmpty ? p.variety : 'Standard'),
-                  _buildInfoItem('Available Quantity', '${p.stockQuantity.toStringAsFixed(0)} ${p.unit}'),
-                  _buildInfoItem('Selling Price', '₹ ${p.pricePerUnit.toStringAsFixed(0)} / ${p.unit}', isGreen: true),
-                  _buildInfoItem('MOQ (Min Order)', '${p.minimumOrderQuantity.toStringAsFixed(0)} ${p.unit}'),
-                  _buildInfoItem('Quality Grade', p.grade),
-                  _buildInfoItem('Sowing Date', p.sowingDate),
-                  _buildInfoItem('Harvest Date', p.harvestDate),
-                  _buildInfoItem('Farming Method', isOrganic ? AppLanguage().tr(mr: 'सेंद्रिय शेती', en: 'Organic') : AppLanguage().tr(mr: 'पारंपारिक शेती', en: 'Conventional')),
-                  _buildInfoItem('Available Window', '${p.availableFrom} to ${p.availableUntil}'),
+                  _buildInfoItem(AppLanguage().tr(mr: 'उत्पादन क्रमांक', en: 'Product ID'), p.displayBusinessId, isMono: true),
+                  _buildInfoItem(AppLanguage().tr(mr: 'उत्पादनाचे नाव', en: 'Product Name'), p.productName),
+                  _buildInfoItem(AppLanguage().tr(mr: 'पीक', en: 'Crop'), p.cropLinked),
+                  _buildInfoItem(AppLanguage().tr(mr: 'वाण', en: 'Variety'), p.variety.isNotEmpty ? p.variety : AppLanguage().tr(mr: 'मानक', en: 'Standard')),
+                  _buildInfoItem(AppLanguage().tr(mr: 'उपलब्ध प्रमाण', en: 'Available Quantity'), '${p.stockQuantity.toStringAsFixed(0)} ${AppLanguage().pick(p.unit)}'),
+                  _buildInfoItem(AppLanguage().tr(mr: 'विक्री किंमत', en: 'Selling Price'), '₹ ${p.pricePerUnit.toStringAsFixed(0)} / ${AppLanguage().pick(p.unit)}', isGreen: true),
+                  _buildInfoItem(AppLanguage().tr(mr: 'किमान ऑर्डर (MOQ)', en: 'MOQ (Min Order)'), '${p.minimumOrderQuantity.toStringAsFixed(0)} ${AppLanguage().pick(p.unit)}'),
+                  _buildInfoItem(AppLanguage().tr(mr: 'गुणवत्ता ग्रेड', en: 'Quality Grade'), p.grade),
+                  _buildInfoItem(AppLanguage().tr(mr: 'पेरणी तारीख', en: 'Sowing Date'), p.sowingDate),
+                  _buildInfoItem(AppLanguage().tr(mr: 'काढणी तारीख', en: 'Harvest Date'), p.harvestDate),
+                  _buildInfoItem(AppLanguage().tr(mr: 'शेती पद्धत', en: 'Farming Method'), isOrganic ? AppLanguage().tr(mr: 'सेंद्रिय शेती', en: 'Organic') : AppLanguage().tr(mr: 'पारंपारिक शेती', en: 'Conventional')),
+                  _buildInfoItem(AppLanguage().tr(mr: 'उपलब्ध कालावधी', en: 'Available Window'), AppLanguage().tr(mr: '${p.availableFrom} ते ${p.availableUntil}', en: '${p.availableFrom} to ${p.availableUntil}')),
                 ],
               ),
             ),
@@ -342,8 +342,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(
                     child: _buildGradeCard(
                       label: AppLanguage().tr(mr: 'दर्जा A', en: 'Grade A'),
-                      qty: '${p.gradeAQty.toStringAsFixed(0)} ${p.unit}',
-                      rate: '₹ ${p.gradeAPrice.toStringAsFixed(0)} / ${p.unit}',
+                      qty: '${p.gradeAQty.toStringAsFixed(0)} ${AppLanguage().pick(p.unit)}',
+                      rate: '₹ ${p.gradeAPrice.toStringAsFixed(0)} / ${AppLanguage().pick(p.unit)}',
                       bg: const Color(0xFFECFDF5),
                       border: const Color(0xFFA7F3D0),
                       fg: const Color(0xFF065F46),
@@ -353,8 +353,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(
                     child: _buildGradeCard(
                       label: AppLanguage().tr(mr: 'दर्जा B', en: 'Grade B'),
-                      qty: '${p.gradeBQty.toStringAsFixed(0)} ${p.unit}',
-                      rate: '₹ ${p.gradeBPrice.toStringAsFixed(0)} / ${p.unit}',
+                      qty: '${p.gradeBQty.toStringAsFixed(0)} ${AppLanguage().pick(p.unit)}',
+                      rate: '₹ ${p.gradeBPrice.toStringAsFixed(0)} / ${AppLanguage().pick(p.unit)}',
                       bg: const Color(0xFFEFF6FF),
                       border: const Color(0xFFBFDBFE),
                       fg: const Color(0xFF1E40AF),
@@ -364,8 +364,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Expanded(
                     child: _buildGradeCard(
                       label: AppLanguage().tr(mr: 'दर्जा C', en: 'Grade C'),
-                      qty: '${p.gradeCQty > 0 ? p.gradeCQty.toStringAsFixed(0) : '0'} ${p.unit}',
-                      rate: p.gradeCPrice > 0 ? '₹ ${p.gradeCPrice.toStringAsFixed(0)} / ${p.unit}' : '—',
+                      qty: '${p.gradeCQty > 0 ? p.gradeCQty.toStringAsFixed(0) : '0'} ${AppLanguage().pick(p.unit)}',
+                      rate: p.gradeCPrice > 0 ? '₹ ${p.gradeCPrice.toStringAsFixed(0)} / ${AppLanguage().pick(p.unit)}' : '—',
                       bg: const Color(0xFFFFFBEB),
                       border: const Color(0xFFFDE68A),
                       fg: const Color(0xFF92400E),
@@ -388,12 +388,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 8,
                 children: [
-                  _buildInfoItem('Farm Name', p.farmName),
-                  _buildInfoItem('Farm Location', p.farmLocation),
-                  _buildInfoItem('Sowing Date', p.sowingDate),
-                  _buildInfoItem('Harvest Date', p.harvestDate),
-                  _buildInfoItem('Estimated Yield', '${(p.stockQuantity * 1.15).round()} ${p.unit}'),
-                  _buildInfoItem('Status', p.status),
+                  _buildInfoItem(AppLanguage().tr(mr: 'शेताचे नाव', en: 'Farm Name'), p.farmName),
+                  _buildInfoItem(AppLanguage().tr(mr: 'शेताचे स्थान', en: 'Farm Location'), p.farmLocation),
+                  _buildInfoItem(AppLanguage().tr(mr: 'पेरणी तारीख', en: 'Sowing Date'), p.sowingDate),
+                  _buildInfoItem(AppLanguage().tr(mr: 'काढणी तारीख', en: 'Harvest Date'), p.harvestDate),
+                  _buildInfoItem(AppLanguage().tr(mr: 'अंदाजे उत्पादन', en: 'Estimated Yield'), '${(p.stockQuantity * 1.15).round()} ${AppLanguage().pick(p.unit)}'),
+                  _buildInfoItem(AppLanguage().tr(mr: 'स्थिती', en: 'Status'), p.status),
                 ],
               ),
             ),

@@ -9,6 +9,7 @@ import '../orders/order_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
 import '../documents/documents_screen.dart';
 
+import '../../services/app_language.dart';
 class NotificationItemModel {
   final String id;
   final String title;
@@ -68,15 +69,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         list.add(
           NotificationItemModel(
             id: notifId,
-            title: 'नवीन काढणी ऑर्डर: ₹${order.totalAmount.toStringAsFixed(0)}',
+            title: AppLanguage().tr(mr: 'नवीन काढणी ऑर्डर: ₹${order.totalAmount.toStringAsFixed(0)}', en: 'New harvest order: ₹${order.totalAmount.toStringAsFixed(0)}'),
             orderCode: order.orderCode.isNotEmpty ? order.orderCode : order.id,
-            body: '${order.buyerName.isNotEmpty ? order.buyerName : 'खरेदीदार'} यांनी ${order.productName} ची ${order.quantity.toStringAsFixed(0)} ${order.unit} ऑर्डर नोंदवली आहे.',
-            time: order.createdAt.isNotEmpty ? order.createdAt : 'आज',
+            body: AppLanguage().tr(mr: '${order.buyerName.isNotEmpty ? order.buyerName : 'खरेदीदार'} यांनी ${order.productName} ची ${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} ऑर्डर नोंदवली आहे.', en: '${order.buyerName.isNotEmpty ? order.buyerName : 'Buyer'} placed an order for ${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} of ${order.productName}.'),
+            time: order.createdAt.isNotEmpty ? order.createdAt : AppLanguage().tr(mr: 'आज', en: 'Today'),
             category: 'orders',
             icon: Icons.shopping_bag_outlined,
             iconColor: Colors.blue.shade700,
             iconBg: Colors.blue.shade50,
-            actionLabel: 'ऑर्डर पहा (View Order)',
+            actionLabel: AppLanguage().tr(mr: 'ऑर्डर पहा', en: 'View Order'),
             isRead: isRead,
             onAction: () {
               state.markNotificationAsRead(notifId);
@@ -90,15 +91,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         list.add(
           NotificationItemModel(
             id: notifId,
-            title: 'पिकअप स्लॉट तयार',
+            title: AppLanguage().tr(mr: 'पिकअप स्लॉट तयार', en: 'Pickup slot ready'),
             orderCode: order.orderCode.isNotEmpty ? order.orderCode : order.id,
-            body: '${order.productName} चे कलेक्शन सेंटर: ${order.collectionCentre} • दिनांक: ${order.pickupDate} (${order.pickupSlot})',
-            time: order.pickupDate.isNotEmpty ? order.pickupDate : 'आज',
+            body: AppLanguage().tr(mr: '${order.productName} चे कलेक्शन सेंटर: ${order.collectionCentre} • दिनांक: ${order.pickupDate} (${order.pickupSlot})', en: '${order.productName} collection centre: ${order.collectionCentre} • Date: ${order.pickupDate} (${order.pickupSlot})'),
+            time: order.pickupDate.isNotEmpty ? order.pickupDate : AppLanguage().tr(mr: 'आज', en: 'Today'),
             category: 'orders',
             icon: Icons.local_shipping_outlined,
             iconColor: Colors.orange.shade800,
             iconBg: Colors.orange.shade50,
-            actionLabel: 'पिकअप तपशील (Pickup Info)',
+            actionLabel: AppLanguage().tr(mr: 'पिकअप तपशील', en: 'Pickup Info'),
             isRead: isRead,
             onAction: () {
               state.markNotificationAsRead(notifId);
@@ -112,15 +113,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         list.add(
           NotificationItemModel(
             id: paymentNotifId,
-            title: 'पेमेंट जमा: ₹${order.totalAmount.toStringAsFixed(0)}',
+            title: AppLanguage().tr(mr: 'पेमेंट जमा: ₹${order.totalAmount.toStringAsFixed(0)}', en: 'Payment credited: ₹${order.totalAmount.toStringAsFixed(0)}'),
             orderCode: order.orderCode.isNotEmpty ? order.orderCode : order.id,
-            body: '${order.productName} ची काढणी ऑर्डर यशस्वीरीत्या पूर्ण झाली असून रक्कम खात्यावर जमा झाली आहे.',
-            time: order.pickupDate.isNotEmpty ? order.pickupDate : 'पूर्ण झाले',
+            body: AppLanguage().tr(mr: '${order.productName} ची काढणी ऑर्डर यशस्वीरीत्या पूर्ण झाली असून रक्कम खात्यावर जमा झाली आहे.', en: 'Harvest order for ${order.productName} completed and the amount has been credited to your account.'),
+            time: order.pickupDate.isNotEmpty ? order.pickupDate : AppLanguage().tr(mr: 'पूर्ण झाले', en: 'Completed'),
             category: 'payments',
             icon: Icons.account_balance_wallet_outlined,
             iconColor: AppColors.primary,
             iconBg: AppColors.primaryLight,
-            actionLabel: 'हिशोब पहा (Statement)',
+            actionLabel: AppLanguage().tr(mr: 'हिशोब पहा', en: 'View Statement'),
             isRead: isRead,
             onAction: () {
               state.markNotificationAsRead(paymentNotifId);
@@ -145,18 +146,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         NotificationItemModel(
           id: notifId,
           title: isApproved
-              ? 'कागदपत्र मंजूर ✓: ${doc.title}'
-              : 'कागदपत्र अमान्य ⚠️: ${doc.title}',
+              ? AppLanguage().tr(mr: 'कागदपत्र मंजूर ✓: ${doc.displayTitle}', en: 'Document approved ✓: ${doc.displayTitle}')
+              : AppLanguage().tr(mr: 'कागदपत्र अमान्य ⚠️: ${doc.displayTitle}', en: 'Document rejected ⚠️: ${doc.displayTitle}'),
           orderCode: doc.type.toUpperCase(),
           body: isApproved
-              ? 'व्हेंडरने तुमचे ${doc.marathiTitle} तपासले असून ते यशस्वीरीत्या मंजूर (Approved) केले आहे.'
-              : 'व्हेंडरने तुमचे ${doc.marathiTitle} अमान्य केले आहे.${doc.rejectionReason.isNotEmpty ? ' अमान्य कारण: ${doc.rejectionReason}.' : ''} कृपया स्पष्ट प्रत पुन्हा अपलोड करा.',
-          time: doc.uploadDate.isNotEmpty ? doc.uploadDate : 'आज',
+              ? AppLanguage().tr(mr: 'व्हेंडरने तुमचे ${doc.displayTitle} तपासले असून ते यशस्वीरीत्या मंजूर केले आहे.', en: 'The vendor has reviewed and approved your ${doc.displayTitle}.')
+              : AppLanguage().tr(mr: 'व्हेंडरने तुमचे ${doc.displayTitle} अमान्य केले आहे.${doc.rejectionReason.isNotEmpty ? ' अमान्य कारण: ${doc.rejectionReason}.' : ''} कृपया स्पष्ट प्रत पुन्हा अपलोड करा.', en: 'The vendor has rejected your ${doc.displayTitle}.${doc.rejectionReason.isNotEmpty ? ' Reason: ${doc.rejectionReason}.' : ''} Please re-upload a clear copy.'),
+          time: doc.uploadDate.isNotEmpty ? doc.uploadDate : AppLanguage().tr(mr: 'आज', en: 'Today'),
           category: 'documents',
           icon: isApproved ? Icons.verified_rounded : Icons.warning_amber_rounded,
           iconColor: isApproved ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
           iconBg: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-          actionLabel: isApproved ? 'कागदपत्रे पहा (View)' : 'पुन्हा अपलोड करा (Re-upload)',
+          actionLabel: isApproved ? AppLanguage().tr(mr: 'कागदपत्रे पहा', en: 'View Documents') : AppLanguage().tr(mr: 'पुन्हा अपलोड करा', en: 'Re-upload'),
           isRead: isRead,
           onAction: () {
             state.markNotificationAsRead(notifId);
@@ -200,14 +201,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             elevation: 0.5,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 20),
-              tooltip: 'मागे जा',
+              tooltip: AppLanguage().tr(mr: 'मागे जा', en: 'Go back'),
               onPressed: () => Navigator.pop(context),
             ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'सूचना (Notifications)',
+                Text(
+                  AppLanguage().tr(mr: 'सूचना', en: 'Notifications'),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -215,7 +216,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ),
                 Text(
-                  unreadCount > 0 ? '$unreadCount नवीन सूचना' : 'सर्व सूचना वाचल्या आहेत',
+                  unreadCount > 0 ? AppLanguage().tr(mr: '$unreadCount नवीन सूचना', en: '$unreadCount new notifications') : AppLanguage().tr(mr: 'सर्व सूचना वाचल्या आहेत', en: 'All notifications read'),
                   style: TextStyle(
                     fontSize: 10.5,
                     color: unreadCount > 0 ? AppColors.primaryDark : AppColors.muted,
@@ -228,11 +229,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               if (unreadCount > 0)
                 IconButton(
                   icon: const Icon(Icons.done_all, size: 20, color: AppColors.primary),
-                  tooltip: 'सर्व वाचा (Mark all read)',
+                  tooltip: AppLanguage().tr(mr: 'सर्व वाचा', en: 'Mark all read'),
                   onPressed: () {
                     state.markAllNotificationsAsRead(allLiveNotifications.map((n) => n.id));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('सर्व सूचना वाचल्या म्हणून चिन्हांकित केल्या.'), duration: Duration(seconds: 2)),
+                      SnackBar(content: Text(AppLanguage().tr(mr: 'सर्व सूचना वाचल्या म्हणून चिन्हांकित केल्या.', en: 'All notifications marked as read.')), duration: Duration(seconds: 2)),
                     );
                   },
                 ),
@@ -246,20 +247,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        title: const Text('सर्व सूचना काढून टाकायच्या?', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        content: const Text('यामुळे सर्व सूचना यादीतून साफ होतील.', style: TextStyle(fontSize: 12)),
+                        title: Text(AppLanguage().tr(mr: 'सर्व सूचना काढून टाकायच्या?', en: 'Clear all notifications?'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        content: Text(AppLanguage().tr(mr: 'यामुळे सर्व सूचना यादीतून साफ होतील.', en: 'This will clear all notifications from the list.'), style: TextStyle(fontSize: 12)),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('रद्द करा')),
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'))),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                             onPressed: () {
                               state.clearAllNotifications(allLiveNotifications.map((n) => n.id));
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('सर्व सूचना साफ करण्यात आल्या.')),
+                                SnackBar(content: Text(AppLanguage().tr(mr: 'सर्व सूचना साफ करण्यात आल्या.', en: 'All notifications cleared.'))),
                               );
                             },
-                            child: const Text('साफ करा'),
+                            child: Text(AppLanguage().tr(mr: 'साफ करा', en: 'Clear')),
                           ),
                         ],
                       ),
@@ -267,23 +268,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   }
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'test_sound',
                     child: Row(
                       children: [
                         Icon(Icons.volume_up, size: 16, color: AppColors.primary),
                         SizedBox(width: 8),
-                        Text('आवाज तपासा (Test Sound)', style: TextStyle(fontSize: 12)),
+                        Text(AppLanguage().tr(mr: 'आवाज तपासा', en: 'Test Sound'), style: TextStyle(fontSize: 12)),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'clear_all',
                     child: Row(
                       children: [
                         Icon(Icons.delete_sweep_outlined, size: 16, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('सर्व साफ करा (Clear All)', style: TextStyle(fontSize: 12, color: Colors.red)),
+                        Text(AppLanguage().tr(mr: 'सर्व साफ करा', en: 'Clear All'), style: TextStyle(fontSize: 12, color: Colors.red)),
                       ],
                     ),
                   ),
@@ -303,17 +304,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _filterChip(id: 'all', label: 'सर्व (${allLiveNotifications.length})'),
+                        _filterChip(id: 'all', label: AppLanguage().tr(mr: 'सर्व (${allLiveNotifications.length})', en: 'All (${allLiveNotifications.length})')),
                         const SizedBox(width: 4),
-                        _filterChip(id: 'unread', label: 'नवीन ($unreadCount)'),
+                        _filterChip(id: 'unread', label: AppLanguage().tr(mr: 'नवीन ($unreadCount)', en: 'New ($unreadCount)')),
                         const SizedBox(width: 4),
-                        _filterChip(id: 'documents', label: '📑 कागदपत्रे'),
+                        _filterChip(id: 'documents', label: AppLanguage().tr(mr: '📑 कागदपत्रे', en: '📑 Documents')),
                         const SizedBox(width: 4),
-                        _filterChip(id: 'orders', label: '📦 ऑर्डर्स'),
+                        _filterChip(id: 'orders', label: AppLanguage().tr(mr: '📦 ऑर्डर्स', en: '📦 Orders')),
                         const SizedBox(width: 4),
-                        _filterChip(id: 'payments', label: '💰 पेमेंट'),
+                        _filterChip(id: 'payments', label: AppLanguage().tr(mr: '💰 पेमेंट', en: '💰 Payments')),
                         const SizedBox(width: 4),
-                        _filterChip(id: 'schemes', label: '🏛️ योजना'),
+                        _filterChip(id: 'schemes', label: AppLanguage().tr(mr: '🏛️ योजना', en: '🏛️ Schemes')),
                       ],
                     ),
                   ),
@@ -324,22 +325,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 Expanded(
                   child: filteredList.isEmpty
                       ? (allLiveNotifications.isEmpty && (!state.ordersReady || !state.documentsReady || !state.schemesReady))
-                          ? const AppLoader(message: 'सूचना लोड होत आहेत...')
+                          ? AppLoader(message: AppLanguage().tr(mr: 'सूचना लोड होत आहेत...', en: 'Loading notifications...'))
                           : PullToRefresh(
-                          onRefresh: () => state.fetchFromBackend(),
+                          onRefresh: () => Future.wait([state.refreshOrders(), state.refreshDocuments(), state.refreshSchemes(), state.refreshCrops()]),
                           child: Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.notifications_off_outlined, size: 48, color: Colors.grey.shade400),
                               const SizedBox(height: 10),
-                              const Text(
-                                'कोणतीही सूचना उपलब्ध नाही',
+                              Text(
+                                AppLanguage().tr(mr: 'कोणतीही सूचना उपलब्ध नाही', en: 'No notifications available'),
                                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                               ),
                               const SizedBox(height: 4),
-                              const Text(
-                                'नवीन ऑर्डर, पीक नियोजन किंवा योजना आल्यावर येथे दिसेल.',
+                              Text(
+                                AppLanguage().tr(mr: 'नवीन ऑर्डर, पीक नियोजन किंवा योजना आल्यावर येथे दिसेल.', en: 'New orders, crop planning updates or schemes will appear here.'),
                                 style: TextStyle(fontSize: 11, color: AppColors.muted),
                               ),
                             ],
@@ -347,7 +348,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ),
                         )
                       : RefreshIndicator(
-                          onRefresh: () => state.fetchFromBackend(),
+                          onRefresh: () => Future.wait([state.refreshOrders(), state.refreshDocuments(), state.refreshSchemes(), state.refreshCrops()]),
                           child: ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.all(10),
@@ -365,19 +366,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     color: Colors.red.shade600,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(Icons.delete_outline, color: Colors.white, size: 20),
                                       SizedBox(width: 4),
-                                      Text('काढून टाका', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      Text(AppLanguage().tr(mr: 'काढून टाका', en: 'Remove'), style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
                                 onDismissed: (direction) {
                                   state.deleteNotification(item.id);
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('सूचना काढून टाकली.'), duration: Duration(seconds: 2)),
+                                    SnackBar(content: Text(AppLanguage().tr(mr: 'सूचना काढून टाकली.', en: 'Notification removed.')), duration: Duration(seconds: 2)),
                                   );
                                 },
                                 child: _buildNotificationCard(context, state, item),
@@ -507,8 +508,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               color: AppColors.primary,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
-                              'नवीन',
+                            child: Text(
+                              AppLanguage().tr(mr: 'नवीन', en: 'New'),
                               style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -517,7 +518,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           icon: const Icon(Icons.close, size: 16, color: AppColors.muted),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
-                          tooltip: 'काढून टाका',
+                          tooltip: AppLanguage().tr(mr: 'काढून टाका', en: 'Remove'),
                           onPressed: () {
                             state.deleteNotification(item.id);
                           },

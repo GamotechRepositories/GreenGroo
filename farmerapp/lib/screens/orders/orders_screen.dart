@@ -162,12 +162,12 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'No ${tab['label']?.toLowerCase()}',
+                            AppLanguage().tr(mr: '${tab['marathi']} ऑर्डर नाहीत', en: 'No ${tab['label']?.toLowerCase()}'),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937)),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Orders in this status will appear here.',
+                            AppLanguage().tr(mr: 'या स्थितीतील ऑर्डर्स येथे दिसतील.', en: 'Orders in this status will appear here.'),
                             style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                           ),
                         ],
@@ -253,7 +253,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label copied to clipboard'),
+        content: Text(AppLanguage().tr(mr: '$label कॉपी केले', en: '$label copied to clipboard')),
         duration: const Duration(seconds: 2),
         backgroundColor: const Color(0xFF217346),
       ),
@@ -271,32 +271,32 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
       bg = const Color(0xFFFEF3C7);
       text = const Color(0xFF92400E);
       border = const Color(0xFFFDE68A);
-      label = 'New';
+      label = AppLanguage().tr(mr: 'नवीन', en: 'New');
     } else if (s.contains('ACCEPT')) {
       bg = const Color(0xFFD1FAE5);
       text = const Color(0xFF065F46);
       border = const Color(0xFFA7F3D0);
-      label = 'Accepted';
+      label = AppLanguage().tr(mr: 'स्वीकारले', en: 'Accepted');
     } else if (s.contains('PREPAR') || s.contains('PACK')) {
       bg = const Color(0xFFDBEAFE);
       text = const Color(0xFF1E40AF);
       border = const Color(0xFFBFDBFE);
-      label = 'Preparing';
+      label = AppLanguage().tr(mr: 'तयारी सुरू', en: 'Preparing');
     } else if (s.contains('READY')) {
       bg = const Color(0xFFE0E7FF);
       text = const Color(0xFF3730A3);
       border = const Color(0xFFC7D2FE);
-      label = 'Ready for Pickup';
+      label = AppLanguage().tr(mr: 'पिकअपसाठी तयार', en: 'Ready for Pickup');
     } else if (s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID')) {
       bg = const Color(0xFFD1FAE5);
       text = const Color(0xFF065F46);
       border = const Color(0xFFA7F3D0);
-      label = 'Completed';
+      label = AppLanguage().tr(mr: 'पूर्ण', en: 'Completed');
     } else if (s.contains('REJECT') || s.contains('CANCEL')) {
       bg = const Color(0xFFFEE2E2);
       text = const Color(0xFF991B1B);
       border = const Color(0xFFFECACA);
-      label = 'Rejected';
+      label = AppLanguage().tr(mr: 'नाकारले', en: 'Rejected');
     } else {
       bg = const Color(0xFFF3F4F6);
       text = const Color(0xFF374151);
@@ -324,15 +324,15 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Accept order?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(AppLanguage().tr(mr: 'ऑर्डर स्वीकारायची?', en: 'Accept order?'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Text(
-          'Confirm acceptance of this ${order.productName} order (${order.quantity.toStringAsFixed(0)} ${order.unit})?',
+          AppLanguage().tr(mr: '${order.productName} ची ही ऑर्डर (${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}) स्वीकारायची आहे का?', en: 'Confirm acceptance of this ${order.productName} order (${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)})?'),
           style: const TextStyle(fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+            child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: AppColors.muted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -347,20 +347,20 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                 if (!mounted) return;
                 messenger.showSnackBar(
                   SnackBar(
-                    content: Text('तुम्ही ${order.quantity.toStringAsFixed(0)} ${order.unit} ${order.productName} चा order स्वीकारला आहात'),
+                    content: Text(AppLanguage().tr(mr: 'तुम्ही ${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} ${order.productName} ची ऑर्डर स्वीकारली आहे', en: 'You accepted the order for ${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} ${order.productName}')),
                     backgroundColor: const Color(0xFF217346),
                   ),
                 );
               } catch (e) {
                 if (!mounted) return;
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                  SnackBar(content: Text(AppLanguage().tr(mr: 'त्रुटी: $e', en: 'Error: $e')), backgroundColor: AppColors.error),
                 );
               } finally {
                 if (mounted) setState(() => _isBusy = false);
               }
             },
-            child: const Text('Confirm Accept'),
+            child: Text(AppLanguage().tr(mr: 'स्वीकारा', en: 'Confirm Accept')),
           ),
         ],
       ),
@@ -384,13 +384,13 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Reject Order', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: Text(AppLanguage().tr(mr: 'ऑर्डर नाकारा', en: 'Reject Order'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Rejection reason *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                Text(AppLanguage().tr(mr: 'नाकारण्याचे कारण *', en: 'Rejection reason *'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -403,7 +403,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                     child: DropdownButton<String>(
                       isExpanded: true,
                       value: selectedReason,
-                      items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)))).toList(),
+                      items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(AppLanguage().pick(r), style: const TextStyle(fontSize: 13)))).toList(),
                       onChanged: (val) {
                         if (val != null) setDialogState(() => selectedReason = val);
                       },
@@ -412,7 +412,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  selectedReason == 'Other' ? 'Other reason *' : 'Optional note',
+                  selectedReason == 'Other' ? AppLanguage().tr(mr: 'इतर कारण *', en: 'Other reason *') : AppLanguage().tr(mr: 'टीप (ऐच्छिक)', en: 'Optional note'),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
                 ),
                 const SizedBox(height: 6),
@@ -420,7 +420,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                   controller: noteController,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    hintText: selectedReason == 'Other' ? 'Enter the reason...' : 'Add any additional note...',
+                    hintText: selectedReason == 'Other' ? AppLanguage().tr(mr: 'कारण लिहा...', en: 'Enter the reason...') : AppLanguage().tr(mr: 'अधिक माहिती लिहा...', en: 'Add any additional note...'),
                     hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
                     filled: true,
                     fillColor: Colors.white,
@@ -435,7 +435,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+              child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: AppColors.muted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -445,7 +445,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
               onPressed: () async {
                 if (selectedReason == 'Other' && noteController.text.trim().isEmpty) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Please enter the other reason')),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'कृपया इतर कारण लिहा', en: 'Please enter the other reason'))),
                   );
                   return;
                 }
@@ -459,18 +459,18 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                   );
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Order rejected'), backgroundColor: Color(0xFFDC2626)),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'ऑर्डर नाकारली', en: 'Order rejected')), backgroundColor: Color(0xFFDC2626)),
                   );
                 } catch (e) {
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'त्रुटी: $e', en: 'Error: $e')), backgroundColor: AppColors.error),
                   );
                 } finally {
                   if (mounted) setState(() => _isBusy = false);
                 }
               },
-              child: const Text('Confirm Reject'),
+              child: Text(AppLanguage().tr(mr: 'नाकारा', en: 'Confirm Reject')),
             ),
           ],
         ),
@@ -555,7 +555,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: order.productName.isNotEmpty ? order.productName : 'Product',
+                        text: order.productName.isNotEmpty ? order.productName : AppLanguage().tr(mr: 'उत्पादन', en: 'Product'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -584,7 +584,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                 flex: 5,
                 child: Center(
                   child: InkWell(
-                    onTap: () => _copyToClipboard(order.orderCode, 'Order ID'),
+                    onTap: () => _copyToClipboard(order.orderCode, AppLanguage().tr(mr: 'ऑर्डर क्रमांक', en: 'Order ID')),
                     borderRadius: BorderRadius.circular(4),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
@@ -640,8 +640,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'ORDER DATE',
+                      Text(
+                        AppLanguage().tr(mr: 'ऑर्डर तारीख', en: 'ORDER DATE'),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -671,8 +671,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'PICKUP DATE',
+                      Text(
+                        AppLanguage().tr(mr: 'पिकअप तारीख', en: 'PICKUP DATE'),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -702,8 +702,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'PICKUP TIME',
+                      Text(
+                        AppLanguage().tr(mr: 'पिकअप वेळ', en: 'PICKUP TIME'),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -789,7 +789,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
 
                 // Table Rows
                 ...gradeRows.map((g) {
-                  final label = g['label'] as String;
+                  final label = AppLanguage().pick(g['label'] as String);
                   final qty = g['qty'] as double;
                   final rate = g['rate'] as double;
                   final bg = g['bg'] as Color;
@@ -818,7 +818,7 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                         Expanded(
                           flex: 2,
                           child: Text(
-                            qty > 0 ? '${qty.toStringAsFixed(0)} ${order.unit}' : '0 ${order.unit}',
+                            qty > 0 ? '${qty.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}' : '0 ${AppLanguage().pick(order.unit)}',
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               fontSize: 12,
@@ -871,8 +871,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                         ),
                       );
                     },
-                    child: const Text(
-                      'View',
+                    child: Text(
+                      AppLanguage().tr(mr: 'पहा', en: 'View'),
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -894,8 +894,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                       onPressed: _isBusy ? null : _showAcceptDialog,
-                      child: const Text(
-                        'Accept',
+                      child: Text(
+                        AppLanguage().tr(mr: 'स्वीकारा', en: 'Accept'),
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -918,8 +918,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                       onPressed: _isBusy ? null : _showRejectDialog,
-                      child: const Text(
-                        'Reject',
+                      child: Text(
+                        AppLanguage().tr(mr: 'नाकारा', en: 'Reject'),
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -949,8 +949,8 @@ class _OrderMobileCardState extends State<_OrderMobileCard> {
                           ),
                         );
                       },
-                      child: const Text(
-                        'Prep',
+                      child: Text(
+                        AppLanguage().tr(mr: 'तयारी', en: 'Prep'),
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_colors.dart';
+import '../core/constants/farmer_constants.dart';
 
 class AppLanguage extends ChangeNotifier {
   static final AppLanguage _instance = AppLanguage._internal();
@@ -49,6 +50,225 @@ class AppLanguage extends ChangeNotifier {
   String tr({required String mr, required String en}) {
     return isMarathi ? mr : en;
   }
+
+  static final RegExp _devanagari = RegExp(r'[\u0900-\u097F]');
+
+  /// Display text for data values that are stored with both languages
+  /// (e.g. 'Black Soil (काळी माती)', 'मराठी (Marathi)') or as plain English codes
+  /// (e.g. 'Acre', 'Kg', 'Ready for Harvest'). The stored value itself must stay unchanged.
+  String pick(String value) {
+    final v = value.trim();
+    if (v.isEmpty) return value;
+    final split = splitBilingual(v);
+    if (split != null) return isMarathi ? split.mr : split.en;
+    if (isMarathi) {
+      final key = v.toLowerCase().replaceAll('_', ' ');
+      return _enToMr[v] ?? _enToMrLower[key] ?? _optionPairs.enToMr[key] ?? value;
+    }
+    return _mrToEn[v] ?? _optionPairs.mrToEn[v] ?? value;
+  }
+
+  /// Plain-English / plain-Marathi halves of the bilingual option lists in [FarmerConstants],
+  /// so 'Tomato' or 'Drip' shows in Marathi even when stored without the Marathi part.
+  static final ({Map<String, String> enToMr, Map<String, String> mrToEn}) _optionPairs = () {
+    final enToMr = <String, String>{};
+    final mrToEn = <String, String>{};
+    for (final list in [
+      FarmerConstants.cropOptions,
+      FarmerConstants.soilTypes,
+      FarmerConstants.irrigationTypes,
+      FarmerConstants.waterSources,
+      FarmerConstants.farmingMethods,
+      FarmerConstants.farmingTypes,
+    ]) {
+      for (final option in list) {
+        final split = splitBilingual(option);
+        if (split == null) continue;
+        enToMr.putIfAbsent(split.en.toLowerCase(), () => split.mr);
+        mrToEn.putIfAbsent(split.mr, () => split.en);
+      }
+    }
+    return (enToMr: enToMr, mrToEn: mrToEn);
+  }();
+
+  static const _monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static const _monthsMr = ['जाने', 'फेब्रु', 'मार्च', 'एप्रिल', 'मे', 'जून', 'जुलै', 'ऑगस्ट', 'सप्टें', 'ऑक्टो', 'नोव्हें', 'डिसें'];
+
+  /// Short month name (1 = January) in the current language.
+  String monthShort(int month) => (isMarathi ? _monthsMr : _monthsEn)[(month - 1) % 12];
+
+  static final Map<String, String> _enToMrLower = {for (final e in _enToMr.entries) e.key.toLowerCase(): e.value};
+
+  /// Splits 'English (मराठी)', 'मराठी (English)', 'मराठी / English' or 'मराठी\nEnglish'.
+  static ({String mr, String en})? splitBilingual(String value) {
+    final v = value.trim();
+    final paren = RegExp(r'^(.*?)\s*\(([^()]*)\)\s*([^A-Za-z\u0900-\u097F()]*)$').firstMatch(v);
+    if (paren != null) {
+      final outer = paren.group(1)!.trim();
+      final inner = paren.group(2)!.trim();
+      final tail = paren.group(3)!.trim();
+      final outerDev = _devanagari.hasMatch(outer);
+      final innerDev = _devanagari.hasMatch(inner);
+      final innerLatin = RegExp(r'[A-Za-z]{2,}').hasMatch(inner);
+      final outerLatin = RegExp(r'[A-Za-z]{2,}').hasMatch(outer);
+      if (outer.isNotEmpty && inner.isNotEmpty && outerDev != innerDev && (innerLatin || outerLatin)) {
+        final suffix = tail.isEmpty ? '' : ' $tail';
+        return outerDev
+            ? (mr: '$outer$suffix', en: '$inner$suffix')
+            : (mr: '$inner$suffix', en: '$outer$suffix');
+      }
+    }
+    for (final sep in const [' / ', '\n']) {
+      final parts = v.split(sep);
+      if (parts.length != 2) continue;
+      final a = parts[0].trim();
+      final b = parts[1].trim();
+      final aDev = _devanagari.hasMatch(a);
+      final bDev = _devanagari.hasMatch(b);
+      if (a.isNotEmpty && b.isNotEmpty && aDev != bDev) {
+        return aDev ? (mr: a, en: b) : (mr: b, en: a);
+      }
+    }
+    return null;
+  }
+
+  static final Map<String, String> _mrToEn = {for (final e in _enToMr.entries) e.value: e.key};
+
+  static const Map<String, String> _enToMr = {
+    // Gender & language
+    'Male': 'पुरुष',
+    'Female': 'स्त्री',
+    'Other': 'इतर',
+    'English': 'इंग्रजी',
+    'Marathi': 'मराठी',
+    'Hindi': 'हिंदी',
+    // Units
+    'Acre': 'एकर',
+    'Acres': 'एकर',
+    'Hectare': 'हेक्टर',
+    'Guntha': 'गुंठा',
+    'Kg': 'किलो',
+    'kg': 'किलो',
+    'Quintal': 'क्विंटल',
+    'Ton': 'टन',
+    'Piece': 'नग',
+    'Box': 'बॉक्स',
+    'Crate': 'क्रेट',
+    'Dozen': 'डझन',
+    // Packaging & product listing values
+    'Gunny Bag': 'गोणी',
+    'Pouch': 'पाउच',
+    'Carton': 'कार्टन',
+    'Bag': 'पिशवी',
+    'All': 'सर्व',
+    'Paused': 'थांबवले',
+    'Published': 'प्रकाशित',
+    'Standard': 'मानक',
+    'Vegetables': 'भाजीपाला',
+    'IPM': 'एकात्मिक कीड व्यवस्थापन',
+    'Conventional': 'पारंपारिक',
+    'Organic': 'सेंद्रिय',
+    'Natural': 'नैसर्गिक',
+    'Mixed': 'मिश्र',
+    // Government scheme categories
+    'All Schemes': 'सर्व योजना',
+    'Financial Benefit': 'आर्थिक लाभ',
+    'Irrigation & Drip': 'सिंचन व ठिबक',
+    'Solar & Energy': 'सौर व ऊर्जा',
+    'Crop Insurance': 'पीक विमा',
+    'Machinery & Equipment': 'यंत्रसामग्री व उपकरणे',
+    'Dairy & Livestock': 'दुग्ध व पशुधन',
+    'Government Scheme': 'शासकीय योजना',
+    // Crop-stage upload document types
+    'Report': 'अहवाल',
+    // Order rejection reasons (sent to backend in English)
+    'Stock Unavailable': 'स्टॉक उपलब्ध नाही',
+    'Quality Issue': 'गुणवत्ता समस्या',
+    'Pickup Issue': 'पिकअप समस्या',
+    'Quantity Mismatch': 'प्रमाण जुळत नाही',
+    // Weekdays
+    'Monday': 'सोमवार',
+    'Tuesday': 'मंगळवार',
+    'Wednesday': 'बुधवार',
+    'Thursday': 'गुरुवार',
+    'Friday': 'शुक्रवार',
+    'Saturday': 'शनिवार',
+    'Sunday': 'रविवार',
+    // Farm profile options stored in English only
+    'Hydroponic': 'हायड्रोपोनिक',
+    'KCC / Krishi Loan Account': 'केसीसी / कृषी कर्ज खाते',
+    'Under Review': 'पडताळणी चालू',
+    'Submitted': 'सादर केले',
+    // Grades & product statuses
+    'Grade A': 'ग्रेड A',
+    'Grade B': 'ग्रेड B',
+    'Grade C': 'ग्रेड C',
+    'Active': 'सक्रिय',
+    'Pending Approval': 'मंजुरी प्रलंबित',
+    'Draft': 'मसुदा',
+    'Low Stock': 'कमी साठा',
+    'Out of Stock': 'साठा संपला',
+    'Pending': 'प्रलंबित',
+    'Approved': 'मंजूर',
+    'Rejected': 'नाकारले',
+    'Verified': 'पडताळले',
+    'Uploaded': 'अपलोड केले',
+    'Not Uploaded': 'अपलोड नाही',
+    // Order tabs & statuses
+    'New Orders': 'नवीन ऑर्डर',
+    'New': 'नवीन',
+    'Accepted': 'स्वीकारले',
+    'Preparing': 'तयारी सुरू',
+    'Ready for Pickup': 'पिकअपसाठी तयार',
+    'Ready': 'तयार',
+    'Completed': 'पूर्ण',
+    'Cancelled': 'रद्द',
+    'Delivered': 'पोहोचवले',
+    'Picked Up': 'पिकअप झाले',
+    'In Transit': 'वाहतुकीत',
+    'Driver Assigned': 'ड्रायव्हर नेमला',
+    // Crop planning stages
+    'Planning Created': 'नियोजन तयार केले',
+    'Land Preparation': 'मशागत / जमीन तयार करणे',
+    'Soil Testing': 'माती परीक्षण',
+    'Land Preparation Completed': 'मशागत पूर्ण',
+    'Seed Selection': 'बियाणे निवड',
+    'Seed Treatment': 'बीजप्रक्रिया',
+    'Sowing / Plantation': 'पेरणी / लागवड',
+    'Germination Started': 'उगवण सुरू',
+    'First Fertilizer Application': 'पहिली खत मात्रा',
+    'Irrigation': 'पाणी व्यवस्थापन',
+    'Crop Growth': 'पीक वाढ',
+    'Spray / Pest Control': 'कीड नियंत्रण फवारणी',
+    'Weeding / Intercultivation': 'तणनियंत्रण / खुरपणी / कोळपणी',
+    'Second Fertilizer Application': 'दुसरी खत मात्रा',
+    'Spray / Disease Control': 'रोग नियंत्रण फवारणी',
+    'Second Irrigation': 'दुसरे पाणी',
+    'Crop Monitoring': 'पीक पाहणी',
+    'Nutrient / Micronutrient Spray': 'सूक्ष्म अन्नद्रव्य फवारणी',
+    'Flowering / Fruiting': 'फुलोरा / फळधारणा',
+    'Final Fertilizer / Required Treatment': 'शेवटची खत मात्रा / आवश्यक उपचार',
+    'Pre-Harvest Stage': 'कापणीपूर्व टप्पा',
+    'Ready for Harvest': 'काढणीस तयार',
+    'Harvested': 'काढणी झाली',
+    'Growing': 'वाढ सुरू',
+    'Planned': 'नियोजित',
+    // Crop varieties
+    'Hybrid': 'संकरित',
+    'Local': 'स्थानिक',
+    'Desi': 'देशी',
+    'Improved': 'सुधारित',
+    // Documents
+    'Aadhaar Card': 'आधार कार्ड',
+    'Farmer ID': 'शेतकरी ओळखपत्र',
+    '7/12 Extract': '७/१२ उतारा',
+    '8A Extract': '८-अ उतारा',
+    'Bank Passbook': 'बँक पासबुक',
+    'Farmer Photo': 'शेतकरी फोटो',
+    'Address Proof': 'रहिवासी दाखला',
+    'PAN Card': 'पॅन कार्ड',
+    'Live Video KYC': 'लाइव्ह व्हिडिओ केवायसी',
+  };
 
   /// Show language selection popup dialog
   static Future<void> showSelectionDialog(

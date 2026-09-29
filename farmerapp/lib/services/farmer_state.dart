@@ -8,6 +8,7 @@ import '../core/constants/farmer_constants.dart';
 import 'api_service.dart';
 import 'farmer_socket_service.dart';
 
+import './app_language.dart';
 class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   static final FarmerState _instance = FarmerState._internal();
   factory FarmerState() => _instance;
@@ -24,7 +25,6 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void>? _prefsLoad;
   bool _syncing = false;
-  // ignore: unused_field
   bool _ordersChanged = false, _documentsChanged = false, _profileChanged = false, _productsChanged = false, _cropsChanged = false, _schemesChanged = false;
   final Set<String> _knownOrderIds = {};
   final Map<String, String> _knownOrderStatusMap = {};
@@ -60,8 +60,18 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get dashboardReady => profileReady && productsReady && ordersReady && cropsReady;
 
-  Future<T> _markReady<T>(Future<T> future, void Function() mark) {
-    return future.whenComplete(mark);
+  /// Fetches one section; listeners are notified only when that section's data
+  /// changed or it just became ready, so unchanged sections are not rebuilt.
+  Future<void> _loadSection(
+    Future<void> Function() fetch, {
+    required bool Function() isReady,
+    required void Function() markReady,
+    required bool Function() changed,
+  }) async {
+    final wasReady = isReady();
+    await fetch();
+    markReady();
+    if (!wasReady || changed()) notifyListeners();
   }
 
   void _markAllSectionsReady() {
@@ -130,24 +140,40 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Refreshes one section (pull-to-refresh on a single-section screen) instead of a full sync.
-  Future<void> refreshSchemes() => _refreshSection(_fetchSchemesSafe);
-  Future<void> refreshDocuments() => _refreshSection(_fetchDocumentsSafe);
-  Future<void> refreshCrops() => _refreshSection(_fetchCropsSafe);
-  Future<void> refreshProducts() => _refreshSection(_fetchProductsSafe);
-  Future<void> refreshOrders() => _refreshSection(_fetchOrdersSafe);
-  Future<void> refreshProfile() => _refreshSection(_fetchProfileSafe);
+  Future<void> refreshSchemes() => _refreshSection(_fetchSchemesSafe, () => _schemesChanged);
+  Future<void> refreshDocuments() => _refreshSection(_fetchDocumentsSafe, () => _documentsChanged);
+  Future<void> refreshCrops() => _refreshSection(_fetchCropsSafe, () => _cropsChanged);
+  Future<void> refreshProducts() => _refreshSection(_fetchProductsSafe, () => _productsChanged);
+  Future<void> refreshOrders() => _refreshSection(_fetchOrdersSafe, () => _ordersChanged);
+  Future<void> refreshProfile() => _refreshSection(_fetchProfileSafe, () => _profileChanged);
 
-  Future<void> _refreshSection(Future<void> Function() fetch) async {
+  /// Dashboard pull-to-refresh: completes as soon as the sections the dashboard shows are
+  /// fetched; documents (large inline files) keep refreshing in the background.
+  Future<void> refreshDashboard() async {
+    if (_syncing) return;
+    unawaited(refreshDocuments());
+    await Future.wait([
+      refreshProfile(),
+      refreshProducts(),
+      refreshOrders(),
+      refreshCrops(),
+      refreshSchemes(),
+    ]);
+  }
+
+  Future<void> _refreshSection(Future<void> Function() fetch, bool Function() changed) async {
     if (_syncing) return;
     await fetch();
-    notifyListeners();
+    if (changed()) notifyListeners();
   }
 
   Future<void> fetchFromBackend() async {
     if (_syncing) return;
     _syncing = true;
+    final firstLoad = !dashboardReady || !documentsReady || !schemesReady;
+    final wasConnected = isConnectedToBackend;
     isLoadingFromBackend = true;
-    notifyListeners();
+    if (firstLoad) notifyListeners();
 
     try {
       final healthy = await ApiService().checkHealth();
@@ -157,14 +183,19 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
       if (healthy) {
         connectionMessage = 'Connected: $backendUrl';
 
-        // Parallel fetch of ALL sections for blazing-fast speed
         await Future.wait([
-          _markReady(_fetchProfileSafe(), () => profileReady = true),
-          _markReady(_fetchProductsSafe(), () => productsReady = true),
-          _markReady(_fetchOrdersSafe(), () => ordersReady = true),
-          _markReady(_fetchCropsSafe(), () => cropsReady = true),
-          _markReady(_fetchDocumentsSafe(), () => documentsReady = true),
-          _markReady(_fetchSchemesSafe(), () => schemesReady = true),
+          _loadSection(_fetchProfileSafe,
+              isReady: () => profileReady, markReady: () => profileReady = true, changed: () => _profileChanged),
+          _loadSection(_fetchProductsSafe,
+              isReady: () => productsReady, markReady: () => productsReady = true, changed: () => _productsChanged),
+          _loadSection(_fetchOrdersSafe,
+              isReady: () => ordersReady, markReady: () => ordersReady = true, changed: () => _ordersChanged),
+          _loadSection(_fetchCropsSafe,
+              isReady: () => cropsReady, markReady: () => cropsReady = true, changed: () => _cropsChanged),
+          _loadSection(_fetchDocumentsSafe,
+              isReady: () => documentsReady, markReady: () => documentsReady = true, changed: () => _documentsChanged),
+          _loadSection(_fetchSchemesSafe,
+              isReady: () => schemesReady, markReady: () => schemesReady = true, changed: () => _schemesChanged),
         ]);
       } else {
         connectionMessage = 'Disconnected (Using Offline Cache)';
@@ -177,7 +208,7 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _syncing = false;
       isLoadingFromBackend = false;
-      notifyListeners();
+      if (firstLoad || wasConnected != isConnectedToBackend) notifyListeners();
       if (_syncQueued) {
         _syncQueued = false;
         requestSync();
@@ -571,8 +602,12 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
             })
             .whereType<GovtSchemeApplication>()
             .toList();
-        schemeApplications = fetchedApps;
-        _schemesChanged = true;
+        String appsKey(List<GovtSchemeApplication> list) =>
+            list.map((a) => '${a.id}|${a.status}|${a.adminNotes}|${a.reviewedAt}').join(',');
+        if (appsKey(fetchedApps) != appsKey(schemeApplications)) {
+          schemeApplications = fetchedApps;
+          _schemesChanged = true;
+        }
       }
     } catch (_) {}
   }
@@ -1213,19 +1248,19 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     if (documents.isEmpty) _ensureDocumentChecklist();
     final idx = documents.indexWhere((d) => d.id == docId || d.type == docId);
     if (idx == -1) {
-      throw Exception('Document type not found');
+      throw Exception(AppLanguage().tr(mr: 'कागदपत्र प्रकार सापडला नाही', en: 'Document type not found'));
     }
     final doc = documents[idx];
     final updatedUrl = (fileUrl != null && fileUrl.isNotEmpty) ? fileUrl : doc.fileUrl;
     if (updatedUrl.isEmpty || _isDummyFileUrl(updatedUrl)) {
-      throw Exception('Choose a real document file');
+      throw Exception(AppLanguage().tr(mr: 'खरी कागदपत्र फाईल निवडा', en: 'Choose a real document file'));
     }
     if (updatedUrl.length > _maxDocumentPayloadChars) {
-      throw Exception('फाईल खूप मोठी आहे (कमाल 10 MB). File too large (max 10 MB)');
+      throw Exception(AppLanguage().tr(mr: 'फाईल खूप मोठी आहे (कमाल 10 MB).', en: 'File too large (max 10 MB).'));
     }
     final targetFarmerId = profile.id.trim();
     if (targetFarmerId.isEmpty) {
-      throw Exception('Farmer login required');
+      throw Exception(AppLanguage().tr(mr: 'शेतकरी लॉगिन आवश्यक आहे', en: 'Farmer login required'));
     }
 
     final isPdf = updatedUrl.startsWith('data:application/pdf') || updatedUrl.toLowerCase().endsWith('.pdf');

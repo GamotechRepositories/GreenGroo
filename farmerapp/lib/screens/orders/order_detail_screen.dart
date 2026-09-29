@@ -59,7 +59,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label copied to clipboard'),
+        content: Text(AppLanguage().tr(mr: '$label कॉपी केले', en: '$label copied to clipboard')),
         duration: const Duration(seconds: 2),
         backgroundColor: const Color(0xFF007A4D),
       ),
@@ -77,32 +77,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       bg = const Color(0xFFE0F2FE);
       text = const Color(0xFF0369A1);
       border = const Color(0xFFBAE6FD);
-      label = 'New';
+      label = AppLanguage().tr(mr: 'नवीन', en: 'New');
     } else if (s.contains('ACCEPT')) {
       bg = const Color(0xFFD1FAE5);
       text = const Color(0xFF065F46);
       border = const Color(0xFFA7F3D0);
-      label = 'Accepted';
+      label = AppLanguage().tr(mr: 'स्वीकारले', en: 'Accepted');
     } else if (s.contains('PREPAR') || s.contains('PACK')) {
       bg = const Color(0xFFDBEAFE);
       text = const Color(0xFF1E40AF);
       border = const Color(0xFFBFDBFE);
-      label = 'Preparing';
+      label = AppLanguage().tr(mr: 'तयारी सुरू', en: 'Preparing');
     } else if (s.contains('READY')) {
       bg = const Color(0xFFE0E7FF);
       text = const Color(0xFF3730A3);
       border = const Color(0xFFC7D2FE);
-      label = 'Ready for Pickup';
+      label = AppLanguage().tr(mr: 'पिकअपसाठी तयार', en: 'Ready for Pickup');
     } else if (s.contains('COMPLET') || s.contains('DELIVER') || s.contains('PAID')) {
       bg = const Color(0xFFD1FAE5);
       text = const Color(0xFF065F46);
       border = const Color(0xFFA7F3D0);
-      label = 'Completed';
+      label = AppLanguage().tr(mr: 'पूर्ण', en: 'Completed');
     } else if (s.contains('REJECT') || s.contains('CANCEL')) {
       bg = const Color(0xFFFEE2E2);
       text = const Color(0xFF991B1B);
       border = const Color(0xFFFECACA);
-      label = 'Rejected';
+      label = AppLanguage().tr(mr: 'नाकारले', en: 'Rejected');
     } else {
       bg = const Color(0xFFF3F4F6);
       text = const Color(0xFF374151);
@@ -131,15 +131,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Accept order?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text(AppLanguage().tr(mr: 'ऑर्डर स्वीकारायची?', en: 'Accept order?'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Text(
-          'Confirm acceptance of this ${order.productName} order (${order.quantity.toStringAsFixed(0)} ${order.unit})?',
+          AppLanguage().tr(mr: '${order.productName} ची ही ऑर्डर (${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}) स्वीकारायची आहे का?', en: 'Confirm acceptance of this ${order.productName} order (${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)})?'),
           style: const TextStyle(fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+            child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: AppColors.muted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -154,7 +154,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 if (!mounted) return;
                 messenger.showSnackBar(
                   SnackBar(
-                    content: Text('तुम्ही ${order.quantity.toStringAsFixed(0)} ${order.unit} ${order.productName} चा order स्वीकारला आहात'),
+                    content: Text(AppLanguage().tr(mr: 'तुम्ही ${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} ${order.productName} ची ऑर्डर स्वीकारली आहे', en: 'You accepted the order for ${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} ${order.productName}')),
                     backgroundColor: const Color(0xFF007A4D),
                   ),
                 );
@@ -166,13 +166,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               } catch (e) {
                 if (!mounted) return;
                 messenger.showSnackBar(
-                  SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                  SnackBar(content: Text(AppLanguage().tr(mr: 'त्रुटी: $e', en: 'Error: $e')), backgroundColor: AppColors.error),
                 );
               } finally {
                 if (mounted) setState(() => _isBusy = false);
               }
             },
-            child: const Text('Confirm Accept'),
+            child: Text(AppLanguage().tr(mr: 'स्वीकारा', en: 'Confirm Accept')),
           ),
         ],
       ),
@@ -196,13 +196,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Reject Order', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: Text(AppLanguage().tr(mr: 'ऑर्डर नाकारा', en: 'Reject Order'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Rejection reason *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                Text(AppLanguage().tr(mr: 'नाकारण्याचे कारण *', en: 'Rejection reason *'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -215,7 +215,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: DropdownButton<String>(
                       isExpanded: true,
                       value: selectedReason,
-                      items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)))).toList(),
+                      items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(AppLanguage().pick(r), style: const TextStyle(fontSize: 13)))).toList(),
                       onChanged: (val) {
                         if (val != null) setDialogState(() => selectedReason = val);
                       },
@@ -224,7 +224,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  selectedReason == 'Other' ? 'Other reason *' : 'Optional note',
+                  selectedReason == 'Other' ? AppLanguage().tr(mr: 'इतर कारण *', en: 'Other reason *') : AppLanguage().tr(mr: 'टीप (ऐच्छिक)', en: 'Optional note'),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
                 ),
                 const SizedBox(height: 6),
@@ -232,7 +232,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   controller: noteController,
                   maxLines: 2,
                   decoration: InputDecoration(
-                    hintText: selectedReason == 'Other' ? 'Enter the reason...' : 'Add any additional note...',
+                    hintText: selectedReason == 'Other' ? AppLanguage().tr(mr: 'कारण लिहा...', en: 'Enter the reason...') : AppLanguage().tr(mr: 'अधिक माहिती लिहा...', en: 'Add any additional note...'),
                     hintStyle: const TextStyle(fontSize: 12, color: AppColors.muted),
                     filled: true,
                     fillColor: Colors.white,
@@ -247,7 +247,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+              child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: AppColors.muted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -257,7 +257,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               onPressed: () async {
                 if (selectedReason == 'Other' && noteController.text.trim().isEmpty) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Please enter the other reason')),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'कृपया इतर कारण लिहा', en: 'Please enter the other reason'))),
                   );
                   return;
                 }
@@ -271,19 +271,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   );
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Order rejected'), backgroundColor: Color(0xFFDC2626)),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'ऑर्डर नाकारली', en: 'Order rejected')), backgroundColor: Color(0xFFDC2626)),
                   );
                   nav.pop();
                 } catch (e) {
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                    SnackBar(content: Text(AppLanguage().tr(mr: 'त्रुटी: $e', en: 'Error: $e')), backgroundColor: AppColors.error),
                   );
                 } finally {
                   if (mounted) setState(() => _isBusy = false);
                 }
               },
-              child: const Text('Confirm Reject'),
+              child: Text(AppLanguage().tr(mr: 'नाकारा', en: 'Confirm Reject')),
             ),
           ],
         ),
@@ -386,10 +386,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       InkWell(
                         onTap: () => Navigator.pop(context),
                         borderRadius: BorderRadius.circular(4),
-                        child: const Padding(
+                        child: Padding(
                           padding: EdgeInsets.symmetric(vertical: 4),
                           child: Text(
-                            '← Orders',
+                            AppLanguage().tr(mr: '← ऑर्डर्स', en: '← Orders'),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -417,7 +417,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
                   // Order ID with copy icon
                   InkWell(
-                    onTap: () => _copyToClipboard(order.orderCode, 'Order ID'),
+                    onTap: () => _copyToClipboard(order.orderCode, AppLanguage().tr(mr: 'ऑर्डर क्रमांक', en: 'Order ID')),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -456,8 +456,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Product',
+                        Text(
+                          AppLanguage().tr(mr: 'उत्पादन', en: 'Product'),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -476,7 +476,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         if (order.variety.isNotEmpty) ...[
                           const SizedBox(height: 3),
                           Text(
-                            'Variety: ${order.variety}',
+                            AppLanguage().tr(mr: 'वाण: ${AppLanguage().pick(order.variety)}', en: 'Variety: ${order.variety}'),
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF6B7280),
@@ -485,7 +485,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ],
                         const SizedBox(height: 8),
                         InkWell(
-                          onTap: () => _copyToClipboard(productBizId, 'Product Code'),
+                          onTap: () => _copyToClipboard(productBizId, AppLanguage().tr(mr: 'उत्पादन कोड', en: 'Product Code')),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -517,10 +517,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     mainAxisSpacing: 10,
                     childAspectRatio: 2.1,
                     children: [
-                      _FactBox(label: 'Order date', value: _shortDate(order.createdAt)),
-                      _FactBox(label: 'Pickup date', value: _shortDate(order.pickupDate)),
-                      _FactBox(label: 'Pickup time', value: _formatTime12h(order.pickupSlot)),
-                      _FactBox(label: 'Total qty', value: '${order.quantity.toStringAsFixed(0)} ${order.unit}'),
+                      _FactBox(label: AppLanguage().tr(mr: 'ऑर्डर तारीख', en: 'Order date'), value: _shortDate(order.createdAt)),
+                      _FactBox(label: AppLanguage().tr(mr: 'पिकअप तारीख', en: 'Pickup date'), value: _shortDate(order.pickupDate)),
+                      _FactBox(label: AppLanguage().tr(mr: 'पिकअप वेळ', en: 'Pickup time'), value: _formatTime12h(order.pickupSlot)),
+                      _FactBox(label: AppLanguage().tr(mr: 'एकूण प्रमाण', en: 'Total qty'), value: '${order.quantity.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}'),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -599,7 +599,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   order.vehicleNumber.isNotEmpty
-                                      ? '${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "ड्रायव्हर"}'
+                                      ? AppLanguage().tr(mr: '${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "ड्रायव्हर"}', en: '${order.vehicleNumber} • ${order.driverPhone.isNotEmpty ? order.driverPhone : "Driver"}')
                                       : (order.driverPhone.isNotEmpty ? '📞 ${order.driverPhone}' : AppLanguage().tr(mr: 'ड्रायव्हर असाइन केला आहे', en: 'Driver Assigned')),
                                   style: const TextStyle(
                                     fontSize: 11,
@@ -618,7 +618,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 padding: const EdgeInsets.all(8),
                               ),
                               icon: const Icon(Icons.phone_rounded, size: 16),
-                              tooltip: 'Call Driver',
+                              tooltip: AppLanguage().tr(mr: 'ड्रायव्हरला कॉल करा', en: 'Call Driver'),
                               onPressed: () {
                                 final clean = order.driverPhone.replaceAll(RegExp(r'\D'), '');
                                 if (clean.isNotEmpty) {
@@ -651,10 +651,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Text(
-                            'Grades',
+                            AppLanguage().tr(mr: 'ग्रेड', en: 'Grades'),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -666,12 +666,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         Container(
                           color: const Color(0xFFF8FAF8),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Expanded(flex: 3, child: Text('Grade', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
-                              Expanded(flex: 2, child: Text('Qty', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
-                              Expanded(flex: 2, child: Text('Rate', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
-                              Expanded(flex: 3, child: Text('Amount', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
+                              Expanded(flex: 3, child: Text(AppLanguage().tr(mr: 'ग्रेड', en: 'Grade'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
+                              Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'प्रमाण', en: 'Qty'), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
+                              Expanded(flex: 2, child: Text(AppLanguage().tr(mr: 'दर', en: 'Rate'), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
+                              Expanded(flex: 3, child: Text(AppLanguage().tr(mr: 'रक्कम', en: 'Amount'), textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)))),
                             ],
                           ),
                         ),
@@ -679,7 +679,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
                         // Table Rows
                         ...grades.map((g) {
-                          final label = g['grade'] as String;
+                          final label = AppLanguage().pick(g['grade'] as String);
                           final qty = g['qty'] as double;
                           final rate = g['rate'] as double;
                           final amt = g['amount'] as double;
@@ -701,7 +701,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    '${qty.toStringAsFixed(0)} ${order.unit}',
+                                    '${qty.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}',
                                     textAlign: TextAlign.right,
                                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
                                   ),
@@ -709,7 +709,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    '₹${rate.toStringAsFixed(0)}/${order.unit}',
+                                    '₹${rate.toStringAsFixed(0)}/${AppLanguage().pick(order.unit)}',
                                     textAlign: TextAlign.right,
                                     style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                                   ),
@@ -734,8 +734,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Order value',
+                              Text(
+                                AppLanguage().tr(mr: 'ऑर्डर मूल्य', en: 'Order value'),
                                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
                               ),
                               Text(
@@ -769,8 +769,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Order QR',
+                        Text(
+                          AppLanguage().tr(mr: 'ऑर्डर QR', en: 'Order QR'),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -838,8 +838,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              const Text(
-                                'Scan to view full order',
+                              Text(
+                                AppLanguage().tr(mr: 'संपूर्ण ऑर्डर पाहण्यासाठी स्कॅन करा', en: 'Scan to view full order'),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 11,
@@ -867,7 +867,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           elevation: 0,
                         ),
                         onPressed: _isBusy ? null : () => _showAcceptDialog(order),
-                        child: const Text('Accept', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        child: Text(AppLanguage().tr(mr: 'स्वीकारा', en: 'Accept'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -892,7 +892,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ),
                           );
                         },
-                        child: const Text('Prepare', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        child: Text(AppLanguage().tr(mr: 'तयारी करा', en: 'Prepare'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -910,7 +910,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           elevation: 0,
                         ),
                         onPressed: _isBusy ? null : () => _showRejectDialog(order),
-                        child: const Text('Reject', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        child: Text(AppLanguage().tr(mr: 'नाकारा', en: 'Reject'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -928,7 +928,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         elevation: 0,
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Back', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      child: Text(AppLanguage().tr(mr: 'मागे', en: 'Back'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

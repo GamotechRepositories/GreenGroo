@@ -28,7 +28,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label copied to clipboard'),
+        content: Text(AppLanguage().tr(mr: '$label कॉपी केले', en: '$label copied to clipboard')),
         duration: const Duration(seconds: 2),
         backgroundColor: const Color(0xFF217346),
       ),
@@ -180,7 +180,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${totalHarvestQty.toStringAsFixed(0)} Kg',
+                              AppLanguage().tr(mr: '${totalHarvestQty.toStringAsFixed(0)} किलो', en: '${totalHarvestQty.toStringAsFixed(0)} Kg'),
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
                             ),
                           ],
@@ -225,7 +225,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                         onChanged: (val) => setState(() => _searchQuery = val),
                         style: const TextStyle(fontSize: 13),
                         decoration: InputDecoration(
-                          hintText: 'Search produce, order ID, variety...',
+                          hintText: AppLanguage().tr(mr: 'उत्पादन, ऑर्डर क्रमांक, वाण शोधा...', en: 'Search produce, order ID, variety...'),
                           hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
                           prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF9CA3AF)),
                           suffixIcon: _searchQuery.isNotEmpty
@@ -257,7 +257,7 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                           child: Row(
                             children: [
                               _ProductChip(
-                                label: 'All (${completedOrders.length})',
+                                label: AppLanguage().tr(mr: 'सर्व (${completedOrders.length})', en: 'All (${completedOrders.length})'),
                                 isSelected: _selectedProduct == 'ALL',
                                 onSelected: () => setState(() => _selectedProduct = 'ALL'),
                               ),
@@ -297,13 +297,13 @@ class _HarvestOrdersScreenState extends State<HarvestOrdersScreen> {
                             child: const Icon(Icons.check_circle_outline, size: 40, color: Color(0xFF217346)),
                           ),
                           const SizedBox(height: 14),
-                          const Text(
-                            'No completed harvest orders found',
+                          Text(
+                            AppLanguage().tr(mr: 'पूर्ण झालेल्या काढणी ऑर्डर्स नाहीत', en: 'No completed harvest orders found'),
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1F2937)),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'Completed orders will be listed here.',
+                          Text(
+                            AppLanguage().tr(mr: 'पूर्ण झालेल्या ऑर्डर्स येथे दिसतील.', en: 'Completed orders will be listed here.'),
                             style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                           ),
                         ],
@@ -463,7 +463,7 @@ class _CompletedHarvestCard extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: order.productName.isNotEmpty ? order.productName : 'Product',
+                        text: order.productName.isNotEmpty ? order.productName : AppLanguage().tr(mr: 'उत्पादन', en: 'Product'),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -492,7 +492,7 @@ class _CompletedHarvestCard extends StatelessWidget {
                 flex: 5,
                 child: Center(
                   child: InkWell(
-                    onTap: () => onCopy(order.orderCode, 'Order ID'),
+                    onTap: () => onCopy(order.orderCode, AppLanguage().tr(mr: 'ऑर्डर क्रमांक', en: 'Order ID')),
                     borderRadius: BorderRadius.circular(4),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
@@ -536,8 +536,8 @@ class _CompletedHarvestCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(5),
                   border: Border.all(color: const Color(0xFFA7F3D0)),
                 ),
-                child: const Text(
-                  'Completed',
+                child: Text(
+                  AppLanguage().tr(mr: 'पूर्ण', en: 'Completed'),
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
                 ),
               ),
@@ -559,8 +559,8 @@ class _CompletedHarvestCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'HARVEST / ORDER',
+                      Text(
+                        AppLanguage().tr(mr: 'काढणी / ऑर्डर', en: 'HARVEST / ORDER'),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -586,8 +586,8 @@ class _CompletedHarvestCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'PICKUP DATE',
+                      Text(
+                        AppLanguage().tr(mr: 'पिकअप तारीख', en: 'PICKUP DATE'),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -613,8 +613,8 @@ class _CompletedHarvestCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'PICKUP TIME',
+                      Text(
+                        AppLanguage().tr(mr: 'पिकअप वेळ', en: 'PICKUP TIME'),
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -670,7 +670,7 @@ class _CompletedHarvestCard extends StatelessWidget {
                 ),
                 const Divider(height: 1, thickness: 1, color: Color(0xFFC5D4C8)),
                 ...gradeRows.map((g) {
-                  final label = g['label'] as String;
+                  final label = AppLanguage().pick(g['label'] as String);
                   final qty = g['qty'] as double;
                   final rate = g['rate'] as double;
                   final bg = g['bg'] as Color;
@@ -690,7 +690,7 @@ class _CompletedHarvestCard extends StatelessWidget {
                         Expanded(
                           flex: 2,
                           child: Text(
-                            qty > 0 ? '${qty.toStringAsFixed(0)} ${order.unit}' : '—',
+                            qty > 0 ? '${qty.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)}' : '—',
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               fontSize: 12,
@@ -727,12 +727,12 @@ class _CompletedHarvestCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'TOTAL DISPATCHED',
+                  Text(
+                    AppLanguage().tr(mr: 'एकूण पाठवलेले', en: 'TOTAL DISPATCHED'),
                     style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF6B7280)),
                   ),
                   Text(
-                    '${totalQty.toStringAsFixed(0)} ${order.unit} (₹${totalVal.toStringAsFixed(0)})',
+                    '${totalQty.toStringAsFixed(0)} ${AppLanguage().pick(order.unit)} (₹${totalVal.toStringAsFixed(0)})',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF217346)),
                   ),
                 ],
@@ -755,7 +755,7 @@ class _CompletedHarvestCard extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(AppLanguage().tr(mr: 'तपशील पहा', en: 'View Details'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],

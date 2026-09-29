@@ -26,6 +26,9 @@ dependencies:
   camera: ^0.12.1
   google_mlkit_face_detection: ^0.15.1
   socket_io_client: ^2.0.3
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  geolocator: ^14.0.1
 
 dev_dependencies:
   flutter_test:
@@ -37,3 +40,4 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/data/locations/

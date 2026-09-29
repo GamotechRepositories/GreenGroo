@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import '../../core/constants/farmer_constants.dart';
@@ -190,19 +191,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveBankAndIdentityDetails() async {
     if (_bankHolderController.text.trim().isEmpty) {
-      _showToast('कृपया खातेदाराचे नाव प्रविष्ट करा (Enter account holder name)');
+      _showToast(AppLanguage().tr(mr: 'कृपया खातेदाराचे नाव प्रविष्ट करा', en: 'Enter account holder name'));
       return;
     }
     if (_bankAccountNoController.text.trim().isEmpty) {
-      _showToast('कृपया बँक खाते क्रमांक प्रविष्ट करा (Enter account number)');
+      _showToast(AppLanguage().tr(mr: 'कृपया बँक खाते क्रमांक प्रविष्ट करा', en: 'Enter account number'));
       return;
     }
     if (_bankIfscController.text.trim().isEmpty) {
-      _showToast('कृपया IFSC कोड प्रविष्ट करा (Enter IFSC code)');
+      _showToast(AppLanguage().tr(mr: 'कृपया IFSC कोड प्रविष्ट करा', en: 'Enter IFSC code'));
       return;
     }
     if (_aadhaarController.text.trim().isEmpty) {
-      _showToast('कृपया आधार क्रमांक प्रविष्ट करा (Enter Aadhaar number)');
+      _showToast(AppLanguage().tr(mr: 'कृपया आधार क्रमांक प्रविष्ट करा', en: 'Enter Aadhaar number'));
       return;
     }
 
@@ -226,7 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     FarmerState().updateProfile(updated);
 
     setState(() => _isEditingKyc = false);
-    _showToast('बँक व ओळख तपशील जतन झाले ✓ (Bank & Identity details saved)');
+    _showToast(AppLanguage().tr(mr: 'बँक व ओळख तपशील जतन झाले ✓', en: 'Bank & Identity details saved'));
   }
 
   void _startLiveVideoKycModal() {
@@ -243,9 +244,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               await FarmerState().uploadDocument('DOC-9', fileUrl: videoUrl, status: 'pending');
               if (!mounted) return;
               setState(() => _videoKycCompleted = true);
-              _showToast('थेट चेहरा केवायसी पडताळणी यशस्वी! व्हिडिओ व्हेंडरकडे पाठवला ✓');
+              _showToast(AppLanguage().tr(mr: 'थेट चेहरा केवायसी पडताळणी यशस्वी! व्हिडिओ व्हेंडरकडे पाठवला ✓', en: 'Live face KYC verified! Video sent to vendor ✓'));
             } catch (e) {
-              _showToast('व्हिडिओ केवायसी अपलोड अयशस्वी: $e');
+              _showToast(AppLanguage().tr(mr: 'व्हिडिओ केवायसी अपलोड अयशस्वी: $e', en: 'Video KYC upload failed: $e'));
             }
           },
         ),
@@ -255,7 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _saveFarmerProfile() {
     if (_nameController.text.trim().isEmpty) {
-      _showToast('कृपया शेतकऱ्याचे नाव प्रविष्ट करा (Enter farmer name)');
+      _showToast(AppLanguage().tr(mr: 'कृपया शेतकऱ्याचे नाव प्रविष्ट करा', en: 'Enter farmer name'));
       return;
     }
     final current = FarmerState().profile;
@@ -269,12 +270,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     FarmerState().updateProfile(updated);
     setState(() => _isEditingFarmer = false);
-    _showToast('शेतकरी प्रोफाईल जतन झाली ✓ (Farmer profile saved)');
+    _showToast(AppLanguage().tr(mr: 'शेतकरी प्रोफाईल जतन झाली ✓', en: 'Farmer profile saved'));
   }
 
   void _saveFarmProfile() {
     if (_farmNameController.text.trim().isEmpty) {
-      _showToast('कृपया शेताचे नाव प्रविष्ट करा (Enter farm name)');
+      _showToast(AppLanguage().tr(mr: 'कृपया शेताचे नाव प्रविष्ट करा', en: 'Enter farm name'));
       return;
     }
     final totalA = double.tryParse(_totalAreaController.text.trim()) ?? 2.0;
@@ -296,12 +297,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     FarmerState().updateProfile(updated);
     setState(() => _isEditingFarm = false);
-    _showToast('शेतीचा तपशील जतन झाला ✓ (Farm profile saved)');
+    _showToast(AppLanguage().tr(mr: 'शेतीचा तपशील जतन झाला ✓', en: 'Farm profile saved'));
   }
 
   void _saveFarmLocation({bool confirm = false}) {
+    if (confirm && _latitude == 0 && _longitude == 0) {
+      _showToast(AppLanguage().tr(mr: 'आधी नकाशावर शेताचे स्थान निवडा', en: 'Pick farm on map first'));
+      _openMapLocationPicker(useCurrentLocation: true);
+      return;
+    }
     if (_farmAddressController.text.trim().isEmpty) {
-      _showToast('कृपया शेताचा पत्ता प्रविष्ट करा (Enter farm address)');
+      _showToast(AppLanguage().tr(mr: 'कृपया शेताचा पत्ता प्रविष्ट करा', en: 'Enter farm address'));
       return;
     }
     final current = FarmerState().profile;
@@ -321,11 +327,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (confirm) _locationConfirmed = true;
     });
     _showToast(confirm
-        ? 'शेताचे स्थान निश्चित केले ✓ (Farm location confirmed)'
-        : 'शेताचे स्थान जतन झाले ✓ (Farm location saved)');
+        ? AppLanguage().tr(mr: 'शेताचे स्थान निश्चित केले ✓', en: 'Farm location confirmed')
+        : AppLanguage().tr(mr: 'शेताचे स्थान जतन झाले ✓', en: 'Farm location saved'));
   }
 
-  Future<void> _openMapLocationPicker() async {
+  Future<void> _openMapLocationPicker({bool useCurrentLocation = false}) async {
     final result = await FarmLocationMapPickerSheet.show(
       context,
       initialLat: _latitude,
@@ -335,36 +341,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       currentDistrict: _locDistrictController.text.trim(),
       currentPincode: _locPincodeController.text.trim(),
       currentAddress: _farmAddressController.text.trim(),
+      startWithCurrentLocation: useCurrentLocation,
     );
+    if (result == null || !mounted) return;
 
-    if (result != null) {
-      setState(() {
-        _latitude = result.latitude;
-        _longitude = result.longitude;
-        if (result.village.isNotEmpty) _locVillageController.text = result.village;
-        if (result.taluka.isNotEmpty) _locTalukaController.text = result.taluka;
-        if (result.district.isNotEmpty) _locDistrictController.text = result.district;
-        if (result.pincode.isNotEmpty) _locPincodeController.text = result.pincode;
-        if (result.formattedAddress.isNotEmpty) _farmAddressController.text = result.formattedAddress;
-        _locationConfirmed = true;
-      });
-      _saveFarmLocation(confirm: true);
+    setState(() {
+      _latitude = result.latitude;
+      _longitude = result.longitude;
+      if (result.village.isNotEmpty) _locVillageController.text = result.village;
+      if (result.taluka.isNotEmpty) _locTalukaController.text = result.taluka;
+      if (result.district.isNotEmpty) _locDistrictController.text = result.district;
+      if (result.pincode.isNotEmpty) _locPincodeController.text = result.pincode;
+      if (result.formattedAddress.isNotEmpty) _farmAddressController.text = result.formattedAddress;
+    });
+
+    if (_farmAddressController.text.trim().isEmpty) {
+      // Address lookup failed (e.g. offline): keep the pin and let the farmer type the address.
+      setState(() => _isEditingLocation = true);
+      _showToast(AppLanguage().tr(mr: 'स्थान निवडले ✓ आता शेताचा पत्ता भरा', en: 'Location selected ✓ Now enter the farm address'));
+      return;
     }
+    _saveFarmLocation(confirm: true);
   }
 
   void _useCurrentGpsLocation() {
-    _openMapLocationPicker();
+    _openMapLocationPicker(useCurrentLocation: true);
+  }
+
+  Future<void> _openInGoogleMaps() async {
+    if (_latitude == 0 && _longitude == 0) return;
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$_latitude,$_longitude');
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+    if (!opened) _showToast(AppLanguage().tr(mr: 'Google Maps उघडता आले नाही', en: 'Could not open Google Maps'));
   }
 
   void _changeProfilePhoto(BuildContext context, FarmerProfile profile) {
     showAppPhotoPicker(
       context,
-      title: 'Farmer Profile Photo (प्रोफाईल फोटो)',
-      subtitle: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा',
+      title: AppLanguage().tr(mr: 'प्रोफाईल फोटो', en: 'Farmer Profile Photo'),
+      subtitle: AppLanguage().tr(mr: 'लाईव्ह कॅमेऱ्याने फोटो काढा किंवा गॅलरी मधून निवडा', en: 'Take a photo with the live camera or choose from gallery'),
       onPhotoSelected: (photoStr) {
         final updated = profile.copyWith(profilePhoto: photoStr);
         FarmerState().updateProfile(updated);
-        _showToast('प्रोफाईल फोटो अपडेट झाला! (Profile photo updated)');
+        _showToast(AppLanguage().tr(mr: 'प्रोफाईल फोटो अपडेट झाला!', en: 'Profile photo updated'));
       },
     );
   }
@@ -372,8 +394,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _addFarmPhoto(BuildContext context, FarmerProfile profile) {
     showAppPhotoPicker(
       context,
-      title: 'Farm Photo (शेताचा फोटो)',
-      subtitle: 'शेताचा फोटो कॅमेऱ्याने काढा किंवा गॅलरी मधून निवडा',
+      title: AppLanguage().tr(mr: 'शेताचा फोटो', en: 'Farm Photo'),
+      subtitle: AppLanguage().tr(mr: 'शेताचा फोटो कॅमेऱ्याने काढा किंवा गॅलरी मधून निवडा', en: 'Take a farm photo with the camera or choose from gallery'),
       onPhotoSelected: (photoStr) {
         final updatedList = List<String>.from(profile.farmPhotos)..add(photoStr);
         final updated = profile.copyWith(
@@ -381,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           farmPhotos: updatedList,
         );
         FarmerState().updateProfile(updated);
-        _showToast('शेताचा फोटो जोडला गेला! (Farm photo added)');
+        _showToast(AppLanguage().tr(mr: 'शेताचा फोटो जोडला गेला!', en: 'Farm photo added'));
       },
     );
   }
@@ -401,21 +423,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.logout, color: AppColors.error),
             SizedBox(width: 8),
-            Text('Sign Out (लॉग आउट)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(AppLanguage().tr(mr: 'लॉग आउट', en: 'Sign Out'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: const Text(
-          'तुम्हाला खात्री आहे का की तुम्हाला ॲपमधून लॉग आउट करायचे आहे?\n(Are you sure you want to sign out?)',
+        content: Text(
+          AppLanguage().tr(mr: 'तुम्हाला खात्री आहे का की तुम्हाला ॲपमधून लॉग आउट करायचे आहे?', en: 'Are you sure you want to sign out?'),
           style: TextStyle(fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('रद्द करा (Cancel)', style: TextStyle(color: AppColors.muted)),
+            child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(color: AppColors.muted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -431,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 (route) => false,
               );
             },
-            child: const Text('लॉग आउट करा (Sign Out)'),
+            child: Text(AppLanguage().tr(mr: 'लॉग आउट करा', en: 'Sign Out')),
           ),
         ],
       ),
@@ -500,8 +522,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.logout, size: 18),
-                    label: const Text(
-                      'Sign Out (लॉग आउट करा)',
+                    label: Text(
+                      AppLanguage().tr(mr: 'लॉग आउट करा', en: 'Sign Out'),
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     onPressed: () => _confirmLogout(context),
@@ -532,7 +554,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Expanded(
             child: _navStepItem(
-              title: '1. Farmer Profile',
+              title: AppLanguage().tr(mr: '1. शेतकरी माहिती', en: '1. Farmer Profile'),
               marathi: 'शेतकरी माहिती',
               step: ProfileStep.farmerProfile,
             ),
@@ -540,7 +562,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Icon(Icons.chevron_right, size: 14, color: Color(0xFF9CA3AF)),
           Expanded(
             child: _navStepItem(
-              title: '2. Farmer KYC',
+              title: AppLanguage().tr(mr: '2. शेतकरी केवायसी', en: '2. Farmer KYC'),
               marathi: 'शेतकरी केवायसी',
               step: ProfileStep.farmerKyc,
             ),
@@ -548,7 +570,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Icon(Icons.chevron_right, size: 14, color: Color(0xFF9CA3AF)),
           Expanded(
             child: _navStepItem(
-              title: '3. Farm Profile',
+              title: AppLanguage().tr(mr: '3. शेतीचा तपशील', en: '3. Farm Profile'),
               marathi: 'शेतीचा तपशील',
               step: ProfileStep.farmProfile,
             ),
@@ -556,7 +578,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Icon(Icons.chevron_right, size: 14, color: Color(0xFF9CA3AF)),
           Expanded(
             child: _navStepItem(
-              title: '4. Farm Location',
+              title: AppLanguage().tr(mr: '4. शेताचे स्थान', en: '4. Farm Location'),
               marathi: 'शेताचे स्थान',
               step: ProfileStep.farmLocation,
             ),
@@ -614,16 +636,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Farmer Profile',
+                    AppLanguage().tr(mr: 'शेतकरी प्रोफाईल', en: 'Farmer Profile'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                   ),
                   Text(
-                    'Personal details from your registered farmer account.',
+                    AppLanguage().tr(mr: 'तुमच्या नोंदणीकृत शेतकरी खात्यातील वैयक्तिक माहिती.', en: 'Personal details from your registered farmer account.'),
                     style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                 ],
@@ -639,7 +661,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.edit, size: 14),
-                label: const Text('Edit Profile', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(AppLanguage().tr(mr: 'प्रोफाईल संपादित करा', en: 'Edit Profile'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () => setState(() => _isEditingFarmer = true),
               )
             else
@@ -650,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () => setState(() => _isEditingFarmer = false),
-                child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+                child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(fontSize: 12)),
               ),
           ],
         ),
@@ -718,13 +740,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Profile Photo (प्रोफाईल फोटो)',
+                        Text(
+                          AppLanguage().tr(mr: 'प्रोफाईल फोटो', en: 'Profile Photo'),
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
                         const SizedBox(height: 3),
-                        const Text(
-                          'Click photo icon to update avatar',
+                        Text(
+                          AppLanguage().tr(mr: 'फोटो बदलण्यासाठी फोटो आयकॉनवर क्लिक करा', en: 'Click photo icon to update avatar'),
                           style: TextStyle(fontSize: 11, color: AppColors.muted),
                         ),
                         const SizedBox(height: 6),
@@ -732,8 +754,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           spacing: 6,
                           runSpacing: 4,
                           children: [
-                            _statusChip('KYC: ${profile.kycStatus}', isSuccess: profile.kycStatus == 'APPROVED'),
-                            _statusChip('Bank: ${profile.bankVerificationStatus}', isSuccess: profile.bankVerificationStatus == 'VERIFIED'),
+                            _statusChip(AppLanguage().tr(mr: 'केवायसी: ${AppLanguage().pick(profile.kycStatus)}', en: 'KYC: ${profile.kycStatus}'), isSuccess: profile.kycStatus == 'APPROVED'),
+                            _statusChip(AppLanguage().tr(mr: 'बँक: ${AppLanguage().pick(profile.bankVerificationStatus)}', en: 'Bank: ${profile.bankVerificationStatus}'), isSuccess: profile.bankVerificationStatus == 'VERIFIED'),
                           ],
                         ),
                       ],
@@ -745,14 +767,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               // Fields
               if (_isEditingFarmer) ...[
-                _inputField('Farmer Name (शेतकऱ्याचे नाव) *', _nameController),
+                _inputField(AppLanguage().tr(mr: 'शेतकऱ्याचे नाव *', en: 'Farmer Name *'), _nameController),
                 const SizedBox(height: 12),
-                _readOnlyField('Farmer ID (शेतकरी ओळख क्रमांक)', profile.id),
+                _readOnlyField(AppLanguage().tr(mr: 'शेतकरी ओळख क्रमांक', en: 'Farmer ID'), profile.id),
                 const SizedBox(height: 12),
-                _readOnlyField('Mobile Number (मोबाईल क्रमांक)', '+91 ${profile.mobile}'),
+                _readOnlyField(AppLanguage().tr(mr: 'मोबाईल क्रमांक', en: 'Mobile Number'), '+91 ${profile.mobile}'),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Preferred Language (प्राधान्य दिलेली भाषा) *',
+                  label: AppLanguage().tr(mr: 'प्राधान्य दिलेली भाषा *', en: 'Preferred Language *'),
                   value: _selectedLanguage,
                   items: FarmerConstants.preferredLanguages,
                   onChanged: (val) {
@@ -760,13 +782,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                _inputField('Village (गाव) *', _villageController),
+                _inputField(AppLanguage().tr(mr: 'गाव *', en: 'Village *'), _villageController),
                 const SizedBox(height: 12),
-                _inputField('Taluka (तालुका) *', _talukaController),
+                _inputField(AppLanguage().tr(mr: 'तालुका *', en: 'Taluka *'), _talukaController),
                 const SizedBox(height: 12),
-                _inputField('District (जिल्हा) *', _districtController),
+                _inputField(AppLanguage().tr(mr: 'जिल्हा *', en: 'District *'), _districtController),
                 const SizedBox(height: 12),
-                _inputField('Pincode (पिनकोड) *', _pincodeController, keyboardType: TextInputType.number),
+                _inputField(AppLanguage().tr(mr: 'पिनकोड *', en: 'Pincode *'), _pincodeController, keyboardType: TextInputType.number),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -778,18 +800,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: _saveFarmerProfile,
-                    child: const Text('Save Profile (जतन करा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    child: Text(AppLanguage().tr(mr: 'प्रोफाईल जतन करा', en: 'Save Profile'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
               ] else ...[
-                _gridInfoTile('Farmer Name', profile.fullName),
-                _gridInfoTile('Farmer ID', profile.id),
-                _gridInfoTile('Mobile Number', '+91 ${profile.mobile}'),
-                _gridInfoTile('Preferred Language', profile.preferredLanguage),
-                _gridInfoTile('Village', profile.village),
-                _gridInfoTile('Taluka', profile.taluka),
-                _gridInfoTile('District', profile.district),
-                _gridInfoTile('Pincode', profile.pincode),
+                _gridInfoTile(AppLanguage().tr(mr: 'शेतकऱ्याचे नाव', en: 'Farmer Name'), profile.fullName),
+                _gridInfoTile(AppLanguage().tr(mr: 'शेतकरी ओळख क्रमांक', en: 'Farmer ID'), profile.id),
+                _gridInfoTile(AppLanguage().tr(mr: 'मोबाईल क्रमांक', en: 'Mobile Number'), '+91 ${profile.mobile}'),
+                _gridInfoTile(AppLanguage().tr(mr: 'प्राधान्य दिलेली भाषा', en: 'Preferred Language'), profile.preferredLanguage),
+                _gridInfoTile(AppLanguage().tr(mr: 'गाव', en: 'Village'), profile.village),
+                _gridInfoTile(AppLanguage().tr(mr: 'तालुका', en: 'Taluka'), profile.taluka),
+                _gridInfoTile(AppLanguage().tr(mr: 'जिल्हा', en: 'District'), profile.district),
+                _gridInfoTile(AppLanguage().tr(mr: 'पिनकोड', en: 'Pincode'), profile.pincode),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -801,7 +823,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.arrow_forward, size: 16),
-                    label: const Text('Continue to Farmer KYC → (पुढे जा: केवायसी)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    label: Text(AppLanguage().tr(mr: 'पुढे जा: केवायसी →', en: 'Continue to Farmer KYC →'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     onPressed: () => setState(() => _currentStep = ProfileStep.farmerKyc),
                   ),
                 ),
@@ -829,16 +851,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Farmer KYC & Verification',
+                    AppLanguage().tr(mr: 'शेतकरी केवायसी व पडताळणी', en: 'Farmer KYC & Verification'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                   ),
                   Text(
-                    'Identity, bank verification and land ownership records.',
+                    AppLanguage().tr(mr: 'ओळख, बँक पडताळणी आणि जमीन मालकीचे रेकॉर्ड.', en: 'Identity, bank verification and land ownership records.'),
                     style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                 ],
@@ -852,7 +874,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               icon: const Icon(Icons.folder_shared_outlined, size: 14),
-              label: const Text('All Docs', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+              label: Text(AppLanguage().tr(mr: 'सर्व कागदपत्रे', en: 'All Docs'), style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -908,15 +930,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Text(
                           isKycApproved
-                              ? 'शेतकरी केवायसी मंजूर (KYC Verified ✓)'
-                              : 'केवायसी पडताळणी चालू (Under Review)',
+                              ? AppLanguage().tr(mr: 'शेतकरी केवायसी मंजूर ✓', en: 'KYC Verified ✓')
+                              : AppLanguage().tr(mr: 'केवायसी पडताळणी चालू', en: 'Under Review'),
                           style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           isKycApproved
-                              ? 'आपली शेतकरी ओळख व बँक तपशील खरेदीदार व्यवहारांसाठी वैध आहेत.'
-                              : 'कागदपत्रे अपलोड करून व्हेंडर पडताळणी पूर्ण करून घ्या.',
+                              ? AppLanguage().tr(mr: 'आपली शेतकरी ओळख व बँक तपशील खरेदीदार व्यवहारांसाठी वैध आहेत.', en: 'Your farmer ID and bank details are valid for buyer transactions.')
+                              : AppLanguage().tr(mr: 'कागदपत्रे अपलोड करून व्हेंडर पडताळणी पूर्ण करून घ्या.', en: 'Upload documents and complete vendor verification.'),
                           style: const TextStyle(color: Colors.white70, fontSize: 10.5),
                         ),
                       ],
@@ -929,9 +951,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _kycBadge('आधार (Aadhaar)', _aadhaarController.text.trim().isNotEmpty ? 'लिंक केले ✓' : 'बाकी (Pending)'),
-                  _kycBadge('बँक खाते', _bankAccountNoController.text.trim().isNotEmpty ? 'तपासले ✓' : 'बाकी (Pending)'),
-                  _kycBadge('कागदपत्रे', '$approvedDocs/$totalDocs मंजूर'),
+                  _kycBadge(AppLanguage().tr(mr: 'आधार', en: 'Aadhaar'), _aadhaarController.text.trim().isNotEmpty ? AppLanguage().tr(mr: 'लिंक केले ✓', en: 'Linked ✓') : AppLanguage().tr(mr: 'बाकी', en: 'Pending')),
+                  _kycBadge(AppLanguage().tr(mr: 'बँक खाते', en: 'Bank Account'), _bankAccountNoController.text.trim().isNotEmpty ? AppLanguage().tr(mr: 'तपासले ✓', en: 'Verified ✓') : AppLanguage().tr(mr: 'बाकी', en: 'Pending')),
+                  _kycBadge(AppLanguage().tr(mr: 'कागदपत्रे', en: 'Documents'), AppLanguage().tr(mr: '$approvedDocs/$totalDocs मंजूर', en: '$approvedDocs/$totalDocs approved')),
                 ],
               ),
             ],
@@ -953,14 +975,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Row(
                       children: [
                         Icon(Icons.account_balance, color: AppColors.primary, size: 18),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Bank & Identity (बँक व ओळख)',
+                            AppLanguage().tr(mr: 'बँक व ओळख', en: 'Bank & Identity'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
@@ -980,7 +1002,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         elevation: 0,
                       ),
                       icon: const Icon(Icons.edit, size: 13),
-                      label: const Text('Edit Form', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      label: Text(AppLanguage().tr(mr: 'फॉर्म संपादित करा', en: 'Edit Form'), style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                       onPressed: () => setState(() => _isEditingKyc = true),
                     )
                   else
@@ -991,24 +1013,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () => setState(() => _isEditingKyc = false),
-                      child: const Text('Cancel', style: TextStyle(fontSize: 11.5)),
+                      child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(fontSize: 11.5)),
                     ),
                 ],
               ),
               const Divider(height: 20, color: AppColors.border),
               if (_isEditingKyc) ...[
-                _inputField('Account Holder Name (खातेदाराचे नाव) *', _bankHolderController),
+                _inputField(AppLanguage().tr(mr: 'खातेदाराचे नाव *', en: 'Account Holder Name *'), _bankHolderController),
                 const SizedBox(height: 12),
-                _inputField('Bank Name (बँकेचे नाव) *', _bankNameController),
+                _inputField(AppLanguage().tr(mr: 'बँकेचे नाव *', en: 'Bank Name *'), _bankNameController),
                 const SizedBox(height: 12),
-                _inputField('Bank Account Number (बँक खाते क्रमांक) *', _bankAccountNoController, keyboardType: TextInputType.number),
+                _inputField(AppLanguage().tr(mr: 'बँक खाते क्रमांक *', en: 'Bank Account Number *'), _bankAccountNoController, keyboardType: TextInputType.number),
                 const SizedBox(height: 12),
-                _inputField('IFSC Code (आयएफएससी कोड) *', _bankIfscController),
+                _inputField(AppLanguage().tr(mr: 'आयएफएससी कोड *', en: 'IFSC Code *'), _bankIfscController),
                 const SizedBox(height: 12),
-                _inputField('Branch Name (बँक शाखा)', _bankBranchController),
+                _inputField(AppLanguage().tr(mr: 'बँक शाखा', en: 'Branch Name'), _bankBranchController),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Account Type (खात्याचा प्रकार)',
+                  label: AppLanguage().tr(mr: 'खात्याचा प्रकार', en: 'Account Type'),
                   value: _bankAccountType,
                   items: const ['Savings (बचत खाते)', 'Current (चालू खाते)', 'KCC / Krishi Loan Account'],
                   onChanged: (val) {
@@ -1016,11 +1038,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                _inputField('Aadhaar Number (आधार क्रमांक - १२ अंकी) *', _aadhaarController, keyboardType: TextInputType.number),
+                _inputField(AppLanguage().tr(mr: 'आधार क्रमांक - १२ अंकी *', en: 'Aadhaar Number *'), _aadhaarController, keyboardType: TextInputType.number),
                 const SizedBox(height: 12),
-                _inputField('PAN Card Number (पॅन कार्ड क्रमांक)', _panCardController),
+                _inputField(AppLanguage().tr(mr: 'पॅन कार्ड क्रमांक', en: 'PAN Card Number'), _panCardController),
                 const SizedBox(height: 12),
-                _inputField('UPI ID (पेमेंट स्वीकारण्यासाठी UPI ID)', _upiIdController),
+                _inputField(AppLanguage().tr(mr: 'पेमेंट स्वीकारण्यासाठी UPI ID', en: 'UPI ID for receiving payments'), _upiIdController),
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
@@ -1032,18 +1054,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: _saveBankAndIdentityDetails,
-                    child: const Text('Save Bank & Identity Details (जतन करा ✓)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    child: Text(AppLanguage().tr(mr: 'बँक व ओळख तपशील जतन करा ✓', en: 'Save Bank & Identity Details ✓'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                   ),
                 ),
               ] else ...[
-                _gridInfoTile('Account Holder', _bankHolderController.text),
-                _gridInfoTile('Bank Name', _bankNameController.text),
-                _gridInfoTile('Account Number', '•••• •••• •••• ${_bankAccountNoController.text.length >= 4 ? _bankAccountNoController.text.substring(_bankAccountNoController.text.length - 4) : '4589'}'),
-                _gridInfoTile('IFSC Code', _bankIfscController.text),
-                _gridInfoTile('Branch', _bankBranchController.text),
-                _gridInfoTile('Account Type', _bankAccountType),
-                _gridInfoTile('Aadhaar Card', 'XXXX-XXXX-${_aadhaarController.text.replaceAll(' ', '').length >= 4 ? _aadhaarController.text.replaceAll(' ', '').substring(_aadhaarController.text.replaceAll(' ', '').length - 4) : '7842'} (Verified ✓)'),
-                _gridInfoTile('PAN Card', '${_panCardController.text} (Verified ✓)'),
+                _gridInfoTile(AppLanguage().tr(mr: 'खातेदार', en: 'Account Holder'), _bankHolderController.text),
+                _gridInfoTile(AppLanguage().tr(mr: 'बँकेचे नाव', en: 'Bank Name'), _bankNameController.text),
+                _gridInfoTile(AppLanguage().tr(mr: 'खाते क्रमांक', en: 'Account Number'), '•••• •••• •••• ${_bankAccountNoController.text.length >= 4 ? _bankAccountNoController.text.substring(_bankAccountNoController.text.length - 4) : '4589'}'),
+                _gridInfoTile(AppLanguage().tr(mr: 'आयएफएससी कोड', en: 'IFSC Code'), _bankIfscController.text),
+                _gridInfoTile(AppLanguage().tr(mr: 'शाखा', en: 'Branch'), _bankBranchController.text),
+                _gridInfoTile(AppLanguage().tr(mr: 'खात्याचा प्रकार', en: 'Account Type'), _bankAccountType),
+                _gridInfoTile(AppLanguage().tr(mr: 'आधार कार्ड', en: 'Aadhaar Card'), 'XXXX-XXXX-${_aadhaarController.text.replaceAll(' ', '').length >= 4 ? _aadhaarController.text.replaceAll(' ', '').substring(_aadhaarController.text.replaceAll(' ', '').length - 4) : '7842'} (${AppLanguage().tr(mr: 'पडताळले', en: 'Verified')} ✓)'),
+                _gridInfoTile(AppLanguage().tr(mr: 'पॅन कार्ड', en: 'PAN Card'), '${_panCardController.text} (${AppLanguage().tr(mr: 'पडताळले', en: 'Verified')} ✓)'),
                 _gridInfoTile('UPI ID', _upiIdController.text),
               ],
             ],
@@ -1065,14 +1087,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Row(
                       children: [
                         Icon(Icons.file_copy_outlined, color: AppColors.primary, size: 18),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'KYC Documents (कागदपत्रे)',
+                            AppLanguage().tr(mr: 'कागदपत्रे', en: 'KYC Documents'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
@@ -1083,14 +1105,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '$approvedDocs/$totalDocs Verified',
+                    AppLanguage().tr(mr: '$approvedDocs/$totalDocs पडताळले', en: '$approvedDocs/$totalDocs Verified'),
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
-                'खरेदीदार व्यवहार आणि सरकारी अनुदानासाठी खालील कागदपत्रे नियमितपणे अद्ययावत ठेवा.',
+              Text(
+                AppLanguage().tr(mr: 'खरेदीदार व्यवहार आणि सरकारी अनुदानासाठी खालील कागदपत्रे नियमितपणे अद्ययावत ठेवा.', en: 'Keep the documents below up to date for buyer transactions and government subsidies.'),
                 style: TextStyle(fontSize: 10.5, color: AppColors.muted),
               ),
               const Divider(height: 18, color: AppColors.border),
@@ -1150,19 +1172,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Live Video Verification (व्हिडिओ केवायसी)',
+                        Text(
+                          AppLanguage().tr(mr: 'व्हिडिओ केवायसी', en: 'Live Video Verification'),
                           style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
                         Text(
-                          'AI-powered facial liveness & identity verification',
+                          AppLanguage().tr(mr: 'AI-आधारित चेहरा थेटपणा व ओळख पडताळणी', en: 'AI-powered facial liveness & identity verification'),
                           style: const TextStyle(fontSize: 10.5, color: AppColors.muted),
                         ),
                       ],
                     ),
                   ),
                   _statusChip(
-                    _videoKycCompleted ? 'Verified ✓' : 'Pending',
+                    _videoKycCompleted ? AppLanguage().tr(mr: 'पडताळले ✓', en: 'Verified ✓') : AppLanguage().tr(mr: 'प्रलंबित', en: 'Pending'),
                     isSuccess: _videoKycCompleted,
                   ),
                 ],
@@ -1180,28 +1202,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.checklist_rtl_rounded, color: Color(0xFF166534), size: 18),
                         SizedBox(width: 8),
                         Text(
-                          'Live Verification Instructions',
+                          AppLanguage().tr(mr: 'थेट पडताळणी सूचना', en: 'Live Verification Instructions'),
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Follow the instructions shown on screen (स्क्रीनवरील सूचनांचे पालन करा):',
+                    Text(
+                      AppLanguage().tr(mr: 'स्क्रीनवरील सूचनांचे पालन करा:', en: 'Follow the instructions shown on screen:'),
                       style: TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 10),
-                    _liveStepInstructionItem('📱', 'Keep your face inside the frame', 'तुमचा चेहरा कॅमेऱ्याच्या फ्रेममध्ये स्थिर ठेवा'),
-                    _liveStepInstructionItem('👁️', 'Blink your eyes', 'डोळ्यांची उघडझाप करा'),
-                    _liveStepInstructionItem('↔️', 'Turn your head left', 'मान डावीकडे वळवा'),
-                    _liveStepInstructionItem('↔️', 'Turn your head right', 'मान उजवीकडे वळवा'),
-                    _liveStepInstructionItem('⬆️', 'Look up', 'वर पहा'),
-                    _liveStepInstructionItem('⬇️', 'Look down', 'खाली पहा'),
+                    _liveStepInstructionItem('📱', AppLanguage().tr(mr: 'तुमचा चेहरा कॅमेऱ्याच्या फ्रेममध्ये स्थिर ठेवा', en: 'Keep your face inside the frame')),
+                    _liveStepInstructionItem('👁️', AppLanguage().tr(mr: 'डोळ्यांची उघडझाप करा', en: 'Blink your eyes')),
+                    _liveStepInstructionItem('↔️', AppLanguage().tr(mr: 'मान डावीकडे वळवा', en: 'Turn your head left')),
+                    _liveStepInstructionItem('↔️', AppLanguage().tr(mr: 'मान उजवीकडे वळवा', en: 'Turn your head right')),
+                    _liveStepInstructionItem('⬆️', AppLanguage().tr(mr: 'वर पहा', en: 'Look up')),
+                    _liveStepInstructionItem('⬇️', AppLanguage().tr(mr: 'खाली पहा', en: 'Look down')),
                   ],
                 ),
               ),
@@ -1220,8 +1242,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   icon: const Icon(Icons.camera_front, size: 18),
                   label: Text(
                     _videoKycCompleted
-                        ? 'Re-verify Video KYC (पुन्हा व्हिडिओ केवायसी करा 📹)'
-                        : 'Start Live Video Verification (व्हिडिओ केवायसी सुरू करा 📹)',
+                        ? AppLanguage().tr(mr: 'पुन्हा व्हिडिओ केवायसी करा 📹', en: 'Re-verify Video KYC 📹')
+                        : AppLanguage().tr(mr: 'व्हिडिओ केवायसी सुरू करा 📹', en: 'Start Live Video Verification 📹'),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   onPressed: _startLiveVideoKycModal,
@@ -1244,7 +1266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('← Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: Text(AppLanguage().tr(mr: '← प्रोफाईल', en: '← Profile'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 onPressed: () => setState(() => _currentStep = ProfileStep.farmerProfile),
               ),
             ),
@@ -1259,7 +1281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 icon: const Icon(Icons.arrow_forward, size: 16),
-                label: const Text('Continue to Farm Profile →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: Text(AppLanguage().tr(mr: 'पुढे: शेतीचा तपशील →', en: 'Continue to Farm Profile →'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 onPressed: () => setState(() => _currentStep = ProfileStep.farmProfile),
               ),
             ),
@@ -1307,14 +1329,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  doc.title,
+                  doc.displayTitle,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  doc.marathiTitle,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1324,27 +1340,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 6),
           // Status chip
           _statusChip(
-            isApproved ? 'Verified ✓' : (isPending ? 'Pending ⏳' : 'Upload'),
+            isApproved ? AppLanguage().tr(mr: 'पडताळले ✓', en: 'Verified ✓') : (isPending ? AppLanguage().tr(mr: 'प्रलंबित ⏳', en: 'Pending ⏳') : AppLanguage().tr(mr: 'अपलोड', en: 'Upload')),
             isSuccess: isApproved,
           ),
           const SizedBox(width: 4),
           // Action button (Upload/Update)
           IconButton(
             icon: const Icon(Icons.file_upload_outlined, size: 20, color: AppColors.primary),
-            tooltip: 'अपलोड किंवा बदला (Upload/Update)',
+            tooltip: AppLanguage().tr(mr: 'अपलोड किंवा बदला', en: 'Upload/Update'),
             onPressed: () {
               showAppPhotoPicker(
                 context,
-                title: 'Upload ${doc.title}',
-                subtitle: '${doc.marathiTitle} कॅमेरा किंवा गॅलरीमधून निवडा',
+                title: AppLanguage().tr(mr: '${doc.marathiTitle} अपलोड करा', en: 'Upload ${doc.title}'),
+                subtitle: AppLanguage().tr(mr: '${doc.marathiTitle} कॅमेरा किंवा गॅलरीमधून निवडा', en: 'Choose ${doc.title} from camera or gallery'),
                 presetCategory: 'Document',
                 allowPdf: true,
                 onPhotoSelected: (photoStr) async {
                   try {
                     await FarmerState().uploadDocument(doc.id, fileUrl: photoStr, status: 'pending');
-                    _showToast('${doc.title} यशस्वीरीत्या अपलोड केले! व्हेंडर पडताळणी चालू आहे.');
+                    _showToast(AppLanguage().tr(mr: '${doc.marathiTitle} यशस्वीरीत्या अपलोड केले! व्हेंडर पडताळणी चालू आहे.', en: '${doc.title} uploaded successfully! Vendor verification in progress.'));
                   } catch (e) {
-                    _showToast('अपलोड अयशस्वी: $e');
+                    _showToast(AppLanguage().tr(mr: 'अपलोड अयशस्वी: $e', en: 'Upload failed: $e'));
                   }
                 },
               );
@@ -1373,7 +1389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _liveStepInstructionItem(String iconStr, String english, String marathi) {
+  Widget _liveStepInstructionItem(String iconStr, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Row(
@@ -1396,8 +1412,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               text: TextSpan(
                 style: const TextStyle(fontSize: 12, color: Color(0xFF1F2937)),
                 children: [
-                  TextSpan(text: '$english  ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  TextSpan(text: '($marathi)', style: const TextStyle(color: Color(0xFF047857), fontSize: 11, fontWeight: FontWeight.w500)),
+                  TextSpan(text: text, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -1419,16 +1434,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Farm Profile',
+                    AppLanguage().tr(mr: 'शेतीचा तपशील', en: 'Farm Profile'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                   ),
                   Text(
-                    'Physical and agronomic characteristics of your farm holdings.',
+                    AppLanguage().tr(mr: 'तुमच्या शेताची भौतिक व कृषी वैशिष्ट्ये.', en: 'Physical and agronomic characteristics of your farm holdings.'),
                     style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                 ],
@@ -1444,7 +1459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.edit, size: 14),
-                label: const Text('Edit Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(AppLanguage().tr(mr: 'तपशील संपादित करा', en: 'Edit Details'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () => setState(() => _isEditingFarm = true),
               )
             else
@@ -1455,7 +1470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () => setState(() => _isEditingFarm = false),
-                child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+                child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(fontSize: 12)),
               ),
           ],
         ),
@@ -1473,19 +1488,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_isEditingFarm) ...[
-                _inputField('Farm Name (शेताचे नाव) *', _farmNameController),
+                _inputField(AppLanguage().tr(mr: 'शेताचे नाव *', en: 'Farm Name *'), _farmNameController),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _inputField('Total Area (एकूण क्षेत्र) *', _totalAreaController, keyboardType: TextInputType.number),
+                      child: _inputField(AppLanguage().tr(mr: 'एकूण क्षेत्र *', en: 'Total Area *'), _totalAreaController, keyboardType: TextInputType.number),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       flex: 1,
                       child: _dropdownField(
-                        label: 'Unit',
+                        label: AppLanguage().tr(mr: 'एकक', en: 'Unit'),
                         value: _totalAreaUnit,
                         items: const ['Acre', 'Hectare', 'Guntha'],
                         onChanged: (val) {
@@ -1500,13 +1515,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _inputField('Cultivated Area (लागवडीखालील) *', _cultivatedAreaController, keyboardType: TextInputType.number),
+                      child: _inputField(AppLanguage().tr(mr: 'लागवडीखालील *', en: 'Cultivated Area *'), _cultivatedAreaController, keyboardType: TextInputType.number),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       flex: 1,
                       child: _dropdownField(
-                        label: 'Unit',
+                        label: AppLanguage().tr(mr: 'एकक', en: 'Unit'),
                         value: _cultivatedAreaUnit,
                         items: const ['Acre', 'Hectare', 'Guntha'],
                         onChanged: (val) {
@@ -1518,7 +1533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Soil Type (मातीचा प्रकार) *',
+                  label: AppLanguage().tr(mr: 'मातीचा प्रकार *', en: 'Soil Type *'),
                   value: _soilType,
                   items: FarmerConstants.soilTypes,
                   onChanged: (val) {
@@ -1527,7 +1542,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Irrigation Type (सिंचन प्रकार) *',
+                  label: AppLanguage().tr(mr: 'सिंचन प्रकार *', en: 'Irrigation Type *'),
                   value: _irrigationType,
                   items: FarmerConstants.irrigationTypes,
                   onChanged: (val) {
@@ -1536,7 +1551,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Water Source (पाणी स्त्रोत) *',
+                  label: AppLanguage().tr(mr: 'पाणी स्त्रोत *', en: 'Water Source *'),
                   value: _waterSource,
                   items: FarmerConstants.waterSources,
                   onChanged: (val) {
@@ -1545,7 +1560,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Farming Method (शेती पद्धत) *',
+                  label: AppLanguage().tr(mr: 'शेती पद्धत *', en: 'Farming Method *'),
                   value: _farmingMethod,
                   items: const ['Organic (सेंद्रिय)', 'Conventional (पारंपारिक)', 'Natural (नैसर्गिक)', 'Hydroponic'],
                   onChanged: (val) {
@@ -1554,7 +1569,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 _dropdownField(
-                  label: 'Farming Type (शेती प्रकार) *',
+                  label: AppLanguage().tr(mr: 'शेती प्रकार *', en: 'Farming Type *'),
                   value: _farmingType,
                   items: const ['Individual (स्वतःची)', 'Joint Family (एकत्रित)', 'Leasehold (भाडेतत्त्वावर)', 'Group (गट शेती)'],
                   onChanged: (val) {
@@ -1562,7 +1577,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 const SizedBox(height: 12),
-                _inputField('Main Crops (मुख्य पिके)', _mainCropsController),
+                _inputField(AppLanguage().tr(mr: 'मुख्य पिके', en: 'Main Crops'), _mainCropsController),
                 const SizedBox(height: 16),
 
                 // Farm Photo Upload Card
@@ -1579,19 +1594,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: _saveFarmProfile,
-                    child: const Text('Save Farm Profile (शेती माहिती जतन करा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    child: Text(AppLanguage().tr(mr: 'शेती माहिती जतन करा', en: 'Save Farm Profile'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
               ] else ...[
-                _gridInfoTile('Farm Name (शेताचे नाव)', profile.farmName),
-                _gridInfoTile('Total Farm Area', '${profile.totalAcres} ${profile.totalFarmAreaUnit}'),
-                _gridInfoTile('Cultivated Area', '${profile.cultivatedArea} ${profile.cultivatedAreaUnit}'),
-                _gridInfoTile('Soil Type', profile.soilType),
-                _gridInfoTile('Irrigation Type', profile.irrigationType),
-                _gridInfoTile('Water Source', profile.waterSource),
-                _gridInfoTile('Farming Method', profile.farmingMethod),
-                _gridInfoTile('Farming Type', profile.farmingType),
-                _gridInfoTile('Main Crops', profile.mainCrops),
+                _gridInfoTile(AppLanguage().tr(mr: 'शेताचे नाव', en: 'Farm Name'), profile.farmName),
+                _gridInfoTile(AppLanguage().tr(mr: 'एकूण शेत क्षेत्र', en: 'Total Farm Area'), '${profile.totalAcres} ${AppLanguage().pick(profile.totalFarmAreaUnit)}'),
+                _gridInfoTile(AppLanguage().tr(mr: 'लागवडीखालील क्षेत्र', en: 'Cultivated Area'), '${profile.cultivatedArea} ${AppLanguage().pick(profile.cultivatedAreaUnit)}'),
+                _gridInfoTile(AppLanguage().tr(mr: 'मातीचा प्रकार', en: 'Soil Type'), profile.soilType),
+                _gridInfoTile(AppLanguage().tr(mr: 'सिंचन प्रकार', en: 'Irrigation Type'), profile.irrigationType),
+                _gridInfoTile(AppLanguage().tr(mr: 'पाणी स्त्रोत', en: 'Water Source'), profile.waterSource),
+                _gridInfoTile(AppLanguage().tr(mr: 'शेती पद्धत', en: 'Farming Method'), profile.farmingMethod),
+                _gridInfoTile(AppLanguage().tr(mr: 'शेती प्रकार', en: 'Farming Type'), profile.farmingType),
+                _gridInfoTile(AppLanguage().tr(mr: 'मुख्य पिके', en: 'Main Crops'), profile.mainCrops),
 
                 const SizedBox(height: 14),
                 // Farm Photo Gallery
@@ -1610,7 +1625,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.arrow_back, size: 16),
-                        label: const Text('← KYC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: Text(AppLanguage().tr(mr: '← केवायसी', en: '← KYC'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         onPressed: () => setState(() => _currentStep = ProfileStep.farmerKyc),
                       ),
                     ),
@@ -1625,7 +1640,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.arrow_forward, size: 16),
-                        label: const Text('Continue to Location →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        label: Text(AppLanguage().tr(mr: 'पुढे: स्थान →', en: 'Continue to Location →'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                         onPressed: () => setState(() => _currentStep = ProfileStep.farmLocation),
                       ),
                     ),
@@ -1651,16 +1666,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Farm Location',
+                    AppLanguage().tr(mr: 'शेताचे स्थान', en: 'Farm Location'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                   ),
                   Text(
-                    'Geographical coordinates and location for pickup & logistics.',
+                    AppLanguage().tr(mr: 'पिकअप व वाहतुकीसाठी शेताचे भौगोलिक स्थान.', en: 'Geographical coordinates and location for pickup & logistics.'),
                     style: TextStyle(fontSize: 11, color: AppColors.muted),
                   ),
                 ],
@@ -1676,7 +1691,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.edit_location_alt, size: 14),
-                label: const Text('Edit Location', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(AppLanguage().tr(mr: 'स्थान संपादित करा', en: 'Edit Location'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 onPressed: () => setState(() => _isEditingLocation = true),
               )
             else
@@ -1687,7 +1702,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: () => setState(() => _isEditingLocation = false),
-                child: const Text('Cancel', style: TextStyle(fontSize: 12)),
+                child: Text(AppLanguage().tr(mr: 'रद्द करा', en: 'Cancel'), style: TextStyle(fontSize: 12)),
               ),
           ],
         ),
@@ -1705,22 +1720,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (_isEditingLocation) ...[
-                _inputField('Village (गाव) *', _locVillageController),
+                _inputField(AppLanguage().tr(mr: 'गाव *', en: 'Village *'), _locVillageController),
                 const SizedBox(height: 12),
-                _inputField('Taluka (तालुका) *', _locTalukaController),
+                _inputField(AppLanguage().tr(mr: 'तालुका *', en: 'Taluka *'), _locTalukaController),
                 const SizedBox(height: 12),
-                _inputField('District (जिल्हा) *', _locDistrictController),
+                _inputField(AppLanguage().tr(mr: 'जिल्हा *', en: 'District *'), _locDistrictController),
                 const SizedBox(height: 12),
-                _inputField('Pincode (पिनकोड) *', _locPincodeController, keyboardType: TextInputType.number),
+                _inputField(AppLanguage().tr(mr: 'पिनकोड *', en: 'Pincode *'), _locPincodeController, keyboardType: TextInputType.number),
                 const SizedBox(height: 12),
-                _inputField('Detailed Farm Address (तपशीलवार शेताचा पत्ता) *', _farmAddressController, maxLines: 2),
+                _inputField(AppLanguage().tr(mr: 'तपशीलवार शेताचा पत्ता *', en: 'Detailed Farm Address *'), _farmAddressController, maxLines: 2),
                 const SizedBox(height: 16),
               ] else ...[
-                _gridInfoTile('Village (गाव)', profile.village),
-                _gridInfoTile('Taluka (तालुका)', profile.taluka),
-                _gridInfoTile('District (जिल्हा)', profile.district),
-                _gridInfoTile('Pincode (पिनकोड)', profile.pincode),
-                _gridInfoTile('Detailed Farm Address', profile.farmAddress),
+                _gridInfoTile(AppLanguage().tr(mr: 'गाव', en: 'Village'), profile.village),
+                _gridInfoTile(AppLanguage().tr(mr: 'तालुका', en: 'Taluka'), profile.taluka),
+                _gridInfoTile(AppLanguage().tr(mr: 'जिल्हा', en: 'District'), profile.district),
+                _gridInfoTile(AppLanguage().tr(mr: 'पिनकोड', en: 'Pincode'), profile.pincode),
+                _gridInfoTile(AppLanguage().tr(mr: 'तपशीलवार शेताचा पत्ता', en: 'Detailed Farm Address'), profile.farmAddress),
                 const SizedBox(height: 14),
               ],
 
@@ -1739,9 +1754,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         const Icon(Icons.location_pin, color: AppColors.error, size: 20),
                         const SizedBox(width: 6),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Farm GPS Coordinates (नकाशा स्थान)',
+                            AppLanguage().tr(mr: 'नकाशा स्थान', en: 'Farm GPS Coordinates'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
@@ -1749,40 +1764,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(width: 6),
                         _statusChip(
-                          _locationConfirmed ? 'Confirmed ✓' : 'Pending',
+                          _locationConfirmed ? AppLanguage().tr(mr: 'निश्चित ✓', en: 'Confirmed ✓') : AppLanguage().tr(mr: 'प्रलंबित', en: 'Pending'),
                           isSuccess: _locationConfirmed,
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
 
-                    // Interactive OpenStreetMap Canvas View
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFBAE6FD)),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: InteractiveOsmMap(
-                          initialLat: _latitude,
-                          initialLng: _longitude,
-                          initialZoom: 15.0,
-                          height: 220,
-                          isInteractive: true,
-                          onExpandRequested: _openMapLocationPicker,
-                          onLocationChanged: (geo) {
-                            setState(() {
-                              _latitude = geo.latitude;
-                              _longitude = geo.longitude;
-                              if (geo.village.isNotEmpty) _locVillageController.text = geo.village;
-                              if (geo.taluka.isNotEmpty) _locTalukaController.text = geo.taluka;
-                              if (geo.district.isNotEmpty) _locDistrictController.text = geo.district;
-                              if (geo.pincode.isNotEmpty) _locPincodeController.text = geo.pincode;
-                              if (geo.formattedAddress.isNotEmpty) _farmAddressController.text = geo.formattedAddress;
-                            });
-                          },
-                        ),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: FarmLocationPreviewMap(
+                        latitude: _latitude,
+                        longitude: _longitude,
+                        height: 200,
+                        onTap: _openMapLocationPicker,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1805,8 +1803,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 Text(
                                   (_latitude == 0 && _longitude == 0)
-                                      ? 'GPS: 18.5204° N, 73.8567° E (डिफॉल्ट)'
-                                      : 'GPS: ${_latitude.toStringAsFixed(5)}° N, ${_longitude.toStringAsFixed(5)}° E',
+                                      ? AppLanguage().tr(mr: 'GPS: स्थान निवडलेले नाही', en: 'GPS: Not set')
+                                      : 'GPS: ${_latitude.toStringAsFixed(6)}° N, ${_longitude.toStringAsFixed(6)}° E',
                                   style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                                 ),
                                 Text(
@@ -1820,6 +1818,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ],
                             ),
                           ),
+                          if (_latitude != 0 || _longitude != 0)
+                            IconButton(
+                              tooltip: AppLanguage().tr(mr: 'Google Maps मध्ये उघडा', en: 'Open in Google Maps'),
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.directions_rounded, size: 22, color: Color(0xFF0369A1)),
+                              onPressed: _openInGoogleMaps,
+                            ),
                         ],
                       ),
                     ),
@@ -1838,8 +1843,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               elevation: 0,
                             ),
                             icon: const Icon(Icons.map_outlined, size: 16),
-                            label: const Text(
-                              'नकाशावर निवडा 🗺️',
+                            label: Text(
+                              AppLanguage().tr(mr: 'नकाशावर निवडा 🗺️', en: 'Pick on Map 🗺️'),
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             onPressed: _openMapLocationPicker,
@@ -1855,8 +1860,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             icon: const Icon(Icons.my_location, size: 16),
-                            label: const Text(
-                              'GPS लोकेशन',
+                            label: Text(
+                              AppLanguage().tr(mr: 'सध्याचे लोकेशन', en: 'Current Location'),
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             onPressed: _useCurrentGpsLocation,
@@ -1882,7 +1887,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () => _saveFarmLocation(confirm: false),
-                    child: const Text('Save Location (स्थान जतन करा)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    child: Text(AppLanguage().tr(mr: 'स्थान जतन करा', en: 'Save Location'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 )
               else ...[
@@ -1896,7 +1901,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.check_circle_outline, size: 18),
-                    label: const Text('Confirm Farm Location (शेताचे स्थान निश्चित करा ✓)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    label: Text(AppLanguage().tr(mr: 'शेताचे स्थान निश्चित करा ✓', en: 'Confirm Farm Location ✓'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     onPressed: () => _saveFarmLocation(confirm: true),
                   ),
                 ),
@@ -1911,7 +1916,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.arrow_back, size: 16),
-                    label: const Text('← Back to Farm Profile (मागे: शेतीचा तपशील)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                    label: Text(AppLanguage().tr(mr: '← मागे: शेतीचा तपशील', en: '← Back to Farm Profile'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                     onPressed: () => setState(() => _currentStep = ProfileStep.farmProfile),
                   ),
                 ),
@@ -1937,7 +1942,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Farm Photos (शेताचे फोटो)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+          Text(AppLanguage().tr(mr: 'शेताचे फोटो', en: 'Farm Photos'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
           const SizedBox(height: 8),
           InkWell(
             onTap: () => _addFarmPhoto(context, profile),
@@ -1950,12 +1955,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 borderRadius: BorderRadius.circular(8),
                 color: Colors.white,
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_a_photo_outlined, color: AppColors.primary, size: 20),
                   SizedBox(width: 8),
-                  Text('Add Farm Photo (शेताचा फोटो जोडा)', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                  Text(AppLanguage().tr(mr: 'शेताचा फोटो जोडा', en: 'Add Farm Photo'), style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
                 ],
               ),
             ),
@@ -1976,11 +1981,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Farm Photos & Gallery', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.muted)),
+            Text(AppLanguage().tr(mr: 'शेताचे फोटो व गॅलरी', en: 'Farm Photos & Gallery'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.muted)),
             TextButton.icon(
               style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
               icon: const Icon(Icons.add_photo_alternate, size: 15, color: AppColors.primary),
-              label: const Text('Add Photo', style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
+              label: Text(AppLanguage().tr(mr: 'फोटो जोडा', en: 'Add Photo'), style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
               onPressed: () => _addFarmPhoto(context, profile),
             ),
           ],
@@ -1995,7 +2000,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
-            child: const Text('No farm photos uploaded yet.', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+            child: Text(AppLanguage().tr(mr: 'अजून शेताचे फोटो अपलोड केलेले नाहीत.', en: 'No farm photos uploaded yet.'), style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
           )
         else
           SizedBox(
@@ -2087,7 +2092,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               isExpanded: true,
               value: validValue,
               style: const TextStyle(fontSize: 13, color: AppColors.primaryDark),
-              items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              items: items.map((e) => DropdownMenuItem(value: e, child: Text(AppLanguage().pick(e)))).toList(),
               onChanged: onChanged,
             ),
           ),
@@ -2109,7 +2114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              value.isNotEmpty ? value : '—',
+              value.isNotEmpty ? AppLanguage().pick(value) : '—',
               style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1F2937)),
             ),
           ),
@@ -2168,42 +2173,42 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
   String? _cameraErrorMessage;
   String? _recordedVideoPath;
 
-  final List<Map<String, String>> _steps = const [
+  List<Map<String, String>> get _steps => [
     {
       'icon': '📱',
-      'title': 'Keep your face inside the frame',
+      'title': AppLanguage().tr(mr: 'तुमचा चेहरा कॅमेऱ्याच्या फ्रेममध्ये स्थिर ठेवा', en: 'Keep your face inside the frame'),
       'marathi': 'तुमचा चेहरा कॅमेऱ्याच्या फ्रेममध्ये स्थिर ठेवा',
-      'hint': 'Align your face inside the oval guide',
+      'hint': AppLanguage().tr(mr: 'चेहरा अंडाकृती चौकटीत ठेवा', en: 'Align your face inside the oval guide'),
     },
     {
       'icon': '👁️',
-      'title': 'Blink your eyes',
+      'title': AppLanguage().tr(mr: 'डोळ्यांची उघडझाप करा', en: 'Blink your eyes'),
       'marathi': 'डोळ्यांची उघडझाप करा',
-      'hint': 'Blink naturally 2-3 times',
+      'hint': AppLanguage().tr(mr: 'नैसर्गिकपणे २-३ वेळा डोळे मिचकवा', en: 'Blink naturally 2-3 times'),
     },
     {
       'icon': '↔️',
-      'title': 'Turn your head left',
+      'title': AppLanguage().tr(mr: 'मान हळूच डावीकडे वळवा', en: 'Turn your head left'),
       'marathi': 'मान हळूच डावीकडे वळवा',
-      'hint': 'Turn head slowly to the left side',
+      'hint': AppLanguage().tr(mr: 'मान हळूहळू डावीकडे वळवा', en: 'Turn head slowly to the left side'),
     },
     {
       'icon': '↔️',
-      'title': 'Turn your head right',
+      'title': AppLanguage().tr(mr: 'मान हळूच उजवीकडे वळवा', en: 'Turn your head right'),
       'marathi': 'मान हळूच उजवीकडे वळवा',
-      'hint': 'Turn head slowly to the right side',
+      'hint': AppLanguage().tr(mr: 'मान हळूहळू उजवीकडे वळवा', en: 'Turn head slowly to the right side'),
     },
     {
       'icon': '⬆️',
-      'title': 'Look up',
+      'title': AppLanguage().tr(mr: 'मान थोडी वर करा व कॅमेऱ्यात पहा', en: 'Look up'),
       'marathi': 'मान थोडी वर करा व कॅमेऱ्यात पहा',
-      'hint': 'Tilt head upward slightly',
+      'hint': AppLanguage().tr(mr: 'मान थोडी वर करा', en: 'Tilt head upward slightly'),
     },
     {
       'icon': '⬇️',
-      'title': 'Look down',
+      'title': AppLanguage().tr(mr: 'मान थोडी खाली करा', en: 'Look down'),
       'marathi': 'मान थोडी खाली करा',
-      'hint': 'Tilt head downward slightly',
+      'hint': AppLanguage().tr(mr: 'मान थोडी खाली झुकवा', en: 'Tilt head downward slightly'),
     },
   ];
 
@@ -2236,7 +2241,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
         if (mounted) {
           setState(() {
             _isLoadingCamera = false;
-            _cameraErrorMessage = 'No camera available on this device';
+            _cameraErrorMessage = AppLanguage().tr(mr: 'या डिव्हाइसवर कॅमेरा उपलब्ध नाही', en: 'No camera available on this device');
           });
         }
         return;
@@ -2285,7 +2290,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
       if (mounted) {
         setState(() {
           _isLoadingCamera = false;
-          _cameraErrorMessage = 'कॅमेरा सुरू करता आला नाही: $e';
+          _cameraErrorMessage = AppLanguage().tr(mr: 'कॅमेरा सुरू करता आला नाही: $e', en: 'Could not start camera: $e');
         });
       }
     }
@@ -2379,8 +2384,8 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                     const SizedBox(width: 8),
                     Text(
                       _isRecording
-                          ? 'LIVE REC • 00:${_secondsRecorded.toString().padLeft(2, '0')}'
-                          : 'CAMERA READY',
+                          ? AppLanguage().tr(mr: 'रेकॉर्डिंग • 00:${_secondsRecorded.toString().padLeft(2, '0')}', en: 'LIVE REC • 00:${_secondsRecorded.toString().padLeft(2, '0')}')
+                          : AppLanguage().tr(mr: 'कॅमेरा तयार', en: 'CAMERA READY'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -2390,8 +2395,8 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                     ),
                   ],
                 ),
-                const Text(
-                  'Facial Liveness Check',
+                Text(
+                  AppLanguage().tr(mr: 'चेहरा थेटपणा तपासणी', en: 'Facial Liveness Check'),
                   style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
                 ),
                 IconButton(
@@ -2474,7 +2479,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                       else if (_isLoadingCamera)
                         Container(
                           color: const Color(0xFF0F172A),
-                          child: const Center(
+                          child: Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -2484,7 +2489,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                                 ),
                                 SizedBox(height: 12),
                                 Text(
-                                  'कॅमेरा सुरू होत आहे...\n(Opening camera...)',
+                                  AppLanguage().tr(mr: 'कॅमेरा सुरू होत आहे...', en: 'Opening camera...'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.white70, fontSize: 11),
                                 ),
@@ -2502,7 +2507,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                               const Icon(Icons.videocam_off_outlined, color: Colors.orangeAccent, size: 36),
                               const SizedBox(height: 8),
                               Text(
-                                _cameraErrorMessage ?? 'कॅमेरा सुरू करण्यात त्रुटी',
+                                _cameraErrorMessage ?? AppLanguage().tr(mr: 'कॅमेरा सुरू करण्यात त्रुटी', en: 'Error starting camera'),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(color: Colors.white70, fontSize: 11),
                               ),
@@ -2514,7 +2519,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 ),
                                 icon: const Icon(Icons.refresh, size: 14),
-                                label: const Text('पुन्हा प्रयत्न करा', style: TextStyle(fontSize: 11)),
+                                label: Text(AppLanguage().tr(mr: 'पुन्हा प्रयत्न करा', en: 'Try Again'), style: TextStyle(fontSize: 11)),
                                 onPressed: _initCamera,
                               ),
                             ],
@@ -2578,7 +2583,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                _isRecording ? 'Face Detected • Recording' : 'Face Guide Active',
+                                _isRecording ? AppLanguage().tr(mr: 'चेहरा ओळखला • रेकॉर्डिंग', en: 'Face Detected • Recording') : AppLanguage().tr(mr: 'चेहरा मार्गदर्शक सुरू', en: 'Face Guide Active'),
                                 style: TextStyle(
                                   color: _isRecording ? const Color(0xFF10B981) : const Color(0xFF38BDF8),
                                   fontSize: 10.5,
@@ -2618,7 +2623,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'STEP ${_currentStepIndex + 1} OF ${_steps.length}',
+                        AppLanguage().tr(mr: 'टप्पा ${_currentStepIndex + 1} / ${_steps.length}', en: 'STEP ${_currentStepIndex + 1} OF ${_steps.length}'),
                         style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                       ),
                     ),
@@ -2634,12 +2639,6 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                   step['title'] ?? '',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  step['marathi'] ?? '',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -2662,8 +2661,8 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
               ),
               label: Text(
                 _currentStepIndex == _steps.length - 1
-                    ? 'Complete Verification (पडताळणी पूर्ण करा ✓)'
-                    : 'Action Done - Next Step (पुढील क्रिया →)',
+                    ? AppLanguage().tr(mr: 'पडताळणी पूर्ण करा ✓', en: 'Complete Verification ✓')
+                    : AppLanguage().tr(mr: 'पुढील क्रिया →', en: 'Action Done - Next Step →'),
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               onPressed: _nextStep,
@@ -2691,13 +2690,13 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
               child: const Icon(Icons.check, size: 52, color: Colors.white),
             ),
             const SizedBox(height: 18),
-            const Text(
-              'Live Verification Successful!',
+            Text(
+              AppLanguage().tr(mr: 'थेट पडताळणी यशस्वी!', en: 'Live Verification Successful!'),
               style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'थेट व्हिडिओ केवायसी पडताळणी यशस्वीरीत्या पूर्ण झाली ✓',
+            Text(
+              AppLanguage().tr(mr: 'थेट व्हिडिओ केवायसी पडताळणी यशस्वीरीत्या पूर्ण झाली ✓', en: 'Live video KYC verification completed successfully ✓'),
               textAlign: TextAlign.center,
               style: TextStyle(color: Color(0xFF86EFAC), fontSize: 13),
             ),
@@ -2711,10 +2710,10 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
               ),
               child: Column(
                 children: [
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Liveness Confidence:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(AppLanguage().tr(mr: 'थेटपणा विश्वास पातळी:', en: 'Liveness Confidence:'), style: TextStyle(color: Colors.white70, fontSize: 12)),
                       Text('99.4%', style: TextStyle(color: Color(0xFF22C55E), fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -2722,7 +2721,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Farmer Name:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(AppLanguage().tr(mr: 'शेतकऱ्याचे नाव:', en: 'Farmer Name:'), style: TextStyle(color: Colors.white70, fontSize: 12)),
                       Text(widget.farmerName, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -2730,16 +2729,16 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Video Duration:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text('${_secondsRecorded}s (Recorded ✓)', style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'व्हिडिओ कालावधी:', en: 'Video Duration:'), style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(AppLanguage().tr(mr: '$_secondsRecorded से. (रेकॉर्ड ✓)', en: '${_secondsRecorded}s (Recorded ✓)'), style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Anti-spoofing check:', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text('PASSED ✓', style: TextStyle(color: Color(0xFF22C55E), fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(AppLanguage().tr(mr: 'बनावटपणा तपासणी:', en: 'Anti-spoofing check:'), style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Text(AppLanguage().tr(mr: 'उत्तीर्ण ✓', en: 'PASSED ✓'), style: TextStyle(color: Color(0xFF22C55E), fontSize: 12, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   if (_recordedVideoPath != null) ...[
@@ -2747,7 +2746,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Video File:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                        Text(AppLanguage().tr(mr: 'व्हिडिओ फाईल:', en: 'Video File:'), style: TextStyle(color: Colors.white70, fontSize: 11)),
                         Flexible(
                           child: Text(
                             _recordedVideoPath!.split(RegExp(r'[\\/]')).last,
@@ -2775,7 +2774,7 @@ class _LiveVideoKycSheetState extends State<_LiveVideoKycSheet> with SingleTicke
                   widget.onCompleted();
                   Navigator.pop(context);
                 },
-                child: const Text('Save & Finish (केवायसी जतन करा ✓)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                child: Text(AppLanguage().tr(mr: 'केवायसी जतन करा ✓', en: 'Save & Finish ✓'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

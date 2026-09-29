@@ -286,7 +286,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       if (mounted) {
         showAppPhotoPicker(
           context,
-          title: 'Select $slot Photo',
+          title: AppLanguage().tr(mr: '$slot फोटो निवडा', en: 'Select $slot Photo'),
           presetCategory: 'Vegetables',
           onPhotoSelected: (photo) => _setSlotPhoto(slot, photo),
         );
@@ -342,21 +342,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
   bool _validate(bool isPublish) {
     final next = <String, String>{};
 
-    if (_productName.trim().isEmpty) next['productName'] = 'Product name is required';
-    if (_selectedCropId == null && _cropName.isEmpty) next['cropId'] = 'Crop is required';
+    if (_productName.trim().isEmpty) next['productName'] = AppLanguage().tr(mr: 'उत्पादनाचे नाव आवश्यक आहे', en: 'Product name is required');
+    if (_selectedCropId == null && _cropName.isEmpty) next['cropId'] = AppLanguage().tr(mr: 'पीक आवश्यक आहे', en: 'Crop is required');
 
     if (isPublish) {
-      if (_varietyController.text.trim().isEmpty) next['variety'] = 'Variety is required';
-      if (_harvestDate == null) next['harvestDate'] = 'Harvest date is required';
-      if (_availableFrom == null) next['availableFrom'] = 'Available from date is required';
-      if (_availableUntil == null) next['availableUntil'] = 'Available until date is required';
+      if (_varietyController.text.trim().isEmpty) next['variety'] = AppLanguage().tr(mr: 'वाण आवश्यक आहे', en: 'Variety is required');
+      if (_harvestDate == null) next['harvestDate'] = AppLanguage().tr(mr: 'काढणी तारीख आवश्यक आहे', en: 'Harvest date is required');
+      if (_availableFrom == null) next['availableFrom'] = AppLanguage().tr(mr: 'उपलब्ध पासून तारीख आवश्यक आहे', en: 'Available from date is required');
+      if (_availableUntil == null) next['availableUntil'] = AppLanguage().tr(mr: 'उपलब्ध पर्यंत तारीख आवश्यक आहे', en: 'Available until date is required');
       if (_availableFrom != null && _availableUntil != null && _availableUntil!.isBefore(_availableFrom!)) {
-        next['availableUntil'] = 'Until date cannot be before from date';
+        next['availableUntil'] = AppLanguage().tr(mr: 'शेवटची तारीख सुरुवातीच्या तारखेपूर्वी असू शकत नाही', en: 'Until date cannot be before from date');
       }
       final totalQty = _grades.fold<double>(0.0, (sum, g) => sum + (double.tryParse(g.quantity) ?? 0.0)) + (double.tryParse(_availableQtyController.text) ?? 0.0);
-      if (totalQty <= 0) next['availableQuantity'] = 'Quantity must be greater than 0';
-      if (_grades.isEmpty) next['grades'] = 'Add at least one grade';
-      if (_mainPhoto.isEmpty) next['mainPhoto'] = 'Main product photo is required';
+      if (totalQty <= 0) next['availableQuantity'] = AppLanguage().tr(mr: 'प्रमाण 0 पेक्षा जास्त असावे', en: 'Quantity must be greater than 0');
+      if (_grades.isEmpty) next['grades'] = AppLanguage().tr(mr: 'किमान एक ग्रेड जोडा', en: 'Add at least one grade');
+      if (_mainPhoto.isEmpty) next['mainPhoto'] = AppLanguage().tr(mr: 'मुख्य उत्पादन फोटो आवश्यक आहे', en: 'Main product photo is required');
     }
 
     setState(() => _errors = next);
@@ -432,7 +432,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(publish ? 'Product submitted & published!' : 'Draft saved'),
+              content: Text(publish ? AppLanguage().tr(mr: 'उत्पादन सादर व प्रकाशित झाले!', en: 'Product submitted & published!') : AppLanguage().tr(mr: 'मसुदा जतन झाला', en: 'Draft saved')),
               backgroundColor: const Color(0xFF217346),
             ),
           );
@@ -482,7 +482,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(publish ? 'Product submitted for approval & published!' : 'Draft saved successfully'),
+              content: Text(publish ? AppLanguage().tr(mr: 'उत्पादन मंजुरीसाठी सादर व प्रकाशित झाले!', en: 'Product submitted for approval & published!') : AppLanguage().tr(mr: 'मसुदा यशस्वीरीत्या जतन झाला', en: 'Draft saved successfully')),
               backgroundColor: const Color(0xFF217346),
             ),
           );
@@ -594,7 +594,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('PRODUCT ID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Color(0xFF047857))),
+                              Text(AppLanguage().tr(mr: 'उत्पादन क्रमांक', en: 'PRODUCT ID'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: Color(0xFF047857))),
                               Text(
                                 widget.editingProduct!.displayBusinessId,
                                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF065F46)),
@@ -720,7 +720,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                     child: TextFormField(
                                       controller: _customFarmingTypeController,
                                       style: const TextStyle(fontSize: 11.5),
-                                      decoration: _inputDecoration(hint: 'Specify type'),
+                                      decoration: _inputDecoration(hint: AppLanguage().tr(mr: 'प्रकार लिहा', en: 'Specify type')),
                                     ),
                                   ),
                                 ],
@@ -815,7 +815,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          _harvestDate != null ? _formatDate(_harvestDate) : 'Select date',
+                                          _harvestDate != null ? _formatDate(_harvestDate) : AppLanguage().tr(mr: 'तारीख निवडा', en: 'Select date'),
                                           style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: _harvestDate != null ? FontWeight.bold : FontWeight.normal,
@@ -843,7 +843,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('From', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'पासून', en: 'From'), required: true),
                                 InkWell(
                                   onTap: () => _pickDate(field: 'from'),
                                   child: Container(
@@ -858,7 +858,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          _availableFrom != null ? _formatDate(_availableFrom) : 'Select date',
+                                          _availableFrom != null ? _formatDate(_availableFrom) : AppLanguage().tr(mr: 'तारीख निवडा', en: 'Select date'),
                                           style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: _availableFrom != null ? FontWeight.bold : FontWeight.normal,
@@ -879,7 +879,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Until', required: true),
+                                _buildLabel(AppLanguage().tr(mr: 'पर्यंत', en: 'Until'), required: true),
                                 InkWell(
                                   onTap: () => _pickDate(field: 'until'),
                                   child: Container(
@@ -894,7 +894,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          _availableUntil != null ? _formatDate(_availableUntil) : 'Select date',
+                                          _availableUntil != null ? _formatDate(_availableUntil) : AppLanguage().tr(mr: 'तारीख निवडा', en: 'Select date'),
                                           style: TextStyle(
                                             fontSize: 11.5,
                                             fontWeight: _availableUntil != null ? FontWeight.bold : FontWeight.normal,

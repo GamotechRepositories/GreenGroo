@@ -1,3 +1,5 @@
+import '../services/app_language.dart';
+
 class FarmerProfile {
   final String id;
   final String fullName;
@@ -1096,6 +1098,8 @@ class DocumentItem {
     this.fileUrl = '',
     this.rejectionReason = '',
   });
+
+  String get displayTitle => AppLanguage().isMarathi && marathiTitle.isNotEmpty ? marathiTitle : title;
 
   Map<String, dynamic> toJson() => {
     'id': id,
