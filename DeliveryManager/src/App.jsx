@@ -6,6 +6,7 @@ import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import StockPage from "./pages/stock/StockPage";
+import ProductsPage from "./pages/products/ProductsPage";
 import DriversPage from "./pages/drivers/DriversPage";
 import DriverDetailPage from "./pages/drivers/DriverDetailPage";
 import PendingDriversPage from "./pages/drivers/PendingDriversPage";
@@ -36,6 +37,7 @@ function App() {
               <Route path="/shifts" element={<ShiftManagementPage />} />
               <Route path="/shifts/create" element={<CreateShiftPage />} />
               <Route path="/stock" element={<StockPage />} />
+              <Route path="/products" element={<ProductsPage />} />
               <Route path="/drivers" element={<DriversPage />} />
               <Route path="/drivers/:driverId" element={<DriverDetailPage />} />
               <Route path="/drivers/pending" element={<PendingDriversPage />} />

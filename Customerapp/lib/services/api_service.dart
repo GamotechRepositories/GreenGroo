@@ -382,7 +382,10 @@ class ApiService {
   Future<NearestStoreResult> fetchNearestStore([Map<String, dynamic>? params]) async {
     try {
       final response = await getNearestStore(params);
-      final data = ApiResponseParser.getData(response.data);
+      final body = response.data;
+      final data = body is Map<String, dynamic> && body['data'] is Map<String, dynamic>
+          ? body['data']
+          : body;
       if (data is Map<String, dynamic>) {
         return NearestStoreResult.fromJson(data);
       }

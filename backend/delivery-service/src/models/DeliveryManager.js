@@ -88,6 +88,11 @@ const deliveryManagerSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    /** Set once the starter products + inventory have been created for this store. */
+    storeSeededAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

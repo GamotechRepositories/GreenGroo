@@ -48,7 +48,7 @@ api.interceptors.request.use((config) => {
   }
 
   const url = `${config.baseURL || ""}${config.url || ""}`;
-  if (/\/api\/products|\/api\/stores/.test(url)) {
+  if (/\/api\/products|\/api\/stores|\/api\/categories/.test(url)) {
     config.params = { ...storeLocationParams(), ...(config.params || {}) };
   }
 

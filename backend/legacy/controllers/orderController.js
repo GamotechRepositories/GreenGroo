@@ -438,6 +438,7 @@ export const createCheckoutAttempt = async (req, res) => {
       giftCardCode,
       customerLocation,
       preOrderSlot,
+      fulfillmentType,
     } = req.body;
     const prepared = await prepareCheckoutAttemptData(req.user._id, {
       addressId,
@@ -449,6 +450,7 @@ export const createCheckoutAttempt = async (req, res) => {
       giftCardCode,
       customerLocation,
       preOrderSlot,
+      fulfillmentType,
     });
 
     if (prepared.error) {
@@ -622,6 +624,7 @@ export const placeOrder = async (req, res) => {
       rewardPointsToUse,
       giftCardCode: req.body.giftCardCode,
       customerLocation: req.body.customerLocation,
+      fulfillmentType: req.body.fulfillmentType,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -654,6 +657,7 @@ export const placeOrder = async (req, res) => {
       message: orderMessage,
       attemptedOrderId,
       preOrderSlot: preOrderSlot === undefined ? undefined : slotCheck.preOrderSlot,
+      fulfillmentType: result.fulfillmentType,
     });
 
     void notifyOrderCreated(order, {

@@ -764,6 +764,7 @@ export async function retryWaitingAssignmentsForStore(darkStoreId) {
   const waitingOrders = await StoreOrder.find({
     managerId: darkStoreId,
     isPreOrder: { $ne: true },
+    fulfillmentType: { $ne: "pickup" },
     status: { $in: ["packed", "offered"] },
     assignmentStatus: { $in: ["WAITING_FOR_DRIVER", "SEARCHING_FOR_DRIVER", null] },
   }).limit(20);

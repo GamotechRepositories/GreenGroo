@@ -1,4 +1,5 @@
 import EcommerceOrder from "../../../legacy/models/order/Order.js";
+import StoreOrder from "../models/StoreOrder.js";
 import { notifyOrderStatusChange } from "../../../legacy/services/orderNotificationDispatcher.js";
 import { reverseOrderRewardPoints } from "../../../legacy/controllers/rewardController.js";
 
@@ -22,6 +23,34 @@ export function customerStatusForStoreStatus(storeStatus) {
   return CUSTOMER_STATUS_BY_STORE[storeStatus] || "processing";
 }
 
+const PROGRESS_RANK = { confirm: 1, processing: 2, shipping: 3, delivered: 4 };
+
+/**
+ * A mixed cart is split into a "now" and a "preorder" store order. The customer order
+ * is delivered only when every open part is delivered, and cancelled only when all are.
+ */
+async function combinedStatusForSplitOrder(storeOrder, storeStatus) {
+  const siblings = await StoreOrder.find({
+    sourceOrderId: storeOrder.sourceOrderId,
+    _id: { $ne: storeOrder._id },
+  }).select("status");
+
+  const statuses = [
+    customerStatusForStoreStatus(storeStatus),
+    ...siblings.map((row) => customerStatusForStoreStatus(row.status)),
+  ];
+  const open = statuses.filter((status) => status !== "cancelled");
+  if (!open.length) return "cancelled";
+
+  const pending = open.filter((status) => status !== "delivered");
+  if (!pending.length) return "delivered";
+
+  const slowest = pending.reduce((a, b) =>
+    (PROGRESS_RANK[a] || 2) <= (PROGRESS_RANK[b] || 2) ? a : b
+  );
+  return slowest === "confirm" && pending.length < open.length ? "processing" : slowest;
+}
+
 export async function syncCustomerOrderFromStore(storeOrder, storeStatus) {
   if (!storeOrder?.sourceOrderId) return null;
 
@@ -29,7 +58,9 @@ export async function syncCustomerOrderFromStore(storeOrder, storeStatus) {
   if (!customerOrder) return null;
 
   const previousStatus = customerOrder.status;
-  const nextStatus = customerStatusForStoreStatus(storeStatus);
+  const nextStatus = storeOrder.sourcePart
+    ? await combinedStatusForSplitOrder(storeOrder, storeStatus)
+    : customerStatusForStoreStatus(storeStatus);
   if (previousStatus === nextStatus) return customerOrder;
 
   customerOrder.status = nextStatus;

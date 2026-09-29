@@ -1,14 +1,20 @@
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import StoreInventory from "../../delivery-service/src/models/StoreInventory.js";
 import {
+  ORDER_ROUTING_RADIUS_KM,
   readCoords,
-  resolveDarkStoreForAddress,
+  resolveDarkStoreForOrder,
 } from "../../delivery-service/src/services/darkStoreResolver.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { getIO } from "../../socket.js";
 import Product from "../models/Product.js";
 import { geocodeAddressString } from "./reverseGeocodeService.js";
 import { computePreOrderDate, normalizePreOrderSlot } from "../utils/preOrderHelpers.js";
+import {
+  collectDepartments,
+  normalizeFulfillmentType,
+  sectionToDepartment,
+} from "../utils/departmentHelpers.js";
 
 function formatCustomerAddress(address = {}) {
   const parts = [];
@@ -34,7 +40,28 @@ function scoreNameMatch(productName, inventoryName) {
   return hits ? 40 + hits * 5 : 0;
 }
 
-async function mapItemsToStoreCatalog(managerId, ecommerceItems = []) {
+/** Department + department-wise id per order line. */
+async function resolveItemDepartments(ecommerceItems = []) {
+  const productIds = ecommerceItems
+    .map((item) => item.product?._id || item.product)
+    .filter(Boolean);
+  const products = productIds.length
+    ? await Product.find({ _id: { $in: productIds } })
+        .select("section storeType departmentId")
+        .lean()
+    : [];
+  const productById = new Map(products.map((p) => [p._id.toString(), p]));
+
+  return ecommerceItems.map((item) => {
+    const product = productById.get(String(item.product?._id || item.product || ""));
+    return {
+      department: item.department || sectionToDepartment(product?.section, product?.storeType),
+      departmentId: item.departmentId || product?.departmentId || "",
+    };
+  });
+}
+
+async function mapItemsToStoreCatalog(managerId, ecommerceItems = [], itemDepartments = []) {
   const inventory = await StoreInventory.find({ managerId, isActive: true });
   const productIds = ecommerceItems
     .map((item) => item.product?._id || item.product)
@@ -44,7 +71,7 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = []) {
     : [];
   const productById = new Map(products.map((p) => [p._id.toString(), p]));
 
-  return ecommerceItems.map((item) => {
+  return ecommerceItems.map((item, index) => {
     const productId = String(item.product?._id || item.product || "");
     const product = productById.get(productId);
     const productSku = String(product?.sku || item.sku || "").trim();
@@ -71,6 +98,8 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = []) {
       quantity: Math.max(1, Number(item.quantity || item.qty || 1)),
       unit: match?.unit || "pcs",
       price: Number(item.price || match?.price || 0),
+      department: itemDepartments[index]?.department || "",
+      departmentId: itemDepartments[index]?.departmentId || "",
     };
   });
 }
@@ -79,6 +108,7 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = []) {
  * Route a confirmed customer order to the dark store that covers that address.
  * Creates a StoreOrder so the correct Delivery Manager can confirm, deduct stock, and dispatch.
  * Pre-orders are held (status "preorder_hold") for the Product Manager to prepare and forward.
+ * A mixed cart with a slot becomes two StoreOrders: Ready2Cook / Instant now, pre-order items at the slot.
  */
 export async function dispatchDeliveryOrder(ecommerceOrder) {
   try {
@@ -99,20 +129,42 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       }
     }
 
-    const { manager, reason, distanceKm } = await resolveDarkStoreForAddress(address);
+    const preOrderSlot = normalizePreOrderSlot(ecommerceOrder.preOrderSlot);
+    const fulfillmentType = normalizeFulfillmentType(ecommerceOrder.fulfillmentType);
+    const itemDepartments = await resolveItemDepartments(ecommerceOrder.items || []);
+    const departments = collectDepartments(itemDepartments);
+
+    const customerAddress = formatCustomerAddress(address) || "Customer address";
+    let customerCoords = readCoords(address);
+    if (!customerCoords && customerAddress) {
+      customerCoords = await geocodeAddressString(customerAddress);
+    }
+
+    // Ready2Cook / Instant need a store within 3 km; a pure pre-order may also use a same-pincode store.
+    const allowPincodeFallback =
+      departments.length > 0 && departments.every((dept) => dept === "preorder");
+    const { manager, reason, distanceKm } = await resolveDarkStoreForOrder(
+      { ...address, ...(customerCoords ? { lat: customerCoords.lat, lng: customerCoords.lng } : {}) },
+      { allowPincodeFallback, anyDistance: fulfillmentType === "pickup" }
+    );
     if (!manager) {
       console.warn(
-        "[deliveryDispatcher] No dark store within 5 km of this address",
+        `[deliveryDispatcher] No dark store within ${ORDER_ROUTING_RADIUS_KM} km${
+          allowPincodeFallback ? " or same pincode" : ""
+        } of this address`,
         ecommerceOrder._id,
-        { city: address.city, area: address.area, reason }
+        { city: address.city, area: address.area, pincode: address.pincode, departments, reason }
       );
       return null;
     }
 
     await seedManagerStore(manager);
 
-    const customerAddress = formatCustomerAddress(address) || "Customer address";
-    const items = await mapItemsToStoreCatalog(manager._id, ecommerceOrder.items || []);
+    const items = await mapItemsToStoreCatalog(
+      manager._id,
+      ecommerceOrder.items || [],
+      itemDepartments
+    );
     if (!items.length) {
       console.warn("[deliveryDispatcher] Order has no items", ecommerceOrder._id);
       return null;
@@ -122,18 +174,14 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
       ? `CUST-${ecommerceOrder.orderNumber}`
       : `CUST-${String(ecommerceOrder._id).slice(-8).toUpperCase()}`;
 
-    let customerCoords = readCoords(address);
-    if (!customerCoords && customerAddress) {
-      customerCoords = await geocodeAddressString(customerAddress);
-    }
     const roundedDistance =
       distanceKm != null ? Math.round(distanceKm * 10) / 10 : null;
 
+    // One OTP per customer order: it unlocks the rider delivery or the store-counter handover of every part.
     const otpCode = String(Math.floor(1000 + Math.random() * 9000));
-    const itemsTotal = items.reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
-      0
-    );
+    const lineTotal = (list) =>
+      list.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    const itemsTotal = lineTotal(items);
     const deliveryCharges = Number(ecommerceOrder.deliveryCharges || 0);
     const orderTotal = Number(ecommerceOrder.total || itemsTotal + deliveryCharges);
     const ecommercePayMethod = String(ecommerceOrder.paymentMethod || "").toLowerCase();
@@ -143,41 +191,95 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
     const storePaymentMethod =
       ecommercePayMethod === "cod" || ecommercePayMethod === "COD" ? "COD" : ecommercePayMethod === "online" ? "online" : "COD";
 
-    const preOrderSlot = normalizePreOrderSlot(ecommerceOrder.preOrderSlot);
-    const isPreOrder = Boolean(preOrderSlot);
-    const preOrderDate = isPreOrder
+    // The slot applies to pre-order lines only; Ready2Cook / Instant lines go out right away.
+    const preItems = preOrderSlot ? items.filter((item) => item.department === "preorder") : [];
+    const nowItems = preOrderSlot ? items.filter((item) => item.department !== "preorder") : items;
+    const isMixed = preItems.length > 0 && nowItems.length > 0;
+    const parts = [];
+    if (nowItems.length) parts.push({ key: isMixed ? "now" : "", items: nowItems, isPreOrder: false });
+    if (preItems.length) parts.push({ key: isMixed ? "preorder" : "", items: preItems, isPreOrder: true });
+
+    // Delivery charges ride with the first part; the rest of the bill is shared by item value.
+    const goodsTotal = Math.max(0, orderTotal - deliveryCharges);
+    let remaining = Math.round(orderTotal);
+    parts.forEach((part, index) => {
+      if (index === parts.length - 1) {
+        part.amount = remaining;
+        return;
+      }
+      const share = itemsTotal > 0 ? lineTotal(part.items) / itemsTotal : 1 / parts.length;
+      part.amount = Math.round(goodsTotal * share + (index === 0 ? deliveryCharges : 0));
+      remaining -= part.amount;
+    });
+
+    const hasPreOrderPart = preItems.length > 0;
+    const preOrderDate = hasPreOrderPart
       ? ecommerceOrder.preOrderDate || computePreOrderDate(ecommerceOrder.createdAt || new Date())
       : "";
 
-    const storeOrder = await StoreOrder.create({
-      orderNumber: orderNum,
-      managerId: manager._id,
-      darkStoreId: manager._id,
-      sourceOrderId: ecommerceOrder._id || null,
-      city: manager.city || address.city || "",
-      cityId: manager.cityId || "",
-      area: address.area || manager.area || "",
-      customerName: address.fullName || "Customer",
-      customerPhone: address.number || "",
-      customerAddress,
-      customerLat: customerCoords?.lat ?? null,
-      customerLng: customerCoords?.lng ?? null,
-      distanceKm: roundedDistance,
-      items,
-      status: isPreOrder ? "preorder_hold" : "order_received",
-      isPreOrder,
-      preOrderSlot,
-      preOrderDate,
-      preOrderStage: isPreOrder ? "pending" : "",
-      darkStoreQrCode: `DARKSTORE_${manager._id}`,
-      otpCode,
-      paymentMethod: storePaymentMethod,
-      paymentStatus: isOnlinePaid ? "paid_online" : "pending",
-      amountToCollect: isOnlinePaid ? 0 : Math.round(orderTotal),
-      notes: `Customer order ${ecommerceOrder.orderNumber || ecommerceOrder._id} routed by ${reason}${
-        roundedDistance != null ? ` (${roundedDistance} km)` : ""
-      }`,
-    });
+    const created = [];
+    for (const part of parts) {
+      const partDepartments = collectDepartments(part.items);
+      const storeOrder = await StoreOrder.create({
+        orderNumber: part.key === "preorder" ? `${orderNum}-PR` : orderNum,
+        managerId: manager._id,
+        darkStoreId: manager._id,
+        sourceOrderId: ecommerceOrder._id || null,
+        sourcePart: part.key,
+        fulfillmentType,
+        city: manager.city || address.city || "",
+        cityId: manager.cityId || "",
+        area: address.area || manager.area || "",
+        customerName: address.fullName || "Customer",
+        customerPhone: address.number || "",
+        customerAddress,
+        customerLat: customerCoords?.lat ?? null,
+        customerLng: customerCoords?.lng ?? null,
+        distanceKm: roundedDistance,
+        items: part.items,
+        status: part.isPreOrder ? "preorder_hold" : "order_received",
+        isPreOrder: part.isPreOrder,
+        preOrderSlot: part.isPreOrder ? preOrderSlot : "",
+        preOrderDate: part.isPreOrder ? preOrderDate : "",
+        preOrderStage: part.isPreOrder ? "pending" : "",
+        departments: partDepartments,
+        routingReason: reason || "",
+        darkStoreQrCode: `DARKSTORE_${manager._id}`,
+        otpCode,
+        paymentMethod: storePaymentMethod,
+        paymentStatus: isOnlinePaid ? "paid_online" : "pending",
+        amountToCollect: isOnlinePaid ? 0 : part.amount,
+        notes: `Customer order ${ecommerceOrder.orderNumber || ecommerceOrder._id} routed by ${reason}${
+          roundedDistance != null ? ` (${roundedDistance} km)` : ""
+        }${fulfillmentType === "pickup" ? " · customer pickup at store" : ""}${
+          isMixed ? ` · ${part.isPreOrder ? "pre-order part" : "Ready2Cook / Instant part"}` : ""
+        }`,
+      });
+      created.push(storeOrder);
+
+      console.log(
+        `[deliveryDispatcher] ${part.isPreOrder ? `Pre-order (${preOrderDate} ${preOrderSlot})` : "Order"} ${storeOrder.orderNumber} → ${manager.storeName || manager.area} (${reason}, ${fulfillmentType})`
+      );
+
+      try {
+        getIO().to(`store_${manager._id}`).emit(
+          part.isPreOrder ? "new_preorder_received" : "new_order_received",
+          {
+            orderId: storeOrder._id.toString(),
+            orderNumber: storeOrder.orderNumber,
+            customerName: storeOrder.customerName,
+            customerPhone: storeOrder.customerPhone,
+            itemsCount: storeOrder.items.length,
+            storeName: manager.storeName || `${manager.area} Store`,
+            departments: partDepartments,
+            fulfillmentType,
+            ...(part.isPreOrder ? { preOrderSlot, preOrderDate } : {}),
+          }
+        );
+      } catch (err) {
+        console.warn("[deliveryDispatcher] socket emit failed:", err.message);
+      }
+    }
 
     // Persist OTP on customer Order so frontend/userapp can show it to the customer
     if (ecommerceOrder._id) {
@@ -185,35 +287,14 @@ export async function dispatchDeliveryOrder(ecommerceOrder) {
         const Order = (await import("../models/order/Order.js")).default;
         await Order.findByIdAndUpdate(ecommerceOrder._id, {
           deliveryOtp: otpCode,
-          ...(isPreOrder && !ecommerceOrder.preOrderDate ? { preOrderDate } : {}),
+          ...(hasPreOrderPart && !ecommerceOrder.preOrderDate ? { preOrderDate } : {}),
         });
       } catch (err) {
         console.warn("[deliveryDispatcher] failed to save deliveryOtp on Order:", err.message);
       }
     }
 
-    console.log(
-      `[deliveryDispatcher] ${isPreOrder ? `Pre-order (${preOrderDate} ${preOrderSlot})` : "Order"} ${orderNum} → ${manager.storeName || manager.area} (${reason})`
-    );
-
-    try {
-      getIO().to(`store_${manager._id}`).emit(
-        isPreOrder ? "new_preorder_received" : "new_order_received",
-        {
-          orderId: storeOrder._id.toString(),
-          orderNumber: storeOrder.orderNumber,
-          customerName: storeOrder.customerName,
-          customerPhone: storeOrder.customerPhone,
-          itemsCount: storeOrder.items.length,
-          storeName: manager.storeName || `${manager.area} Store`,
-          ...(isPreOrder ? { preOrderSlot, preOrderDate } : {}),
-        }
-      );
-    } catch (err) {
-      console.warn("[deliveryDispatcher] socket emit failed:", err.message);
-    }
-
-    return storeOrder;
+    return created[0];
   } catch (error) {
     if (error?.code === 11000 && ecommerceOrder?._id) {
       return StoreOrder.findOne({ sourceOrderId: ecommerceOrder._id });

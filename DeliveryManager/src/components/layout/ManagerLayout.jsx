@@ -30,6 +30,7 @@ const navItems = [
       { to: "/incentives", label: "My Gigs", end: true },
     ],
   },
+  { to: "/products", label: "Store Products", icon: "bag" },
   { to: "/stock", label: "Stock Inventory", icon: "box" },
   { to: "/drivers", label: "Approved Drivers", icon: "truck", end: true },
   { to: "/drivers/pending", label: "Driver Verification", icon: "user" },

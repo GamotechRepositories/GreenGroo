@@ -9,6 +9,10 @@ const orderItemSchema = new mongoose.Schema(
     price: { type: Number, default: 0 },
     customerInformed: { type: Boolean, default: false },
     customerInformedAt: { type: Date },
+    /** preorder | ready2cook | instant */
+    department: { type: String, trim: true, default: "" },
+    /** Department-wise product id, e.g. "PR-28-R2C3" */
+    departmentId: { type: String, trim: true, default: "" },
   },
   { _id: true }
 );
@@ -190,6 +194,23 @@ const storeOrderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    /**
+     * A mixed cart becomes two store orders for one customer order:
+     * "now" (Ready2Cook / Instant, sent immediately) and "preorder" (held for the slot).
+     * Empty for single-department orders.
+     */
+    sourcePart: { type: String, enum: ["", "now", "preorder"], default: "" },
+    /** "delivery" = rider takes it home; "pickup" = customer collects at the dark store */
+    fulfillmentType: {
+      type: String,
+      enum: ["delivery", "pickup"],
+      default: "delivery",
+      index: true,
+    },
+    /** Departments in this order (preorder / ready2cook / instant) */
+    departments: { type: [String], default: [], index: true },
+    /** How the dark store was chosen, e.g. within_3km / same_pincode */
+    routingReason: { type: String, trim: true, default: "" },
 
     // ── Pre-order (next-day slot) workflow ──────────────────────────────────
     // Product Manager prepares (pending → preparing → ready) and forwards to the
@@ -276,7 +297,7 @@ const storeOrderSchema = new mongoose.Schema(
 );
 
 storeOrderSchema.index({ managerId: 1, status: 1, createdAt: -1 });
-storeOrderSchema.index({ sourceOrderId: 1 }, { unique: true, sparse: true });
+storeOrderSchema.index({ sourceOrderId: 1 });
 storeOrderSchema.index({ isPreOrder: 1, preOrderDate: 1, preOrderStage: 1 });
 
 storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
@@ -290,6 +311,8 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
       price: item.price,
       customerInformed: item.customerInformed,
       customerInformedAt: item.customerInformedAt,
+      department: item.department || "",
+      departmentId: item.departmentId || "",
     };
     if (stockMap) {
       const stock = stockMap.get(item.sku);
@@ -384,6 +407,10 @@ storeOrderSchema.methods.toSafeJSON = function toSafeJSON(stockMap = null) {
       : null,
     routeCompatibility: this.routeCompatibility || null,
     sourceOrderId: this.sourceOrderId ? this.sourceOrderId.toString() : null,
+    sourcePart: this.sourcePart || "",
+    fulfillmentType: this.fulfillmentType || "delivery",
+    departments: this.departments || [],
+    routingReason: this.routingReason || "",
     // Pre-order
     isPreOrder: Boolean(this.isPreOrder),
     preOrderSlot: this.preOrderSlot || "",

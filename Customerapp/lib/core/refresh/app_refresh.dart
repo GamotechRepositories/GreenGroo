@@ -6,6 +6,7 @@ Future<void> refreshHomeData(WidgetRef ref) async {
   ref.invalidate(heroBannersProvider);
   ref.invalidate(offerBannersProvider);
   ref.invalidate(categoriesProvider);
+  ref.invalidate(departmentCategoriesProvider);
   ref.invalidate(brandsProvider);
   ref.invalidate(homeDealsProvider);
   ref.invalidate(justArrivedProvider);

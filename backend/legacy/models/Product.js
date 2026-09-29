@@ -366,6 +366,40 @@ const productSchema = new mongoose.Schema(
       default: "main",
       index: true,
     },
+    /** Optional department-wise number, e.g. 28 → "PR-28" */
+    deptNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    /** Optional shelf position, e.g. row 2 / column 3 → "R2C3" */
+    rackRow: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    rackColumn: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    /** Derived from section + deptNumber + rack, e.g. "PR-28-R2C3" */
+    departmentId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    /**
+     * Set when a Delivery Manager adds the product: it is only shown to customers
+     * served by that dark store. Null = admin catalog product, visible everywhere.
+     */
+    ownerManagerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryManager",
+      default: null,
+      index: true,
+    },
     justArrived: {
       type: Boolean,
       default: false,

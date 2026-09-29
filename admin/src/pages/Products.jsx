@@ -85,6 +85,24 @@ const sectionMatches = (productSection, selectedSlug) => {
   return aliases.includes(a);
 };
 
+const departmentPrefix = (slug) => {
+  const s = String(slug || '').toLowerCase();
+  if (['ready2cook', 'ready-2-cook', 'festive'].includes(s)) return 'RD';
+  if (['instantorder', 'instant', 'supermall', 'mall'].includes(s)) return 'IN';
+  return 'PR';
+};
+
+/** Mirrors backend buildDepartmentId, e.g. PR-28-R2C3 */
+const previewDepartmentId = ({ department, deptNumber, rackRow, rackColumn }) => {
+  const clean = (v) => String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  const number = clean(deptNumber);
+  if (!number) return '';
+  const row = clean(rackRow).replace(/^R/, '');
+  const column = clean(rackColumn).replace(/^C/, '');
+  const location = row || column ? `-${row ? `R${row}` : ''}${column ? `C${column}` : ''}` : '';
+  return `${departmentPrefix(department)}-${number}${location}`;
+};
+
 const getSectionTheme = (slug, name) => {
   const s = String(slug || '').toLowerCase();
   const known = SECTION_THEMES.find((d) => d.slug === s);
@@ -342,6 +360,9 @@ export default function Products() {
     name: '',
     sku: '',
     department: 'greengrocc',
+    deptNumber: '',
+    rackRow: '',
+    rackColumn: '',
     category: '',
     subcategory: '',
     brandName: 'GreenGrocc',
@@ -518,6 +539,9 @@ export default function Products() {
       name: options.name || '',
       sku: `GRN-${Date.now().toString().slice(-6)}`,
       department: defaultSec,
+      deptNumber: '',
+      rackRow: '',
+      rackColumn: '',
       category: defaultCat,
       subcategory: defaultSub,
       brandName: options.brandName || 'GreenGrocc',
@@ -676,6 +700,9 @@ export default function Products() {
       name: product.name || '',
       sku: product.sku || '',
       department: product.section || foundCat?.section || 'greengrocc',
+      deptNumber: product.deptNumber || '',
+      rackRow: product.rackRow || '',
+      rackColumn: product.rackColumn || '',
       category: primaryCat,
       subcategory: product.subcategory || (Array.isArray(product.subcategories) ? product.subcategories[0] : '') || 'General',
       brandName: product.brandName || 'GreenGrocc',
@@ -1243,6 +1270,9 @@ export default function Products() {
         badge: formData.badge?.trim() || '',
         section: formData.department,
         storeType: formData.department === 'ready2cook' ? 'festive' : formData.department === 'supermall' ? 'mall' : 'main',
+        deptNumber: formData.deptNumber?.trim() || '',
+        rackRow: formData.rackRow?.trim() || '',
+        rackColumn: formData.rackColumn?.trim() || '',
         farmerName: formData.farmerName?.trim() || '',
         farmerLocation: formData.farmerLocation?.trim() || '',
         farmerImage: formData.farmerImage?.trim() || '',
@@ -1356,7 +1386,8 @@ export default function Products() {
         const matchesName = (p.name || '').toLowerCase().includes(query);
         const matchesSku = (p.sku || '').toLowerCase().includes(query);
         const matchesBrand = (p.brandName || '').toLowerCase().includes(query);
-        if (!matchesName && !matchesSku && !matchesBrand) return false;
+        const matchesDeptId = (p.departmentId || '').toLowerCase().includes(query);
+        if (!matchesName && !matchesSku && !matchesBrand && !matchesDeptId) return false;
       }
 
       if (stockFilter === 'in_stock' && !p.inStock) return false;
@@ -1966,6 +1997,47 @@ export default function Products() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Department-wise ID (optional) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Department ID <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
+                    <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+                      <span className="px-2.5 py-2 text-xs font-bold font-mono bg-slate-100 text-slate-600 border-r border-slate-200">
+                        {departmentPrefix(formData.department)}
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="No. e.g. 28"
+                        value={formData.deptNumber}
+                        onChange={(e) => setFormData({ ...formData, deptNumber: e.target.value.toUpperCase() })}
+                        className="w-full px-2.5 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Row e.g. 2"
+                      value={formData.rackRow}
+                      onChange={(e) => setFormData({ ...formData, rackRow: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Column e.g. 3"
+                      value={formData.rackColumn}
+                      onChange={(e) => setFormData({ ...formData, rackColumn: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-600 shadow-sm"
+                    />
+                    <span className="text-xs font-bold font-mono text-emerald-700">
+                      {previewDepartmentId(formData) || '—'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    PR = Pre-order, RD = Ready2Cook, IN = Instant Order. Row / column mark the shelf spot (e.g. R2C3).
+                  </p>
                 </div>
 
                 {/* Product Title & SKU */}
@@ -3983,6 +4055,12 @@ export default function Products() {
                             </div>
                             <p className="mt-0.5 text-[11px] text-slate-400">
                               <span className="font-mono">SKU {p.sku || '—'}</span>
+                              {p.departmentId ? (
+                                <span className="font-mono font-semibold text-emerald-700"> · {p.departmentId}</span>
+                              ) : null}
+                              {p.ownerManagerId ? (
+                                <span className="font-semibold text-sky-700"> · Store product</span>
+                              ) : null}
                               {p.brandName ? ` · ${p.brandName}` : ''}
                               {p.unit ? ` · ${p.unit}` : ''}
                               {p.videoUrl ? ' · Video' : ''}

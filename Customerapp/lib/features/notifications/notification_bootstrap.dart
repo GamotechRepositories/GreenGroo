@@ -23,6 +23,8 @@ class NotificationBootstrap extends ConsumerStatefulWidget {
 
 class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
     with WidgetsBindingObserver {
+  String? _syncedToken;
+
   @override
   void initState() {
     super.initState();
@@ -51,9 +53,11 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
 
   Future<void> _syncToken(String token) async {
     if (!ref.read(authControllerProvider).isLoggedIn) return;
+    if (token == _syncedToken) return;
 
     try {
       await ref.read(notificationRepositoryProvider).registerToken(token);
+      _syncedToken = token;
       debugPrint('NotificationService: FCM token saved to backend');
     } catch (error) {
       debugPrint('NotificationService: FCM token sync failed — $error');
@@ -107,7 +111,9 @@ class _NotificationBootstrapState extends ConsumerState<NotificationBootstrap>
       final sessionReady =
           next.isLoggedIn && !next.loading && previous?.loading == true;
 
+      if (!next.isLoggedIn) _syncedToken = null;
       if (becameLoggedIn || sessionReady) {
+        if (becameLoggedIn) _syncedToken = null;
         unawaited(_syncTokenIfReady());
         unawaited(NotificationNavigator.flushPending(context, ref));
       }

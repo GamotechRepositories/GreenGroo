@@ -11,6 +11,7 @@ import {
   listPendingDrivers,
   listRiders,
   markDelivered,
+  handOverPickupOrder,
   cancelStoreOrder,
   verifyDriver,
   getDriverDetails,
@@ -32,6 +33,12 @@ import {
   listMyInventoryRequests,
 } from "../controllers/inventoryRequestController.js";
 import { listManagerPreOrders } from "../controllers/preOrderController.js";
+import {
+  listManagerProducts,
+  createManagerProduct,
+  updateManagerProduct,
+  deleteManagerProduct,
+} from "../controllers/managerProductController.js";
 import {
   getLiveRiders,
 } from "../controllers/gigController.js";
@@ -87,6 +94,10 @@ router.get("/dashboard", getDashboardSummary);
 router.get("/orders", listIncomingOrders);
 router.get("/preorders", listManagerPreOrders);
 router.get("/inventory", listInventory);
+router.get("/products", listManagerProducts);
+router.post("/products", createManagerProduct);
+router.put("/products/:id", updateManagerProduct);
+router.delete("/products/:id", deleteManagerProduct);
 router.get("/inventory-requests", listMyInventoryRequests);
 router.post("/inventory-requests", createInventoryRequest);
 router.get("/riders", listRiders);
@@ -112,6 +123,7 @@ router.post("/orders/:orderId/confirm-cash", confirmOrderCash);
 router.post("/orders/demo", createDemoStoreOrder);
 router.post("/orders/:orderId/assign", assignOrder);
 router.patch("/orders/:orderId/delivered", markDelivered);
+router.post("/orders/:orderId/pickup-handover", handOverPickupOrder);
 router.post("/orders/:orderId/cancel", cancelStoreOrder);
 
 router.get("/return-pickups", listManagerReturnPickups);

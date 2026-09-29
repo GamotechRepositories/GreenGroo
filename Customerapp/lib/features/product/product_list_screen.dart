@@ -388,17 +388,18 @@ class _LeftSubcategorySidebarState
       }
     }
 
+    // Only subcategories that have products here, in the category's own order,
+    // followed by any product subcategories the category doesn't list.
+    String key(String value) => value.toLowerCase().trim();
+    final productSubs = <String, String>{
+      for (final p in widget.products)
+        if (p.subcategory.trim().isNotEmpty) key(p.subcategory): p.subcategory.trim(),
+    };
     final subcategoryNames = <String>[];
-    if (activeCat != null && activeCat.subcategories.isNotEmpty) {
-      subcategoryNames.addAll(activeCat.subcategories);
-    } else {
-      for (final p in widget.products) {
-        if (p.subcategory.isNotEmpty &&
-            !subcategoryNames.contains(p.subcategory)) {
-          subcategoryNames.add(p.subcategory);
-        }
-      }
+    for (final sub in activeCat?.subcategories ?? const <String>[]) {
+      if (productSubs.remove(key(sub)) != null) subcategoryNames.add(sub);
     }
+    subcategoryNames.addAll(productSubs.values);
 
     final subItems = <_SubcategoryItem>[
       _SubcategoryItem(

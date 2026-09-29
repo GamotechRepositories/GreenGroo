@@ -1,5 +1,6 @@
 import 'product.dart';
 import 'product_pricing_models.dart';
+import '../core/utils/department_utils.dart';
 import '../core/utils/json_parsers.dart';
 import '../core/utils/product_pricing.dart';
 
@@ -21,6 +22,8 @@ class CartItem {
     this.variants = const [],
     this.minOrderQuantity,
     this.stepByQuantity,
+    this.section = '',
+    this.storeType = '',
   });
 
   final String id;
@@ -39,8 +42,13 @@ class CartItem {
   final List<ProductVariant> variants;
   final int? minOrderQuantity;
   final int? stepByQuantity;
+  final String section;
+  final String storeType;
 
   double get lineTotal => discountedPrice * quantity;
+
+  /// preorder | ready2cook | instant
+  String get department => departmentForSection(section, storeType);
 
   int get quantityStep => getCartStepForCartItem(this);
 
@@ -62,6 +70,8 @@ class CartItem {
       variants: variants,
       minOrderQuantity: minOrderQuantity,
       stepByQuantity: stepByQuantity,
+      section: section,
+      storeType: storeType,
     );
   }
 
@@ -122,6 +132,8 @@ class CartItem {
         product['stepByQuantity'],
         legacyBulk is Map<String, dynamic> ? legacyBulk['stepByQuantity'] : null,
       ),
+      section: product['section']?.toString() ?? '',
+      storeType: product['storeType']?.toString() ?? '',
     );
   }
 }

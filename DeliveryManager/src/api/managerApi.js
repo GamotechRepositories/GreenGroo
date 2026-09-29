@@ -52,6 +52,20 @@ export const managerApi = {
   orders: (params) => api.get(`${BASE}/orders`, { params }),
   preOrders: (params) => api.get(`${BASE}/preorders`, { params }),
   inventory: () => api.get(`${BASE}/inventory`),
+  products: (params) => api.get(`${BASE}/products`, { params }),
+  createProduct: (data) => api.post(`${BASE}/products`, data),
+  updateProduct: (id, data) => api.put(`${BASE}/products/${id}`, data),
+  deleteProduct: (id) => api.delete(`${BASE}/products/${id}`),
+  sections: () => api.get("/api/sections"),
+  categories: (section) => api.get("/api/categories", { params: { section } }),
+  uploadMedia: (files, folder = "products") => {
+    const form = new FormData();
+    [...files].forEach((file) => form.append("files", file));
+    form.append("folder", folder);
+    return api.post("/api/upload", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
   listInventoryRequests: (params) =>
     api.get(`${BASE}/inventory-requests`, { params }),
   requestInventory: (data) => api.post(`${BASE}/inventory-requests`, data),
@@ -78,6 +92,8 @@ export const managerApi = {
     api.post(`${BASE}/orders/assign-same-route`, body),
   markDelivered: (orderId) =>
     api.patch(`${BASE}/orders/${orderId}/delivered`),
+  handOverPickup: (orderId, otp) =>
+    api.post(`${BASE}/orders/${orderId}/pickup-handover`, { otp }),
   cancelOrder: (orderId) =>
     api.post(`${BASE}/orders/${orderId}/cancel`),
   getPickupQr: (orderId) => api.get(`${BASE}/orders/${orderId}/pickup-qr`),

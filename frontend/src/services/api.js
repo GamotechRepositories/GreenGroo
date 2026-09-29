@@ -13,7 +13,7 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const url = `${config.baseURL || ""}${config.url || ""}`;
-  if (/\/products|\/stores/.test(url)) {
+  if (/\/products|\/stores|\/categories/.test(url)) {
     config.params = { ...storeLocationParams(), ...(config.params || {}) };
   }
   return config;

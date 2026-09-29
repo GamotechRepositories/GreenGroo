@@ -33,6 +33,7 @@ import { resolveGiftHamperForOrder, getCustomerVisibleGiftHamper } from "../../.
 import { dispatchDeliveryOrder } from "../services/deliveryDispatcher.js";
 import { previewGiftCard, consumeGiftCard } from "../../admin-ops-service/src/giftCardService.js";
 import { computePreOrderDate, normalizePreOrderSlot } from "./preOrderHelpers.js";
+import { normalizeFulfillmentType } from "./departmentHelpers.js";
 
 async function computeOrderPricing(subtotal, couponCode, options = {}) {
   const storeSettings = await getStoreSettings();
@@ -95,7 +96,10 @@ async function computeOrderPricing(subtotal, couponCode, options = {}) {
     giftCardDiscount = giftResult.discountAmount;
   }
 
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
+  const deliveryCharges =
+    normalizeFulfillmentType(options.fulfillmentType) === "pickup"
+      ? 0
+      : calculateShippingCharge(subtotal, storeSettings);
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount - rewardDiscount - giftCardDiscount);
   const { gstAmount, total } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
 
@@ -191,32 +195,78 @@ export function enrichOrderForResponse(
 }
 
 /**
- * Attach delivery OTP from StoreOrder for customer-facing responses.
- * Backfills older orders that only have otpCode on StoreOrder.
+ * Attach dark-store details from StoreOrder for customer-facing responses:
+ * delivery OTP (backfills older orders), the store's name / phone / address, and
+ * the store-side parts (a mixed cart has a "now" and a "preorder" part).
  */
 export async function attachCustomerDeliveryOtps(enriched) {
   const list = Array.isArray(enriched) ? enriched : [enriched];
-  const missing = list.filter((o) => o && !o.deliveryOtp && o._id);
-  if (missing.length) {
-    try {
-      const StoreOrder = (await import("../../delivery-service/src/models/StoreOrder.js")).default;
-      const storeOrders = await StoreOrder.find({
-        sourceOrderId: { $in: missing.map((o) => o._id) },
-      })
-        .select("sourceOrderId otpCode")
-        .lean();
-      const bySource = new Map(
-        storeOrders.map((s) => [String(s.sourceOrderId), String(s.otpCode || "").trim()])
-      );
-      for (const order of list) {
-        if (!order?.deliveryOtp && order?._id) {
-          const otp = bySource.get(String(order._id));
-          if (otp) order.deliveryOtp = otp;
-        }
-      }
-    } catch (err) {
-      console.warn("[attachCustomerDeliveryOtps]", err.message);
+  const withIds = list.filter((o) => o?._id);
+  if (!withIds.length) return enriched;
+
+  try {
+    const StoreOrder = (await import("../../delivery-service/src/models/StoreOrder.js")).default;
+    const DeliveryManager = (await import("../../delivery-service/src/models/DeliveryManager.js")).default;
+    const storeOrders = await StoreOrder.find({
+      sourceOrderId: { $in: withIds.map((o) => o._id) },
+    })
+      .select(
+        "sourceOrderId sourcePart managerId orderNumber status otpCode isPreOrder preOrderSlot preOrderDate fulfillmentType departments"
+      )
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const managerIds = [...new Set(storeOrders.map((s) => String(s.managerId)))];
+    const managers = managerIds.length
+      ? await DeliveryManager.find({ _id: { $in: managerIds } })
+          .select("storeName storeAddress area city state pincode phone latitude longitude")
+          .lean()
+      : [];
+    const managerById = new Map(managers.map((m) => [String(m._id), m]));
+
+    const bySource = new Map();
+    for (const row of storeOrders) {
+      const key = String(row.sourceOrderId);
+      if (!bySource.has(key)) bySource.set(key, []);
+      bySource.get(key).push(row);
     }
+
+    for (const order of withIds) {
+      const parts = bySource.get(String(order._id)) || [];
+      if (!parts.length) continue;
+      if (!order.deliveryOtp) {
+        const otp = String(parts[0].otpCode || "").trim();
+        if (otp) order.deliveryOtp = otp;
+      }
+      const manager = managerById.get(String(parts[0].managerId));
+      if (manager) {
+        const storeName = manager.storeName || `${manager.area} Store`;
+        order.darkStore = {
+          id: String(manager._id),
+          storeName,
+          phone: manager.phone || "",
+          address:
+            manager.storeAddress ||
+            [storeName, manager.area, manager.city, manager.state, manager.pincode]
+              .filter(Boolean)
+              .join(", "),
+          latitude: manager.latitude ?? null,
+          longitude: manager.longitude ?? null,
+        };
+      }
+      order.storeParts = parts.map((part) => ({
+        orderNumber: part.orderNumber,
+        part: part.sourcePart || "",
+        status: part.status,
+        isPreOrder: Boolean(part.isPreOrder),
+        preOrderSlot: part.preOrderSlot || "",
+        preOrderDate: part.preOrderDate || "",
+        fulfillmentType: part.fulfillmentType || "delivery",
+        departments: part.departments || [],
+      }));
+    }
+  } catch (err) {
+    console.warn("[attachCustomerDeliveryOtps]", err.message);
   }
   return Array.isArray(enriched) ? list : list[0];
 }
@@ -620,10 +670,12 @@ export async function prepareOrderData(userId, addressId, options = {}) {
 
   const { orderItems, subtotal } = built;
 
+  const fulfillmentType = normalizeFulfillmentType(options.fulfillmentType);
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
     rewardPointsToUse: options.rewardPointsToUse,
     giftCardCode: options.giftCardCode,
+    fulfillmentType,
   });
   if (pricing.error) {
     return pricing;
@@ -716,6 +768,7 @@ export async function prepareOrderData(userId, addressId, options = {}) {
     total,
     cart,
     checkoutMode,
+    fulfillmentType,
   };
 }
 
@@ -892,11 +945,13 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     .select("_id")
     .lean();
 
+  const fulfillmentType = normalizeFulfillmentType(options.fulfillmentType);
   const pricing = await computeOrderPricing(subtotal, options.couponCode, {
     userId,
     excludeOrderId: attemptedOrder?._id,
     rewardPointsToUse: options.rewardPointsToUse,
     giftCardCode: options.giftCardCode,
+    fulfillmentType,
   });
   if (pricing.error) {
     return pricing;
@@ -935,6 +990,7 @@ export async function prepareCheckoutAttemptData(userId, options = {}) {
     cart,
     checkoutMode,
     preOrderSlot: normalizePreOrderSlot(options.preOrderSlot),
+    fulfillmentType,
   };
 }
 
@@ -958,6 +1014,7 @@ export async function upsertCheckoutAttemptOrder(userId, prepared, paymentMethod
     paymentStatus: "unpaid",
     status: "attempted",
     preOrderSlot: normalizePreOrderSlot(prepared.preOrderSlot),
+    fulfillmentType: normalizeFulfillmentType(prepared.fulfillmentType),
   };
 
   let order = await Order.findOne({ user: userId, status: "attempted" }).sort({
@@ -1054,6 +1111,7 @@ export async function completeAttemptedOrder({
   paidAt,
   message = "",
   preOrderSlot,
+  fulfillmentType,
 }) {
   const order = await findAttemptedOrderForCheckout(userId, attemptedOrderId);
 
@@ -1100,6 +1158,9 @@ export async function completeAttemptedOrder({
       : normalizePreOrderSlot(order.preOrderSlot);
   order.preOrderDate =
     order.preOrderSlot && status !== "attempted" ? computePreOrderDate() : "";
+  order.fulfillmentType = normalizeFulfillmentType(
+    fulfillmentType !== undefined ? fulfillmentType : order.fulfillmentType
+  );
 
   if (status !== "attempted") {
     order.createdAt = new Date();
@@ -1146,6 +1207,7 @@ export async function finalizeOrder({
   message = "",
   attemptedOrderId,
   preOrderSlot,
+  fulfillmentType,
 }) {
   const completed = await completeAttemptedOrder({
     attemptedOrderId,
@@ -1177,6 +1239,7 @@ export async function finalizeOrder({
     paidAt,
     message,
     preOrderSlot,
+    fulfillmentType,
   });
 
   if (completed) {
@@ -1209,6 +1272,7 @@ export async function finalizeOrder({
     status,
     paymentStatus,
     message: orderMessage,
+    fulfillmentType: normalizeFulfillmentType(fulfillmentType),
     ...(giftHamper ? { giftHamper } : {}),
     ...(razorpayOrderId && { razorpayOrderId }),
     ...(razorpayPaymentId && { razorpayPaymentId }),

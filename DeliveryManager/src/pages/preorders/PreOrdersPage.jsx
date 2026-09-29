@@ -6,12 +6,14 @@ import { PageShell } from "../../components/layout/ManagerLayout";
 import PickupQrModal from "../../components/PickupQrModal";
 import { useLive } from "../../realtime/useLive";
 import {
+  OrderDepartmentTags,
   OrderStatusText,
   actionBtnDanger,
   actionBtnOutline,
   actionBtnPrimary,
   formatRupee,
   isCodPayment,
+  isPickupOrder,
 } from "../orders/orderUtils";
 
 const TABS = [
@@ -194,6 +196,21 @@ export default function PreOrdersPage() {
       await load({ silent: true });
     } catch (err) {
       showToast(err.response?.data?.message || "Could not cancel pre-order");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onHandOverPickup = async (order) => {
+    const otp = window.prompt(`Pre-order #${order.orderNumber} — enter the customer's pickup OTP`);
+    if (!otp) return;
+    setBusyKey(`handover-${order.id}`);
+    try {
+      const res = await managerApi.handOverPickup(order.id, otp.trim());
+      showToast(res.data.message || "Pre-order handed over to the customer");
+      await load({ silent: true });
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not hand over the pre-order");
     } finally {
       setBusyKey("");
     }
@@ -393,7 +410,9 @@ export default function PreOrdersPage() {
                   const oid = order.id;
                   const stage = STAGE_LABELS[order.preOrderStage] || null;
                   const isClosed = ["delivered", "cancelled", "delivery_failed"].includes(order.status);
-                  const canAssign = order.status === "packed" || order.status === "offered";
+                  const isPickup = isPickupOrder(order);
+                  const canAssign = !isPickup && (order.status === "packed" || order.status === "offered");
+                  const canHandOver = isPickup && order.status === "packed";
                   const offerMsLeft =
                     order.status === "offered" && order.offerExpiresAt
                       ? Math.max(0, new Date(order.offerExpiresAt).getTime() - nowTick)
@@ -412,19 +431,23 @@ export default function PreOrdersPage() {
                           >
                             #{order.orderNumber}
                           </button>
-                          <OrderStatusText status={order.status} />
+                          <OrderStatusText status={order.status} order={order} />
                           {stage && (
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${stage.className}`}>
                               {stage.text}
                             </span>
                           )}
                         </div>
+                        <OrderDepartmentTags order={order} />
                         <p className="text-sm font-bold text-slate-900">
                           {order.customerName || "Customer"}{" "}
                           <span className="text-xs font-normal text-slate-500">{order.customerPhone}</span>
                         </p>
+                        {isPickup ? (
+                          <p className="text-[11px] font-bold text-amber-700">Customer collects at this store in the slot</p>
+                        ) : null}
                         <p className="line-clamp-2 text-xs text-slate-600">{order.customerAddress}</p>
-                        {order.distanceKm != null && (
+                        {!isPickup && order.distanceKm != null && (
                           <p className="text-[10px] font-semibold text-emerald-700">
                             {Number(order.distanceKm).toFixed(1)} km from store
                           </p>
@@ -459,6 +482,17 @@ export default function PreOrdersPage() {
                           <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] font-semibold text-indigo-800">
                             Waiting for the Product Manager to prepare & forward this order.
                           </p>
+                        )}
+
+                        {canHandOver && (
+                          <button
+                            type="button"
+                            disabled={busyKey === `handover-${oid}`}
+                            onClick={() => onHandOverPickup(order)}
+                            className={actionBtnPrimary}
+                          >
+                            {busyKey === `handover-${oid}` ? "Handing over…" : "Hand over to customer (OTP)"}
+                          </button>
                         )}
 
                         {order.status === "offered" && (

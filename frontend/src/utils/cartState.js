@@ -44,6 +44,7 @@ export function mapCartItems(cart) {
         quantity: item.quantity,
         preOrderSlot: item.preOrderSlot || "",
         section: item.product.section,
+        storeType: item.product.storeType,
       };
     });
 }
@@ -97,6 +98,7 @@ export function buildCartLine(product, quantity, variantName = "", colorName = "
     stock: getVariantStock(product, variantName || ""),
     quantity: qty,
     section: product.section,
+    storeType: product.storeType,
   };
 }
 

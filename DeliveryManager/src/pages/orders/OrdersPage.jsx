@@ -7,7 +7,7 @@ import PickupQrModal from "../../components/PickupQrModal";
 import { useLive } from "../../realtime/useLive";
 import { mapsLink, useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
 import { subscribeToSocketEvent } from "../../services/socket";
-import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, actionBtnDanger, isCodPayment, formatRupee } from "./orderUtils";
+import { STATUS_TABS, matchesTab, countBySummaryBucket, OrderStatusText, OrderDepartmentTags, DriverAssignmentText, isInitialOrderStatus, allItemsAvailable, actionBtnOutline, actionBtnPrimary, actionBtnDanger, isCodPayment, isPickupOrder, formatRupee } from "./orderUtils";
 
 export default function OrdersPage() {
   const { manager } = useAuth();
@@ -34,7 +34,8 @@ export default function OrdersPage() {
       const [ord, rid, sug] = await Promise.all([
         managerApi.orders({
           status:
-            "incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,delivery_failed,cancelled",
+            "preorder_hold,incoming,order_received,stock_issue,packed,offered,assigned,pickup_verified,out_for_delivery,delivered,delivery_failed,cancelled",
+          preOrder: "include",
         }),
         managerApi.riders(),
         managerApi.routeSuggestions().catch(() => ({ data: { suggestions: [], openWindowOrders: [] } })),
@@ -93,8 +94,15 @@ export default function OrdersPage() {
     };
 
     const unsubs = [
-      subscribeToSocketEvent("new_order_received", () => {
-        showToast("New order received");
+      subscribeToSocketEvent("new_order_received", (p = {}) => {
+        showToast(p.fulfillmentType === "pickup" ? "New store-pickup order received" : "New order received");
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("new_preorder_received", (p = {}) => {
+        showToast(`New pre-order${p.preOrderSlot ? ` · slot ${p.preOrderSlot}` : ""}`);
+        load({ silent: true });
+      }),
+      subscribeToSocketEvent("order_status_update", () => {
         load({ silent: true });
       }),
       subscribeToSocketEvent("order_packed", (p = {}) => {
@@ -415,6 +423,22 @@ export default function OrdersPage() {
       await load();
     } catch (err) {
       showToast(err.response?.data?.message || "Same-route assign failed");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const onHandOverPickup = async (orderId, orderNumber) => {
+    const otp = window.prompt(`Order #${orderNumber || ""} — enter the customer's 4-digit pickup OTP`);
+    if (!otp) return;
+    const key = `handover-${orderId}`;
+    setBusyKey(key);
+    try {
+      const res = await managerApi.handOverPickup(orderId, otp.trim());
+      showToast(res.data.message || "Order handed over to the customer");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not hand over the order");
     } finally {
       setBusyKey("");
     }
@@ -748,13 +772,9 @@ export default function OrdersPage() {
         <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto">
           {STATUS_TABS.map((tab) => {
             const count =
-              tab.id === "incoming"
-                ? summary.incoming
-                : tab.id === "ongoing"
-                  ? summary.ongoing
-                  : tab.id === "delivered"
-                    ? summary.delivered
-                    : orders.length;
+              tab.id === "all"
+                ? orders.length
+                : summary[tab.id] ?? orders.filter((o) => matchesTab(o, tab.id)).length;
             return (
               <button
                 key={tab.id}
@@ -808,6 +828,7 @@ export default function OrdersPage() {
                 const oid = order.id || order._id;
                 const isInitial = isInitialOrderStatus(order.status);
                 const isPacked = order.status === "packed";
+                const isPickup = isPickupOrder(order);
                 const allAvailable = allItemsAvailable(order);
 
                 return (
@@ -822,6 +843,9 @@ export default function OrdersPage() {
                       </button>
                       <div className="text-[10px] text-slate-400 font-sans font-normal">
                         {order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                      </div>
+                      <div className="font-sans">
+                        <OrderDepartmentTags order={order} />
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
@@ -842,15 +866,18 @@ export default function OrdersPage() {
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-slate-700 max-w-xs">
+                      {isPickup ? (
+                        <div className="text-[11px] font-bold text-amber-700">Customer collects at this store</div>
+                      ) : null}
                       <div className="truncate">{order.customerAddress || "Store Pickup"}</div>
-                      {order.distanceKm != null && (
+                      {!isPickup && order.distanceKm != null && (
                         <div className="mt-0.5 text-[10px] font-semibold text-emerald-700">
                           {Number(order.distanceKm).toFixed(1)} km from this store
                         </div>
                       )}
                     </td>
                     <td className="py-3.5 px-4">
-                      <OrderStatusText status={order.status} />
+                      <OrderStatusText status={order.status} order={order} />
                     </td>
                     <td className="py-3.5 px-4">
                       <DriverAssignmentText order={order} />
@@ -873,6 +900,16 @@ export default function OrdersPage() {
                               className={actionBtnPrimary}
                             >
                               {busyKey === `pack-${oid}` ? "Confirming…" : "Confirm & Pack"}
+                            </button>
+                          )}
+                          {isPickup && isPacked && (
+                            <button
+                              type="button"
+                              disabled={busyKey === `handover-${oid}`}
+                              onClick={() => onHandOverPickup(oid, order.orderNumber)}
+                              className={actionBtnPrimary}
+                            >
+                              {busyKey === `handover-${oid}` ? "Handing over…" : "Hand over (OTP)"}
                             </button>
                           )}
                           {order.status !== "delivered" && order.status !== "cancelled" && (
@@ -898,6 +935,8 @@ export default function OrdersPage() {
                           </span>
                         )}
                         {order.status === "packed" &&
+                          !isPickup &&
+                          !order.isPreOrder &&
                           !order.assignedRiderId &&
                           !order.currentOfferDriverId && (
                           <button
@@ -949,7 +988,7 @@ export default function OrdersPage() {
                             </button>
                           </div>
                         )}
-                        {(isInitial || isPacked) && (
+                        {(isInitial || isPacked) && !isPickup && (
                           <div className="flex items-center gap-1">
                             <select
                               value={selectedRider[oid] || ""}

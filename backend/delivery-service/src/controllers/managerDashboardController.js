@@ -35,7 +35,7 @@ import {
   flushExpiredSameRouteWindows,
 } from "../services/sameRouteAttachService.js";
 
-const getManager = async (req) => {
+export const getManager = async (req) => {
   let manager = await DeliveryManager.findById(req.user.id);
   if (!manager && (req.user.email || req.user.phone)) {
     manager = await DeliveryManager.findOne({
@@ -419,6 +419,30 @@ export const packOrder = async (req, res, next) => {
     order.status = "packed";
     order.packedAt = now;
     order.darkStoreId = manager._id;
+
+    if (order.fulfillmentType === "pickup") {
+      order.assignmentStatus = "NONE";
+      await order.save();
+      await syncCustomerOrderFromStore(order, "packed");
+      try {
+        getIO().to(`store_${manager._id}`).emit("order_packed", {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber,
+          status: "packed",
+          assignmentStatus: "NONE",
+          fulfillmentType: "pickup",
+        });
+      } catch (err) {
+        console.warn("[pack] socket emit failed:", err.message);
+      }
+      const stockMap = await stockMapForManager(manager._id);
+      return res.json({
+        success: true,
+        message: "Order packed — ready for customer pickup at the store.",
+        order: order.toSafeJSON(stockMap),
+      });
+    }
+
     order.assignmentStatus = "SEARCHING_FOR_DRIVER";
     // 5-min same-route + QR hold starts only AFTER rider accepts (not at pack).
     order.routeBatchWindowEndsAt = undefined;
@@ -557,6 +581,12 @@ export const dispatchPackedOrderNow = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "Pre-orders are assigned manually — pick a rider from the Pre-Orders tab",
+      });
+    }
+    if (order.fulfillmentType === "pickup") {
+      return res.status(400).json({
+        success: false,
+        message: "Customer is collecting this order from the store — no rider needed",
       });
     }
     if (order.status !== "packed") {
@@ -1012,6 +1042,13 @@ export const assignOrder = async (req, res, next) => {
       });
     }
 
+    if (order.fulfillmentType === "pickup") {
+      return res.status(400).json({
+        success: false,
+        message: "Customer is collecting this order from the store — no rider needed",
+      });
+    }
+
     if (!["incoming", "order_received", "stock_issue", "packed", "offered"].includes(order.status)) {
       return res.status(400).json({
         success: false,
@@ -1131,6 +1168,80 @@ export const markDelivered = async (req, res, next) => {
     const stockMap = await stockMapForManager(manager._id);
     return res.json({
       success: true,
+      order: order.toSafeJSON(stockMap),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Customer collected a store-pickup order at the counter.
+ * Body: { otp } — the 4-digit code shown in the customer's order.
+ */
+export const handOverPickupOrder = async (req, res, next) => {
+  try {
+    const manager = await getManager(req);
+    const order = await StoreOrder.findOne({
+      _id: req.params.orderId,
+      managerId: manager._id,
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (order.fulfillmentType !== "pickup") {
+      return res.status(400).json({
+        success: false,
+        message: "This order is for home delivery, not store pickup",
+      });
+    }
+    if (order.status !== "packed") {
+      return res.status(400).json({
+        success: false,
+        message:
+          order.status === "preorder_hold"
+            ? "This pre-order is still being prepared"
+            : `Pack the order before handing it over (status: ${order.status})`,
+      });
+    }
+
+    const otp = String(req.body.otp || "").trim();
+    if (!otp || otp !== String(order.otpCode || "").trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Wrong pickup code — ask the customer for the OTP in their order",
+      });
+    }
+
+    const now = new Date();
+    order.status = "delivered";
+    order.deliveredAt = now;
+    order.assignmentStatus = "DELIVERED";
+    order.customerOtpVerified = true;
+    order.customerOtpVerifiedAt = now;
+    if (order.paymentStatus !== "paid_online") {
+      order.paymentStatus = "collected";
+      order.amountCollected = Number(order.amountToCollect || 0);
+    }
+    await order.save();
+
+    await syncCustomerOrderFromStore(order, "delivered");
+
+    try {
+      getIO().to(`store_${manager._id}`).emit("order_status_update", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        status: "delivered",
+        fulfillmentType: "pickup",
+      });
+    } catch (err) {
+      console.warn("[pickup] socket emit failed:", err.message);
+    }
+
+    const stockMap = await stockMapForManager(manager._id);
+    return res.json({
+      success: true,
+      message: "Order handed over to the customer",
       order: order.toSafeJSON(stockMap),
     });
   } catch (error) {

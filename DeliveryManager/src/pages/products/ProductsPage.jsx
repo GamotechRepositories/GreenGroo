@@ -1,0 +1,362 @@
+import { useCallback, useMemo, useState } from "react";
+import { managerApi } from "../../api/managerApi";
+import { useAuth } from "../../context/AuthContext";
+import { PageShell } from "../../components/layout/ManagerLayout";
+import { useLive } from "../../realtime/useLive";
+import ProductFormModal from "./ProductFormModal";
+import ProductDetailModal from "./ProductDetailModal";
+import { DEPARTMENT_LABELS, DEPARTMENT_STYLES, toDepartment } from "./productDepartments";
+
+const DEPARTMENT_ORDER = { preorder: 0, ready2cook: 1, instant: 2 };
+
+const byDepartmentThenNumber = (a, b) => {
+  const dept = DEPARTMENT_ORDER[toDepartment(a.section)] - DEPARTMENT_ORDER[toDepartment(b.section)];
+  if (dept) return dept;
+  const na = Number(a.deptNumber);
+  const nb = Number(b.deptNumber);
+  const hasA = a.deptNumber !== "" && Number.isFinite(na);
+  const hasB = b.deptNumber !== "" && Number.isFinite(nb);
+  if (hasA && hasB && na !== nb) return na - nb;
+  if (hasA !== hasB) return hasA ? -1 : 1;
+  return String(a.name).localeCompare(String(b.name));
+};
+
+const rackLabel = (p) =>
+  p.rackRow || p.rackColumn ? `${p.rackRow ? `R${p.rackRow}` : ""}${p.rackColumn ? `C${p.rackColumn}` : ""}` : "—";
+
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "preorder", label: "Pre-order" },
+  { id: "ready2cook", label: "Ready2Cook" },
+  { id: "instant", label: "Instant Order" },
+];
+
+export default function ProductsPage() {
+  const { manager } = useAuth();
+  const [products, setProducts] = useState([]);
+  const [store, setStore] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 4000);
+  };
+
+  const load = useCallback(async () => {
+    try {
+      const res = await managerApi.products();
+      setProducts(res.data?.data || []);
+      setStore(res.data?.store || null);
+      setError("");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useLive(load, [load]);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return products
+      .filter((p) => {
+        if (filter !== "all" && toDepartment(p.section) !== filter) return false;
+        if (!q) return true;
+        return [p.name, p.sku, p.departmentId, p.brandName, p.categories?.[0], p.subcategory]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(q));
+      })
+      .sort(byDepartmentThenNumber);
+  }, [products, filter, search]);
+
+  const counts = useMemo(() => {
+    const result = { all: products.length, preorder: 0, ready2cook: 0, instant: 0 };
+    products.forEach((p) => {
+      result[toDepartment(p.section)] += 1;
+    });
+    return result;
+  }, [products]);
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    try {
+      await managerApi.deleteProduct(deleting._id);
+      showToast(`"${deleting.name}" deleted`);
+      setDeleting(null);
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to delete product");
+    }
+  };
+
+  const storeName = store?.storeName || manager?.storeName || "your dark store";
+  const pincode = store?.pincode || manager?.pincode;
+
+  return (
+    <PageShell
+      title="Store Products"
+      subtitle={`Products you add here are shown only to customers served by ${storeName}${
+        pincode ? ` (pincode ${pincode})` : ""
+      }`}
+    >
+      {toast && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
+          {toast}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-600">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-4 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFilter(f.id)}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
+                  filter === f.id ? "bg-slate-900 text-white" : "text-slate-600"
+                }`}
+              >
+                {f.label} ({counts[f.id]})
+              </button>
+            ))}
+          </div>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, SKU or department ID…"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none sm:w-72"
+            />
+            <button
+              type="button"
+              onClick={() => setEditing({})}
+              className="whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+            >
+              + Add product
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="h-64 animate-pulse rounded-2xl bg-slate-200/60" />
+      ) : visible.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-xs">
+          <h3 className="text-base font-bold text-slate-800">
+            {products.length ? "No matching products" : "No store products yet"}
+          </h3>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-slate-400">
+            {products.length
+              ? "Try a different department or search."
+              : "Add products for your area — they appear to nearby customers with the stock you set."}
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-xs">
+          <table className="w-full min-w-[1000px] text-left text-sm">
+            <thead>
+              <tr className="bg-black text-[11px] font-bold uppercase tracking-wider text-white">
+                <th className="whitespace-nowrap px-4 py-3">Dept ID</th>
+                <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3">Department</th>
+                <th className="px-4 py-3">Category</th>
+                <th className="px-4 py-3">Brand</th>
+                <th className="px-4 py-3">Unit</th>
+                <th className="px-4 py-3 text-right">MRP</th>
+                <th className="px-4 py-3 text-right">Price</th>
+                <th className="px-4 py-3 text-center">Rack</th>
+                <th className="px-4 py-3">Stock</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visible.map((p, index) => {
+                const dept = toDepartment(p.section);
+                const discount =
+                  p.discountedPercent ||
+                  (p.price > p.discountedPrice ? Math.round(((p.price - p.discountedPrice) / p.price) * 100) : 0);
+                return (
+                  <tr
+                    key={p._id}
+                    onClick={() => setViewing(p)}
+                    className={`cursor-pointer transition hover:bg-emerald-50/50 ${
+                      index % 2 ? "bg-slate-50/40" : "bg-white"
+                    }`}
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-bold text-slate-800">
+                      {p.departmentId || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {p.productImages?.[0] ? (
+                          <img
+                            src={p.productImages[0]}
+                            alt=""
+                            className="h-11 w-11 shrink-0 rounded-lg border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <div className="h-11 w-11 shrink-0 rounded-lg bg-slate-100" />
+                        )}
+                        <div className="min-w-0 max-w-[220px]">
+                          <p className="truncate font-bold text-slate-900" title={p.name}>
+                            {p.name}
+                          </p>
+                          <p className="font-mono text-[11px] text-slate-400">{p.sku}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${DEPARTMENT_STYLES[dept]}`}
+                      >
+                        {DEPARTMENT_LABELS[dept]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      <p className="font-semibold text-slate-700">{p.categories?.[0] || "—"}</p>
+                      {p.subcategory ? <p className="text-slate-400">{p.subcategory}</p> : null}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">{p.brandName || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">{p.unit || "—"}</td>
+                    <td className="px-4 py-3 text-right text-xs text-slate-400">
+                      {p.price > p.discountedPrice ? <span className="line-through">₹{p.price}</span> : `₹${p.price}`}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <p className="font-black text-slate-900">₹{p.discountedPrice}</p>
+                      {discount > 0 ? (
+                        <p className="text-[10px] font-bold text-emerald-600">{discount}% off</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-center font-mono text-xs font-bold text-slate-600">{rackLabel(p)}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                          p.storeStock > 10
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : p.storeStock > 0
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-rose-200 bg-rose-50 text-rose-700"
+                        }`}
+                      >
+                        {p.storeStock > 0 ? `${p.storeStock} in stock` : "Out of stock"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-bold">
+                      {p.isActive ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Live
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">Hidden</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setViewing(p)}
+                          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-100"
+                        >
+                          View
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(p)}
+                          className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-slate-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleting(p)}
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {viewing && (
+        <ProductDetailModal
+          product={products.find((p) => p._id === viewing._id) || viewing}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing);
+            setViewing(null);
+          }}
+          onDelete={() => {
+            setDeleting(viewing);
+            setViewing(null);
+          }}
+        />
+      )}
+
+      {editing && (
+        <ProductFormModal
+          product={editing._id ? editing : null}
+          defaultDepartment={filter === "ready2cook" ? "ready2cook" : filter === "instant" ? "instantorder" : "preorder"}
+          onClose={() => setEditing(null)}
+          onSaved={(saved, isEdit) => {
+            setEditing(null);
+            showToast(`"${saved?.name || "Product"}" ${isEdit ? "updated" : "added"}`);
+            load();
+          }}
+        />
+      )}
+
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-xl">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delete product?</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                <span className="font-semibold">{deleting.name}</span> will be removed from your store and its stock row
+                deleted.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleting(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </PageShell>
+  );
+}

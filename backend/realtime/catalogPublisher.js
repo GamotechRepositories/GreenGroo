@@ -94,7 +94,10 @@ export function startCatalogPublisher(io) {
 
         for (const room of rooms) {
           const storeId = room.slice("catalog:".length);
-          const decorated = active.length ? await decorate(active, await catalogForStore(storeId)) : [];
+          const visible = active.filter(
+            (doc) => !doc.ownerManagerId || String(doc.ownerManagerId) === storeId
+          );
+          const decorated = visible.length ? await decorate(visible, await catalogForStore(storeId)) : [];
           emitProducts(io, room, storeId, decorated, removedIds, createdIds);
         }
       }
@@ -103,7 +106,11 @@ export function startCatalogPublisher(io) {
         const room = `catalog:${storeId}`;
         if (!rooms.includes(room) || !rows.length) continue;
         const candidates = await Product.find({ isActive: true, ...mongoMatchForInventory(rows) }).limit(200);
-        const affected = candidates.filter((product) => matchProductToItem(product, rows));
+        const affected = candidates.filter(
+          (product) =>
+            (!product.ownerManagerId || String(product.ownerManagerId) === storeId) &&
+            matchProductToItem(product, rows)
+        );
         if (!affected.length) continue;
         const decorated = await decorate(affected, await catalogForStore(storeId));
         emitProducts(io, room, storeId, decorated, [], new Set());

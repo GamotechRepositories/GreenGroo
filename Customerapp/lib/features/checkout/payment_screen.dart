@@ -17,12 +17,15 @@ import '../../core/utils/razorpay_error_message.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../core/utils/department_utils.dart';
 import '../../features/checkout/payment_modal.dart';
 import '../../models/address.dart';
+import '../../models/dark_store.dart';
 import '../../models/cart_item.dart';
 import '../../models/coupon.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
+import 'checkout_fulfillment_widgets.dart';
 
 enum PaymentModeOption {
   gpay,
@@ -37,11 +40,17 @@ class PaymentScreen extends ConsumerStatefulWidget {
     this.selectedAddressId,
     this.appliedCouponCode,
     this.customerMessage,
+    this.fulfillmentType = 'delivery',
+    this.preOrderSlot,
   });
 
   final String? selectedAddressId;
   final String? appliedCouponCode;
   final String? customerMessage;
+  /// "delivery" or "pickup" (customer collects from the dark store)
+  final String fulfillmentType;
+  /// Chosen next-day slot for the cart's pre-order items
+  final String? preOrderSlot;
 
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
@@ -59,6 +68,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   String? _attemptedOrderId;
   String? _lastAttemptKey;
   AppliedCoupon? _appliedCoupon;
+  DarkStore? _orderStore;
+  CheckoutStoreQuery? _storeQuery;
 
   @override
   void initState() {
@@ -116,6 +127,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         .toList();
   }
 
+  bool get _isPickup => widget.fulfillmentType == FulfillmentType.pickup;
+
+  Map<String, dynamic> _fulfillmentPayload() {
+    final slot = widget.preOrderSlot?.trim() ?? '';
+    return {
+      'fulfillmentType': widget.fulfillmentType,
+      if (slot.isNotEmpty) 'preOrderSlot': slot,
+    };
+  }
+
   String? _resolveAddressId(String? id) {
     if (id == null ||
         id.trim().isEmpty ||
@@ -153,7 +174,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     final resolvedId = _resolveAddressId(addressId);
     final key =
-        '${resolvedId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
+        '${resolvedId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${widget.fulfillmentType}|${widget.preOrderSlot ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (!force && key == _lastAttemptKey && _attemptedOrderId != null) {
       return _attemptedOrderId;
     }
@@ -166,6 +187,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'checkoutMode': 'cart',
         'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        ..._fulfillmentPayload(),
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
@@ -222,6 +244,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'checkoutMode': 'cart',
         'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        ..._fulfillmentPayload(),
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -323,6 +346,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,
         'razorpay_signature': response.signature,
+        ..._fulfillmentPayload(),
       });
 
       await _completeOrderSuccess(
@@ -368,6 +392,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'checkoutMode': 'cart',
         'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        ..._fulfillmentPayload(),
       });
 
       final body = ApiResponseParser.getData(response.data);
@@ -379,7 +404,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
 
       await _completeOrderSuccess(
-        'Order placed successfully with Cash on Delivery! Pay when your order arrives.',
+        _isPickup
+            ? 'Order placed! Pay when you collect it at the dark store.'
+            : 'Order placed successfully with Cash on Delivery! Pay when your order arrives.',
       );
     } catch (e) {
       setState(() {
@@ -392,9 +419,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void _openManualUpiModal(Address address) {
     final cartItems = ref.read(cartControllerProvider).items;
     final summary = calculateCartSummary(cartItems);
-    final total = applyCouponDiscount(
-      summary,
-      (_appliedCoupon?.discountAmount ?? 0).toDouble(),
+    final total = applyStorePickup(
+      applyCouponDiscount(summary, (_appliedCoupon?.discountAmount ?? 0).toDouble()),
+      pickup: _isPickup,
     ).total;
 
     showModalBottomSheet<void>(
@@ -427,6 +454,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               'customerLocation': _customerLocationPayload(),
               if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
               if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
+              ..._fulfillmentPayload(),
             });
             await _completeOrderSuccess(
               'UPI payment proof submitted successfully. We will verify and process your order soon!',
@@ -443,10 +471,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   Future<void> _completeOrderSuccess(String note) async {
+    final query = _storeQuery;
+    final store = query == null ? null : ref.read(checkoutStoreProvider(query)).value?.store;
     setState(() {
       _orderPlaced = true;
       _placingOrder = false;
       _orderSuccessNote = note;
+      _orderStore = store;
     });
     await ref.read(cartControllerProvider.notifier).loadCart();
   }
@@ -481,7 +512,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
         .clamp(0.0, baseSummary.subtotal)
         .toDouble();
-    final summary = applyCouponDiscount(baseSummary, couponDiscount);
+    final summary = applyStorePickup(
+      applyCouponDiscount(baseSummary, couponDiscount),
+      pickup: _isPickup,
+    );
+    final hasPreOrder = cartItems.any((item) => item.department == Department.preorder);
+    final hasNowItems = cartItems.any((item) => item.department != Department.preorder);
+    if (!_orderPlaced) {
+      _storeQuery = checkoutStoreQuery(
+        hasNowItems: hasNowItems,
+        fulfillment: widget.fulfillmentType,
+        address: selectedAddress,
+      );
+    }
+    final storeAsync = ref.watch(checkoutStoreProvider(_storeQuery!));
+    final darkStore = storeAsync.value?.store;
+    final slot = widget.preOrderSlot?.trim() ?? '';
 
     final payableNow = PaymentUtils.payableAmount(summary.total, _paymentPlan);
     final balanceOnDelivery = summary.total - payableNow;
@@ -530,7 +576,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Delivering to:',
+                            _isPickup ? 'Your address (store pickup):' : 'Delivering to:',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -573,6 +619,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   ],
                 ),
               ),
+
+              if (_isPickup) ...[
+                const SizedBox(height: 12),
+                DarkStoreContactCard(
+                  store: darkStore,
+                  pickup: true,
+                  loading: storeAsync.isLoading && darkStore == null,
+                ),
+              ],
+              if (cartItems.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _FulfillmentTimeline(
+                  pickup: _isPickup,
+                  hasPreOrder: hasPreOrder,
+                  hasNowItems: hasNowItems,
+                  preOrderSlot: slot,
+                ),
+              ],
 
               const SizedBox(height: 16),
 
@@ -717,8 +781,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
               // Option 3: Cash on Delivery (COD)
               _PaymentOptionCard(
-                title: 'Cash on Delivery (COD)',
-                subtitle: 'Pay cash or UPI when your order arrives',
+                title: _isPickup ? 'Pay at Store (COD)' : 'Cash on Delivery (COD)',
+                subtitle: _isPickup
+                    ? 'Pay cash or UPI when you collect at the dark store'
+                    : 'Pay cash or UPI when your order arrives',
                 icon: Icons.payments_outlined,
                 badgeText: 'POPULAR',
                 selected: _selectedMode == PaymentModeOption.cod,
@@ -906,6 +972,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                             color: const Color(0xFF64748B),
                           ),
                         ),
+                        if (_isPickup && (_orderStore ?? darkStore) != null) ...[
+                          const SizedBox(height: 16),
+                          DarkStoreContactCard(store: _orderStore ?? darkStore, pickup: true),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Show the OTP from My Orders at the store counter to collect your order.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF047857),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
@@ -946,7 +1026,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     if (_orderPlaced) return const SizedBox.shrink();
 
     final buttonLabel = _selectedMode == PaymentModeOption.cod
-        ? 'Place Order (Cash on Delivery)'
+        ? (_isPickup ? 'Place Order (Pay at Store)' : 'Place Order (Cash on Delivery)')
         : 'Pay ${formatInr(payableNow, withDecimals: true)} Now';
 
     return Container(
@@ -1120,6 +1200,70 @@ class _PaymentOptionCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// When each part of the order arrives (or is ready at the store).
+class _FulfillmentTimeline extends StatelessWidget {
+  const _FulfillmentTimeline({
+    required this.pickup,
+    required this.hasPreOrder,
+    required this.hasNowItems,
+    required this.preOrderSlot,
+  });
+
+  final bool pickup;
+  final bool hasPreOrder;
+  final bool hasNowItems;
+  final String preOrderSlot;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(String, String)>[
+      if (hasNowItems)
+        (
+          Department.instant,
+          'Ready2Cook / Instant · ${departmentEtaText(Department.instant, pickup: pickup)}',
+        ),
+      if (hasPreOrder)
+        (
+          Department.preorder,
+          'Pre-order · ${departmentEtaText(Department.preorder, pickup: pickup, preOrderSlot: preOrderSlot)}',
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          for (final (dept, text) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Icon(departmentIcon(dept), size: 16, color: departmentColor(dept)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

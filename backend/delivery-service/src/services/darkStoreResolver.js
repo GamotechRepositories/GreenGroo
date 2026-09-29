@@ -3,6 +3,9 @@ import DeliveryManager from "../models/DeliveryManager.js";
 /** Customer orders route to a dark store only if it is inside this radius. */
 export const DEFAULT_DELIVERY_RADIUS_KM = 5;
 
+/** Department-wise routing: dark store must be within this distance of the customer. */
+export const ORDER_ROUTING_RADIUS_KM = 3;
+
 const toNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -176,6 +179,90 @@ export async function resolveDarkStoreForAddress(address = {}) {
   return {
     manager: null,
     reason: coords ? "no_store_within_radius" : "no_store_in_area",
+    city,
+    distanceKm: null,
+  };
+}
+
+const normPincode = (value) => String(value || "").replace(/\D/g, "").slice(0, 6);
+
+/**
+ * Pick the dark store for a customer order / catalog, department-wise:
+ *  1. Nearest active dark store within ORDER_ROUTING_RADIUS_KM (all departments).
+ *  2. Pre-order only (`allowPincodeFallback`): a dark store registered under the same pincode.
+ *  3. No GPS for the address: fall back to area / city matching so the order is not dropped.
+ */
+/**
+ * `anyDistance` (store pickup): the customer travels to the store, so the nearest
+ * active store wins even beyond the delivery radius.
+ */
+export async function resolveDarkStoreForOrder(
+  address = {},
+  { allowPincodeFallback = false, anyDistance = false } = {}
+) {
+  const city = String(address.city || "").trim();
+  const coords = readCoords(address);
+
+  const active = await DeliveryManager.find({ isActive: true });
+  if (!active.length) {
+    return { manager: null, reason: "no_active_stores", city, distanceKm: null };
+  }
+
+  if (coords) {
+    const withDistances = active
+      .map((manager) => withDistance(manager, coords))
+      .filter((row) => row.distanceKm != null);
+    const nearest = pickNearest(
+      withDistances.filter((row) => row.distanceKm <= ORDER_ROUTING_RADIUS_KM)
+    );
+    if (nearest) {
+      return {
+        manager: nearest.manager,
+        reason: `within_${ORDER_ROUTING_RADIUS_KM}km`,
+        city,
+        distanceKm: nearest.distanceKm,
+      };
+    }
+    if (anyDistance) {
+      const nearestAny = pickNearest(withDistances);
+      if (nearestAny) {
+        return {
+          manager: nearestAny.manager,
+          reason: "nearest_for_pickup",
+          city,
+          distanceKm: nearestAny.distanceKm,
+        };
+      }
+    }
+  }
+
+  if (anyDistance) allowPincodeFallback = true;
+
+  if (allowPincodeFallback) {
+    const pincode = normPincode(address.pincode);
+    if (pincode.length === 6) {
+      const samePincode = active.filter((m) => normPincode(m.pincode) === pincode);
+      if (samePincode.length) {
+        const picked = pickNearest(samePincode.map((manager) => withDistance(manager, coords)));
+        return {
+          manager: picked?.manager || samePincode[0],
+          reason: "same_pincode",
+          city,
+          distanceKm: picked?.distanceKm ?? null,
+        };
+      }
+    }
+  }
+
+  if (!coords) {
+    return resolveDarkStoreForAddress(address);
+  }
+
+  return {
+    manager: null,
+    reason: allowPincodeFallback
+      ? `no_store_within_${ORDER_ROUTING_RADIUS_KM}km_or_pincode`
+      : `no_store_within_${ORDER_ROUTING_RADIUS_KM}km`,
     city,
     distanceKm: null,
   };

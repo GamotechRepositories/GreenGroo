@@ -12,6 +12,7 @@ import '../../../core/utils/order_utils.dart';
 import '../../../models/order.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/product_3d_image.dart';
+import '../../checkout/checkout_fulfillment_widgets.dart';
 import '../delivery_rating_controller.dart';
 
 const _themeGreen = Color(0xFF2E7D32);
@@ -37,9 +38,10 @@ bool _shouldShowDeliveryOtp(Order order) {
 }
 
 class _DeliveryOtpBanner extends StatelessWidget {
-  const _DeliveryOtpBanner({required this.otp});
+  const _DeliveryOtpBanner({required this.otp, this.pickup = false});
 
   final String otp;
+  final bool pickup;
 
   @override
   Widget build(BuildContext context) {
@@ -56,9 +58,9 @@ class _DeliveryOtpBanner extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'DELIVERY OTP',
-              style: TextStyle(
+            Text(
+              pickup ? 'PICKUP OTP' : 'DELIVERY OTP',
+              style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.6,
@@ -66,9 +68,11 @@ class _DeliveryOtpBanner extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            const Text(
-              'Share this code with the delivery partner to complete your order.',
-              style: TextStyle(
+            Text(
+              pickup
+                  ? 'Show this code at the dark store counter to collect your order.'
+                  : 'Share this code with the delivery partner to complete your order.',
+              style: const TextStyle(
                 fontSize: 11,
                 color: Color(0xFF047857),
               ),
@@ -106,6 +110,122 @@ class _DeliveryOtpBanner extends StatelessWidget {
   }
 }
 
+String _pickupStatusLabel(String status) {
+  switch (status) {
+    case 'delivered':
+      return 'Picked up';
+    case 'shipping':
+    case 'shipped':
+      return 'Ready for pickup';
+    case 'processing':
+      return 'Preparing';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'return':
+      return 'Return';
+    default:
+      return 'Confirmed';
+  }
+}
+
+String _storePartStatusLabel(String status, {bool pickup = false}) {
+  if (pickup) {
+    if (status == 'packed') return 'Ready for pickup';
+    if (status == 'delivered') return 'Picked up';
+  }
+  switch (status) {
+    case 'preorder_hold':
+      return 'Scheduled';
+    case 'order_received':
+    case 'incoming':
+      return 'Received by store';
+    case 'packed':
+      return 'Packed';
+    case 'offered':
+    case 'assigned':
+    case 'pickup_verified':
+      return 'Rider assigned';
+    case 'out_for_delivery':
+      return 'Out for delivery';
+    case 'delivered':
+      return 'Delivered';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status.replaceAll('_', ' ');
+  }
+}
+
+/// Dark store contact, delivery vs pickup, and the separate parts of a mixed cart.
+class _FulfillmentInfo extends StatelessWidget {
+  const _FulfillmentInfo({required this.order});
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = order.storeParts;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                order.isPickup ? Icons.storefront_rounded : Icons.delivery_dining_rounded,
+                size: 18,
+                color: _themeGreen,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                order.isPickup ? 'Store pickup' : 'Home delivery',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (order.isPickup && order.darkStore != null)
+            DarkStoreContactCard(store: order.darkStore, pickup: true),
+          if (parts.length > 1) ...[
+            const SizedBox(height: 8),
+            for (final part in parts)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      part.isPreOrder ? Icons.event_available_rounded : Icons.bolt_rounded,
+                      size: 16,
+                      color: part.isPreOrder ? const Color(0xFF047857) : const Color(0xFF7C3AED),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        part.isPreOrder
+                            ? 'Pre-order · ${part.preOrderDate} ${part.preOrderSlot}'.trim()
+                            : 'Ready2Cook / Instant · 10–20 min',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Text(
+                      _storePartStatusLabel(part.status, pickup: order.isPickup),
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class BlinkitOrderDetailBody extends ConsumerStatefulWidget {
   const BlinkitOrderDetailBody({
     super.key,
@@ -133,11 +253,13 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
     final shipmentItems = shipments[_selectedShipment.clamp(0, shipments.length - 1)];
     final deliveryRating = ref.watch(deliveryRatingProvider(order.id));
     final orderCode = getOrderDisplayCode(order);
-    final statusLabel = getBlinkitShipmentStatusLabel(
-      order.status,
-      shipmentStatus: order.shipment.displayStatus,
-      hasTracking: order.shipment.hasTracking,
-    );
+    final statusLabel = order.isPickup
+        ? _pickupStatusLabel(order.status)
+        : getBlinkitShipmentStatusLabel(
+            order.status,
+            shipmentStatus: order.shipment.displayStatus,
+            hasTracking: order.shipment.hasTracking,
+          );
 
     return Column(
       children: [
@@ -184,7 +306,9 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                   onRateNow: () => _showRatingSheet(context, ref, order.id),
                 ),
                 if (_shouldShowDeliveryOtp(order))
-                  _DeliveryOtpBanner(otp: order.deliveryOtp),
+                  _DeliveryOtpBanner(otp: order.deliveryOtp, pickup: order.isPickup),
+                if (order.darkStore != null || order.storeParts.length > 1)
+                  _FulfillmentInfo(order: order),
                 _ShipmentStatusBlock(
                   shipmentNumber: _selectedShipment + 1,
                   statusLabel: statusLabel,
@@ -192,7 +316,7 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: _OrderStatusTracker(status: order.status),
+                  child: _OrderStatusTracker(status: order.status, pickup: order.isPickup),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -520,11 +644,14 @@ int _trackerStepIndex(String status) {
 }
 
 class _OrderStatusTracker extends StatelessWidget {
-  const _OrderStatusTracker({required this.status});
+  const _OrderStatusTracker({required this.status, this.pickup = false});
 
   final String status;
+  final bool pickup;
 
-  static const _steps = ['Confirm', 'Packed', 'Shipped', 'Delivery'];
+  static const _deliverySteps = ['Confirm', 'Packed', 'Shipped', 'Delivery'];
+  static const _pickupSteps = ['Confirm', 'Packed', 'Ready', 'Picked up'];
+  List<String> get _steps => pickup ? _pickupSteps : _deliverySteps;
   static const _done = Color(0xFF16A34A);
   static const _idle = Color(0xFFE5E5E5);
   static const _muted = Color(0xFF999999);
@@ -792,9 +919,11 @@ class _BillSummary extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _BillRow(
-            label: 'Delivery charges',
-            value: deliveryFree ? 'FREE' : formatInr(order.deliveryCharges, withDecimals: false),
-            valueColor: deliveryFree ? _themeGreen : null,
+            label: order.isPickup ? 'Store pickup' : 'Delivery charges',
+            value: deliveryFree || order.isPickup
+                ? 'FREE'
+                : formatInr(order.deliveryCharges, withDecimals: false),
+            valueColor: deliveryFree || order.isPickup ? _themeGreen : null,
           ),
           if (order.couponDiscount > 0) ...[
             const SizedBox(height: 10),
@@ -1039,12 +1168,28 @@ class _OrderDetailsSection extends StatelessWidget {
           ),
           _DetailField(
             label: 'Payment',
-            value: order.paymentMethod == 'cod' ? 'Cash on Delivery' : 'Paid Online',
+            value: order.paymentMethod == 'cod'
+                ? (order.isPickup ? 'Pay at store' : 'Cash on Delivery')
+                : 'Paid Online',
           ),
-          _DetailField(
-            label: 'Deliver to',
-            value: formatAddressLine(addr),
-          ),
+          if (order.isPickup) ...[
+            _DetailField(
+              label: 'Pick up from',
+              value: [
+                order.darkStore?.storeName ?? 'Dark store',
+                if ((order.darkStore?.address ?? '').isNotEmpty) order.darkStore!.address,
+              ].join('\n'),
+            ),
+            if ((order.darkStore?.phone ?? '').isNotEmpty)
+              _DetailField(
+                label: 'Store manager',
+                value: '+91 ${order.darkStore!.phone}',
+              ),
+          ] else
+            _DetailField(
+              label: 'Deliver to',
+              value: formatAddressLine(addr),
+            ),
           _DetailField(
             label: 'Order placed',
             value: formatOrderPlacedDetailDateTime(order.createdAt),

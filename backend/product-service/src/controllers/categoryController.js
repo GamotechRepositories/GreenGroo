@@ -1,5 +1,88 @@
 import Category from "../models/Category.js";
 import Section from "../models/Section.js";
+import Product from "../../../legacy/models/Product.js";
+import {
+  addressFromQuery,
+  hasLocationHint,
+  loadNearestStoreCatalog,
+  storeProductScope,
+} from "../../../delivery-service/src/services/nearestStoreCatalog.js";
+
+const nameKey = (value) => String(value || "").trim().toLowerCase();
+
+/** Product filter for a department, mirroring GET /api/products (pre-order = everything). */
+function productSectionClause(section, storeType) {
+  const target = nameKey(section || storeType);
+  if (["ready2cook", "ready-2-cook", "festive"].includes(target)) {
+    return {
+      $or: [{ section: { $in: ["ready2cook", "ready-2-cook", "festive"] } }, { storeType: "festive" }],
+    };
+  }
+  if (["instantorder", "instant", "supermall", "mall"].includes(target)) {
+    return {
+      $or: [{ section: { $in: ["instantorder", "instant", "supermall"] } }, { storeType: "mall" }],
+    };
+  }
+  return {};
+}
+
+/**
+ * With a customer location that resolves to a dark store, the category list is
+ * driven by that store's products: only categories it has products in (for the
+ * requested department), subcategories taken from those products, plus a
+ * productCount. Returns null when there is no location / store to scope to.
+ */
+async function loadStoreScopedCategories(query) {
+  if (!hasLocationHint(addressFromQuery(query))) return null;
+
+  const catalog = await loadNearestStoreCatalog(query);
+  if (!catalog.manager) return null;
+
+  const products = await Product.find({
+    isActive: true,
+    $and: [storeProductScope(catalog), productSectionClause(query.section, query.storeType)],
+  })
+    .select("categories subcategory subcategories")
+    .lean();
+
+  const counts = new Map();
+  const subcategoriesByCategory = new Map();
+  products.forEach((product) => {
+    const subs = [product.subcategory, ...(product.subcategories || [])]
+      .map((sub) => String(sub || "").trim())
+      .filter(Boolean);
+    (product.categories || []).forEach((category) => {
+      const key = nameKey(category);
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      if (!subcategoriesByCategory.has(key)) subcategoriesByCategory.set(key, new Map());
+      subs.forEach((sub) => subcategoriesByCategory.get(key).set(nameKey(sub), sub));
+    });
+  });
+
+  const includeInactive = query.includeInactive === "true";
+  const allCategories = await Category.find(includeInactive ? {} : { isActive: true }).sort({
+    order: 1,
+    categoryName: 1,
+    createdAt: -1,
+  });
+
+  const categories = allCategories
+    .filter((category) => counts.has(nameKey(category.categoryName)))
+    .map((category) => {
+      const doc = category.toObject();
+      const key = nameKey(doc.categoryName);
+      const present = new Map(subcategoriesByCategory.get(key) || []);
+      const ordered = (doc.subcategories || []).filter((sub) => present.delete(nameKey(sub)));
+      return {
+        ...doc,
+        subcategories: [...ordered, ...present.values()],
+        productCount: counts.get(key),
+      };
+    });
+
+  return { categories, store: catalog.store };
+}
 
 const DEFAULT_CATEGORIES = [
   // --- Preorder Section Categories ---
@@ -395,6 +478,16 @@ export async function seedDefaultCategoriesIfEmpty() {
  */
 export const getCategories = async (req, res) => {
   try {
+    const scoped = await loadStoreScopedCategories(req.query);
+    if (scoped) {
+      return res.status(200).json({
+        success: true,
+        count: scoped.categories.length,
+        data: scoped.categories,
+        store: scoped.store,
+      });
+    }
+
     const { includeInactive, section, storeType } = req.query;
     const filter = {};
 

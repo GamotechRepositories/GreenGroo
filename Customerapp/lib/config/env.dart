@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
@@ -7,10 +8,19 @@ class Env {
     await dotenv.load(fileName: '.env');
   }
 
-  /// Live backend — used by every build (debug and release).
   static const productionApiUrl = 'https://api.greengrocc.com';
 
-  static String get apiUrl => productionApiUrl;
+  /// Release builds always use the live API. Debug builds use API_BASE_URL
+  /// (this PC on the LAN) unless USE_LIVE_API=true.
+  static String get apiUrl {
+    final local = dotenv.env['API_BASE_URL']?.trim() ?? '';
+    final live = dotenv.env['API_LIVE_URL']?.trim() ?? '';
+    final useLive = dotenv.env['USE_LIVE_API']?.trim().toLowerCase() == 'true';
+    final url = kReleaseMode || useLive || local.isEmpty
+        ? (live.isNotEmpty ? live : productionApiUrl)
+        : local;
+    return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+  }
 
   static String get merchantUpiId => dotenv.env['MERCHANT_UPI_ID']?.trim() ?? '';
 

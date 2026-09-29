@@ -18,6 +18,32 @@ class MerchantUpiAccount {
   }
 }
 
+class PreOrderSlot {
+  const PreOrderSlot({
+    required this.startTime,
+    required this.endTime,
+    this.capacity = 0,
+    this.isActive = true,
+  });
+
+  final String startTime;
+  final String endTime;
+  final int capacity;
+  final bool isActive;
+
+  /// Same format the backend validates: "09:00 AM - 12:00 PM".
+  String get label => '${startTime.trim()} - ${endTime.trim()}'.replaceAll(RegExp(r'\s+'), ' ');
+
+  factory PreOrderSlot.fromJson(Map<String, dynamic> json) {
+    return PreOrderSlot(
+      startTime: json['startTime']?.toString() ?? '',
+      endTime: json['endTime']?.toString() ?? '',
+      capacity: (json['capacity'] as num?)?.toInt() ?? 0,
+      isActive: json['isActive'] != false,
+    );
+  }
+}
+
 class StoreSettings {
   const StoreSettings({
     required this.minimumOrderValue,
@@ -28,6 +54,7 @@ class StoreSettings {
     required this.merchantUpiAccounts,
     this.cartNoticeEn = const [],
     this.cartNoticeHi = const [],
+    this.preOrderSlots = const [],
   });
 
   final double minimumOrderValue;
@@ -38,6 +65,10 @@ class StoreSettings {
   final List<MerchantUpiAccount> merchantUpiAccounts;
   final List<String> cartNoticeEn;
   final List<String> cartNoticeHi;
+  final List<PreOrderSlot> preOrderSlots;
+
+  List<PreOrderSlot> get activePreOrderSlots =>
+      preOrderSlots.where((slot) => slot.isActive && slot.startTime.isNotEmpty).toList();
 
   List<MerchantUpiAccount> get enabledMerchantUpiAccounts =>
       merchantUpiAccounts.where((account) => account.enabled && account.upiId.isNotEmpty).toList();
@@ -81,6 +112,10 @@ class StoreSettings {
           .toList(),
       cartNoticeHi: (json['cartNoticeHi'] as List<dynamic>? ?? [])
           .map((item) => item.toString())
+          .toList(),
+      preOrderSlots: (json['preOrderSlots'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(PreOrderSlot.fromJson)
           .toList(),
     );
   }

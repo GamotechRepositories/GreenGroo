@@ -13,6 +13,7 @@ import '../../core/providers/location_provider.dart';
 import '../../core/utils/address_utils.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/department_utils.dart';
 import '../../core/utils/razorpay_error_message.dart';
 import '../../core/utils/payment_utils.dart';
 import '../../widgets/common/app_network_image.dart';
@@ -28,6 +29,7 @@ import '../../widgets/address/address_form.dart';
 import '../../widgets/address/select_delivery_location_sheet.dart';
 import '../../widgets/common/minimum_order_warning.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import 'checkout_fulfillment_widgets.dart';
 
 const _maxOrderNoteLength = 200;
 
@@ -55,6 +57,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String _pendingPaymentMode = 'online';
   String? _attemptedOrderId;
   String? _lastCheckoutAttemptKey;
+  String _fulfillment = FulfillmentType.delivery;
+  String? _preOrderSlot;
 
   final _couponController = TextEditingController();
   AppliedCoupon? _appliedCoupon;
@@ -71,8 +75,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     Future.microtask(() {
       ref.read(storeSettingsProvider.notifier).refresh();
-      final cart = ref.read(cartControllerProvider);
-      if (cart.items.isEmpty && !cart.loading) {
+      // Always reload: server cart lines carry each product's department.
+      if (!ref.read(cartControllerProvider).loading) {
         ref.read(cartControllerProvider.notifier).loadCart(silent: true);
       }
       final addresses = ref.read(addressControllerProvider);
@@ -179,11 +183,33 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         .toList();
   }
 
+  /// Delivery vs store pickup, plus the slot for the cart's pre-order items.
+  Map<String, dynamic> _fulfillmentPayload(List<CartItem> items) {
+    final hasPreOrder = items.any((item) => item.department == Department.preorder);
+    return {
+      'fulfillmentType': _fulfillment,
+      if (hasPreOrder && _preOrderSlot != null) 'preOrderSlot': _preOrderSlot,
+    };
+  }
+
+  void _openPayment() {
+    final query = <String, String>{
+      if (_selectedAddressId != null) 'addressId': _selectedAddressId!,
+      if (_appliedCoupon != null) 'coupon': _appliedCoupon!.code,
+      if (_message.trim().isNotEmpty) 'note': _message.trim(),
+      'fulfillment': _fulfillment,
+      if (_preOrderSlot != null &&
+          ref.read(cartControllerProvider).items.any((i) => i.department == Department.preorder))
+        'slot': _preOrderSlot!,
+    };
+    context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
+  }
+
   Future<String?> _syncCheckoutAttempt(List<CartItem> items, {bool force = false}) async {
     if (_orderPlaced || items.isEmpty) return _attemptedOrderId;
 
     final key =
-        '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
+        '${_selectedAddressId ?? ''}|$_paymentPlan|${_appliedCoupon?.code ?? ''}|$_fulfillment|${_preOrderSlot ?? ''}|${items.map((i) => '${i.id}:${i.quantity}').join(',')}';
     if (!force && key == _lastCheckoutAttemptKey && _attemptedOrderId != null) {
       return _attemptedOrderId;
     }
@@ -196,6 +222,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutMode': 'cart',
         'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        ..._fulfillmentPayload(items),
       });
       final order = ApiResponseParser.getData(response.data) as Map<String, dynamic>;
       final orderId = order['_id']?.toString();
@@ -242,6 +269,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutMode': 'cart',
         'customerLocation': _customerLocationPayload(),
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
+        ..._fulfillmentPayload(cartItems),
       });
       final body = ApiResponseParser.getData(response.data);
       if (body is! Map<String, dynamic>) {
@@ -323,6 +351,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         'checkoutMode': 'cart',
         if (_appliedCoupon != null) 'couponCode': _appliedCoupon!.code,
         if (_attemptedOrderId != null) 'attemptedOrderId': _attemptedOrderId,
+        ..._fulfillmentPayload(cartItems),
         'razorpay_order_id': response.orderId,
         'razorpay_payment_id': response.paymentId,
         'razorpay_signature': response.signature,
@@ -366,8 +395,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() {
       _orderPlaced = true;
       _placingOrder = false;
-      _orderSuccessNote =
-          note ?? 'Your order has been placed and will be delivered soon.';
+      _orderSuccessNote = note ??
+          (_fulfillment == FulfillmentType.pickup
+              ? 'Your order has been placed. Collect it from the dark store with your order OTP.'
+              : 'Your order has been placed and will be delivered soon.');
       _showSuccessModal = true;
     });
     await ref.read(cartControllerProvider.notifier).loadCart();
@@ -409,12 +440,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
 
     _syncSelectedAddress(addressList);
+    final isPickup = _fulfillment == FulfillmentType.pickup;
     final baseSummary = calculateCartSummary(cartItems);
     final couponDiscount = (_appliedCoupon?.discountAmount ?? 0)
         .clamp(0.0, baseSummary.subtotal)
         .toDouble();
-    final summary = applyCouponDiscount(baseSummary, couponDiscount);
+    final summary = applyStorePickup(
+      applyCouponDiscount(baseSummary, couponDiscount),
+      pickup: isPickup,
+    );
     final storeSettings = ref.watch(storeSettingsProvider).value;
+
+    final groups = groupCartByDepartment(cartItems);
+    final hasPreOrder = groups.containsKey(Department.preorder);
+    final hasNowItems = groups.keys.any((dept) => dept != Department.preorder);
+    final slots = storeSettings?.activePreOrderSlots ?? const [];
+    final slotChosen = _preOrderSlot != null && slots.any((s) => s.label == _preOrderSlot);
+    final slotReady = !hasPreOrder || slotChosen;
     final minimumOrderValue = storeSettings?.minimumOrderValue ?? 3000;
     final minimumOrderMet = meetsMinimumOrder(summary.subtotal, minimumOrderValue);
     final orderShortfall =
@@ -425,6 +467,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             .where((a) => a.id == _selectedAddressId)
             .cast<Address?>()
             .firstOrNull;
+    final storeAsync = ref.watch(checkoutStoreProvider(checkoutStoreQuery(
+      hasNowItems: hasNowItems,
+      fulfillment: _fulfillment,
+      address: selectedAddress,
+    )));
+    final darkStore = storeAsync.value?.store;
 
     if (!cartLoading && cartItems.isEmpty && !_orderPlaced) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -462,7 +510,39 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       const SizedBox(height: 12),
                     ],
                     _StepSection(
-                      title: 'Delivery Details',
+                      title: 'How do you want your order?',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FulfillmentChoice(
+                            value: _fulfillment,
+                            onChanged: (value) => setState(() => _fulfillment = value),
+                          ),
+                          if (isPickup) ...[
+                            const SizedBox(height: 12),
+                            DarkStoreContactCard(
+                              store: darkStore,
+                              pickup: true,
+                              loading: storeAsync.isLoading && darkStore == null,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (hasPreOrder) ...[
+                      _StepSection(
+                        title: 'Pre-order slot (tomorrow)',
+                        child: PreOrderSlotPicker(
+                          slots: slots,
+                          selected: _preOrderSlot,
+                          onSelected: (label) => setState(() => _preOrderSlot = label),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    _StepSection(
+                      title: isPickup ? 'Your Details' : 'Delivery Details',
                       child: addressesLoading
                           ? const SkeletonAddressList()
                           : Column(
@@ -547,16 +627,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                   width: double.infinity,
                                   height: 48,
                                   child: FilledButton.icon(
-                                    onPressed: selectedAddress == null || !minimumOrderMet
+                                    onPressed: selectedAddress == null ||
+                                            !minimumOrderMet ||
+                                            !slotReady ||
+                                            (isPickup && darkStore == null)
                                         ? null
-                                        : () {
-                                            final query = <String, String>{
-                                              if (_selectedAddressId != null) 'addressId': _selectedAddressId!,
-                                              if (_appliedCoupon != null) 'coupon': _appliedCoupon!.code,
-                                              if (_message.trim().isNotEmpty) 'note': _message.trim(),
-                                            };
-                                            context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
-                                          },
+                                        : _openPayment,
                                     icon: const Icon(Icons.touch_app_rounded, size: 20),
                                     label: Text(
                                       'Select Payment Mode',
@@ -613,12 +689,32 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       title: 'Order Summary',
                       child: Column(
                         children: [
-                          ...cartItems.map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _CheckoutLineItem(item: item),
+                          for (final entry in groups.entries) ...[
+                            DepartmentGroupHeader(
+                              department: entry.key,
+                              itemCount: entry.value.length,
+                              etaText: departmentEtaText(
+                                entry.key,
+                                pickup: isPickup,
+                                preOrderSlot: slotChosen ? _preOrderSlot : null,
+                              ),
                             ),
-                          ),
+                            ...entry.value.map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _CheckoutLineItem(item: item),
+                              ),
+                            ),
+                            if (entry.key != groups.keys.last) const SizedBox(height: 6),
+                          ],
+                          if (hasPreOrder && hasNowItems) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Your cart has pre-order and quick items — they arrive separately, '
+                              'but you pay once for the whole order.',
+                              style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade600),
+                            ),
+                          ],
                           const Divider(height: 24),
                           _summaryRow('Items', '${summary.itemCount}'),
                           const SizedBox(height: 8),
@@ -633,7 +729,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           ],
                           const SizedBox(height: 8),
                           _summaryRow(
-                            'Shipping',
+                            isPickup ? 'Delivery (store pickup)' : 'Shipping',
                             summary.shippingFree ? 'FREE' : formatInr(summary.shipping),
                           ),
                           if (couponDiscount > 0) ...[
@@ -713,7 +809,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               ),
                             ),
                           ],
-                          if (!summary.shippingFree) ...[
+                          if (!summary.shippingFree && !isPickup) ...[
                             const SizedBox(height: 8),
                             Text(
                               'Free delivery on orders above ${formatInr(AppConstants.freeDeliveryThreshold)}',
@@ -812,15 +908,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               hasAddress: _selectedAddressId != null,
               selectedAddress: selectedAddress,
               placingOrder: _placingOrder,
+              slotReady: slotReady,
+              pickup: isPickup,
+              pickupStoreName: darkStore?.storeName,
               onChangeAddress: _openLocationSheet,
-              onSelectPaymentMode: () {
-                final query = <String, String>{
-                  if (_selectedAddressId != null) 'addressId': _selectedAddressId!,
-                  if (_appliedCoupon != null) 'coupon': _appliedCoupon!.code,
-                  if (_message.trim().isNotEmpty) 'note': _message.trim(),
-                };
-                context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
-              },
+              onSelectPaymentMode: _openPayment,
             ),
     );
   }
@@ -972,6 +1064,9 @@ class _CheckoutPayBar extends ConsumerWidget {
     required this.hasAddress,
     required this.selectedAddress,
     required this.placingOrder,
+    required this.slotReady,
+    required this.pickup,
+    required this.pickupStoreName,
     required this.onChangeAddress,
     required this.onSelectPaymentMode,
   });
@@ -984,13 +1079,17 @@ class _CheckoutPayBar extends ConsumerWidget {
   final bool hasAddress;
   final Address? selectedAddress;
   final bool placingOrder;
+  final bool slotReady;
+  final bool pickup;
+  final String? pickupStoreName;
   final VoidCallback onChangeAddress;
   final VoidCallback onSelectPaymentMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = ref.watch(deliveryLocationProvider);
-    final readyToPay = hasAddress && minimumOrderMet;
+    final pickupStoreMissing = pickup && pickupStoreName == null;
+    final readyToPay = hasAddress && minimumOrderMet && slotReady && !pickupStoreMissing;
     final canPay = readyToPay && !placingOrder;
 
     final addressLabel = selectedAddress?.fullName.isNotEmpty == true
@@ -1009,6 +1108,10 @@ class _CheckoutPayBar extends ConsumerWidget {
           'Add ${formatInr(orderShortfall)} more to reach minimum order of ${formatInr(minimumOrderValue)}';
     } else if (!hasAddress) {
       helperText = 'Add a delivery address to continue';
+    } else if (!slotReady) {
+      helperText = 'Choose a pre-order slot to continue';
+    } else if (pickupStoreMissing) {
+      helperText = 'No dark store found for pickup at this location';
     }
 
     return Container(
@@ -1060,12 +1163,12 @@ class _CheckoutPayBar extends ConsumerWidget {
                           color: const Color(0xFF1F2937),
                         ),
                         children: [
-                          const TextSpan(
-                            text: 'Delivering to ',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                          TextSpan(
+                            text: pickup ? 'Pickup from ' : 'Delivering to ',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           TextSpan(
-                            text: addressLabel,
+                            text: pickup ? (pickupStoreName ?? 'dark store') : addressLabel,
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               color: Color(0xFF0F172A),

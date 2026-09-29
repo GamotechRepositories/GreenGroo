@@ -1,3 +1,64 @@
+import { DepartmentBadge } from "../products/productDepartments";
+
+const ROUTING_LABELS = {
+  within_3km: "Within 3 km",
+  same_pincode: "Same pincode",
+};
+
+export function isPickupOrder(order) {
+  return order?.fulfillmentType === "pickup";
+}
+
+/** Home delivery (rider) vs customer collects at this dark store. */
+export function FulfillmentBadge({ order }) {
+  return isPickupOrder(order) ? (
+    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+      Store pickup
+    </span>
+  ) : (
+    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800">
+      Home delivery
+    </span>
+  );
+}
+
+const SPLIT_PART_LABELS = {
+  now: "Split order · quick part",
+  preorder: "Split order · pre-order part",
+};
+
+/** Department tags (Pre-order / Ready2Cook / Instant), delivery vs pickup, and how the order reached this store. */
+export function OrderDepartmentTags({ order }) {
+  const departments = order?.departments || [];
+  const routing = ROUTING_LABELS[order?.routingReason];
+  const splitLabel = SPLIT_PART_LABELS[order?.sourcePart];
+  const slot = order?.isPreOrder && order?.preOrderSlot
+    ? `${order.preOrderDate ? `${order.preOrderDate} · ` : ""}${order.preOrderSlot}`
+    : "";
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      <FulfillmentBadge order={order} />
+      {departments.map((dept) => (
+        <DepartmentBadge key={dept} department={dept} />
+      ))}
+      {slot ? (
+        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+          Slot {slot}
+        </span>
+      ) : null}
+      {splitLabel ? (
+        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
+          {splitLabel}
+        </span>
+      ) : null}
+      {routing ? (
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+          {routing}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 export const STATUS_LABELS = {
   preorder_hold: { text: "WITH PRODUCT MANAGER", className: "text-indigo-700" },
@@ -14,8 +75,13 @@ export const STATUS_LABELS = {
   stock_issue: { text: "STOCK ISSUE", className: "text-rose-700" },
 };
 
-export function OrderStatusText({ status }) {
-  const label = STATUS_LABELS[status] || {
+const PICKUP_STATUS_LABELS = {
+  packed: { text: "READY FOR PICKUP", className: "text-amber-700" },
+  delivered: { text: "PICKED UP", className: "text-emerald-800" },
+};
+
+export function OrderStatusText({ status, order }) {
+  const label = (isPickupOrder(order) && PICKUP_STATUS_LABELS[status]) || STATUS_LABELS[status] || {
     text: (status || "").toUpperCase().replace(/_/g, " "),
     className: "text-slate-600",
   };
@@ -28,6 +94,14 @@ export function OrderStatusText({ status }) {
 }
 
 export function DriverAssignmentText({ order }) {
+  if (isPickupOrder(order)) {
+    return (
+      <p className="text-[11px] font-semibold text-amber-700">
+        Customer picks up at store — no rider
+      </p>
+    );
+  }
+
   const windowEnds = order.routeBatchWindowEndsAt
     ? new Date(order.routeBatchWindowEndsAt)
     : null;
@@ -111,6 +185,8 @@ export const STATUS_BADGE = Object.fromEntries(
 export const STATUS_TABS = [
   { id: "incoming", label: "Incoming" },
   { id: "ongoing", label: "Ongoing" },
+  { id: "pickup", label: "Store pickup" },
+  { id: "scheduled", label: "Pre-orders (scheduled)" },
   { id: "delivered", label: "Delivered" },
   { id: "cancelled", label: "Cancelled" },
   { id: "all", label: "All" },
@@ -119,6 +195,10 @@ export const STATUS_TABS = [
 export function matchesTab(order, tab) {
   const s = order.status;
   if (tab === "all") return true;
+  if (tab === "pickup") {
+    return isPickupOrder(order) && !["delivered", "cancelled", "delivery_failed"].includes(s);
+  }
+  if (tab === "scheduled") return s === "preorder_hold";
   // New / pack queue awaiting action
   if (tab === "incoming") {
     return ["incoming", "order_received", "stock_issue", "packed", "offered"].includes(s);
@@ -142,6 +222,8 @@ export function countBySummaryBucket(orders = []) {
   return {
     incoming: orders.filter((o) => matchesTab(o, "incoming")).length,
     ongoing: orders.filter((o) => matchesTab(o, "ongoing")).length,
+    pickup: orders.filter((o) => matchesTab(o, "pickup")).length,
+    scheduled: orders.filter((o) => matchesTab(o, "scheduled")).length,
     delivered: orders.filter((o) => matchesTab(o, "delivered")).length,
     cancelled: orders.filter((o) => matchesTab(o, "cancelled")).length,
   };

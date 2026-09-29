@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/providers/app_providers.dart';
 import '../../core/providers/location_provider.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
@@ -32,10 +31,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
 
-  List<Category> _preorderCategories = [];
-  List<Category> _readyToCookCategories = [];
-  List<Category> _instantCategories = [];
-
   @override
   void initState() {
     super.initState();
@@ -43,26 +38,17 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.categories, _scrollController);
-      _fetchDepartmentCategories();
     });
   }
 
-  Future<void> _fetchDepartmentCategories() async {
-    try {
-      final api = ref.read(apiServiceProvider);
-      final results = await Future.wait<List<Category>>([
-        api.fetchCategories(section: 'preorder').catchError((_, _) => <Category>[]),
-        api.fetchCategories(section: 'ready2cook').catchError((_, _) => <Category>[]),
-        api.fetchCategories(section: 'instantorder').catchError((_, _) => <Category>[]),
-      ]);
-      if (mounted) {
-        setState(() {
-          _preorderCategories = results[0];
-          _readyToCookCategories = results[1];
-          _instantCategories = results[2];
-        });
-      }
-    } catch (_) {}
+  Future<void> _refreshDepartments() async {
+    ref.invalidate(categoriesProvider);
+    ref.invalidate(departmentCategoriesProvider);
+    await Future.wait([
+      ref.read(departmentCategoriesProvider('preorder').future),
+      ref.read(departmentCategoriesProvider('ready2cook').future),
+      ref.read(departmentCategoriesProvider('instantorder').future),
+    ]).catchError((_) => <List<Category>>[]);
   }
 
   @override
@@ -98,7 +84,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesProvider);
+    final preorderAsync = ref.watch(departmentCategoriesProvider('preorder'));
+    final readyAsync = ref.watch(departmentCategoriesProvider('ready2cook'));
+    final instantAsync = ref.watch(departmentCategoriesProvider('instantorder'));
     final topInset = MediaQuery.paddingOf(context).top;
     final location = ref.watch(deliveryLocationProvider);
     final nearestAsync = ref.watch(nearestStoreProvider);
@@ -107,32 +95,24 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         ? location!.displayAddress
         : 'Select location to see nearby stock';
     final storeName = nearestAsync.value?.store?.storeName;
+    final isLoading = preorderAsync.isLoading && !preorderAsync.hasValue;
 
     return ColoredBox(
       color: const Color(0xFFF8FAFC),
       child: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(categoriesProvider);
-          await _fetchDepartmentCategories();
-        },
+        onRefresh: _refreshDepartments,
         color: const Color(0xFF047857),
-        child: categoriesAsync.when(
-          loading: () => const AppLoading(message: 'Loading department categories...'),
-          error: (error, _) => _buildDirectoryBody(
-            context: context,
-            topInset: topInset,
-            addressText: addressText,
-            storeName: storeName,
-            allCategories: resolveDisplayCategories(const []),
-          ),
-          data: (allCats) => _buildDirectoryBody(
-            context: context,
-            topInset: topInset,
-            addressText: addressText,
-            storeName: storeName,
-            allCategories: resolveDisplayCategories(allCats),
-          ),
-        ),
+        child: isLoading
+            ? const AppLoading(message: 'Loading department categories...')
+            : _buildDirectoryBody(
+                context: context,
+                topInset: topInset,
+                addressText: addressText,
+                storeName: storeName,
+                preorderAll: preorderAsync.value ?? const [],
+                readyList: readyAsync.value ?? const [],
+                instantList: instantAsync.value ?? const [],
+              ),
       ),
     );
   }
@@ -142,19 +122,19 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     required double topInset,
     required String addressText,
     required String? storeName,
-    required List<Category> allCategories,
+    required List<Category> preorderAll,
+    required List<Category> readyList,
+    required List<Category> instantList,
   }) {
-    final preorderList = _preorderCategories.isNotEmpty
-        ? _preorderCategories
-        : allCategories;
-
-    final readyList = _readyToCookCategories.isNotEmpty
-        ? _readyToCookCategories
-        : allCategories;
-
-    final instantList = _instantCategories.isNotEmpty
-        ? _instantCategories
-        : allCategories;
+    // The pre-order section endpoint returns every department's categories;
+    // keep Ready2Cook / Instant ones in their own sections only.
+    final otherDepartments = {
+      for (final c in [...readyList, ...instantList]) c.categoryName.trim().toLowerCase(),
+    };
+    final preorderList = preorderAll
+        .where((c) => !otherDepartments.contains(c.categoryName.trim().toLowerCase()))
+        .toList();
+    final isEmpty = preorderList.isEmpty && readyList.isEmpty && instantList.isEmpty;
 
     final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
 
@@ -178,40 +158,83 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           ),
         ),
 
+        if (isEmpty) _buildEmptyAreaSliver(storeName),
+
         // 2. Department Section 1: Preorder Store Categories
-        _buildDepartmentHeaderSliver(
-          title: 'Preorder Categories',
-          subtitle: 'Book in advance for fresh produce & farm items',
-          icon: Icons.calendar_today_rounded,
-          iconColor: const Color(0xFF047857),
-          badgeColor: Colors.white,
-        ),
-        _buildCategoryGridSliver(context, preorderList, 'main'),
+        if (preorderList.isNotEmpty) ...[
+          _buildDepartmentHeaderSliver(
+            title: 'Preorder Categories',
+            subtitle: 'Book in advance for fresh produce & farm items',
+            icon: Icons.calendar_today_rounded,
+            iconColor: const Color(0xFF047857),
+            badgeColor: Colors.white,
+          ),
+          _buildCategoryGridSliver(context, preorderList, 'main'),
+        ],
 
         // 3. Department Section 2: Ready to Cook Store Categories
-        _buildDepartmentHeaderSliver(
-          title: 'Ready to Cook Categories',
-          subtitle: 'Pre-cut vegetables, meal kits & instant cooking',
-          icon: Icons.restaurant_rounded,
-          iconColor: const Color(0xFFEA580C),
-          badgeColor: Colors.white,
-        ),
-        _buildCategoryGridSliver(context, readyList, 'festive'),
+        if (readyList.isNotEmpty) ...[
+          _buildDepartmentHeaderSliver(
+            title: 'Ready to Cook Categories',
+            subtitle: 'Pre-cut vegetables, meal kits & instant cooking',
+            icon: Icons.restaurant_rounded,
+            iconColor: const Color(0xFFEA580C),
+            badgeColor: Colors.white,
+          ),
+          _buildCategoryGridSliver(context, readyList, 'festive'),
+        ],
 
         // 4. Department Section 3: Instant Order Store Categories
-        _buildDepartmentHeaderSliver(
-          title: 'Instant Order Categories',
-          subtitle: 'Express delivery items & quick snacks',
-          icon: Icons.bolt_rounded,
-          iconColor: const Color(0xFF2563EB),
-          badgeColor: Colors.white,
-        ),
-        _buildCategoryGridSliver(context, instantList, 'mall'),
+        if (instantList.isNotEmpty) ...[
+          _buildDepartmentHeaderSliver(
+            title: 'Instant Order Categories',
+            subtitle: 'Express delivery items & quick snacks',
+            icon: Icons.bolt_rounded,
+            iconColor: const Color(0xFF2563EB),
+            badgeColor: Colors.white,
+          ),
+          _buildCategoryGridSliver(context, instantList, 'mall'),
+        ],
 
         SliverToBoxAdapter(
           child: SizedBox(height: ShellBottomInsets.of(context) + 24),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyAreaSliver(String? storeName) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 64, 24, 24),
+        child: Column(
+          children: [
+            const Icon(Icons.storefront_outlined, size: 48, color: Color(0xFF94A3B8)),
+            const SizedBox(height: 12),
+            Text(
+              'No products available here yet',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              storeName?.isNotEmpty == true
+                  ? '$storeName has not added products yet. Pull down to refresh.'
+                  : 'Try another delivery location to see nearby stores.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

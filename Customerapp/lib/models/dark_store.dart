@@ -6,6 +6,11 @@ class DarkStore {
     required this.city,
     required this.pincode,
     this.isServing = true,
+    this.phone = '',
+    this.address = '',
+    this.latitude,
+    this.longitude,
+    this.distanceKm,
   });
 
   final String id;
@@ -14,15 +19,25 @@ class DarkStore {
   final String city;
   final String pincode;
   final bool isServing;
+  final String phone;
+  final String address;
+  final double? latitude;
+  final double? longitude;
+  final double? distanceKm;
 
   factory DarkStore.fromJson(Map<String, dynamic> json) {
     return DarkStore(
-      id: json['_id']?.toString() ?? '',
+      id: (json['_id'] ?? json['id'])?.toString() ?? '',
       storeName: json['storeName']?.toString() ?? json['name']?.toString() ?? '',
       area: json['area']?.toString() ?? '',
       city: json['city']?.toString() ?? '',
       pincode: json['pincode']?.toString() ?? '',
       isServing: json['isServing'] as bool? ?? true,
+      phone: json['phone']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      latitude: _toDouble(json['latitude']),
+      longitude: _toDouble(json['longitude']),
+      distanceKm: _toDouble(json['distanceKm']),
     );
   }
 
@@ -33,7 +48,17 @@ class DarkStore {
         'city': city,
         'pincode': pincode,
         'isServing': isServing,
+        'phone': phone,
+        'address': address,
+        'latitude': latitude,
+        'longitude': longitude,
+        'distanceKm': distanceKm,
       };
+}
+
+double? _toDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '');
 }
 
 class NearestStoreResult {

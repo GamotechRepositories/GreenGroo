@@ -6,8 +6,10 @@ import LiveRiderTrack from "../../components/LiveRiderTrack";
 import { useLive } from "../../realtime/useLive";
 import { useRiderLiveLocations } from "../../hooks/useRiderLiveLocations";
 import { subscribeToSocketEvent } from "../../services/socket";
+import { DepartmentBadge } from "../products/productDepartments";
 import {
   OrderStatusText,
+  OrderDepartmentTags,
   DriverAssignmentText,
   STATUS_LABELS,
   formatOrderTime,
@@ -18,6 +20,7 @@ import {
   getOrderItemsTotal,
   getOrderDeliveryFee,
   isInitialOrderStatus,
+  isPickupOrder,
   allItemsAvailable,
   actionBtnPrimary,
   actionBtnDanger,
@@ -40,6 +43,7 @@ export default function OrderDetailPage() {
   const [requestNote, setRequestNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmingCash, setConfirmingCash] = useState(false);
+  const [handoverOtp, setHandoverOtp] = useState("");
 
   const pendingSkuSet = useMemo(() => new Set(pendingSkus), [pendingSkus]);
 
@@ -224,6 +228,23 @@ export default function OrderDetailPage() {
     }
   };
 
+  const onHandOverPickup = async (e) => {
+    e.preventDefault();
+    const currentOid = order?.id || order?._id;
+    if (!currentOid || !handoverOtp.trim()) return;
+    setBusyKey(`handover-${currentOid}`);
+    try {
+      const res = await managerApi.handOverPickup(currentOid, handoverOtp.trim());
+      showToast(res.data.message || "Order handed over to the customer");
+      setHandoverOtp("");
+      await load();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Could not hand over the order");
+    } finally {
+      setBusyKey("");
+    }
+  };
+
   const onCancelOrder = async () => {
     const currentOid = order?.id || order?._id;
     if (!currentOid) return;
@@ -275,6 +296,7 @@ export default function OrderDetailPage() {
   const oid = order?.id || order?._id;
   const isDelivered = order?.status === "delivered";
   const isFailed = order?.status === "delivery_failed";
+  const isPickup = isPickupOrder(order);
   const driverName =
     order?.assignedRider?.name ||
     order?.assignedRider?.phone ||
@@ -326,13 +348,16 @@ export default function OrderDetailPage() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate("/orders")}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          ← Back to Orders
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/orders")}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            ← Back to Orders
+          </button>
+          <OrderDepartmentTags order={order} />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {isInitial && (
             <button
@@ -368,22 +393,65 @@ export default function OrderDetailPage() {
         </p>
       )}
 
+      {isPickup && !isDelivered && order.status !== "cancelled" && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+            Customer store pickup
+          </p>
+          <h3 className="mt-1 text-base font-extrabold text-slate-900">
+            {order.status === "packed"
+              ? "Ready — hand over when the customer arrives"
+              : order.status === "preorder_hold"
+                ? `Pre-order being prepared${order.preOrderSlot ? ` · slot ${order.preOrderSlot}` : ""}`
+                : "Confirm & pack the order, then hand it over at the counter"}
+          </h3>
+          <p className="mt-1 text-xs text-slate-600">
+            No rider is assigned. Ask the customer for the 4-digit OTP shown in their order.
+            {isCodPayment(order.paymentMethod) && Number(order.amountToCollect) > 0
+              ? ` Collect ${formatRupee(order.amountToCollect)} at the counter.`
+              : ""}
+          </p>
+          {order.status === "packed" && (
+            <form onSubmit={onHandOverPickup} className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                value={handoverOtp}
+                onChange={(e) => setHandoverOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                placeholder="Customer OTP"
+                className="w-36 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-bold tracking-widest text-slate-900 outline-none focus:border-emerald-500"
+              />
+              <button
+                type="submit"
+                disabled={!handoverOtp.trim() || busyKey === `handover-${oid}`}
+                className={actionBtnPrimary}
+              >
+                {busyKey === `handover-${oid}` ? "Handing over…" : "Verify OTP & hand over"}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+
       {isDelivered && (
         <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-xs space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                Completed delivery
+                {isPickup ? "Picked up at store" : "Completed delivery"}
               </p>
               <h3 className="mt-1 text-lg font-extrabold text-slate-900">
                 Order completed{order.deliveredAt ? ` · ${formatOrderTime(order.deliveredAt)}` : ""}
               </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Driver: <span className="font-bold text-slate-900">{driverName}</span>
-                {order.assignedRider?.phone ? (
-                  <span className="text-slate-500"> · {order.assignedRider.phone}</span>
-                ) : null}
-              </p>
+              {isPickup ? (
+                <p className="mt-1 text-sm text-slate-600">Handed over to the customer at the counter.</p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-600">
+                  Driver: <span className="font-bold text-slate-900">{driverName}</span>
+                  {order.assignedRider?.phone ? (
+                    <span className="text-slate-500"> · {order.assignedRider.phone}</span>
+                  ) : null}
+                </p>
+              )}
             </div>
             <div className="rounded-xl bg-white border border-emerald-200 px-3 py-2 text-right">
               <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Payment</p>
@@ -393,7 +461,7 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-          {isCodPayment(order.paymentMethod) && (
+          {isCodPayment(order.paymentMethod) && !isPickup && (
             <div
               className={`rounded-xl border px-4 py-3 ${
                 cashDone
@@ -536,16 +604,19 @@ export default function OrderDetailPage() {
           <p className="font-bold text-slate-900">{order.customerName || "Customer"}</p>
           <p className="text-sm text-slate-500">{order.customerPhone || "N/A"}</p>
         </InfoCard>
-        <InfoCard title="Delivery Address">
+        <InfoCard title={isPickup ? "Customer Address (store pickup)" : "Delivery Address"}>
+          {isPickup ? (
+            <p className="mb-1 text-xs font-bold text-amber-700">Customer collects at this store</p>
+          ) : null}
           <p className="text-sm text-slate-700 leading-relaxed">{order.customerAddress || "Store Pickup"}</p>
-          {order.distanceKm != null && (
+          {!isPickup && order.distanceKm != null && (
             <p className="mt-1 text-xs font-semibold text-emerald-700">
               {Number(order.distanceKm).toFixed(1)} km from this store
             </p>
           )}
         </InfoCard>
         <InfoCard title="Status">
-          <OrderStatusText status={order.status} />
+          <OrderStatusText status={order.status} order={order} />
           {!isDelivered && order.paymentMethod && (
             <p className="mt-2 text-xs font-semibold text-slate-600">
               {paymentMethodLabel(order.paymentMethod)}
@@ -649,6 +720,11 @@ export default function OrderDetailPage() {
                     <tr key={itemId} className="hover:bg-slate-50/60">
                       <td className="px-5 py-4">
                         <p className="font-bold text-slate-900">{item.name}</p>
+                        {item.department ? (
+                          <div className="mt-1">
+                            <DepartmentBadge department={item.department} departmentId={item.departmentId} />
+                          </div>
+                        ) : null}
                         {lineTotal > 0 && (
                           <p className="text-xs text-slate-500">Line total: {formatRupee(lineTotal)}</p>
                         )}

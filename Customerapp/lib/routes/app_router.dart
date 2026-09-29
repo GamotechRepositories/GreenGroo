@@ -129,6 +129,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             selectedAddressId: params['addressId'],
             appliedCouponCode: params['coupon'],
             customerMessage: params['note'],
+            fulfillmentType: params['fulfillment'] == 'pickup' ? 'pickup' : 'delivery',
+            preOrderSlot: params['slot'],
           );
         },
       ),

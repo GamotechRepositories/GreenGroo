@@ -7,8 +7,10 @@ import { buildPaginatedResponse, getPaginationParams } from "../utils/pagination
 import {
   attachStoreAvailability,
   loadNearestStoreCatalog,
+  storeProductScope,
 } from "../../delivery-service/src/services/nearestStoreCatalog.js";
 import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
+import { buildDepartmentId, normalizeDeptToken } from "../utils/departmentHelpers.js";
 
 const MOST_PURCHASE_TAG = "Most Purchase";
 
@@ -368,6 +370,9 @@ const buildProductPayload = (body) => {
     varietyName: body.varietyName != null ? String(body.varietyName).trim() : "",
     section: (body.section || body.department || "greengrocc").trim().toLowerCase(),
     storeType: (body.storeType || "").trim() || undefined,
+    deptNumber: normalizeDeptToken(body.deptNumber),
+    rackRow: normalizeDeptToken(body.rackRow, 6).replace(/^R/, ""),
+    rackColumn: normalizeDeptToken(body.rackColumn, 6).replace(/^C/, ""),
     farmerName: body.farmerName?.trim() || body.farmerDetails?.name?.trim() || "",
     farmerLocation: body.farmerLocation?.trim() || body.farmerDetails?.location?.trim() || "",
     farmerImage: body.farmerImage?.trim() || body.farmerDetails?.farmerImage?.trim() || "",
@@ -668,6 +673,8 @@ export const getProducts = async (req, res) => {
       if (Number.isFinite(minPrice)) filter.discountedPrice.$gte = minPrice;
       if (Number.isFinite(maxPrice)) filter.discountedPrice.$lte = maxPrice;
     }
+
+    filter.$and = [...(filter.$and || []), storeProductScope(catalog)];
 
     let sort = { createdAt: -1, name: 1 };
     const sortParam = String(req.query.sort || "newest").trim();
@@ -1052,7 +1059,7 @@ export const getSimilarProducts = async (req, res) => {
     }
 
     const catalog = await loadNearestStoreCatalog(req.query);
-    const baseFilter = { isActive: true };
+    const baseFilter = { isActive: true, $and: [storeProductScope(catalog)] };
     const excludeIds = [product._id];
     const similar = [];
     const subcategories = getRelevantSubcategories(product);
@@ -1161,6 +1168,16 @@ const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => (
   varietyName: payload.varietyName || "",
   section: payload.section || "greengrocc",
   storeType: resolveStoreType(payload.section, payload.storeType),
+  deptNumber: payload.deptNumber || "",
+  rackRow: payload.rackRow || "",
+  rackColumn: payload.rackColumn || "",
+  departmentId: buildDepartmentId({
+    section: payload.section,
+    storeType: resolveStoreType(payload.section, payload.storeType),
+    deptNumber: payload.deptNumber,
+    rackRow: payload.rackRow,
+    rackColumn: payload.rackColumn,
+  }),
   farmerName: payload.farmerName || "",
   farmerLocation: payload.farmerLocation || "",
   farmerImage: payload.farmerImage || "",
@@ -1169,34 +1186,47 @@ const buildPersistedProductFields = (payload, pricingFields, categoryCheck) => (
   farmerDetails: payload.farmerDetails || {},
 });
 
-export const addProduct = async (req, res) => {
-  try {
-    const payload = buildProductPayload(req.body);
-    const requiredError = validateRequiredFields(payload);
+const productErrorResult = (error) => {
+  if (error.code === 11000 && error.keyPattern?.sku) {
+    return {
+      status: 400,
+      body: { success: false, message: "A product with this SKU already exists" },
+    };
+  }
+  if (error.name === "ValidationError") {
+    const message = Object.values(error.errors)
+      .map((err) => err.message)
+      .join(", ");
+    return { status: 400, body: { success: false, message } };
+  }
+  return { status: 500, body: { success: false, message: error.message } };
+};
 
-    if (requiredError) {
-      return res.status(400).json({ success: false, message: requiredError });
-    }
+const badRequest = (message) => ({ status: 400, body: { success: false, message } });
+
+/**
+ * Validate + create a product. Returns { status, body, product? }.
+ * `ownerManagerId` scopes the product to one dark store (Delivery Manager products).
+ */
+export async function createProductRecord(body, { ownerManagerId = null } = {}) {
+  try {
+    const payload = buildProductPayload(body);
+    const requiredError = validateRequiredFields(payload);
+    if (requiredError) return badRequest(requiredError);
 
     const categoryCheck = await validateCategoriesAndSubcategories(
       payload.categories,
       payload.subcategories?.length ? payload.subcategories : [payload.subcategory].filter(Boolean)
     );
-
-    if (!categoryCheck.valid) {
-      return res
-        .status(400)
-        .json({ success: false, message: categoryCheck.message });
-    }
+    if (!categoryCheck.valid) return badRequest(categoryCheck.message);
 
     const pricingFields = resolveProductPricing(payload);
-    if (pricingFields.error) {
-      return res.status(400).json({ success: false, message: pricingFields.error });
-    }
+    if (pricingFields.error) return badRequest(pricingFields.error);
 
-    const product = await Product.create(
-      buildPersistedProductFields(payload, pricingFields, categoryCheck)
-    );
+    const product = await Product.create({
+      ...buildPersistedProductFields(payload, pricingFields, categoryCheck),
+      ownerManagerId: ownerManagerId || null,
+    });
 
     // When creating a variety sibling, ensure the source product shares the same group id
     const groupId = String(payload.varietyGroupId || "").trim();
@@ -1210,189 +1240,176 @@ export const addProduct = async (req, res) => {
       );
     }
 
-    res.status(201).json({ success: true, data: product });
+    return { status: 201, body: { success: true, data: product }, product };
   } catch (error) {
-    if (error.code === 11000 && error.keyPattern?.sku) {
-      return res
-        .status(400)
-        .json({ success: false, message: "A product with this SKU already exists" });
-    }
-    if (error.name === "ValidationError") {
-      const message = Object.values(error.errors)
-        .map((err) => err.message)
-        .join(", ");
-      return res.status(400).json({ success: false, message });
-    }
-
-    res.status(500).json({ success: false, message: error.message });
+    return productErrorResult(error);
   }
+}
+
+export const addProduct = async (req, res) => {
+  const result = await createProductRecord(req.body);
+  res.status(result.status).json(result.body);
 };
 
 export const updateProduct = async (req, res) => {
-  try {
-    const existing = await Product.findById(req.params.id);
+  const result = await updateProductRecord(req.params.id, req.body);
+  res.status(result.status).json(result.body);
+};
 
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
+/**
+ * Validate + update a product. When `ownerManagerId` is given, only that manager's
+ * own products can be edited.
+ */
+export async function updateProductRecord(id, body = {}, { ownerManagerId = null } = {}) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return { status: 404, body: { success: false, message: "Product not found" } };
+    }
+    const existing = await Product.findById(id);
+
+    if (
+      !existing ||
+      (ownerManagerId && String(existing.ownerManagerId || "") !== String(ownerManagerId))
+    ) {
+      return { status: 404, body: { success: false, message: "Product not found" } };
     }
 
     const payload = buildProductPayload({
-      name: req.body.name ?? existing.name,
-      categories: req.body.categories ?? existing.categories,
-      categoryName: req.body.categoryName,
-      category: req.body.category,
-      subcategory: req.body.subcategory ?? existing.subcategory,
-      subcategories: req.body.subcategories ?? existing.subcategories,
-      brandName: req.body.brandName ?? req.body.brand ?? existing.brandName,
-      variantType: req.body.variantType ?? existing.variantType,
-      variants: req.body.variants ?? existing.variants,
-      pricingType: req.body.pricingType ?? existing.pricingType,
-      bulkPricing: req.body.bulkPricing ?? existing.bulkPricing,
-      price: req.body.price ?? req.body.original_price ?? existing.price,
+      name: body.name ?? existing.name,
+      categories: body.categories ?? existing.categories,
+      categoryName: body.categoryName,
+      category: body.category,
+      subcategory: body.subcategory ?? existing.subcategory,
+      subcategories: body.subcategories ?? existing.subcategories,
+      brandName: body.brandName ?? body.brand ?? existing.brandName,
+      variantType: body.variantType ?? existing.variantType,
+      variants: body.variants ?? existing.variants,
+      pricingType: body.pricingType ?? existing.pricingType,
+      bulkPricing: body.bulkPricing ?? existing.bulkPricing,
+      price: body.price ?? body.original_price ?? existing.price,
       discountedPrice:
-        req.body.discountedPrice ??
-        req.body.discounted_price ??
+        body.discountedPrice ??
+        body.discounted_price ??
         existing.discountedPrice,
       discountedPercent:
-        req.body.discountedPercent ??
-        req.body.discount_percent ??
+        body.discountedPercent ??
+        body.discount_percent ??
         existing.discountedPercent,
-      ratings: req.body.ratings ?? existing.ratings,
-      stock: req.body.stock ?? existing.stock,
-      inStock: req.body.inStock ?? existing.inStock,
-      colors: req.body.colors ?? existing.colors,
+      ratings: body.ratings ?? existing.ratings,
+      stock: body.stock ?? existing.stock,
+      inStock: body.inStock ?? existing.inStock,
+      colors: body.colors ?? existing.colors,
       productImages:
-        req.body.productImages ?? req.body.images ?? existing.productImages,
+        body.productImages ?? body.images ?? existing.productImages,
       videoUrl:
-        req.body.videoUrl !== undefined
-          ? normalizeVideoUrl(req.body.videoUrl)
+        body.videoUrl !== undefined
+          ? normalizeVideoUrl(body.videoUrl)
           : existing.videoUrl,
-      description: req.body.description ?? existing.description,
-      features: req.body.features ?? existing.features,
-      specifications: req.body.specifications ?? existing.specifications,
-      warranty: req.body.warranty ?? existing.warranty,
-      isActive: req.body.isActive ?? existing.isActive,
+      description: body.description ?? existing.description,
+      features: body.features ?? existing.features,
+      specifications: body.specifications ?? existing.specifications,
+      warranty: body.warranty ?? existing.warranty,
+      isActive: body.isActive ?? existing.isActive,
       justArrived:
-        req.body.justArrived !== undefined
-          ? req.body.justArrived
+        body.justArrived !== undefined
+          ? body.justArrived
           : existing.justArrived,
       hotSelling:
-        req.body.hotSelling !== undefined
-          ? req.body.hotSelling
+        body.hotSelling !== undefined
+          ? body.hotSelling
           : existing.hotSelling,
-      sku: req.body.sku ?? existing.sku,
+      sku: body.sku ?? existing.sku,
       minOrderQuantity:
-        req.body.minOrderQuantity !== undefined
-          ? req.body.minOrderQuantity
+        body.minOrderQuantity !== undefined
+          ? body.minOrderQuantity
           : existing.minOrderQuantity,
       maxOrderQuantity:
-        req.body.maxOrderQuantity !== undefined
-          ? req.body.maxOrderQuantity
+        body.maxOrderQuantity !== undefined
+          ? body.maxOrderQuantity
           : existing.maxOrderQuantity,
       stepByQuantity:
-        req.body.stepByQuantity !== undefined
-          ? req.body.stepByQuantity
+        body.stepByQuantity !== undefined
+          ? body.stepByQuantity
           : existing.stepByQuantity,
       cardGlowColor:
-        req.body.cardGlowColor !== undefined
-          ? req.body.cardGlowColor
+        body.cardGlowColor !== undefined
+          ? body.cardGlowColor
           : existing.cardGlowColor,
       badge:
-        req.body.badge !== undefined
-          ? req.body.badge
+        body.badge !== undefined
+          ? body.badge
           : existing.badge,
       enableBulkGrades:
-        req.body.enableBulkGrades !== undefined
-          ? req.body.enableBulkGrades
+        body.enableBulkGrades !== undefined
+          ? body.enableBulkGrades
           : existing.enableBulkGrades,
       bulkGrades:
-        req.body.bulkGrades !== undefined
-          ? req.body.bulkGrades
+        body.bulkGrades !== undefined
+          ? body.bulkGrades
           : existing.bulkGrades,
-      unit: req.body.unit !== undefined ? req.body.unit : existing.unit,
+      unit: body.unit !== undefined ? body.unit : existing.unit,
       varietyGroupId:
-        req.body.varietyGroupId !== undefined
-          ? req.body.varietyGroupId
+        body.varietyGroupId !== undefined
+          ? body.varietyGroupId
           : existing.varietyGroupId,
       varietyName:
-        req.body.varietyName !== undefined
-          ? req.body.varietyName
+        body.varietyName !== undefined
+          ? body.varietyName
           : existing.varietyName,
       section:
-        req.body.section !== undefined
-          ? req.body.section
-          : req.body.department !== undefined
-            ? req.body.department
+        body.section !== undefined
+          ? body.section
+          : body.department !== undefined
+            ? body.department
             : existing.section,
       storeType:
-        req.body.storeType !== undefined ? req.body.storeType : existing.storeType,
+        body.storeType !== undefined ? body.storeType : existing.storeType,
       farmerName:
-        req.body.farmerName !== undefined ? req.body.farmerName : existing.farmerName,
+        body.farmerName !== undefined ? body.farmerName : existing.farmerName,
       farmerLocation:
-        req.body.farmerLocation !== undefined
-          ? req.body.farmerLocation
+        body.farmerLocation !== undefined
+          ? body.farmerLocation
           : existing.farmerLocation,
       farmerImage:
-        req.body.farmerImage !== undefined ? req.body.farmerImage : existing.farmerImage,
+        body.farmerImage !== undefined ? body.farmerImage : existing.farmerImage,
       farmImage:
-        req.body.farmImage !== undefined ? req.body.farmImage : existing.farmImage,
+        body.farmImage !== undefined ? body.farmImage : existing.farmImage,
       harvestingDate:
-        req.body.harvestingDate !== undefined
-          ? req.body.harvestingDate
+        body.harvestingDate !== undefined
+          ? body.harvestingDate
           : existing.harvestingDate,
       farmerDetails:
-        req.body.farmerDetails !== undefined
-          ? req.body.farmerDetails
+        body.farmerDetails !== undefined
+          ? body.farmerDetails
           : existing.farmerDetails,
+      deptNumber: body.deptNumber !== undefined ? body.deptNumber : existing.deptNumber,
+      rackRow: body.rackRow !== undefined ? body.rackRow : existing.rackRow,
+      rackColumn: body.rackColumn !== undefined ? body.rackColumn : existing.rackColumn,
     });
 
     const requiredError = validateRequiredFields(payload);
-
-    if (requiredError) {
-      return res.status(400).json({ success: false, message: requiredError });
-    }
+    if (requiredError) return badRequest(requiredError);
 
     const categoryCheck = await validateCategoriesAndSubcategories(
       payload.categories,
       payload.subcategories?.length ? payload.subcategories : [payload.subcategory].filter(Boolean)
     );
-
-    if (!categoryCheck.valid) {
-      return res
-        .status(400)
-        .json({ success: false, message: categoryCheck.message });
-    }
+    if (!categoryCheck.valid) return badRequest(categoryCheck.message);
 
     const pricingFields = resolveProductPricing(payload);
-    if (pricingFields.error) {
-      return res.status(400).json({ success: false, message: pricingFields.error });
-    }
+    if (pricingFields.error) return badRequest(pricingFields.error);
 
     const product = await Product.findByIdAndUpdate(
-      req.params.id,
+      id,
       buildPersistedProductFields(payload, pricingFields, categoryCheck),
       { new: true, runValidators: true }
     );
 
-    res.status(200).json({ success: true, data: product });
+    return { status: 200, body: { success: true, data: product }, product };
   } catch (error) {
-    if (error.code === 11000 && error.keyPattern?.sku) {
-      return res
-        .status(400)
-        .json({ success: false, message: "A product with this SKU already exists" });
-    }
-    if (error.name === "ValidationError") {
-      const message = Object.values(error.errors)
-        .map((err) => err.message)
-        .join(", ");
-      return res.status(400).json({ success: false, message });
-    }
-
-    res.status(500).json({ success: false, message: error.message });
+    return productErrorResult(error);
   }
-};
+}
 
 export const deleteProduct = async (req, res) => {
   try {

@@ -34,6 +34,7 @@ class NotificationService {
   void Function(PushNotificationPayload payload)? onForegroundMessage;
 
   bool _initialized = false;
+  bool _permissionRequested = false;
   String? _cachedToken;
 
   Future<void> initialize() async {
@@ -65,7 +66,12 @@ class NotificationService {
     _initialized = true;
   }
 
+  /// Prompts at most once per app session. The system prompt pauses/resumes
+  /// the app, so prompting again on resume would loop forever when denied.
   Future<void> requestPermission() async {
+    if (_permissionRequested) return;
+    _permissionRequested = true;
+
     final androidPlugin = _localNotifications
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();

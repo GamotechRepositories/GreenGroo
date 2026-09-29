@@ -116,6 +116,7 @@ export const createRazorpayOrder = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      fulfillmentType: req.body.fulfillmentType,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -145,6 +146,7 @@ export const createRazorpayOrder = async (req, res) => {
         cart: result.cart,
         checkoutMode: result.checkoutMode,
         preOrderSlot: slotCheck.preOrderSlot,
+        fulfillmentType: result.fulfillmentType,
       },
       paymentMode === "cod_advance" ? "cod" : "online"
     );
@@ -246,6 +248,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      fulfillmentType: req.body.fulfillmentType,
     });
 
     if (result.error) {
@@ -297,6 +300,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       message: orderMessage,
       attemptedOrderId,
       preOrderSlot,
+      fulfillmentType: result.fulfillmentType,
     });
 
     void notifyOrderCreated(order, {
@@ -372,6 +376,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       rewardPointsToUse,
       giftCardCode,
       customerLocation,
+      fulfillmentType: req.body.fulfillmentType,
     });
     if (result.error) {
       return res.status(result.status).json({
@@ -411,6 +416,7 @@ export const submitUpiPaymentProof = async (req, res) => {
       message: orderMessage,
       attemptedOrderId,
       preOrderSlot,
+      fulfillmentType: result.fulfillmentType,
     });
 
     void notifyOrderCreated(order, {

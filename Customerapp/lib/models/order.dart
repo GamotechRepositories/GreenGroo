@@ -1,4 +1,5 @@
 import 'address.dart';
+import 'dark_store.dart';
 import '../core/utils/json_parsers.dart';
 
 class OrderShipment {
@@ -200,6 +201,11 @@ class Order {
     this.couponDiscount = 0,
     this.giftHamper,
     this.deliveryOtp = '',
+    this.fulfillmentType = 'delivery',
+    this.preOrderSlot = '',
+    this.preOrderDate = '',
+    this.darkStore,
+    this.storeParts = const [],
   });
 
   final String id;
@@ -226,6 +232,16 @@ class Order {
   final OrderGiftHamper? giftHamper;
   /// 4-digit code customer shares with rider to complete delivery.
   final String deliveryOtp;
+  /// "delivery" or "pickup" (customer collects from the dark store)
+  final String fulfillmentType;
+  final String preOrderSlot;
+  final String preOrderDate;
+  /// Dark store fulfilling this order (name, address, manager phone)
+  final DarkStore? darkStore;
+  /// Store-side parts; a mixed cart has a quick part and a pre-order part.
+  final List<OrderStorePart> storeParts;
+
+  bool get isPickup => fulfillmentType == 'pickup';
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final addressJson = json['deliveryAddress'];
@@ -284,6 +300,42 @@ class Order {
           ? OrderGiftHamper.fromJson(json['giftHamper'] as Map<String, dynamic>)
           : null,
       deliveryOtp: (json['deliveryOtp'] ?? json['otpCode'])?.toString() ?? '',
+      fulfillmentType: json['fulfillmentType']?.toString() == 'pickup' ? 'pickup' : 'delivery',
+      preOrderSlot: json['preOrderSlot']?.toString() ?? '',
+      preOrderDate: json['preOrderDate']?.toString() ?? '',
+      darkStore: json['darkStore'] is Map<String, dynamic>
+          ? DarkStore.fromJson(json['darkStore'] as Map<String, dynamic>)
+          : null,
+      storeParts: (json['storeParts'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(OrderStorePart.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class OrderStorePart {
+  const OrderStorePart({
+    required this.orderNumber,
+    required this.status,
+    this.isPreOrder = false,
+    this.preOrderSlot = '',
+    this.preOrderDate = '',
+  });
+
+  final String orderNumber;
+  final String status;
+  final bool isPreOrder;
+  final String preOrderSlot;
+  final String preOrderDate;
+
+  factory OrderStorePart.fromJson(Map<String, dynamic> json) {
+    return OrderStorePart(
+      orderNumber: json['orderNumber']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      isPreOrder: json['isPreOrder'] == true,
+      preOrderSlot: json['preOrderSlot']?.toString() ?? '',
+      preOrderDate: json['preOrderDate']?.toString() ?? '',
     );
   }
 }

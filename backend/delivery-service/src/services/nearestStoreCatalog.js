@@ -1,7 +1,8 @@
 import StoreInventory from "../models/StoreInventory.js";
 import Product from "../../../legacy/models/Product.js";
-import { resolveDarkStoreForAddress } from "./darkStoreResolver.js";
-import { ensureStoreCatalogProducts } from "./ensureStoreCatalogProducts.js";
+import { resolveDarkStoreForOrder } from "./darkStoreResolver.js";
+import { sectionToDepartment } from "../../../legacy/utils/departmentHelpers.js";
+import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
 
 const escapeRegex = (value) =>
   String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -59,12 +60,20 @@ export function hasLocationHint(address = {}) {
 
 export function storePublicPayload(manager, extra = {}) {
   if (!manager) return null;
+  const storeName = manager.storeName || `${manager.area || "Dark"} Store`;
   return {
     id: manager._id?.toString?.() || manager.id,
-    storeName: manager.storeName || `${manager.area || "Dark"} Store`,
+    storeName,
     area: manager.area || "",
     city: manager.city || "",
     state: manager.state || "",
+    pincode: manager.pincode || "",
+    phone: manager.phone || "",
+    address:
+      manager.storeAddress ||
+      [storeName, manager.area, manager.city, manager.state, manager.pincode]
+        .filter(Boolean)
+        .join(", "),
     latitude: manager.latitude,
     longitude: manager.longitude,
     ...extra,
@@ -134,9 +143,15 @@ export function matchProductToItem(product, items) {
   const sku = String(product?.sku || "").trim().toUpperCase();
   const productName = norm(product?.name);
 
+  if (sku) {
+    const exact = items.find((item) => String(item.sku || "").trim().toUpperCase() === sku);
+    if (exact) return exact;
+  }
+  // Store-owned products always have their own inventory row; a name match would
+  // borrow another item's stock and price.
+  if (product?.ownerManagerId) return null;
+
   for (const item of items) {
-    const itemSku = String(item.sku || "").trim().toUpperCase();
-    if (sku && itemSku && sku === itemSku) return item;
     const itemName = norm(item.name);
     if (!itemName || !productName) continue;
     if (nameOccurs(productName, itemName)) return item;
@@ -266,12 +281,27 @@ export function attachStoreAvailability(products, catalog) {
 }
 
 export async function loadNearestStoreCatalog(query = {}) {
-  await ensureStoreCatalogProducts();
-
   const address = addressFromQuery(query);
   const needsLocation = !hasLocationHint(address);
+  const pickup = String(query.fulfillment || "").trim().toLowerCase() === "pickup";
 
-  const resolved = await resolveDarkStoreForAddress(address);
+  if (pickup && !needsLocation && address.lat == null) {
+    const text = [address.fullAddress, address.area, address.city, address.pincode]
+      .filter(Boolean)
+      .join(", ");
+    const coords = await geocodeAddressString(text).catch(() => null);
+    if (coords) {
+      address.lat = coords.lat;
+      address.lng = coords.lng;
+      address.location = coords;
+    }
+  }
+
+  const department = sectionToDepartment(query.section, query.storeType);
+  const resolved = await resolveDarkStoreForOrder(address, {
+    allowPincodeFallback: department === "preorder",
+    anyDistance: pickup,
+  });
   const manager = resolved.manager;
   if (!manager) {
     return {
@@ -308,6 +338,19 @@ export async function loadNearestStoreCatalog(query = {}) {
     productMatch: null,
     reason: resolved.reason,
   };
+}
+
+/**
+ * Products a customer may see. With a resolved dark store: that store's own
+ * products plus admin products it stocks. Without one: the admin catalog only.
+ */
+export function storeProductScope(catalog) {
+  const manager = catalog?.manager;
+  if (!manager) return { ownerManagerId: null };
+  const items = Array.isArray(catalog.items) ? catalog.items : [];
+  const carried = [{ ownerManagerId: manager._id }];
+  if (items.length) carried.push({ ownerManagerId: null, ...mongoMatchForInventory(items) });
+  return { $or: carried };
 }
 
 export function mergeStoreFilter(baseFilter, _catalog) {

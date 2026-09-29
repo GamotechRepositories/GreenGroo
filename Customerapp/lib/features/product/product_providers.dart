@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/app_providers.dart';
+import '../../core/providers/location_provider.dart';
 import '../../models/product.dart';
 
 final productListProvider =
     FutureProvider.family<List<Product>, ProductQuery>((ref, query) async {
+  ref.watch(deliveryLocationKeyProvider);
   final params = <String, dynamic>{'limit': 50};
   if (query.categoryName != null && query.categoryName!.isNotEmpty) {
     params['categoryName'] = query.categoryName;
@@ -28,11 +30,13 @@ final productListProvider =
 
 final productDetailProvider =
     FutureProvider.family<Product, String>((ref, id) async {
+  ref.watch(deliveryLocationKeyProvider);
   return ref.read(apiServiceProvider).fetchProductById(id);
 });
 
 final similarProductsProvider =
     FutureProvider.family<List<Product>, String>((ref, productId) async {
+  ref.watch(deliveryLocationKeyProvider);
   if (productId.trim().isEmpty) return [];
   return ref.read(apiServiceProvider).fetchSimilarProducts(productId);
 });

@@ -18,7 +18,7 @@ async function main() {
   for (const manager of managers) {
     const result = await seedManagerStore(manager);
     console.log(
-      `${manager.email} (${manager.area}): +${result.inventoryCreated} products, +${result.ordersCreated} orders`
+      `${manager.email} (${manager.area}): +${result.productsCreated} products, +${result.inventoryCreated} inventory rows`
     );
   }
 

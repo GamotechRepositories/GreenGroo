@@ -15,7 +15,21 @@ import {
   placeOrder,
   getMyRewardPoints,
   getRewardSettings,
+  getNearestStore,
 } from "../api/api";
+import {
+  DEPARTMENT,
+  FULFILLMENT,
+  departmentEtaText,
+  departmentForItem,
+  groupItemsByDepartment,
+  nearestStoreParams,
+} from "../utils/departments";
+import {
+  DarkStoreCard,
+  DepartmentGroupHeader,
+  FulfillmentChoice,
+} from "../components/checkout/CheckoutFulfillment";
 import { loadRazorpayScript, openRazorpayCheckout } from "../utils/razorpay";
 import AddressForm, { ADDRESS_FORM_FIELDS } from "../components/address/AddressForm";
 import RewardPointsModal from "../components/rewards/RewardPointsModal";
@@ -371,6 +385,7 @@ function Checkout() {
   const [orderError, setOrderError] = useState("");
   const [bootstrapping, setBootstrapping] = useState(true);
   const [orderSuccessNote, setOrderSuccessNote] = useState("");
+  const [orderStore, setOrderStore] = useState(null);
   const [message, setMessage] = useState("");
   const [storeSettings, setStoreSettings] = useState(null);
   const [attemptedOrderId, setAttemptedOrderId] = useState(null);
@@ -383,17 +398,27 @@ function Checkout() {
   const [giftCardError, setGiftCardError] = useState("");
   const [applyingGiftCard, setApplyingGiftCard] = useState(false);
 
-  const hasPreOrderItems = useMemo(() => {
-    return checkoutItems.some(item => {
-      const slug = (item.section?.slug || item.section || "").toLowerCase();
-      const storeType = (item.storeType || "").toLowerCase();
-      return slug === "greengrocc" || slug === "preorder" || slug === "main" || storeType === "main" || item.section?.name?.toLowerCase() === "preorder";
-    });
-  }, [checkoutItems]);
-  const [selectedPreOrderSlot, setSelectedPreOrderSlot] = useState("");
+  const departmentGroups = useMemo(() => groupItemsByDepartment(checkoutItems), [checkoutItems]);
+  const hasPreOrderItems = useMemo(
+    () => checkoutItems.some((item) => departmentForItem(item) === DEPARTMENT.PREORDER),
+    [checkoutItems]
+  );
+  const hasNowItems = useMemo(
+    () => checkoutItems.some((item) => departmentForItem(item) !== DEPARTMENT.PREORDER),
+    [checkoutItems]
+  );
+  const [pickedPreOrderSlot, setSelectedPreOrderSlot] = useState("");
   const preOrderSlots = useMemo(() => {
     return storeSettings?.preOrderSlots?.filter(s => s.isActive) || [];
   }, [storeSettings]);
+  const cartPreOrderSlot = useMemo(() => {
+    const fromCart = checkoutItems.map((item) => item.preOrderSlot).find(Boolean) || "";
+    return preOrderSlots.some((s) => `${s.startTime} - ${s.endTime}` === fromCart) ? fromCart : "";
+  }, [checkoutItems, preOrderSlots]);
+  const selectedPreOrderSlot = pickedPreOrderSlot || cartPreOrderSlot;
+  const [fulfillment, setFulfillment] = useState(FULFILLMENT.DELIVERY);
+  const isPickup = fulfillment === FULFILLMENT.PICKUP;
+  const [storeLookup, setStoreLookup] = useState({ key: "", store: null });
 
   // Reward Points state
   const [rewardSettings, setRewardSettings] = useState(null);
@@ -424,9 +449,40 @@ function Checkout() {
         couponCode: appliedCoupon?.code || "",
         giftCardCode: appliedGiftCard?.code || "",
         rewardPointsToUse: useRewards ? rewardPointsInput : 0,
+        fulfillment,
+        preOrderSlot: selectedPreOrderSlot,
       }),
-    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon, appliedGiftCard, useRewards, rewardPointsInput]
+    [selectedAddressId, paymentMethod, paymentPlan, checkoutItems, appliedCoupon, appliedGiftCard, useRewards, rewardPointsInput, fulfillment, selectedPreOrderSlot]
   );
+
+  const storeParams = useMemo(
+    () =>
+      nearestStoreParams(addresses.find((addr) => addr._id === selectedAddressId) || null, {
+        hasNowItems,
+        fulfillment,
+      }),
+    [addresses, selectedAddressId, hasNowItems, fulfillment]
+  );
+  const storeKey = JSON.stringify(storeParams);
+  const darkStoreLoading = storeLookup.key !== storeKey;
+  const darkStore = darkStoreLoading ? null : storeLookup.store;
+
+  useEffect(() => {
+    if (addressesLoading || checkoutItems.length === 0) return undefined;
+    let active = true;
+    getNearestStore(storeParams)
+      .then(({ data }) => {
+        if (!active) return;
+        const body = data?.data && typeof data.data === "object" ? data.data : data;
+        setStoreLookup({ key: storeKey, store: body?.store || null });
+      })
+      .catch(() => {
+        if (active) setStoreLookup({ key: storeKey, store: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [storeParams, storeKey, addressesLoading, checkoutItems.length]);
 
   useEffect(() => {
     messageRef.current = message;
@@ -512,7 +568,7 @@ function Checkout() {
     Math.max(0, subtotalAfterCoupon - rewardDiscount)
   );
   const discountedSubtotal = Math.max(0, subtotalAfterCoupon - rewardDiscount - giftCardDiscount);
-  const deliveryCharges = calculateShippingCharge(subtotal, storeSettings);
+  const deliveryCharges = isPickup ? 0 : calculateShippingCharge(subtotal, storeSettings);
   const { total: orderTotal } = calculateOrderTotal(discountedSubtotal, deliveryCharges);
   const payableNow = calculatePayableAmount(orderTotal, paymentPlan);
   const balanceOnDelivery = Math.max(0, Math.round((orderTotal - payableNow) * 100) / 100);
@@ -637,6 +693,7 @@ function Checkout() {
         rewardPointsToUse: rewardPointsToUseRef.current || undefined,
         customerLocation: checkoutCustomerLocation(),
         preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
+        fulfillmentType: fulfillment,
       });
       const orderId = data?.data?._id;
       if (orderId) {
@@ -661,6 +718,7 @@ function Checkout() {
     isBuyNow,
     hasPreOrderItems,
     selectedPreOrderSlot,
+    fulfillment,
   ]);
 
   useEffect(() => {
@@ -770,8 +828,12 @@ function Checkout() {
 
   const completeOrderSuccess = async (note = "") => {
     setOrderSuccessNote(
-      note || "Your order has been placed and will be delivered soon."
+      note ||
+        (isPickup
+          ? "Your order has been placed. Collect it from the dark store with the OTP in My Orders."
+          : "Your order has been placed and will be delivered soon.")
     );
+    setOrderStore(isPickup ? darkStore : null);
     setOrderPlaced(true);
     clearBuyNowCheckout();
     resetCart();
@@ -798,6 +860,7 @@ function Checkout() {
       rewardPointsToUse: rewardPointsToUseRef.current || undefined,
       customerLocation: checkoutCustomerLocation(),
       preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
+        fulfillmentType: fulfillment,
     });
     const paymentData = data.data;
 
@@ -834,13 +897,14 @@ function Checkout() {
             rewardPointsToUse: rewardPointsToUseRef.current || undefined,
             customerLocation: checkoutCustomerLocation(),
             preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
+        fulfillmentType: fulfillment,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
           });
           await completeOrderSuccess(
             paymentMode === PAYMENT_PLAN.ADVANCE
-              ? "Order confirmed. 10% paid via Razorpay. Pay the balance on delivery."
+              ? `Order confirmed. 10% paid via Razorpay. Pay the balance ${isPickup ? "at pickup" : "on delivery"}.`
               : ""
           );
         } catch (err) {
@@ -861,6 +925,8 @@ function Checkout() {
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId || placingOrder || !minimumOrderMet) return;
+    if (hasPreOrderItems && !selectedPreOrderSlot) return;
+    if (isPickup && !darkStore) return;
     setOrderError("");
     setPlacingOrder(true);
     await loadCart();
@@ -881,9 +947,14 @@ function Checkout() {
           rewardPointsToUse: rewardPointsToUseRef.current || undefined,
           customerLocation: checkoutCustomerLocation(),
           preOrderSlot: hasPreOrderItems ? selectedPreOrderSlot : undefined,
+        fulfillmentType: fulfillment,
         });
 
-        await completeOrderSuccess("Order confirmed. Pay the full amount on delivery.");
+        await completeOrderSuccess(
+          isPickup
+            ? "Order confirmed. Pay at the store when you pick it up."
+            : "Order confirmed. Pay the full amount on delivery."
+        );
       } else {
         await handleRazorpayPayment();
       }
@@ -999,6 +1070,11 @@ function Checkout() {
             </div>
             <h3 className="mb-2 text-2xl font-bold text-text-primary">Order Confirmed! 🎉</h3>
             <p className="mb-6 text-sm leading-relaxed text-text-secondary">{orderSuccessNote}</p>
+            {orderStore ? (
+              <div className="mb-5 text-left">
+                <DarkStoreCard store={orderStore} />
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => navigate("/orders", { replace: true, state: { orderPlaced: true } })}
@@ -1138,10 +1214,30 @@ function Checkout() {
             <div className="grid items-start gap-3 sm:gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
               {/* Left column */}
               <div className="space-y-3 sm:space-y-4">
+                {/* Home delivery or store pickup */}
+                <StepSection
+                  title="How do you want your order?"
+                  stepNumber="1"
+                  icon="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"
+                >
+                  <FulfillmentChoice value={fulfillment} onChange={setFulfillment} />
+                  {isPickup ? (
+                    <div className="mt-3">
+                      <DarkStoreCard store={darkStore} loading={darkStoreLoading && !darkStore} />
+                    </div>
+                  ) : null}
+                  {hasPreOrderItems && hasNowItems ? (
+                    <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600 ring-1 ring-slate-100">
+                      Split order: pre-order items {isPickup ? "are ready" : "arrive"} at your booked slot,
+                      Ready2Cook / Instant items {isPickup ? "are ready" : "arrive"} in 10–20 minutes. One payment.
+                    </p>
+                  ) : null}
+                </StepSection>
+
                 {/* Address */}
                 <StepSection
-                  title="Delivery address"
-                  stepNumber="1"
+                  title={isPickup ? "Your details" : "Delivery address"}
+                  stepNumber="2"
                   icon="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z"
                 >
                   {addressesLoading ? (
@@ -1191,10 +1287,48 @@ function Checkout() {
                   )}
                 </StepSection>
 
+                {/* Pre-order slot */}
+                {hasPreOrderItems ? (
+                  <StepSection
+                    title={isPickup ? "Pre-order pickup slot (tomorrow)" : "Pre-order delivery slot (tomorrow)"}
+                    stepNumber="3"
+                    icon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  >
+                    <p className="mb-3 text-xs text-slate-500">
+                      Pre-order items are {isPickup ? "ready for pickup" : "delivered"} tomorrow. Pick a time slot:
+                    </p>
+                    {preOrderSlots.length === 0 ? (
+                      <p className="text-xs font-semibold text-red-600">No slots available right now.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {preOrderSlots.map((slot, i) => {
+                          const slotStr = `${slot.startTime} - ${slot.endTime}`;
+                          const isSelected = selectedPreOrderSlot === slotStr;
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setSelectedPreOrderSlot(slotStr)}
+                              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+                                isSelected
+                                  ? "border-emerald-500 bg-emerald-100/60 text-emerald-900 shadow-sm"
+                                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/80"
+                              }`}
+                            >
+                              {isSelected ? "✓ " : ""}
+                              {slotStr}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </StepSection>
+                ) : null}
+
                 {/* Payment */}
                 <StepSection
                   title="Payment"
-                  stepNumber="2"
+                  stepNumber={hasPreOrderItems ? "4" : "3"}
                   icon="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
                 >
                   <div className="space-y-2.5">
@@ -1216,8 +1350,10 @@ function Checkout() {
                       />
                       {PaymentIcons.cod}
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Pay on delivery</p>
-                        <p className="mt-0.5 text-xs text-slate-500">Cash or UPI when your order arrives</p>
+                        <p className="text-sm font-bold text-slate-900">{isPickup ? "Pay at store" : "Pay on delivery"}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {isPickup ? "Cash or UPI when you collect your order" : "Cash or UPI when your order arrives"}
+                        </p>
                       </div>
                     </label>
 
@@ -1283,8 +1419,8 @@ function Checkout() {
 
                 {/* Delivery instructions */}
                 <StepSection
-                  title="Delivery instructions"
-                  stepNumber="3"
+                  title={isPickup ? "Note for the store" : "Delivery instructions"}
+                  stepNumber={hasPreOrderItems ? "5" : "4"}
                   icon="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
                 >
                   <div className="relative">
@@ -1322,8 +1458,19 @@ function Checkout() {
                   </h2>
 
                   {/* Item list */}
-                  <ul className="mb-3 max-h-40 space-y-3 overflow-y-auto sm:mb-5 sm:max-h-56 sm:space-y-4">
-                    {checkoutItems.map((item) => (
+                  <div className="mb-3 max-h-72 space-y-3 overflow-y-auto sm:mb-5 sm:max-h-96">
+                  {departmentGroups.map((group) => (
+                  <div key={group.department}>
+                  <DepartmentGroupHeader
+                    department={group.department}
+                    itemCount={group.items.length}
+                    etaText={departmentEtaText(group.department, {
+                      pickup: isPickup,
+                      preOrderSlot: selectedPreOrderSlot,
+                    })}
+                  />
+                  <ul className="space-y-2">
+                    {group.items.map((item) => (
                       <li key={`${item.productId || item._id}-${item.variantName || "default"}-${item.colorName || "default"}`} className="flex items-center gap-3 rounded-lg p-1.5 transition-colors hover:bg-slate-50">
                         <div className="w-14 shrink-0 overflow-hidden rounded-lg border border-border-light transition-all hover:shadow-sm">
                           <ProductImageFrame
@@ -1343,6 +1490,9 @@ function Checkout() {
                       </li>
                     ))}
                   </ul>
+                  </div>
+                  ))}
+                  </div>
 
                   {/* Coupon / Gift card / Rewards */}
                   <div className="mb-3 border-b border-border-light pb-3 sm:mb-4">
@@ -1619,9 +1769,9 @@ function Checkout() {
                       </div>
                     ) : null}
                     <div className="flex justify-between text-text-secondary">
-                      <span>Delivery Charges</span>
-                      <span className="font-semibold text-text-primary">
-                        {formatPrice(deliveryCharges)}
+                      <span>{isPickup ? "Store pickup" : "Delivery Charges"}</span>
+                      <span className={`font-semibold ${isPickup ? "text-[#0C831F]" : "text-text-primary"}`}>
+                        {isPickup ? "FREE" : formatPrice(deliveryCharges)}
                       </span>
                     </div>
                     <div className="flex justify-between text-text-secondary">
@@ -1630,7 +1780,7 @@ function Checkout() {
                     </div>
                     {paymentPlan === PAYMENT_PLAN.ADVANCE ? (
                       <div className="flex justify-between text-text-secondary">
-                        <span>Balance on delivery</span>
+                        <span>{isPickup ? "Balance at pickup" : "Balance on delivery"}</span>
                         <span className="font-medium text-text-primary">
                           {formatPrice(balanceOnDelivery, 2)}
                         </span>
@@ -1673,51 +1823,16 @@ function Checkout() {
                     </div>
                   )}
 
-                  {/* PreOrder Slot Picker inline */}
-                  {hasPreOrderItems && (
-                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-                      <h3 className="mb-2 text-sm font-bold text-emerald-900 flex items-center gap-1.5">
-                        <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Pre-order Delivery Slot
-                      </h3>
-                      <p className="mb-3 text-xs text-emerald-700">
-                        Please select a delivery slot for your pre-order items.
-                      </p>
-                      {preOrderSlots.length === 0 ? (
-                        <p className="text-xs text-red-600 font-semibold">No slots available right now.</p>
-                      ) : (
-                        <div className="grid gap-2">
-                          {preOrderSlots.map((slot, i) => {
-                            const slotStr = `${slot.startTime} - ${slot.endTime}`;
-                            const isSelected = selectedPreOrderSlot === slotStr;
-                            return (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => setSelectedPreOrderSlot(slotStr)}
-                                className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-all ${
-                                  isSelected
-                                    ? "border-emerald-500 bg-emerald-100/50 shadow-sm"
-                                    : "border-emerald-200/60 bg-white hover:border-emerald-300 hover:bg-emerald-50/80"
-                                }`}
-                              >
-                                <span className={`font-semibold ${isSelected ? "text-emerald-900" : "text-emerald-800"}`}>
-                                  {slotStr}
-                                </span>
-                                {isSelected && (
-                                  <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {hasPreOrderItems && !selectedPreOrderSlot ? (
+                    <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800 ring-1 ring-amber-200/60">
+                      Choose a pre-order slot to continue.
+                    </p>
+                  ) : null}
+                  {isPickup && !darkStore && !darkStoreLoading ? (
+                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800 ring-1 ring-amber-200/60">
+                      No dark store found for pickup at this address.
+                    </p>
+                  ) : null}
 
                   {/* Error */}
                   {orderError && (
@@ -1729,7 +1844,13 @@ function Checkout() {
                   {/* Place order button */}
                   <button
                     type="button"
-                    disabled={!selectedAddressId || placingOrder || !minimumOrderMet || (hasPreOrderItems && !selectedPreOrderSlot)}
+                    disabled={
+                      !selectedAddressId ||
+                      placingOrder ||
+                      !minimumOrderMet ||
+                      (hasPreOrderItems && !selectedPreOrderSlot) ||
+                      (isPickup && !darkStore)
+                    }
                     onClick={handlePlaceOrder}
                     className="pulse-glow mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0C831F] to-[#16a34a] px-4 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none sm:mt-5"
                   >
@@ -1743,7 +1864,9 @@ function Checkout() {
                     {placingOrder
                       ? "Placing order…"
                       : paymentPlan === PAYMENT_PLAN.COD
-                        ? "Place order · Pay on delivery"
+                        ? isPickup
+                          ? "Place order · Pay at store"
+                          : "Place order · Pay on delivery"
                         : paymentPlan === PAYMENT_PLAN.ADVANCE
                         ? `Pay ${formatPrice(payableNow, 2)} now`
                         : `Pay ${formatPrice(orderTotal, 2)} now`}

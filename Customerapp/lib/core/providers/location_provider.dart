@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../models/address.dart';
 import '../../models/dark_store.dart';
 import 'app_providers.dart';
 
@@ -130,8 +131,83 @@ class LocationNotifier extends Notifier<DeliveryLocation?> {
 final deliveryLocationProvider =
     NotifierProvider<LocationNotifier, DeliveryLocation?>(LocationNotifier.new);
 
+/// Changes whenever the delivery location changes. Store-scoped providers
+/// (categories, products) watch it so they refetch for the new dark store.
+final deliveryLocationKeyProvider = Provider<String>(
+  (ref) => ref.watch(deliveryLocationProvider)?.locationKey ?? '',
+);
+
 final nearestStoreProvider = FutureProvider<NearestStoreResult>((ref) async {
   final location = ref.watch(deliveryLocationProvider);
   final api = ref.watch(apiServiceProvider);
   return api.fetchNearestStore(location?.toQueryParams());
+});
+
+/// Lookup key for [checkoutStoreProvider]. A record of primitives, so equal
+/// queries share one request.
+typedef CheckoutStoreQuery = ({
+  String section,
+  String fulfillment,
+  double? lat,
+  double? lng,
+  String city,
+  String area,
+  String pincode,
+  String address,
+});
+
+double? _coord(Map<String, dynamic>? location, List<String> keys) {
+  if (location == null) return null;
+  for (final key in keys) {
+    final value = double.tryParse(location[key]?.toString() ?? '');
+    if (value != null) return value;
+  }
+  return null;
+}
+
+/// Store lookup for the customer's chosen address (falls back to the header
+/// location when no address is saved yet).
+CheckoutStoreQuery checkoutStoreQuery({
+  required bool hasNowItems,
+  required String fulfillment,
+  Address? address,
+}) {
+  final text = address == null
+      ? ''
+      : [address.shopNo, address.fullAddress, address.landmark, address.area, address.city, address.state, address.pincode]
+          .where((part) => part.trim().isNotEmpty)
+          .join(', ');
+  return (
+    section: hasNowItems ? 'instantorder' : 'preorder',
+    fulfillment: fulfillment,
+    lat: _coord(address?.location, const ['lat', 'latitude']),
+    lng: _coord(address?.location, const ['lng', 'longitude']),
+    city: address?.city ?? '',
+    area: address?.area ?? '',
+    pincode: address?.pincode ?? '',
+    address: text,
+  );
+}
+
+/// Dark store that will fulfil the cart: a pure pre-order cart may use a same-pincode
+/// store, Ready2Cook / Instant need one within 3 km, and store pickup takes the nearest.
+final checkoutStoreProvider =
+    FutureProvider.family<NearestStoreResult, CheckoutStoreQuery>((ref, query) async {
+  final api = ref.watch(apiServiceProvider);
+  final hasAddress = query.address.isNotEmpty || query.lat != null;
+  final params = hasAddress
+      ? <String, dynamic>{
+          if (query.lat != null) 'lat': query.lat,
+          if (query.lng != null) 'lng': query.lng,
+          if (query.city.isNotEmpty) 'city': query.city,
+          if (query.area.isNotEmpty) 'area': query.area,
+          if (query.pincode.isNotEmpty) 'pincode': query.pincode,
+          if (query.address.isNotEmpty) 'address': query.address,
+        }
+      : {...?ref.watch(deliveryLocationProvider)?.toQueryParams()};
+  return api.fetchNearestStore({
+    ...params,
+    'section': query.section,
+    'fulfillment': query.fulfillment,
+  });
 });

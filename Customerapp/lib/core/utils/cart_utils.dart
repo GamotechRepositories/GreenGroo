@@ -1,5 +1,6 @@
 import '../../config/constants.dart';
 import '../../models/cart_item.dart';
+import 'department_utils.dart';
 
 class CartSummary {
   const CartSummary({
@@ -55,6 +56,31 @@ CartSummary applyCouponDiscount(CartSummary summary, double couponDiscount) {
     shippingFree: summary.shippingFree,
     savings: summary.savings,
   );
+}
+
+/// Store pickup has no delivery charge (mirrors backend `computeOrderPricing`).
+CartSummary applyStorePickup(CartSummary summary, {required bool pickup}) {
+  if (!pickup || summary.shipping <= 0) return summary;
+  return CartSummary(
+    subtotal: summary.subtotal,
+    shipping: 0,
+    total: summary.total - summary.shipping,
+    itemCount: summary.itemCount,
+    shippingFree: true,
+    savings: summary.savings,
+  );
+}
+
+/// Cart lines grouped by department, in Pre-order → Ready2Cook → Instant order.
+Map<String, List<CartItem>> groupCartByDepartment(List<CartItem> items) {
+  final groups = <String, List<CartItem>>{};
+  for (final item in items) {
+    groups.putIfAbsent(item.department, () => []).add(item);
+  }
+  return {
+    for (final dept in Department.ordered)
+      if (groups.containsKey(dept)) dept: groups[dept]!,
+  };
 }
 
 bool meetsMinimumOrder(double subtotal, double minimumOrderValue) {

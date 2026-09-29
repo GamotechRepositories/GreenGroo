@@ -1,5 +1,12 @@
 import mongoose from "mongoose";
 import { addressSnapshotSchema } from "../address/Address.js";
+import Product from "../Product.js";
+import {
+  DEPARTMENT_KEYS,
+  FULFILLMENT_TYPES,
+  collectDepartments,
+  sectionToDepartment,
+} from "../../utils/departmentHelpers.js";
 
 const orderItemSchema = new mongoose.Schema(
   {
@@ -15,6 +22,12 @@ const orderItemSchema = new mongoose.Schema(
     variantName: { type: String, default: "" },
     colorName: { type: String, default: "" },
     image: { type: String, default: "" },
+    department: {
+      type: String,
+      enum: ["", ...DEPARTMENT_KEYS],
+      default: "",
+    },
+    departmentId: { type: String, default: "" },
   },
   { _id: true }
 );
@@ -198,6 +211,19 @@ const orderSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    /** Departments present in this order (preorder / ready2cook / instant) */
+    departments: {
+      type: [{ type: String, enum: DEPARTMENT_KEYS }],
+      default: [],
+      index: true,
+    },
+    /** Home delivery by a rider, or the customer collects it from the dark store */
+    fulfillmentType: {
+      type: String,
+      enum: FULFILLMENT_TYPES,
+      default: "delivery",
+      index: true,
+    },
   },
 
   { timestamps: true }
@@ -220,7 +246,36 @@ orderSchema.pre("findOneAndUpdate", function setPaidOnDeliveredUpdate() {
   applyDeliveredPaymentRule(this.getUpdate());
 });
 
+/**
+ * Stamp each line with its product's department (preorder / ready2cook / instant).
+ * The pre-order slot only applies to the preorder lines of a mixed cart.
+ */
+async function stampDepartments(order) {
+  const items = order.items || [];
+  if (!items.length) return;
+  const ids = items.map((item) => item.product).filter(Boolean);
+  const products = await Product.find({ _id: { $in: ids } })
+    .select("section storeType departmentId")
+    .lean();
+  const byId = new Map(products.map((p) => [String(p._id), p]));
+
+  for (const item of items) {
+    const product = byId.get(String(item.product));
+    item.department = sectionToDepartment(product?.section, product?.storeType);
+    item.departmentId = product?.departmentId || item.departmentId || "";
+  }
+  order.departments = collectDepartments(items);
+}
+
 orderSchema.pre("save", async function preSaveOrder() {
+  if (
+    this.isModified("items") ||
+    this.isModified("preOrderSlot") ||
+    !this.departments?.length
+  ) {
+    await stampDepartments(this);
+  }
+
   if (this.isModified("status") && this.status === "delivered") {
     this.paymentStatus = "paid";
   }

@@ -30,7 +30,9 @@ class ApiClient {
           }
 
           final path = options.path;
-          if (path.contains('/api/products') || path.contains('/api/stores')) {
+          if (path.contains('/api/products') ||
+              path.contains('/api/stores') ||
+              path.contains('/api/categories')) {
             final locationParams = _locationGetter?.call()?.toQueryParams();
             if (locationParams != null && locationParams.isNotEmpty) {
               options.queryParameters = {

@@ -9,11 +9,14 @@ import '../../core/network/api_response_parser.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
+import '../../core/providers/location_provider.dart';
 import '../../core/utils/cart_utils.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/department_utils.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/cart/cart_controller.dart';
+import '../../features/checkout/checkout_fulfillment_widgets.dart';
 import '../../features/settings/store_settings_provider.dart';
 import '../../features/wishlist/wishlist_controller.dart';
 import '../../models/address.dart';
@@ -38,6 +41,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   bool _clearing = false;
   int _selectedInstructionIndex = -1;
   int _selectedDonationAmount = 0;
+  String _fulfillment = FulfillmentType.delivery;
+  String? _preOrderSlot;
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
 
@@ -49,6 +54,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.cart, _scrollController);
       ref.read(cartControllerProvider.notifier).loadCart(silent: true);
+      ref.read(storeSettingsProvider.notifier).refresh();
       final addresses = ref.read(addressControllerProvider);
       if (addresses.addresses.isEmpty && !addresses.loading) {
         ref.read(addressControllerProvider.notifier).loadAddresses();
@@ -182,10 +188,72 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       );
     }
 
-    final summary = calculateCartSummary(items);
+    final isPickup = _fulfillment == FulfillmentType.pickup;
+    final summary = applyStorePickup(calculateCartSummary(items), pickup: isPickup);
     final storeSettings = ref.watch(storeSettingsProvider).value;
     final addresses = ref.watch(addressControllerProvider.select((s) => s.addresses));
     final activeAddress = addresses.where((a) => a.isDefault).firstOrNull ?? addresses.firstOrNull;
+
+    final groups = groupCartByDepartment(items);
+    final hasPreOrder = groups.containsKey(Department.preorder);
+    final hasNowItems = groups.keys.any((dept) => dept != Department.preorder);
+    final slots = storeSettings?.activePreOrderSlots ?? const [];
+    final slotChosen = _preOrderSlot != null && slots.any((s) => s.label == _preOrderSlot);
+    final storeAsync = ref.watch(checkoutStoreProvider(checkoutStoreQuery(
+      hasNowItems: hasNowItems,
+      fulfillment: _fulfillment,
+      address: activeAddress,
+    )));
+    final darkStore = storeAsync.value?.store;
+
+    void proceedToPayment() {
+      String? problem;
+      if (hasPreOrder && !slotChosen) {
+        problem = 'Choose a pre-order delivery slot first';
+      } else if (isPickup && darkStore == null) {
+        problem = 'No dark store serves this location for pickup';
+      } else if (activeAddress == null) {
+        problem = 'Add your address to continue';
+      }
+      if (problem != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(problem), behavior: SnackBarBehavior.floating),
+        );
+        return;
+      }
+      final query = <String, String>{
+        'addressId': activeAddress!.id,
+        'fulfillment': _fulfillment,
+        if (hasPreOrder && _preOrderSlot != null) 'slot': _preOrderSlot!,
+      };
+      context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
+    }
+
+    Widget itemsCard(List<CartItem> groupItems) => _CartItemsCard(
+          items: groupItems,
+          onRemove: _confirmRemoveItem,
+          onMoveToWishlist: _moveToWishlist,
+          onDecrease: (item) async {
+            final nextQty = getDecreasedCartQuantityForCartItem(item);
+            if (nextQty <= 0) {
+              await _confirmRemoveItem(item);
+            } else {
+              await ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+                    productId: item.id,
+                    quantity: nextQty,
+                    variantName: item.variantName,
+                    colorName: item.colorName,
+                  );
+            }
+          },
+          onIncrease: (item) => ref.read(cartControllerProvider.notifier).updateCartLineQuantity(
+                productId: item.id,
+                quantity: item.quantity + item.quantityStep,
+                variantName: item.variantName,
+                colorName: item.colorName,
+              ),
+          onTapItem: (item) => context.push('/product/${item.id}'),
+        );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
@@ -214,41 +282,67 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 // 1. Delivery Speed Banner
                 _DeliverySpeedHeaderCard(
                   itemCount: summary.itemCount,
-                  deliveryTime: '14 minutes',
+                  title: isPickup
+                      ? 'Store pickup · no delivery fee'
+                      : hasNowItems
+                          ? 'Delivery in 10–20 minutes'
+                          : 'Pre-order · delivered tomorrow',
+                  note: hasPreOrder && hasNowItems
+                      ? 'Split order: pre-order items at your slot, the rest right away'
+                      : null,
                 ),
                 const SizedBox(height: 12),
 
-                // 2. Cart Items Container Card
-                _CartItemsCard(
-                  items: items,
-                  onRemove: _confirmRemoveItem,
-                  onMoveToWishlist: _moveToWishlist,
-                  onDecrease: (item) async {
-                    final nextQty = getDecreasedCartQuantityForCartItem(item);
-                    if (nextQty <= 0) {
-                      await _confirmRemoveItem(item);
-                    } else {
-                      await ref
-                          .read(cartControllerProvider.notifier)
-                          .updateCartLineQuantity(
-                            productId: item.id,
-                            quantity: nextQty,
-                            variantName: item.variantName,
-                            colorName: item.colorName,
-                          );
-                    }
-                  },
-                  onIncrease: (item) => ref
-                      .read(cartControllerProvider.notifier)
-                      .updateCartLineQuantity(
-                        productId: item.id,
-                        quantity: item.quantity + item.quantityStep,
-                        variantName: item.variantName,
-                        colorName: item.colorName,
+                // 2. Delivery or store pickup + dark store contact
+                _CartSection(
+                  title: 'How do you want your order?',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FulfillmentChoice(
+                        value: _fulfillment,
+                        onChanged: (value) => setState(() => _fulfillment = value),
                       ),
-                  onTapItem: (item) => context.push('/product/${item.id}'),
+                      if (isPickup) ...[
+                        const SizedBox(height: 12),
+                        DarkStoreContactCard(
+                          store: darkStore,
+                          pickup: true,
+                          loading: storeAsync.isLoading && darkStore == null,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
+
+                // 3. Pre-order slot (required when the cart has pre-order items)
+                if (hasPreOrder) ...[
+                  _CartSection(
+                    title: isPickup ? 'Pre-order pickup slot (tomorrow)' : 'Pre-order delivery slot (tomorrow)',
+                    child: PreOrderSlotPicker(
+                      slots: slots,
+                      selected: _preOrderSlot,
+                      onSelected: (label) => setState(() => _preOrderSlot = label),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // 4. Cart items, grouped by department
+                for (final entry in groups.entries) ...[
+                  DepartmentGroupHeader(
+                    department: entry.key,
+                    itemCount: entry.value.length,
+                    etaText: departmentEtaText(
+                      entry.key,
+                      pickup: isPickup,
+                      preOrderSlot: slotChosen ? _preOrderSlot : null,
+                    ),
+                  ),
+                  itemsCard(entry.value),
+                  const SizedBox(height: 12),
+                ],
 
                 // 3. Make this a Gift Banner
                 const _GiftingCard(),
@@ -263,7 +357,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ],
 
                 // 5. Bill Details Card with Total Savings Highlight
-                _BlinkitBillDetailsCard(summary: summary, items: items),
+                _BlinkitBillDetailsCard(summary: summary, items: items, pickup: isPickup),
                 const SizedBox(height: 12),
 
                 // 6. Add GSTIN Card
@@ -310,14 +404,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               addressText: activeAddress != null
                   ? activeAddress.fullAddress
                   : 'Add or choose a delivery address',
+              addressPrefix: isPickup
+                  ? 'Pickup from ${darkStore?.storeName ?? 'dark store'} ·'
+                  : 'Delivering to',
               onChangeAddress: () => showSelectDeliveryLocationBottomSheet(context, ref),
-              onProceed: () {
-                final query = <String, String>{
-                  if (activeAddress != null) 'addressId': activeAddress.id,
-                };
-                context.push(Uri(path: RoutePaths.payment, queryParameters: query).toString());
-              },
-              buttonText: 'Select Payment Method',
+              onProceed: proceedToPayment,
+              buttonText: hasPreOrder && !slotChosen ? 'Choose a pre-order slot' : 'Select Payment Method',
             ),
           ),
         ],
@@ -376,11 +468,13 @@ class _CartTopAppBar extends StatelessWidget {
 class _DeliverySpeedHeaderCard extends StatelessWidget {
   const _DeliverySpeedHeaderCard({
     required this.itemCount,
-    required this.deliveryTime,
+    required this.title,
+    this.note,
   });
 
   final int itemCount;
-  final String deliveryTime;
+  final String title;
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -417,7 +511,7 @@ class _DeliverySpeedHeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Free delivery in $deliveryTime',
+                  title,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -426,7 +520,7 @@ class _DeliverySpeedHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Shipment of $itemCount item${itemCount > 1 ? 's' : ''}',
+                  note ?? 'Shipment of $itemCount item${itemCount > 1 ? 's' : ''}',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -436,6 +530,46 @@ class _DeliverySpeedHeaderCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartSection extends StatelessWidget {
+  const _CartSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 12),
+          child,
         ],
       ),
     );
@@ -779,10 +913,12 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
   const _BlinkitBillDetailsCard({
     required this.summary,
     required this.items,
+    this.pickup = false,
   });
 
   final CartSummary summary;
   final List<CartItem> items;
+  final bool pickup;
 
   @override
   Widget build(BuildContext context) {
@@ -891,7 +1027,7 @@ class _BlinkitBillDetailsCard extends StatelessWidget {
                     const Icon(Icons.delivery_dining_outlined, size: 18, color: Color(0xFF4B5563)),
                     const SizedBox(width: 8),
                     Text(
-                      'Delivery charge',
+                      pickup ? 'Store pickup' : 'Delivery charge',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -1319,8 +1455,10 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
     required this.onChangeAddress,
     required this.onProceed,
     required this.buttonText,
+    this.addressPrefix = 'Delivering to',
   });
 
+  final String addressPrefix;
   final String addressLabel;
   final String addressText;
   final VoidCallback onChangeAddress;
@@ -1370,7 +1508,9 @@ class _BlinkitStickyBottomBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Delivering to $addressLabel',
+                      '$addressPrefix $addressLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
