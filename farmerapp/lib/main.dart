@@ -120,7 +120,7 @@ class _FarmerAppState extends State<FarmerApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'GreenGrocc Farmer',
+      title: 'Hritsetu',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       navigatorKey: rootNavigatorKey,
