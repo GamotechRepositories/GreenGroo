@@ -58,12 +58,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
           targetDate = null;
         }
 
-        var comparisons = service.getComparisons(date: targetDate);
-        String? fallbackDate;
-        if (comparisons.isEmpty && _selectedDateIndex == 0 && service.latestDate != null) {
-          fallbackDate = service.latestDate;
-          comparisons = service.getComparisons(date: fallbackDate);
-        }
+        final comparisons = service.getComparisons(date: targetDate);
 
         if (!_initialProductApplied && comparisons.isNotEmpty && widget.initialProduct != null && widget.initialProduct!.isNotEmpty) {
           _initialProductApplied = true;
@@ -240,16 +235,6 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
                       children: [
                         // Date selector
                         _buildDateRow(),
-                        if (fallbackDate != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            lang.tr(
-                              mr: 'आजचे दर अजून आलेले नाहीत — $fallbackDate चे ताजे दर दाखवत आहोत',
-                              en: "Today's rates are not added yet — showing latest rates from $fallbackDate",
-                            ),
-                            style: const TextStyle(fontSize: 10.5, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
-                          ),
-                        ],
                         const SizedBox(height: 12),
 
                         // Top Summary Card
@@ -992,6 +977,7 @@ class _MarketComparisonScreenState extends State<MarketComparisonScreen> {
             _customDate = picked;
             _selectedDateIndex = -1;
           });
+          MarketPriceService().fetchMarketPrices(date: picked.toIso8601String().substring(0, 10));
         }
       },
       borderRadius: BorderRadius.circular(16),

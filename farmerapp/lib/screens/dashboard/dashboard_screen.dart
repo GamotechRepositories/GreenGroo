@@ -2970,12 +2970,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
         }
 
         final service = MarketPriceService();
-        var comparisons = service.getComparisons(date: targetDate);
-        String? fallbackDate;
-        if (comparisons.isEmpty && _selectedDateIndex == 0 && service.latestDate != null) {
-          fallbackDate = service.latestDate;
-          comparisons = service.getComparisons(date: fallbackDate);
-        }
+        final comparisons = service.getComparisons(date: targetDate);
         if (comparisons.isEmpty && service.isLoading) {
           return _SkeletonShimmer(
             child: Container(
@@ -3121,16 +3116,6 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
 
               // Date Selector Row (आज, काल, २ दिवस आधी, तारीख निवडा, सर्व)
               _buildDateSelectorRow(),
-              if (fallbackDate != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  AppLanguage().tr(
-                    mr: 'आजचे दर अजून आलेले नाहीत — $fallbackDate चे ताजे दर',
-                    en: "Today's rates not added yet — latest rates from $fallbackDate",
-                  ),
-                  style: const TextStyle(fontSize: 10, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
-                ),
-              ],
 
               const SizedBox(height: 10),
 
@@ -3347,6 +3332,7 @@ class _MarketPriceComparisonDonutCardState extends State<_MarketPriceComparisonD
             _customDate = picked;
             _selectedDateIndex = -1;
           });
+          MarketPriceService().fetchMarketPrices(date: picked.toIso8601String().substring(0, 10));
         }
       },
       borderRadius: BorderRadius.circular(14),
