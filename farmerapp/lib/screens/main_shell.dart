@@ -15,6 +15,7 @@ import 'documents/documents_screen.dart';
 import 'profile/profile_screen.dart';
 import 'auth/login_screen.dart';
 import 'market/market_comparison_screen.dart';
+import 'inventory/inventory_screen.dart';
 import '../services/farmer_state.dart';
 import '../services/app_language.dart';
 
@@ -360,7 +361,18 @@ class FarmerSidebarDrawer extends StatelessWidget {
                             label: lang.tr(mr: 'उत्पादन तपशील', en: 'Product Details'),
                             onTap: () => _handleSelectTab(context, 1),
                           ),
+                          _subItem(
+                            label: lang.tr(mr: 'उपलब्ध साठा (Inventory)', en: 'Stock Inventory'),
+                            onTap: () => _handleNavigate(context, const InventoryScreen()),
+                          ),
                         ],
+                      ),
+
+                      // Inventory (साठा व्यवस्थापन)
+                      _drawerItem(
+                        icon: Icons.warehouse_rounded,
+                        label: lang.tr(mr: 'इन्व्हेंटरी (साठा)', en: 'Inventory & Stock'),
+                        onTap: () => _handleNavigate(context, const InventoryScreen()),
                       ),
 
                       // Orders Group

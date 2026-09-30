@@ -390,12 +390,12 @@ class ProductItem {
   String status; // Active, Draft, Paused, Published, Out of Stock
   final String imageUrl;
   final List<String> photos;
-  final double gradeAPrice;
-  final double gradeAQty;
-  final double gradeBPrice;
-  final double gradeBQty;
-  final double gradeCPrice;
-  final double gradeCQty;
+  double gradeAPrice;
+  double gradeAQty;
+  double gradeBPrice;
+  double gradeBQty;
+  double gradeCPrice;
+  double gradeCQty;
 
   ProductItem({
     String? id,
@@ -487,6 +487,60 @@ class ProductItem {
       stock = (json['availableQuantity'] is num) ? (json['availableQuantity'] as num).toDouble() : (double.tryParse(json['availableQuantity'].toString()) ?? 0.0);
     }
 
+    double gradeAQty = 0.0;
+    double gradeBQty = 0.0;
+    double gradeCQty = 0.0;
+    double gradeAPrice = 0.0;
+    double gradeBPrice = 0.0;
+    double gradeCPrice = 0.0;
+
+    if (json['gradeAQty'] != null) {
+      gradeAQty = (json['gradeAQty'] is num) ? (json['gradeAQty'] as num).toDouble() : (double.tryParse(json['gradeAQty'].toString()) ?? 0.0);
+    }
+    if (json['gradeBQty'] != null) {
+      gradeBQty = (json['gradeBQty'] is num) ? (json['gradeBQty'] as num).toDouble() : (double.tryParse(json['gradeBQty'].toString()) ?? 0.0);
+    }
+    if (json['gradeCQty'] != null) {
+      gradeCQty = (json['gradeCQty'] is num) ? (json['gradeCQty'] as num).toDouble() : (double.tryParse(json['gradeCQty'].toString()) ?? 0.0);
+    }
+    if (json['gradeAPrice'] != null) {
+      gradeAPrice = (json['gradeAPrice'] is num) ? (json['gradeAPrice'] as num).toDouble() : (double.tryParse(json['gradeAPrice'].toString()) ?? 0.0);
+    }
+    if (json['gradeBPrice'] != null) {
+      gradeBPrice = (json['gradeBPrice'] is num) ? (json['gradeBPrice'] as num).toDouble() : (double.tryParse(json['gradeBPrice'].toString()) ?? 0.0);
+    }
+    if (json['gradeCPrice'] != null) {
+      gradeCPrice = (json['gradeCPrice'] is num) ? (json['gradeCPrice'] as num).toDouble() : (double.tryParse(json['gradeCPrice'].toString()) ?? 0.0);
+    }
+
+    if (json['grades'] is List) {
+      for (final g in (json['grades'] as List)) {
+        if (g is Map) {
+          final gName = (g['label'] ?? g['grade'] ?? g['name'] ?? '').toString().toUpperCase();
+          final q = (g['quantity'] ?? g['qty'] ?? g['stock'] ?? 0);
+          final numQty = (q is num) ? q.toDouble() : (double.tryParse(q.toString()) ?? 0.0);
+          final p = (g['price'] ?? g['rate'] ?? g['pricePerKg'] ?? 0);
+          final numPrice = (p is num) ? p.toDouble() : (double.tryParse(p.toString()) ?? 0.0);
+
+          if (gName.contains('A')) {
+            if (numQty > 0 || gradeAQty == 0) gradeAQty = numQty;
+            if (numPrice > 0 || gradeAPrice == 0) gradeAPrice = numPrice;
+          } else if (gName.contains('B')) {
+            if (numQty > 0 || gradeBQty == 0) gradeBQty = numQty;
+            if (numPrice > 0 || gradeBPrice == 0) gradeBPrice = numPrice;
+          } else if (gName.contains('C')) {
+            if (numQty > 0 || gradeCQty == 0) gradeCQty = numQty;
+            if (numPrice > 0 || gradeCPrice == 0) gradeCPrice = numPrice;
+          }
+        }
+      }
+    }
+
+    final gradesSum = gradeAQty + gradeBQty + gradeCQty;
+    if (stock <= 0 && gradesSum > 0) {
+      stock = gradesSum;
+    }
+
     List<String> photoList = [];
     String mainImg = '';
     if (json['media'] is Map) {
@@ -557,6 +611,12 @@ class ProductItem {
       status: json['status']?.toString() ?? json['stockStatus']?.toString() ?? '',
       imageUrl: mainImg,
       photos: photoList,
+      gradeAPrice: gradeAPrice > 0 ? gradeAPrice : price,
+      gradeAQty: gradeAQty,
+      gradeBPrice: gradeBPrice,
+      gradeBQty: gradeBQty,
+      gradeCPrice: gradeCPrice,
+      gradeCQty: gradeCQty,
     );
   }
 }

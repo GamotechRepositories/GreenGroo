@@ -48,6 +48,7 @@ import ManagerInventoryHistoryPage from './pages/manager/ManagerInventoryHistory
 import ManagerOrdersPage from './pages/manager/ManagerOrdersPage'
 import ManagerCreateOrderPage from './pages/manager/ManagerCreateOrderPage'
 import ManagerOrderDetailPage from './pages/manager/ManagerOrderDetailPage'
+import OrderProductInventoryPage from './pages/manager/OrderProductInventoryPage'
 import ManagerEarningsPage from './pages/manager/ManagerEarningsPage'
 import ManagerEarningReportPage from './pages/manager/ManagerEarningReportPage'
 import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
@@ -136,6 +137,9 @@ function App() {
                 <Route path="/vendor/inventory/history" element={<ManagerInventoryHistoryPage />} />
                 <Route path="/vendor/orders" element={<ManagerOrdersPage mode="farmer" />} />
                 <Route path="/vendor/orders/farmer" element={<ManagerOrdersPage mode="farmer" />} />
+                <Route path="/vendor/orders/products" element={<ManagerOrdersPage mode="products" />} />
+                <Route path="/vendor/orders/by-product" element={<ManagerOrdersPage mode="products" />} />
+                <Route path="/vendor/orders/products/:productKey/inventory" element={<OrderProductInventoryPage />} />
                 <Route path="/vendor/orders/darkstore" element={<ManagerOrdersPage mode="darkstore" />} />
                 <Route path="/vendor/orders/create" element={<ManagerCreateOrderPage />} />
                 <Route path="/vendor/orders/detail/:orderId" element={<ManagerOrderDetailPage />} />

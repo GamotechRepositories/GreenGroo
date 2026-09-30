@@ -386,11 +386,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
       final grB = _grades.firstWhere((g) => g.grade == 'B', orElse: () => GradeRow(grade: 'B', quantity: '0', price: '0'));
       final grC = _grades.firstWhere((g) => g.grade == 'C', orElse: () => GradeRow(grade: 'C', quantity: '0', price: '0'));
 
-      final grAPrice = double.tryParse(grA.price) ?? 30.0;
+      final existingPrice = isEditing && widget.editingProduct != null ? widget.editingProduct!.pricePerUnit : 0.0;
+      final grAPrice = double.tryParse(grA.price) ?? existingPrice;
       final grAQty = double.tryParse(grA.quantity) ?? resolvedQty;
-      final grBPrice = double.tryParse(grB.price) ?? (grAPrice * 0.4);
+      final grBPrice = double.tryParse(grB.price) ?? (isEditing && widget.editingProduct != null ? widget.editingProduct!.gradeBPrice : 0.0);
       final grBQty = double.tryParse(grB.quantity) ?? 0.0;
-      final grCPrice = double.tryParse(grC.price) ?? 0.0;
+      final grCPrice = double.tryParse(grC.price) ?? (isEditing && widget.editingProduct != null ? widget.editingProduct!.gradeCPrice : 0.0);
       final grCQty = double.tryParse(grC.quantity) ?? 0.0;
 
       final status = publish ? 'Active' : 'Draft';

@@ -3,12 +3,14 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { vendorApi } from "../../api/vendorApi";
 import CopyId from "../../components/ui/CopyId";
 import {
+  extractProductGradeAndStock,
   formatProductId,
   isPendingProduct,
   matchesViewedProduct,
   productNameOf,
   productQty,
   productStatusClass,
+  summarizeProductRows,
 } from "../../utils/productList";
 
 const PANEL = "rounded-xl border border-gray-200 bg-white shadow-sm";
@@ -25,30 +27,11 @@ function harvestLabel(product) {
 }
 
 function listingGrades(product) {
-  const preferred = ["Grade A", "Grade B", "Grade C"];
-  const map = new Map();
-  const add = (label, qty) => {
-    const key = String(label || "").trim();
-    if (!key) return;
-    map.set(key, (map.get(key) || 0) + Number(qty || 0));
-  };
-  if (Array.isArray(product?.grades) && product.grades.length) {
-    product.grades.forEach((g) => add(g.label || g.name, g.quantity));
-  } else {
-    add("Grade A", product?.gradeAQty);
-    add("Grade B", product?.gradeBQty);
-    add("Grade C", product?.gradeCQty);
-  }
-  return [
-    ...preferred.map((label) => ({ label, quantity: map.get(label) || 0 })),
-    ...Array.from(map.entries())
-      .filter(([label]) => !preferred.includes(label))
-      .map(([label, quantity]) => ({ label, quantity })),
-  ];
+  return extractProductGradeAndStock(product).grades;
 }
 
 function GradesTable({ grades = [], unit = "Kg" }) {
-  const rows = (grades || []).filter((g) => g.label);
+  const rows = (grades || []).filter((g) => g.label && Number(g.quantity || 0) > 0);
   if (!rows.length) return null;
   return (
     <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB]">
@@ -217,38 +200,7 @@ export default function VendorProductFarmersPage() {
     const varieties = Array.from(new Set(rows.map((p) => String(p.variety || "").trim()).filter(Boolean)));
     const category = [primary?.category, primary?.subCategory].filter(Boolean).join(" · ") || "—";
     const unit = primary?.unit || "Kg";
-
-    const gradeTotals = new Map();
-    const addGrade = (label, qty) => {
-      const key = String(label || "").trim();
-      const n = Number(qty || 0);
-      if (!key) return;
-      gradeTotals.set(key, (gradeTotals.get(key) || 0) + n);
-    };
-
-    rows.forEach((p) => {
-      if (Array.isArray(p.grades) && p.grades.length) {
-        p.grades.forEach((g) => addGrade(g.label || g.name, g.quantity));
-      } else {
-        if (p.gradeAQty != null) addGrade("Grade A", p.gradeAQty);
-        if (p.gradeBQty != null) addGrade("Grade B", p.gradeBQty);
-        if (p.gradeCQty != null) addGrade("Grade C", p.gradeCQty);
-        if (!p.gradeAQty && !p.gradeBQty && !p.gradeCQty) {
-          addGrade("Total", productQty(p));
-        }
-      }
-    });
-
-    const preferred = ["Grade A", "Grade B", "Grade C"];
-    const orderedGrades = [
-      ...preferred.map((label) => ({ label, quantity: gradeTotals.get(label) || 0 })),
-      ...Array.from(gradeTotals.entries())
-        .filter(([label]) => !preferred.includes(label) && label !== "Total")
-        .map(([label, quantity]) => ({ label, quantity })),
-    ];
-
-    const gradesTotal = orderedGrades.reduce((sum, g) => sum + Number(g.quantity || 0), 0);
-    const totalQty = gradesTotal || rows.reduce((sum, p) => sum + productQty(p), 0);
+    const parsed = summarizeProductRows(rows);
 
     return {
       productId: formatProductId(primary || { productId, name: title }),
@@ -256,11 +208,23 @@ export default function VendorProductFarmersPage() {
       category,
       unit,
       farmers: rows.length,
-      totalQty,
-      grades: orderedGrades,
+      totalQty: parsed.totalQty,
+      gradeA: parsed.gradeA,
+      gradeB: parsed.gradeB,
+      gradeC: parsed.gradeC,
+      grades: parsed.grades,
       status: primary?.status || "Active",
     };
   }, [rows, primary, productId, title]);
+
+  const summaryGradeMap = useMemo(
+    () => new Map((summary?.grades || []).map((g) => [g.label, Number(g.quantity || 0)])),
+    [summary]
+  );
+  const summaryGradeA = summaryGradeMap.get("Grade A") || 0;
+  const summaryGradeB = summaryGradeMap.get("Grade B") || 0;
+  const summaryGradeC = summaryGradeMap.get("Grade C") || 0;
+  const extraGrades = (summary?.grades || []).filter((g) => !["Grade A", "Grade B", "Grade C"].includes(g.label));
 
   return (
     <div className="min-w-0 space-y-2 p-6">
@@ -294,14 +258,31 @@ export default function VendorProductFarmersPage() {
             <section className={PANEL}>
               <ProductSummaryMobile title={title} summary={summary} />
               <div className="hidden overflow-x-auto sm:block">
-                <table className="w-full min-w-[720px] text-xs">
+                <table className="w-full min-w-[760px] text-xs">
                   <thead>
                     <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                      {["Product", "Product ID", "Qty", ...(summary.grades || []).map((g) => g.label), "Status"].map((h) => (
-                        <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">
-                          {h}
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Product</th>
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Product ID</th>
+                      <th className="border-l border-[#D4D4D4] bg-[#D1FAE5]/60 px-3 py-2 text-center font-bold text-[#065F46]">
+                        Grade A
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#DBEAFE]/60 px-3 py-2 text-center font-bold text-[#1E40AF]">
+                        Grade B
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#FEF3C7]/60 px-3 py-2 text-center font-bold text-[#92400E]">
+                        Grade C
+                      </th>
+                      {extraGrades.map((g) => (
+                        <th key={g.label} className="border-l border-[#D4D4D4] bg-[#F3F4F6] px-3 py-2 text-center font-bold text-[#374151]">
+                          {g.label}
                         </th>
                       ))}
+                      <th className="border-l border-[#D4D4D4] bg-[#E8F5E9] px-3 py-2 text-right font-bold text-[#1F2937]">
+                        Total Qty
+                      </th>
+                      <th className="border-l border-[#D4D4D4] px-3 py-2 text-center font-semibold text-[#6B7280]">
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -315,15 +296,24 @@ export default function VendorProductFarmersPage() {
                       <td className="px-3 py-2">
                         <CopyId value={summary.productId} />
                       </td>
-                      <td className="px-3 py-2 font-semibold text-[#1F2937]">
-                        {Number(summary.totalQty || 0).toLocaleString("en-IN")} {summary.unit}
+                      <td className="border-l border-[#E5E7EB] bg-[#ECFDF5]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#065F46]">
+                        {summaryGradeA > 0 ? `${summaryGradeA.toLocaleString("en-IN")} ${summary.unit}` : "—"}
                       </td>
-                      {(summary.grades || []).map((g) => (
-                        <td key={g.label} className="px-3 py-2 font-semibold tabular-nums text-[#1F2937]">
-                          {Number(g.quantity || 0).toLocaleString("en-IN")} {summary.unit}
+                      <td className="border-l border-[#E5E7EB] bg-[#EFF6FF]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#1E40AF]">
+                        {summaryGradeB > 0 ? `${summaryGradeB.toLocaleString("en-IN")} ${summary.unit}` : "—"}
+                      </td>
+                      <td className="border-l border-[#E5E7EB] bg-[#FFFBEB]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#92400E]">
+                        {summaryGradeC > 0 ? `${summaryGradeC.toLocaleString("en-IN")} ${summary.unit}` : "—"}
+                      </td>
+                      {extraGrades.map((g) => (
+                        <td key={g.label} className="border-l border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-center font-semibold tabular-nums text-[#374151]">
+                          {Number(g.quantity || 0) > 0 ? `${Number(g.quantity).toLocaleString("en-IN")} ${summary.unit}` : "—"}
                         </td>
                       ))}
-                      <td className="px-3 py-2">
+                      <td className="border-l border-[#E5E7EB] bg-[#E8F5E9]/30 px-3 py-2 text-right font-bold tabular-nums text-[#1F2937]">
+                        {Number(summary.totalQty || 0).toLocaleString("en-IN")} {summary.unit}
+                      </td>
+                      <td className="border-l border-[#E5E7EB] px-3 py-2 text-center">
                         <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${productStatusClass(summary.status)}`}>
                           {summary.status}
                         </span>
@@ -362,15 +352,34 @@ export default function VendorProductFarmersPage() {
                 <p className="border-b border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#1F2937]">
                   Farmers ({rows.length})
                 </p>
-                <table className="w-full min-w-[640px] text-xs">
+                <table className="w-full min-w-[760px] text-xs">
                   <thead>
                     <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                      {["Farmer", "Variety", "Product ID", "Qty", "Harvest", "Status"].map((h) => (
-                        <th key={h} className="px-3 py-1.5 font-semibold text-[#6B7280]">
-                          {h}
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Farmer</th>
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Variety</th>
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Product ID</th>
+                      <th className="border-l border-[#D4D4D4] bg-[#D1FAE5]/60 px-3 py-2 text-center font-bold text-[#065F46]">
+                        Grade A
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#DBEAFE]/60 px-3 py-2 text-center font-bold text-[#1E40AF]">
+                        Grade B
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#FEF3C7]/60 px-3 py-2 text-center font-bold text-[#92400E]">
+                        Grade C
+                      </th>
+                      {extraGrades.map((g) => (
+                        <th key={g.label} className="border-l border-[#D4D4D4] bg-[#F3F4F6] px-3 py-2 text-center font-bold text-[#374151]">
+                          {g.label}
                         </th>
                       ))}
-                      <th className="px-3 py-1.5 text-right font-semibold text-[#6B7280]">Action</th>
+                      <th className="border-l border-[#D4D4D4] bg-[#E8F5E9] px-3 py-2 text-right font-bold text-[#1F2937]">
+                        Total Qty
+                      </th>
+                      <th className="border-l border-[#D4D4D4] px-3 py-2 font-semibold text-[#6B7280]">Harvest</th>
+                      <th className="border-l border-[#D4D4D4] px-3 py-2 text-center font-semibold text-[#6B7280]">Status</th>
+                      <th className="sticky right-0 z-10 border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -378,12 +387,20 @@ export default function VendorProductFarmersPage() {
                       const farmerId = p.farmerId || "";
                       const id = p.id || p.productId;
                       const canReview = isPendingProduct(p.status);
+                      const unit = p.unit || "Kg";
+                      const parsed = extractProductGradeAndStock(p);
+                      const gA = parsed.gradeA;
+                      const gB = parsed.gradeB;
+                      const gC = parsed.gradeC;
+                      const total = parsed.totalStock;
+                      const gMap = parsed.gradeMap;
+
                       return (
                         <tr
                           key={`${farmerId}-${p.id || p.productId}`}
                           className="border-b border-[#E5E7EB] last:border-0 hover:bg-[#F9FAFB]"
                         >
-                          <td className="px-3 py-1.5">
+                          <td className="px-3 py-2">
                             {farmerId ? (
                               <Link
                                 to={`/vendor/all-farmers/${farmerId}`}
@@ -395,20 +412,37 @@ export default function VendorProductFarmersPage() {
                               <span className="font-semibold text-[#1F2937]">{p.farmerLabel}</span>
                             )}
                           </td>
-                          <td className="px-3 py-1.5 text-[#374151]">{p.variety || "—"}</td>
-                          <td className="px-3 py-1.5">
+                          <td className="px-3 py-2 text-[#374151]">{p.variety || "—"}</td>
+                          <td className="px-3 py-2">
                             <CopyId value={formatProductId(p)} />
                           </td>
-                          <td className="px-3 py-1.5 font-semibold text-[#1F2937]">
-                            {productQty(p).toLocaleString("en-IN")} {p.unit || "Kg"}
+                          <td className="border-l border-[#E5E7EB] bg-[#ECFDF5]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#065F46]">
+                            {gA > 0 ? `${gA.toLocaleString("en-IN")} ${unit}` : "—"}
                           </td>
-                          <td className="px-3 py-1.5 text-[#6B7280]">{harvestLabel(p)}</td>
-                          <td className="px-3 py-1.5">
+                          <td className="border-l border-[#E5E7EB] bg-[#EFF6FF]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#1E40AF]">
+                            {gB > 0 ? `${gB.toLocaleString("en-IN")} ${unit}` : "—"}
+                          </td>
+                          <td className="border-l border-[#E5E7EB] bg-[#FFFBEB]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#92400E]">
+                            {gC > 0 ? `${gC.toLocaleString("en-IN")} ${unit}` : "—"}
+                          </td>
+                          {extraGrades.map((g) => {
+                            const val = gMap.get(g.label) || 0;
+                            return (
+                              <td key={g.label} className="border-l border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-center font-semibold tabular-nums text-[#374151]">
+                                {val > 0 ? `${val.toLocaleString("en-IN")} ${unit}` : "—"}
+                              </td>
+                            );
+                          })}
+                          <td className="border-l border-[#E5E7EB] bg-[#E8F5E9]/30 px-3 py-2 text-right font-bold tabular-nums text-[#1F2937]">
+                            {total.toLocaleString("en-IN")} {unit}
+                          </td>
+                          <td className="border-l border-[#E5E7EB] px-3 py-2 text-[#6B7280]">{harvestLabel(p)}</td>
+                          <td className="border-l border-[#E5E7EB] px-3 py-2 text-center">
                             <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${productStatusClass(p.status)}`}>
                               {p.status || "Active"}
                             </span>
                           </td>
-                          <td className="px-3 py-1.5 text-right">
+                          <td className="sticky right-0 z-10 whitespace-nowrap border-l border-[#D4D4D4] bg-white px-3 py-2 text-right">
                             {canReview ? (
                               <div className="flex flex-nowrap items-center justify-end gap-1">
                                 <button type="button" disabled={busyId === id} onClick={() => handleReview(p, "approved")} className={APPROVE_BTN}>

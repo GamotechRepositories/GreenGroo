@@ -572,15 +572,47 @@ export default function ManagerCreateOrderPage() {
                 </div>
               </div>
               {grades.some((g) => Number(g.available) > 0) ? (
-                <p className="mt-2 text-[11px] text-[#6B7280]">
-                  Grade stock:{" "}
-                  <span className="font-semibold text-[#1F2937]">
+                <div className="mt-2.5">
+                  <p className="mb-1.5 text-[10px] font-semibold text-[#6B7280]">Available Stock by Grade</p>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
                     {grades
                       .filter((g) => Number(g.available) > 0)
-                      .map((g) => `${g.name} ${Number(g.available).toLocaleString("en-IN")} ${productUnit}`)
-                      .join(" · ")}
-                  </span>
-                </p>
+                      .map((g) => {
+                        const name = String(g.name || "").trim();
+                        const isA = /grade\s*a$/i.test(name);
+                        const isB = /grade\s*b$/i.test(name);
+                        const isC = /grade\s*c$/i.test(name);
+                        const bg = isA
+                          ? "bg-[#D1FAE5] border-[#6EE7B7]"
+                          : isB
+                          ? "bg-[#DBEAFE] border-[#93C5FD]"
+                          : isC
+                          ? "bg-[#FEF3C7] border-[#FCD34D]"
+                          : "bg-[#F3F4F6] border-[#D1D5DB]";
+                        const text = isA
+                          ? "text-[#065F46]"
+                          : isB
+                          ? "text-[#1E40AF]"
+                          : isC
+                          ? "text-[#92400E]"
+                          : "text-[#374151]";
+                        return (
+                          <div
+                            key={g.id}
+                            className={`rounded-md border px-2.5 py-1.5 ${bg}`}
+                          >
+                            <p className={`text-[9px] font-bold uppercase tracking-wide ${text}`}>
+                              {g.name}
+                            </p>
+                            <p className={`mt-0.5 text-[12px] font-bold tabular-nums ${text}`}>
+                              {Number(g.available).toLocaleString("en-IN")}{" "}
+                              <span className="text-[9px] font-semibold">{productUnit}</span>
+                            </p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
               ) : null}
             </section>
           ) : null}

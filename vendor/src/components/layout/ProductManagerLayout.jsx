@@ -109,6 +109,7 @@ const navItems = [
     icon: ShoppingCart,
     children: [
       { to: '/vendor/orders/farmer', label: 'Farmer Orders' },
+      { to: '/vendor/orders/products', label: 'Order By Products' },
       { to: '/vendor/orders/darkstore', label: 'Darkstore Orders' },
     ],
   },

@@ -304,6 +304,7 @@ export const SIDEBAR_ITEMS = [
       { to: "/farmer/products/details", label: "Product Details" },
     ],
   },
+  { to: "/farmer/inventory", label: "Inventory", icon: "inventory" },
   {
     id: "orders",
     label: "Orders",

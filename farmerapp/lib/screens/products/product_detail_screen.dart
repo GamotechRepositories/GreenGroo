@@ -277,8 +277,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          icon: const Icon(Icons.currency_rupee, size: 14),
-                          label: Text(AppLanguage().tr(mr: 'दर व साठा', en: 'Price & Stock'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.inventory_2_outlined, size: 14),
+                          label: Text(AppLanguage().tr(mr: 'साठा अपडेट करा', en: 'Update Stock'), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: _openPriceStockSheet,
                         ),
                       ),
@@ -603,11 +603,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // --- Price & Stock Quick Sheet (Matching ProductPriceStockPage.jsx) ---
   void _openPriceStockSheet() {
     final qtyCtrl = TextEditingController(text: _product.stockQuantity.toStringAsFixed(0));
-    final priceCtrl = TextEditingController(text: _product.pricePerUnit.toStringAsFixed(0));
     final moqCtrl = TextEditingController(text: _product.minimumOrderQuantity.toStringAsFixed(0));
-    final grAPriceCtrl = TextEditingController(text: _product.gradeAPrice.toStringAsFixed(0));
     final grAQtyCtrl = TextEditingController(text: _product.gradeAQty.toStringAsFixed(0));
-    final grBPriceCtrl = TextEditingController(text: _product.gradeBPrice.toStringAsFixed(0));
     final grBQtyCtrl = TextEditingController(text: _product.gradeBQty.toStringAsFixed(0));
 
     showModalBottomSheet(
@@ -638,7 +635,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppLanguage().tr(mr: 'दर व साठा', en: 'Price & Stock'),
+                          AppLanguage().tr(mr: 'साठा अपडेट करा', en: 'Update Stock'),
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                         ),
                         Text(
@@ -654,23 +651,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ],
                 ),
                 const Divider(height: 20),
-                Text(AppLanguage().tr(mr: 'त्वरित दर व प्रमाण', en: 'Quick Rates & Quantities'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                Text(AppLanguage().tr(mr: 'उपलब्ध साठा', en: 'Available Stock'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: priceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLanguage().tr(mr: 'मूळ दर / ${_product.unit} (₹)', en: 'Base Price / ${_product.unit} (₹)'),
-                          labelStyle: const TextStyle(fontSize: 11),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: qtyCtrl,
@@ -683,18 +667,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: moqCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: AppLanguage().tr(mr: 'किमान ऑर्डर (MOQ)', en: 'Min Order (MOQ)'),
+                          labelStyle: const TextStyle(fontSize: 11),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: moqCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: AppLanguage().tr(mr: 'किमान ऑर्डर प्रमाण (MOQ)', en: 'Minimum Order Quantity (MOQ)'),
-                    labelStyle: const TextStyle(fontSize: 11),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(AppLanguage().tr(mr: 'दर्जाहिशोबी विभागणी', en: 'Grade Wise Breakdown'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
@@ -703,40 +689,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   children: [
                     Expanded(
                       child: TextField(
-                        controller: grAPriceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLanguage().tr(mr: 'दर्जा A दर (₹)', en: 'Grade A Price (₹)'),
-                          labelStyle: const TextStyle(fontSize: 11),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
                         controller: grAQtyCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: AppLanguage().tr(mr: 'दर्जा A प्रमाण', en: 'Grade A Qty'),
-                          labelStyle: const TextStyle(fontSize: 11),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: grBPriceCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: AppLanguage().tr(mr: 'दर्जा B दर (₹)', en: 'Grade B Price (₹)'),
+                          labelText: AppLanguage().tr(mr: 'दर्जा A प्रमाण (${_product.unit})', en: 'Grade A Qty (${_product.unit})'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -749,7 +705,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         controller: grBQtyCtrl,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: AppLanguage().tr(mr: 'दर्जा B प्रमाण', en: 'Grade B Qty'),
+                          labelText: AppLanguage().tr(mr: 'दर्जा B प्रमाण (${_product.unit})', en: 'Grade B Qty (${_product.unit})'),
                           labelStyle: const TextStyle(fontSize: 11),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -778,7 +734,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         cropLinked: _product.cropLinked,
                         grade: _product.grade,
                         unit: _product.unit,
-                        pricePerUnit: double.tryParse(priceCtrl.text) ?? _product.pricePerUnit,
+                        pricePerUnit: _product.pricePerUnit,
                         stockQuantity: double.tryParse(qtyCtrl.text) ?? _product.stockQuantity,
                         minimumOrderQuantity: double.tryParse(moqCtrl.text) ?? _product.minimumOrderQuantity,
                         farmingType: _product.farmingType,
@@ -791,9 +747,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         status: _product.status,
                         imageUrl: _product.imageUrl,
                         photos: _product.photos,
-                        gradeAPrice: double.tryParse(grAPriceCtrl.text) ?? _product.gradeAPrice,
+                        gradeAPrice: _product.gradeAPrice,
                         gradeAQty: double.tryParse(grAQtyCtrl.text) ?? _product.gradeAQty,
-                        gradeBPrice: double.tryParse(grBPriceCtrl.text) ?? _product.gradeBPrice,
+                        gradeBPrice: _product.gradeBPrice,
                         gradeBQty: double.tryParse(grBQtyCtrl.text) ?? _product.gradeBQty,
                         gradeCPrice: _product.gradeCPrice,
                         gradeCQty: _product.gradeCQty,
@@ -803,12 +759,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(AppLanguage().tr(mr: 'दर आणि साठा यशस्वीरित्या अपडेट केला!', en: 'Price and stock updated successfully!')),
+                          content: Text(AppLanguage().tr(mr: 'साठा यशस्वीरित्या अपडेट केला!', en: 'Stock updated successfully!')),
                           backgroundColor: const Color(0xFF217346),
                         ),
                       );
                     },
-                    child: Text(AppLanguage().tr(mr: 'दर व साठा जतन करा', en: 'Save Price & Stock'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    child: Text(AppLanguage().tr(mr: 'साठा जतन करा', en: 'Save Stock'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ),
               ],

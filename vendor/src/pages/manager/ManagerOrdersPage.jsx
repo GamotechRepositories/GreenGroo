@@ -19,6 +19,16 @@ import {
   yesterdayISODate,
 } from "../../utils/orderDisplay";
 import { formatProductBusinessId } from "../../utils/cropLinks";
+import {
+  extractProductGradeAndStock,
+  isBusinessProductId,
+  matchesViewedProduct,
+  productFarmersPath,
+  productGroupKey,
+  productNameOf,
+  productQty,
+  summarizeProductRows,
+} from "../../utils/productList";
 import CopyId, { CopyButton } from "../../components/ui/CopyId";
 import { isPendingProductApproval } from "../../utils/productActions";
 import { EXCEL_PANEL, EXCEL_INPUT, EXCEL_BTN, EXCEL_BTN_PRIMARY } from "../../utils/excelStyles";
@@ -47,6 +57,7 @@ const ACTION_BASE =
 const ACTION_BTN = `${ACTION_BASE} border border-[#D4D4D4] bg-white text-[#1F2937] hover:bg-[#F3F4F6]`;
 
 const ORDER_TYPE_FARMER = "farmer";
+const ORDER_TYPE_PRODUCTS = "products";
 const ORDER_TYPE_DARKSTORE = "darkstore";
 
 const DARKSTORE_VIEW_ALL = "all";
@@ -179,21 +190,6 @@ function formatRate(rate, qty = 0) {
   return `₹${n.toLocaleString("en-IN")}`;
 }
 
-function isBusinessProductId(value) {
-  const id = String(value || "").trim();
-  return Boolean(id) && !/^[a-f0-9]{24}$/i.test(id);
-}
-
-function productKeyOf(item = {}) {
-  const id = String(item.productId || item.id || "").trim();
-  if (isBusinessProductId(id)) return id;
-  return String(item.productName || item.name || "Produce").trim().toLowerCase();
-}
-
-function productNameOf(item = {}) {
-  return item.productName || item.name || "Farm Produce";
-}
-
 function isAvailableForOrder(product) {
   const status = String(product?.status || "").trim();
   if (!status) return true;
@@ -202,17 +198,66 @@ function isAvailableForOrder(product) {
   return true;
 }
 
-function productQty(product) {
-  const gradesSum = (product.grades || []).reduce((s, g) => s + Number(g.quantity || 0), 0);
-  return gradesSum || Number(product.availableQuantity ?? product.stock ?? 0);
-}
+function groupProductsByBusinessId(items = []) {
+  const map = new Map();
+  const seenDocIds = new Set();
 
-function productFarmersPath(product) {
-  const key = productKeyOf(product);
-  const params = new URLSearchParams({ name: productNameOf(product) });
-  const productId = product.productId || product.id || "";
-  if (productId) params.set("productId", productId);
-  return `/vendor/products/${encodeURIComponent(key)}/farmers?${params.toString()}`;
+  for (const p of items) {
+    const docId = p._id || p.id;
+    if (docId && seenDocIds.has(String(docId))) {
+      continue;
+    }
+
+    const targetProductId =
+      [p.productId, p.id].find((v) => isBusinessProductId(v)) || p.productId || p.id || "";
+    const targetKey = productGroupKey(p);
+    const targetName = productNameOf(p);
+
+    const bizId = formatProductBusinessId(p);
+    const groupKey = (bizId && isBusinessProductId(bizId) ? bizId : targetKey).toUpperCase();
+
+    if (map.has(groupKey)) {
+      if (docId) seenDocIds.add(String(docId));
+      continue;
+    }
+
+    // Match all farmer listings for this product identically to VendorProductFarmersPage
+    const matchingRows = items.filter((item) =>
+      matchesViewedProduct(item, {
+        productId: targetProductId,
+        productName: targetName,
+        productKey: targetKey,
+      })
+    );
+
+    const rowsToSummarize = matchingRows.length > 0 ? matchingRows : [p];
+    rowsToSummarize.forEach((r) => {
+      const id = r._id || r.id;
+      if (id) seenDocIds.add(String(id));
+    });
+
+    const summary = summarizeProductRows(rowsToSummarize);
+
+    const primary =
+      rowsToSummarize.find((item) => item.status === "Active" || item.status === "Approved") ||
+      rowsToSummarize[0] ||
+      p;
+
+    map.set(groupKey, {
+      ...primary,
+      businessProductId: bizId || targetProductId || groupKey,
+      listings: rowsToSummarize,
+      farmerCount: new Set(rowsToSummarize.map((r) => r.farmerId).filter(Boolean)).size,
+      grades: summary.grades,
+      gradeA: summary.gradeA,
+      gradeB: summary.gradeB,
+      gradeC: summary.gradeC,
+      gradesTotal: summary.gradesTotal,
+      totalQty: summary.totalQty,
+    });
+  }
+
+  return Array.from(map.values());
 }
 
 function orderProductEntry(order) {
@@ -249,6 +294,18 @@ function orderFormPath(order, mode) {
   return `/vendor/orders/create?${params.toString()}`;
 }
 
+function orderProductInventoryPath(product) {
+  const key = productGroupKey(product);
+  const params = new URLSearchParams({ name: productNameOf(product) });
+  const productId =
+    [product.productId, product.id].find((v) => isBusinessProductId(v)) ||
+    product.productId ||
+    product.id ||
+    "";
+  if (productId) params.set("productId", productId);
+  return `/vendor/orders/products/${encodeURIComponent(key)}/inventory?${params.toString()}`;
+}
+
 function OrderActionButtons({ order, onDelete, deleting, size = "sm" }) {
   const named = size === "lg";
   const icon = "h-3.5 w-3.5";
@@ -281,19 +338,20 @@ function OrderActionButtons({ order, onDelete, deleting, size = "sm" }) {
 }
 
 function productGradeMap(product) {
-  const unit = product.unit || "Kg";
+  const unit = product?.unit || "Kg";
+  const { grades } = extractProductGradeAndStock(product);
   const map = {};
-  (Array.isArray(product.grades) ? product.grades : []).forEach((g) => {
-    const label = String(g.label || g.name || "").trim();
-    if (!label) return;
-    if (!map[label]) map[label] = { qty: 0, rate: 0, unit };
-    map[label].qty += Number(g.quantity || 0);
-    const rate = Number(g.price ?? g.rate ?? g.pricePerKg ?? 0) || 0;
-    if (rate > 0) map[label].rate = rate;
+
+  grades.forEach((g) => {
+    if (g.quantity > 0) {
+      map[g.label] = {
+        qty: g.quantity,
+        rate: g.rate || Number(product?.pricePerKg || product?.sellingPrice || 0),
+        unit,
+      };
+    }
   });
-  if (!Object.keys(map).length) {
-    map["Grade A"] = { qty: productQty(product), rate: Number(product.pricePerKg || product.sellingPrice || 0) || 0, unit };
-  }
+
   return map;
 }
 
@@ -304,6 +362,8 @@ function gradeColumnList(map) {
 
 function GradeMiniTable({ map, unit }) {
   const columns = gradeColumnList(map);
+  const hasAnyGradeQty = columns.some((g) => (map[g]?.qty || 0) > 0);
+  if (!hasAnyGradeQty) return null;
   return (
     <div className="mt-2 overflow-hidden rounded-md border border-[#E5E7EB]">
       <div className="grid grid-cols-[1.1fr_1fr_1fr] bg-[#F8FAF8] px-2 py-1 text-[10px] font-bold text-[#6B7280]">
@@ -320,7 +380,9 @@ function GradeMiniTable({ map, unit }) {
             className={`grid grid-cols-[1.1fr_1fr_1fr] items-center border-t border-[#E5E7EB] px-2 py-1.5 text-[12px] ${tone.cell}`}
           >
             <span className="font-semibold text-[#1F2937]">{g}</span>
-            <span className="text-right font-semibold tabular-nums">{formatQty(row.qty, row.unit || unit)}</span>
+            <span className="text-right font-semibold tabular-nums">
+              {row.qty > 0 ? formatQty(row.qty, row.unit || unit) : "—"}
+            </span>
             <span className="text-right font-semibold tabular-nums">{formatRate(row.rate, row.qty)}</span>
           </div>
         );
@@ -331,9 +393,14 @@ function GradeMiniTable({ map, unit }) {
 
 function ProductMobileCard({ product }) {
   const name = productNameOf(product);
-  const qty = productQty(product);
   const unit = product.unit || "Kg";
   const map = productGradeMap(product);
+  const total = Number(
+    product.totalQty ??
+    (Number(product.gradeA || 0) + Number(product.gradeB || 0) + Number(product.gradeC || 0)) ??
+    productQty(product) ??
+    0
+  );
   return (
     <div className="px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-1.5">
@@ -352,10 +419,13 @@ function ProductMobileCard({ product }) {
       </div>
       <GradeMiniTable map={map} unit={unit} />
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[13px] font-bold text-[#1F2937]">
-          {qty.toLocaleString("en-IN")} {unit}
-        </p>
-        <Link to={productFarmersPath(product)} className={`${ACTION_BTN} !h-8 !min-w-[4.5rem] !text-[11px]`}>
+        <div>
+          <span className="text-[10px] font-semibold text-[#6B7280]">Total Qty: </span>
+          <span className="text-[13px] font-bold text-[#1F2937]">
+            {total.toLocaleString("en-IN")} {unit}
+          </span>
+        </div>
+        <Link to={orderProductInventoryPath(product)} className={`${ACTION_BTN} !h-8 !min-w-[4.5rem] !text-[11px]`}>
           View
         </Link>
       </div>
@@ -411,7 +481,7 @@ function OrderMobileCard({ order, farmerName, onDelete, deleting }) {
   );
 }
 
-function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts }) {
+function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts, onByProduct }) {
   const base =
     "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition-colors sm:min-h-9 sm:flex-row sm:gap-1 sm:px-2";
   const labelCls = "text-[10px] font-semibold leading-tight sm:text-[11px]";
@@ -492,7 +562,10 @@ function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts }) {
 
       <button
         type="button"
-        onClick={() => onTab(TAB_BY_PRODUCT)}
+        onClick={() => {
+          if (onByProduct) onByProduct();
+          else onTab(TAB_BY_PRODUCT);
+        }}
         className={`${base} ${
           activeByProduct
             ? "border-[#217346] bg-[#217346] text-white ring-1 ring-[#217346]"
@@ -843,12 +916,19 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
     modeProp ||
     (location.pathname.endsWith("/darkstore")
       ? ORDER_TYPE_DARKSTORE
-      : location.pathname.endsWith("/farmer")
-        ? ORDER_TYPE_FARMER
-        : null);
+      : location.pathname.endsWith("/products") || location.pathname.endsWith("/by-product")
+        ? ORDER_TYPE_PRODUCTS
+        : location.pathname.endsWith("/farmer")
+          ? ORDER_TYPE_FARMER
+          : null);
 
   const orderType =
-    detectedType || (searchParams.get("type") === ORDER_TYPE_DARKSTORE ? ORDER_TYPE_DARKSTORE : ORDER_TYPE_FARMER);
+    detectedType ||
+    (searchParams.get("type") === ORDER_TYPE_DARKSTORE
+      ? ORDER_TYPE_DARKSTORE
+      : searchParams.get("type") === ORDER_TYPE_PRODUCTS
+        ? ORDER_TYPE_PRODUCTS
+        : ORDER_TYPE_FARMER);
 
   // Farmer orders state
   const tab = searchParams.get("tab") === TAB_BY_PRODUCT ? TAB_BY_PRODUCT : TAB_STATEMENTS;
@@ -877,6 +957,8 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
       const nextParams = new URLSearchParams(searchParams);
       if (nextType === ORDER_TYPE_DARKSTORE) {
         nextParams.set("type", ORDER_TYPE_DARKSTORE);
+      } else if (nextType === ORDER_TYPE_PRODUCTS) {
+        nextParams.set("type", ORDER_TYPE_PRODUCTS);
       } else {
         nextParams.delete("type");
       }
@@ -1059,19 +1141,38 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
     return [...DEFAULT_GRADES, ...extras];
   }, [filteredOrders]);
 
-  const availableProducts = useMemo(() => {
+  const uniqueProducts = useMemo(() => groupProductsByBusinessId(products), [products]);
+
+  const displayedProducts = useMemo(() => {
     const query = q.toLowerCase().trim();
-    return products.filter((p) => {
-      if (!isAvailableForOrder(p)) return false;
-      if (!query) return true;
+    if (!query) return uniqueProducts;
+    return uniqueProducts.filter((p) => {
+      const busId = String(p.businessProductId || formatProductBusinessId(p) || p.productId || p.id || "").toLowerCase();
       return (
+        busId.includes(query) ||
         productNameOf(p).toLowerCase().includes(query) ||
         String(p.variety || "").toLowerCase().includes(query) ||
         String(p.category || "").toLowerCase().includes(query) ||
         String(p.productId || p.id || "").toLowerCase().includes(query)
       );
     });
-  }, [products, q]);
+  }, [uniqueProducts, q]);
+
+  const availableProducts = useMemo(() => {
+    const query = q.toLowerCase().trim();
+    return uniqueProducts.filter((p) => {
+      if (!isAvailableForOrder(p)) return false;
+      if (!query) return true;
+      const busId = String(p.businessProductId || formatProductBusinessId(p) || p.productId || p.id || "").toLowerCase();
+      return (
+        busId.includes(query) ||
+        productNameOf(p).toLowerCase().includes(query) ||
+        String(p.variety || "").toLowerCase().includes(query) ||
+        String(p.category || "").toLowerCase().includes(query) ||
+        String(p.productId || p.id || "").toLowerCase().includes(query)
+      );
+    });
+  }, [uniqueProducts, q]);
 
   // Darkstore calculations
   const darkstoreCounts = useMemo(() => ({
@@ -1211,12 +1312,16 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-[#1F2937] sm:text-2xl">
-            {orderType === ORDER_TYPE_FARMER ? "Farmer Orders" : "Darkstore Orders"}
+            {orderType === ORDER_TYPE_PRODUCTS
+              ? "Order By Products"
+              : orderType === ORDER_TYPE_FARMER
+                ? "Farmer Orders"
+                : "Darkstore Orders"}
           </h1>
         </div>
 
         <div className="flex items-center gap-2">
-          {orderType === ORDER_TYPE_FARMER ? (
+          {orderType === ORDER_TYPE_FARMER || orderType === ORDER_TYPE_PRODUCTS ? (
             <Link
               to="/vendor/orders/create"
               className={`${EXCEL_BTN_PRIMARY} inline-flex items-center gap-1.5 !min-h-9 px-3.5 py-1.5 text-xs font-semibold sm:!min-h-10 sm:text-sm`}
@@ -1239,9 +1344,135 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
       </div>
 
       {/* ========================================================= */}
-      {/* TAB 1: FARMER ORDERS CONTENT                             */}
+      {/* SECTION: ORDER BY PRODUCTS CONTENT                       */}
       {/* ========================================================= */}
-      {orderType === ORDER_TYPE_FARMER ? (
+      {orderType === ORDER_TYPE_PRODUCTS ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+            {[
+              { label: "Available Products", value: availableProducts.length, color: "text-[#217346]" },
+              { label: "All Products", value: uniqueProducts.length, color: "text-emerald-700" },
+            ].map((s) => (
+              <div key={s.label} className={`${EXCEL_PANEL} px-2.5 py-1.5 sm:px-3 sm:py-2`}>
+                <p className="text-[10px] text-[#6B7280]">{s.label}</p>
+                <p className={`text-sm font-bold sm:text-base ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search product or ID…"
+              className={`${EXCEL_INPUT} w-full !py-2 !text-xs sm:max-w-xs sm:!py-1.5`}
+            />
+          </div>
+
+          {loadingFarmer ? (
+            <div className={`${EXCEL_PANEL} p-6 text-center text-xs text-[#6B7280]`}>Loading products…</div>
+          ) : displayedProducts.length === 0 ? (
+            <div className={`${EXCEL_PANEL} p-6 text-center text-xs text-[#6B7280]`}>
+              No products found.
+            </div>
+          ) : (
+            <div className={EXCEL_PANEL}>
+              <div className="divide-y divide-[#E5E7EB] sm:hidden">
+                {displayedProducts.map((p) => (
+                  <ProductMobileCard key={p.businessProductId || p.id || p.productId} product={p} />
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full min-w-[760px] text-xs">
+                  <thead>
+                    <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Product</th>
+                      <th className="px-3 py-2 font-semibold text-[#6B7280]">Product ID</th>
+                      <th className="border-l border-[#D4D4D4] bg-[#D1FAE5]/60 px-3 py-2 text-center font-bold text-[#065F46]">
+                        Grade A
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#DBEAFE]/60 px-3 py-2 text-center font-bold text-[#1E40AF]">
+                        Grade B
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#FEF3C7]/60 px-3 py-2 text-center font-bold text-[#92400E]">
+                        Grade C
+                      </th>
+                      <th className="border-l border-[#D4D4D4] bg-[#E8F5E9] px-3 py-2 text-right font-bold text-[#1F2937]">
+                        Total Qty
+                      </th>
+                      <th className="border-l border-[#D4D4D4] px-3 py-2 text-center font-semibold text-[#6B7280]">
+                        Status
+                      </th>
+                      <th className="sticky right-0 z-20 border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedProducts.map((p) => {
+                      const id = p.businessProductId || p.id || p.productId;
+                      const name = productNameOf(p);
+                      const unit = p.unit || "Kg";
+                      const gA = Number(p.gradeA ?? 0);
+                      const gB = Number(p.gradeB ?? 0);
+                      const gC = Number(p.gradeC ?? 0);
+                      const total = Number(p.totalQty ?? (gA + gB + gC));
+
+                      return (
+                        <tr key={id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
+                          <td className="px-3 py-2">
+                            <Link to={orderProductInventoryPath(p)} className="font-semibold text-[#217346] hover:underline">
+                              {name}
+                            </Link>
+                            <p className="text-[10px] text-[#9CA3AF]">
+                              {[p.variety, p.category].filter(Boolean).join(" · ") || "—"}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2">
+                            <CopyId value={formatProductBusinessId(p)} />
+                          </td>
+                          <td className="border-l border-[#E5E7EB] bg-[#ECFDF5]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#065F46]">
+                            {gA > 0 ? `${gA.toLocaleString("en-IN")} ${unit}` : "—"}
+                          </td>
+                          <td className="border-l border-[#E5E7EB] bg-[#EFF6FF]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#1E40AF]">
+                            {gB > 0 ? `${gB.toLocaleString("en-IN")} ${unit}` : "—"}
+                          </td>
+                          <td className="border-l border-[#E5E7EB] bg-[#FFFBEB]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#92400E]">
+                            {gC > 0 ? `${gC.toLocaleString("en-IN")} ${unit}` : "—"}
+                          </td>
+                          <td className="border-l border-[#E5E7EB] bg-[#E8F5E9]/30 px-3 py-2 text-right font-bold tabular-nums text-[#1F2937]">
+                            {total.toLocaleString("en-IN")} {unit}
+                          </td>
+                          <td className="border-l border-[#E5E7EB] px-3 py-2 text-center">
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                p.status === "Approved" || p.status === "Active"
+                                  ? "bg-green-50 text-green-700"
+                                  : p.status === "Draft"
+                                    ? "bg-slate-100 text-slate-700"
+                                    : "bg-amber-50 text-amber-700"
+                              }`}
+                            >
+                              {p.status || "Active"}
+                            </span>
+                          </td>
+                          <td className="sticky right-0 z-10 whitespace-nowrap border-l border-[#D4D4D4] bg-white px-3 py-2 text-right">
+                            <Link to={orderProductInventoryPath(p)} className={ACTION_BTN}>
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : orderType === ORDER_TYPE_FARMER ? (
         <div className="space-y-3">
           <OrdersNavRow
             tab={tab}
@@ -1249,13 +1480,14 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
             onTab={setTab}
             onStatus={setStatusFilter}
             counts={statusCounts}
+            onByProduct={() => navigate("/vendor/orders/products")}
           />
 
           {tab === TAB_BY_PRODUCT ? (
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
               {[
                 { label: "Available", value: availableProducts.length, color: "text-[#217346]" },
-                { label: "All Products", value: products.length, color: "text-emerald-700" },
+                { label: "All Products", value: uniqueProducts.length, color: "text-emerald-700" },
               ].map((s) => (
                 <div key={s.label} className={`${EXCEL_PANEL} px-2.5 py-1.5 sm:px-3 sm:py-2`}>
                   <p className="text-[10px] text-[#6B7280]">{s.label}</p>
@@ -1314,37 +1546,54 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
           {loadingFarmer ? (
             <div className={`${EXCEL_PANEL} p-6 text-center text-xs text-[#6B7280]`}>Loading farmer orders…</div>
           ) : tab === TAB_BY_PRODUCT ? (
-            availableProducts.length === 0 ? (
+            displayedProducts.length === 0 ? (
               <div className={`${EXCEL_PANEL} p-6 text-center text-xs text-[#6B7280]`}>
-                No available products. Approve or add a product first.
+                No products found.
               </div>
             ) : (
               <div className={EXCEL_PANEL}>
                 <div className="divide-y divide-[#E5E7EB] sm:hidden">
-                  {availableProducts.map((p) => (
-                    <ProductMobileCard key={p.id || p.productId} product={p} />
+                  {displayedProducts.map((p) => (
+                    <ProductMobileCard key={p.businessProductId || p.id || p.productId} product={p} />
                   ))}
                 </div>
 
                 <div className="hidden overflow-x-auto sm:block">
-                  <table className="w-full min-w-[640px] text-xs">
+                  <table className="w-full min-w-[760px] text-xs">
                     <thead>
                       <tr className="border-b border-[#D4D4D4] bg-[#F2F2F2] text-left">
-                        {["Product", "Product ID", "Qty", "Status"].map((h) => (
-                          <th key={h} className="px-3 py-2 font-semibold text-[#6B7280]">
-                            {h}
-                          </th>
-                        ))}
+                        <th className="px-3 py-2 font-semibold text-[#6B7280]">Product</th>
+                        <th className="px-3 py-2 font-semibold text-[#6B7280]">Product ID</th>
+                        <th className="border-l border-[#D4D4D4] bg-[#D1FAE5]/60 px-3 py-2 text-center font-bold text-[#065F46]">
+                          Grade A
+                        </th>
+                        <th className="border-l border-[#D4D4D4] bg-[#DBEAFE]/60 px-3 py-2 text-center font-bold text-[#1E40AF]">
+                          Grade B
+                        </th>
+                        <th className="border-l border-[#D4D4D4] bg-[#FEF3C7]/60 px-3 py-2 text-center font-bold text-[#92400E]">
+                          Grade C
+                        </th>
+                        <th className="border-l border-[#D4D4D4] bg-[#E8F5E9] px-3 py-2 text-right font-bold text-[#1F2937]">
+                          Total Qty
+                        </th>
+                        <th className="border-l border-[#D4D4D4] px-3 py-2 text-center font-semibold text-[#6B7280]">
+                          Status
+                        </th>
                         <th className="sticky right-0 z-20 border-l border-[#D4D4D4] bg-[#F2F2F2] px-3 py-2 text-right font-semibold text-[#6B7280]">
                           Action
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {availableProducts.map((p) => {
-                        const id = p.id || p.productId;
+                      {displayedProducts.map((p) => {
+                        const id = p.businessProductId || p.id || p.productId;
                         const name = productNameOf(p);
-                        const qty = productQty(p);
+                        const unit = p.unit || "Kg";
+                        const gA = Number(p.gradeA ?? 0);
+                        const gB = Number(p.gradeB ?? 0);
+                        const gC = Number(p.gradeC ?? 0);
+                        const total = Number(p.totalQty ?? (gA + gB + gC));
+
                         return (
                           <tr key={id} className="border-b border-[#D4D4D4] last:border-0 hover:bg-[#F9F9F9]">
                             <td className="px-3 py-2">
@@ -1358,11 +1607,28 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
                             <td className="px-3 py-2">
                               <CopyId value={formatProductBusinessId(p)} />
                             </td>
-                            <td className="px-3 py-2 font-semibold">
-                              {qty} {p.unit || "Kg"}
+                            <td className="border-l border-[#E5E7EB] bg-[#ECFDF5]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#065F46]">
+                              {gA > 0 ? `${gA.toLocaleString("en-IN")} ${unit}` : "—"}
                             </td>
-                            <td className="px-3 py-2">
-                              <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
+                            <td className="border-l border-[#E5E7EB] bg-[#EFF6FF]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#1E40AF]">
+                              {gB > 0 ? `${gB.toLocaleString("en-IN")} ${unit}` : "—"}
+                            </td>
+                            <td className="border-l border-[#E5E7EB] bg-[#FFFBEB]/30 px-3 py-2 text-center font-semibold tabular-nums text-[#92400E]">
+                              {gC > 0 ? `${gC.toLocaleString("en-IN")} ${unit}` : "—"}
+                            </td>
+                            <td className="border-l border-[#E5E7EB] bg-[#E8F5E9]/30 px-3 py-2 text-right font-bold tabular-nums text-[#1F2937]">
+                              {total.toLocaleString("en-IN")} {unit}
+                            </td>
+                            <td className="border-l border-[#E5E7EB] px-3 py-2 text-center">
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                  p.status === "Approved" || p.status === "Active"
+                                    ? "bg-green-50 text-green-700"
+                                    : p.status === "Draft"
+                                      ? "bg-slate-100 text-slate-700"
+                                      : "bg-amber-50 text-amber-700"
+                                }`}
+                              >
                                 {p.status || "Active"}
                               </span>
                             </td>
