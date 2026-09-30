@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Bell, BellOff, BellRing } from "lucide-react";
 import { listManagerQuality } from "../../api/managerPortApi";
+import { vendorApi } from "../../api/vendorApi";
 import { CopyButton } from "../../components/ui/CopyId";
 import EmptyState from "../../components/ui/EmptyState";
+import InventoryAlertModal from "../../components/inventory/InventoryAlertModal";
 import { formatProductBusinessId } from "../../utils/cropLinks";
 import { EXCEL_PAGE_TITLE, EXCEL_PAGE_SUB, EXCEL_INPUT } from "../../utils/excelStyles";
 
@@ -61,11 +64,15 @@ function gradeLetterQty(row, letter) {
   return Number.isFinite(qty) ? qty : 0;
 }
 
-function formatQty(qty) {
+function formatQty(qty, min) {
   const n = Number(qty || 0);
   return (
-    <span className="font-bold tabular-nums text-[#111827] text-[10px] sm:text-[13px]">
+    <span
+      className={`font-bold tabular-nums text-[10px] sm:text-[13px] ${min ? "text-[#DC2626]" : "text-[#111827]"}`}
+      title={min ? `Below alert level of ${min}` : undefined}
+    >
       {n.toLocaleString("en-IN")}
+      {min ? <span className="ml-0.5 align-top text-[8px] sm:text-[10px]">▼</span> : null}
     </span>
   );
 }
@@ -108,11 +115,37 @@ function stockStatusOf(gradeA, gradeB, gradeC) {
   return total > 0 ? "In Stock" : "Out of Stock";
 }
 
+/** Which limits of an enabled alert the row is below, e.g. { A: 50, total: 200 }. */
+function alertBreaches(row, alert) {
+  if (!alert || alert.enabled === false) return {};
+  const breaches = {};
+  if (alert.minGradeA > 0 && row.gradeA < alert.minGradeA) breaches.A = alert.minGradeA;
+  if (alert.minGradeB > 0 && row.gradeB < alert.minGradeB) breaches.B = alert.minGradeB;
+  if (alert.minGradeC > 0 && row.gradeC < alert.minGradeC) breaches.C = alert.minGradeC;
+  const total = row.gradeA + row.gradeB + row.gradeC;
+  if (alert.minTotal > 0 && total < alert.minTotal) breaches.total = alert.minTotal;
+  return breaches;
+}
+
+function breachText(row, breaches) {
+  const unit = row.unit || "Kg";
+  return Object.entries(breaches)
+    .map(([key, min]) =>
+      key === "total"
+        ? `Total ${row.gradeA + row.gradeB + row.gradeC} < ${min} ${unit}`
+        : `Grade ${key} ${row[`grade${key}`]} < ${min} ${unit}`
+    )
+    .join(" · ");
+}
+
 export default function ManagerInventoryPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [alerts, setAlerts] = useState({});
+  const [alertsOnly, setAlertsOnly] = useState(false);
+  const [editingRow, setEditingRow] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -122,6 +155,13 @@ export default function ManagerInventoryPage() {
       })
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
+    vendorApi
+      .getInventoryAlerts()
+      .then((res) => {
+        const list = Array.isArray(res?.data?.items) ? res.data.items : [];
+        setAlerts(Object.fromEntries(list.map((a) => [a.productKey, a])));
+      })
+      .catch(() => setAlerts({}));
   }, []);
 
   const rows = useMemo(() => {
@@ -157,22 +197,29 @@ export default function ManagerInventoryPage() {
       if (!existing.orderId) existing.orderId = row.orderId || row.orderDisplayId || "";
     });
 
-    const q = query.trim().toLowerCase();
     return Array.from(map.values())
       .map((row) => ({
         ...row,
         status: stockStatusOf(row.gradeA, row.gradeB, row.gradeC),
+        alert: alerts[row.key] || null,
+        breaches: alertBreaches(row, alerts[row.key]),
       }))
-      .filter((row) => {
-        if (!q) return true;
-        return (
-          row.productLabel.toLowerCase().includes(q) ||
-          String(row.variety || "").toLowerCase().includes(q) ||
-          String(row.productBizId || "").toLowerCase().includes(q)
-        );
-      })
       .sort((a, b) => a.productLabel.localeCompare(b.productLabel));
-  }, [items, query]);
+  }, [items, alerts]);
+
+  const triggered = useMemo(() => rows.filter((row) => Object.keys(row.breaches).length), [rows]);
+
+  const visibleRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (alertsOnly && triggered.length ? triggered : rows).filter((row) => {
+      if (!q) return true;
+      return (
+        row.productLabel.toLowerCase().includes(q) ||
+        String(row.variety || "").toLowerCase().includes(q) ||
+        String(row.productBizId || "").toLowerCase().includes(q)
+      );
+    });
+  }, [rows, triggered, alertsOnly, query]);
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
@@ -189,6 +236,35 @@ export default function ManagerInventoryPage() {
         />
       </div>
 
+      {!loading && triggered.length > 0 ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-red-700">
+              <BellRing className="h-4 w-4" />
+              {triggered.length} product{triggered.length > 1 ? "s" : ""} below alert level
+            </p>
+            <button
+              type="button"
+              onClick={() => setAlertsOnly(!alertsOnly)}
+              className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+            >
+              {alertsOnly ? "Show all products" : "Show only these"}
+            </button>
+          </div>
+          <ul className="mt-2 space-y-0.5 text-xs text-red-700">
+            {triggered.map((row) => (
+              <li key={row.key}>
+                <span className="font-semibold">
+                  {row.productLabel}
+                  {row.variety ? ` (${row.variety})` : ""}
+                </span>
+                : {breachText(row, row.breaches)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="py-8 text-center text-sm text-[#6B7280]">Loading…</p>
       ) : rows.length === 0 ? (
@@ -201,13 +277,14 @@ export default function ManagerInventoryPage() {
           <table className="w-full table-fixed border-collapse">
             <colgroup>
               <col className="w-[5%]" />
-              <col className="w-[20%]" />
-              <col className="w-[14%]" />
-              <col className="w-[13%]" />
-              <col className="w-[13%]" />
-              <col className="w-[13%]" />
-              <col className="w-[10%]" />
+              <col className="w-[18%]" />
               <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[9%]" />
+              <col className="w-[11%]" />
+              <col className="w-[9%]" />
             </colgroup>
             <thead>
               <tr>
@@ -228,15 +305,18 @@ export default function ManagerInventoryPage() {
                 </th>
                 <th className={`${TH} text-center`}>Unit</th>
                 <th className={`${TH} text-center`}>Status</th>
+                <th className={`${TH} text-center`}>Alert</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
+              {visibleRows.map((row, idx) => (
                 <tr
                   key={row.key}
                   role="button"
                   tabIndex={0}
-                  className="cursor-pointer hover:bg-[#F9FBF9]"
+                  className={`cursor-pointer ${
+                    Object.keys(row.breaches).length ? "bg-red-50/60 hover:bg-red-50" : "hover:bg-[#F9FBF9]"
+                  }`}
                   onClick={() => {
                     const params = new URLSearchParams();
                     if (row.productId) params.set("productId", row.productId);
@@ -269,9 +349,15 @@ export default function ManagerInventoryPage() {
                   <td className={`${TD} align-middle break-words text-center font-medium text-[#374151] sm:text-left`}>
                     {row.variety || "—"}
                   </td>
-                  <td className={`${GRADE_TD} align-middle border-[#A7F3D0] bg-[#ECFDF5]`}>{formatQty(row.gradeA)}</td>
-                  <td className={`${GRADE_TD} align-middle border-[#BFDBFE] bg-[#EFF6FF]`}>{formatQty(row.gradeB)}</td>
-                  <td className={`${GRADE_TD} align-middle border-[#FDE68A] bg-[#FFFBEB]`}>{formatQty(row.gradeC)}</td>
+                  <td className={`${GRADE_TD} align-middle border-[#A7F3D0] bg-[#ECFDF5]`}>
+                    {formatQty(row.gradeA, row.breaches.A)}
+                  </td>
+                  <td className={`${GRADE_TD} align-middle border-[#BFDBFE] bg-[#EFF6FF]`}>
+                    {formatQty(row.gradeB, row.breaches.B)}
+                  </td>
+                  <td className={`${GRADE_TD} align-middle border-[#FDE68A] bg-[#FFFBEB]`}>
+                    {formatQty(row.gradeC, row.breaches.C)}
+                  </td>
                   <td className={`${TD} align-middle text-center font-semibold text-[#374151]`}>{row.unit || "Kg"}</td>
                   <td className={`${TD} align-middle text-center`}>
                     {row.status === "In Stock" ? (
@@ -286,12 +372,70 @@ export default function ManagerInventoryPage() {
                       </span>
                     )}
                   </td>
+                  <td className={`${TD} align-middle text-center`}>
+                    <AlertButton row={row} onClick={() => setEditingRow(row)} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {visibleRows.length === 0 ? (
+            <p className="py-6 text-center text-sm text-[#6B7280]">No products match.</p>
+          ) : null}
         </div>
       )}
+
+      {editingRow ? (
+        <InventoryAlertModal
+          row={editingRow}
+          alert={alerts[editingRow.key]}
+          onClose={() => setEditingRow(null)}
+          onSaved={(item) => {
+            setAlerts((prev) => ({ ...prev, [item.productKey]: item }));
+            setEditingRow(null);
+          }}
+          onDeleted={(item) => {
+            setAlerts((prev) => {
+              const next = { ...prev };
+              delete next[item.productKey];
+              return next;
+            });
+            setEditingRow(null);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function AlertButton({ row, onClick }) {
+  const breached = Object.keys(row.breaches).length > 0;
+  const Icon = !row.alert ? Bell : row.alert.enabled === false ? BellOff : breached ? BellRing : Bell;
+  const tone = breached
+    ? "bg-red-100 text-red-600 ring-red-200"
+    : row.alert && row.alert.enabled !== false
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : "bg-slate-50 text-slate-400 ring-slate-200";
+  const title = breached
+    ? breachText(row, row.breaches)
+    : row.alert
+      ? row.alert.enabled === false
+        ? "Alert is off — click to edit"
+        : "Alert set — click to edit"
+      : "Set stock alert";
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-full ring-1 transition hover:scale-105 sm:h-8 sm:w-8 ${tone}`}
+    >
+      <Icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${breached ? "animate-pulse" : ""}`} />
+    </button>
   );
 }

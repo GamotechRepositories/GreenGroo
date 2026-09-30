@@ -833,6 +833,27 @@ export const Pickup =
 export const QualityInspection =
   mongoose.models.QualityInspection || mongoose.model("QualityInspection", qualityInspectionSchema);
 
+// A limit of 0 means that check is off.
+const vendorInventoryAlertSchema = new mongoose.Schema(
+  {
+    vendorId: { type: String, required: true },
+    productKey: { type: String, required: true },
+    productName: { type: String, default: "" },
+    variety: { type: String, default: "" },
+    minGradeA: { type: Number, default: 0, min: 0 },
+    minGradeB: { type: Number, default: 0, min: 0 },
+    minGradeC: { type: Number, default: 0, min: 0 },
+    minTotal: { type: Number, default: 0, min: 0 },
+    enabled: { type: Boolean, default: true },
+  },
+  { timestamps: true }
+);
+vendorInventoryAlertSchema.index({ vendorId: 1, productKey: 1 }, { unique: true });
+
+export const VendorInventoryAlert =
+  mongoose.models.VendorInventoryAlert ||
+  mongoose.model("VendorInventoryAlert", vendorInventoryAlertSchema);
+
 /**
  * Ensures all MongoDB indexes for farmer-manager service are created in background
  */
@@ -863,6 +884,7 @@ export async function ensureFarmerIndexes() {
       CollectionCentre,
       Pickup,
       QualityInspection,
+      VendorInventoryAlert,
     ];
 
     await Promise.all(

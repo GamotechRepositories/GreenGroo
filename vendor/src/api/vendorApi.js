@@ -43,6 +43,9 @@ export const vendorApi = {
 
   // Dashboard
   getDashboard: (params) => api.get("/api/vendor/dashboard", { params }),
+  getInventoryAlerts: () => api.get("/api/vendor/inventory-alerts"),
+  saveInventoryAlert: (data) => api.put("/api/vendor/inventory-alerts", data),
+  deleteInventoryAlert: (alertId) => api.delete(`/api/vendor/inventory-alerts/${encodeURIComponent(alertId)}`),
   liveAnnouncements: () =>
     api
       .get("/api/admin-ops/hr/announcements/live", { params: { role: "vendor" } })

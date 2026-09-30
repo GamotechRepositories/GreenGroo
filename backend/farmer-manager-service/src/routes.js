@@ -159,6 +159,11 @@ import {
   getOrderQualityReport,
   updateOrderPaymentStatus,
 } from "./qualityControllers.js";
+import {
+  listInventoryAlerts,
+  saveInventoryAlert,
+  deleteInventoryAlert,
+} from "./inventoryAlertControllers.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();
@@ -339,6 +344,9 @@ vendorAuthRouter.get("/driver/me", requireDriver, getDriverMe);
 // VENDOR PANEL ROUTES (protected)
 // ------------------------------------
 vendorRouter.get("/dashboard", requireVendor, getVendorDashboard);
+vendorRouter.get("/inventory-alerts", requireVendor, listInventoryAlerts);
+vendorRouter.put("/inventory-alerts", requireVendor, saveInventoryAlert);
+vendorRouter.delete("/inventory-alerts/:alertId", requireVendor, deleteInventoryAlert);
 vendorRouter.get("/farmers", requireVendor, getFarmers);
 vendorRouter.post("/farmers", requireVendor, createFarmer);
 vendorRouter.get("/farmers/:farmerId", requireVendor, getFarmerById);

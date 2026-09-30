@@ -133,6 +133,7 @@ function App() {
                 <Route path="/vendor/quality/completed" element={<ManagerQualityListPage mode="completed" />} />
                 <Route path="/vendor/quality/:orderId" element={<ManagerQualityInspectionPage />} />
                 <Route path="/vendor/inventory" element={<ManagerInventoryPage />} />
+                <Route path="/vendor/inventory/history" element={<ManagerInventoryHistoryPage />} />
                 <Route path="/vendor/orders" element={<ManagerOrdersPage mode="farmer" />} />
                 <Route path="/vendor/orders/farmer" element={<ManagerOrdersPage mode="farmer" />} />
                 <Route path="/vendor/orders/darkstore" element={<ManagerOrdersPage mode="darkstore" />} />
