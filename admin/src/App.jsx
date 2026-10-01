@@ -9,6 +9,7 @@ import TraceabilityPage from './pages/traceability/TraceabilityPage';
 import FarmersPage from './pages/erp/FarmersPage';
 import Farmer360Page from './pages/erp/Farmer360Page';
 import LocationMastersPage from './pages/erp/LocationMastersPage';
+import CropsPage from './pages/erp/CropsPage';
 import ErpListPage from './pages/erp/ErpListPage';
 import Products from './pages/Products';
 import MarketPricesPage from './pages/ops/MarketPricesPage';
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="erp/locations" element={<LocationMastersPage />} />
               <Route path="erp/farmers" element={<FarmersPage />} />
               <Route path="erp/farmers/:id" element={<Farmer360Page />} />
+              <Route path="erp/crops" element={<CropsPage />} />
               <Route path="erp/:resource" element={<ErpListPage />} />
               <Route path="products" element={<Products />} />
               <Route path="market-prices" element={<MarketPricesPage />} />

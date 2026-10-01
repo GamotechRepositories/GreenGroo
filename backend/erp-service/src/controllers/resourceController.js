@@ -1,9 +1,10 @@
+import mongoose from "mongoose";
 import { generateId } from "../services/idGenerator.js";
 import { recordAudit, recordErpTransaction, auditFromReq } from "../services/auditService.js";
 import { RESOURCES } from "../config/resources.js";
 import { assertRefs, stripImmutable, hideSensitive, validateField } from "../utils/validation.js";
 import { pushStatus } from "../models/plugins.js";
-import { MODULES } from "../config/idRegistry.js";
+import { MODULES, categoryFromName, cropCodeFromName, varietyCodeFromName } from "../config/idRegistry.js";
 
 function parsePaging(req) {
   const page = Math.max(1, Number(req.query.page) || 1);
@@ -69,12 +70,58 @@ export async function createResource(req, res) {
     }
     await assertRefs(req.params.resource, body);
     if (!body[spec.idField]) {
-      body[spec.idField] = await generateId({ ...body, module: spec.module });
+      if (spec.module === "CRP") {
+        const cat = body.categoryCode || body.category || categoryFromName(body.cropName || "");
+        const cropCode = body.crop || body.cropCode || cropCodeFromName(body.cropName || "");
+        const varCode = body.varietyCode || varietyCodeFromName(body.variety || "");
+        body.category = cat;
+        body.cropCode = cropCode;
+        body[spec.idField] = await generateId({
+          ...body,
+          module: "CRP",
+          category: cat,
+          crop: cropCode,
+          variety: varCode,
+        });
+      } else {
+        body[spec.idField] = await generateId({ ...body, module: spec.module });
+      }
     }
     if (body.status && spec.statusTracked) {
       body.statusHistory = [{ status: body.status, changedBy: req.user?.id || "", changedAt: new Date() }];
     }
     const created = await spec.model.create(body);
+
+    if (spec.module === "CRP") {
+      try {
+        const { FarmerCrop } = await import("../../../farmer-manager-service/src/models.js");
+        const fid = body.farmerId || "farmer-master-catalog";
+        const cid = created.cropId || body.cropId;
+        const exists = await FarmerCrop.findOne({ farmerId: fid, cropId: cid });
+        if (!exists) {
+          await FarmerCrop.create({
+            id: `crop-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            cropId: cid,
+            farmerId: fid,
+            farmId: body.farmId || "",
+            cropName: body.cropName,
+            variety: body.variety || "General",
+            category: body.category || "Vegetables",
+            categoryCode: body.category || "VEG",
+            area: Number(body.area) || 1,
+            areaUnit: body.areaUnit || "Acre",
+            sowingDate: body.sowingDate || new Date().toISOString().slice(0, 10),
+            expectedHarvestDate: body.expectedHarvestDate || new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10),
+            estimatedQuantity: Number(body.expectedProduction || body.estimatedQuantity || body.availableQuantity) || 100,
+            unit: body.unit || "Kg",
+            farmingType: body.farmingType || "Natural",
+            status: body.status || "Growing",
+          });
+        }
+      } catch (syncErr) {
+        console.warn("[ERP Crops] FarmerCrop sync notice:", syncErr.message);
+      }
+    }
     const actor = auditFromReq(req);
     await recordAudit({
       erpModule: spec.module,
@@ -137,13 +184,29 @@ export async function updateResource(req, res) {
 export async function softDeleteResource(req, res) {
   const spec = RESOURCES[req.params.resource];
   if (!spec) return res.status(404).json({ success: false, message: "Unknown ERP resource" });
-  const item = await spec.model.findOne({ [spec.idField]: req.params.id, isDeleted: { $ne: true } });
+  let item = await spec.model.findOne({ [spec.idField]: req.params.id, isDeleted: { $ne: true } });
+  if (!item && mongoose.Types.ObjectId.isValid(req.params.id)) {
+    item = await spec.model.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
+  }
   if (!item) return res.status(404).json({ success: false, message: `${spec.label} not found` });
   item.isDeleted = true;
   item.deletedAt = new Date();
   item.deletedBy = req.user?.id || "";
   item.status = "CLOSED";
   await item.save();
+
+  // If crop, sync deletion with FarmerCrop
+  if (req.params.resource === "crops" && item.cropId) {
+    try {
+      const FarmerCrop = mongoose.models.FarmerCrop;
+      if (FarmerCrop) {
+        await FarmerCrop.updateMany({ cropId: item.cropId }, { $set: { isDeleted: true, status: "Inactive" } });
+      }
+    } catch (syncErr) {
+      console.warn("[ERP Crops Delete] FarmerCrop sync notice:", syncErr.message);
+    }
+  }
+
   await recordAudit({
     erpModule: spec.module,
     recordId: item[spec.idField],
@@ -151,7 +214,7 @@ export async function softDeleteResource(req, res) {
     ...auditFromReq(req),
     newValue: { isDeleted: true },
   });
-  res.json({ success: true, message: `${spec.label} closed. Historical ID retained.` });
+  res.json({ success: true, message: `${spec.label} deleted successfully.` });
 }
 
 export async function listModules(_req, res) {
