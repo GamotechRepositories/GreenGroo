@@ -13,18 +13,46 @@ import {
   Trash2,
 } from 'lucide-react';
 import erpApi from '../../api/erpApi';
+import categoryApi from '../../api/categoryApi';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_TITLE, PANEL, TH } from '../../utils/ui';
 
-const CROP_CATEGORIES = [
-  { code: 'VEG', label: 'Vegetables' },
-  { code: 'FRT', label: 'Fruits' },
-  { code: 'GRN', label: 'Grains & Cereals' },
-  { code: 'PLS', label: 'Pulses & Legumes' },
-  { code: 'SPC', label: 'Spices' },
-  { code: 'FLW', label: 'Flowers' },
-  { code: 'CSH', label: 'Cash Crops' },
-  { code: 'OTH', label: 'Other' },
+export const DEFAULT_PRODUCT_CATEGORIES = [
+  { name: 'Vegetables', code: 'VEG' },
+  { name: 'Fruits', code: 'FRT' },
+  { name: 'Grains', code: 'GRN' },
+  { name: 'Pulses', code: 'PLS' },
+  { name: 'Spices', code: 'SPC' },
+  { name: 'Dry Fruits', code: 'DRY' },
+  { name: 'Dairy', code: 'DAI' },
+  { name: 'Bakery', code: 'BAK' },
+  { name: 'Oils', code: 'OIL' },
+  { name: 'Organic', code: 'ORG' },
+  { name: 'Beverages', code: 'BEV' },
+  { name: 'Flowers', code: 'FLW' },
+  { name: 'Cash Crops', code: 'CSH' },
 ];
+
+export function getCategoryCode(catName = '') {
+  const n = String(catName || '').trim().toLowerCase();
+  if (n.includes('veg')) return 'VEG';
+  if (n.includes('fruit')) return 'FRT';
+  if (n.includes('grain') || n.includes('cereal')) return 'GRN';
+  if (n.includes('pulse') || n.includes('dal') || n.includes('legume')) return 'PLS';
+  if (n.includes('spice')) return 'SPC';
+  if (n.includes('oil')) return 'OIL';
+  if (n.includes('dairy') || n.includes('milk')) return 'DAI';
+  if (n.includes('bak')) return 'BAK';
+  if (n.includes('dry')) return 'DRY';
+  if (n.includes('org')) return 'ORG';
+  if (n.includes('bev')) return 'BEV';
+  if (n.includes('chop')) return 'CHP';
+  if (n.includes('cut')) return 'CUT';
+  if (n.includes('peel')) return 'PEL';
+  if (n.includes('flow')) return 'FLW';
+  if (n.includes('cash')) return 'CSH';
+  const clean = n.replace(/[^a-z0-9]/g, '');
+  return (clean.slice(0, 3) || 'CAT').toUpperCase().padEnd(3, 'X');
+}
 
 const CROP_CODES_LOOKUP = {
   tomato: 'TOM',
@@ -77,22 +105,10 @@ function resolveVarietyCode(name = '') {
   return cleaned.slice(0, 3).toUpperCase().padEnd(3, 'X');
 }
 
-function resolveCategoryCode(name = '', chosen = 'VEG') {
-  if (chosen && chosen !== 'VEG') return chosen;
-  const n = String(name || '').toLowerCase();
-  if (/(oil|soybean|mustard|sunflower|groundnut|sesame|linseed)/.test(n)) return 'OIL';
-  if (/(mango|banana|apple|fruit|orange|grapes|pomegranate|papaya|guava|watermelon|chikoo|strawberry)/.test(n)) return 'FRT';
-  if (/(wheat|rice|grain|bajra|jowar|maize|cereal|barley)/.test(n)) return 'GRN';
-  if (/(dal|pulse|tur|moong|urad|gram|chana|pea|lentil)/.test(n)) return 'PLS';
-  if (/(chilli|turmeric|spice|cumin|coriander|pepper|ginger|garlic|clove|cardamom)/.test(n)) return 'SPC';
-  if (/(flower|rose|marigold|jasmine|mogra|shevanti)/.test(n)) return 'FLW';
-  if (/(cotton|sugarcane|tobacco|cash|jute)/.test(n)) return 'CSH';
-  return chosen || 'VEG';
-}
-
 export default function CropsPage() {
   const [crops, setCrops] = useState([]);
   const [farmers, setFarmers] = useState([]);
+  const [productCategories, setProductCategories] = useState(DEFAULT_PRODUCT_CATEGORIES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
@@ -105,8 +121,9 @@ export default function CropsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Form State - only Crop Name and Variety Name as requested
+  // Form State - Category, Crop Name, and Variety Name
   const initialForm = {
+    category: 'Vegetables',
     cropName: '',
     variety: '',
   };
@@ -114,19 +131,20 @@ export default function CropsPage() {
 
   // Dynamic preview for Add Crop
   const previewCropId = useMemo(() => {
-    const cat = resolveCategoryCode(form.cropName);
+    const catCode = getCategoryCode(form.category || form.cropName);
     const cropCode = resolveCropCode(form.cropName);
     const varCode = resolveVarietyCode(form.variety);
-    return `GGC-CRP-${cat}-${cropCode}-${varCode}-00001`;
-  }, [form.cropName, form.variety]);
+    return `GGC-CRP-${catCode}-${cropCode}-${varCode}-00001`;
+  }, [form.cropName, form.variety, form.category]);
 
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [cropsRes, farmersRes] = await Promise.allSettled([
+      const [cropsRes, farmersRes, catRes] = await Promise.allSettled([
         erpApi.list('crops', { limit: 100 }),
         erpApi.farmers({ limit: 100 }),
+        categoryApi.getAllCategories(),
       ]);
 
       if (cropsRes.status === 'fulfilled') {
@@ -138,6 +156,27 @@ export default function CropsPage() {
       if (farmersRes.status === 'fulfilled') {
         const fList = farmersRes.value.data.farmers || farmersRes.value.data.items || [];
         setFarmers(fList);
+      }
+
+      if (catRes.status === 'fulfilled') {
+        const raw = catRes.value?.categories || catRes.value?.data || catRes.value || [];
+        const list = Array.isArray(raw) ? raw : [];
+        const seen = new Set();
+        const extracted = [];
+        for (const c of list) {
+          const name = String(c.categoryName || c.name || '').trim();
+          if (name && !seen.has(name.toLowerCase())) {
+            seen.add(name.toLowerCase());
+            extracted.push({
+              id: c._id || name,
+              name,
+              code: getCategoryCode(name),
+            });
+          }
+        }
+        if (extracted.length > 0) {
+          setProductCategories(extracted);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -178,12 +217,12 @@ export default function CropsPage() {
     setFormError('');
 
     try {
-      const catCode = resolveCategoryCode(form.cropName);
+      const catCode = getCategoryCode(form.category || form.cropName);
       const cropCode = resolveCropCode(form.cropName);
       const payload = {
         cropName: form.cropName.trim(),
         variety: form.variety.trim(),
-        category: catCode,
+        category: form.category || 'Vegetables',
         categoryCode: catCode,
         cropCode,
         farmerId: farmers[0]?.id || 'farmer-master-catalog',
@@ -226,8 +265,19 @@ export default function CropsPage() {
 
   const filteredCrops = useMemo(() => {
     return crops.filter((c) => {
-      if (selectedCategory !== 'ALL' && c.category !== selectedCategory) {
-        return false;
+      if (selectedCategory !== 'ALL') {
+        const cCat = String(c.category || '').toLowerCase();
+        const cCode = String(c.categoryCode || '').toLowerCase();
+        const target = selectedCategory.toLowerCase();
+        const targetCode = getCategoryCode(selectedCategory).toLowerCase();
+        if (
+          cCat !== target &&
+          cCode !== target &&
+          cCode !== targetCode &&
+          getCategoryCode(c.category).toLowerCase() !== targetCode
+        ) {
+          return false;
+        }
       }
       if (q.trim()) {
         const query = q.toLowerCase();
@@ -302,9 +352,9 @@ export default function CropsPage() {
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-emerald-600"
           >
             <option value="ALL">All Categories</option>
-            {CROP_CATEGORIES.map((cat) => (
-              <option key={cat.code} value={cat.code}>
-                {cat.label} ({cat.code})
+            {productCategories.map((cat) => (
+              <option key={cat.id || cat.name} value={cat.name}>
+                {cat.name}
               </option>
             ))}
           </select>
@@ -463,8 +513,25 @@ export default function CropsPage() {
                 </p>
               </div>
 
-              {/* Crop Name & Variety Name — strictly these two fields */}
+              {/* Category, Crop Name & Variety Name */}
               <div className="space-y-4 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Category <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className={INPUT}
+                  >
+                    {productCategories.map((cat) => (
+                      <option key={cat.id || cat.name} value={cat.name}>
+                        {cat.name} ({cat.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Crop Name <span className="text-rose-500">*</span>
@@ -472,9 +539,31 @@ export default function CropsPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Tomato, Onion, Potato..."
+                    placeholder="e.g. Tomato, Onion, Mango, Apple..."
                     value={form.cropName}
-                    onChange={(e) => setForm({ ...form, cropName: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const lower = val.toLowerCase();
+                      let detectedCat = form.category;
+                      if (lower.includes('mango') || lower.includes('apple') || lower.includes('banana') || lower.includes('orange') || lower.includes('fruit') || lower.includes('grape')) {
+                        const m = productCategories.find((c) => c.name.toLowerCase().includes('fruit'));
+                        if (m) detectedCat = m.name;
+                      } else if (lower.includes('tomato') || lower.includes('onion') || lower.includes('potato') || lower.includes('carrot') || lower.includes('brinjal') || lower.includes('palak') || lower.includes('spinach')) {
+                        const m = productCategories.find((c) => c.name.toLowerCase().includes('veg'));
+                        if (m) detectedCat = m.name;
+                      } else if (lower.includes('wheat') || lower.includes('rice') || lower.includes('grain') || lower.includes('bajra') || lower.includes('jowar')) {
+                        const m = productCategories.find((c) => c.name.toLowerCase().includes('grain'));
+                        if (m) detectedCat = m.name;
+                      } else if (lower.includes('chilli') || lower.includes('turmeric') || lower.includes('ginger') || lower.includes('garlic') || lower.includes('spice')) {
+                        const m = productCategories.find((c) => c.name.toLowerCase().includes('spice'));
+                        if (m) detectedCat = m.name;
+                      }
+                      setForm((prev) => ({
+                        ...prev,
+                        cropName: val,
+                        category: prev.category === 'Vegetables' || !prev.category ? detectedCat : prev.category,
+                      }));
+                    }}
                     className={INPUT}
                     autoFocus
                   />
@@ -487,7 +576,7 @@ export default function CropsPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Yogi, Hybrid, Bajeerao..."
+                    placeholder="e.g. Yogi, Hybrid, Bajeerao, Hapus..."
                     value={form.variety}
                     onChange={(e) => setForm({ ...form, variety: e.target.value })}
                     className={INPUT}
