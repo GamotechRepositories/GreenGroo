@@ -578,214 +578,49 @@ function OrdersNavRow({ tab, statusFilter, onTab, onStatus, counts, onByProduct 
   );
 }
 
-function DarkstoreRequestCard({ request, onReview, busyId }) {
-  const isPending = request.status === "pending";
-  return (
-    <article className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-emerald-700">{request.requestNumber}</span>
-            <CopyButton value={request.requestNumber} />
-          </div>
-          <p className="mt-0.5 text-sm font-bold text-slate-900">{request.storeName}</p>
-          <p className="text-xs text-slate-500">
-            {request.managerName}
-            {request.area ? ` · ${request.area}` : ""}
-            {request.city ? `, ${request.city}` : ""}
-          </p>
-        </div>
-        <StatusBadge status={request.status} className="shrink-0" />
-      </div>
 
-      <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50/80 p-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-xs font-bold text-slate-800">{request.productName}</p>
-            <p className="text-[10px] font-mono text-slate-500">SKU: {request.sku}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-bold text-emerald-700">
-              {request.quantity} {request.unit || "pcs"}
-            </p>
-            <p className="text-[10px] text-slate-500">Current stock: {request.currentStock ?? 0}</p>
-          </div>
-        </div>
-        {request.note ? <p className="mt-1.5 text-[11px] text-slate-600 italic">“{request.note}”</p> : null}
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-slate-500">
-        <span>{formatWhen(request.createdAt)}</span>
-        {isPending ? (
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={Boolean(busyId)}
-              onClick={() => onReview(request.id || request._id, "approved")}
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-50"
-            >
-              {busyId === `${request.id || request._id}-approved` ? "…" : "Approve"}
-            </button>
-            <button
-              type="button"
-              disabled={Boolean(busyId)}
-              onClick={() => onReview(request.id || request._id, "rejected")}
-              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-            >
-              {busyId === `${request.id || request._id}-rejected` ? "…" : "Reject"}
-            </button>
-          </div>
-        ) : (
-          <span className="text-xs font-medium text-slate-600">
-            {request.reviewedByName ? `By ${request.reviewedByName}` : ""}
-            {request.reviewNote ? ` · ${request.reviewNote}` : ""}
-          </span>
-        )}
-      </div>
-    </article>
-  );
-}
-
-function DarkstoreProductCard({ product, onReview, busyId }) {
-  const [expanded, setExpanded] = useState(true);
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition hover:shadow-sm">
-      {/* Product Summary Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100/70 text-emerald-800">
-            <Package className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-900 sm:text-base">{product.productName}</h3>
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-slate-600">
-                SKU: {product.sku}
-              </span>
-              <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                {product.category}
-              </span>
-            </div>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Requested by <span className="font-semibold text-slate-700">{product.storeCount} Dark Store{product.storeCount > 1 ? "s" : ""}</span> ({product.requests.length} order{product.requests.length > 1 ? "s" : ""})
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-base font-bold text-emerald-800 sm:text-lg">
-              {product.totalQuantity.toLocaleString("en-IN")} {product.unit}
-            </p>
-            <div className="flex items-center justify-end gap-1.5 text-[10px]">
-              {product.pendingQuantity > 0 ? (
-                <span className="font-semibold text-amber-600">{product.pendingQuantity} Pending</span>
-              ) : null}
-              {product.approvedQuantity > 0 ? (
-                <span className="font-semibold text-emerald-600">· {product.approvedQuantity} Approved</span>
-              ) : null}
-              {product.rejectedQuantity > 0 ? (
-                <span className="font-semibold text-rose-600">· {product.rejectedQuantity} Rejected</span>
-              ) : null}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
-            title={expanded ? "Collapse" : "Expand"}
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-      </div>
-
-      {/* Breakdown of Dark Stores for this Product */}
-      {expanded ? (
-        <div className="mt-3 divide-y divide-slate-100 overflow-x-auto">
-          <table className="w-full min-w-[620px] text-left text-xs">
-            <thead>
-              <tr className="text-[11px] font-semibold text-slate-500">
-                <th className="py-2 pr-3">Dark Store</th>
-                <th className="py-2 px-3">Request #</th>
-                <th className="py-2 px-3 text-right">Quantity</th>
-                <th className="py-2 px-3">Date</th>
-                <th className="py-2 px-3 text-center">Status</th>
-                <th className="py-2 pl-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {product.requests.map((req) => {
-                const id = req.id || req._id;
-                const isPending = req.status === "pending";
-                return (
-                  <tr key={id} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 pr-3">
-                      <p className="font-bold text-slate-800">{req.storeName}</p>
-                      <p className="text-[10px] text-slate-500">
-                        {req.managerName} {req.area ? `· ${req.area}` : ""} {req.city ? `, ${req.city}` : ""}
-                      </p>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-emerald-800 whitespace-nowrap">
-                      {req.requestNumber}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-800 whitespace-nowrap">
-                      {req.quantity} {req.unit || "pcs"}
-                      <span className="block text-[9px] font-normal text-slate-400">had {req.currentStock ?? 0}</span>
-                    </td>
-                    <td className="py-2.5 px-3 text-[11px] text-slate-500 whitespace-nowrap">
-                      {formatWhen(req.createdAt)}
-                    </td>
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      <StatusBadge status={req.status} />
-                    </td>
-                    <td className="py-2.5 pl-3 text-right whitespace-nowrap">
-                      {isPending ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            disabled={Boolean(busyId)}
-                            onClick={() => onReview(id, "approved")}
-                            className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
-                          >
-                            {busyId === `${id}-approved` ? "…" : "Approve"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={Boolean(busyId)}
-                            onClick={() => onReview(id, "rejected")}
-                            className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
-                          >
-                            {busyId === `${id}-rejected` ? "…" : "Reject"}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-500">
-                          {req.reviewedByName ? `By ${req.reviewedByName}` : "Reviewed"}
-                          {req.reviewNote ? ` (${req.reviewNote})` : ""}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function DarkstoreStoreCard({ store, onReview, busyId }) {
   const [expanded, setExpanded] = useState(true);
+
+  // Group this dark store's requests product-wise
+  const productGroups = useMemo(() => {
+    const map = new Map();
+    (store.requests || []).forEach((req) => {
+      const key = String(req.sku || req.productName || "item").trim();
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          sku: req.sku,
+          productName: req.productName,
+          category: req.category || "General",
+          unit: req.unit || "pcs",
+          currentStock: req.currentStock ?? 0,
+          totalQuantity: 0,
+          pendingCount: 0,
+          approvedCount: 0,
+          rejectedCount: 0,
+          requests: [],
+        });
+      }
+      const prod = map.get(key);
+      const qty = Number(req.quantity || 0);
+      prod.totalQuantity += qty;
+      if (req.status === "pending") prod.pendingCount += 1;
+      else if (req.status === "approved") prod.approvedCount += 1;
+      else if (req.status === "rejected") prod.rejectedCount += 1;
+      prod.requests.push(req);
+    });
+    return Array.from(map.values());
+  }, [store.requests]);
+
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs transition hover:shadow-sm">
+    <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition hover:shadow-sm">
       {/* Darkstore Summary Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100/70 text-blue-800">
-            <Store className="h-5 w-5" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100/80 text-blue-800">
+            <Store className="h-6 w-6" />
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -798,6 +633,7 @@ function DarkstoreStoreCard({ store, onReview, busyId }) {
             </div>
             <p className="mt-0.5 text-xs text-slate-500">
               Manager: <span className="font-semibold text-slate-700">{store.managerName}</span> ·{" "}
+              <span className="font-semibold text-emerald-800">{productGroups.length} Product{productGroups.length > 1 ? "s" : ""}</span> ·{" "}
               <span>{store.requests.length} Order Request{store.requests.length > 1 ? "s" : ""}</span>
             </p>
           </div>
@@ -831,76 +667,139 @@ function DarkstoreStoreCard({ store, onReview, busyId }) {
         </div>
       </div>
 
-      {/* Orders List for this Store */}
+      {/* Product-wise Orders within this Darkstore */}
       {expanded ? (
-        <div className="mt-3 divide-y divide-slate-100 overflow-x-auto">
-          <table className="w-full min-w-[620px] text-left text-xs">
-            <thead>
-              <tr className="text-[11px] font-semibold text-slate-500">
-                <th className="py-2 pr-3">Product / SKU</th>
-                <th className="py-2 px-3">Request #</th>
-                <th className="py-2 px-3 text-right">Quantity</th>
-                <th className="py-2 px-3">Date</th>
-                <th className="py-2 px-3 text-center">Status</th>
-                <th className="py-2 pl-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {store.requests.map((req) => {
-                const id = req.id || req._id;
-                const isPending = req.status === "pending";
-                return (
-                  <tr key={id} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 pr-3">
-                      <p className="font-bold text-slate-800">{req.productName}</p>
-                      <p className="font-mono text-[10px] text-slate-400">SKU: {req.sku}</p>
-                      {req.note ? <p className="text-[10px] text-slate-500 italic">“{req.note}”</p> : null}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[11px] font-semibold text-emerald-800 whitespace-nowrap">
-                      {req.requestNumber}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">
-                      {req.quantity} {req.unit || "pcs"}
-                      <span className="block text-[9px] font-normal text-slate-400">had {req.currentStock ?? 0}</span>
-                    </td>
-                    <td className="py-2.5 px-3 text-[11px] text-slate-500 whitespace-nowrap">
-                      {formatWhen(req.createdAt)}
-                    </td>
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      <StatusBadge status={req.status} />
-                    </td>
-                    <td className="py-2.5 pl-3 text-right whitespace-nowrap">
-                      {isPending ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            disabled={Boolean(busyId)}
-                            onClick={() => onReview(id, "approved")}
-                            className="rounded-lg bg-emerald-700 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
-                          >
-                            {busyId === `${id}-approved` ? "…" : "Approve"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={Boolean(busyId)}
-                            onClick={() => onReview(id, "rejected")}
-                            className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
-                          >
-                            {busyId === `${id}-rejected` ? "…" : "Reject"}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-500">
-                          {req.reviewedByName ? `By ${req.reviewedByName}` : "Reviewed"}
-                          {req.reviewNote ? ` (${req.reviewNote})` : ""}
+        <div className="mt-4 space-y-3.5">
+          {productGroups.map((product) => (
+            <div
+              key={product.key}
+              className="rounded-xl border border-slate-200 bg-slate-50/40 p-3.5 sm:p-4 transition hover:border-slate-300"
+            >
+              {/* Product Header */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200/80 pb-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-800">
+                    <Package className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                        {product.productName}
+                      </h4>
+                      {product.category ? (
+                        <span className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                          {product.category}
                         </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      ) : null}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-500 font-mono">
+                      <span>SKU: <strong className="text-slate-700">{product.sku}</strong></span>
+                      <span className="font-sans text-slate-400">·</span>
+                      <span className="font-sans text-slate-600">
+                        Stock in store: <strong className="text-slate-800">{product.currentStock} {product.unit}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs sm:text-sm font-bold text-emerald-800">
+                    Total Req: {product.totalQuantity} {product.unit}
+                  </p>
+                  <div className="flex items-center justify-end gap-1.5 text-[10px] text-slate-500">
+                    <span>{product.requests.length} order{product.requests.length > 1 ? "s" : ""}</span>
+                    {product.pendingCount > 0 ? (
+                      <span className="font-bold text-amber-600">· {product.pendingCount} Pending</span>
+                    ) : null}
+                    {product.approvedCount > 0 ? (
+                      <span className="font-semibold text-emerald-600">· {product.approvedCount} Approved</span>
+                    ) : null}
+                    {product.rejectedCount > 0 ? (
+                      <span className="font-semibold text-rose-600">· {product.rejectedCount} Rejected</span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Orders Table */}
+              <div className="mt-2.5 overflow-x-auto">
+                <table className="w-full min-w-[580px] border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200/60 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-2 pr-3">Request #</th>
+                      <th className="py-2 px-3 text-right">Quantity</th>
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Note</th>
+                      <th className="py-2 px-3 text-center">Status</th>
+                      <th className="py-2 pl-3 text-right">Actions / Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white/70">
+                    {product.requests.map((req) => {
+                      const id = req.id || req._id;
+                      const isPending = req.status === "pending";
+                      return (
+                        <tr key={id} className="hover:bg-emerald-50/30 transition">
+                          <td className="py-2.5 pr-3 font-mono font-bold text-emerald-800 text-[11px] whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1">
+                              {req.requestNumber}
+                              <CopyButton value={req.requestNumber} />
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                            <span className="text-emerald-700">{req.quantity} {req.unit || product.unit}</span>
+                            <span className="block text-[9px] font-normal text-slate-400">had {req.currentStock ?? 0}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-[11px] text-slate-500 whitespace-nowrap">
+                            {formatWhen(req.createdAt)}
+                          </td>
+                          <td className="py-2.5 px-3 text-[11px] text-slate-600 max-w-[200px]">
+                            {req.note ? (
+                              <span className="italic text-slate-600">“{req.note}”</span>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                            <StatusBadge status={req.status} />
+                          </td>
+                          <td className="py-2.5 pl-3 text-right whitespace-nowrap">
+                            {isPending ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={Boolean(busyId)}
+                                  onClick={() => onReview(id, "approved")}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-800 disabled:opacity-50"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>{busyId === `${id}-approved` ? "…" : "Approve"}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={Boolean(busyId)}
+                                  onClick={() => onReview(id, "rejected")}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  <span>{busyId === `${id}-rejected` ? "…" : "Reject"}</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-slate-500">
+                                {req.reviewedByName ? `By ${req.reviewedByName}` : "—"}
+                                {req.reviewNote ? ` (${req.reviewNote})` : ""}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
     </div>
@@ -945,7 +844,6 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
 
   // Darkstore orders state
   const darkstoreStatus = searchParams.get("ds_status") || "all";
-  const darkstoreView = searchParams.get("ds_view") || DARKSTORE_VIEW_ALL;
   const { requests: darkstoreRequests, loading: loadingDarkstore, error: errorDarkstore, reload: reloadDarkstore } = useInventoryRequests();
   const [busyReviewId, setBusyReviewId] = useState("");
 
@@ -973,16 +871,6 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
       nextParams.delete("ds_status");
     } else {
       nextParams.set("ds_status", nextStatus);
-    }
-    setSearchParams(nextParams, { replace: true });
-  };
-
-  const setDarkstoreViewMode = (nextView) => {
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextView === DARKSTORE_VIEW_ALL) {
-      nextParams.delete("ds_view");
-    } else {
-      nextParams.set("ds_view", nextView);
     }
     setSearchParams(nextParams, { replace: true });
   };
@@ -1204,59 +1092,6 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
       });
   }, [darkstoreRequests, darkstoreStatus, q]);
 
-  // Darkstore Product-wise aggregation
-  const productWiseDarkstoreOrders = useMemo(() => {
-    const query = q.toLowerCase().trim();
-    const map = new Map();
-
-    darkstoreRequests.forEach((req) => {
-      if (darkstoreStatus !== "all" && req.status !== darkstoreStatus) return;
-      const key = String(req.sku || req.productName || "produce").trim().toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          sku: req.sku || "",
-          productName: req.productName || "Produce",
-          category: req.category || "General",
-          unit: req.unit || "pcs",
-          totalQuantity: 0,
-          pendingQuantity: 0,
-          approvedQuantity: 0,
-          rejectedQuantity: 0,
-          storeCount: new Set(),
-          requests: [],
-        });
-      }
-      const item = map.get(key);
-      const qty = Number(req.quantity || 0);
-      item.totalQuantity += qty;
-      if (req.status === "pending") item.pendingQuantity += qty;
-      else if (req.status === "approved") item.approvedQuantity += qty;
-      else if (req.status === "rejected") item.rejectedQuantity += qty;
-      if (req.storeName || req.managerId) item.storeCount.add(req.storeName || req.managerId);
-      item.requests.push(req);
-    });
-
-    const list = Array.from(map.values()).map((p) => ({
-      ...p,
-      storeCount: p.storeCount.size,
-    }));
-
-    if (!query) return list;
-    return list.filter(
-      (p) =>
-        p.productName.toLowerCase().includes(query) ||
-        p.sku.toLowerCase().includes(query) ||
-        p.category.toLowerCase().includes(query) ||
-        p.requests.some(
-          (r) =>
-            String(r.storeName || "").toLowerCase().includes(query) ||
-            String(r.managerName || "").toLowerCase().includes(query) ||
-            String(r.area || "").toLowerCase().includes(query) ||
-            String(r.city || "").toLowerCase().includes(query)
-        )
-    );
-  }, [darkstoreRequests, darkstoreStatus, q]);
 
   // Darkstore Store-wise aggregation
   const darkstoreWiseOrders = useMemo(() => {
@@ -1825,47 +1660,16 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
             </div>
           </div>
 
-          {/* Darkstore View Mode Switcher (All Orders / Products Wise / Darkstore Wise) */}
+          {/* Darkstore View Header & Quick Status Sub-Filter */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setDarkstoreViewMode(DARKSTORE_VIEW_ALL)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  darkstoreView === DARKSTORE_VIEW_ALL
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <ListOrdered className="h-3.5 w-3.5" />
-                <span>All Orders ({darkstoreRequests.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDarkstoreViewMode(DARKSTORE_VIEW_PRODUCTS)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  darkstoreView === DARKSTORE_VIEW_PRODUCTS
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <Package className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Products Wise ({productWiseDarkstoreOrders.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDarkstoreViewMode(DARKSTORE_VIEW_STORES)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  darkstoreView === DARKSTORE_VIEW_STORES
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <Store className="h-3.5 w-3.5 text-blue-600" />
-                <span>Darkstore Wise ({darkstoreWiseOrders.length})</span>
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-xs">
+                <Store className="h-3.5 w-3.5 text-blue-400" />
+                <span>Darkstores ({darkstoreWiseOrders.length})</span>
+              </span>
+              <span className="hidden text-xs text-slate-500 sm:inline">
+                Orders organized by Darkstore &amp; Product
+              </span>
             </div>
 
             {/* Quick Status Sub-Filter */}
@@ -1912,50 +1716,7 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
               {errorDarkstore}
             </div>
-          ) : darkstoreView === DARKSTORE_VIEW_PRODUCTS ? (
-            /* ========================================================= */
-            /* VIEW 1: PRODUCTS WISE VIEW                                */
-            /* ========================================================= */
-            productWiseDarkstoreOrders.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
-                No products found in dark store orders.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {productWiseDarkstoreOrders.map((product) => (
-                  <DarkstoreProductCard
-                    key={product.key}
-                    product={product}
-                    onReview={handleReviewDarkstoreRequest}
-                    busyId={busyReviewId}
-                  />
-                ))}
-              </div>
-            )
-          ) : darkstoreView === DARKSTORE_VIEW_STORES ? (
-            /* ========================================================= */
-            /* VIEW 2: DARKSTORE WISE VIEW                               */
-            /* ========================================================= */
-            darkstoreWiseOrders.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
-                No dark stores found in orders.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {darkstoreWiseOrders.map((store) => (
-                  <DarkstoreStoreCard
-                    key={store.key}
-                    store={store}
-                    onReview={handleReviewDarkstoreRequest}
-                    busyId={busyReviewId}
-                  />
-                ))}
-              </div>
-            )
-          ) : filteredDarkstoreRequests.length === 0 ? (
-            /* ========================================================= */
-            /* VIEW 3: ALL ORDERS VIEW (EMPTY)                           */
-            /* ========================================================= */
+          ) : darkstoreWiseOrders.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
               {darkstoreRequests.length === 0
                 ? "No dark store restock orders yet. When a Delivery Manager requests stock, it appears here."
@@ -1964,113 +1725,16 @@ export default function ManagerOrdersPage({ mode: modeProp }) {
                   : "No dark store orders in this tab."}
             </div>
           ) : (
-            /* ========================================================= */
-            /* VIEW 3: ALL ORDERS VIEW (TABLE / CARDS)                   */
-            /* ========================================================= */
-            <>
-              {/* Mobile Cards */}
-              <div className="space-y-2.5 md:hidden">
-                {filteredDarkstoreRequests.map((req) => (
-                  <DarkstoreRequestCard
-                    key={req.id || req._id}
-                    request={req}
-                    onReview={handleReviewDarkstoreRequest}
-                    busyId={busyReviewId}
-                  />
-                ))}
-              </div>
-
-              {/* Desktop Table */}
-              <div className="hidden w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm md:block">
-                <table className="w-full min-w-[850px] border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-left text-[11px] font-bold text-slate-600">
-                      <th className="px-3 py-2.5 text-center">#</th>
-                      <th className="px-3 py-2.5">Request #</th>
-                      <th className="px-3 py-2.5">Dark Store</th>
-                      <th className="px-3 py-2.5">Product & SKU</th>
-                      <th className="px-3 py-2.5 text-right">Quantity</th>
-                      <th className="px-3 py-2.5">Requested At</th>
-                      <th className="px-3 py-2.5 text-center">Status</th>
-                      <th className="px-3 py-2.5 text-right">Actions / Note</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredDarkstoreRequests.map((req, idx) => {
-                      const id = req.id || req._id;
-                      const isPending = req.status === "pending";
-                      return (
-                        <tr key={id} className="hover:bg-slate-50/60 transition">
-                          <td className="px-3 py-3 text-center text-[11px] text-slate-400 font-medium">
-                            {idx + 1}
-                          </td>
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 font-mono text-xs font-bold text-emerald-800">
-                              {req.requestNumber}
-                              <CopyButton value={req.requestNumber} />
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <p className="font-bold text-slate-900">{req.storeName}</p>
-                            <p className="text-[11px] text-slate-500">
-                              {req.managerName}
-                              {req.area ? ` · ${req.area}` : ""}
-                              {req.city ? `, ${req.city}` : ""}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <p className="font-semibold text-slate-800">{req.productName}</p>
-                            <p className="font-mono text-[10px] text-slate-400">SKU: {req.sku}</p>
-                            {req.note ? <p className="mt-0.5 text-[10px] text-slate-500 italic">“{req.note}”</p> : null}
-                          </td>
-                          <td className="px-3 py-3 text-right whitespace-nowrap">
-                            <p className="font-bold text-emerald-700">
-                              {req.quantity} {req.unit || "pcs"}
-                            </p>
-                            <p className="text-[10px] text-slate-400">had {req.currentStock ?? 0}</p>
-                          </td>
-                          <td className="px-3 py-3 whitespace-nowrap text-[11px] text-slate-500">
-                            {formatWhen(req.createdAt)}
-                          </td>
-                          <td className="px-3 py-3 text-center whitespace-nowrap">
-                            <StatusBadge status={req.status} />
-                          </td>
-                          <td className="px-3 py-3 text-right whitespace-nowrap">
-                            {isPending ? (
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  disabled={Boolean(busyReviewId)}
-                                  onClick={() => handleReviewDarkstoreRequest(id, "approved")}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-800 disabled:opacity-50"
-                                >
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>{busyReviewId === `${id}-approved` ? "…" : "Approve"}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={Boolean(busyReviewId)}
-                                  onClick={() => handleReviewDarkstoreRequest(id, "rejected")}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-                                >
-                                  <XCircle className="h-3.5 w-3.5" />
-                                  <span>{busyReviewId === `${id}-rejected` ? "…" : "Reject"}</span>
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-[11px] text-slate-500">
-                                {req.reviewedByName ? `By ${req.reviewedByName}` : "—"}
-                                {req.reviewNote ? ` (${req.reviewNote})` : ""}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
+            <div className="space-y-4">
+              {darkstoreWiseOrders.map((store) => (
+                <DarkstoreStoreCard
+                  key={store.key}
+                  store={store}
+                  onReview={handleReviewDarkstoreRequest}
+                  busyId={busyReviewId}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}

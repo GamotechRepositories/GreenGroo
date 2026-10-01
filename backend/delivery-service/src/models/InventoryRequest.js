@@ -37,7 +37,7 @@ const inventoryRequestSchema = new mongoose.Schema(
       index: true,
     },
     reviewedBy: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
     reviewedByName: { type: String, trim: true, default: "" },

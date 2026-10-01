@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import InventoryRequest from "../models/InventoryRequest.js";
 import StoreInventory from "../models/StoreInventory.js";
 import DeliveryManager from "../models/DeliveryManager.js";
@@ -19,8 +20,11 @@ const makeRequestNumber = () =>
   `INV-${Date.now().toString().slice(-8)}-${Math.floor(100 + Math.random() * 900)}`;
 
 const resolveManager = async (req) => {
-  let manager = await DeliveryManager.findById(req.user.id);
-  if (!manager && req.user.email) {
+  let manager = null;
+  if (mongoose.isValidObjectId(req.user?.id)) {
+    manager = await DeliveryManager.findById(req.user.id);
+  }
+  if (!manager && req.user?.email) {
     manager = await DeliveryManager.findOne({ email: req.user.email });
   }
   return manager;
@@ -216,8 +220,11 @@ export const reviewInventoryRequest = async (req, res, next) => {
       });
     }
 
-    let reviewerName = req.user.email || "Product Manager";
-    if (req.user.role !== "admin") {
+    let reviewerName =
+      req.user?.name ||
+      req.user?.email ||
+      (req.user?.role === "vendor" ? "Vendor" : "Product Manager");
+    if (req.user?.role !== "admin" && mongoose.isValidObjectId(req.user?.id)) {
       const staff = await Staff.findById(req.user.id).select("name email");
       if (staff) reviewerName = staff.name || staff.email || reviewerName;
     }
@@ -258,6 +265,7 @@ export const reviewInventoryRequest = async (req, res, next) => {
       request: request.toSafeJSON(),
     });
   } catch (error) {
-    next(error);
+    console.error('Error in reviewInventoryRequest:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
