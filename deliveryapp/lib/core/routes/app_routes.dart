@@ -34,4 +34,6 @@ abstract final class AppRoutes {
   static const bankDetails = '/bank-details';
   static const support = '/support';
   static const settings = '/settings';
+  static const selectEmploymentType = '/select-employment-type';
+  static const fullTimeRules = '/fulltime-rules';
 }

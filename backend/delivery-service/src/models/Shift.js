@@ -166,6 +166,11 @@ const shiftSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    shiftCategory: {
+      type: String,
+      enum: ['PART_TIME', 'FULL_TIME'],
+      default: 'PART_TIME',
+    },
   },
   { timestamps: true }
 );
@@ -235,6 +240,7 @@ shiftSchema.methods.toSafeJSON = function toSafeJSON() {
     totalBooked,
     totalCapacity,
     isCustomized: this.isCustomized,
+    shiftCategory: this.shiftCategory || 'PART_TIME',
     deliveryEarningSlabs: (this.deliveryEarningSlabs || []).map((s) => ({
       id: s._id ? s._id.toString() : undefined,
       minKm: s.minKm,

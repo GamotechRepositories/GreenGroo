@@ -261,6 +261,9 @@ export const register = async (req, res, next) => {
       area,
       managerId: targetManagerId,
       storeId: targetStoreId,
+      employmentType: ['PART_TIME', 'FULL_TIME'].includes(String(req.body.employmentType || '').toUpperCase())
+        ? String(req.body.employmentType).toUpperCase()
+        : 'PART_TIME',
     });
 
     const token = signToken(deliveryBoy);
@@ -509,6 +512,13 @@ export const updateOnboarding = async (req, res, next) => {
       }
     }
 
+    if (body.employmentType !== undefined) {
+      const et = String(body.employmentType).toUpperCase();
+      if (['PART_TIME', 'FULL_TIME'].includes(et)) {
+        deliveryBoy.employmentType = et;
+      }
+    }
+
     await deliveryBoy.save();
 
     // Notify manager dashboard when documents/selfie are uploaded during onboarding
@@ -602,7 +612,7 @@ export const updateStatus = async (req, res, next) => {
         const liveGig = gigManager
           ? await findLiveGigForManager(gigManager._id)
           : null;
-        if (!liveGig) {
+        if (!liveGig && existing.employmentType !== 'FULL_TIME') {
           return res.status(400).json({
             success: false,
             code: "NO_SHIFT_BOOKED",

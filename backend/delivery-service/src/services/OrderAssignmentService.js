@@ -67,6 +67,7 @@ export async function findEligibleDrivers(darkStore, excludedIds = []) {
     isActive: true,
     status: "online",
     activeOrderId: null,
+    employmentType: { $ne: 'FULL_TIME' },
     _id: { $nin: excludedIds },
     $and: [
       {

@@ -155,6 +155,7 @@ const serializeRider = (r) => ({
   name: r.name || "Rider",
   phone: r.phone,
   vehicleType: r.vehicleType,
+  employmentType: r.employmentType || 'PART_TIME',
   status: r.status,
   city: r.city,
   cityId: r.cityId,

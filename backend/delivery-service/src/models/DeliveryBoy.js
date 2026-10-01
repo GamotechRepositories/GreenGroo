@@ -279,6 +279,11 @@ const deliveryBoySchema = new mongoose.Schema(
       ],
       default: "vehicle",
     },
+    employmentType: {
+      type: String,
+      enum: ['PART_TIME', 'FULL_TIME'],
+      default: 'PART_TIME',
+    },
   },
   { timestamps: true }
 );
@@ -350,6 +355,7 @@ deliveryBoySchema.methods.toSafeJSON = function toSafeJSON() {
     verificationNote: this.verificationNote || "",
     onboardingComplete: this.onboardingComplete,
     onboardingStep: this.onboardingStep,
+    employmentType: this.employmentType || 'PART_TIME',
     pendingSlotAlerts: (this.pendingSlotAlerts || [])
       .filter((a) => !a.seen)
       .map((a) => ({

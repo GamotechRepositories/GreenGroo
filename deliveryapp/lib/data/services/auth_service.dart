@@ -38,6 +38,7 @@ class DeliveryBoy {
     this.selfieBase64 = '',
     this.documents = const {},
     this.bankDetails = const {},
+    this.employmentType = 'PART_TIME',
   });
 
   final String id;
@@ -65,6 +66,7 @@ class DeliveryBoy {
   final String selfieBase64;
   final Map<String, dynamic> documents;
   final Map<String, dynamic> bankDetails;
+  final String employmentType;
 
   bool get hasProfilePhoto =>
       selfieUrl.isNotEmpty || selfieBase64.isNotEmpty;
@@ -87,6 +89,7 @@ class DeliveryBoy {
   bool get isVerificationPending =>
       verificationStatus != 'approved' && verificationStatus != 'rejected';
   bool get isVerified => verificationStatus == 'approved';
+  bool get isFullTime => employmentType == 'FULL_TIME';
 
   factory DeliveryBoy.fromJson(Map<String, dynamic> json) {
     final selfie = json['selfie'];
@@ -131,6 +134,7 @@ class DeliveryBoy {
       selfieBase64: selfieBase64,
       documents: docs,
       bankDetails: bank,
+      employmentType: json['employmentType']?.toString() ?? 'PART_TIME',
     );
   }
 
@@ -161,6 +165,7 @@ class DeliveryBoy {
         },
         'documents': documents,
         'bankDetails': bankDetails,
+        'employmentType': employmentType,
       };
 }
 

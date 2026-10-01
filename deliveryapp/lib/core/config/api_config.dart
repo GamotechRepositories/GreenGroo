@@ -107,6 +107,9 @@ abstract final class ApiConfig {
   static const walletSummary = '/api/delivery-boys/wallet/summary';
   static const attendanceToday = '/api/delivery-boys/attendance/today';
   static const performance = '/api/delivery-boys/performance';
+  static const fullTimeAttendanceMark = '/api/delivery-boys/attendance/mark';
+  static const fullTimeAttendanceToday = '/api/delivery-boys/attendance/fulltime-today';
+  static const fullTimeRules = '/api/delivery-boys/fulltime-rules';
 
   // Shift earning slabs (rider reads from shift screen)
   static String shiftEarningSlabs(String shiftId) =>

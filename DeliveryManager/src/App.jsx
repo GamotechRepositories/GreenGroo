@@ -24,6 +24,10 @@ import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
 import PoliciesPage from "./pages/policies/PoliciesPage";
 import SupportPage from "./pages/support/SupportPage";
 import MeetingsPage from "./pages/meetings/MeetingsPage";
+import FullTimeSalaryPage from "./pages/fulltime/FullTimeSalaryPage";
+import FullTimeRulesPage from "./pages/fulltime/FullTimeRulesPage";
+import FullTimeShiftManagementPage from "./pages/shifts/FullTimeShiftManagementPage";
+import CreateFullTimeShiftPage from "./pages/shifts/CreateFullTimeShiftPage";
 
 function App() {
   return (
@@ -37,6 +41,8 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/shifts" element={<ShiftManagementPage />} />
               <Route path="/shifts/create" element={<CreateShiftPage />} />
+              <Route path="/shifts/fulltime" element={<FullTimeShiftManagementPage />} />
+              <Route path="/shifts/fulltime/create" element={<CreateFullTimeShiftPage />} />
               <Route path="/stock" element={<StockPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/drivers" element={<DriversPage />} />
@@ -54,6 +60,8 @@ function App() {
               <Route path="/support" element={<SupportPage />} />
               <Route path="/leave" element={<ApplyLeavePage />} />
               <Route path="/meetings" element={<MeetingsPage />} />
+              <Route path="/fulltime/salary" element={<FullTimeSalaryPage />} />
+              <Route path="/fulltime/rules" element={<FullTimeRulesPage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

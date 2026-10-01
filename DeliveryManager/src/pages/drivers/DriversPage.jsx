@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { PageShell } from "../../components/layout/ManagerLayout";
 import { useLive } from "../../realtime/useLive";
 
-const EMPTY = { name: "", phone: "", password: "" };
+const EMPTY = { name: "", phone: "", password: "", employmentType: "PART_TIME" };
 
 export default function DriversPage() {
   const navigate = useNavigate();
@@ -131,7 +131,7 @@ export default function DriversPage() {
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                   Full Name
@@ -174,6 +174,21 @@ export default function DriversPage() {
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  Employment Type
+                </label>
+                <select
+                  name="employmentType"
+                  value={form.employmentType}
+                  onChange={(e) => setForm((p) => ({ ...p, employmentType: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none"
+                >
+                  <option value="PART_TIME">Part-Time</option>
+                  <option value="FULL_TIME">Full-Time</option>
+                </select>
               </div>
             </div>
 
@@ -229,7 +244,18 @@ export default function DriversPage() {
                     className="hover:bg-emerald-50/60 cursor-pointer transition"
                   >
                     <td className="py-3.5 px-4 font-bold text-slate-900">
-                      <span>{r.name || "Delivery Partner"}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{r.name || "Delivery Partner"}</span>
+                        {r.employmentType === 'FULL_TIME' ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200">
+                            Full-Time
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700 border border-blue-200">
+                            Part-Time
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-slate-700 font-medium">
                       {r.phone}

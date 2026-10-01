@@ -53,6 +53,9 @@ export const createDeliveryBoyByManager = async (req, res, next) => {
       onboardingComplete: true,
       isActive: true,
       verifiedAt: new Date(),
+      employmentType: ['PART_TIME', 'FULL_TIME'].includes(String(req.body.employmentType || '').toUpperCase())
+        ? String(req.body.employmentType).toUpperCase()
+        : 'PART_TIME',
     });
 
     return res.status(201).json({

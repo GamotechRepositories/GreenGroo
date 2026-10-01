@@ -72,6 +72,11 @@ import {
   markMyNotificationRead,
   deleteMyNotification,
 } from "../controllers/riderNotificationController.js";
+import {
+  markFullTimeAttendance,
+  getFullTimeAttendanceToday,
+  getFullTimeRulesForRider,
+} from "../controllers/fullTimeAttendanceController.js";
 
 const router = express.Router();
 
@@ -143,5 +148,9 @@ router.get("/earnings/detail", protect, getRiderEarningsDetail);
 router.get("/wallet/summary", protect, getWalletSummary);
 router.get("/attendance/today", protect, getAttendanceToday);
 router.get("/performance", protect, getPerformanceStats);
+
+router.post("/attendance/mark", protect, markFullTimeAttendance);
+router.get("/attendance/fulltime-today", protect, getFullTimeAttendanceToday);
+router.get("/fulltime-rules", protect, getFullTimeRulesForRider);
 
 export default router;

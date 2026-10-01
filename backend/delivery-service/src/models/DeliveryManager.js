@@ -93,6 +93,10 @@ const deliveryManagerSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    fullTimeMonthlySalary: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
@@ -132,6 +136,7 @@ deliveryManagerSchema.methods.toSafeJSON = function toSafeJSON() {
     isActive: this.isActive,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
+    fullTimeMonthlySalary: this.fullTimeMonthlySalary || 0,
   };
 };
 

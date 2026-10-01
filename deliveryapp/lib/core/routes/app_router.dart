@@ -24,6 +24,8 @@ import '../../presentation/screens/onboarding/take_selfie_screen.dart';
 import '../../presentation/screens/onboarding/upload_documents_screen.dart';
 import '../../presentation/screens/onboarding/vehicle_selection_screen.dart';
 import '../../presentation/screens/orders/new_orders_screen.dart';
+import '../../presentation/screens/onboarding/employment_type_screen.dart';
+import '../../presentation/screens/fulltime/fulltime_rules_screen.dart';
 import '../../presentation/screens/shifts/my_shifts_screen.dart';
 import '../../presentation/screens/performance/performance_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
@@ -88,6 +90,8 @@ class AppRouter {
           AppRoutes.bankDetails => const BankDetailsScreen(),
           AppRoutes.support => const SupportScreen(),
           AppRoutes.settings => const SettingsScreen(),
+          AppRoutes.selectEmploymentType => const EmploymentTypeScreen(),
+          AppRoutes.fullTimeRules => const FullTimeRulesScreen(),
           _ => const SplashScreen(),
         },
       ),

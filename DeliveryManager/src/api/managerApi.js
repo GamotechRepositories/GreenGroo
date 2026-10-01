@@ -137,4 +137,14 @@ export const managerApi = {
   markAlertRead: (alertId) => api.patch(`/api/alerts/${alertId}/read`),
   getStoreIncentives: (params) => api.get(`/api/incentives/store-summary`, { params }),
   getRiderIncentives: (riderId, params) => api.get(`/api/incentives/rider`, { params: { riderId, ...params } }),
+
+  // Full-Time Management APIs
+  getFullTimeConfig: () => api.get(`${BASE}/fulltime-config`),
+  setFullTimeConfig: (data) => api.put(`${BASE}/fulltime-config`, data),
+  getFullTimeRules: () => api.get(`${BASE}/fulltime-rules`),
+  createFullTimeRule: (data) => api.post(`${BASE}/fulltime-rules`, data),
+  updateFullTimeRule: (id, data) => api.put(`${BASE}/fulltime-rules/${id}`, data),
+  deleteFullTimeRule: (id) => api.delete(`${BASE}/fulltime-rules/${id}`),
+  getFullTimeShifts: () => api.get(`${BASE}/shifts?category=FULL_TIME`),
+  createFullTimeShift: (data) => api.post(`${BASE}/shifts`, { ...data, shiftCategory: 'FULL_TIME' }),
 };

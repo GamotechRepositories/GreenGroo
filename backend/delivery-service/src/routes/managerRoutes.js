@@ -73,6 +73,14 @@ import {
   getRiderCashHistory,
 } from "../controllers/cashSettlementController.js";
 import {
+  listFullTimeRules,
+  createFullTimeRule,
+  updateFullTimeRule,
+  deleteFullTimeRule,
+  getFullTimeConfig,
+  setFullTimeConfig,
+} from "../controllers/fullTimeRuleController.js";
+import {
   listManagerReturnPickups,
   getManagerReturnPickup,
   assignReturnPickup,
@@ -162,5 +170,13 @@ router.get("/cash/rider/:riderId", getRiderCashHistory);
 // Cash Settlement — Dark Store confirms physical cash receipt from riders
 router.get("/cash-settlements", getManagerCashOverview);
 router.post("/cash-settlements/confirm", confirmRiderCash);
+
+// Full-Time Management
+router.get("/fulltime-config", getFullTimeConfig);
+router.put("/fulltime-config", setFullTimeConfig);
+router.get("/fulltime-rules", listFullTimeRules);
+router.post("/fulltime-rules", createFullTimeRule);
+router.put("/fulltime-rules/:id", updateFullTimeRule);
+router.delete("/fulltime-rules/:id", deleteFullTimeRule);
 
 export default router;
