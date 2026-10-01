@@ -13,6 +13,7 @@ import {
   Tractor,
 } from 'lucide-react';
 import erpApi from '../../api/erpApi';
+import opsApi from '../../api/opsApi';
 import { BTN, PAGE_KICKER, PANEL } from '../../utils/ui';
 import FarmerDocumentsPanel from './FarmerDocumentsPanel';
 
@@ -27,6 +28,7 @@ const TABS = [
   'Earnings',
   'Documents',
   'Pickups',
+  'Meetings',
 ];
 
 function money(value) {
@@ -137,13 +139,22 @@ export default function Farmer360Page() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('Overview');
+  const [meetings, setMeetings] = useState([]);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    erpApi
-      .farmer(id)
-      .then((res) => alive && setData(res.data))
+    Promise.all([
+      erpApi.farmer(id),
+      opsApi.list('hr/meetings').catch(() => ({ data: [] }))
+    ])
+      .then(([res, meetingsRes]) => {
+        if (alive) {
+          setData(res.data);
+          const allMeetings = meetingsRes.data || [];
+          setMeetings(allMeetings.filter(m => m.roles.includes('all') || m.roles.includes('farmer')));
+        }
+      })
       .catch((err) => alive && setError(err.response?.data?.message || 'Farmer not found'))
       .finally(() => alive && setLoading(false));
     return () => {
@@ -600,6 +611,20 @@ export default function Farmer360Page() {
           </div>
         </div>
       )}
+
+      {tab === 'Meetings' ? (
+        <Table
+          rows={meetings}
+          rowKey={(r) => r._id}
+          columns={[
+            { key: 'link', label: 'Link', render: (r) => r.link ? <a href={r.link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">{r.link}</a> : '—' },
+            { key: 'meetingId', label: 'Meeting ID', render: (r) => <span className="font-mono text-xs">{r.meetingId || '—'}</span> },
+            { key: 'password', label: 'Password', render: (r) => <span className="font-mono text-xs">{r.password || '—'}</span> },
+            { key: 'note', label: 'Note', render: (r) => r.note || '—' },
+            { key: 'date', label: 'Date', render: (r) => new Date(r.createdAt).toLocaleDateString() },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }

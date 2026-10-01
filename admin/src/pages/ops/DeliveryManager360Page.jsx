@@ -40,12 +40,21 @@ export default function DeliveryManager360Page() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('store');
+  const [meetings, setMeetings] = useState([]);
 
   useEffect(() => {
     let alive = true;
-    opsApi
-      .list(`delivery/managers/${id}`)
-      .then((res) => alive && setData(res.data))
+    Promise.all([
+      opsApi.list(`delivery/managers/${id}`),
+      opsApi.list('hr/meetings').catch(() => ({ data: [] }))
+    ])
+      .then(([res, meetingsRes]) => {
+        if (alive) {
+          setData(res.data);
+          const allMeetings = meetingsRes.data || [];
+          setMeetings(allMeetings.filter(m => m.roles.includes('all') || m.roles.includes('delivery_manager')));
+        }
+      })
       .catch((err) => alive && setError(err.response?.data?.message || 'Manager not found'))
       .finally(() => alive && setLoading(false));
     return () => {
@@ -70,6 +79,7 @@ export default function DeliveryManager360Page() {
     { id: 'store', label: 'Store' },
     { id: 'riders', label: `Riders (${data.riders?.length || 0})` },
     { id: 'orders', label: `Orders (${data.orders?.length || 0})` },
+    { id: 'meetings', label: `Meetings (${meetings.length})` },
   ];
 
   return (
@@ -204,6 +214,40 @@ export default function DeliveryManager360Page() {
                 {!data.orders?.length ? (
                   <tr>
                     <td colSpan={4} className="px-3 py-10 text-center text-sm text-slate-400">No orders yet</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'meetings' ? (
+        <div className={PANEL}>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-[#F2F2F2]">
+                <tr>
+                  {['Link', 'Meeting ID', 'Password', 'Note', 'Date'].map((h) => (
+                    <th key={h} className={TH}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {meetings.map((meeting) => (
+                  <tr key={meeting._id} className="border-b border-slate-100 last:border-0 hover:bg-[#F9F9F9]">
+                    <td className="px-3 py-2.5">
+                      {meeting.link ? <a href={meeting.link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline">{meeting.link}</a> : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{meeting.meetingId || '—'}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{meeting.password || '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{meeting.note || '—'}</td>
+                    <td className="px-3 py-2.5 text-xs text-slate-500">{new Date(meeting.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {!meetings.length ? (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-10 text-center text-sm text-slate-400">No meetings scheduled</td>
                   </tr>
                 ) : null}
               </tbody>

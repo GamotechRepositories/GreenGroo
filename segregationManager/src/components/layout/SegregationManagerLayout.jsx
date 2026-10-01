@@ -8,7 +8,9 @@ import RoleAnnouncements from '../RoleAnnouncements'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
-  { to: '/qr-system', label: 'QR System', icon: 'grid' },
+  { to: '/orders', label: 'Orders', icon: 'grid' },
+  { to: '/qr-store', label: 'QR Store', icon: 'qrCode' },
+  { to: '/meetings', label: 'Meetings', icon: 'video' },
 ]
 
 

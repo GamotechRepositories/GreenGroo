@@ -50,4 +50,6 @@ export const staffApi = {
     api.get("/api/staff/inventory-requests").then((res) => res.data?.requests || []),
   updateInventoryRequest: (id, payload) =>
     api.patch(`/api/staff/inventory-requests/${id}`, payload).then((res) => res.data),
+  vendorBatches: () =>
+    api.get("/api/staff/vendor-batches").then((res) => res.data?.data || []),
 };

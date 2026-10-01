@@ -83,6 +83,9 @@ import {
   applyHrCandidate,
   updateHrCandidate,
   downloadHrCandidateCv,
+  createHrMeeting,
+  listHrMeetings,
+  listMyHrMeetings,
 } from "./hrExtendedControllers.js";
 import {
   listFinance,
@@ -161,6 +164,7 @@ router.get("/govt-schemes/live", optionalAuth, listLiveGovtSchemes);
 router.post("/govt-schemes/apply", optionalAuth, applyGovtScheme);
 router.get("/govt-schemes/applications/mine", optionalAuth, listMyGovtSchemeApplications);
 router.get("/market-prices/live", optionalAuth, listLiveMarketPrices);
+router.get("/hr/meetings/mine", protect, listMyHrMeetings);
 
 router.use(protect, requireAdmin);
 
@@ -233,6 +237,8 @@ router.get("/hr/announcements", listHrAnnouncements);
 router.post("/hr/announcements", createHrAnnouncement);
 router.put("/hr/announcements/:id", updateHrAnnouncement);
 router.delete("/hr/announcements/:id", deleteHrAnnouncement);
+router.get("/hr/meetings", listHrMeetings);
+router.post("/hr/meetings", createHrMeeting);
 router.get("/hr/leave-policies", listHrLeavePolicies);
 router.put("/hr/leave-policies/:roleKey", upsertHrLeavePolicy);
 router.get("/hr/leaves", listHrLeaves);

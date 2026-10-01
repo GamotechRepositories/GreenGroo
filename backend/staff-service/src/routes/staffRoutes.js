@@ -6,6 +6,7 @@ import {
   listStaff,
   login,
   me,
+  getVendorBatches,
 } from "../controllers/staffController.js";
 import {
   listAllInventoryRequests,
@@ -42,6 +43,7 @@ router.patch(
 );
 
 router.get("/preorders", requireRoles(...PRE_ORDER_ROLES), listPreOrdersForStaff);
+router.get("/vendor-batches", requireRoles(...PRE_ORDER_ROLES), getVendorBatches);
 router.post("/preorders/forward", requireRoles(...PRE_ORDER_ROLES), forwardPreOrders);
 router.patch("/preorders/:orderId/stage", requireRoles(...PRE_ORDER_ROLES), updatePreOrderStage);
 router.post("/preorders/:orderId/cancel", requireRoles(...PRE_ORDER_ROLES), cancelPreOrderByStaff);

@@ -12,6 +12,9 @@ import PoliciesPage from './pages/policies/PoliciesPage'
 import QrSystemHubPage from './pages/qr-system/QrSystemHubPage'
 import QrSystemDarkStorePage from './pages/qr-system/QrSystemDarkStorePage'
 import QrSystemPreordersPage from './pages/qr-system/QrSystemPreordersPage'
+import OrderDetailPage from './pages/orders/OrderDetailPage'
+import QrStorePage from './pages/qr-store/QrStorePage'
+import MeetingsPage from './pages/meetings/MeetingsPage'
 
 function App() {
 
@@ -23,14 +26,17 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<SegregationManagerLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/qr-system" element={<QrSystemHubPage />} />
-              <Route path="/qr-system/dark-store" element={<QrSystemDarkStorePage />} />
-              <Route path="/qr-system/preorders" element={<QrSystemPreordersPage />} />
+              <Route path="/orders" element={<QrSystemHubPage />} />
+              <Route path="/orders/dark-store" element={<QrSystemDarkStorePage />} />
+              <Route path="/orders/dark-store/:id" element={<OrderDetailPage />} />
+              <Route path="/orders/preorders" element={<QrSystemPreordersPage />} />
+              <Route path="/qr-store" element={<QrStorePage />} />
               <Route element={<ProfileLayout />}>
 
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />
+                <Route path="/meetings" element={<MeetingsPage />} />
                 <Route path="/policies" element={<PoliciesPage roleKey="segregation_manager" />} />
               </Route>
             </Route>

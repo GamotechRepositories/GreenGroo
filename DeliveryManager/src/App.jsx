@@ -23,6 +23,7 @@ import AlertsPage from "./pages/alerts/AlertsPage";
 import ApplyLeavePage from "./pages/leave/ApplyLeavePage";
 import PoliciesPage from "./pages/policies/PoliciesPage";
 import SupportPage from "./pages/support/SupportPage";
+import MeetingsPage from "./pages/meetings/MeetingsPage";
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
               <Route path="/policies" element={<PoliciesPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/leave" element={<ApplyLeavePage />} />
+              <Route path="/meetings" element={<MeetingsPage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

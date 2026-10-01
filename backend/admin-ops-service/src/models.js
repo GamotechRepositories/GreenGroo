@@ -609,3 +609,18 @@ export const MarketPrice =
 
 export { HR_EMPLOYEE_TYPES, HR_ROLE_KEYS };
 
+const hrMeetingSchema = new mongoose.Schema(
+  {
+    roles: [{ type: String, required: true, trim: true }],
+    link: { type: String, default: "", trim: true },
+    meetingId: { type: String, default: "", trim: true },
+    password: { type: String, default: "", trim: true },
+    note: { type: String, default: "", trim: true },
+    createdBy: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
+export const HrMeeting =
+  mongoose.models.AdminHrMeeting ||
+  mongoose.model("AdminHrMeeting", hrMeetingSchema);

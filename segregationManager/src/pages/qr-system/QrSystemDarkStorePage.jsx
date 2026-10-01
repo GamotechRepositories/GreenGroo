@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageShell } from '../../components/layout/SegregationManagerLayout'
 import { staffApi } from '../../api/staffApi'
 import { Icon } from '../../components/ui/Icon'
@@ -14,6 +14,7 @@ const REQUEST_STATUS = {
 };
 
 export default function QrSystemDarkStorePage() {
+  const navigate = useNavigate()
   const [stores, setStores] = useState([])
   const [loadingStores, setLoadingStores] = useState(true)
   
@@ -106,8 +107,8 @@ export default function QrSystemDarkStorePage() {
     >
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
-          <Link to="/qr-system" className="font-medium text-slate-500 hover:text-slate-900 transition-colors">
-            QR System Hub
+          <Link to="/orders" className="font-medium text-slate-500 hover:text-slate-900 transition-colors">
+            Orders Hub
           </Link>
           
           {selectedZone && (
@@ -226,7 +227,7 @@ export default function QrSystemDarkStorePage() {
                   </tr>
                 ) : (
                   requests.map((req) => (
-                    <tr key={req._id || req.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setViewingRequest(req)}>
+                    <tr key={req._id || req.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate(`/orders/dark-store/${req._id || req.id}`)}>
                       <td className="px-6 py-4 font-medium text-slate-900">{req.requestNumber}</td>
                       <td className="px-6 py-4">
                         <p className="font-medium text-slate-900">{req.productName}</p>
@@ -244,7 +245,7 @@ export default function QrSystemDarkStorePage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setViewingRequest(req); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/orders/dark-store/${req._id || req.id}`); }}
                           className="rounded-lg bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm hover:bg-emerald-100 transition-colors"
                         >
                           View Details & Manage
@@ -259,94 +260,7 @@ export default function QrSystemDarkStorePage() {
         </div>
       )}
 
-      {/* Details Modal */}
-      {viewingRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl space-y-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Request Details</h3>
-                <p className="text-sm text-slate-500 mt-1">{viewingRequest.requestNumber}</p>
-              </div>
-              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold capitalize border ${REQUEST_STATUS[viewingRequest.status] || REQUEST_STATUS.pending}`}>
-                {viewingRequest.status}
-              </span>
-            </div>
 
-            <div className="rounded-xl bg-slate-50 border border-slate-100 p-5 space-y-4">
-              <div>
-                <div className="font-bold text-slate-900 text-lg">{viewingRequest.productName}</div>
-                <div className="text-sm text-slate-500">SKU: {viewingRequest.sku}</div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Grade A</p>
-                  <p className="mt-1 text-base font-bold text-slate-900">{viewingRequest.gradeAQuantity || 0} <span className="text-xs font-normal text-slate-500">{viewingRequest.unit}</span></p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Grade B</p>
-                  <p className="mt-1 text-base font-bold text-slate-900">{viewingRequest.gradeBQuantity || 0} <span className="text-xs font-normal text-slate-500">{viewingRequest.unit}</span></p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Grade C</p>
-                  <p className="mt-1 text-base font-bold text-slate-900">{viewingRequest.gradeCQuantity || 0} <span className="text-xs font-normal text-slate-500">{viewingRequest.unit}</span></p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Other</p>
-                  <p className="mt-1 text-base font-bold text-slate-900">{viewingRequest.otherQuantity || 0} <span className="text-xs font-normal text-slate-500">{viewingRequest.unit}</span></p>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-                <span className="text-sm font-bold text-slate-900">Total Requested</span>
-                <span className="text-lg font-black text-emerald-600">{viewingRequest.quantity} {viewingRequest.unit}</span>
-              </div>
-            </div>
-
-            {viewingRequest.note && (
-              <div className="text-sm">
-                <p className="font-bold text-slate-700">Delivery Manager Note:</p>
-                <p className="text-slate-600 mt-1 italic">"{viewingRequest.note}"</p>
-              </div>
-            )}
-
-            <div className="pt-2 border-t border-slate-100">
-              <label className="block text-sm font-bold text-slate-900 mb-2">Update Status</label>
-              <div className="flex flex-wrap gap-2">
-                {['pending', 'approved', 'inprocessed', 'packed', 'completed', 'rejected'].map(status => (
-                  <button
-                    key={status}
-                    disabled={isUpdatingStatus || viewingRequest.status === status}
-                    onClick={() => handleUpdateStatus(status)}
-                    className={`rounded-lg px-4 py-2 text-xs font-bold capitalize transition-colors ${
-                      viewingRequest.status === status 
-                        ? 'bg-slate-800 text-white shadow-sm ring-2 ring-slate-800 ring-offset-2' 
-                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
-                    } disabled:opacity-50`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center pt-6 border-t border-slate-100">
-              <button
-                className="rounded-xl bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                Print QR Sticker
-              </button>
-              <button
-                onClick={() => setViewingRequest(null)}
-                className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </PageShell>
   )
 }

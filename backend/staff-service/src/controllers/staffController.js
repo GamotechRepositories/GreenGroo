@@ -413,3 +413,47 @@ async function createDeliveryBoy(req, res, next) {
 }
 
 export { signDeliveryManagerToken };
+
+import mongoose from "mongoose";
+
+export const getVendorBatches = async (req, res, next) => {
+  try {
+    const db = mongoose.connection.db;
+    
+    // Aggregate quality inspections with farmer orders to get product and farmer details
+    const qis = await db.collection("qualityinspections").aggregate([
+      {
+        $lookup: {
+          from: "farmerorders",
+          localField: "orderId",
+          foreignField: "orderId",
+          as: "orderData"
+        }
+      },
+      {
+        $unwind: {
+          path: "$orderData",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]).toArray();
+
+    const batches = qis.map(qi => ({
+      id: qi.batchId || qi._id.toString(),
+      orderId: qi.orderId,
+      product: qi.orderData?.crop?.name || 'Unknown Product',
+      farmer: qi.orderData?.farmerName || 'Unknown Farmer',
+      receivedQty: `${qi.quantity || qi.orderData?.quantity || 0} ${qi.unit || 'KG'}`,
+      status: 'Received',
+      vendorStatus: qi.status || 'Confirmed by Vendor',
+      date: qi.createdAt ? new Date(qi.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    }));
+
+    return res.json({ success: true, data: batches });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -38,6 +38,7 @@ const navItems = [
   { to: "/policies", label: "Policies", icon: "clipboard" },
   { to: "/support", label: "Support", icon: "support" },
   { to: "/leave", label: "Apply Leave", icon: "calendar" },
+  { to: "/meetings", label: "Meetings", icon: "video" },
 ];
 
 export default function ManagerLayout() {

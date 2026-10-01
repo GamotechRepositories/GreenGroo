@@ -9,6 +9,7 @@ import {
   HrShift,
   HrTask,
   HrVacancy,
+  HrMeeting,
 } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
 import { loadHrPeople } from "./opsControllers.js";
@@ -81,14 +82,15 @@ export async function getHrPerson(req, res, next) {
     const { people } = await loadHrPeople();
     const person = people.find((row) => row.employeeType === type && String(row.id) === String(id));
     if (!person) return fail(res, 404, "Employee not found");
-    const [attendance, leaves, payroll, tasks, shifts] = await Promise.all([
+    const [attendance, leaves, payroll, tasks, shifts, meetings] = await Promise.all([
       HrAttendance.find({ employeeId: id }).sort({ clockIn: -1 }).limit(40).lean(),
       HrLeaveRequest.find({ employeeId: id }).sort({ fromDate: -1 }).limit(40).lean(),
       HrPayroll.find({ employeeId: id }).sort({ month: -1 }).limit(24).lean(),
       HrTask.find({ employeeId: id }).sort({ createdAt: -1 }).limit(40).lean(),
       HrShift.find({ employeeId: id }).sort({ date: -1 }).limit(40).lean(),
+      HrMeeting.find({ roles: person.roleKey || "all" }).sort({ createdAt: -1 }).limit(40).lean(),
     ]);
-    return ok(res, { person, attendance, leaves, payroll, tasks, shifts });
+    return ok(res, { person, attendance, leaves, payroll, tasks, shifts, meetings });
   } catch (error) {
     next(error);
   }
@@ -1204,6 +1206,47 @@ export async function downloadHrCandidateCv(req, res, next) {
     }
     if (!row.resumeData) return fail(res, 404, "No CV uploaded");
     return ok(res, { data: row.resumeData, name: row.resumeName || `${row.name}-cv` });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createHrMeeting(req, res, next) {
+  try {
+    const { roles, link, meetingId, password, note } = req.body;
+    if (!roles || !roles.length) {
+      return fail(res, 400, "Please select at least one role");
+    }
+    const meeting = await HrMeeting.create({
+      roles,
+      link,
+      meetingId,
+      password,
+      note,
+      createdBy: req.user?._id || "",
+    });
+    return ok(res, meeting);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listHrMeetings(req, res, next) {
+  try {
+    const meetings = await HrMeeting.find().sort({ createdAt: -1 }).lean();
+    return ok(res, meetings);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listMyHrMeetings(req, res, next) {
+  try {
+    const roleKey = req.user?.roleKey || req.user?.role || "all";
+    const meetings = await HrMeeting.find({
+      $or: [{ roles: "all" }, { roles: roleKey }]
+    }).sort({ createdAt: -1 }).lean();
+    return ok(res, meetings);
   } catch (error) {
     next(error);
   }

@@ -5,14 +5,14 @@ import { Icon } from '../../components/ui/Icon'
 export default function QrSystemHubPage() {
   return (
     <PageShell
-      title="QR System"
+      title="Orders"
       subtitle="Select the destination for QR generation & sticker printing"
     >
       <div className="mx-auto max-w-4xl space-y-6 mt-8">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           
           <Link
-            to="/qr-system/dark-store"
+            to="/orders/dark-store"
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:ring-green-500"
           >
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-100">
@@ -27,7 +27,7 @@ export default function QrSystemHubPage() {
           </Link>
 
           <Link
-            to="/qr-system/preorders"
+            to="/orders/preorders"
             className="group flex flex-col items-center justify-center rounded-2xl bg-white p-10 text-center shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md hover:ring-green-500"
           >
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-purple-50 text-purple-600 transition-colors group-hover:bg-purple-100">

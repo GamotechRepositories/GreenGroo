@@ -328,6 +328,7 @@ export const NAV_GROUPS = [
           { name: 'Salary management', href: '/hr-management/payroll', icon: Wallet },
           { name: 'Recruitment', href: '/hr-management/recruitment', icon: UserPlus },
           { name: 'Attendance & Shifts', href: '/hr-management/attendance', icon: Clock3 },
+          { name: 'Meetings', href: '/hr-management/meetings', icon: CalendarDays },
         ],
       },
       {

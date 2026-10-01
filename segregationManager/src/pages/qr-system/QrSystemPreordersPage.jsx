@@ -8,8 +8,8 @@ export default function QrSystemPreordersPage() {
       subtitle="Generate QR stickers for direct preorders"
     >
       <div className="mb-4">
-        <Link to="/qr-system" className="text-sm font-medium text-green-600 hover:text-green-700">
-          ← Back to QR System Hub
+        <Link to="/orders" className="text-sm font-medium text-green-600 hover:text-green-700">
+          ← Back to Orders Hub
         </Link>
       </div>
 

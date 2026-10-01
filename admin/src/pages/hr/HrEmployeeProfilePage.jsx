@@ -115,6 +115,7 @@ export default function HrEmployeeProfilePage() {
           <Section title="Attendance" rows={data.attendance} columns={['date', 'clockIn', 'clockOut']} dateCols />
           <Section title="Payroll" rows={data.payroll} columns={['month', 'gross', 'net', 'status']} moneyCols={['gross', 'net']} />
           <Section title="Shifts" rows={data.shifts} columns={['date', 'shiftName', 'startTime', 'endTime']} />
+          <Section title="Meetings" rows={data.meetings} columns={['link', 'meetingId', 'password', 'note']} />
         </div>
       </div>
     </div>
