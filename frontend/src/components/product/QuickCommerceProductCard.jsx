@@ -9,10 +9,6 @@ import {
   isMultiVariant,
 } from "../../utils/productPricing";
 
-const ADD_PINK = "#0C831F";
-const PRICE_GREEN = "#0C831F";
-const OFF_GREEN = "#0C831F";
-
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -29,10 +25,18 @@ function getProductUnit(product) {
   return "1 pc";
 }
 
+function getDeliveryTime(product) {
+  if (product?.deliveryTime) return product.deliveryTime;
+  if (product?.eta) return product.eta;
+  if (product?.deliveryMinutes) return `${product.deliveryMinutes} MINS`;
+  if (product?.deliveryWindow) return product.deliveryWindow;
+  return "10 MINS";
+}
+
 function getRating(product) {
   const rating = Number(product?.ratings ?? product?.rating ?? 0);
   if (rating > 0) return rating;
-  return 4.5;
+  return 0;
 }
 
 function getReviewCount(product) {
@@ -42,7 +46,7 @@ function getReviewCount(product) {
     if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
     return String(n);
   }
-  return "1.2k";
+  return "";
 }
 
 function StarIcon({ className = "h-3 w-3" }) {
@@ -53,9 +57,18 @@ function StarIcon({ className = "h-3 w-3" }) {
   );
 }
 
+function ClockIcon({ className = "h-3 w-3" }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
 /**
  * Blinkit-exact product card layout.
- * Image + ADD → green price + MRP → ₹OFF → dashed → name → unit → rating
+ * Border box is ONLY on the product image container.
+ * Details (delivery time, title, unit, price & ADD button) are laid out directly underneath without an outer border.
  */
 function QuickCommerceProductCard({
   product,
@@ -73,11 +86,12 @@ function QuickCommerceProductCard({
   const disabled = !inStock;
 
   const { originalPrice, salePrice, hasDiscount } = getProductListPriceInfo(product);
-  const discountAmt = hasDiscount ? Math.round(originalPrice - salePrice) : 0;
   const discountPercent = hasDiscount && originalPrice > 0 
     ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
-    : 0;
+    : (product.discountedPercent || 0);
+
   const unit = getProductUnit(product);
+  const deliveryTime = getDeliveryTime(product);
   const rating = getRating(product);
   const reviewCount = getReviewCount(product);
 
@@ -86,10 +100,8 @@ function QuickCommerceProductCard({
     : "/product";
 
   const isGrid = layout === "grid";
-  // Mobile: 3 full + ~1/4 of 4th peeking
-  // 100vw − section px-4 (2rem) − 3×gap-3 (2.25rem) ÷ 3.25
   const widthClass = isGrid
-    ? "w-full"
+    ? "w-full h-full"
     : "w-[calc((100vw-2rem-2.25rem)/3.25)] shrink-0 snap-start";
 
   const handleAdd = (e) => {
@@ -104,184 +116,153 @@ function QuickCommerceProductCard({
     onAdd?.(product, flySource);
   };
 
-  const addButton = (
-    <button
-      type="button"
-      onClick={handleAdd}
-      disabled={disabled}
-      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[54px] items-center justify-center rounded-lg border-[1.5px] bg-white px-2 text-[11px] font-extrabold uppercase tracking-wide transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-      style={{
-        borderColor: disabled ? "#9CA3AF" : ADD_PINK,
-        color: disabled ? "#6B7280" : ADD_PINK,
-        boxShadow: disabled ? "none" : `2px 2px 0 0 ${ADD_PINK}`,
-      }}
-    >
-      ADD
-    </button>
-  );
-
-  const stepper = (
-    <div
-      className="absolute bottom-2 right-2 z-10 flex h-[30px] min-w-[76px] items-stretch overflow-hidden rounded-lg transition active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
-      style={{
-        backgroundColor: ADD_PINK,
-        boxShadow: `2px 2px 0 0 #086318`,
-      }}
-    >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          multiVariant ? setVariantSheetOpen(true) : onDecrease?.(product);
-        }}
-        className="flex w-7 items-center justify-center text-base font-bold leading-none text-white"
-        aria-label="Decrease"
-      >
-        −
-      </button>
-      <span className="flex min-w-[22px] flex-1 items-center justify-center text-[12px] font-bold text-white">
-        {cartQuantity}
-      </span>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          multiVariant
-            ? setVariantSheetOpen(true)
-            : onIncrease?.(product, e.currentTarget);
-        }}
-        disabled={disabled}
-        className="flex w-7 items-center justify-center text-base font-bold leading-none text-white disabled:opacity-50"
-        aria-label="Increase"
-      >
-        +
-      </button>
-    </div>
-  );
-
   const rawGlow = product.cardGlowColor || product.glowColor || '';
   const glowColor = rawGlow ? (String(rawGlow).trim().startsWith('#') ? String(rawGlow).trim() : `#${String(rawGlow).trim()}`) : '';
   const hasGlow = Boolean(glowColor);
   const glowBg = hasGlow ? (glowColor.length === 7 ? `${glowColor}10` : glowColor) : undefined;
   const glowBorder = hasGlow ? (glowColor.length === 7 ? `${glowColor}40` : glowColor) : undefined;
-  const glowShadow = hasGlow ? `0 6px 20px -2px ${glowColor.slice(0, 7)}25` : undefined;
 
   return (
     <div className={widthClass}>
-      <div className="relative flex h-full flex-col bg-white">
-        {/* Image + ADD */}
+      <div className="relative flex h-full flex-col justify-between bg-transparent">
+        {/* Product Image Container ONLY has the border box & background */}
         <div
-          className="relative overflow-hidden rounded-xl border transition-all duration-300"
+          className="relative w-full overflow-hidden rounded-xl border border-gray-200/90 bg-white transition duration-200"
           style={{
             backgroundColor: glowBg || '#ffffff',
-            borderColor: glowBorder || '#E5E5E5',
-            boxShadow: glowShadow,
+            borderColor: glowBorder || '#E5E7EB',
           }}
         >
-          <Link to={productUrl} className="block">
+          <Link to={productUrl} className="block w-full">
             <ProductImageFrame
               src={image}
               fallbackSrc={fallbackImage}
               alt={product.name}
-              fit="cover"
-              className={`!aspect-square !bg-transparent ${disabled ? "opacity-50" : ""}`}
+              fit="contain"
+              className={`!aspect-square w-full !bg-transparent p-2 ${disabled ? "opacity-50" : ""}`}
             />
           </Link>
+
+          {/* Out of Stock Overlay */}
           {disabled ? (
-            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 rounded bg-slate-900/80 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white text-center whitespace-nowrap">
+            <span className="absolute inset-0 flex items-center justify-center bg-white/80 text-[10px] font-extrabold uppercase tracking-wider text-gray-700">
               Out of stock
             </span>
           ) : null}
-          {/* Discount Ribbon Badge */}
-          {hasDiscount && discountPercent > 0 && (
-            <div 
-              className="absolute top-0 left-3 z-10 flex flex-col items-center justify-start bg-[#2874F0] text-white px-1.5 pt-1.5 pb-[10px] min-w-[34px]"
-              style={{
-                clipPath: "polygon(0 0, 100% 0, 100% 100%, 75% calc(100% - 4px), 50% 100%, 25% calc(100% - 4px), 0 100%)"
-              }}
-            >
-              <span className="text-[12px] font-black leading-none tracking-tight">{discountPercent}%</span>
-              <span className="text-[9px] font-black leading-none mt-1">OFF</span>
-            </div>
-          )}
 
-          {product.badge && !(hasDiscount && discountPercent > 0) && (
+          {/* Blue Discount Ribbon Badge (Top Left inside Image Box) */}
+          {hasDiscount && discountPercent > 0 ? (
+            <div 
+              className="absolute top-0 left-0 z-10 flex flex-col items-center justify-center bg-[#2874F0] text-white px-1.5 py-1 rounded-br-lg rounded-tl-xl leading-none"
+            >
+              <span className="text-[10px] sm:text-[11px] font-black tracking-tight">{discountPercent}%</span>
+              <span className="text-[8px] sm:text-[9px] font-black mt-0.5">OFF</span>
+            </div>
+          ) : product.badge ? (
             <span
-              className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-white shadow-xs tracking-wide uppercase"
+              className="absolute top-0 left-0 z-10 px-1.5 py-0.5 rounded-br-lg rounded-tl-xl text-[9px] font-extrabold text-white tracking-wide uppercase"
               style={{ backgroundColor: glowColor || '#10B981' }}
             >
               {product.badge}
             </span>
-          )}
-          {disabled ? null : cartQuantity > 0 ? stepper : addButton}
+          ) : null}
         </div>
 
-        <Link to={productUrl} className="mt-2.5 block min-w-0">
-          {/* 2. Price badge + MRP */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center rounded-md bg-gradient-to-br from-[#43A047] to-[#2E7D32] px-2 py-1 text-[15px] font-extrabold leading-none text-white"
-              style={{
-                boxShadow: "2px 2px 0 0 #1B5E20",
-              }}
-            >
-              {formatPrice(salePrice)}
-            </span>
-            {hasDiscount ? (
-              <span className="text-[15px] font-medium text-[#9CA3AF] line-through">
-                {formatPrice(originalPrice)}
+        {/* Details Section below Image Box (No outer border box) */}
+        <div className="mt-1.5 flex flex-1 flex-col justify-between min-w-0">
+          <Link to={productUrl} className="flex flex-col min-w-0">
+            {/* Delivery Time Badge (e.g. ⏱ 10 MINS) */}
+            <div className="flex items-center gap-1 text-[#363636]">
+              <ClockIcon className="h-2.5 w-2.5 shrink-0 text-gray-700" />
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-tight">
+                {deliveryTime}
               </span>
-            ) : null}
-          </div>
-
-          {/* 3. ₹X OFF ———— */}
-          {hasDiscount && discountAmt > 0 ? (
-            <div className="mt-2.5 flex items-center gap-1.5">
-              <span
-                className="shrink-0 text-[12px] font-bold leading-none"
-                style={{ color: OFF_GREEN }}
-              >
-                {formatPrice(discountAmt)} OFF
-              </span>
-              <span
-                className="h-0 min-w-0 flex-1 border-t border-dashed border-[#D1D5DB]"
-                aria-hidden
-              />
             </div>
-          ) : (
-            <div className="mt-1 h-3" aria-hidden />
-          )}
 
-          <div className="mt-2" />
+            {/* Product Name */}
+            <h3 className="mt-1 line-clamp-2 text-[12px] sm:text-[13px] font-bold leading-tight text-[#1C1C1C]">
+              {product.name}
+            </h3>
 
-          {/* 5. Name */}
-          <h3 className="line-clamp-2 text-[13px] font-bold leading-[1.35] text-[#1C1C1C]">
-            {product.name}
-          </h3>
+            {/* Quantity / Unit */}
+            <p className="mt-0.5 text-[11px] font-normal leading-tight text-[#757575]">
+              {unit}
+            </p>
 
-          {/* 6. Quantity */}
-          <p className="mt-1 text-[12px] font-normal leading-tight text-[#757575]">
-            {unit}
-          </p>
+            {/* Rating (if available) */}
+            {rating > 0 ? (
+              <div className="mt-1 flex items-center gap-0.5 text-[#0C831F]">
+                <StarIcon className="h-3 w-3" />
+                <span className="text-[11px] font-bold leading-none">{rating.toFixed(1)}</span>
+                {reviewCount ? (
+                  <span className="text-[10px] font-medium text-gray-400">({reviewCount})</span>
+                ) : null}
+              </div>
+            ) : null}
+          </Link>
 
-          {/* 7. Rating */}
-          <div className="mt-1.5 flex items-center gap-0.5">
-            <span style={{ color: PRICE_GREEN }}>
-              <StarIcon className="h-3 w-3" />
-            </span>
-            <span
-              className="text-[12px] font-bold leading-none"
-              style={{ color: PRICE_GREEN }}
-            >
-              {rating.toFixed(1)}
-            </span>
-            <span className="text-[11px] font-medium leading-none text-[#9CA3AF]">
-              ({reviewCount})
-            </span>
+          {/* Bottom Row: Price & ADD Button */}
+          <div className="mt-2.5 flex items-end justify-between gap-1">
+            {/* Left: Price Block */}
+            <div className="flex flex-col justify-end min-w-0">
+              <span className="text-[13px] sm:text-[14px] font-black text-[#1C1C1C] leading-none">
+                {formatPrice(salePrice)}
+              </span>
+              {hasDiscount ? (
+                <span className="mt-0.5 text-[10px] sm:text-[11px] font-medium text-gray-400 line-through leading-none">
+                  {formatPrice(originalPrice)}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Right: ADD Button / Stepper */}
+            <div className="shrink-0">
+              {cartQuantity > 0 && !disabled ? (
+                <div className="flex h-[30px] min-w-[62px] sm:min-w-[68px] items-center justify-between rounded-lg bg-[#0C831F] text-white px-1 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      multiVariant ? setVariantSheetOpen(true) : onDecrease?.(product);
+                    }}
+                    className="w-5 h-full flex items-center justify-center text-sm font-black leading-none text-white hover:opacity-80 active:scale-90"
+                    aria-label="Decrease"
+                  >
+                    −
+                  </button>
+                  <span className="text-[11px] sm:text-[12px] font-bold text-white px-1">
+                    {cartQuantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      multiVariant
+                        ? setVariantSheetOpen(true)
+                        : onIncrease?.(product, e.currentTarget);
+                    }}
+                    disabled={disabled}
+                    className="w-5 h-full flex items-center justify-center text-sm font-black leading-none text-white hover:opacity-80 active:scale-90 disabled:opacity-50"
+                    aria-label="Increase"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={disabled}
+                  className="flex h-[30px] min-w-[54px] sm:min-w-[60px] items-center justify-center rounded-lg border border-[#0C831F] bg-white px-2.5 text-[11px] sm:text-[12px] font-black uppercase text-[#0C831F] hover:bg-[#0C831F]/5 active:scale-95 transition disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
+                >
+                  ADD
+                </button>
+              )}
+            </div>
           </div>
-        </Link>
+        </div>
       </div>
 
       {multiVariant ? (
@@ -291,8 +272,6 @@ function QuickCommerceProductCard({
           onClose={() => setVariantSheetOpen(false)}
         />
       ) : null}
-
-
     </div>
   );
 }

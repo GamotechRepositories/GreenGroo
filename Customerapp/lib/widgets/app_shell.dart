@@ -97,14 +97,6 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Future<void> _onTap(int visualIndex) async {
-    final auth = ref.read(authControllerProvider);
-    final needsAuth = visualIndex == 1 || visualIndex == 4;
-
-    if (needsAuth && !auth.isLoggedIn) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-      return;
-    }
-
     final shellIndex = _shellForVisual[visualIndex];
     final currentVisual = _visualIndex(widget.navigationShell.currentIndex);
     final isCurrentTab = visualIndex == currentVisual;
@@ -118,6 +110,13 @@ class _AppShellState extends ConsumerState<AppShell> {
       shellIndex,
       initialLocation: isCurrentTab,
     );
+
+    final auth = ref.read(authControllerProvider);
+    final needsAuth = visualIndex == 1 || visualIndex == 4;
+
+    if (needsAuth && !auth.isLoggedIn) {
+      ref.read(authControllerProvider.notifier).openAuthModal();
+    }
   }
 
   @override

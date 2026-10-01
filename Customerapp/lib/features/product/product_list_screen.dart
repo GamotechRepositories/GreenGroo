@@ -23,6 +23,7 @@ import '../../models/product.dart';
 import '../../widgets/common/api_error_view.dart';
 import '../../widgets/common/app_network_image.dart';
 import '../../widgets/common/skeleton_loaders.dart';
+import '../../widgets/product/deal_product_card.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/product/product_filters_bar.dart';
 
@@ -592,10 +593,16 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
   CartItem? _cartLineForProduct(List<CartItem> cartItems, Product product) {
     final defaults = resolveCartDefaults(product);
     for (final item in cartItems) {
-      if (item.id != product.id) continue;
-      if (item.variantName.trim() != defaults.variantName.trim()) continue;
-      if (item.colorName.trim() != defaults.colorName.trim()) continue;
-      return item;
+      if (item.id == product.id &&
+          item.variantName.trim() == defaults.variantName.trim() &&
+          item.colorName.trim() == defaults.colorName.trim()) {
+        return item;
+      }
+    }
+    for (final item in cartItems) {
+      if (item.id == product.id) {
+        return item;
+      }
     }
     return null;
   }
@@ -677,10 +684,10 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
           padding: ShellBottomInsets.listPadding(context, top: 12),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.48,
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 12,
+              childAspectRatio: DealProductCardDimensions.twoColumnChildAspectRatio,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
@@ -720,225 +727,13 @@ class _ThreeColumnProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sellingPrice = product.effectivePrice;
-    final originalPrice = product.price;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => context.push('/product/${product.id}'),
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product Image with Feature Badge
-              Stack(
-                children: [
-                  Container(
-                    height: 74,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: AppNetworkImage(
-                      imageUrl: product.primaryImage ?? '',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  if (product.badge.isNotEmpty || product.discountedPercent > 0)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          product.badge.isNotEmpty
-                              ? product.badge
-                              : '${product.discountedPercent.round()}% OFF',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8.0,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFFB45309),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-
-              // Weight / Subcategory Tag
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Text(
-                  product.weightUnit.isNotEmpty ? product.weightUnit : '1 unit',
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.0,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF334155),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Price Row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '₹${sellingPrice.toStringAsFixed(0)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  if (originalPrice > sellingPrice) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      '₹${originalPrice.toStringAsFixed(0)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9.0,
-                        decoration: TextDecoration.lineThrough,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 2),
-
-              // Title
-              Text(
-                product.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10.0,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              const Spacer(),
-
-              // Rating Star & ADD Button / Stepper
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 11,
-                        color: Color(0xFFEAB308),
-                      ),
-                      const SizedBox(width: 1),
-                      Text(
-                        product.ratings > 0
-                            ? product.ratings.toStringAsFixed(1)
-                            : '4.8',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF475569),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (cartQuantity == 0)
-                    InkWell(
-                      onTap: () => onAdd(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF16A34A)),
-                        ),
-                        child: Text(
-                          'ADD',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF16A34A),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF16A34A),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: onDecrease,
-                            child: const Icon(
-                              Icons.remove,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(
-                              '$cartQuantity',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: onIncrease,
-                            child: const Icon(
-                              Icons.add,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return DealProductCard(
+      product: product,
+      fillCell: true,
+      cartQuantity: cartQuantity,
+      onAdd: onAdd,
+      onIncrease: onIncrease,
+      onDecrease: onDecrease,
     );
   }
 }

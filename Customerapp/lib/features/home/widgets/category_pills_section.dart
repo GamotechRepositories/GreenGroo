@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/product_pricing.dart';
+import '../../../features/auth/auth_controller.dart';
+import '../../../features/cart/cart_controller.dart';
 import '../../../models/category.dart';
 import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/category/triangular_category_card.dart';
 import '../../../widgets/common/app_network_image.dart';
-import '../../../widgets/product/cart_add_button.dart';
+import '../../../widgets/product/deal_product_card.dart';
 import '../home_providers.dart';
 
 class CategoryPillsSection extends ConsumerWidget {
@@ -367,7 +370,7 @@ class __ReadyToCookCategoriesSectionState
 }
 
 // =========================================================
-// SECTION 3: Your Instant Order Products Widget (Image 1 UI - 2 Rows of 3)
+// SECTION 3: Your Instant Order Products Widget
 // =========================================================
 class _InstantOrderProductsSection extends ConsumerStatefulWidget {
   const _InstantOrderProductsSection();
@@ -446,7 +449,7 @@ class __InstantOrderProductsSectionState
             crossAxisCount: 3,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.54,
+            childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
           ),
           itemCount: _products.length,
           itemBuilder: (context, index) {
@@ -470,155 +473,43 @@ class __InstantOrderProductsSectionState
 }
 
 // =========================================================
-// Image 1 Style Product Tile (Clean 3-Column Layout)
+// Image 1 Style Product Tile (Uses Blinkit DealProductCard)
 // =========================================================
 class _Image1ProductTile extends ConsumerWidget {
   const _Image1ProductTile({required this.product});
 
   final Product product;
 
+  Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
+    if (product.id.length < 10) return;
+    final defaults = resolveCartDefaults(product);
+    final result = await ref.read(cartControllerProvider.notifier).addToCart(
+          product,
+          defaults.quantity,
+          variantName: defaults.variantName,
+          colorName: defaults.colorName,
+          flySourceContext: context,
+        );
+    if (result == AddToCartResult.requiresLogin) {
+      ref.read(authControllerProvider.notifier).openAuthModal();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sellingPrice = product.effectivePrice;
-    final originalPrice = product.price;
+    final qty = ref.watch(cartProductQuantityProvider(product.id));
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => context.push('/product/${product.id}'),
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product Image inside light box
-              Expanded(
-                child: Center(
-                  child: AppNetworkImage(
-                    imageUrl: product.primaryImage ?? '',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Weight / Variant Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  product.weightUnit.isNotEmpty ? product.weightUnit : '1 unit',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF475569),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Price & Discount Badge
-              if (originalPrice > sellingPrice)
-                Text(
-                  '₹${(originalPrice - sellingPrice).toStringAsFixed(0)} OFF',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF2563EB),
-                  ),
-                ),
-
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '₹${sellingPrice.toStringAsFixed(0)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  if (originalPrice > sellingPrice) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      '₹${originalPrice.toStringAsFixed(0)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9.5,
-                        decoration: TextDecoration.lineThrough,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 3),
-
-              // Title
-              Text(
-                product.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 6),
-
-              // Delivery Badge & ADD Button Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time_filled_rounded,
-                        size: 11,
-                        color: Color(0xFF64748B),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '14 mins',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                  CartAddButton(product: product),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return DealProductCard(
+      product: product,
+      fillCell: true,
+      cartQuantity: qty,
+      onAdd: (ctx) => _handleAdd(ref, ctx),
     );
   }
 }
 
 // =========================================================
-// SECTION 4: Book Your Order Products Widget (Image 2 UI - Full Width Mint BG)
+// SECTION 4: Book Your Order Products Widget
 // =========================================================
 class _BookYourOrderSection extends ConsumerStatefulWidget {
   const _BookYourOrderSection();
@@ -678,7 +569,7 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
 
     return Container(
       width: double.infinity,
-      color: const Color(0xFFF0FDF4), // Theme-suitable soft mint background
+      color: const Color(0xFFF0FDF4), // Soft mint background
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,7 +581,7 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 21,
                   fontWeight: FontWeight.w900,
-                  color: const Color(0xFF064E3B), // Theme dark emerald text
+                  color: const Color(0xFF064E3B),
                 ),
               ),
               const SizedBox(width: 6),
@@ -709,7 +600,7 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
               crossAxisCount: 3,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 0.54,
+              childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
             ),
             itemCount: _products.length,
             itemBuilder: (context, index) {
@@ -734,181 +625,37 @@ class __BookYourOrderSectionState extends ConsumerState<_BookYourOrderSection> {
 }
 
 // =========================================================
-// Image 2 Style Product Tile (Trending / Mint Section Card)
+// Image 2 Style Product Tile (Uses Blinkit DealProductCard)
 // =========================================================
 class _Image2ProductTile extends ConsumerWidget {
   const _Image2ProductTile({required this.product});
 
   final Product product;
 
+  Future<void> _handleAdd(WidgetRef ref, BuildContext context) async {
+    if (product.id.length < 10) return;
+    final defaults = resolveCartDefaults(product);
+    final result = await ref.read(cartControllerProvider.notifier).addToCart(
+          product,
+          defaults.quantity,
+          variantName: defaults.variantName,
+          colorName: defaults.colorName,
+          flySourceContext: context,
+        );
+    if (result == AddToCartResult.requiresLogin) {
+      ref.read(authControllerProvider.notifier).openAuthModal();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sellingPrice = product.effectivePrice;
-    final originalPrice = product.price;
+    final qty = ref.watch(cartProductQuantityProvider(product.id));
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => context.push('/product/${product.id}'),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top tag (e.g. Top Rated) & Heart Icon Stack
-              Stack(
-                children: [
-                  Container(
-                    height: 85,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: AppNetworkImage(
-                      imageUrl: product.primaryImage ?? '',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Top Rated',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFFB45309),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Icon(
-                      Icons.favorite_border_rounded,
-                      size: 15,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-
-              // Weight / Unit
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Text(
-                  product.weightUnit.isNotEmpty ? product.weightUnit : '1 unit',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF334155),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Price
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '₹${sellingPrice.toStringAsFixed(0)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  if (originalPrice > sellingPrice) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      '₹${originalPrice.toStringAsFixed(0)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9.5,
-                        decoration: TextDecoration.lineThrough,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (originalPrice > sellingPrice)
-                Text(
-                  '₹${(originalPrice - sellingPrice).toStringAsFixed(0)} OFF',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF2563EB),
-                  ),
-                ),
-              const SizedBox(height: 2),
-
-              // Title
-              Text(
-                product.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Rating / Delivery & ADD button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 11,
-                        color: Color(0xFFEAB308),
-                      ),
-                      const SizedBox(width: 1),
-                      Text(
-                        '4.8',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF475569),
-                        ),
-                      ),
-                    ],
-                  ),
-                  CartAddButton(product: product),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return DealProductCard(
+      product: product,
+      fillCell: true,
+      cartQuantity: qty,
+      onAdd: (ctx) => _handleAdd(ref, ctx),
     );
   }
 }

@@ -8,6 +8,8 @@ import '../../../models/product.dart';
 import '../../../routes/route_paths.dart';
 import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/product/cart_add_button.dart';
+import '../../../widgets/product/deal_product_card.dart';
+import '../../../features/cart/cart_controller.dart';
 import '../home_providers.dart';
 
 class HomeAllCategoryProducts extends ConsumerWidget {
@@ -142,7 +144,7 @@ class __CategoryProductSectionState
               crossAxisCount: 3,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              childAspectRatio: 0.48,
+              childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
             ),
             itemCount: _products.length,
             itemBuilder: (context, index) {
@@ -178,172 +180,13 @@ class _Image2ProductTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sellingPrice = product.effectivePrice;
-    final originalPrice = product.price;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => context.push('/product/${product.id}'),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top tag (e.g. Top Rated) & Heart Icon Stack
-              Stack(
-                children: [
-                  Container(
-                    height: 74,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: AppNetworkImage(
-                      imageUrl: product.primaryImage ?? '',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Top Rated',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFFB45309),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Icon(
-                      Icons.favorite_border_rounded,
-                      size: 15,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-
-              // Weight / Unit
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Text(
-                  product.weightUnit.isNotEmpty ? product.weightUnit : '1 unit',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF334155),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Price
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '₹${sellingPrice.toStringAsFixed(0)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  if (originalPrice > sellingPrice) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      '₹${originalPrice.toStringAsFixed(0)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9.5,
-                        decoration: TextDecoration.lineThrough,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (originalPrice > sellingPrice)
-                Text(
-                  '₹${(originalPrice - sellingPrice).toStringAsFixed(0)} OFF',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF2563EB),
-                  ),
-                ),
-              const SizedBox(height: 2),
-
-              // Title
-              Text(
-                product.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Rating & ADD button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 11,
-                        color: Color(0xFFEAB308),
-                      ),
-                      const SizedBox(width: 1),
-                      Text(
-                        '4.8',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF475569),
-                        ),
-                      ),
-                    ],
-                  ),
-                  CartAddButton(product: product),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return DealProductCard(
+      product: product,
+      fillCell: true,
+      cartQuantity: ref.watch(cartProductQuantityProvider(product.id)),
+      onAdd: (ctx) {
+        ref.read(cartControllerProvider.notifier).addToCart(product, 1);
+      },
     );
   }
 }

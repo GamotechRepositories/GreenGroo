@@ -355,10 +355,16 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
   CartItem? _cartLineForProduct(List<CartItem> cartItems, Product product) {
     final defaults = resolveCartDefaults(product);
     for (final item in cartItems) {
-      if (item.id != product.id) continue;
-      if (item.variantName.trim() != defaults.variantName.trim()) continue;
-      if (item.colorName.trim() != defaults.colorName.trim()) continue;
-      return item;
+      if (item.id == product.id &&
+          item.variantName.trim() == defaults.variantName.trim() &&
+          item.colorName.trim() == defaults.colorName.trim()) {
+        return item;
+      }
+    }
+    for (final item in cartItems) {
+      if (item.id == product.id) {
+        return item;
+      }
     }
     return null;
   }
@@ -468,7 +474,7 @@ class _ProductResultsViewState extends ConsumerState<_ProductResultsView> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: DealProductCardDimensions.gridChildAspectRatio,
+              childAspectRatio: DealProductCardDimensions.twoColumnChildAspectRatio,
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {

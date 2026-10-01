@@ -59,18 +59,29 @@ class TabSwipeShell extends ConsumerStatefulWidget {
 }
 
 class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
-  static const _authRequiredIndices = {2};
+  static const _visualToShell = [0, 2, 1, 3, 4];
+  static const _shellToVisual = [0, 2, 1, 3, 4];
 
   late final PageController _pageController;
   bool _syncingFromShell = false;
   bool _stackRebuildScheduled = false;
   bool _isOnBranchRoot = true;
 
+  int _shellToVisualIdx(int shellIndex) {
+    if (shellIndex < 0 || shellIndex >= _shellToVisual.length) return 0;
+    return _shellToVisual[shellIndex];
+  }
+
+  int _visualToShellIdx(int visualIndex) {
+    if (visualIndex < 0 || visualIndex >= _visualToShell.length) return 0;
+    return _visualToShell[visualIndex];
+  }
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController(
-      initialPage: widget.navigationShell.currentIndex,
+      initialPage: _shellToVisualIdx(widget.navigationShell.currentIndex),
     );
     shellBranchNavigatorHub.addListener(_onBranchStackChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncBranchRootState());
@@ -88,12 +99,13 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
   @override
   void didUpdateWidget(TabSwipeShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final target = widget.navigationShell.currentIndex;
-    if (target != _pageController.page?.round()) {
+    final targetShell = widget.navigationShell.currentIndex;
+    final targetVisual = _shellToVisualIdx(targetShell);
+    if (targetVisual != _pageController.page?.round()) {
       _syncingFromShell = true;
       _pageController
           .animateToPage(
-            target,
+            targetVisual,
             duration: const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic,
           )
@@ -112,11 +124,6 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
     super.dispose();
   }
 
-  bool _canNavigateTo(int index) {
-    if (!_authRequiredIndices.contains(index)) return true;
-    return ref.read(authControllerProvider).isLoggedIn;
-  }
-
   bool _computeIsOnBranchRoot() {
     final index = widget.navigationShell.currentIndex;
     if (index < 0 || index >= widget.branchNavigatorKeys.length) {
@@ -133,28 +140,19 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
     setState(() => _isOnBranchRoot = next);
   }
 
-  void _onPageChanged(int index) {
+  void _onPageChanged(int visualIndex) {
     if (_syncingFromShell) return;
 
-    if (!_canNavigateTo(index)) {
-      ref.read(authControllerProvider.notifier).openAuthModal();
-      _syncingFromShell = true;
-      _pageController
-          .animateToPage(
-            widget.navigationShell.currentIndex,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-          )
-          .whenComplete(() {
-        if (mounted) _syncingFromShell = false;
-      });
-      return;
-    }
-
-    if (index == widget.navigationShell.currentIndex) return;
+    final shellIndex = _visualToShellIdx(visualIndex);
+    if (shellIndex == widget.navigationShell.currentIndex) return;
 
     HapticFeedback.lightImpact();
-    widget.navigationShell.goBranch(index, initialLocation: false);
+    widget.navigationShell.goBranch(shellIndex, initialLocation: false);
+
+    final needsAuth = visualIndex == 1 || visualIndex == 4;
+    if (needsAuth && !ref.read(authControllerProvider).isLoggedIn) {
+      ref.read(authControllerProvider.notifier).openAuthModal();
+    }
   }
 
   @override
@@ -167,7 +165,10 @@ class _TabSwipeShellState extends ConsumerState<TabSwipeShell> {
       onPageChanged: _onPageChanged,
       allowImplicitScrolling: false,
       itemCount: widget.children.length,
-      itemBuilder: (context, index) => widget.children[index],
+      itemBuilder: (context, visualIndex) {
+        final shellIndex = _visualToShellIdx(visualIndex);
+        return widget.children[shellIndex];
+      },
     );
   }
 }
