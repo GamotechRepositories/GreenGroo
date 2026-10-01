@@ -37,7 +37,12 @@ export const createInventoryRequest = async (req, res, next) => {
     }
 
     const sku = String(req.body.sku || "").trim();
-    const quantity = Number(req.body.quantity);
+    const quantity = Number(req.body.quantity) || 0;
+    const gradeAQuantity = Number(req.body.gradeAQuantity) || 0;
+    const gradeBQuantity = Number(req.body.gradeBQuantity) || 0;
+    const gradeCQuantity = Number(req.body.gradeCQuantity) || 0;
+    const otherQuantity = Number(req.body.otherQuantity) || 0;
+    
     const note = String(req.body.note || "").trim();
     const productName = String(req.body.productName || req.body.name || "").trim();
     const unit = String(req.body.unit || "pcs").trim() || "pcs";
@@ -50,7 +55,9 @@ export const createInventoryRequest = async (req, res, next) => {
       });
     }
 
-    if (!Number.isFinite(quantity) || quantity < 1) {
+    const totalQuantity = quantity || (gradeAQuantity + gradeBQuantity + gradeCQuantity + otherQuantity);
+
+    if (totalQuantity < 1) {
       return res.status(400).json({
         success: false,
         message: "Request quantity must be at least 1",
@@ -97,7 +104,11 @@ export const createInventoryRequest = async (req, res, next) => {
       productName: item.name,
       category: item.category || "General",
       unit: item.unit || "pcs",
-      quantity: Math.floor(quantity),
+      quantity: Math.floor(totalQuantity),
+      gradeAQuantity: Math.floor(gradeAQuantity),
+      gradeBQuantity: Math.floor(gradeBQuantity),
+      gradeCQuantity: Math.floor(gradeCQuantity),
+      otherQuantity: Math.floor(otherQuantity),
       currentStock: item.stockCount || 0,
       note,
       status: "pending",
@@ -180,10 +191,11 @@ export const reviewInventoryRequest = async (req, res, next) => {
       .toLowerCase();
     const reviewNote = String(req.body.note || req.body.reviewNote || "").trim();
 
-    if (!["approved", "rejected"].includes(decision)) {
+    const allowedStatuses = ["pending", "approved", "rejected", "inprocessed", "packed", "completed"];
+    if (!allowedStatuses.includes(decision)) {
       return res.status(400).json({
         success: false,
-        message: 'decision must be "approved" or "rejected"',
+        message: 'Invalid status decision',
       });
     }
 
@@ -195,7 +207,9 @@ export const reviewInventoryRequest = async (req, res, next) => {
       });
     }
 
-    if (request.status !== "pending") {
+    // Allow status transitions from any state to any state for flexibility, or just track changes.
+    // We will bypass the 'Request is already {status}' error if it's a valid transition.
+    if (request.status === decision) {
       return res.status(400).json({
         success: false,
         message: `Request is already ${request.status}`,
@@ -208,7 +222,7 @@ export const reviewInventoryRequest = async (req, res, next) => {
       if (staff) reviewerName = staff.name || staff.email || reviewerName;
     }
 
-    if (decision === "approved") {
+    if (decision === "approved" && request.status === "pending") {
       const updated = await StoreInventory.findOneAndUpdate(
         { managerId: request.managerId, sku: request.sku },
         { $inc: { stockCount: request.quantity } },
@@ -235,12 +249,12 @@ export const reviewInventoryRequest = async (req, res, next) => {
     request.reviewedAt = new Date();
     await request.save();
 
+    let successMessage = `Inventory request updated to ${decision}`;
+    if (decision === "approved") successMessage = `Approved — ${request.quantity} ${request.unit} added to ${request.storeName}`;
+
     return res.json({
       success: true,
-      message:
-        decision === "approved"
-          ? `Approved — ${request.quantity} ${request.unit} added to ${request.storeName}`
-          : "Inventory request rejected",
+      message: successMessage,
       request: request.toSafeJSON(),
     });
   } catch (error) {

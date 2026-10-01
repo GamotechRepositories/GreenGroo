@@ -8,48 +8,10 @@ import RoleAnnouncements from '../RoleAnnouncements'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home', end: true },
-  { to: '/catalog', label: 'Product Catalog', icon: 'box' },
-  { to: '/categories', label: 'Product Categories', icon: 'grid' },
-  { to: '/farmer-submissions', label: 'Farmer Submissions', icon: 'tractor' },
-  { to: '/incoming-products', label: 'Incoming Products', icon: 'download' },
-  { to: '/quality-inspection', label: 'Quality Inspection', icon: 'search' },
-  {
-    id: 'grading',
-    label: 'Product Grading',
-    icon: 'tag',
-    children: [
-      { to: '/grading/grade-a', label: 'Grade A' },
-      { to: '/grading/grade-b', label: 'Grade B' },
-      { to: '/grading/grade-c', label: 'Grade C' },
-      { to: '/grading/rejected', label: 'Rejected' },
-    ],
-  },
-  {
-    id: 'inventory',
-    label: 'Inventory',
-    icon: 'clipboard',
-    children: [
-      { to: '/inventory', label: 'All Inventory', end: true },
-      { to: '/inventory/ready-to-sell', label: 'Ready to Sell' },
-      { to: '/inventory/under-processing', label: 'Under Processing' },
-      { to: '/inventory/reserved', label: 'Reserved' },
-      { to: '/inventory/expired-damaged', label: 'Expired / Damaged' },
-    ],
-  },
-  { to: '/inventory-requests', label: 'Inventory Requests', icon: 'inbox' },
-  { to: '/product-managers', label: 'Product Managers', icon: 'user' },
-  { to: '/stock-transfers', label: 'Stock Transfers', icon: 'transfer' },
-  { to: '/pricing', label: 'Product Cost & Pricing', icon: 'currency' },
-  { to: '/reports', label: 'Inventory Reports', icon: 'chart' },
-  { to: '/history', label: 'Inventory History', icon: 'clock' },
+  { to: '/qr-system', label: 'QR System', icon: 'grid' },
 ]
 
-const footerItems = [
-  { to: '/policies', label: 'Policies', icon: 'clipboard' },
-  { to: '/settings', label: 'Settings', icon: 'settings' },
-  { to: '/profile', label: 'My Profile', icon: 'user' },
-  { to: '/leave', label: 'Apply Leave', icon: 'calendar' },
-]
+
 
 function NavItem({ item }) {
   if (item.children) {
@@ -153,40 +115,7 @@ export default function SegregationManagerLayout() {
           </ul>
         </nav>
 
-        <div className="border-t border-white/10 px-3 py-4">
-          <ul className="space-y-0.5">
-            {footerItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-green-primary font-medium text-white'
-                        : 'text-white/80 hover:bg-white/10'
-                    }`
-                  }
-                >
-                  <Icon name={item.icon} size="sm" />
-                  <span className="flex-1 text-left">{item.label}</span>
-                </NavLink>
-              </li>
-            ))}
-            <li>
-              <button
-                type="button"
-                onClick={() => {
-                  logout()
-                  navigate('/login', { replace: true })
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-white/80 hover:bg-white/10"
-              >
-                <Icon name="power" size="sm" />
-                Logout
-              </button>
-            </li>
-          </ul>
-        </div>
+
       </aside>
 
       <div className="ml-64 min-h-screen">

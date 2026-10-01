@@ -83,6 +83,7 @@ export default function App() {
               <Route path="products" element={<Products />} />
               <Route path="market-prices" element={<MarketPricesPage />} />
               <Route path="pre-order-slots" element={<PreOrderSlots />} />
+              <Route path="preorder-slots" element={<PreOrderSlots />} />
               <Route path="inventory" element={<InventoryHubPage />} />
               <Route path="inventory/:type/:id" element={<InventoryDetailPage />} />
               <Route path="dark-stores" element={<DarkStores />} />

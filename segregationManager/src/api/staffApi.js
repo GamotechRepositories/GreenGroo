@@ -40,4 +40,14 @@ export const staffApi = {
     api.post("/api/admin-ops/hr/leaves/apply", data).then((res) => res.data?.data),
   myLeaves: () =>
     api.get("/api/admin-ops/hr/leaves/mine").then((res) => res.data?.data || []),
+  
+  // Dark Store APIs
+  listDarkStores: () => 
+    api.get("/api/admin/dark-stores").then((res) => res.data?.stores || []),
+  darkStoreInventory: (id) => 
+    api.get(`/api/admin/dark-stores/${id}/inventory`).then((res) => res.data?.items || []),
+  inventoryRequests: () => 
+    api.get("/api/staff/inventory-requests").then((res) => res.data?.requests || []),
+  updateInventoryRequest: (id, payload) =>
+    api.patch(`/api/staff/inventory-requests/${id}`, payload).then((res) => res.data),
 };

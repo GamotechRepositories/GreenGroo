@@ -3,7 +3,6 @@ import { staffApi } from '../../api/staffApi'
 
 export default function PoliciesPage({
   roleKey = 'segregation_manager',
-  title = 'Policies',
 }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,14 +28,7 @@ export default function PoliciesPage({
   }, [load])
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Policies published by admin for your role.
-        </p>
-      </div>
-
+    <div className="space-y-4">
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {error}
@@ -85,3 +77,4 @@ export default function PoliciesPage({
     </div>
   )
 }
+

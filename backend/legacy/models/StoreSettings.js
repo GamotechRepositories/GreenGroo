@@ -153,6 +153,20 @@ const storeSettingsSchema = new mongoose.Schema(
       unique: true,
       immutable: true,
     },
+    preOrderSlots: {
+      type: [
+        {
+          startTime: { type: String, required: true },
+          endTime: { type: String, required: true },
+          label: { type: String, required: true },
+          isActive: { type: Boolean, default: true },
+        },
+      ],
+      default: () => [
+        { startTime: "09:00", endTime: "12:00", label: "9am to 12pm", isActive: true },
+        { startTime: "12:00", endTime: "15:00", label: "12pm to 3pm", isActive: true },
+      ],
+    },
     minimumOrderValue: {
       type: Number,
       default: 200,
