@@ -73,7 +73,6 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-
             <Route path="/" element={<AdminLayout />}>
               <Route index element={<CeoDashboard />} />
               <Route path="welcome" element={<Dashboard />} />
