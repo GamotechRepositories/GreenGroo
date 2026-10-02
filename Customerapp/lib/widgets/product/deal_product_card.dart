@@ -17,10 +17,10 @@ class DealProductCardDimensions {
   const DealProductCardDimensions._();
 
   static const double width = 138;
-  static const double height = 203;
-  static const double gridChildAspectRatio = 0.62;
-  static const double twoColumnChildAspectRatio = 0.66;
-  static const double homeDealsGridAspectRatio = 0.62;
+  static const double height = 210;
+  static const double gridChildAspectRatio = 0.59;
+  static const double twoColumnChildAspectRatio = 0.63;
+  static const double homeDealsGridAspectRatio = 0.59;
 }
 
 class DealProductCard extends ConsumerWidget {
@@ -278,14 +278,15 @@ class DealProductCard extends ConsumerWidget {
                     ],
                   ),
 
-                  // Bottom Row: Price & ADD Button
+                  // Bottom Row: Price & ADD Button (Price centered vertically with ADD button)
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Left: Price Column
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(

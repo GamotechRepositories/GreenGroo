@@ -124,32 +124,36 @@ class HomeDeliveryBar extends ConsumerWidget {
   static _PillChrome _pillChrome(String store) {
     switch (store) {
       case 'festive':
+      case 'ready2cook':
         return const _PillChrome(
-          idleBg: Color(0xFFFDE68A),
-          idleText: Color(0xFF92400E),
-          activeBg: Color(0xFFFACC15),
+          idleBg: Color(0x30FFFFFF),
+          idleText: Colors.white,
+          activeBg: Colors.transparent,
           activeText: Color(0xFF422006),
-          radius: 999,
-          showIcon: false,
+          radius: 12,
+          showIcon: true,
+          activeBorder: Colors.transparent,
         );
       case 'mall':
+      case 'instantorder':
         return const _PillChrome(
-          idleBg: Color(0xFF93C5FD),
-          idleText: Color(0xFF1E3A8A),
-          activeBg: Color(0xFF3B82F6),
-          activeText: Colors.white,
-          radius: 999,
-          showIcon: false,
+          idleBg: Color(0x30FFFFFF),
+          idleText: Colors.white,
+          activeBg: Colors.transparent,
+          activeText: Color(0xFF1E3A8A),
+          radius: 12,
+          showIcon: true,
+          activeBorder: Colors.transparent,
         );
       default:
         return const _PillChrome(
-          idleBg: Color(0xFF0F291E),
+          idleBg: Color(0x30FFFFFF),
           idleText: Colors.white,
-          activeBg: Color(0xFF0F291E),
-          activeText: Colors.white,
-          radius: 8,
+          activeBg: Colors.transparent,
+          activeText: Color(0xFF0F291E),
+          radius: 12,
           showIcon: true,
-          activeBorder: Colors.white,
+          activeBorder: Colors.transparent,
         );
     }
   }
@@ -216,14 +220,14 @@ class _DepartmentPill extends StatelessWidget {
               borderRadius: radius,
               border: Border.all(
                 color: selected ? chrome.activeBorder : Colors.white24,
-                width: selected && chrome.showIcon ? 2 : 1,
+                width: 1,
               ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (chrome.showIcon) ...[
-                  Icon(icon, size: 11, color: fg),
+                  Icon(icon, size: 12, color: fg),
                   const SizedBox(width: 3),
                 ],
                 Flexible(
@@ -232,7 +236,7 @@ class _DepartmentPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: chrome.showIcon ? 9 : 11,
+                      fontSize: 10.5,
                       fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
                       color: fg,
                       letterSpacing: -0.2,

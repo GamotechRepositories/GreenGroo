@@ -241,40 +241,85 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
 
     final headerBgColor = StoreChrome.forStore(currentStore).header;
 
+    final Color topBarColor;
+    if (currentStore == 'festive' || currentStore == 'ready2cook') {
+      topBarColor = const Color(0xFF451A03);
+    } else if (currentStore == 'mall' || currentStore == 'instantorder') {
+      topBarColor = const Color(0xFF0F172A);
+    } else {
+      topBarColor = const Color(0xFF0F291E);
+    }
+
+    final int activeTabIndex = (currentStore == 'festive' || currentStore == 'ready2cook')
+        ? 1
+        : (currentStore == 'mall' || currentStore == 'instantorder')
+            ? 2
+            : 0;
+
+    // Smoothly transition the top status-bar color from topBarColor to headerBgColor as search bar sticks
+    final currentTopBarColor =
+        Color.lerp(topBarColor, headerBgColor, (progress * 1.2).clamp(0.0, 1.0)) ??
+            topBarColor;
+
     return SizedBox(
       height: currentExtent,
-      child: ColoredBox(
-        color: headerBgColor,
-        child: Padding(
-          padding: EdgeInsets.only(top: topInset),
-          child: ClipRect(
-            child: OverflowBox(
-              minHeight: 0,
-              maxHeight: 300,
-              alignment: Alignment.topCenter,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (progress < 1.0)
-                    SizedBox(
-                      height: deliveryBarHeight,
-                      child: OverflowBox(
-                        minHeight: 68.0,
-                        maxHeight: 68.0,
-                        alignment: Alignment.bottomCenter,
-                        child: Opacity(
-                          opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
-                          child: const HomeDeliveryBar(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Layered backdrop at the top providing the contrasting top bar for inactive tabs when expanded,
+          // smoothly transitioning to headerBgColor as search bar sticks
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topInset + 44,
+            child: ColoredBox(color: currentTopBarColor),
+          ),
+
+          // 2. Main curved header surface rising up around the active department
+          ClipPath(
+            clipper: CurvedHeaderClipper(
+              topInset: topInset,
+              progress: progress,
+              activeTabIndex: activeTabIndex,
+            ),
+            child: Container(
+              color: headerBgColor,
+            ),
+          ),
+
+          // 3. Existing header content
+          Padding(
+            padding: EdgeInsets.only(top: topInset),
+            child: ClipRect(
+              child: OverflowBox(
+                minHeight: 0,
+                maxHeight: 300,
+                alignment: Alignment.topCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (progress < 1.0)
+                      SizedBox(
+                        height: deliveryBarHeight,
+                        child: OverflowBox(
+                          minHeight: 68.0,
+                          maxHeight: 68.0,
+                          alignment: Alignment.bottomCenter,
+                          child: Opacity(
+                            opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
+                            child: const HomeDeliveryBar(),
+                          ),
                         ),
                       ),
-                    ),
-                  const HomeSearchBar(isLightBg: true),
-                  const HomeHeaderCategoryStrip(isLightBg: true),
-                ],
+                    const HomeSearchBar(isLightBg: true),
+                    const HomeHeaderCategoryStrip(isLightBg: true),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -284,5 +329,170 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.isLightNotifier != isLightNotifier ||
         oldDelegate.topInset != topInset ||
         oldDelegate.currentStore != currentStore;
+  }
+}
+
+/// Custom clipper that applies the exact arc wave around the current open department tab,
+/// and a smooth wave-like Bézier transition at the lower boundary.
+class CurvedHeaderClipper extends CustomClipper<Path> {
+  final double topInset;
+  final double progress;
+  final int activeTabIndex;
+
+  CurvedHeaderClipper({
+    required this.topInset,
+    required this.progress,
+    required this.activeTabIndex,
+  });
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path();
+
+    final double arcFactor = (1.0 - progress).clamp(0.0, 1.0);
+
+    // Geometry of the 3 department pills:
+    // In HomeDeliveryBar: Container padding is (14, 4, 14, 2)
+    // Inside: Padding horizontal 8.
+    // Total margin on each side: 14 + 8 = 22.0.
+    const double startX = 22.0;
+    final double endX = w - 22.0;
+    const double totalGap = 12.0; // 2 gaps of 6.0
+    final double pillWidth = (endX - startX - totalGap) / 3.0;
+
+    final double activeLeft = startX + activeTabIndex * (pillWidth + 6.0);
+    final double activeRight = activeLeft + pillWidth;
+
+    // Vertical coordinates:
+    // Pills are 32px tall, starting 4px below topInset.
+    final double pillTop = topInset + 4.0;
+    final double tabTop = pillTop - 3.0 * arcFactor;
+    final double baselineY = (pillTop + 32.0 + 3.0) * arcFactor + topInset * (1.0 - arcFactor);
+
+    final double tabLeft = (activeLeft - 3.0).clamp(0.0, w);
+    final double tabRight = (activeRight + 3.0).clamp(0.0, w);
+    const double cornerR = 14.0;
+    const double filletR = 14.0;
+
+    if (arcFactor > 0.05) {
+      if (activeTabIndex == 0) {
+        // Active tab is Tab 0 (PreOrder, on left)
+        path.moveTo(0, tabTop + cornerR);
+        // Rounded top-left of tab 0
+        path.quadraticBezierTo(0, tabTop, cornerR, tabTop);
+        // Across top of tab 0
+        path.lineTo(tabRight - cornerR, tabTop);
+        // Rounded top-right of tab 0
+        path.quadraticBezierTo(tabRight, tabTop, tabRight, tabTop + cornerR);
+        // Vertical down toward baseline
+        path.lineTo(tabRight, baselineY - filletR);
+        // Smooth concave fillet down to baseline
+        path.cubicTo(
+          tabRight,
+          baselineY - 3.0,
+          tabRight + 4.0,
+          baselineY,
+          tabRight + filletR,
+          baselineY,
+        );
+        // Across baseline to right edge
+        path.lineTo(w, baselineY);
+      } else if (activeTabIndex == 1) {
+        // Active tab is Tab 1 (Ready2Cook, in center)
+        path.moveTo(0, baselineY);
+        // Line across baseline to left of Tab 1
+        path.lineTo(tabLeft - filletR, baselineY);
+        // Smooth concave fillet curving UP into Tab 1
+        path.cubicTo(
+          tabLeft - 4.0,
+          baselineY,
+          tabLeft,
+          baselineY - 3.0,
+          tabLeft,
+          baselineY - filletR,
+        );
+        // Vertical up
+        path.lineTo(tabLeft, tabTop + cornerR);
+        // Rounded top-left of Tab 1
+        path.quadraticBezierTo(tabLeft, tabTop, tabLeft + cornerR, tabTop);
+        // Across top of Tab 1
+        path.lineTo(tabRight - cornerR, tabTop);
+        // Rounded top-right of Tab 1
+        path.quadraticBezierTo(tabRight, tabTop, tabRight, tabTop + cornerR);
+        // Vertical down
+        path.lineTo(tabRight, baselineY - filletR);
+        // Smooth concave fillet curving DOWN to baseline
+        path.cubicTo(
+          tabRight,
+          baselineY - 3.0,
+          tabRight + 4.0,
+          baselineY,
+          tabRight + filletR,
+          baselineY,
+        );
+        // Across baseline to right edge
+        path.lineTo(w, baselineY);
+      } else {
+        // Active tab is Tab 2 (InstantOrder, on right)
+        path.moveTo(0, baselineY);
+        // Line across baseline to left of Tab 2
+        path.lineTo(tabLeft - filletR, baselineY);
+        // Smooth concave fillet curving UP into Tab 2
+        path.cubicTo(
+          tabLeft - 4.0,
+          baselineY,
+          tabLeft,
+          baselineY - 3.0,
+          tabLeft,
+          baselineY - filletR,
+        );
+        // Vertical up
+        path.lineTo(tabLeft, tabTop + cornerR);
+        // Rounded top-left of Tab 2
+        path.quadraticBezierTo(tabLeft, tabTop, tabLeft + cornerR, tabTop);
+        // Across top of Tab 2
+        path.lineTo(tabRight - cornerR, tabTop);
+        // Rounded top-right of Tab 2
+        path.quadraticBezierTo(tabRight, tabTop, tabRight, tabTop + cornerR);
+        // If tabRight is near w, curve to edge
+        if (tabRight + filletR < w) {
+          path.lineTo(tabRight, baselineY - filletR);
+          path.cubicTo(
+            tabRight,
+            baselineY - 3.0,
+            tabRight + 4.0,
+            baselineY,
+            tabRight + filletR,
+            baselineY,
+          );
+          path.lineTo(w, baselineY);
+        } else {
+          path.lineTo(w, tabTop + cornerR);
+        }
+      }
+    } else {
+      // Scrolled collapsed state: cover top status bar area completely with headerBgColor
+      path.moveTo(0, 0);
+      path.lineTo(w, 0);
+    }
+
+    // Right side straight down to bottom
+    path.lineTo(w, h);
+
+    // Straight bottom line below the category row
+    path.lineTo(0, h);
+
+    // Close path back to start
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CurvedHeaderClipper oldClipper) {
+    return oldClipper.topInset != topInset ||
+        oldClipper.progress != progress ||
+        oldClipper.activeTabIndex != activeTabIndex;
   }
 }

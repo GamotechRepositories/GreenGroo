@@ -202,9 +202,9 @@ function QuickCommerceProductCard({
           </Link>
 
           {/* Bottom Row: Price & ADD Button */}
-          <div className="mt-2.5 flex items-end justify-between gap-1">
+          <div className="mt-2.5 flex items-center justify-between gap-1">
             {/* Left: Price Block */}
-            <div className="flex flex-col justify-end min-w-0">
+            <div className="flex flex-col justify-center min-w-0">
               <span className="text-[13px] sm:text-[14px] font-black text-[#1C1C1C] leading-none">
                 {formatPrice(salePrice)}
               </span>
