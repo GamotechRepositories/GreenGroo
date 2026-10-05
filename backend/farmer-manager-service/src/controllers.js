@@ -3074,6 +3074,135 @@ export async function getMyQualityReport(req, res) {
   }
 }
 
+export async function deductFarmerOrderInventory(order, linkedProduct = null) {
+  if (!order || order.inventoryDeducted) return;
+  const flat = flattenOrderFields(order);
+  const qty = Number(flat.orderedQuantity || order.orderedQuantity || order.quantity || order.totalQuantity || 0);
+  if (!(qty > 0)) return;
+
+  const product = linkedProduct || (await loadOrderProduct(order));
+  if (!product) return;
+
+  // Grade deductions
+  const gradeDeductions = {};
+  const rawGrades = Array.isArray(order.grades) && order.grades.length
+    ? order.grades
+    : (Array.isArray(order.orderedGrades) && order.orderedGrades.length ? order.orderedGrades : null);
+
+  if (rawGrades) {
+    for (const g of rawGrades) {
+      if (!g) continue;
+      const gLabel = String(g.label || g.grade || g.gradeName || g.name || "").trim().toUpperCase();
+      const gQty = Number(g.quantity ?? g.qty ?? g.assignedQuantity ?? 0);
+      if (gQty > 0) {
+        const key = gLabel.includes("B") ? "Grade B" : (gLabel.includes("C") ? "Grade C" : "Grade A");
+        gradeDeductions[key] = (gradeDeductions[key] || 0) + gQty;
+      }
+    }
+  }
+
+  if (!Object.keys(gradeDeductions).length && Array.isArray(order.products) && order.products.length) {
+    for (const p of order.products) {
+      if (!p) continue;
+      const pGrade = String(p.grade || p.gradeName || "").trim().toUpperCase();
+      const pQty = Number(p.quantity ?? p.qty ?? 0);
+      if (pQty > 0) {
+        const key = pGrade.includes("B") ? "Grade B" : (pGrade.includes("C") ? "Grade C" : "Grade A");
+        gradeDeductions[key] = (gradeDeductions[key] || 0) + pQty;
+      }
+    }
+  }
+
+  if (!Object.keys(gradeDeductions).length) {
+    const orderGrade = String(flat.grade || order.grade || "").trim().toUpperCase();
+    const key = orderGrade.includes("B") ? "Grade B" : (orderGrade.includes("C") ? "Grade C" : "Grade A");
+    gradeDeductions[key] = qty;
+  }
+
+  if (!Array.isArray(product.grades) || !product.grades.length) {
+    product.grades = [
+      { id: "g-a", grade: "A", label: "Grade A", quantity: Number(product.gradeAQty || product.stock || 0), price: Number(product.pricePerKg || product.sellingPrice || 0) },
+      { id: "g-b", grade: "B", label: "Grade B", quantity: Number(product.gradeBQty || 0), price: 0 },
+      { id: "g-c", grade: "C", label: "Grade C", quantity: 0, price: 0 },
+    ];
+  }
+
+  const stockHistoryRows = [];
+  for (const [gradeKey, deductAmount] of Object.entries(gradeDeductions)) {
+    if (!(deductAmount > 0)) continue;
+    let gItem = product.grades.find((g) => {
+      const lbl = String(g.label || g.grade || g.name || "").trim().toUpperCase();
+      if (gradeKey === "Grade A" && (lbl === "A" || lbl.includes("GRADE A") || lbl.includes("GRADE_A"))) return true;
+      if (gradeKey === "Grade B" && (lbl === "B" || lbl.includes("GRADE B") || lbl.includes("GRADE_B"))) return true;
+      if (gradeKey === "Grade C" && (lbl === "C" || lbl.includes("GRADE C") || lbl.includes("GRADE_C"))) return true;
+      return false;
+    });
+
+    if (!gItem) {
+      const letter = gradeKey.slice(-1);
+      gItem = { id: `g-${letter.toLowerCase()}`, grade: letter, label: gradeKey, quantity: 0, price: 0 };
+      product.grades.push(gItem);
+    }
+
+    const prevQty = Number(gItem.quantity || 0);
+    const newQty = Math.max(0, prevQty - deductAmount);
+    gItem.quantity = newQty;
+
+    stockHistoryRows.push({
+      grade: gradeKey,
+      prev: prevQty,
+      deduct: deductAmount,
+      next: newQty,
+    });
+  }
+
+  const gradeAItem = product.grades.find((g) => {
+    const lbl = String(g.label || g.grade || "").trim().toUpperCase();
+    return lbl === "A" || lbl.includes("GRADE A") || lbl.includes("GRADE_A");
+  });
+  const gradeBItem = product.grades.find((g) => {
+    const lbl = String(g.label || g.grade || "").trim().toUpperCase();
+    return lbl === "B" || lbl.includes("GRADE B") || lbl.includes("GRADE_B");
+  });
+
+  if (gradeAItem) product.gradeAQty = Number(gradeAItem.quantity || 0);
+  if (gradeBItem) product.gradeBQty = Number(gradeBItem.quantity || 0);
+
+  const totalStock = product.grades.reduce((sum, g) => sum + Math.max(0, Number(g.quantity || 0)), 0);
+  product.stock = totalStock;
+  product.availableQuantity = totalStock;
+  if (totalStock <= 0) {
+    product.status = "Out of Stock";
+  }
+  product.markModified("grades");
+  await product.save();
+
+  for (const h of stockHistoryRows) {
+    try {
+      await FarmerStockHistory.create({
+        id: `fsh-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        vendorId: product.vendorId || order.vendorId || "vendor-1",
+        managerId: product.managerId || order.managerId || "",
+        farmerId: order.farmerId,
+        productId: product.id || product.productId || String(product._id),
+        productName: product.productName || product.name || flat.productName,
+        grade: h.grade,
+        action: "Order Accepted",
+        previousStock: h.prev,
+        changedQuantity: -h.deduct,
+        newStock: h.next,
+        reason: `Order #${order.orderId || order.id} accepted`,
+        updatedBy: "Farmer",
+        reference: order.orderId || order.id,
+      });
+    } catch (histErr) {
+      console.warn("[deductFarmerOrderInventory] Stock history logging warning:", histErr.message);
+    }
+  }
+
+  order.inventoryDeducted = true;
+}
+
 export async function acceptMyOrder(req, res) {
   try {
     const order = await loadOwnOrder(req, res);
@@ -3092,55 +3221,25 @@ export async function acceptMyOrder(req, res) {
       return res.status(400).json({ message: "Ordered product was not found on your farm" });
     }
 
-    const gradeTotal = (product.grades || []).reduce((sum, g) => sum + Number(g.quantity || 0), 0);
-    const physical = Math.max(Number(product.availableQuantity || 0), Number(product.stock || 0), gradeTotal);
-    if (physical !== Number(product.availableQuantity || 0)) {
-      product.availableQuantity = physical;
-      product.stock = physical;
-      await product.save();
-    }
+    await deductFarmerOrderInventory(order, product);
 
-    const updated = await FarmerProduct.findOneAndUpdate(
-      {
-        _id: product._id,
-        farmerId: order.farmerId,
-        $expr: {
-          $gte: [
-            { $subtract: [{ $ifNull: ["$availableQuantity", 0] }, { $ifNull: ["$reservedQuantity", 0] }] },
-            qty,
-          ],
-        },
-      },
-      { $inc: { reservedQuantity: qty } },
-      { returnDocument: "after" }
-    );
-
-    if (!updated) {
-      return res.status(400).json({ message: "Insufficient available stock for this order." });
-    }
-
-    try {
-      order.status = "PREPARING";
-      order.reservedQuantity = qty;
-      order.productId = flat.productId || product.id;
-      order.productName = flat.productName || product.productName || product.name;
-      order.variety = order.variety || product.variety || "";
-      order.grade = flat.grade;
-      order.orderedQuantity = qty;
-      order.price = flat.price;
-      order.orderValue = flat.orderValue;
-      order.unit = flat.unit;
-      order.acceptedAt = new Date();
-      order.preparationStatus = "PREPARING";
-      order.preparedAt = new Date();
-      if (!order.qrToken) order.qrToken = crypto.randomBytes(12).toString("hex");
-      pushOrderTimeline(order, "ACCEPTED", "Order accepted. Stock reserved.");
-      pushOrderTimeline(order, "PREPARING", "Preparation started.");
-      await order.save();
-    } catch (saveErr) {
-      await FarmerProduct.updateOne({ _id: product._id }, { $inc: { reservedQuantity: -qty } });
-      throw saveErr;
-    }
+    order.status = "PREPARING";
+    order.reservedQuantity = qty;
+    order.productId = flat.productId || product.id;
+    order.productName = flat.productName || product.productName || product.name;
+    order.variety = order.variety || product.variety || "";
+    order.grade = flat.grade;
+    order.orderedQuantity = qty;
+    order.price = flat.price;
+    order.orderValue = flat.orderValue;
+    order.unit = flat.unit;
+    order.acceptedAt = new Date();
+    order.preparationStatus = "PREPARING";
+    order.preparedAt = new Date();
+    if (!order.qrToken) order.qrToken = crypto.randomBytes(12).toString("hex");
+    pushOrderTimeline(order, "ACCEPTED", `Order accepted. Deducted ${qty} ${flat.unit || "Kg"} from inventory.`);
+    pushOrderTimeline(order, "PREPARING", "Preparation started.");
+    await order.save();
 
     await persistOrderStatusSideEffects(order, { event: "ACCEPTED" });
     const farmer = await Farmer.findOne({ id: order.farmerId });
@@ -4023,6 +4122,10 @@ export async function updateFarmerOrderStatus(req, res) {
       at: new Date(),
       note: note || `Status updated to ${status}`,
     });
+
+    if (String(status).trim().toUpperCase() === "ACCEPTED") {
+      await deductFarmerOrderInventory(order);
+    }
 
     await order.save();
     res.json(order);

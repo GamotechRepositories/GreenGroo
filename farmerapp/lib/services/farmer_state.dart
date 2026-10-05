@@ -252,7 +252,10 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
           a.status != b.status ||
           a.stockQuantity != b.stockQuantity ||
           a.pricePerUnit != b.pricePerUnit ||
-          a.variety != b.variety) {
+          a.variety != b.variety ||
+          a.gradeAQty != b.gradeAQty ||
+          a.gradeBQty != b.gradeBQty ||
+          a.gradeCQty != b.gradeCQty) {
         return false;
       }
     }
@@ -1125,14 +1128,88 @@ class FarmerState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void _deductInventoryForOrder(FarmerOrderItem order) {
+    if (products.isEmpty) return;
+
+    int pIdx = -1;
+    final oProdId = order.productId.trim();
+    if (oProdId.isNotEmpty) {
+      pIdx = products.indexWhere((p) => p.id == oProdId || p.productId == oProdId);
+    }
+    if (pIdx == -1 && order.productName.trim().isNotEmpty) {
+      final oName = order.productName.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      pIdx = products.indexWhere((p) {
+        final pName = p.productName.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+        return pName.isNotEmpty && pName == oName;
+      });
+    }
+    if (pIdx == -1 && order.cropName.trim().isNotEmpty) {
+      final oCrop = order.cropName.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+      pIdx = products.indexWhere((p) {
+        final pCrop = p.cropLinked.toLowerCase().split('(')[0].replaceAll(RegExp(r'[^a-z0-9]'), '').trim();
+        return pCrop.isNotEmpty && pCrop == oCrop;
+      });
+    }
+
+    if (pIdx == -1) return;
+    final p = products[pIdx];
+
+    double deductA = 0;
+    double deductB = 0;
+    double deductC = 0;
+
+    if (order.shownAQty > 0 || order.shownBQty > 0 || order.shownCQty > 0) {
+      deductA = order.shownAQty;
+      deductB = order.shownBQty;
+      deductC = order.shownCQty;
+    } else {
+      final orderQty = order.orderedQuantity > 0 ? order.orderedQuantity : order.quantity;
+      final gradeStr = '${order.variety} ${order.productName}'.toUpperCase();
+      if (gradeStr.contains('GRADE B') || gradeStr.contains('GRADE_B')) {
+        deductB = orderQty;
+      } else if (gradeStr.contains('GRADE C') || gradeStr.contains('GRADE_C')) {
+        deductC = orderQty;
+      } else {
+        deductA = orderQty;
+      }
+    }
+
+    final totalDeduct = deductA + deductB + deductC;
+    if (totalDeduct <= 0) return;
+
+    if (deductA > 0) {
+      p.gradeAQty = (p.gradeAQty - deductA).clamp(0.0, double.infinity);
+    }
+    if (deductB > 0) {
+      p.gradeBQty = (p.gradeBQty - deductB).clamp(0.0, double.infinity);
+    }
+    if (deductC > 0) {
+      p.gradeCQty = (p.gradeCQty - deductC).clamp(0.0, double.infinity);
+    }
+
+    final hasGradeBreakdown = (p.gradeAQty > 0 || p.gradeBQty > 0 || p.gradeCQty > 0);
+    if (hasGradeBreakdown) {
+      p.stockQuantity = p.gradeAQty + p.gradeBQty + p.gradeCQty;
+    } else {
+      p.stockQuantity = (p.stockQuantity - totalDeduct).clamp(0.0, double.infinity);
+    }
+
+    if (p.stockQuantity <= 0) {
+      p.status = 'Out of Stock';
+    }
+  }
+
   Future<void> acceptOrder(String orderId) async {
     final idx = orders.indexWhere((o) => o.id == orderId || o.orderCode == orderId);
     if (idx != -1) {
-      orders[idx].status = 'ACCEPTED';
+      final order = orders[idx];
+      order.status = 'ACCEPTED';
+      _deductInventoryForOrder(order);
       notifyListeners();
     }
     try {
       await ApiService().acceptOrder(orderId);
+      await refreshProducts();
     } catch (_) {}
   }
 
