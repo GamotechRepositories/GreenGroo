@@ -151,8 +151,8 @@ export default function Farmer360Page() {
       .then(([res, meetingsRes]) => {
         if (alive) {
           setData(res.data);
-          const allMeetings = meetingsRes.data || [];
-          setMeetings(allMeetings.filter(m => m.roles.includes('all') || m.roles.includes('farmer')));
+          const allMeetings = Array.isArray(meetingsRes) ? meetingsRes : meetingsRes?.data || [];
+          setMeetings(allMeetings.filter(m => Array.isArray(m?.roles) && (m.roles.includes('all') || m.roles.includes('farmer'))));
         }
       })
       .catch((err) => alive && setError(err.response?.data?.message || 'Farmer not found'))

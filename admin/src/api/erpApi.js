@@ -7,6 +7,12 @@ export const erpApi = {
   farmers: (params) => apiClient.get('/erp/farmers', { params }),
   farmerManagers: () => apiClient.get('/erp/farmer-managers'),
   farmer: (id) => apiClient.get(`/erp/farmers/${encodeURIComponent(id)}`),
+  assignFarmerManager: (farmerId, managerId) =>
+    apiClient.put(`/erp/farmers/${encodeURIComponent(farmerId)}/manager`, { managerId }),
+  deleteFarmer: (farmerId) =>
+    apiClient.delete(`/erp/farmers/${encodeURIComponent(farmerId)}`),
+  createFarmer: (body) =>
+    apiClient.post('/erp/farmers', body),
   reviewFarmerDocument: (farmerId, documentId, body) =>
     apiClient.patch(
       `/erp/farmers/${encodeURIComponent(farmerId)}/documents/${encodeURIComponent(documentId)}/status`,

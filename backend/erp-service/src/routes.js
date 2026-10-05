@@ -15,11 +15,14 @@ import {
   listFarmers,
   listFarmerManagers,
   getFarmer360,
+  assignErpFarmerManager,
+  deleteErpFarmer,
   reviewFarmerDocument,
   receiveGrn,
   detectId,
   report,
 } from "./controllers/ceoController.js";
+import { createFarmer } from "../../farmer-manager-service/src/controllers.js";
 
 const router = express.Router();
 
@@ -34,8 +37,11 @@ router.get("/detect", requirePermission("erp:read"), detectId);
 router.post("/ids/generate", requirePermission("erp:write"), generateBusinessId);
 
 router.get("/farmers", requirePermission("erp:read"), listFarmers);
+router.post("/farmers", requirePermission("erp:write"), createFarmer);
 router.get("/farmer-managers", requirePermission("erp:read"), listFarmerManagers);
 router.get("/farmers/:id", requirePermission("erp:read"), getFarmer360);
+router.put("/farmers/:id/manager", requirePermission("erp:write"), assignErpFarmerManager);
+router.delete("/farmers/:id", requirePermission("erp:write"), deleteErpFarmer);
 router.patch(
   "/farmers/:id/documents/:documentId/status",
   requirePermission("erp:write"),

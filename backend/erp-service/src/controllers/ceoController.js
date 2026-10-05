@@ -96,6 +96,12 @@ export async function listFarmers(req, res) {
         { farmName: rx },
       ];
     }
+    if (req.query.status && req.query.status !== "all") {
+      filter.status = new RegExp(`^${escapeRegex(req.query.status)}$`, "i");
+    }
+    if (req.query.managerId && req.query.managerId !== "all") {
+      filter.managerId = req.query.managerId;
+    }
     const [items, total] = await Promise.all([
       Farmer.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select("-password").lean(),
       Farmer.countDocuments(filter),
@@ -103,12 +109,13 @@ export async function listFarmers(req, res) {
     const allKeys = [...new Set(items.flatMap(farmerKeys))];
     const managerIds = [...new Set(items.map((f) => f.managerId).filter(Boolean))];
     const vendorIds = [...new Set(items.map((f) => f.vendorId).filter(Boolean))];
-    const [farms, erpCrops, farmerCrops, products, orders, allDocuments, managers, vendors] = await Promise.all([
+    const [farms, erpCrops, farmerCrops, products, orders, earnings, allDocuments, managers, vendors] = await Promise.all([
       Farm.find({ farmerId: { $in: allKeys } }).lean(),
       Crop.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerCrop.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerProduct.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerOrder.find({ farmerId: { $in: allKeys } }).lean(),
+      FarmerEarning.find({ farmerId: { $in: allKeys } }).lean(),
       FarmerDocument.find({ farmerId: { $in: allKeys } }).select("farmerId fileUrl status").lean(),
       managerIds.length
         ? FarmerManager.find({ id: { $in: managerIds } }).select("id name mobile").lean()
@@ -132,11 +139,22 @@ export async function listFarmers(req, res) {
       items: items.map((f) => {
         const cropCount = countByFarmer(farmerCrops, f) || countByFarmer(erpCrops, f);
         const docs = docsFor(f);
+        const keys = new Set(farmerKeys(f));
+        const farmerEarnings = earnings.filter((e) => keys.has(e.farmerId));
+        const totalEarnings = farmerEarnings.reduce((acc, e) => acc + (Number(e.netEarnings ?? e.amount) || 0), 0);
+        const nameParts = String(f.name || "").trim().split(/\s+/).filter(Boolean);
+        const initials = !nameParts.length
+          ? "F"
+          : ((nameParts[0][0] || "") + (nameParts[1]?.[0] || "")).toUpperCase();
+
         return {
           farmerId: f.farmerId || f.id,
           sourceId: f.id,
-          farmerCode: f.farmerCode,
+          id: f.id,
+          farmerCode: f.farmerCode || f.farmerId || f.id,
           fullName: f.name,
+          name: f.name,
+          initials,
           mobile: f.mobile,
           email: f.email,
           village: f.address?.village || f.farmGeo?.village,
@@ -150,7 +168,11 @@ export async function listFarmers(req, res) {
           farmCount: countByFarmer(farms, f) || (f.farm?.farmId || f.farmName ? 1 : 0),
           cropCount,
           productCount: countByFarmer(products, f),
+          totalProducts: countByFarmer(products, f),
           orderCount: countByFarmer(orders, f),
+          totalOrders: countByFarmer(orders, f),
+          totalEarnings,
+          earnings: totalEarnings,
           documentCount: docs.length,
           documentsPending: docs.filter((d) => d.status === "Pending").length,
           documentsApproved: docs.filter((d) => d.status === "Approved").length,
@@ -166,6 +188,45 @@ export async function listFarmers(req, res) {
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || "Failed to list farmers" });
+  }
+}
+
+export async function assignErpFarmerManager(req, res) {
+  try {
+    const id = decodeURIComponent(String(req.params.id || "")).trim();
+    const { managerId } = req.body;
+    const farmer = await Farmer.findOne({
+      isDeleted: { $ne: true },
+      $or: [{ farmerId: id }, { id }, { farmerCode: id }],
+    });
+    if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
+    if (managerId) {
+      const manager = await FarmerManager.findOne({ id: managerId });
+      if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
+    }
+    farmer.managerId = managerId || "";
+    await farmer.save();
+    res.json({ success: true, message: "Manager assigned successfully", farmer });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to assign manager" });
+  }
+}
+
+export async function deleteErpFarmer(req, res) {
+  try {
+    const id = decodeURIComponent(String(req.params.id || "")).trim();
+    const farmer = await Farmer.findOne({
+      isDeleted: { $ne: true },
+      $or: [{ farmerId: id }, { id }, { farmerCode: id }],
+    });
+    if (!farmer) return res.status(404).json({ success: false, message: "Farmer not found" });
+    farmer.isDeleted = true;
+    farmer.deletedAt = new Date();
+    farmer.status = "Inactive";
+    await farmer.save();
+    res.json({ success: true, message: "Farmer deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message || "Failed to delete farmer" });
   }
 }
 
