@@ -17,6 +17,7 @@ import ManagerProductsPage from "../pages/manager/ManagerProductsPage";
 import ManagerProductAddPage from "../pages/manager/ManagerProductAddPage";
 import ManagerInventoryPage from "../pages/manager/ManagerInventoryPage";
 import ManagerInventoryHistoryPage from "../pages/manager/ManagerInventoryHistoryPage";
+import ManagerStockAuditDetailPage from "../pages/manager/ManagerStockAuditDetailPage";
 import OrdersPage from "../pages/OrdersPage";
 import OrderDetailPage from "../pages/OrderDetailPage";
 import OrderPreparePage from "../pages/OrderPreparePage";
@@ -64,6 +65,8 @@ function ManagerRoutes() {
           <Route path="products" element={<ManagerProductsPage />} />
           <Route path="inventory" element={<ManagerInventoryPage />} />
           <Route path="inventory/history" element={<ManagerInventoryHistoryPage />} />
+          <Route path="inventory/history/:id" element={<ManagerStockAuditDetailPage />} />
+          <Route path="inventory/audit/:id" element={<ManagerStockAuditDetailPage />} />
           <Route path="harvest-orders" element={<HarvestOrdersPage />} />
           <Route path="orders" element={<Navigate to="/manager/orders/new" replace />} />
           <Route path="orders/new" element={<OrdersPage filter="new" />} />

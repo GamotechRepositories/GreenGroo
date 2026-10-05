@@ -5582,16 +5582,18 @@ export async function getManagerAllOrders(req, res) {
 export async function getManagerAllInventory(req, res) {
   try {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
-    const farmerIds = farmers.map((f) => f.id);
+    const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(farmers);
     if (!farmerIds.length) return res.json({ farmers, inventory: [] });
-    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
     const products = await FarmerProduct.find({ farmerId: { $in: farmerIds } })
       .select("-images -description")
       .sort({ createdAt: -1 })
       .lean();
     res.json({
       farmers,
-      inventory: products.map((p) => enrichProductRow(p, farmerNameMap.get(p.farmerId) || "—")),
+      inventory: products.map((p) => {
+        const f = farmerMap.get(p.farmerId);
+        return enrichProductRow(p, f?.name || f?.fullName || "—");
+      }),
     });
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to fetch inventory" });
@@ -5617,15 +5619,14 @@ export async function getManagerAllDocuments(req, res) {
 export async function getManagerAllStockHistory(req, res) {
   try {
     const farmers = attachFarmerMeta(await getAssignedFarmers(req));
-    const farmerIds = farmers.map((f) => f.id);
+    const { ids: farmerIds, farmerMap } = indexFarmersByIdentity(farmers);
     const { farmerId } = req.query;
-    const ids = farmerId && farmerIds.includes(farmerId) ? [farmerId] : farmerIds;
+    const ids = farmerId ? [farmerId] : farmerIds;
     const paged = isPaginationRequested(req.query) ? getPageParams(req.query, PAGE_LIMITS.stockHistory) : null;
     if (!ids.length) {
       if (paged) return res.json({ ...paginatedResponse([], 0, paged.page, paged.limit), farmers });
       return res.json({ farmers, history: [] });
     }
-    const farmerNameMap = new Map(farmers.map((f) => [f.id, f.name]));
     const historyFilter = { farmerId: { $in: ids } };
     const [history, total] = await Promise.all([
       paged
@@ -5712,7 +5713,8 @@ export async function getManagerAllStockHistory(req, res) {
           : String(h.updatedBy || "").toLowerCase() === "farmer"
             ? "Farmer Stock"
             : "Manual Update";
-      const sourceFrom = farmerNameMap.get(h.farmerId) || h.farmerId || "—";
+      const fObj = farmerMap.get(h.farmerId);
+      const sourceFrom = fObj?.name || fObj?.fullName || h.farmerId || "—";
       const centreName =
         centre?.name ||
         centre?.centreName ||
@@ -5732,6 +5734,7 @@ export async function getManagerAllStockHistory(req, res) {
       return {
         ...h,
         farmerName: sourceFrom,
+        farmerId: h.farmerId,
         sourceType,
         sourceFrom,
         sourceDetail: sourceDetail || reason || h.action || "—",

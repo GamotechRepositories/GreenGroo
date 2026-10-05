@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import QrScanModal from "../pickup/QrScanModal";
-import { getManagerPickups } from "../../api/farmerApi";
-import { isBatchQrPayload, parseBatchQrPayload } from "../../utils/batchQr";
 import { parseOrderQrPayload } from "../../utils/orderQr";
 
 const ICON = "h-[22px] w-[22px]";
@@ -93,9 +91,9 @@ function ScanQrIcon({ className = "h-[26px] w-[26px]" }) {
 
 const TABS = [
   { to: "/manager/dashboard", label: "Home", icon: HomeIcon, end: true },
-  { to: "/manager/search", label: "Search", icon: SearchIcon },
-  { to: "/manager/quality/pending", label: "Alerts", icon: BellIcon },
-  { to: "/manager/pickups/all", label: "History", icon: HistoryIcon },
+  { to: "/manager/orders", label: "Orders", icon: BellIcon },
+  { to: "/manager/farmers", label: "Farmers", icon: SearchIcon },
+  { to: "/manager/inventory/history", label: "History", icon: HistoryIcon },
 ];
 
 function TabLink({ to, label, icon: TabIcon, end }) {
@@ -123,67 +121,21 @@ function TabLink({ to, label, icon: TabIcon, end }) {
   );
 }
 
-function isBatchQr(value) {
-  return isBatchQrPayload(value);
-}
-
-function isAtCentre(pickup) {
-  const status = String(pickup?.status || "").toUpperCase();
-  if (["IN_TRANSIT", "ARRIVED_AT_CENTRE", "PICKED_UP", "PICKUP_CONFIRMED"].includes(status)) return true;
-  return status === "COLLECTION_CENTRE_RECEIVED" && String(pickup?.receiving?.status || "").toUpperCase() !== "RECEIVED";
-}
-
-function flattenPickups(data) {
-  if (Array.isArray(data?.pickups)) return data.pickups;
-  return (data?.farmers || []).flatMap((g) => g.pickups || []);
-}
-
 export default function ManagerBottomNav() {
   const navigate = useNavigate();
   const [scanOpen, setScanOpen] = useState(false);
   const [scanError, setScanError] = useState("");
 
   const openScanned = async (value) => {
-    if (isBatchQr(value)) {
-      const batchId = parseBatchQrPayload(value);
-      if (batchId) {
-        setScanOpen(false);
-        setScanError("");
-        navigate(`/manager/pickups/batches/${encodeURIComponent(batchId)}`);
-        return;
-      }
-    }
-
-    let pickups = [];
-    try {
-      const data = await getManagerPickups({ filter: "all" });
-      pickups = flattenPickups(data);
-    } catch {
-      pickups = [];
-    }
-
-    const orderId = parseOrderQrPayload(value);
-    const match = pickups.find((p) => {
-      const oid = String(p.orderDisplayId || p.orderId || p.id || "");
-      const qr = String(p.qrPayload || "");
-      return (
-        (orderId && oid && (oid === orderId || oid.includes(orderId) || orderId.includes(oid))) ||
-        (qr && String(value).includes(qr)) ||
-        (oid && String(value).includes(oid))
-      );
-    });
-    if (match) {
+    const orderId = parseOrderQrPayload(value) || String(value || "").trim();
+    if (orderId) {
       setScanOpen(false);
       setScanError("");
-      navigate(
-        isAtCentre(match)
-          ? `/manager/pickups/${match.id}/receive`
-          : `/manager/pickups/${match.id}`
-      );
+      navigate(`/manager/orders/detail/${encodeURIComponent(orderId)}`);
       return;
     }
 
-    setScanError("QR does not match a batch or order.");
+    setScanError("QR does not match an order.");
   };
 
   return (

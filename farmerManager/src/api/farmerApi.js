@@ -794,6 +794,22 @@ export async function getManagerAllStockHistory({ farmerId = "" } = {}) {
   });
 }
 
+export async function adjustFarmerStockByManager({
+  farmerId,
+  productId,
+  change,
+  reason = "Manual Update",
+  grade = "Grade A",
+  updatedBy = "Manager",
+  reference = "—",
+} = {}) {
+  return apiFetch(`/api/farmer-manager/farmers/${farmerId}/inventory/adjust`, {
+    method: "POST",
+    headers: managerAuthHeaders(),
+    body: JSON.stringify({ productId, change, reason, grade, updatedBy, reference }),
+  });
+}
+
 export async function getManagerAllHarvestOrders() {
   return apiFetch("/api/farmer-manager/harvest-orders", {
     headers: managerAuthHeaders(),
