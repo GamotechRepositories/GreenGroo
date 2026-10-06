@@ -1,6 +1,7 @@
 import StoreInventory from "../models/StoreInventory.js";
 import Product from "../../../legacy/models/Product.js";
 import { resolveDarkStoreForOrder } from "./darkStoreResolver.js";
+import { inventorySkuForProduct } from "./catalogStoreInventory.js";
 import { sectionToDepartment } from "../../../legacy/utils/departmentHelpers.js";
 import { geocodeAddressString } from "../../../legacy/services/reverseGeocodeService.js";
 
@@ -140,7 +141,7 @@ function nameOccurs(productName, itemName) {
 }
 
 export function matchProductToItem(product, items) {
-  const sku = String(product?.sku || "").trim().toUpperCase();
+  const sku = inventorySkuForProduct(product).toUpperCase();
   const productName = norm(product?.name);
 
   if (sku) {

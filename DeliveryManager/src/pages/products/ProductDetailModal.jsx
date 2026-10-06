@@ -310,21 +310,27 @@ export default function ProductDetailModal({ product, onClose, onEdit, onDelete 
           </Section>
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3">
-          <button
-            type="button"
-            onClick={onDelete}
-            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
-          >
-            Edit product
-          </button>
+        <footer className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-3">
+          {onEdit || onDelete ? (
+            <>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800"
+              >
+                Edit product
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">Admin catalog product · request stock from the Stock page</p>
+          )}
         </footer>
       </div>
     </div>

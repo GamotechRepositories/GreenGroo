@@ -21,6 +21,8 @@ const byDepartmentThenNumber = (a, b) => {
   return String(a.name).localeCompare(String(b.name));
 };
 
+const categoryOf = (p) => p.categories?.[0] || "Uncategorised";
+
 const rackLabel = (p) =>
   p.rackRow || p.rackColumn ? `${p.rackRow ? `R${p.rackRow}` : ""}${p.rackColumn ? `C${p.rackColumn}` : ""}` : "—";
 
@@ -39,6 +41,7 @@ export default function ProductsPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [filter, setFilter] = useState("all");
+  const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -69,13 +72,14 @@ export default function ProductsPage() {
     return products
       .filter((p) => {
         if (filter !== "all" && toDepartment(p.section) !== filter) return false;
+        if (category !== "all" && categoryOf(p) !== category) return false;
         if (!q) return true;
         return [p.name, p.sku, p.departmentId, p.brandName, p.categories?.[0], p.subcategory]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(q));
       })
       .sort(byDepartmentThenNumber);
-  }, [products, filter, search]);
+  }, [products, filter, category, search]);
 
   const counts = useMemo(() => {
     const result = { all: products.length, preorder: 0, ready2cook: 0, instant: 0 };
@@ -84,6 +88,14 @@ export default function ProductsPage() {
     });
     return result;
   }, [products]);
+
+  const categoryCounts = useMemo(() => {
+    const result = new Map();
+    products
+      .filter((p) => filter === "all" || toDepartment(p.section) === filter)
+      .forEach((p) => result.set(categoryOf(p), (result.get(categoryOf(p)) || 0) + 1));
+    return [...result.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [products, filter]);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -103,9 +115,9 @@ export default function ProductsPage() {
   return (
     <PageShell
       title="Store Products"
-      subtitle={`Products you add here are shown only to customers served by ${storeName}${
+      subtitle={`Admin catalog plus products you add for ${storeName}${
         pincode ? ` (pincode ${pincode})` : ""
-      }`}
+      } · your own products are shown only to your customers`}
     >
       {toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">
@@ -125,7 +137,10 @@ export default function ProductsPage() {
               <button
                 key={f.id}
                 type="button"
-                onClick={() => setFilter(f.id)}
+                onClick={() => {
+                  setFilter(f.id);
+                  setCategory("all");
+                }}
                 className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold ${
                   filter === f.id ? "bg-slate-900 text-white" : "text-slate-600"
                 }`}
@@ -151,6 +166,31 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
+        {categoryCounts.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto border-t border-slate-100 pb-1 pt-4">
+            <button
+              type="button"
+              onClick={() => setCategory("all")}
+              className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                category === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              All categories
+            </button>
+            {categoryCounts.map(([name, count]) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setCategory(name)}
+                className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                  category === name ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {name} ({count})
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -218,6 +258,11 @@ export default function ProductsPage() {
                             {p.name}
                           </p>
                           <p className="font-mono text-[11px] text-slate-400">{p.sku}</p>
+                          {p.isCatalogProduct ? (
+                            <span className="mt-0.5 inline-flex rounded-full border border-sky-200 bg-sky-50 px-2 py-px text-[10px] font-bold text-sky-700">
+                              Admin catalog
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -276,20 +321,24 @@ export default function ProductsPage() {
                         >
                           View
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditing(p)}
-                          className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-slate-800"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleting(p)}
-                          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100"
-                        >
-                          Delete
-                        </button>
+                        {p.isCatalogProduct ? null : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setEditing(p)}
+                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-slate-800"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleting(p)}
+                              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -304,14 +353,22 @@ export default function ProductsPage() {
         <ProductDetailModal
           product={products.find((p) => p._id === viewing._id) || viewing}
           onClose={() => setViewing(null)}
-          onEdit={() => {
-            setEditing(viewing);
-            setViewing(null);
-          }}
-          onDelete={() => {
-            setDeleting(viewing);
-            setViewing(null);
-          }}
+          onEdit={
+            viewing.isCatalogProduct
+              ? undefined
+              : () => {
+                  setEditing(viewing);
+                  setViewing(null);
+                }
+          }
+          onDelete={
+            viewing.isCatalogProduct
+              ? undefined
+              : () => {
+                  setDeleting(viewing);
+                  setViewing(null);
+                }
+          }
         />
       )}
 

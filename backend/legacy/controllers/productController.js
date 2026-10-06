@@ -9,6 +9,10 @@ import {
   loadNearestStoreCatalog,
   storeProductScope,
 } from "../../delivery-service/src/services/nearestStoreCatalog.js";
+import {
+  addProductToAllStores,
+  syncProductToStores,
+} from "../../delivery-service/src/services/catalogStoreInventory.js";
 import { attachQuantityDiscounts } from "../../admin-ops-service/src/pricingAttach.js";
 import { buildDepartmentId, normalizeDeptToken } from "../utils/departmentHelpers.js";
 
@@ -1240,6 +1244,10 @@ export async function createProductRecord(body, { ownerManagerId = null } = {}) 
       );
     }
 
+    await addProductToAllStores(product).catch((error) =>
+      console.warn("[Product] dark store inventory sync failed:", error.message)
+    );
+
     return { status: 201, body: { success: true, data: product }, product };
   } catch (error) {
     return productErrorResult(error);
@@ -1404,6 +1412,12 @@ export async function updateProductRecord(id, body = {}, { ownerManagerId = null
       buildPersistedProductFields(payload, pricingFields, categoryCheck),
       { new: true, runValidators: true }
     );
+
+    if (product) {
+      await syncProductToStores(product, existing).catch((error) =>
+        console.warn("[Product] dark store inventory sync failed:", error.message)
+      );
+    }
 
     return { status: 200, body: { success: true, data: product }, product };
   } catch (error) {

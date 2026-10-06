@@ -1,6 +1,7 @@
 import Product from "../../../legacy/models/Product.js";
 import StoreInventory from "../models/StoreInventory.js";
 import DeliveryManager from "../models/DeliveryManager.js";
+import { addCatalogToStore } from "./catalogStoreInventory.js";
 import {
   STARTER_STORE_PRODUCTS,
   buildStarterInventoryDoc,
@@ -57,6 +58,7 @@ export async function seedManagerStore(manager) {
   }
 
   const result = await addStoreProducts(manager, STARTER_STORE_PRODUCTS);
+  const catalogRows = await addCatalogToStore(manager._id);
   await markSeeded(manager);
-  return { ...result, ordersCreated: 0 };
+  return { ...result, inventoryCreated: result.inventoryCreated + catalogRows, ordersCreated: 0 };
 }

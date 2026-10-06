@@ -6,6 +6,7 @@ import {
   resolveDarkStoreForOrder,
 } from "../../delivery-service/src/services/darkStoreResolver.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
+import { inventorySkuForProduct } from "../../delivery-service/src/services/catalogStoreInventory.js";
 import { getIO } from "../../socket.js";
 import Product from "../models/Product.js";
 import { geocodeAddressString } from "./reverseGeocodeService.js";
@@ -74,7 +75,9 @@ async function mapItemsToStoreCatalog(managerId, ecommerceItems = [], itemDepart
   return ecommerceItems.map((item, index) => {
     const productId = String(item.product?._id || item.product || "");
     const product = productById.get(productId);
-    const productSku = String(product?.sku || item.sku || "").trim();
+    const productSku = String(
+      product?.sku || item.sku || (productId ? inventorySkuForProduct({ _id: productId }) : "")
+    ).trim();
     const productName = item.name || product?.name || "Item";
 
     let match = null;

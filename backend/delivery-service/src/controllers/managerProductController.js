@@ -6,6 +6,7 @@ import {
   updateProductRecord,
 } from "../../../legacy/controllers/productController.js";
 import { getManager } from "./managerDashboardController.js";
+import { inventorySkuForProduct } from "../services/catalogStoreInventory.js";
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -57,40 +58,36 @@ async function syncInventory(manager, product, { previousSku = "", stock } = {})
 
 function withStock(product, inventoryBySku) {
   const doc = product.toObject ? product.toObject() : product;
-  const row = inventoryBySku.get(String(doc.sku || ""));
+  const row = inventoryBySku.get(inventorySkuForProduct(doc).toUpperCase());
   return {
     ...doc,
     storeStock: row ? row.stockCount : 0,
+    isCatalogProduct: !doc.ownerManagerId,
   };
 }
 
+/** This store's own products plus every live admin catalog product. */
 export const listManagerProducts = async (req, res, next) => {
   try {
     const manager = await getManager(req);
-    const filter = { ownerManagerId: manager._id };
+    const and = [{ $or: [{ ownerManagerId: manager._id }, { ownerManagerId: null, isActive: true }] }];
 
     const section = String(req.query.section || "").trim().toLowerCase();
     if (section && section !== "all") {
-      filter.section = { $in: SECTION_ALIASES[section] || [section] };
+      and.push({ section: { $in: SECTION_ALIASES[section] || [section] } });
     }
 
     const search = String(req.query.search || "").trim();
     if (search) {
       const pattern = new RegExp(escapeRegex(search), "i");
-      filter.$or = [
-        { name: pattern },
-        { sku: pattern },
-        { departmentId: pattern },
-        { categories: pattern },
-      ];
+      and.push({
+        $or: [{ name: pattern }, { sku: pattern }, { departmentId: pattern }, { categories: pattern }],
+      });
     }
 
-    const products = await Product.find(filter).sort({ createdAt: -1 }).limit(500);
-    const inventory = await StoreInventory.find({
-      managerId: manager._id,
-      sku: { $in: products.map((p) => p.sku).filter(Boolean) },
-    }).lean();
-    const inventoryBySku = new Map(inventory.map((row) => [row.sku, row]));
+    const products = await Product.find({ $and: and }).sort({ createdAt: -1 }).limit(2000);
+    const inventory = await StoreInventory.find({ managerId: manager._id }).select("sku stockCount").lean();
+    const inventoryBySku = new Map(inventory.map((row) => [String(row.sku).toUpperCase(), row]));
 
     return res.json({
       success: true,

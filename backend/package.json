@@ -14,6 +14,7 @@
     "start": "node index.js",
     "dev:legacy": "npm run dev -w legacy",
     "fake:driver": "node scripts/fakeDriverLocation.mjs",
+    "sync:catalog-stores": "node delivery-service/src/scripts/syncCatalogToStores.js",
     "seed:manager-store": "node delivery-service/src/delivery-manager/scripts/seedAllManagerStores.js"
   },
   "dependencies": {

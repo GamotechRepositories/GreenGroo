@@ -8,6 +8,10 @@ import {
 import { generateGiftCode, previewGiftCard } from "./giftCardService.js";
 import { invalidatePricingCache } from "./pricingAttach.js";
 import { parseCsv, toCsv } from "./csv.js";
+import {
+  addProductToAllStores,
+  syncProductToStores,
+} from "../../delivery-service/src/services/catalogStoreInventory.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
@@ -358,6 +362,7 @@ async function upsertProductRow(row) {
     }
     product.isActive = isActive;
     await product.save();
+    await syncProductToStores(product);
     return { action: "updated", sku: product.sku, name: product.name };
   }
 
@@ -385,6 +390,7 @@ async function upsertProductRow(row) {
       "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop",
     ],
   });
+  await addProductToAllStores(created);
   return { action: "created", sku: created.sku, name: created.name };
 }
 
