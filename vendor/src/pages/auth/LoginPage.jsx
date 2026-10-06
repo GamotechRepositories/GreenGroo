@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (!loading && isAuthenticated) {
-    return <Navigate to="/inventory-requests" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const onSubmit = async (e) => {
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError("");
     try {
       await login(form);
-      navigate("/inventory-requests", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     } finally {

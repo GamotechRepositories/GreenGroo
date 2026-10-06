@@ -100,7 +100,7 @@ export default function VendorTopNavbar({ onOpenMobileMenu }) {
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {/* Quick Restock Notification */}
         <Link
-          to="/inventory-requests"
+          to="/vendor/orders/darkstore"
           className="relative inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 text-slate-700 shadow-xs transition hover:bg-slate-50"
           title="Dark store restock requests"
         >

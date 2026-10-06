@@ -12,6 +12,7 @@ import LocationMastersPage from './pages/erp/LocationMastersPage';
 import CropsPage from './pages/erp/CropsPage';
 import ErpListPage from './pages/erp/ErpListPage';
 import Products from './pages/Products';
+import Analytics from './pages/Analytics';
 import MarketPricesPage from './pages/ops/MarketPricesPage';
 import PreOrderSlots from './pages/PreOrderSlots';
 import DarkStores from './pages/DarkStores';
@@ -83,6 +84,7 @@ export default function App() {
             <Route path="/" element={<AdminLayout />}>
               <Route index element={<CeoDashboard />} />
               <Route path="welcome" element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
               <Route path="traceability" element={<TraceabilityPage />} />
               <Route path="erp/locations" element={<LocationMastersPage />} />
               <Route path="erp/farmers" element={<FarmersPage />} />

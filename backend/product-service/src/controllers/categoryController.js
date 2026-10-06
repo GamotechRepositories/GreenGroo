@@ -469,6 +469,7 @@ export async function seedDefaultCategoriesIfEmpty() {
     }
   } catch (error) {
     console.error("[CategoryService] Failed to seed default categories:", error.message);
+    console.error("[CategoryService] Failed to seed default categories:", error.message);
   }
 }
 

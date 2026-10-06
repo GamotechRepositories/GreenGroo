@@ -168,6 +168,7 @@ import {
   updateMarketPrice,
   deleteMarketPrice,
 } from "./marketPriceControllers.js";
+import { getAnalytics } from "./analyticsControllers.js";
 import { requireVendor } from "../../farmer-manager-service/src/middleware.js";
 import { attachVendorHrScope } from "./hrScope.js";
 
@@ -328,6 +329,7 @@ router.post("/refunds", createRefund);
 router.put("/refunds/:id", updateRefund);
 
 router.get("/reports", getReports);
+router.get("/analytics", getAnalytics);
 
 router.get("/user-management/zones", listUserMgmtZones);
 router.get("/user-management/zones/:zoneKey/stores", listUserMgmtStores);

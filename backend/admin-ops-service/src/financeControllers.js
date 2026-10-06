@@ -28,6 +28,12 @@ function normalizeClaimStatus(value) {
   return "";
 }
 
+/** Set by vendor routes: the dark store ids the caller may see. Undefined means no restriction (admin). */
+function inRefundScope(req, storeId) {
+  if (!Array.isArray(req.refundStoreIds)) return true;
+  return Boolean(storeId) && req.refundStoreIds.includes(String(storeId));
+}
+
 function serializeClaim(claim, extras = {}) {
   const row = claim?.toObject ? claim.toObject() : claim;
   const status = normalizeClaimStatus(row.status) || row.status || "pending";
@@ -188,6 +194,12 @@ export async function listRefunds(req, res, next) {
       ];
     }
 
+    if (Array.isArray(req.refundStoreIds)) {
+      filter.$and = [
+        { $or: [{ darkStoreId: { $in: req.refundStoreIds } }, { managerId: { $in: req.refundStoreIds } }] },
+      ];
+    }
+
     const claims = await RefundClaim.find(filter).sort({ createdAt: -1 }).lean();
     const pickupIds = claims.map((c) => c.returnPickupId).filter(Boolean);
     const pickups = pickupIds.length
@@ -264,6 +276,10 @@ export async function createRefund(req, res, next) {
       }
     }
 
+    if (!inRefundScope(req, darkStoreId || managerId)) {
+      return fail(res, 403, "This order was not delivered from one of your dark stores");
+    }
+
     const claim = await RefundClaim.create({
       orderId: order?._id || null,
       orderNumber: order?.orderNumber || String(req.body.orderNumber || "").trim(),
@@ -296,7 +312,10 @@ export async function createRefund(req, res, next) {
 export async function updateRefund(req, res, next) {
   try {
     const claim = await RefundClaim.findById(req.params.id);
-    if (!claim) return fail(res, 404, "Claim not found");
+    if (!claim || !inRefundScope(req, claim.darkStoreId || claim.managerId)) return fail(res, 404, "Claim not found");
+    if (req.body.darkStoreId && !inRefundScope(req, req.body.darkStoreId)) {
+      return fail(res, 403, "You can only assign one of your own dark stores");
+    }
 
     const nextStatus = normalizeClaimStatus(req.body.status);
     if (req.body.adminNote !== undefined) claim.adminNote = String(req.body.adminNote);

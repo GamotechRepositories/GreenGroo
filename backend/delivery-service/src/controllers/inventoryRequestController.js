@@ -16,6 +16,17 @@ const isReviewerRole = (role) => {
   return REVIEWER_ROLES.has(String(role).trim().toLowerCase());
 };
 
+const isVendorRole = (role) => String(role || "").trim().toLowerCase() === "vendor";
+
+/** Returns null when the caller may see every store, otherwise the dark store ids the vendor supplies. */
+const scopedManagerIds = async (req) => {
+  if (!isVendorRole(req.user?.role)) return null;
+  const vendorId = String(req.user?.vendorId || req.user?.id || "").trim();
+  if (!vendorId) return [];
+  const stores = await DeliveryManager.find({ vendorId }).select("_id").lean();
+  return stores.map((store) => store._id);
+};
+
 const makeRequestNumber = () =>
   `INV-${Date.now().toString().slice(-8)}-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -170,6 +181,9 @@ export const listAllInventoryRequests = async (req, res, next) => {
       filter.status = status;
     }
 
+    const managerIds = await scopedManagerIds(req);
+    if (managerIds) filter.managerId = { $in: managerIds };
+
     const requests = await InventoryRequest.find(filter).sort({ createdAt: -1 });
     return res.json({
       success: true,
@@ -204,7 +218,10 @@ export const reviewInventoryRequest = async (req, res, next) => {
     }
 
     const request = await InventoryRequest.findById(req.params.requestId);
-    if (!request) {
+    const managerIds = request ? await scopedManagerIds(req) : null;
+    const outOfScope =
+      managerIds && !managerIds.some((id) => String(id) === String(request.managerId));
+    if (!request || outOfScope) {
       return res.status(404).json({
         success: false,
         message: "Inventory request not found",

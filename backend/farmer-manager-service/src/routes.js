@@ -181,6 +181,28 @@ import {
   saveInventoryAlert,
   deleteInventoryAlert,
 } from "./inventoryAlertControllers.js";
+import {
+  listVendorCoupons,
+  createVendorCoupon,
+  updateVendorCoupon,
+  deleteVendorCoupon,
+  seedVendorCoupons,
+  listVendorGiftCards,
+  createVendorGiftCard,
+  updateVendorGiftCard,
+  deleteVendorGiftCard,
+  listVendorPricingRules,
+  createVendorPricingRule,
+  updateVendorPricingRule,
+  deleteVendorPricingRule,
+  getVendorRewardSettings,
+  updateVendorRewardSettings,
+  getVendorRewardStats,
+  listVendorRewardTransactions,
+  listVendorRefunds,
+  createVendorRefund,
+  updateVendorRefund,
+} from "./vendorPromotionControllers.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();

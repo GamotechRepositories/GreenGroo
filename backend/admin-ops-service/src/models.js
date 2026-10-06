@@ -120,6 +120,18 @@ const financeLedgerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const vendorCommissionPaymentSchema = new mongoose.Schema(
+  {
+    vendorId: { type: String, required: true, trim: true, index: true },
+    amount: { type: Number, required: true, min: 0.01 },
+    paidAt: { type: Date, default: Date.now },
+    method: { type: String, default: "", trim: true },
+    reference: { type: String, default: "", trim: true },
+    note: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
 const HR_EMPLOYEE_TYPES = [
   "staff",
   "farmer_manager",
@@ -218,6 +230,9 @@ export const RefundClaim =
   mongoose.models.AdminRefundClaim || mongoose.model("AdminRefundClaim", refundClaimSchema);
 export const FinanceLedger =
   mongoose.models.AdminFinanceLedger || mongoose.model("AdminFinanceLedger", financeLedgerSchema);
+export const VendorCommissionPayment =
+  mongoose.models.AdminVendorCommissionPayment ||
+  mongoose.model("AdminVendorCommissionPayment", vendorCommissionPaymentSchema);
 export const HrAttendance =
   mongoose.models.AdminHrAttendance || mongoose.model("AdminHrAttendance", hrAttendanceSchema);
 export const HrEmployment =

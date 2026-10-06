@@ -561,7 +561,7 @@ export default function DashboardPage() {
           </Link>
 
           <Link
-            to="/inventory-requests"
+            to="/vendor/orders/darkstore"
             className="group flex flex-col justify-between rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 transition hover:border-emerald-300 hover:bg-emerald-50/50"
           >
             <div className="flex items-center justify-between">
@@ -782,7 +782,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-slate-500">Incoming stock refill requests from delivery managers</p>
                 </div>
               </div>
-              <Link to="/inventory-requests" className="text-xs font-semibold text-emerald-700 hover:underline">
+              <Link to="/vendor/orders/darkstore" className="text-xs font-semibold text-emerald-700 hover:underline">
                 View All ({requests.length})
               </Link>
             </div>
@@ -842,7 +842,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="border-t border-slate-100 bg-slate-50/60 p-3 text-center">
-            <Link to="/inventory-requests" className="text-xs font-semibold text-emerald-700 hover:underline">
+            <Link to="/vendor/orders/darkstore" className="text-xs font-semibold text-emerald-700 hover:underline">
               Open Full Restock Request Desk &rarr;
             </Link>
           </div>

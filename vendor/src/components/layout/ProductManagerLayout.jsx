@@ -13,6 +13,7 @@ import {
   IdCard,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   Package,
   Settings,
@@ -30,7 +31,6 @@ import Header from './Header'
 import VendorTopNavbar from './VendorTopNavbar'
 import VendorBottomNav from './VendorBottomNav'
 import { useVendorAuth } from '../../context/VendorAuthContext'
-import { useInventoryRequests } from '../../hooks/useInventoryRequests'
 import { vendorApi } from '../../api/vendorApi'
 import RoleAnnouncements from '../RoleAnnouncements'
 
@@ -153,7 +153,6 @@ const navItems = [
     ],
   },
   { to: '/vendor/documents', label: 'Documents', icon: FileText },
-  { to: '/inventory-requests', label: 'Segregation Manager', icon: Package },
 ]
 
 const footerItems = [
@@ -306,8 +305,6 @@ export default function ProductManagerLayout() {
   const vendor = useVendorAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { requests } = useInventoryRequests()
-  const pendingCount = requests.filter((request) => request.status === 'pending').length
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeMobile = () => setMobileOpen(false)
@@ -390,7 +387,6 @@ export default function ProductManagerLayout() {
               item={item}
               collapsed={compact}
               onNavigate={onNavigate}
-              badge={item.to === '/inventory-requests' ? pendingCount : 0}
             />
           ))}
 

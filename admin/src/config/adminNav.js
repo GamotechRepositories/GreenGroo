@@ -37,6 +37,7 @@ import {
   Clock3,
   TrendingUp,
   PlusCircle,
+  ChartPie,
 } from 'lucide-react';
 
 export const NAV_GROUPS = [
@@ -73,6 +74,13 @@ export const NAV_GROUPS = [
         icon: LayoutDashboard,
         implemented: true,
         description: 'Admin portal shortcuts for catalog, promotions, and operations.',
+      },
+      {
+        name: 'Analytics',
+        href: '/analytics',
+        icon: ChartPie,
+        implemented: true,
+        description: 'Sales, products, customers, delivery, supply chain and finance insights with filters.',
       },
     ],
   },
