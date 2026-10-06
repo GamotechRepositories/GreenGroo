@@ -147,6 +147,23 @@ import {
 } from "./pickupControllers.js";
 import { requireVendor, requireManager, requireFarmer, requireFarmerOrManager, requireDriver, requireVendorOrManager } from "./middleware.js";
 import {
+  listVendorDarkStoreRequests,
+  createVendorDarkStoreRequest,
+  cancelVendorDarkStoreRequest,
+} from "./darkStoreRequestControllers.js";
+import {
+  listVendorCatalogProducts,
+  listVendorMyProducts,
+  createVendorProductRequest,
+  cancelVendorProductRequest,
+} from "./vendorProductRequestControllers.js";
+import {
+  listVendorCatalogCrops,
+  listVendorMyCrops,
+  createVendorCropRequest,
+  cancelVendorCropRequest,
+} from "./vendorCropRequestControllers.js";
+import {
   listQualityPending,
   getQualityInspection,
   verifyQualityQr,
@@ -403,6 +420,17 @@ vendorRouter.post("/pickups/:pickupId/receive", requireVendor, receiveVendorPick
 vendorRouter.get("/pickups/:pickupId/receipt", requireVendor, getVendorPickupReceipt);
 vendorRouter.get("/collection-centres", requireVendor, listVendorCentres);
 vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
+vendorRouter.get("/dark-store-requests", requireVendor, listVendorDarkStoreRequests);
+vendorRouter.post("/dark-store-requests", requireVendor, createVendorDarkStoreRequest);
+vendorRouter.post("/dark-store-requests/:requestId/cancel", requireVendor, cancelVendorDarkStoreRequest);
+vendorRouter.get("/catalog-products", requireVendor, listVendorCatalogProducts);
+vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
+vendorRouter.post("/product-requests", requireVendor, createVendorProductRequest);
+vendorRouter.post("/product-requests/:requestId/cancel", requireVendor, cancelVendorProductRequest);
+vendorRouter.get("/catalog-crops", requireVendor, listVendorCatalogCrops);
+vendorRouter.get("/my-crops", requireVendor, listVendorMyCrops);
+vendorRouter.post("/crop-requests", requireVendor, createVendorCropRequest);
+vendorRouter.post("/crop-requests/:requestId/cancel", requireVendor, cancelVendorCropRequest);
 
 vendorRouter.get("/driver-desk/pickups", requireDriver, listDriverPickups);
 vendorRouter.get("/driver-desk/batches/:batchId", requireDriver, getDriverBatch);

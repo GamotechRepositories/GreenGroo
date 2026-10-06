@@ -854,6 +854,146 @@ export const VendorInventoryAlert =
   mongoose.models.VendorInventoryAlert ||
   mongoose.model("VendorInventoryAlert", vendorInventoryAlertSchema);
 
+// fileUrl holds the file inline as a data URL, so keep each upload well under MongoDB's 16 MB record cap.
+const vendorDocumentSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true },
+    type: { type: String, required: true },
+    name: { type: String, default: "" },
+    fileName: { type: String, default: "" },
+    mimeType: { type: String, default: "" },
+    fileUrl: { type: String, default: "" },
+    uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: { type: String, default: "" },
+    status: { type: String, enum: ["Pending", "Approved", "Rejected"], default: "Pending" },
+  },
+  { timestamps: true }
+);
+vendorDocumentSchema.index({ vendorId: 1, type: 1 }, { unique: true });
+
+export const VendorDocument =
+  mongoose.models.VendorDocument || mongoose.model("VendorDocument", vendorDocumentSchema);
+
+// A vendor-proposed dark store; the DeliveryManager account is only created when admin approves it.
+const darkStoreRequestSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    storeName: { type: String, required: true, trim: true },
+    managerName: { type: String, default: "", trim: true },
+    email: { type: String, required: true, trim: true, lowercase: true },
+    phone: { type: String, required: true, trim: true },
+    passwordHash: { type: String, required: true },
+    state: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
+    area: { type: String, required: true, trim: true },
+    storeAddress: { type: String, default: "", trim: true },
+    pincode: { type: String, default: "", trim: true },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
+    notes: { type: String, default: "", trim: true },
+    status: { type: String, enum: ["Pending", "Approved", "Rejected", "Cancelled"], default: "Pending", index: true },
+    adminRemarks: { type: String, default: "" },
+    darkStoreId: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+export const DarkStoreRequest =
+  mongoose.models.DarkStoreRequest || mongoose.model("DarkStoreRequest", darkStoreRequestSchema);
+
+// productId refers to an admin catalog product (GreenGroccProduct); name/image/category are snapshots for history.
+const catalogProductSnapshot = {
+  productId: { type: String, required: true },
+  productName: { type: String, default: "" },
+  productImage: { type: String, default: "" },
+  category: { type: String, default: "" },
+  unit: { type: String, default: "" },
+};
+
+const vendorProductRequestSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    ...catalogProductSnapshot,
+    notes: { type: String, default: "" },
+    status: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected", "Cancelled"],
+      default: "Pending",
+      index: true,
+    },
+    adminRemarks: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+vendorProductRequestSchema.index({ vendorId: 1, productId: 1, status: 1 });
+
+export const VendorProductRequest =
+  mongoose.models.VendorProductRequest || mongoose.model("VendorProductRequest", vendorProductRequestSchema);
+
+const vendorProductSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    ...catalogProductSnapshot,
+    requestId: { type: String, default: "" },
+    addedBy: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+vendorProductSchema.index({ vendorId: 1, productId: 1 }, { unique: true });
+
+export const VendorProduct =
+  mongoose.models.VendorProduct || mongoose.model("VendorProduct", vendorProductSchema);
+
+// cropId refers to an admin crop master record (ErpCrop); name/variety/category are snapshots for history.
+const catalogCropSnapshot = {
+  cropId: { type: String, required: true },
+  cropName: { type: String, default: "" },
+  variety: { type: String, default: "" },
+  category: { type: String, default: "" },
+};
+
+const vendorCropRequestSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    ...catalogCropSnapshot,
+    notes: { type: String, default: "" },
+    status: {
+      type: String,
+      enum: ["Pending", "Approved", "Rejected", "Cancelled"],
+      default: "Pending",
+      index: true,
+    },
+    adminRemarks: { type: String, default: "" },
+    reviewedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+vendorCropRequestSchema.index({ vendorId: 1, cropId: 1, status: 1 });
+
+export const VendorCropRequest =
+  mongoose.models.VendorCropRequest || mongoose.model("VendorCropRequest", vendorCropRequestSchema);
+
+const vendorCropSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true },
+    vendorId: { type: String, required: true, index: true },
+    ...catalogCropSnapshot,
+    requestId: { type: String, default: "" },
+    addedBy: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+vendorCropSchema.index({ vendorId: 1, cropId: 1 }, { unique: true });
+
+export const VendorCrop = mongoose.models.VendorCrop || mongoose.model("VendorCrop", vendorCropSchema);
+
 /**
  * Ensures all MongoDB indexes for farmer-manager service are created in background
  */
@@ -885,6 +1025,12 @@ export async function ensureFarmerIndexes() {
       Pickup,
       QualityInspection,
       VendorInventoryAlert,
+      VendorDocument,
+      DarkStoreRequest,
+      VendorProductRequest,
+      VendorProduct,
+      VendorCropRequest,
+      VendorCrop,
     ];
 
     await Promise.all(

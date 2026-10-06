@@ -24,6 +24,13 @@ import DynamicPricing from './pages/ops/DynamicPricing';
 import BulkImportExport from './pages/ops/BulkImportExport';
 import CsvImportExport from './pages/ops/CsvImportExport';
 import MultiVendor from './pages/ops/MultiVendor';
+import MultiVendorDetailPage from './pages/ops/MultiVendorDetailPage';
+import DarkStoreRequestsPage from './pages/ops/DarkStoreRequestsPage';
+import CentreFarmersPage from './pages/ops/CentreFarmersPage';
+import CollectionDashboardPage from './pages/ops/CollectionDashboardPage';
+import VendorProductRequestsPage from './pages/ops/VendorProductRequestsPage';
+import VendorCropRequestsPage from './pages/ops/VendorCropRequestsPage';
+import CentreFarmerManagersPage from './pages/ops/CentreFarmerManagersPage';
 import HrManagement from './pages/ops/HrManagement';
 import HrCalendarPage from './pages/hr/HrCalendarPage';
 import HrAnnouncementsPage from './pages/hr/HrAnnouncementsPage';
@@ -100,6 +107,13 @@ export default function App() {
               <Route path="bulk-import-export" element={<BulkImportExport />} />
               <Route path="csv-import-export" element={<CsvImportExport />} />
               <Route path="multi-vendor" element={<MultiVendor />} />
+              <Route path="multi-vendor/:vendorId" element={<MultiVendorDetailPage />} />
+              <Route path="dark-store-requests" element={<DarkStoreRequestsPage />} />
+              <Route path="collection-dashboard" element={<CollectionDashboardPage />} />
+              <Route path="vendor-product-requests" element={<VendorProductRequestsPage />} />
+              <Route path="vendor-crop-requests" element={<VendorCropRequestsPage />} />
+              <Route path="collection-farmers" element={<CentreFarmersPage />} />
+              <Route path="collection-farmer-managers" element={<CentreFarmerManagersPage />} />
               <Route path="hr-management" element={<HrManagement />} />
               <Route path="hr-management/calendar" element={<HrCalendarPage />} />
               <Route path="hr-management/announcements" element={<HrAnnouncementsPage />} />

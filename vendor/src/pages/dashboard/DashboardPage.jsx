@@ -264,7 +264,7 @@ export default function DashboardPage() {
             </Link>
 
             <Link
-              to="/vendor/crops/add"
+              to="/vendor/crops"
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
             >
               <Sprout className="h-3.5 w-3.5 text-emerald-700" />
@@ -272,7 +272,7 @@ export default function DashboardPage() {
             </Link>
 
             <Link
-              to="/vendor/products/add"
+              to="/vendor/products"
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
             >
               <Package className="h-3.5 w-3.5 text-emerald-700" />
@@ -382,11 +382,11 @@ export default function DashboardPage() {
 
         {/* Card 3 – Total Crops */}
         <MultiMetricCard
-          title="Total Crops"
+          title="Farmer Crops"
           mainValue={loading ? "…" : d.totalCrops ?? 0}
           icon={Sprout}
           iconBg="bg-emerald-50 text-emerald-700"
-          to="/vendor/crops"
+          to="/vendor/farmer-crops"
           subItems={[
             { label: "Growing / Sowing", value: d.growingCrops ?? 0, color: "text-sky-700" },
             { label: "Ready for Harvest", value: d.harvestReadyCrops ?? 0, color: "text-emerald-700" },
@@ -395,11 +395,11 @@ export default function DashboardPage() {
 
         {/* Card 4 – Total Products */}
         <MultiMetricCard
-          title="Total Products"
+          title="Farmer Products"
           mainValue={loading ? "…" : d.totalProducts ?? 0}
           icon={Package}
           iconBg="bg-amber-50 text-amber-700"
-          to="/vendor/products"
+          to="/vendor/farmer-products"
           subItems={[
             { label: "Products Approval Pending", value: d.productsApprovalPending ?? 0, color: "text-amber-600" },
             { label: "Active / In Stock", value: d.activeProducts ?? 0, color: "text-emerald-700" },

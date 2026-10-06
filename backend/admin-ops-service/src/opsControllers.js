@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import mongoose from "mongoose";
 import Staff from "../../staff-service/src/models/Staff.js";
 import { ROLE_LABELS, STAFF_ROLES } from "../../staff-service/src/constants/roles.js";
@@ -6,11 +7,44 @@ import DeliveryManager from "../../delivery-service/src/models/DeliveryManager.j
 import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
 import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 import SupportMessage, { SUPPORT_ROLE_KEYS } from "../../legacy/models/support/SupportMessage.js";
-import { FarmerManager, PickupDriver, Vendor } from "../../farmer-manager-service/src/models.js";
-import { createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
+import {
+  CollectionCentre,
+  DarkStoreRequest,
+  Farmer,
+  FarmerManager,
+  PickupDriver,
+  Vendor,
+  VendorDocument,
+  VendorCrop,
+  VendorCropRequest,
+  VendorProduct,
+  VendorProductRequest,
+} from "../../farmer-manager-service/src/models.js";
+import {
+  catalogCropSummary,
+  serializeVendorCropRequest,
+  vendorCropsWithCatalog,
+} from "../../farmer-manager-service/src/vendorCropRequestControllers.js";
+import { Crop as ErpCrop } from "../../erp-service/src/models/produce.js";
+import { serializeDarkStoreRequest } from "../../farmer-manager-service/src/darkStoreRequestControllers.js";
+import {
+  catalogProductSummary,
+  serializeVendorProductRequest,
+  vendorProductsWithCatalog,
+} from "../../farmer-manager-service/src/vendorProductRequestControllers.js";
+import CatalogProduct from "../../legacy/models/Product.js";
+import { createCentreForVendor, createManagerBusinessId } from "../../farmer-manager-service/src/pickupControllers.js";
 import { seedManagerStore } from "../../delivery-service/src/services/seedManagerStore.js";
 import { applyStoreOrderStatus } from "../../delivery-service/src/services/storeOrderLifecycle.js";
 import { FinanceLedger, HR_EMPLOYEE_TYPES, HrAttendance, HrEmployment, HrPayroll, HrTask } from "./models.js";
+import {
+  VENDOR_HR_ROLE_KEYS,
+  canManageHrEmployee,
+  hrEmployeeFilter,
+  hrOwnerId,
+  isVendorScope,
+  withHrScope,
+} from "./hrScope.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
@@ -21,16 +55,432 @@ function supportRoleLabel(value) {
   return ROLE_LABELS[value] || String(value || "").replaceAll("_", " ");
 }
 
-export async function listVendorsAdmin(_req, res, next) {
+function vendorQuery(id) {
+  return mongoose.Types.ObjectId.isValid(id) ? { $or: [{ id }, { _id: id }] } : { id };
+}
+
+const VENDOR_DOCUMENT_TYPES = {
+  aadhaar: "Owner Aadhaar Card",
+  pan: "PAN Card",
+  gst: "GST Certificate",
+  shop_licence: "Shop / Trade Licence",
+  bank: "Bank Passbook / Cancelled Cheque",
+  owner_photo: "Owner Photo",
+};
+const MAX_DOCUMENT_DATA_URL_LENGTH = 7_000_000;
+
+function validateVendorDocuments(documents) {
+  if (!Array.isArray(documents)) return [];
+  return documents
+    .filter((doc) => doc && doc.fileUrl)
+    .map((doc) => {
+      const type = String(doc.type || "").trim().toLowerCase();
+      if (!VENDOR_DOCUMENT_TYPES[type]) throw Object.assign(new Error(`Unknown document type: ${type}`), { status: 400 });
+      const fileUrl = String(doc.fileUrl);
+      if (!/^data:(image\/[a-z0-9.+-]+|application\/pdf);base64,/i.test(fileUrl)) {
+        throw Object.assign(new Error(`${VENDOR_DOCUMENT_TYPES[type]} must be an image or PDF`), { status: 400 });
+      }
+      if (fileUrl.length > MAX_DOCUMENT_DATA_URL_LENGTH) {
+        throw Object.assign(new Error(`${VENDOR_DOCUMENT_TYPES[type]} is too large (max 5 MB)`), { status: 400 });
+      }
+      return {
+        type,
+        fileUrl,
+        name: VENDOR_DOCUMENT_TYPES[type],
+        fileName: String(doc.fileName || `${type}`).slice(0, 200),
+        mimeType: fileUrl.slice(5, fileUrl.indexOf(";")),
+      };
+    });
+}
+
+async function saveVendorDocuments(vendorId, documents, uploadedBy) {
+  await Promise.all(
+    documents.map((doc) =>
+      VendorDocument.findOneAndUpdate(
+        { vendorId, type: doc.type },
+        {
+          $set: { ...doc, uploadedAt: new Date(), uploadedBy, status: "Pending" },
+          $setOnInsert: { id: `vdoc-${vendorId}-${doc.type}-${Date.now()}` },
+        },
+        { upsert: true, returnDocument: "after" }
+      )
+    )
+  );
+}
+
+function darkStoreSummary(store) {
+  return {
+    id: String(store._id),
+    storeName: store.storeName || `${store.area || ""} Store`.trim(),
+    managerName: store.name || "",
+    phone: store.phone || "",
+    area: store.area || "",
+    city: store.city || "",
+    state: store.state || "",
+    isActive: store.isActive !== false,
+  };
+}
+
+function documentSummary(doc) {
+  return {
+    id: doc.id,
+    type: doc.type,
+    name: doc.name,
+    fileName: doc.fileName,
+    mimeType: doc.mimeType,
+    status: doc.status,
+    uploadedAt: doc.uploadedAt,
+  };
+}
+
+export async function listVendorsAdmin(req, res, next) {
   try {
-    const vendors = await Vendor.find().sort({ createdAt: -1 }).lean();
-    const data = vendors.map(({ password: _pw, ...vendor }) => vendor);
+    const filter = req.query.status ? { status: req.query.status } : {};
+    const [vendors, centres, documents, darkStores] = await Promise.all([
+      Vendor.find(filter).sort({ createdAt: -1 }).lean(),
+      CollectionCentre.find().sort({ createdAt: 1 }).lean(),
+      VendorDocument.find().select("-fileUrl").lean(),
+      DeliveryManager.find({ vendorId: { $nin: ["", null] } })
+        .select("storeName name phone area city state isActive vendorId")
+        .sort({ storeName: 1 })
+        .lean(),
+    ]);
+    const darkStoresByVendor = new Map();
+    darkStores.forEach((store) => {
+      const key = String(store.vendorId);
+      if (!darkStoresByVendor.has(key)) darkStoresByVendor.set(key, []);
+      darkStoresByVendor.get(key).push(darkStoreSummary(store));
+    });
+    const centreByVendor = new Map();
+    centres.forEach((centre) => {
+      const key = String(centre.vendorId || "");
+      if (!centreByVendor.has(key)) centreByVendor.set(key, centre);
+    });
+    const documentsByVendor = new Map();
+    documents.forEach((doc) => {
+      const key = String(doc.vendorId || "");
+      if (!documentsByVendor.has(key)) documentsByVendor.set(key, []);
+      documentsByVendor.get(key).push(documentSummary(doc));
+    });
+    const data = vendors.map(({ password: _pw, ...vendor }) => ({
+      ...vendor,
+      collectionCentre: centreByVendor.get(String(vendor.id)) || null,
+      documents: documentsByVendor.get(String(vendor.id)) || [],
+      darkStores: darkStoresByVendor.get(String(vendor.id)) || [],
+    }));
     return ok(res, data, {
       stats: {
-        count: data.length,
+        total: data.length,
         active: data.filter((v) => v.status === "Active").length,
         pending: data.filter((v) => v.status === "Pending").length,
+        inactive: data.filter((v) => v.status === "Inactive" || v.status === "Suspended").length,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+async function centreNamesFor(vendorIds) {
+  const ids = [...new Set(vendorIds.filter(Boolean).map(String))];
+  if (!ids.length) return new Map();
+  const [vendors, centres] = await Promise.all([
+    Vendor.find({ id: { $in: ids } }).select("id vendorName businessName ownerName").lean(),
+    CollectionCentre.find({ vendorId: { $in: ids } }).select("id vendorId name").sort({ createdAt: 1 }).lean(),
+  ]);
+  const centreByVendor = new Map();
+  centres.forEach((c) => {
+    if (!centreByVendor.has(String(c.vendorId))) centreByVendor.set(String(c.vendorId), c);
+  });
+  return new Map(
+    vendors.map((v) => [
+      String(v.id),
+      {
+        vendorName: v.vendorName || v.businessName || v.ownerName || v.id,
+        centreId: centreByVendor.get(String(v.id))?.id || "",
+      },
+    ])
+  );
+}
+
+export async function listCentreFarmersAdmin(req, res, next) {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
+    const filter = { isDeleted: { $ne: true } };
+    if (req.query.vendorId) filter.vendorId = String(req.query.vendorId);
+    if (req.query.managerId) filter.managerId = String(req.query.managerId);
+    if (req.query.status && req.query.status !== "all") {
+      filter.status = new RegExp(`^${escapeRegex(req.query.status)}$`, "i");
+    }
+    const q = String(req.query.q || "").trim();
+    if (q) {
+      const rx = new RegExp(escapeRegex(q), "i");
+      filter.$or = [
+        { name: rx },
+        { mobile: rx },
+        { farmerId: rx },
+        { id: rx },
+        { "address.village": rx },
+        { "address.taluka": rx },
+        { "address.district": rx },
+      ];
+    }
+    const [items, total, perCentre] = await Promise.all([
+      Farmer.find(filter)
+        .select("id farmerId name mobile address status vendorId managerId createdAt")
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      Farmer.countDocuments(filter),
+      Farmer.aggregate([{ $match: { isDeleted: { $ne: true } } }, { $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+    ]);
+    const managerIds = [...new Set(items.map((f) => f.managerId).filter(Boolean))];
+    const [centreNames, managers] = await Promise.all([
+      centreNamesFor(items.map((f) => f.vendorId)),
+      managerIds.length ? FarmerManager.find({ id: { $in: managerIds } }).select("id name mobile").lean() : [],
+    ]);
+    const managerById = new Map(managers.map((m) => [m.id, m]));
+    const data = items.map((f) => ({
+      id: f.farmerId || f.id,
+      name: f.name,
+      mobile: f.mobile,
+      village: f.address?.village || "",
+      taluka: f.address?.taluka || "",
+      district: f.address?.district || "",
+      status: f.status,
+      vendorId: f.vendorId || "",
+      vendorName: centreNames.get(String(f.vendorId))?.vendorName || "",
+      centreId: centreNames.get(String(f.vendorId))?.centreId || "",
+      managerId: f.managerId || "",
+      managerName: managerById.get(f.managerId)?.name || "",
+      createdAt: f.createdAt,
+    }));
+    return ok(res, data, {
+      total,
+      page,
+      limit,
+      perCentre: Object.fromEntries(perCentre.map((row) => [row._id || "", row.count])),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listCentreFarmerManagersAdmin(req, res, next) {
+  try {
+    const filter = {};
+    if (req.query.vendorId) filter.vendorId = String(req.query.vendorId);
+    if (req.query.status && req.query.status !== "all") filter.status = String(req.query.status);
+    const q = String(req.query.q || "").trim();
+    if (q) {
+      const rx = new RegExp(escapeRegex(q), "i");
+      filter.$or = [{ name: rx }, { mobile: rx }, { email: rx }, { id: rx }, { managerCode: rx }, { city: rx }];
+    }
+    const managers = await FarmerManager.find(filter).select("-password").sort({ createdAt: -1 }).lean();
+    const ids = managers.map((m) => m.id);
+    const [farmerCounts, centreNames, perCentre] = await Promise.all([
+      ids.length
+        ? Farmer.aggregate([
+            { $match: { managerId: { $in: ids }, isDeleted: { $ne: true } } },
+            { $group: { _id: "$managerId", count: { $sum: 1 } } },
+          ])
+        : [],
+      centreNamesFor(managers.map((m) => m.vendorId)),
+      FarmerManager.aggregate([{ $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+    ]);
+    const countByManager = new Map(farmerCounts.map((row) => [row._id, row.count]));
+    const data = managers.map((m) => ({
+      id: m.id,
+      managerCode: m.managerCode || "",
+      name: m.name,
+      mobile: m.mobile,
+      email: m.email || "",
+      location: m.location || [m.city, m.state].filter(Boolean).join(", "),
+      status: m.status,
+      joiningDate: m.joiningDate || "",
+      vendorId: m.vendorId || "",
+      vendorName: centreNames.get(String(m.vendorId))?.vendorName || "",
+      centreId: m.collectionCentreId || centreNames.get(String(m.vendorId))?.centreId || "",
+      farmerCount: countByManager.get(m.id) || 0,
+      createdAt: m.createdAt,
+    }));
+    return ok(res, data, {
+      total: data.length,
+      perCentre: Object.fromEntries(perCentre.map((row) => [row._id || "", row.count])),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const lowerStatusGroup = (field) => ({
+  $group: { _id: { vendorId: "$vendorId", status: { $toLower: { $ifNull: [`$${field}`, ""] } } }, count: { $sum: 1 } },
+});
+
+export async function getCollectionDashboardAdmin(req, res, next) {
+  try {
+    const [
+      vendors,
+      centres,
+      farmerRows,
+      unassignedFarmers,
+      managerRows,
+      darkStores,
+      requestRows,
+      recentRequests,
+      docRows,
+      productRequestRows,
+      vendorProductRows,
+      cropRequestRows,
+      vendorCropRows,
+    ] = await Promise.all([
+        Vendor.find().select("id vendorName businessName ownerName mobile city state status createdAt").sort({ createdAt: -1 }).lean(),
+        CollectionCentre.find().select("id vendorId name city status").sort({ createdAt: 1 }).lean(),
+        Farmer.aggregate([{ $match: { isDeleted: { $ne: true } } }, lowerStatusGroup("status")]),
+        Farmer.countDocuments({ isDeleted: { $ne: true }, managerId: { $in: ["", null] } }),
+        FarmerManager.aggregate([lowerStatusGroup("status")]),
+        DeliveryManager.find().select("storeName area city isActive vendorId").lean(),
+        DarkStoreRequest.aggregate([{ $group: { _id: { vendorId: "$vendorId", status: "$status" }, count: { $sum: 1 } } }]),
+        DarkStoreRequest.find({ status: "Pending" }).select("-passwordHash").sort({ createdAt: -1 }).limit(5).lean(),
+        VendorDocument.aggregate([{ $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+        VendorProductRequest.aggregate([{ $group: { _id: { vendorId: "$vendorId", status: "$status" }, count: { $sum: 1 } } }]),
+        VendorProduct.aggregate([{ $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+        VendorCropRequest.aggregate([{ $group: { _id: { vendorId: "$vendorId", status: "$status" }, count: { $sum: 1 } } }]),
+        VendorCrop.aggregate([{ $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+      ]);
+
+    const vendorIds = new Set(vendors.map((v) => String(v.id)));
+    const centreByVendor = new Map();
+    centres.forEach((c) => {
+      if (!centreByVendor.has(String(c.vendorId))) centreByVendor.set(String(c.vendorId), c);
+    });
+
+    const perVendor = new Map(
+      vendors.map((v) => [
+        String(v.id),
+        {
+          farmers: 0,
+          activeFarmers: 0,
+          managers: 0,
+          activeManagers: 0,
+          darkStores: 0,
+          activeDarkStores: 0,
+          pendingRequests: 0,
+          documents: 0,
+          products: 0,
+          pendingProductRequests: 0,
+          crops: 0,
+          pendingCropRequests: 0,
+        },
+      ])
+    );
+    const bump = (vendorId, key, by = 1) => {
+      const row = perVendor.get(String(vendorId || ""));
+      if (row) row[key] += by;
+    };
+
+    const farmers = { total: 0, active: 0, pending: 0, inactive: 0, unassignedManager: unassignedFarmers, outsideCentres: 0 };
+    farmerRows.forEach(({ _id, count }) => {
+      farmers.total += count;
+      if (_id.status === "active") farmers.active += count;
+      else if (_id.status === "pending" || _id.status === "registered") farmers.pending += count;
+      else farmers.inactive += count;
+      if (!vendorIds.has(String(_id.vendorId || ""))) farmers.outsideCentres += count;
+      bump(_id.vendorId, "farmers", count);
+      if (_id.status === "active") bump(_id.vendorId, "activeFarmers", count);
+    });
+
+    const managers = { total: 0, active: 0, inactive: 0 };
+    managerRows.forEach(({ _id, count }) => {
+      managers.total += count;
+      if (_id.status === "active") managers.active += count;
+      else managers.inactive += count;
+      bump(_id.vendorId, "managers", count);
+      if (_id.status === "active") bump(_id.vendorId, "activeManagers", count);
+    });
+
+    const darkStoreStats = { total: darkStores.length, active: 0, assigned: 0, unassigned: 0 };
+    darkStores.forEach((store) => {
+      const active = store.isActive !== false;
+      if (active) darkStoreStats.active += 1;
+      if (store.vendorId && vendorIds.has(String(store.vendorId))) {
+        darkStoreStats.assigned += 1;
+        bump(store.vendorId, "darkStores");
+        if (active) bump(store.vendorId, "activeDarkStores");
+      } else {
+        darkStoreStats.unassigned += 1;
+      }
+    });
+
+    const requests = { Pending: 0, Approved: 0, Rejected: 0, Cancelled: 0 };
+    requestRows.forEach(({ _id, count }) => {
+      if (requests[_id.status] !== undefined) requests[_id.status] += count;
+      if (_id.status === "Pending") bump(_id.vendorId, "pendingRequests", count);
+    });
+    docRows.forEach(({ _id, count }) => bump(_id, "documents", count));
+
+    const productRequests = { Pending: 0, Approved: 0, Rejected: 0, Cancelled: 0 };
+    productRequestRows.forEach(({ _id, count }) => {
+      if (productRequests[_id.status] !== undefined) productRequests[_id.status] += count;
+      if (_id.status === "Pending") bump(_id.vendorId, "pendingProductRequests", count);
+    });
+    let assignedProducts = 0;
+    vendorProductRows.forEach(({ _id, count }) => {
+      assignedProducts += count;
+      bump(_id, "products", count);
+    });
+    const cropRequests = { Pending: 0, Approved: 0, Rejected: 0, Cancelled: 0 };
+    cropRequestRows.forEach(({ _id, count }) => {
+      if (cropRequests[_id.status] !== undefined) cropRequests[_id.status] += count;
+      if (_id.status === "Pending") bump(_id.vendorId, "pendingCropRequests", count);
+    });
+    vendorCropRows.forEach(({ _id, count }) => bump(_id, "crops", count));
+
+    const vendorName = (v) => v.vendorName || v.businessName || v.ownerName || v.id;
+    const nameById = new Map(vendors.map((v) => [String(v.id), vendorName(v)]));
+    const centreRows = vendors.map((v) => ({
+      id: v.id,
+      name: vendorName(v),
+      ownerName: v.ownerName,
+      mobile: v.mobile,
+      city: v.city || centreByVendor.get(String(v.id))?.city || "",
+      state: v.state || "",
+      status: v.status,
+      centreId: centreByVendor.get(String(v.id))?.id || "",
+      createdAt: v.createdAt,
+      ...perVendor.get(String(v.id)),
+    }));
+
+    return ok(res, {
+      centres: {
+        total: vendors.length,
+        active: vendors.filter((v) => v.status === "Active").length,
+        pending: vendors.filter((v) => v.status === "Pending").length,
+        inactive: vendors.filter((v) => v.status === "Inactive" || v.status === "Suspended").length,
+        withoutDocuments: centreRows.filter((c) => c.documents === 0).length,
+      },
+      farmers,
+      managers,
+      darkStores: darkStoreStats,
+      requests,
+      productRequests,
+      assignedProducts,
+      cropRequests,
+      documentTypes: Object.keys(VENDOR_DOCUMENT_TYPES).length,
+      centreRows,
+      recentRequests: recentRequests.map((r) => ({
+        id: r.id,
+        storeName: r.storeName,
+        city: r.city,
+        area: r.area,
+        vendorId: r.vendorId,
+        vendorName: nameById.get(String(r.vendorId)) || r.vendorId,
+        createdAt: r.createdAt,
+      })),
     });
   } catch (error) {
     next(error);
@@ -43,6 +493,12 @@ export async function createVendorAdmin(req, res, next) {
     const mobile = String(req.body.mobile || "").replace(/\D/g, "").slice(-10);
     if (!ownerName) return fail(res, 400, "Owner / vendor name is required");
     if (!/^[6-9]\d{9}$/.test(mobile)) return fail(res, 400, "Enter a valid 10-digit mobile number");
+    let documents;
+    try {
+      documents = validateVendorDocuments(req.body.documents);
+    } catch (docError) {
+      return fail(res, docError.status || 400, docError.message);
+    }
     const id = `vendor-${Date.now()}`;
     const hashedPassword = await bcrypt.hash(String(req.body.password || "vendor123"), 10);
     const vendor = await Vendor.create({
@@ -64,8 +520,33 @@ export async function createVendorAdmin(req, res, next) {
       password: hashedPassword,
       role: "VENDOR",
     });
+    let centre;
+    try {
+      centre = await createCentreForVendor(id, {
+        name: vendor.vendorName,
+        address: vendor.businessAddress,
+        city: vendor.city,
+        state: req.body.state || undefined,
+        district: req.body.district || undefined,
+        taluka: req.body.taluka || undefined,
+        village: req.body.village || undefined,
+        contactMobile: mobile,
+      });
+      await saveVendorDocuments(id, documents, "admin");
+    } catch (setupError) {
+      await Promise.all([
+        Vendor.deleteOne({ _id: vendor._id }),
+        centre ? CollectionCentre.deleteOne({ _id: centre._id }) : null,
+        VendorDocument.deleteMany({ vendorId: id }),
+      ]).catch(() => {});
+      throw setupError;
+    }
     const { password: _pw, ...data } = vendor.toObject();
-    return res.status(201).json({ success: true, data });
+    const savedDocs = await VendorDocument.find({ vendorId: id }).select("-fileUrl").lean();
+    return res.status(201).json({
+      success: true,
+      data: { ...data, collectionCentre: centre.toObject(), documents: savedDocs.map(documentSummary) },
+    });
   } catch (error) {
     if (error.code === 11000) return fail(res, 409, "A vendor with this mobile already exists");
     next(error);
@@ -74,11 +555,14 @@ export async function createVendorAdmin(req, res, next) {
 
 export async function updateVendorAdmin(req, res, next) {
   try {
-    const query = mongoose.Types.ObjectId.isValid(req.params.id)
-      ? { $or: [{ id: req.params.id }, { _id: req.params.id }] }
-      : { id: req.params.id };
-    const vendor = await Vendor.findOne(query);
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id));
     if (!vendor) return fail(res, 404, "Vendor not found");
+    let documents;
+    try {
+      documents = validateVendorDocuments(req.body.documents);
+    } catch (docError) {
+      return fail(res, docError.status || 400, docError.message);
+    }
     const fields = [
       "vendorName",
       "ownerName",
@@ -99,8 +583,25 @@ export async function updateVendorAdmin(req, res, next) {
     if (req.body.commissionRate !== undefined) vendor.commissionRate = Number(req.body.commissionRate);
     if (req.body.password) vendor.password = await bcrypt.hash(String(req.body.password), 10);
     await vendor.save();
+    let centre = await CollectionCentre.findOne({ vendorId: vendor.id }).sort({ createdAt: 1 });
+    if (centre) {
+      centre.name = vendor.vendorName || centre.name;
+      centre.address = vendor.businessAddress || "";
+      centre.city = vendor.city || "";
+      centre.contactMobile = vendor.mobile || centre.contactMobile;
+      await centre.save();
+    } else {
+      centre = await createCentreForVendor(vendor.id, {
+        name: vendor.vendorName || vendor.ownerName,
+        address: vendor.businessAddress,
+        city: vendor.city,
+        contactMobile: vendor.mobile,
+      });
+    }
+    await saveVendorDocuments(vendor.id, documents, "admin");
+    const savedDocs = await VendorDocument.find({ vendorId: vendor.id }).select("-fileUrl").lean();
     const { password: _pw, ...data } = vendor.toObject();
-    return ok(res, data);
+    return ok(res, { ...data, collectionCentre: centre.toObject(), documents: savedDocs.map(documentSummary) });
   } catch (error) {
     next(error);
   }
@@ -108,12 +609,406 @@ export async function updateVendorAdmin(req, res, next) {
 
 export async function deleteVendorAdmin(req, res, next) {
   try {
-    const query = mongoose.Types.ObjectId.isValid(req.params.id)
-      ? { $or: [{ id: req.params.id }, { _id: req.params.id }] }
-      : { id: req.params.id };
-    const vendor = await Vendor.findOneAndDelete(query);
+    const vendor = await Vendor.findOneAndDelete(vendorQuery(req.params.id));
     if (!vendor) return fail(res, 404, "Vendor not found");
+    await Promise.all([
+      VendorDocument.deleteMany({ vendorId: vendor.id }),
+      DeliveryManager.updateMany({ vendorId: vendor.id }, { $set: { vendorId: "" } }),
+      VendorProduct.deleteMany({ vendorId: vendor.id }),
+      VendorProductRequest.updateMany({ vendorId: vendor.id, status: "Pending" }, { $set: { status: "Cancelled" } }),
+      VendorCrop.deleteMany({ vendorId: vendor.id }),
+      VendorCropRequest.updateMany({ vendorId: vendor.id, status: "Pending" }, { $set: { status: "Cancelled" } }),
+    ]);
     return ok(res, { id: req.params.id });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getVendorAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("-password").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    const [centre, documents, darkStores] = await Promise.all([
+      CollectionCentre.findOne({ vendorId: vendor.id }).sort({ createdAt: 1 }).lean(),
+      VendorDocument.find({ vendorId: vendor.id }).select("-fileUrl").lean(),
+      DeliveryManager.find({ vendorId: vendor.id }).sort({ storeName: 1 }).lean(),
+    ]);
+    return ok(res, {
+      ...vendor,
+      collectionCentre: centre || null,
+      documents: documents.map(documentSummary),
+      darkStores: darkStores.map(darkStoreSummary),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createDarkStoreAdmin(req, res, next) {
+  try {
+    const body = req.body || {};
+    const storeName = String(body.storeName || "").trim();
+    const email = String(body.email || "").trim().toLowerCase();
+    const phone = String(body.phone || "").replace(/\D/g, "").slice(-10);
+    const password = String(body.password || "");
+    const state = String(body.state || "").trim();
+    const city = String(body.city || "").trim();
+    const area = String(body.area || "").trim();
+    const vendorId = String(body.vendorId || "").trim();
+
+    if (!storeName) return fail(res, 400, "Dark store name is required");
+    if (!/^\S+@\S+\.\S+$/.test(email)) return fail(res, 400, "Enter a valid manager email");
+    if (!/^[6-9]\d{9}$/.test(phone)) return fail(res, 400, "Enter a valid 10-digit mobile number");
+    if (password.length < 6) return fail(res, 400, "Password must be at least 6 characters");
+    if (!state || !city || !area) return fail(res, 400, "State, city and area are required");
+    if (vendorId && !(await Vendor.exists({ id: vendorId }))) return fail(res, 400, "Selected collection centre was not found");
+
+    const latitude = body.latitude === "" || body.latitude == null ? null : Number(body.latitude);
+    const longitude = body.longitude === "" || body.longitude == null ? null : Number(body.longitude);
+    if ((latitude === null) !== (longitude === null) || [latitude, longitude].some((n) => n !== null && !Number.isFinite(n))) {
+      return fail(res, 400, "Enter both latitude and longitude, or leave both empty");
+    }
+    const geofenceRadius = Number(body.geofenceRadius);
+
+    const manager = await DeliveryManager.create({
+      name: String(body.name || "").trim() || storeName,
+      email,
+      phone,
+      password,
+      state,
+      city,
+      cityId: city.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      area,
+      storeName,
+      storeAddress: String(body.storeAddress || "").trim(),
+      pincode: String(body.pincode || "").trim(),
+      latitude,
+      longitude,
+      ...(geofenceRadius >= 50 && geofenceRadius <= 50000 ? { geofenceRadius } : {}),
+      isActive: body.isActive !== false,
+      vendorId,
+    });
+    await seedManagerStore(manager).catch((error) => console.warn("[DarkStore] seed failed:", error.message));
+    return res.status(201).json({ success: true, message: "Dark store created", data: manager.toSafeJSON() });
+  } catch (error) {
+    if (error.code === 11000) return fail(res, 409, "A dark store with this email or mobile already exists");
+    next(error);
+  }
+}
+
+export async function listDarkStoreRequestsAdmin(req, res, next) {
+  try {
+    const filter = req.query.status ? { status: req.query.status } : {};
+    const [requests, vendors, pending] = await Promise.all([
+      DarkStoreRequest.find(filter).sort({ createdAt: -1 }).lean(),
+      Vendor.find().select("id vendorName businessName ownerName mobile").lean(),
+      DarkStoreRequest.countDocuments({ status: "Pending" }),
+    ]);
+    const vendorById = new Map(vendors.map((v) => [v.id, v]));
+    const data = requests.map((request) => {
+      const vendor = vendorById.get(request.vendorId);
+      return {
+        ...serializeDarkStoreRequest(request),
+        vendorName: vendor ? vendor.vendorName || vendor.businessName || vendor.ownerName : "",
+        vendorMobile: vendor?.mobile || "",
+      };
+    });
+    return ok(res, data, { stats: { pending } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function approveDarkStoreRequestAdmin(req, res, next) {
+  try {
+    const request = await DarkStoreRequest.findOne({ id: req.params.requestId });
+    if (!request) return fail(res, 404, "Request not found");
+    if (request.status !== "Pending") return fail(res, 400, `This request is already ${request.status.toLowerCase()}`);
+    if (!(await Vendor.exists({ id: request.vendorId }))) {
+      return fail(res, 400, "The collection centre that sent this request no longer exists");
+    }
+    if (await DeliveryManager.exists({ $or: [{ email: request.email }, { phone: request.phone }] })) {
+      return fail(res, 409, "A dark store with this email or mobile already exists. Reject this request instead.");
+    }
+
+    // Placeholder password satisfies the schema; the vendor-chosen hash is written afterwards so the
+    // pre-save hook does not hash it a second time.
+    const manager = await DeliveryManager.create({
+      name: request.managerName || request.storeName,
+      email: request.email,
+      phone: request.phone,
+      password: crypto.randomBytes(12).toString("hex"),
+      state: request.state,
+      city: request.city,
+      cityId: request.city.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      area: request.area,
+      storeName: request.storeName,
+      storeAddress: request.storeAddress,
+      pincode: request.pincode,
+      latitude: request.latitude,
+      longitude: request.longitude,
+      vendorId: request.vendorId,
+    });
+    await DeliveryManager.updateOne({ _id: manager._id }, { $set: { password: request.passwordHash } });
+    await seedManagerStore(manager).catch((error) => console.warn("[DarkStoreRequest] seed failed:", error.message));
+
+    request.status = "Approved";
+    request.darkStoreId = String(manager._id);
+    request.adminRemarks = String(req.body?.remarks || "").trim();
+    request.reviewedAt = new Date();
+    await request.save();
+    return ok(res, serializeDarkStoreRequest(request), { message: "Dark store approved and created" });
+  } catch (error) {
+    if (error.code === 11000) return fail(res, 409, "A dark store with this email or mobile already exists");
+    next(error);
+  }
+}
+
+export async function rejectDarkStoreRequestAdmin(req, res, next) {
+  try {
+    const request = await DarkStoreRequest.findOne({ id: req.params.requestId });
+    if (!request) return fail(res, 404, "Request not found");
+    if (request.status !== "Pending") return fail(res, 400, `This request is already ${request.status.toLowerCase()}`);
+    const remarks = String(req.body?.remarks || "").trim();
+    if (!remarks) return fail(res, 400, "Please give a reason for rejecting");
+    request.status = "Rejected";
+    request.adminRemarks = remarks;
+    request.reviewedAt = new Date();
+    await request.save();
+    return ok(res, serializeDarkStoreRequest(request), { message: "Request rejected" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listVendorProductRequestsAdmin(req, res, next) {
+  try {
+    const filter = req.query.status ? { status: req.query.status } : {};
+    if (req.query.vendorId) filter.vendorId = String(req.query.vendorId);
+    const [requests, vendors, pending] = await Promise.all([
+      VendorProductRequest.find(filter).sort({ createdAt: -1 }).lean(),
+      Vendor.find().select("id vendorName businessName ownerName mobile").lean(),
+      VendorProductRequest.countDocuments({ status: "Pending" }),
+    ]);
+    const productIds = [...new Set(requests.map((r) => r.productId))].filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const products = productIds.length
+      ? await CatalogProduct.find({ _id: { $in: productIds } })
+          .select("name sku categories subcategory productImages price discountedPrice unit stock inStock isActive brandName varietyName")
+          .lean()
+      : [];
+    const productById = new Map(products.map((p) => [String(p._id), catalogProductSummary(p)]));
+    const vendorById = new Map(vendors.map((v) => [v.id, v]));
+    const data = requests.map((request) => {
+      const vendor = vendorById.get(request.vendorId);
+      return {
+        ...serializeVendorProductRequest(request),
+        vendorName: vendor ? vendor.vendorName || vendor.businessName || vendor.ownerName : "",
+        vendorMobile: vendor?.mobile || "",
+        catalog: productById.get(request.productId) || null,
+      };
+    });
+    return ok(res, data, { stats: { pending } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function approveVendorProductRequestAdmin(req, res, next) {
+  try {
+    const request = await VendorProductRequest.findOne({ id: req.params.requestId });
+    if (!request) return fail(res, 404, "Request not found");
+    if (request.status !== "Pending") return fail(res, 400, `This request is already ${request.status.toLowerCase()}`);
+    if (!(await Vendor.exists({ id: request.vendorId }))) {
+      return fail(res, 400, "The collection centre that sent this request no longer exists");
+    }
+    const product = mongoose.Types.ObjectId.isValid(request.productId)
+      ? await CatalogProduct.findOne({ _id: request.productId, isActive: { $ne: false } }).lean()
+      : null;
+    if (!product) return fail(res, 400, "This product is no longer active in the catalog");
+
+    const summary = catalogProductSummary(product);
+    await VendorProduct.findOneAndUpdate(
+      { vendorId: request.vendorId, productId: request.productId },
+      {
+        $set: { productName: summary.name, productImage: summary.image, category: summary.category, unit: summary.unit },
+        $setOnInsert: {
+          id: `vp-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          requestId: request.id,
+          addedBy: String(req.user?.id || req.user?._id || "admin"),
+        },
+      },
+      { upsert: true, returnDocument: "after" }
+    );
+    request.status = "Approved";
+    request.adminRemarks = String(req.body?.remarks || "").trim();
+    request.reviewedAt = new Date();
+    await request.save();
+    return ok(res, serializeVendorProductRequest(request), { message: "Product added to the collection centre" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function rejectVendorProductRequestAdmin(req, res, next) {
+  try {
+    const request = await VendorProductRequest.findOne({ id: req.params.requestId });
+    if (!request) return fail(res, 404, "Request not found");
+    if (request.status !== "Pending") return fail(res, 400, `This request is already ${request.status.toLowerCase()}`);
+    const remarks = String(req.body?.remarks || "").trim();
+    if (!remarks) return fail(res, 400, "Please give a reason for rejecting");
+    request.status = "Rejected";
+    request.adminRemarks = remarks;
+    request.reviewedAt = new Date();
+    await request.save();
+    return ok(res, serializeVendorProductRequest(request), { message: "Request rejected" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listVendorProductsAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("id").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    return ok(res, await vendorProductsWithCatalog(vendor.id));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function removeVendorProductAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("id").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    const removed = await VendorProduct.findOneAndDelete({ vendorId: vendor.id, productId: req.params.productId });
+    if (!removed) return fail(res, 404, "Product is not assigned to this collection centre");
+    return ok(res, { productId: req.params.productId }, { message: "Product removed from the collection centre" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listVendorCropRequestsAdmin(req, res, next) {
+  try {
+    const filter = req.query.status ? { status: req.query.status } : {};
+    if (req.query.vendorId) filter.vendorId = String(req.query.vendorId);
+    const [requests, vendors, pending] = await Promise.all([
+      VendorCropRequest.find(filter).sort({ createdAt: -1 }).lean(),
+      Vendor.find().select("id vendorName businessName ownerName mobile").lean(),
+      VendorCropRequest.countDocuments({ status: "Pending" }),
+    ]);
+    const cropIds = [...new Set(requests.map((r) => r.cropId))];
+    const crops = cropIds.length ? await ErpCrop.find({ cropId: { $in: cropIds }, isDeleted: { $ne: true } }).lean() : [];
+    const cropById = new Map(crops.map((c) => [c.cropId, catalogCropSummary(c)]));
+    const vendorById = new Map(vendors.map((v) => [v.id, v]));
+    const data = requests.map((request) => {
+      const vendor = vendorById.get(request.vendorId);
+      return {
+        ...serializeVendorCropRequest(request),
+        vendorName: vendor ? vendor.vendorName || vendor.businessName || vendor.ownerName : "",
+        vendorMobile: vendor?.mobile || "",
+        catalog: cropById.get(request.cropId) || null,
+      };
+    });
+    return ok(res, data, { stats: { pending } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function approveVendorCropRequestAdmin(req, res, next) {
+  try {
+    const request = await VendorCropRequest.findOne({ id: req.params.requestId });
+    if (!request) return fail(res, 404, "Request not found");
+    if (request.status !== "Pending") return fail(res, 400, `This request is already ${request.status.toLowerCase()}`);
+    if (!(await Vendor.exists({ id: request.vendorId }))) {
+      return fail(res, 400, "The collection centre that sent this request no longer exists");
+    }
+    const crop = await ErpCrop.findOne({ cropId: request.cropId, isDeleted: { $ne: true } }).lean();
+    if (!crop) return fail(res, 400, "This crop is no longer in the admin crop list");
+
+    const summary = catalogCropSummary(crop);
+    await VendorCrop.findOneAndUpdate(
+      { vendorId: request.vendorId, cropId: request.cropId },
+      {
+        $set: { cropName: summary.cropName, variety: summary.variety, category: summary.category },
+        $setOnInsert: {
+          id: `vc-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+          requestId: request.id,
+          addedBy: String(req.user?.id || req.user?._id || "admin"),
+        },
+      },
+      { upsert: true, returnDocument: "after" }
+    );
+    request.status = "Approved";
+    request.adminRemarks = String(req.body?.remarks || "").trim();
+    request.reviewedAt = new Date();
+    await request.save();
+    return ok(res, serializeVendorCropRequest(request), { message: "Crop added to the collection centre" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function rejectVendorCropRequestAdmin(req, res, next) {
+  try {
+    const request = await VendorCropRequest.findOne({ id: req.params.requestId });
+    if (!request) return fail(res, 404, "Request not found");
+    if (request.status !== "Pending") return fail(res, 400, `This request is already ${request.status.toLowerCase()}`);
+    const remarks = String(req.body?.remarks || "").trim();
+    if (!remarks) return fail(res, 400, "Please give a reason for rejecting");
+    request.status = "Rejected";
+    request.adminRemarks = remarks;
+    request.reviewedAt = new Date();
+    await request.save();
+    return ok(res, serializeVendorCropRequest(request), { message: "Request rejected" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listVendorCropsAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("id").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    return ok(res, await vendorCropsWithCatalog(vendor.id));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function removeVendorCropAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("id").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    const removed = await VendorCrop.findOneAndDelete({ vendorId: vendor.id, cropId: req.params.cropId });
+    if (!removed) return fail(res, 404, "Crop is not assigned to this collection centre");
+    return ok(res, { cropId: req.params.cropId }, { message: "Crop removed from the collection centre" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getVendorDocumentAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("id").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    const doc = await VendorDocument.findOne({ vendorId: vendor.id, id: req.params.docId }).lean();
+    if (!doc) return fail(res, 404, "Document not found");
+    return ok(res, { ...documentSummary(doc), fileUrl: doc.fileUrl });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteVendorDocumentAdmin(req, res, next) {
+  try {
+    const vendor = await Vendor.findOne(vendorQuery(req.params.id)).select("id").lean();
+    if (!vendor) return fail(res, 404, "Vendor not found");
+    const doc = await VendorDocument.findOneAndDelete({ vendorId: vendor.id, id: req.params.docId });
+    if (!doc) return fail(res, 404, "Document not found");
+    return ok(res, { id: req.params.docId });
   } catch (error) {
     next(error);
   }
@@ -140,16 +1035,21 @@ function withEmployment(person, employment) {
   };
 }
 
-export async function loadHrPeople() {
+/** `vendorId` limits the directory to that vendor's farmer managers and pickup drivers. */
+export async function loadHrPeople({ vendorId = "" } = {}) {
+  const teamFilter = vendorId ? { vendorId } : {};
+  const none = Promise.resolve([]);
   const [staff, farmerManagers, pickupDrivers, managers, riders, employments, openTasks] = await Promise.all([
-    Staff.find({ role: { $ne: "farmer" } }).sort({ createdAt: -1 }).lean(),
-    FarmerManager.find().select("-password").sort({ createdAt: -1 }).lean(),
-    PickupDriver.find().select("-password").sort({ createdAt: -1 }).lean(),
-    DeliveryManager.find().select("name email phone city area storeName isActive createdAt").lean(),
-    DeliveryBoy.find()
-      .select("name phone city area status isActive verificationStatus managerId createdAt")
-      .populate("managerId", "name storeName")
-      .lean(),
+    vendorId ? none : Staff.find({ role: { $ne: "farmer" } }).sort({ createdAt: -1 }).lean(),
+    FarmerManager.find(teamFilter).select("-password").sort({ createdAt: -1 }).lean(),
+    PickupDriver.find(teamFilter).select("-password").sort({ createdAt: -1 }).lean(),
+    vendorId ? none : DeliveryManager.find().select("name email phone city area storeName isActive createdAt").lean(),
+    vendorId
+      ? none
+      : DeliveryBoy.find()
+          .select("name phone city area status isActive verificationStatus managerId createdAt")
+          .populate("managerId", "name storeName")
+          .lean(),
     HrEmployment.collection.find({}).toArray(),
     HrTask.find({ status: { $ne: "done" } }).lean(),
   ]);
@@ -233,17 +1133,27 @@ export async function loadHrPeople() {
     return {
       ...withEmployment(person, employmentMap.get(key)),
       openWork: openTaskCount.get(key) || 0,
-      href: person.href || `/hr-management/employees/${person.employeeType}/${person.id}`,
+      href: vendorId
+        ? `/vendor/hr-management/employees/${person.employeeType}/${person.id}`
+        : person.href || `/hr-management/employees/${person.employeeType}/${person.id}`,
     };
   });
   return { people, staff, farmerManagers, pickupDrivers, managers, riders };
 }
 
-export async function listHrDirectory(_req, res, next) {
+export const loadScopedHrPeople = (req) => loadHrPeople({ vendorId: hrOwnerId(req) });
+
+const VENDOR_HR_DIRECTORY_ROLES = [
+  { value: "farmer_manager", label: "Farmer Manager", employeeType: "farmer_manager" },
+  { value: "pickup_driver", label: "Pickup Driver", employeeType: "pickup_driver" },
+];
+
+export async function listHrDirectory(req, res, next) {
   try {
+    const scopeFilter = await hrEmployeeFilter(req);
     const [{ people, staff, farmerManagers, pickupDrivers, managers, riders }, openAttendance] = await Promise.all([
-      loadHrPeople(),
-      HrAttendance.find({ clockOut: null }).sort({ clockIn: -1 }).lean(),
+      loadScopedHrPeople(req),
+      HrAttendance.find(withHrScope({ clockOut: null }, scopeFilter)).sort({ clockIn: -1 }).lean(),
     ]);
     const salaryBill = people.reduce((sum, person) => sum + Number(person.monthlySalary || 0), 0);
     const openWork = people.reduce((sum, person) => sum + Number(person.openWork || 0), 0);
@@ -262,12 +1172,14 @@ export async function listHrDirectory(_req, res, next) {
       },
       attendance: openAttendance,
       month: currentPayrollMonth(),
-      roles: [
-        ...OFFICE_STAFF_ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] || role, employeeType: "staff" })),
-        { value: "pickup_driver", label: "Pickup Driver", employeeType: "pickup_driver" },
-        { value: "delivery_manager", label: "Delivery Manager", employeeType: "delivery_manager" },
-        { value: "delivery_boy", label: "Delivery Boy", employeeType: "delivery_boy" },
-      ],
+      roles: isVendorScope(req)
+        ? VENDOR_HR_DIRECTORY_ROLES
+        : [
+            ...OFFICE_STAFF_ROLES.map((role) => ({ value: role, label: ROLE_LABELS[role] || role, employeeType: "staff" })),
+            { value: "pickup_driver", label: "Pickup Driver", employeeType: "pickup_driver" },
+            { value: "delivery_manager", label: "Delivery Manager", employeeType: "delivery_manager" },
+            { value: "delivery_boy", label: "Delivery Boy", employeeType: "delivery_boy" },
+          ],
     });
   } catch (error) {
     next(error);
@@ -299,7 +1211,11 @@ export async function createHrStaff(req, res, next) {
     const phone = String(req.body.phone || req.body.mobile || "").replace(/\D/g, "").slice(-10);
     const name = String(req.body.name || "").trim();
     const password = String(req.body.password || "Staff@123");
-    const role = String(req.body.role || "product_manager").trim();
+    const role = String(req.body.role || (isVendorScope(req) ? "farmer_manager" : "product_manager")).trim();
+    if (isVendorScope(req)) {
+      if (!VENDOR_HR_ROLE_KEYS.includes(role)) return fail(res, 400, "Vendors can add farmer managers or pickup drivers");
+      req.body.vendorId = hrOwnerId(req);
+    }
     if (!name) return fail(res, 400, "Name is required");
     if (!/^[6-9]\d{9}$/.test(phone)) return fail(res, 400, "Valid 10-digit phone is required");
     if (password.length < 6) return fail(res, 400, "Password must be at least 6 characters");
@@ -426,8 +1342,23 @@ export async function createHrStaff(req, res, next) {
   }
 }
 
+async function updateVendorHrPerson(req, res) {
+  const vendorId = hrOwnerId(req);
+  const id = String(req.params.id || "");
+  const Model = (await FarmerManager.exists({ id, vendorId })) ? FarmerManager : PickupDriver;
+  const person = await Model.findOne({ id, vendorId });
+  if (!person) return fail(res, 404, "Employee not found");
+  if (typeof req.body.isActive === "boolean") person.status = req.body.isActive ? "Active" : "Inactive";
+  if (req.body.name) person.name = String(req.body.name).trim();
+  await person.save();
+  const payload = person.toObject();
+  delete payload.password;
+  return ok(res, payload);
+}
+
 export async function updateHrStaff(req, res, next) {
   try {
+    if (isVendorScope(req)) return await updateVendorHrPerson(req, res);
     const staff = await Staff.findById(req.params.id);
     if (!staff) return fail(res, 404, "Staff member not found");
     if (req.body.name) staff.name = String(req.body.name).trim();
@@ -464,6 +1395,9 @@ export async function clockHrAttendance(req, res, next) {
     const employeeId = String(req.body.employeeId || "").trim();
     const name = String(req.body.name || "").trim();
     if (!employeeId || !name) return fail(res, 400, "Employee is required");
+    if (!(await canManageHrEmployee(req, req.body.employeeType || "staff", employeeId))) {
+      return fail(res, 403, "This employee is not in your team");
+    }
     const today = new Date().toISOString().slice(0, 10);
     const open = await HrAttendance.findOne({ employeeId, clockOut: null }).sort({ clockIn: -1 });
     if (req.body.action === "out") {
@@ -492,7 +1426,10 @@ export async function listHrAttendance(req, res, next) {
   try {
     const filter = {};
     if (req.query.employeeId) filter.employeeId = req.query.employeeId;
-    const rows = await HrAttendance.find(filter).sort({ clockIn: -1 }).limit(200).lean();
+    const rows = await HrAttendance.find(withHrScope(filter, await hrEmployeeFilter(req)))
+      .sort({ clockIn: -1 })
+      .limit(200)
+      .lean();
     return ok(res, rows);
   } catch (error) {
     next(error);
@@ -534,6 +1471,9 @@ async function upsertEmployment(payload) {
 
 export async function upsertHrEmployment(req, res, next) {
   try {
+    if (!(await canManageHrEmployee(req, req.body.employeeType || "staff", req.body.employeeId))) {
+      return fail(res, 403, "This employee is not in your team");
+    }
     const record = await upsertEmployment(req.body);
     return ok(res, record);
   } catch (error) {
@@ -547,7 +1487,10 @@ export async function listHrTasks(req, res, next) {
     const filter = {};
     if (req.query.employeeId) filter.employeeId = req.query.employeeId;
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
-    const rows = await HrTask.find(filter).sort({ createdAt: -1 }).limit(300).lean();
+    const rows = await HrTask.find(withHrScope(filter, await hrEmployeeFilter(req)))
+      .sort({ createdAt: -1 })
+      .limit(300)
+      .lean();
     return ok(res, rows, {
       stats: {
         open: rows.filter((row) => row.status === "open").length,
@@ -569,6 +1512,9 @@ export async function createHrTask(req, res, next) {
     if (!title) return fail(res, 400, "Work title is required");
     if (!employeeId || !name) return fail(res, 400, "Assign this work to a person");
     if (!HR_EMPLOYEE_TYPES.includes(employeeType)) return fail(res, 400, "Invalid employee type");
+    if (!(await canManageHrEmployee(req, employeeType, employeeId))) {
+      return fail(res, 403, "This employee is not in your team");
+    }
     const task = await HrTask.create({
       title,
       details: String(req.body.details || "").trim(),
@@ -587,7 +1533,9 @@ export async function createHrTask(req, res, next) {
 export async function updateHrTask(req, res, next) {
   try {
     const task = await HrTask.findById(req.params.id);
-    if (!task) return fail(res, 404, "Work item not found");
+    if (!task || !(await canManageHrEmployee(req, task.employeeType, task.employeeId))) {
+      return fail(res, 404, "Work item not found");
+    }
     ["title", "details", "dueDate", "status"].forEach((key) => {
       if (req.body[key] !== undefined) task[key] = req.body[key];
     });
@@ -607,7 +1555,9 @@ export async function listHrPayroll(req, res, next) {
     if (req.query.month) filter.month = req.query.month;
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
     if (req.query.roleKey && req.query.roleKey !== "all") filter.roleKey = req.query.roleKey;
-    const rows = await HrPayroll.find(filter).sort({ month: -1, name: 1 }).lean();
+    const rows = await HrPayroll.find(withHrScope(filter, await hrEmployeeFilter(req)))
+      .sort({ month: -1, name: 1 })
+      .lean();
     const pending = rows.filter((row) => row.status !== "paid");
     const paid = rows.filter((row) => row.status === "paid");
     return ok(res, rows, {
@@ -630,7 +1580,7 @@ export async function runHrPayroll(req, res, next) {
   try {
     const month = String(req.body.month || currentPayrollMonth()).trim();
     if (!/^\d{4}-\d{2}$/.test(month)) return fail(res, 400, "Use month as YYYY-MM");
-    const { people } = await loadHrPeople();
+    const { people } = await loadScopedHrPeople(req);
     const roleKey = String(req.body.roleKey || "").trim();
     const employeeId = String(req.body.employeeId || "").trim();
     const employeeType = String(req.body.employeeType || "").trim();
@@ -681,7 +1631,9 @@ export async function updateHrPayroll(req, res, next) {
     }
     const objectId = new mongoose.Types.ObjectId(String(req.params.id));
     const row = await HrPayroll.collection.findOne({ _id: objectId });
-    if (!row) return fail(res, 404, "Payroll row not found");
+    if (!row || !(await canManageHrEmployee(req, row.employeeType, row.employeeId))) {
+      return fail(res, 404, "Payroll row not found");
+    }
     const patch = {};
     if (req.body.deductions !== undefined) patch.deductions = Math.max(0, Number(req.body.deductions) || 0);
     if (req.body.gross !== undefined) patch.gross = Math.max(0, Number(req.body.gross) || 0);
@@ -694,7 +1646,7 @@ export async function updateHrPayroll(req, res, next) {
     if (req.body.status === "paid" && row.status !== "paid") {
       patch.status = "paid";
       patch.paidAt = new Date();
-      await FinanceLedger.create({
+      if (!isVendorScope(req)) await FinanceLedger.create({
         type: "payout",
         title: `Salary · ${row.name} · ${row.month}`,
         amount: patch.net,

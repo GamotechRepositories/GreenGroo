@@ -26,6 +26,26 @@ import {
   createVendorAdmin,
   updateVendorAdmin,
   deleteVendorAdmin,
+  getVendorAdmin,
+  createDarkStoreAdmin,
+  listCentreFarmersAdmin,
+  listCentreFarmerManagersAdmin,
+  getCollectionDashboardAdmin,
+  listVendorProductRequestsAdmin,
+  approveVendorProductRequestAdmin,
+  rejectVendorProductRequestAdmin,
+  listVendorProductsAdmin,
+  removeVendorProductAdmin,
+  listVendorCropRequestsAdmin,
+  approveVendorCropRequestAdmin,
+  rejectVendorCropRequestAdmin,
+  listVendorCropsAdmin,
+  removeVendorCropAdmin,
+  listDarkStoreRequestsAdmin,
+  approveDarkStoreRequestAdmin,
+  rejectDarkStoreRequestAdmin,
+  getVendorDocumentAdmin,
+  deleteVendorDocumentAdmin,
   listHrDirectory,
   createHrStaff,
   updateHrStaff,
@@ -148,6 +168,8 @@ import {
   updateMarketPrice,
   deleteMarketPrice,
 } from "./marketPriceControllers.js";
+import { requireVendor } from "../../farmer-manager-service/src/middleware.js";
+import { attachVendorHrScope } from "./hrScope.js";
 
 const router = express.Router();
 
@@ -217,8 +239,28 @@ router.post("/bulk/products", importProductsJson);
 
 router.get("/vendors", listVendorsAdmin);
 router.post("/vendors", createVendorAdmin);
+router.get("/vendors/:id", getVendorAdmin);
 router.put("/vendors/:id", updateVendorAdmin);
 router.delete("/vendors/:id", deleteVendorAdmin);
+router.get("/vendors/:id/documents/:docId", getVendorDocumentAdmin);
+router.delete("/vendors/:id/documents/:docId", deleteVendorDocumentAdmin);
+router.post("/dark-stores", createDarkStoreAdmin);
+router.get("/collection-dashboard", getCollectionDashboardAdmin);
+router.get("/vendor-product-requests", listVendorProductRequestsAdmin);
+router.post("/vendor-product-requests/:requestId/approve", approveVendorProductRequestAdmin);
+router.post("/vendor-product-requests/:requestId/reject", rejectVendorProductRequestAdmin);
+router.get("/vendors/:id/products", listVendorProductsAdmin);
+router.delete("/vendors/:id/products/:productId", removeVendorProductAdmin);
+router.get("/vendor-crop-requests", listVendorCropRequestsAdmin);
+router.post("/vendor-crop-requests/:requestId/approve", approveVendorCropRequestAdmin);
+router.post("/vendor-crop-requests/:requestId/reject", rejectVendorCropRequestAdmin);
+router.get("/vendors/:id/crops", listVendorCropsAdmin);
+router.delete("/vendors/:id/crops/:cropId", removeVendorCropAdmin);
+router.get("/collection-farmers", listCentreFarmersAdmin);
+router.get("/collection-farmer-managers", listCentreFarmerManagersAdmin);
+router.get("/dark-store-requests", listDarkStoreRequestsAdmin);
+router.post("/dark-store-requests/:requestId/approve", approveDarkStoreRequestAdmin);
+router.post("/dark-store-requests/:requestId/reject", rejectDarkStoreRequestAdmin);
 
 router.get("/inventory/farmers", listInventoryFarmers);
 router.get("/inventory/farmers/:farmerId", getInventoryFarmer);
@@ -299,4 +341,51 @@ router.post("/assets-management/stores/:storeId/assets", createAsset);
 router.put("/assets-management/assets/:id", updateAsset);
 router.delete("/assets-management/assets/:id", deleteAsset);
 
-export default [{ path: "/api/admin-ops", router }];
+/** Vendor (collection centre) HR: same controllers, limited to the vendor's farmer managers and pickup drivers. */
+const vendorHrRouter = express.Router();
+vendorHrRouter.use(requireVendor, attachVendorHrScope);
+
+vendorHrRouter.get("/hr", listHrDirectory);
+vendorHrRouter.post("/hr", createHrStaff);
+vendorHrRouter.post("/hr/employment", upsertHrEmployment);
+vendorHrRouter.get("/hr/roles", listHrRoles);
+vendorHrRouter.get("/hr/people/:type/:id", getHrPerson);
+vendorHrRouter.get("/hr/calendar", listHrCalendar);
+vendorHrRouter.get("/hr/announcements", listHrAnnouncements);
+vendorHrRouter.post("/hr/announcements", createHrAnnouncement);
+vendorHrRouter.put("/hr/announcements/:id", updateHrAnnouncement);
+vendorHrRouter.delete("/hr/announcements/:id", deleteHrAnnouncement);
+vendorHrRouter.get("/hr/meetings", listHrMeetings);
+vendorHrRouter.post("/hr/meetings", createHrMeeting);
+vendorHrRouter.get("/hr/leave-policies", listHrLeavePolicies);
+vendorHrRouter.put("/hr/leave-policies/:roleKey", upsertHrLeavePolicy);
+vendorHrRouter.get("/hr/leaves", listHrLeaves);
+vendorHrRouter.post("/hr/leaves", createHrLeave);
+vendorHrRouter.put("/hr/leaves/:id", updateHrLeave);
+vendorHrRouter.delete("/hr/leaves/:id", deleteHrLeave);
+vendorHrRouter.get("/hr/shifts", listHrShifts);
+vendorHrRouter.post("/hr/shifts", createHrShift);
+vendorHrRouter.put("/hr/shifts/:id", updateHrShift);
+vendorHrRouter.delete("/hr/shifts/:id", deleteHrShift);
+vendorHrRouter.get("/hr/vacancies", listHrVacancies);
+vendorHrRouter.post("/hr/vacancies", createHrVacancy);
+vendorHrRouter.put("/hr/vacancies/:id", updateHrVacancy);
+vendorHrRouter.get("/hr/candidates", listHrCandidates);
+vendorHrRouter.post("/hr/candidates", createHrCandidate);
+vendorHrRouter.get("/hr/candidates/:id", getHrCandidate);
+vendorHrRouter.put("/hr/candidates/:id", updateHrCandidate);
+vendorHrRouter.get("/hr/candidates/:id/cv", downloadHrCandidateCv);
+vendorHrRouter.get("/hr/attendance", listHrAttendance);
+vendorHrRouter.post("/hr/attendance", clockHrAttendance);
+vendorHrRouter.get("/hr/tasks", listHrTasks);
+vendorHrRouter.post("/hr/tasks", createHrTask);
+vendorHrRouter.put("/hr/tasks/:id", updateHrTask);
+vendorHrRouter.get("/hr/payroll", listHrPayroll);
+vendorHrRouter.post("/hr/payroll/run", runHrPayroll);
+vendorHrRouter.put("/hr/payroll/:id", updateHrPayroll);
+vendorHrRouter.put("/hr/:id", updateHrStaff);
+
+export default [
+  { path: "/api/admin-ops", router },
+  { path: "/api/vendor/hr-ops", router: vendorHrRouter },
+];

@@ -124,6 +124,23 @@ export const vendorApi = {
   getCollectionCentres: () => api.get("/api/vendor/collection-centres"),
   createCollectionCentre: (data) => api.post("/api/vendor/collection-centres", data),
 
+  // Dark stores (created only after admin approval)
+  getDarkStoreRequests: () => api.get("/api/vendor/dark-store-requests"),
+  createDarkStoreRequest: (data) => api.post("/api/vendor/dark-store-requests", data),
+  cancelDarkStoreRequest: (id) => api.post(`/api/vendor/dark-store-requests/${id}/cancel`),
+
+  // Products from the admin catalog (added only after admin approval)
+  getMyProducts: () => api.get("/api/vendor/my-products"),
+  getCatalogProducts: (params) => api.get("/api/vendor/catalog-products", { params }),
+  createProductRequest: (data) => api.post("/api/vendor/product-requests", data),
+  cancelProductRequest: (id) => api.post(`/api/vendor/product-requests/${id}/cancel`),
+
+  // Crops from the admin crop list (added only after admin approval)
+  getMyCrops: () => api.get("/api/vendor/my-crops"),
+  getCatalogCrops: (params) => api.get("/api/vendor/catalog-crops", { params }),
+  createCropRequest: (data) => api.post("/api/vendor/crop-requests", data),
+  cancelCropRequest: (id) => api.post(`/api/vendor/crop-requests/${id}/cancel`),
+
   // Quality & Grading
   getQualityPending: (params) => api.get("/api/quality/pending", { params }),
   getQuality: (orderId) => api.get(`/api/quality/${orderId}`),
