@@ -410,8 +410,9 @@ export async function buildTrackingSnapshot({ customerOrder, storeOrders = [], p
     trackingEnabled && primary?.assignedRiderId && LIVE_TRACKING_STATUSES.includes(primary.status)
   );
 
+  const contactOpen = !closed && primary?.status !== "delivery_failed";
   const [rider, manager] = await Promise.all([
-    trackingEnabled && !closed && primary?.assignedRiderId
+    contactOpen && primary?.assignedRiderId
       ? DeliveryBoy.findById(primary.assignedRiderId).select("name phone vehicleType currentLocation").lean()
       : null,
     trackingEnabled && primary?.managerId

@@ -142,6 +142,8 @@ class ActiveDeliveryData {
 
   bool get isPreOrder => orderType == 'preorder';
 
+  bool get hasCustomerPhone => RegExp(r'\d{6,}').hasMatch(customerPhone.replaceAll(RegExp(r'\D'), ''));
+
   /// Rider has the parcel and the customer can follow them on the map.
   bool get shouldStreamLocation =>
       trackingEnabled &&
@@ -171,7 +173,7 @@ class ActiveDeliveryData {
         pickupQrScanned: json['pickupQrScanned'] as bool? ?? false,
         pickupProofStatus: json['pickupProofStatus'] as String? ?? 'none',
         customerName: json['customerName'] as String? ?? 'Customer',
-        customerPhone: json['customerPhone'] as String? ?? 'Locked',
+        customerPhone: json['customerPhone'] as String? ?? '',
         customerAddress: json['customerAddress'] as String? ?? 'Scan Store QR to Unlock',
         pickupQrPayload: json['pickupQrPayload'] as String?,
         darkStoreLat: json['darkStoreLat'] != null ? (json['darkStoreLat'] as num).toDouble() : null,
@@ -225,6 +227,12 @@ class OrderService extends ChangeNotifier {
   OrderOffer? _currentOffer;
   ActiveDeliveryData? _activeDelivery;
   List<ActiveDeliveryData> _activeDeliveries = const [];
+  final Set<String> _otpVerifiedIds = {};
+
+  /// The server flag can lag behind a just-verified OTP; remember it locally so
+  /// the rider is never asked for the same order's OTP twice.
+  bool isOtpVerified(ActiveDeliveryData delivery) =>
+      delivery.customerOtpVerified || _otpVerifiedIds.contains(delivery.id);
 
   OrderOffer? get currentOffer => _currentOffer;
   ActiveDeliveryData? get activeDelivery => _activeDelivery;
@@ -451,6 +459,7 @@ class OrderService extends ChangeNotifier {
       );
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode == 200) {
+        _otpVerifiedIds.remove(orderId);
         await fetchActiveDelivery();
         notifyListeners();
         return (success: true, error: null);
@@ -528,6 +537,7 @@ class OrderService extends ChangeNotifier {
       );
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (res.statusCode == 200) {
+        _otpVerifiedIds.add(orderId);
         await fetchActiveDelivery();
         notifyListeners();
         return (success: true, error: null);

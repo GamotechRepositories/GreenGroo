@@ -346,43 +346,59 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
           ],
         ),
       ),
-      if (tracking.driver != null && !tracking.isClosed)
-        _Card(
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: _green.withValues(alpha: 0.12),
-                child: const Icon(Icons.two_wheeler, color: _green),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tracking.driver!.name,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tracking.liveTracking ? 'Your delivery partner' : 'Assigned delivery partner',
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              if (tracking.driver!.phone.isNotEmpty)
-                FilledButton.icon(
-                  onPressed: () => _callDriver(tracking.driver!.phone),
-                  icon: const Icon(Icons.call, size: 18),
-                  label: const Text('Call'),
-                  style: FilledButton.styleFrom(backgroundColor: _green),
-                ),
-            ],
-          ),
-        ),
+      if (tracking.driver != null && !tracking.isClosed) _driverCard(tracking),
     ];
+  }
+
+  Widget _driverCard(OrderTracking tracking) {
+    final driver = tracking.driver!;
+    return _Card(
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: _green.withValues(alpha: 0.12),
+            child: const Icon(Icons.two_wheeler, color: _green),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  driver.name,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tracking.liveTracking ? 'Your delivery partner' : 'Assigned delivery partner',
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                ),
+                if (driver.phone.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    driver.phone,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (driver.phone.isNotEmpty)
+            FilledButton.icon(
+              onPressed: () => _callDriver(driver.phone),
+              icon: const Icon(Icons.call, size: 18),
+              label: const Text('Call'),
+              style: FilledButton.styleFrom(backgroundColor: _green),
+            ),
+        ],
+      ),
+    );
   }
 
   List<Widget> _preOrderSection(OrderTracking tracking) {
@@ -428,6 +444,7 @@ class _OrderTrackingPanelState extends ConsumerState<OrderTrackingPanel> {
           ],
         ),
       ),
+      if (tracking.driver != null && !tracking.isClosed) _driverCard(tracking),
     ];
   }
 }

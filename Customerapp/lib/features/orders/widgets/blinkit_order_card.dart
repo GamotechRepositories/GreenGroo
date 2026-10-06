@@ -9,6 +9,7 @@ import '../../../models/order.dart';
 import '../../../routes/app_router.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../delivery_rating_controller.dart';
+import '../feedback/order_feedback_sheet.dart';
 
 const _actionGreen = Color(0xFF2E7D32);
 
@@ -88,66 +89,8 @@ class BlinkitOrderCard extends ConsumerWidget {
   }
 
   void _showRatingSheet(BuildContext context, WidgetRef ref, String orderId) {
-    var selected = 5;
     final rootContext = rootNavigatorKey.currentContext ?? context;
-    showModalBottomSheet<void>(
-      context: rootContext,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Rate your delivery experience',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      final star = index + 1;
-                      return IconButton(
-                        onPressed: () => setState(() => selected = star),
-                        icon: Icon(
-                          star <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
-                          color: Colors.amber.shade700,
-                          size: 34,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () async {
-                      await ref
-                          .read(deliveryRatingsProvider.notifier)
-                          .setRating(orderId, selected);
-                      if (sheetContext.mounted) Navigator.pop(sheetContext);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _actionGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Submit rating', style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+    showOrderFeedbackSheet(rootContext, ref, orderId);
   }
 
   void _showOrderMenu(BuildContext context, Order order, String? productId) {

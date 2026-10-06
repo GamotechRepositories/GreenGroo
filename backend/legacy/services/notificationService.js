@@ -4,14 +4,22 @@ import { getCustomerFirebaseMessaging } from "../config/firebaseAdmin.js";
 
 const ORDERS_CHANNEL_ID = "orders";
 
-const INVALID_TOKEN_ERROR_CODES = new Set([
+// Not "invalid-argument": that can mean a bad payload, not a bad token.
+const DEAD_TOKEN_ERROR_CODES = new Set([
   "messaging/invalid-registration-token",
   "messaging/registration-token-not-registered",
-  "messaging/invalid-argument",
 ]);
 
 function isValidFcmToken(token) {
   return typeof token === "string" && token.trim().length > 20;
+}
+
+function userTokens(user) {
+  return [
+    ...new Set(
+      [user?.fcmToken, ...(user?.fcmTokens || [])].filter(isValidFcmToken).map((token) => token.trim())
+    ),
+  ];
 }
 
 function stringifyDataPayload(data = {}) {
@@ -36,14 +44,15 @@ function buildOrderData(order, extra = {}) {
   });
 }
 
-async function clearUserFcmToken(userId) {
-  await User.findByIdAndUpdate(userId, {
-    $set: {
-      fcmToken: "",
-      lastTokenUpdatedAt: new Date(),
-    },
-  });
-  console.warn(`NotificationService: cleared invalid FCM token for user ${userId}`);
+async function pruneDeadTokens(deadTokens) {
+  const tokens = [...new Set(deadTokens.filter(Boolean))];
+  if (!tokens.length) return;
+  const now = new Date();
+  await Promise.all([
+    User.updateMany({ fcmTokens: { $in: tokens } }, { $pull: { fcmTokens: { $in: tokens } } }),
+    User.updateMany({ fcmToken: { $in: tokens } }, { $set: { fcmToken: "", lastTokenUpdatedAt: now } }),
+  ]);
+  console.warn(`NotificationService: removed ${tokens.length} expired FCM token(s)`);
 }
 
 async function persistNotification({
@@ -66,18 +75,6 @@ async function persistNotification({
     fcmSent,
     fcmError,
   });
-}
-
-async function handleMessagingError(error, userId) {
-  const errorCode = error?.code || error?.errorInfo?.code || "";
-  const message = error?.message || "FCM delivery failed";
-
-  if (INVALID_TOKEN_ERROR_CODES.has(errorCode)) {
-    await clearUserFcmToken(userId);
-  }
-
-  console.error(`NotificationService: FCM error [${errorCode || "unknown"}] — ${message}`);
-  return message;
 }
 
 /**
@@ -183,7 +180,7 @@ export async function sendToMultipleTokens(tokens, { title, body, data = {}, ima
 
 async function deliverToUser(userId, { title, body, type, order = null, data = {} }) {
   const resolvedUserId = userId?._id || userId;
-  const user = await User.findById(resolvedUserId).select("fcmToken");
+  const user = await User.findById(resolvedUserId).select("fcmToken fcmTokens");
   if (!user) {
     return {
       success: false,
@@ -209,7 +206,8 @@ async function deliverToUser(userId, { title, body, type, order = null, data = {
     fcmSent: false,
   });
 
-  if (!isValidFcmToken(user.fcmToken)) {
+  const tokens = userTokens(user);
+  if (!tokens.length) {
     return {
       success: true,
       delivered: false,
@@ -218,13 +216,23 @@ async function deliverToUser(userId, { title, body, type, order = null, data = {
     };
   }
 
-  const result = await sendToToken(user.fcmToken, {
+  const result = await sendToMultipleTokens(tokens, {
     title,
     body,
     data: payloadData,
   });
 
-  if (result.success) {
+  const dead = [];
+  const errors = [];
+  (result.responses || []).forEach((res, index) => {
+    if (res.success) return;
+    const code = res.error?.code || res.error?.errorInfo?.code || "";
+    if (DEAD_TOKEN_ERROR_CODES.has(code)) dead.push(tokens[index]);
+    errors.push(`[${code || "unknown"}] ${res.error?.message || "FCM delivery failed"}`);
+  });
+  await pruneDeadTokens(dead);
+
+  if (result.successCount > 0) {
     notification.fcmSent = true;
     notification.fcmError = "";
     await notification.save();
@@ -233,15 +241,12 @@ async function deliverToUser(userId, { title, body, type, order = null, data = {
       success: true,
       delivered: true,
       notification,
-      messageId: result.messageId,
+      devices: result.successCount,
     };
   }
 
-  const fcmError = await handleMessagingError(
-    { message: result.error, code: result.code },
-    resolvedUserId
-  );
-
+  const fcmError = errors[0] || result.error || "FCM delivery failed";
+  console.error(`NotificationService: FCM error — ${fcmError}`);
   notification.fcmError = fcmError;
   await notification.save();
 
@@ -366,10 +371,36 @@ export async function sendDelivered(order) {
   const ref = orderRef(order);
   return deliverToUser(order.user, {
     title: "Order Delivered",
-    body: `${ref} has been delivered. Thank you for shopping with GreenGrocc!`,
+    body: `${ref} has been delivered. Tap to rate your delivery partner and products.`,
     type: "order_delivered",
     order,
-    data: buildOrderData(order, { type: "order_delivered" }),
+    data: buildOrderData(order, { type: "order_delivered", action: "rate_order" }),
+  });
+}
+
+export async function sendRiderAssigned(order, rider = {}) {
+  const ref = orderRef(order);
+  const name = String(rider.name || "").trim() || "A delivery partner";
+  const phone = String(rider.phone || "").trim();
+  return deliverToUser(order.user, {
+    title: "Delivery Partner Assigned",
+    body: `${name} will deliver ${ref.toLowerCase() === "your order" ? "your order" : ref}.${
+      phone ? ` Contact: ${phone}` : ""
+    }`,
+    type: "rider_assigned",
+    order,
+    data: buildOrderData(order, { type: "rider_assigned", riderName: name, riderPhone: phone }),
+  });
+}
+
+export async function sendDeliveryFailed(order) {
+  const ref = orderRef(order);
+  return deliverToUser(order.user, {
+    title: "Delivery Attempt Failed",
+    body: `We couldn't deliver ${ref}. Our team will contact you to reschedule.`,
+    type: "delivery_failed",
+    order,
+    data: buildOrderData(order, { type: "delivery_failed" }),
   });
 }
 
@@ -455,11 +486,6 @@ export async function sendCustomNotification(userId, { title, body, type = "cust
 
 const MULTICAST_LIMIT = 500;
 const INSERT_CHUNK = 1000;
-// Not "invalid-argument": in a broadcast that can mean a bad payload, not a bad token.
-const DEAD_TOKEN_ERROR_CODES = new Set([
-  "messaging/invalid-registration-token",
-  "messaging/registration-token-not-registered",
-]);
 
 /**
  * Save an in-app notification for every user and push to all registered
@@ -488,53 +514,47 @@ export async function broadcastToUsers(users, { title, body, type, data = {}, im
   }
   summary.inAppSaved = notificationIdByUser.size;
 
-  const withToken = users.filter((user) => isValidFcmToken(user.fcmToken));
-  summary.noToken = users.length - withToken.length;
-  if (!withToken.length) return summary;
+  const targets = users.flatMap((user) => userTokens(user).map((token) => ({ user, token })));
+  const usersWithToken = new Set(targets.map((target) => String(target.user._id)));
+  summary.noToken = users.length - usersWithToken.size;
+  if (!targets.length) return summary;
 
   const messaging = getCustomerFirebaseMessaging();
   if (!messaging) {
-    summary.pushFailed = withToken.length;
+    summary.pushFailed = usersWithToken.size;
     summary.error = "Customer Firebase messaging is not configured";
     return summary;
   }
 
-  const delivered = [];
-  const invalidUsers = [];
-  for (let i = 0; i < withToken.length; i += MULTICAST_LIMIT) {
-    const batch = withToken.slice(i, i + MULTICAST_LIMIT);
+  const deliveredUsers = new Set();
+  const dead = [];
+  for (let i = 0; i < targets.length; i += MULTICAST_LIMIT) {
+    const batch = targets.slice(i, i + MULTICAST_LIMIT);
     try {
       const response = await messaging.sendEachForMulticast({
-        tokens: batch.map((user) => user.fcmToken.trim()),
+        tokens: batch.map((target) => target.token),
         ...buildMessage({ title, body, data: payloadData, imageUrl }),
       });
       response.responses.forEach((res, index) => {
-        const user = batch[index];
+        const target = batch[index];
         if (res.success) {
-          delivered.push(notificationIdByUser.get(String(user._id)));
+          deliveredUsers.add(String(target.user._id));
           return;
         }
-        summary.pushFailed += 1;
         const code = res.error?.code || res.error?.errorInfo?.code || "";
-        if (DEAD_TOKEN_ERROR_CODES.has(code)) invalidUsers.push(user._id);
+        if (DEAD_TOKEN_ERROR_CODES.has(code)) dead.push(target.token);
       });
     } catch (error) {
       console.error("NotificationService: broadcast batch failed —", error.message);
-      summary.pushFailed += batch.length;
     }
   }
 
-  summary.pushDelivered = delivered.length;
+  summary.pushDelivered = deliveredUsers.size;
+  summary.pushFailed = usersWithToken.size - deliveredUsers.size;
+  const delivered = [...deliveredUsers].map((userId) => notificationIdByUser.get(userId)).filter(Boolean);
   await Promise.all([
-    delivered.length
-      ? Notification.updateMany({ _id: { $in: delivered.filter(Boolean) } }, { $set: { fcmSent: true } })
-      : null,
-    invalidUsers.length
-      ? User.updateMany(
-          { _id: { $in: invalidUsers } },
-          { $set: { fcmToken: "", lastTokenUpdatedAt: new Date() } }
-        )
-      : null,
+    delivered.length ? Notification.updateMany({ _id: { $in: delivered } }, { $set: { fcmSent: true } }) : null,
+    pruneDeadTokens(dead),
   ]);
 
   return summary;

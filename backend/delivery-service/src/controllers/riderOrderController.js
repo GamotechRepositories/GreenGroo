@@ -347,10 +347,9 @@ export const getActiveDelivery = async (req, res, next) => {
         pickupVerifiedAt: order.pickupVerifiedAt,
         isCustomerLocationLocked: !unlocked,
         customerAddressUnlocked: unlocked,
-        customerName: unlocked ? order.customerName : "Customer",
-        customerPhone: unlocked
-          ? order.customerPhone
-          : "Locked until manager approves item proof",
+        // Contact is shared from assignment until delivery; the address still unlocks after pickup.
+        customerName: order.customerName || "Customer",
+        customerPhone: order.customerPhone || "",
         customerAddress: unlocked
           ? order.customerAddress
           : qrScanned && proofStatus === "pending"

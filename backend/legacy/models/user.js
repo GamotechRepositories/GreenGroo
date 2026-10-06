@@ -109,6 +109,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    /** Every signed-in device (most recent last); `fcmToken` mirrors the latest one. */
+    fcmTokens: {
+      type: [String],
+      default: [],
+    },
     deviceType: {
       type: String,
       enum: ["", "android", "ios", "web"],

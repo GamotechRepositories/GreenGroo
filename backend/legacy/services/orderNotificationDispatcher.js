@@ -10,8 +10,13 @@ import {
   sendOrderReturned,
   sendPaymentSuccess,
   sendPaymentFailed,
+  sendRiderAssigned,
+  sendDeliveryFailed,
 } from "./notificationService.js";
 import OrderNotificationLog from "../models/OrderNotificationLog.js";
+import EcommerceOrder from "../models/order/Order.js";
+import DeliveryBoy from "../../delivery-service/src/models/DeliveryBoy.js";
+import StoreOrder from "../../delivery-service/src/models/StoreOrder.js";
 
 function logDispatchFailure(context, error) {
   console.error(`OrderNotificationDispatcher [${context}]:`, error?.message || error);
@@ -71,11 +76,68 @@ const STATUS_SENDERS = {
 export async function notifyOrderStatus(order, options = {}) {
   const sender = STATUS_SENDERS[order?.status];
   if (!order?.user || !sender) return null;
+  // Dark-store "processing" covers stock checks too; only announce it once items are packed.
+  if (order.status === "processing" && !(await isPackedForCustomer(order, options.storeStatus))) {
+    return null;
+  }
 
   const context = `status ${order.status} (${options.source || "api"})`;
   try {
     if (!(await claimStage(order, order.status))) return null;
     const result = await sender(order, options);
+    logDispatchResult(context, result);
+    return result;
+  } catch (error) {
+    logDispatchFailure(context, error);
+    return null;
+  }
+}
+
+const PACKED_STORE_STATUSES = new Set(["packed", "offered", "assigned", "pickup_verified"]);
+
+async function isPackedForCustomer(order, storeStatus) {
+  if (storeStatus) return PACKED_STORE_STATUSES.has(storeStatus);
+  const parts = await StoreOrder.find({ sourceOrderId: order._id }).select("status").lean();
+  return !parts.length || parts.some((part) => PACKED_STORE_STATUSES.has(part.status));
+}
+
+/**
+ * Dark-store milestones the customer order status can't express on its own
+ * (store confirmed, rider assigned, delivery failed). Each fires once per order
+ * — rider assignment once per rider — no matter how many code paths report it.
+ */
+const STORE_STAGES = {
+  preorder_hold: { stage: () => "confirm", send: (order) => sendOrderConfirmed(order) },
+  order_received: { stage: () => "confirm", send: (order) => sendOrderConfirmed(order) },
+  packed: { stage: () => "processing", send: (order) => sendOrderPacked(order) },
+  assigned: {
+    stage: (storeOrder) => (storeOrder.assignedRiderId ? `rider_assigned:${storeOrder.assignedRiderId}` : null),
+    send: async (order, storeOrder) => {
+      const rider = await DeliveryBoy.findById(storeOrder.assignedRiderId).select("name phone").lean();
+      return rider ? sendRiderAssigned(order, rider) : null;
+    },
+  },
+  out_for_delivery: { stage: () => "shipping", send: (order) => sendOutForDelivery(order) },
+  delivery_failed: {
+    stage: (storeOrder) => `delivery_failed:${storeOrder._id}`,
+    send: (order) => sendDeliveryFailed(order),
+  },
+};
+
+export async function notifyStoreOrderStage(storeOrder, storeStatus = storeOrder?.status) {
+  const entry = STORE_STAGES[storeStatus];
+  if (!entry || !storeOrder?.sourceOrderId) return null;
+  const stage = entry.stage(storeOrder);
+  if (!stage) return null;
+
+  const context = `store ${storeStatus}`;
+  try {
+    const order = await EcommerceOrder.findById(storeOrder.sourceOrderId).select(
+      "user orderNumber status shipment paymentStatus"
+    );
+    if (!order?.user || ["cancelled", "delivered"].includes(order.status)) return null;
+    if (!(await claimStage(order, stage))) return null;
+    const result = await entry.send(order, storeOrder);
     logDispatchResult(context, result);
     return result;
   } catch (error) {

@@ -303,7 +303,8 @@ export const getFullTimeAssignedOrdersForRider = async (req, res, next) => {
     ]);
 
     const toRow = (o) => {
-      const unlocked = Boolean(o.customerAddressUnlocked);
+      const delivered = o.status === "delivered";
+      const unlocked = Boolean(o.customerAddressUnlocked) && !delivered;
       return {
         id: o._id.toString(),
         orderNumber: o.orderNumber,
@@ -315,7 +316,8 @@ export const getFullTimeAssignedOrdersForRider = async (req, res, next) => {
         amountToCollect: Number(o.amountToCollect || 0),
         paymentMethod: o.paymentMethod || "",
         area: o.area || "",
-        customerName: unlocked || o.status === "delivered" ? o.customerName : "Customer",
+        customerName: delivered ? "Customer" : o.customerName || "Customer",
+        customerPhone: delivered ? "" : o.customerPhone || "",
         customerAddress: unlocked ? o.customerAddress : "",
         customerAddressUnlocked: unlocked,
         pickupQrScanned: Boolean(o.pickupQrScanned || o.qrScannedAt),

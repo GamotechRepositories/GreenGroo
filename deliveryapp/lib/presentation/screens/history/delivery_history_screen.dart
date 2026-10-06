@@ -8,6 +8,9 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../widgets/charts/chart_utils.dart';
+import '../../widgets/charts/weekly_bar_chart.dart';
+import '../../widgets/common/app_panel.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
 class DeliveryHistoryScreen extends StatefulWidget {
@@ -98,12 +101,6 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
             onChanged: _setRange,
           ),
         ),
-        if (!_loading && _error == null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: _TotalsBar(totals: _totals),
-          ),
-        const SizedBox(height: AppSpacing.sm),
         Expanded(child: _buildBody(l10n)),
       ],
     );
@@ -122,51 +119,96 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
     );
   }
 
+  static const _listPadding = EdgeInsets.fromLTRB(
+    AppSpacing.lg,
+    AppSpacing.sm,
+    AppSpacing.lg,
+    AppSpacing.xl,
+  );
+
+  String _barLabel(_DayBox d) {
+    if (_range == 'month') {
+      final parts = d.date.split('-');
+      return parts.length == 3 ? '${int.tryParse(parts[2]) ?? parts[2]}' : d.dayLabel;
+    }
+    if (_range == 'year') return d.dayLabel.split(' ').first;
+    return d.dayLabel;
+  }
+
+  String _barTooltip(_DayBox d) {
+    final title = _range == 'year' ? d.dayLabel : '${d.dayLabel} · ${d.date}';
+    return '$title\n${rupeeAmount(d.earnings)} · ${d.trips} trip${d.trips == 1 ? '' : 's'}\n${d.onlineTime} online';
+  }
+
   Widget _buildBody(AppLocalizations l10n) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const PageSkeleton(padding: _listPadding);
     }
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n.couldNotLoadHistory,
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+      return RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: _listPadding,
+          children: [
+            AppPanel(
+              child: Column(
+                children: [
+                  EmptyPanelMessage(
+                    message: l10n.couldNotLoadHistory,
+                    icon: Icons.cloud_off_rounded,
+                  ),
+                  TextButton(onPressed: _load, child: Text(l10n.tryAgain)),
+                ],
               ),
-              const SizedBox(height: 8),
-              TextButton(onPressed: _load, child: Text(l10n.tryAgain)),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
-    if (_days.isEmpty) {
-      return Center(
-        child: Text(
-          l10n.noActivityInPeriod,
-          style: GoogleFonts.inter(color: AppColors.textSecondary),
-        ),
-      );
-    }
+
+    final chronological = _days.reversed.toList();
     return RefreshIndicator(
+      color: AppColors.primary,
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.sm,
-          AppSpacing.lg,
-          AppSpacing.xl,
-        ),
-        itemCount: _days.length,
-        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-        itemBuilder: (context, index) => _DayHistoryCard(day: _days[index]),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: _listPadding,
+        children: [
+          _TotalsBar(totals: _totals),
+          const SizedBox(height: AppSpacing.lg),
+          if (_days.isEmpty)
+            AppPanel(
+              child: EmptyPanelMessage(
+                message: l10n.noActivityInPeriod,
+                icon: Icons.history_rounded,
+              ),
+            )
+          else ...[
+            AppPanel(
+              title: l10n.earnings,
+              subtitle: _range == 'year' ? 'Monthly earnings' : 'Daily earnings',
+              child: WeeklyBarChart(
+                bars: [
+                  for (final d in chronological)
+                    ChartBar(
+                      label: _barLabel(d),
+                      value: d.earnings.toDouble(),
+                      highlight: d.isToday,
+                    ),
+                ],
+                labelEvery: _range == 'month' ? 5 : 1,
+                axisLabel: (v) => '₹${compactNumber(v)}',
+                tooltipLabel: (i) => _barTooltip(chronological[i]),
+              ),
+            ),
+            for (var i = 0; i < _days.length; i++) ...[
+              if (i > 0) const SizedBox(height: AppSpacing.md),
+              _DayHistoryCard(day: _days[i]),
+            ],
+          ],
+        ],
       ),
     );
   }
@@ -252,30 +294,44 @@ class _TotalsBar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primarySoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryLight),
-      ),
-      child: Row(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: brandHeroDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          Text(
+            l10n.earnings,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
             child: Text(
-              '₹${totals.earnings}',
+              rupeeAmount(totals.earnings),
               style: GoogleFonts.inter(
-                fontSize: 18,
+                fontSize: 30,
                 fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark,
+                color: Colors.white,
               ),
             ),
           ),
-          Text(
-            l10n.tripsAndOnlineSummary(totals.trips, totals.onlineTime),
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryDark,
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: HeroStat(label: l10n.trips, value: '${totals.trips}')),
+                Expanded(child: HeroStat(label: l10n.online, value: totals.onlineTime)),
+              ],
             ),
           ),
         ],
@@ -298,18 +354,19 @@ class _DayHistoryCard extends StatelessWidget {
         : day.date;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: day.isToday ? AppColors.primary : AppColors.border,
+          width: day.isToday ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -355,9 +412,9 @@ class _DayHistoryCard extends StatelessWidget {
               ],
               const Spacer(),
               Text(
-                '₹${day.total}',
+                rupeeAmount(day.total),
                 style: GoogleFonts.inter(
-                  fontSize: 16,
+                  fontSize: 17,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary,
                 ),

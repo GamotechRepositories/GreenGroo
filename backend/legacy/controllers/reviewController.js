@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import ProductReview from "../models/ProductReview.js";
 import Product from "../models/Product.js";
 
-async function refreshProductRating(productId) {
+export async function refreshProductRating(productId) {
   const stats = await ProductReview.aggregate([
     { $match: { product: new mongoose.Types.ObjectId(String(productId)) } },
     {

@@ -14,6 +14,7 @@ import '../../../widgets/common/app_network_image.dart';
 import '../../../widgets/common/product_3d_image.dart';
 import '../../checkout/checkout_fulfillment_widgets.dart';
 import '../delivery_rating_controller.dart';
+import '../feedback/order_feedback_sheet.dart';
 import '../tracking/order_tracking_panel.dart';
 
 const _themeGreen = Color(0xFF2E7D32);
@@ -257,6 +258,25 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
   int _selectedShipment = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _promptFeedbackIfDelivered();
+  }
+
+  @override
+  void didUpdateWidget(covariant BlinkitOrderDetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.order.status != widget.order.status) _promptFeedbackIfDelivered();
+  }
+
+  void _promptFeedbackIfDelivered() {
+    if (widget.order.status != 'delivered') return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybePromptOrderFeedback(context, ref, widget.order.id);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final order = widget.order;
     final shipments = splitOrderShipments(order.items);
@@ -311,10 +331,11 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
                     ),
                   ),
                 ],
-                _RatingBanner(
-                  rating: deliveryRating,
-                  onRateNow: () => _showRatingSheet(context, ref, order.id),
-                ),
+                if (order.status == 'delivered')
+                  _RatingBanner(
+                    rating: deliveryRating,
+                    onRateNow: () => showOrderFeedbackSheet(context, ref, order.id),
+                  ),
                 if (_shouldShowDeliveryOtp(order))
                   _DeliveryOtpBanner(otp: order.deliveryOtp, pickup: order.isPickup),
                 if (order.darkStore != null || order.storeParts.length > 1)
@@ -396,67 +417,6 @@ class _BlinkitOrderDetailBodyState extends ConsumerState<BlinkitOrderDetailBody>
     );
   }
 
-  void _showRatingSheet(BuildContext context, WidgetRef ref, String orderId) {
-    var selected = 5;
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'How were your ordered items?',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      final star = index + 1;
-                      return IconButton(
-                        onPressed: () => setState(() => selected = star),
-                        icon: Icon(
-                          star <= selected ? Icons.star_rounded : Icons.star_outline_rounded,
-                          color: Colors.amber.shade700,
-                          size: 34,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () async {
-                      await ref
-                          .read(deliveryRatingsProvider.notifier)
-                          .setRating(orderId, selected);
-                      if (sheetContext.mounted) Navigator.pop(sheetContext);
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _themeGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Submit rating', style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 }
 
 class _DetailHeader extends StatelessWidget {
@@ -606,7 +566,7 @@ class _RatingBanner extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'How were your ordered items?',
+              'Rate your delivery & items',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

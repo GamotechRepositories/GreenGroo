@@ -2,12 +2,15 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../widgets/cards/dashboard_card.dart';
+import '../../widgets/charts/donut_chart.dart';
+import '../../widgets/charts/progress_ring.dart';
+import '../../widgets/common/app_panel.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
 class PerformanceScreen extends StatefulWidget {
@@ -54,18 +57,19 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     }
   }
 
-  String _rate(dynamic v) {
+  double? _pct(String key) => (_data?[key] as num?)?.toDouble();
+
+  int _count(Map<String, dynamic>? counts, String key) =>
+      (counts?[key] as num?)?.toInt() ?? 0;
+
+  String _rateText(double? v) {
     if (v == null) return '—';
-    return '${v}%';
+    return '${v % 1 == 0 ? v.toInt() : v.toStringAsFixed(1)}%';
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final rating = _data?['customerRating'] as Map<String, dynamic>?;
-    final avg = rating?['average'];
-    final count = (rating?['count'] as num?)?.toInt() ?? 0;
-    final counts = _data?['counts'] as Map<String, dynamic>?;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -75,161 +79,236 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         showBackButton: true,
       ),
       body: RefreshIndicator(
+        color: AppColors.primary,
         onRefresh: _load,
         child: _loading
-            ? ListView(
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              )
+            ? const PageSkeleton()
             : _error != null
                 ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppSpacing.lg),
-                    children: [
-                      DashboardCard(
-                        child: Column(
-                          children: [
-                            Text(_error!, textAlign: TextAlign.center),
-                            TextButton(onPressed: _load, child: const Text('Retry')),
-                          ],
-                        ),
-                      ),
-                    ],
+                    children: [ErrorPanel(message: _error!, onRetry: _load)],
                   )
-                : ListView(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    children: [
-                      _HeroRatingCard(
-                        average: avg,
-                        count: count,
-                        title: l10n.customerRating,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
+                : _content(l10n),
+      ),
+    );
+  }
+
+  Widget _content(AppLocalizations l10n) {
+    final rating = _data?['customerRating'] as Map<String, dynamic>?;
+    final avg = (rating?['average'] as num?)?.toDouble();
+    final ratingCount = (rating?['count'] as num?)?.toInt() ?? 0;
+    final counts = _data?['counts'] as Map<String, dynamic>?;
+    final since = DateTime.tryParse(_data?['since']?.toString() ?? '')?.toLocal();
+
+    final offered = _count(counts, 'offered');
+    final accepted = _count(counts, 'accepted');
+    final declined = _count(counts, 'declined');
+    final timeout = _count(counts, 'timeout');
+    final pending = (offered - accepted - declined - timeout).clamp(0, offered);
+    final delivered = _count(counts, 'delivered');
+    final cancelled = _count(counts, 'cancelled');
+    final failed = _count(counts, 'failed');
+    final onTime = _count(counts, 'onTime');
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
+      children: [
+        _RatingHero(
+          title: l10n.customerRating,
+          average: avg,
+          count: ratingCount,
+          since: since,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppPanel(
+          title: 'Key rates',
+          subtitle: 'Since verification',
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ProgressRing(
+                  percent: _pct('acceptanceRate'),
+                  label: l10n.acceptanceRate,
+                  color: AppColors.primary,
+                  size: 84,
+                ),
+              ),
+              Expanded(
+                child: ProgressRing(
+                  percent: _pct('onTimeDeliveryRate'),
+                  label: l10n.onTimeDelivery,
+                  color: AppColors.info,
+                  size: 84,
+                ),
+              ),
+              Expanded(
+                child: ProgressRing(
+                  percent: _pct('declineRate'),
+                  label: 'Decline rate',
+                  color: AppColors.warning,
+                  size: 84,
+                ),
+              ),
+            ],
+          ),
+        ),
+        AppPanel(
+          title: 'Order offers',
+          subtitle: 'How you responded to offers',
+          child: offered == 0
+              ? const EmptyPanelMessage(
+                  message: 'No order offers yet. Go online to start receiving orders.',
+                  icon: Icons.notifications_none_rounded,
+                )
+              : DonutChart(
+                  centerTitle: '$offered',
+                  centerSubtitle: 'offers',
+                  segments: [
+                    DonutSegment(label: 'Accepted', value: accepted.toDouble(), color: AppColors.primary),
+                    DonutSegment(label: 'Declined', value: declined.toDouble(), color: AppColors.warning),
+                    DonutSegment(label: 'Missed', value: timeout.toDouble(), color: AppColors.error),
+                    if (pending > 0)
+                      DonutSegment(label: 'Pending', value: pending.toDouble(), color: AppColors.textMuted),
+                  ],
+                ),
+        ),
+        AppPanel(
+          title: 'Trip outcomes',
+          subtitle: 'Delivered vs cancelled vs failed',
+          child: delivered + cancelled + failed == 0
+              ? const EmptyPanelMessage(
+                  message: 'Your trip outcomes will show here after your first delivery.',
+                  icon: Icons.delivery_dining_outlined,
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SegmentBar(
+                      height: 12,
+                      segments: [
+                        (delivered.toDouble(), AppColors.primary),
+                        (cancelled.toDouble(), AppColors.warning),
+                        (failed.toDouble(), AppColors.error),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(child: _OutcomeStat(label: 'Delivered', value: delivered, color: AppColors.primary)),
+                        Expanded(child: _OutcomeStat(label: 'Cancelled', value: cancelled, color: AppColors.warning)),
+                        Expanded(child: _OutcomeStat(label: 'Failed', value: failed, color: AppColors.error)),
+                      ],
+                    ),
+                    if (delivered > 0) ...[
+                      const Divider(height: 28),
                       Row(
                         children: [
+                          Icon(Icons.timer_outlined, size: 18, color: AppColors.info),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: _MetricTile(
-                              title: l10n.acceptanceRate,
-                              value: _rate(_data?['acceptanceRate']),
-                              icon: Icons.check_circle_outline,
-                              accent: AppColors.primary,
-                              tint: AppColors.primaryLight,
+                            child: Text(
+                              'On-time deliveries',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: _MetricTile(
-                              title: l10n.onTimeDelivery,
-                              value: _rate(_data?['onTimeDeliveryRate']),
-                              icon: Icons.schedule_outlined,
-                              accent: AppColors.info,
-                              tint: const Color(0xFFDBEAFE),
+                          Text(
+                            '$onTime of $delivered',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      _MetricTile(
-                        title: 'Decline rate',
-                        value: _rate(_data?['declineRate']),
-                        icon: Icons.thumb_down_alt_outlined,
-                        accent: const Color(0xFFB45309),
-                        tint: const Color(0xFFFEF3C7),
-                        wide: true,
+                      const SizedBox(height: 10),
+                      SegmentBar(
+                        height: 8,
+                        segments: [
+                          (onTime.toDouble(), AppColors.info),
+                          ((delivered - onTime).clamp(0, delivered).toDouble(), AppColors.border),
+                        ],
                       ),
-                      if (counts != null) ...[
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          'Trip summary',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _CountChip(
-                                label: 'Delivered',
-                                value: '${counts['delivered'] ?? 0}',
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _CountChip(
-                                label: 'Accepted',
-                                value: '${counts['accepted'] ?? 0}',
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _CountChip(
-                                label: 'Declined',
-                                value: '${counts['declined'] ?? 0}',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(height: 6),
                       Text(
-                        count == 0
-                            ? 'Customer ratings appear after customers rate your deliveries.'
-                            : 'Based on your deliveries since verification.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                        'Delivered within 60 minutes of assignment',
+                        style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
                       ),
                     ],
-                  ),
-      ),
+                  ],
+                ),
+        ),
+        KpiGrid(
+          children: [
+            KpiTile(
+              label: 'Trips delivered',
+              value: '$delivered',
+              icon: Icons.check_circle_outline_rounded,
+            ),
+            KpiTile(
+              label: 'Offers received',
+              value: '$offered',
+              icon: Icons.notifications_active_outlined,
+              accent: AppColors.info,
+            ),
+            KpiTile(
+              label: 'Cancellation rate',
+              value: _rateText(_pct('cancellationRate')),
+              icon: Icons.cancel_outlined,
+              accent: AppColors.warning,
+            ),
+            KpiTile(
+              label: 'Missed offers',
+              value: '$timeout',
+              icon: Icons.timer_off_outlined,
+              accent: AppColors.error,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text(
+          ratingCount == 0
+              ? 'Customer ratings appear after customers rate your deliveries.'
+              : 'Based on your deliveries since verification.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+        ),
+      ],
     );
   }
 }
 
-class _HeroRatingCard extends StatelessWidget {
-  const _HeroRatingCard({
+class _RatingHero extends StatelessWidget {
+  const _RatingHero({
+    required this.title,
     required this.average,
     required this.count,
-    required this.title,
+    required this.since,
   });
 
-  final dynamic average;
-  final int count;
   final String title;
+  final double? average;
+  final int count;
+  final DateTime? since;
 
   @override
   Widget build(BuildContext context) {
+    final hasRating = count > 0 && average != null;
+    final value = hasRating ? average! : 0.0;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.12),
-            AppColors.primarySoft,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.primaryLight),
-      ),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: brandHeroDecoration(),
       child: Row(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 34),
-          ),
-          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,108 +318,73 @@ class _HeroRatingCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+                    color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  count == 0 ? '—' : '${average ?? '—'}',
-                  style: GoogleFonts.inter(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                    height: 1.1,
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      hasRating ? value.toStringAsFixed(1) : '—',
+                      style: GoogleFonts.inter(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1,
+                      ),
+                    ),
+                    if (hasRating)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 4),
+                        child: Text(
+                          '/ 5',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
+                Row(
+                  children: List.generate(5, (i) {
+                    final fill = (value - i).clamp(0.0, 1.0);
+                    return Icon(
+                      fill >= 0.75
+                          ? Icons.star_rounded
+                          : fill >= 0.25
+                              ? Icons.star_half_rounded
+                              : Icons.star_outline_rounded,
+                      color: const Color(0xFFFCD34D),
+                      size: 22,
+                    );
+                  }),
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  count == 0
-                      ? 'No ratings yet'
-                      : '$count rating${count == 1 ? '' : 's'}',
+                  hasRating
+                      ? '$count rating${count == 1 ? '' : 's'}'
+                          '${since != null ? ' · since ${DateFormat('d MMM yyyy').format(since!)}' : ''}'
+                      : 'No ratings yet',
                   style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.accent,
-    required this.tint,
-    this.wide = false,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color accent;
-  final Color tint;
-  final bool wide;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: wide ? double.infinity : null,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: tint,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: accent, size: 20),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(20),
             ),
+            child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 38),
           ),
         ],
       ),
@@ -348,41 +392,29 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _CountChip extends StatelessWidget {
-  const _CountChip({required this.label, required this.value});
+class _OutcomeStat extends StatelessWidget {
+  const _OutcomeStat({required this.label, required this.value, required this.color});
 
   final String label;
-  final String value;
+  final int value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LegendDot(color: color, label: label),
+        const SizedBox(height: 4),
+        Text(
+          '$value',
+          style: GoogleFonts.inter(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

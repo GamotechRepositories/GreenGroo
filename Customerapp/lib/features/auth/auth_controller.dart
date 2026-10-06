@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/exceptions/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../models/user.dart';
+import '../../services/notification_service.dart';
 import 'auth_state.dart';
 
 final authControllerProvider =
@@ -195,9 +196,12 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> logout() async {
     try {
+      final token = await NotificationService.instance
+          .getToken()
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
       await ref
           .read(apiServiceProvider)
-          .deleteFcmToken()
+          .deleteFcmToken(token: token)
           .timeout(const Duration(seconds: 5));
     } catch (_) {
       // Best effort: the next login on this phone reassigns the token anyway.

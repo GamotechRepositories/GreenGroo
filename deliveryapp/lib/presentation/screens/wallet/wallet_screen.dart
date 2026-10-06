@@ -1,13 +1,17 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/buttons/primary_button.dart';
-import '../../widgets/cards/dashboard_card.dart';
+import '../../widgets/charts/chart_utils.dart';
+import '../../widgets/charts/trend_line_chart.dart';
+import '../../widgets/charts/weekly_bar_chart.dart';
+import '../../widgets/common/app_panel.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -24,6 +28,10 @@ class _WalletScreenState extends State<WalletScreen> {
   String? _error;
   int _total = 0;
   int _today = 0;
+  int _todayDeliveries = 0;
+  int _totalDeliveries = 0;
+  int _weekTotal = 0;
+  DateTime? _verifiedAt;
   List<Map<String, dynamic>> _weekDays = const [];
   List<Map<String, dynamic>> _history = const [];
   String _withdrawNote = '';
@@ -54,6 +62,10 @@ class _WalletScreenState extends State<WalletScreen> {
         _loading = false;
         _total = (body['totalEarnings'] as num?)?.toInt() ?? 0;
         _today = (body['todayEarnings'] as num?)?.toInt() ?? 0;
+        _todayDeliveries = (body['todayDeliveries'] as num?)?.toInt() ?? 0;
+        _totalDeliveries = (body['totalDeliveries'] as num?)?.toInt() ?? 0;
+        _weekTotal = (body['weekTotalEarnings'] as num?)?.toInt() ?? 0;
+        _verifiedAt = DateTime.tryParse(body['verificationDate']?.toString() ?? '');
         _weekDays = (body['weekDays'] as List<dynamic>? ?? [])
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
@@ -79,242 +91,57 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
-  String _rupee(int n) => '₹$n';
+  String _rupee(num n) => rupeeAmount(n);
+
+  static String _iso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  ({List<double> values, List<String> labels, List<String> dates, List<int> orders}) _trend() {
+    final byDate = <String, Map<String, dynamic>>{
+      for (final h in _history)
+        if (h['date'] != null) h['date'].toString(): h,
+    };
+    final nowIst = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+    final today = DateTime(nowIst.year, nowIst.month, nowIst.day);
+    var start = today.subtract(const Duration(days: 29));
+    final verified = _verifiedAt?.toUtc().add(const Duration(hours: 5, minutes: 30));
+    if (verified != null) {
+      final vDay = DateTime(verified.year, verified.month, verified.day);
+      if (vDay.isAfter(start)) start = vDay;
+    }
+    final values = <double>[];
+    final labels = <String>[];
+    final dates = <String>[];
+    final orders = <int>[];
+    for (var d = start; !d.isAfter(today); d = DateTime(d.year, d.month, d.day + 1)) {
+      final key = _iso(d);
+      final row = byDate[key];
+      values.add((row?['totalEarnings'] as num?)?.toDouble() ?? 0);
+      orders.add((row?['orderCount'] as num?)?.toInt() ?? 0);
+      labels.add('${d.day} ${_months[d.month - 1]}');
+      dates.add(key);
+    }
+    return (values: values, labels: labels, dates: dates, orders: orders);
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final maxDay = _weekDays.fold<int>(
-      1,
-      (m, d) =>
-          ((d['totalEarnings'] as num?)?.toInt() ?? 0) > m
-              ? ((d['totalEarnings'] as num?)?.toInt() ?? 0)
-              : m,
-    );
 
     final body = RefreshIndicator(
+      color: AppColors.primary,
       onRefresh: _load,
       child: _loading
-          ? ListView(
-              children: const [
-                SizedBox(height: 160),
-                Center(child: CircularProgressIndicator()),
-              ],
-            )
+          ? const PageSkeleton()
           : _error != null
               ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    DashboardCard(
-                      child: Column(
-                        children: [
-                          Text(_error!, textAlign: TextAlign.center),
-                          TextButton(onPressed: _load, child: const Text('Retry')),
-                        ],
-                      ),
-                    ),
-                  ],
+                  children: [ErrorPanel(message: _error!, onRetry: _load)],
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.xxl),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryDark],
-                        ),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Total Earnings',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            _rupee(_total),
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 36,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            'From verification date to today',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_fullTime != null) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      _FullTimeSalaryCard(data: _fullTime!),
-                    ],
-                    const SizedBox(height: AppSpacing.lg),
-                    PrimaryButton(
-                      label: l10n.withdraw,
-                      icon: Icons.account_balance_outlined,
-                      // Stays inactive until Admin sets withdrawEnabled on the rider.
-                      onPressed: _canWithdraw
-                          ? () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Withdraw request will be handled by Admin payout policy.',
-                                  ),
-                                ),
-                              );
-                            }
-                          : null,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      _withdrawNote,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: _withdrawEnabled
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    if (!_withdrawEnabled) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Total earnings still show above — only Withdraw is locked.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textMuted,
-                              fontSize: 11,
-                            ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.xl),
-                    DashboardCard(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Today's Earnings",
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(
-                            _rupee(_today),
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.primary,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      'This week',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    DashboardCard(
-                      child: _weekDays.isEmpty
-                          ? const Text('No earnings yet.')
-                          : Column(
-                              children: _weekDays.map((d) {
-                                final amt = (d['totalEarnings'] as num?)?.toInt() ?? 0;
-                                final before = d['beforeVerification'] == true;
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Row(
-                                    children: [
-                                      SizedBox(
-                                        width: 40,
-                                        child: Text(
-                                          d['dayLabel']?.toString() ?? '',
-                                          style: Theme.of(context).textTheme.bodySmall,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: LinearProgressIndicator(
-                                            value: before ? 0 : (amt / maxDay).clamp(0.0, 1.0),
-                                            minHeight: 10,
-                                            backgroundColor: AppColors.surfaceVariant,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      SizedBox(
-                                        width: 56,
-                                        child: Text(
-                                          before ? '—' : _rupee(amt),
-                                          textAlign: TextAlign.right,
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    Text(
-                      'Daily earning history',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    if (_history.isEmpty)
-                      const DashboardCard(child: Text('No earnings yet.'))
-                    else
-                      ..._history.map((h) {
-                        final amt = (h['totalEarnings'] as num?)?.toInt() ?? 0;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: DashboardCard(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        h['displayDate']?.toString() ?? h['date']?.toString() ?? '',
-                                        style: Theme.of(context).textTheme.titleMedium,
-                                      ),
-                                      Text(
-                                        h['dayLabel']?.toString() ?? '',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              color: AppColors.textSecondary,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  _rupee(amt),
-                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.primary,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                  ],
-                ),
+              : _content(l10n),
     );
 
     if (widget.embedded) return body;
@@ -322,6 +149,378 @@ class _WalletScreenState extends State<WalletScreen> {
       backgroundColor: AppColors.background,
       appBar: CustomAppBar(title: l10n.wallet, showBackButton: true),
       body: body,
+    );
+  }
+
+  Widget _content(AppLocalizations l10n) {
+    final trend = _trend();
+    final activeDays = trend.values.where((v) => v > 0).length;
+    final trendTotal = trend.values.fold<double>(0, (s, v) => s + v);
+    final bestValue = trend.values.fold<double>(0, (m, v) => v > m ? v : m);
+    final bestIndex = bestValue > 0 ? trend.values.indexOf(bestValue) : -1;
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: brandHeroDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Total Earnings',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _rupee(_total),
+                  style: GoogleFonts.inter(
+                    fontSize: 38,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'From verification date to today',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: HeroStat(label: 'Today', value: _rupee(_today))),
+                    Expanded(child: HeroStat(label: 'This week', value: _rupee(_weekTotal))),
+                    Expanded(child: HeroStat(label: 'Deliveries', value: '$_totalDeliveries')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_fullTime != null) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _FullTimeSalaryCard(data: _fullTime!),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        PrimaryButton(
+          label: l10n.withdraw,
+          icon: Icons.account_balance_outlined,
+          // Stays inactive until Admin sets withdrawEnabled on the rider.
+          onPressed: _canWithdraw
+              ? () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Withdraw request will be handled by Admin payout policy.',
+                      ),
+                    ),
+                  );
+                }
+              : null,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(
+                _withdrawEnabled ? Icons.verified_outlined : Icons.lock_outline_rounded,
+                size: 14,
+                color: _withdrawEnabled ? AppColors.primary : AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                _withdrawNote,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _withdrawEnabled ? AppColors.primary : AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (!_withdrawEnabled) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Total earnings still show above — only Withdraw is locked.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.xl),
+        KpiGrid(
+          children: [
+            KpiTile(
+              label: "Today's earnings",
+              value: _rupee(_today),
+              icon: Icons.today_rounded,
+              caption: '$_todayDeliveries deliver${_todayDeliveries == 1 ? 'y' : 'ies'}',
+            ),
+            KpiTile(
+              label: 'Avg per delivery',
+              value: _totalDeliveries > 0 && _fullTime == null
+                  ? _rupee(_total / _totalDeliveries)
+                  : '—',
+              icon: Icons.insights_rounded,
+              accent: AppColors.info,
+              caption: 'Lifetime',
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppPanel(
+          title: 'This week',
+          subtitle: 'Daily earnings · last 7 days',
+          trailing: Text(
+            _rupee(_weekTotal),
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+            ),
+          ),
+          child: WeeklyBarChart(
+            emptyMessage: 'No earnings yet.',
+            bars: [
+              for (final d in _weekDays)
+                ChartBar(
+                  label: d['dayLabel']?.toString() ?? '',
+                  value: d['beforeVerification'] == true
+                      ? 0
+                      : (d['totalEarnings'] as num?)?.toDouble() ?? 0,
+                  highlight: d['isToday'] == true,
+                  muted: d['beforeVerification'] == true,
+                ),
+            ],
+            axisLabel: (v) => '₹${compactNumber(v)}',
+            tooltipLabel: (i) {
+              final d = _weekDays[i];
+              if (d['beforeVerification'] == true) {
+                return '${d['dayFull'] ?? d['dayLabel'] ?? ''}\nBefore verification';
+              }
+              final count = (d['orderCount'] as num?)?.toInt() ?? 0;
+              return '${d['dayFull'] ?? d['dayLabel'] ?? ''}\n'
+                  '${_rupee((d['totalEarnings'] as num?) ?? 0)} · $count order${count == 1 ? '' : 's'}';
+            },
+          ),
+        ),
+        if (_history.isNotEmpty)
+          AppPanel(
+            title: 'Earnings trend',
+            subtitle: 'Last ${trend.values.length} days',
+            trailing: Text(
+              _rupee(trendTotal),
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            child: Column(
+              children: [
+                TrendLineChart(
+                  values: trend.values,
+                  labels: trend.labels,
+                  labelEvery: (trend.values.length / 5).ceil(),
+                  axisLabel: (v) => '₹${compactNumber(v)}',
+                  tooltipLabel: (i) {
+                    final count = trend.orders[i];
+                    return '${trend.labels[i]}\n${_rupee(trend.values[i])} · $count order${count == 1 ? '' : 's'}';
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _TrendStat(
+                        label: 'Best day',
+                        value: bestIndex >= 0 ? _rupee(bestValue) : '—',
+                        caption: bestIndex >= 0 ? trend.labels[bestIndex] : null,
+                      ),
+                    ),
+                    Expanded(
+                      child: _TrendStat(
+                        label: 'Active days',
+                        value: '$activeDays',
+                        caption: 'of ${trend.values.length}',
+                      ),
+                    ),
+                    Expanded(
+                      child: _TrendStat(
+                        label: 'Avg / active day',
+                        value: activeDays > 0 ? _rupee(trendTotal / activeDays) : '—',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        const SectionLabel('Daily earning history'),
+        if (_history.isEmpty)
+          const AppPanel(
+            child: EmptyPanelMessage(
+              message: 'No earnings yet.',
+              icon: Icons.receipt_long_outlined,
+            ),
+          )
+        else
+          AppPanel(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+            child: Column(
+              children: [
+                for (var i = 0; i < _history.length; i++) ...[
+                  if (i > 0) Divider(height: 1, color: AppColors.border),
+                  _HistoryRow(
+                    date: _history[i]['displayDate']?.toString() ?? _history[i]['date']?.toString() ?? '',
+                    dayLabel: _history[i]['dayLabel']?.toString() ?? '',
+                    orders: (_history[i]['orderCount'] as num?)?.toInt() ?? 0,
+                    amount: _rupee((_history[i]['totalEarnings'] as num?) ?? 0),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TrendStat extends StatelessWidget {
+  const _TrendStat({required this.label, required this.value, this.caption});
+
+  final String label;
+  final String value;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted)),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        if (caption != null)
+          Text(caption!, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSecondary)),
+      ],
+    );
+  }
+}
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({
+    required this.date,
+    required this.dayLabel,
+    required this.orders,
+    required this.amount,
+  });
+
+  final String date;
+  final String dayLabel;
+  final int orders;
+  final String amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.south_west_rounded, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  date,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$dayLabel · $orders deliver${orders == 1 ? 'y' : 'ies'}',
+                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '+$amount',
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.success,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -356,39 +555,80 @@ class _FullTimeSalaryCard extends StatelessWidget {
         !credited &&
         (leave['enabled'] == true || late['enabled'] == true);
 
-    return DashboardCard(
+    return AppPanel(
+      margin: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Monthly Salary', style: textTheme.titleMedium),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.badge_outlined, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Monthly Salary',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
               Text(
-                '₹$salary',
-                style: textTheme.titleLarge?.copyWith(
+                rupeeAmount(salary),
+                style: GoogleFonts.inter(
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            credited
-                ? '${data['currentMonth']} salary credited to your wallet'
-                : '${data['currentMonth']} salary will be credited by your Delivery Manager',
-            style: textTheme.bodySmall?.copyWith(
-              color: credited ? AppColors.success : AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: (credited ? AppColors.success : AppColors.warning).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  credited ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
+                  size: 14,
+                  color: credited ? AppColors.success : AppColors.warning,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    credited
+                        ? '${data['currentMonth']} salary credited to your wallet'
+                        : '${data['currentMonth']} salary will be credited by your Delivery Manager',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: credited ? AppColors.success : AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Full-Time: fixed monthly salary, no per-KM earnings.',
             style: textTheme.bodySmall?.copyWith(color: AppColors.textMuted, fontSize: 11),
           ),
           if (showPayroll) ...[
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -421,14 +661,23 @@ class _FullTimeSalaryCard extends StatelessWidget {
               ),
           ],
           if (credits.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Recent credits',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+            ),
             ...credits.map(
               (c) => Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: 6),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(c['month']?.toString() ?? '', style: textTheme.bodySmall),
+                    Icon(Icons.south_west_rounded, size: 14, color: AppColors.success),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(c['month']?.toString() ?? '', style: textTheme.bodySmall)),
                     Text(
                       '₹${(c['amount'] as num?)?.toInt() ?? 0}${_deductedLabel(c['breakdown'])}',
                       style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),

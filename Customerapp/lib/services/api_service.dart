@@ -151,8 +151,10 @@ class ApiService {
         },
       );
 
-  Future<Response<dynamic>> deleteFcmToken() =>
-      _dio.delete('/api/users/fcm-token');
+  Future<Response<dynamic>> deleteFcmToken({String? token}) => _dio.delete(
+        '/api/users/fcm-token',
+        data: {if (token != null && token.isNotEmpty) 'token': token},
+      );
 
   Future<Response<dynamic>> getNotifications({
     int page = 1,

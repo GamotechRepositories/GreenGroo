@@ -1,6 +1,9 @@
 import EcommerceOrder from "../../../legacy/models/order/Order.js";
 import StoreOrder from "../models/StoreOrder.js";
-import { notifyOrderStatusChange } from "../../../legacy/services/orderNotificationDispatcher.js";
+import {
+  notifyOrderStatusChange,
+  notifyStoreOrderStage,
+} from "../../../legacy/services/orderNotificationDispatcher.js";
 import { reverseOrderRewardPoints } from "../../../legacy/controllers/rewardController.js";
 import { emitOrderStatus } from "./orderTrackingService.js";
 
@@ -55,6 +58,7 @@ async function combinedStatusForSplitOrder(storeOrder, storeStatus) {
 export async function syncCustomerOrderFromStore(storeOrder, storeStatus) {
   if (!storeOrder?.sourceOrderId) return null;
   emitOrderStatus(storeOrder, storeStatus);
+  void notifyStoreOrderStage(storeOrder, storeStatus);
 
   const customerOrder = await EcommerceOrder.findById(storeOrder.sourceOrderId);
   if (!customerOrder) return null;
@@ -84,7 +88,7 @@ export async function syncCustomerOrderFromStore(storeOrder, storeStatus) {
   }
 
   try {
-    void notifyOrderStatusChange(customerOrder, previousStatus);
+    void notifyOrderStatusChange(customerOrder, previousStatus, { storeStatus });
   } catch (err) {
     console.warn("[lifecycle] customer notify failed:", err.message);
   }

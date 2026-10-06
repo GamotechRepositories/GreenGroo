@@ -41,13 +41,13 @@ class HomeDashboardScreen extends StatefulWidget {
   State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
 }
 
-class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
+class _HomeDashboardScreenState extends State<HomeDashboardScreen> with WidgetsBindingObserver {
   bool _isOnline = false;
   bool _updatingStatus = false;
   Timer? _heartbeat;
-  Timer? _verifyPoll;
-  Timer? _offerPoll;
   Timer? _shiftEndOfflineTimer;
+  StreamSubscription<bool>? _connectionSub;
+  StreamSubscription<Map<String, dynamic>>? _deliveryUpdateSub;
   StreamSubscription<Map<String, dynamic>>? _offerSocketSub;
   StreamSubscription<Map<String, dynamic>>? _verifySocketSub;
   StreamSubscription<Map<String, dynamic>>? _verifyNotifSub;
@@ -127,25 +127,50 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _lastVerificationStatus =
         AuthService.instance.deliveryBoy?.verificationStatus;
     _isOnline = AuthService.instance.deliveryBoy?.isOnline ?? false;
     if (_isOnline) {
       _startHeartbeat();
-      _startOfferPoll();
     }
     _listenForOffers();
     _listenForVerification();
     _listenForForcedOffline();
     _listenForOfferRecovery();
+    _listenForServerChanges();
     _bootstrapHome();
-    _verifyPoll = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (_verificationPending ||
-          _lastVerificationStatus == 'pending' ||
-          _lastVerificationStatus == null) {
-        _refreshVerificationInfo();
-      }
+  }
+
+  /// No polling: offers, verification and trip changes arrive over the socket /
+  /// FCM. We only re-sync on reconnect or when the app comes back to the foreground,
+  /// to pick up anything sent while the connection was down.
+  void _listenForServerChanges() {
+    _connectionSub?.cancel();
+    _connectionSub = SocketService.instance.onConnectionChanged.listen((connected) {
+      if (connected) _catchUpWithServer();
     });
+    _deliveryUpdateSub?.cancel();
+    _deliveryUpdateSub = SocketService.instance.onActiveDeliveryUpdated.listen((_) async {
+      await OrderService.instance.fetchActiveDelivery();
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _catchUpWithServer();
+  }
+
+  Future<void> _catchUpWithServer() async {
+    if (!mounted) return;
+    if (_verificationPending || _lastVerificationStatus != 'approved') {
+      await _refreshVerificationInfo();
+    }
+    await OrderService.instance.fetchActiveDelivery();
+    if (!mounted) return;
+    setState(() {});
+    _checkOrderOffers();
   }
 
   /// One coordinated load: single /me + parallel page data (no stacked waits).
@@ -180,7 +205,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _showSlotCancellationAlerts();
     // Recover pending Accept/Decline if offer arrived while app was closed.
     if (_isOnline) {
-      _startOfferPoll();
       _checkOrderOffers();
     }
   }
@@ -197,20 +221,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     if (boy != null && (boy.isVerificationPending || status == 'rejected')) {
       _fetchAreaManagerDetails();
     }
-  }
-
-  void _startOfferPoll() {
-    _offerPoll?.cancel();
-    // Backup poll while online — socket can miss offers; silent API check.
-    _offerPoll = Timer.periodic(const Duration(seconds: 4), (_) {
-      _checkOrderOffers();
-    });
-    _checkOrderOffers();
-  }
-
-  void _stopOfferPoll() {
-    _offerPoll?.cancel();
-    _offerPoll = null;
   }
 
   void _listenForOffers() {
@@ -235,7 +245,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       final msg = data['message']?.toString().trim();
       setState(() => _isOnline = false);
       _stopHeartbeat();
-      _stopOfferPoll();
       _shiftEndOfflineTimer?.cancel();
       await AuthService.instance.fetchMe();
       if (!mounted) return;
@@ -436,10 +445,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _heartbeat?.cancel();
-    _verifyPoll?.cancel();
-    _offerPoll?.cancel();
     _shiftEndOfflineTimer?.cancel();
+    _connectionSub?.cancel();
+    _deliveryUpdateSub?.cancel();
     _offerSocketSub?.cancel();
     _verifySocketSub?.cancel();
     _verifyNotifSub?.cancel();
@@ -484,7 +494,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       if (ok) {
         setState(() => _isOnline = false);
         _stopHeartbeat();
-        _stopOfferPoll();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -556,7 +565,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             SocketService.instance.connect(boyId);
           }
           _startHeartbeat();
-          _startOfferPoll();
+          _checkOrderOffers();
           _scheduleShiftEndAutoOffline(res.endTime);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -594,7 +603,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _isOnline = false;
           });
           _stopHeartbeat();
-          _stopOfferPoll();
           _shiftEndOfflineTimer?.cancel();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

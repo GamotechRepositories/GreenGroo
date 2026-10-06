@@ -155,6 +155,8 @@ class NotificationService {
 
     final payload = PushNotificationPayload.fromRemoteMessage(message);
     if (message.notification == null) {
+      await instance._initializeLocalNotifications();
+      await instance._createAndroidNotificationChannel();
       await instance._showLocalNotification(payload);
     }
   }

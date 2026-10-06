@@ -12,6 +12,7 @@ import '../../../data/services/order_service.dart';
 import '../../../data/services/socket_service.dart';
 import '../../../utils/map_navigation.dart';
 import '../../widgets/buttons/primary_button.dart';
+import 'delivery_sheets.dart';
 import 'pickup_qr_scan_screen.dart';
 import 'order_items_screen.dart';
 
@@ -22,22 +23,26 @@ class ActiveDeliveryScreen extends StatefulWidget {
   State<ActiveDeliveryScreen> createState() => _ActiveDeliveryScreenState();
 }
 
-class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
+class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> with WidgetsBindingObserver {
   ActiveDeliveryData? _delivery;
   List<ActiveDeliveryData> _deliveries = const [];
   bool _isLoading = true;
   bool _customerNavStarted = false;
-  Timer? _refreshTimer;
   Timer? _tickTimer;
-  StreamSubscription<Map<String, dynamic>>? _pickupSub;
-  final TextEditingController _otpController = TextEditingController();
-  final TextEditingController _commentController = TextEditingController();
+  Timer? _refreshDebounce;
+  StreamSubscription<Map<String, dynamic>>? _deliverySub;
+  StreamSubscription<bool>? _connectionSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadDelivery();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) => _loadDelivery());
+    // Refresh only when the server reports a change, on reconnect, or on resume — no polling.
+    _deliverySub = SocketService.instance.onActiveDeliveryUpdated.listen((_) => _scheduleRefresh());
+    _connectionSub = SocketService.instance.onConnectionChanged.listen((connected) {
+      if (connected) _scheduleRefresh();
+    });
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       final d = _delivery;
@@ -49,17 +54,28 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         }
       }
     });
-    _pickupSub = SocketService.instance.onPickupVerified.listen((_) => _loadDelivery());
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _tickTimer?.cancel();
-    _pickupSub?.cancel();
-    _otpController.dispose();
-    _commentController.dispose();
+    _refreshDebounce?.cancel();
+    _deliverySub?.cancel();
+    _connectionSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _scheduleRefresh();
+  }
+
+  void _scheduleRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _loadDelivery();
+    });
   }
 
   Future<void> _loadDelivery() async {
@@ -141,7 +157,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       if (!mounted) return;
     }
 
-    if (!_delivery!.customerOtpVerified) {
+    if (!OrderService.instance.isOtpVerified(_delivery!)) {
       final otpOk = await _askCustomerOtp();
       if (!otpOk || !mounted) return;
       await _loadDelivery();
@@ -326,112 +342,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   }
 
   Future<void> _askOptionalCommentThenFinish() async {
-    _commentController.clear();
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Complete Delivery', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Add an optional delivery note (customer received, left at door, etc.).',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _commentController,
-              maxLines: 3,
-              maxLength: 500,
-              decoration: InputDecoration(
-                hintText: 'Optional comment',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Skip & Complete'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Complete'),
-          ),
-        ],
-      ),
-    );
-    if (proceed == true) {
-      await _finishDelivery(
-        otpAlreadyVerified: true,
-        deliveryComment: _commentController.text.trim(),
-      );
-    }
+    final note = await showDeliveryNoteSheet(context);
+    if (note == null || !mounted) return;
+    await _finishDelivery(otpAlreadyVerified: true, deliveryComment: note);
   }
 
   Future<void> _markDeliveryFailed() async {
     if (_delivery == null) return;
-    final reasonCtrl = TextEditingController();
-    final reason = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delivery Failed', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Reason / comment is required (customer not available, wrong address, refused, etc.).',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 4,
-              maxLength: 800,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Why did delivery fail?',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, reasonCtrl.text.trim()),
-            child: const Text('Submit Failed'),
-          ),
-        ],
-      ),
-    );
-    reasonCtrl.dispose();
-    if (reason == null) return;
-    if (reason.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failure reason is required.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
+    final reason = await showDeliveryFailedSheet(context);
+    if (reason == null || reason.isEmpty || !mounted) return;
 
     final result = await OrderService.instance.failDelivery(
       _delivery!.id,
@@ -462,120 +381,24 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   }
 
   Future<bool> _askCustomerOtp() async {
-    _otpController.clear();
-    final otp = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Customer OTP', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ask the customer for the 4-digit Delivery OTP shown in their GreenGroo order screen.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              autofocus: true,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 8),
-              decoration: InputDecoration(
-                hintText: '••••',
-                counterText: '',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => Navigator.pop(ctx, _otpController.text.trim()),
-            child: const Text('VERIFY OTP'),
-          ),
-        ],
-      ),
+    final d = _delivery!;
+    return showCustomerOtpSheet(
+      context,
+      orderNumber: d.orderNumber,
+      onVerify: (otp) async {
+        final result = await OrderService.instance.verifyCustomerOtp(d.id, otp);
+        return result.success ? null : (result.error ?? 'Incorrect OTP');
+      },
     );
-
-    if (otp == null || otp.isEmpty) return false;
-
-    final result = await OrderService.instance.verifyCustomerOtp(_delivery!.id, otp);
-    if (!result.success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.error ?? 'Incorrect OTP'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return false;
-    }
-    return true;
   }
 
   Future<void> _askPaymentMethodAndFinish() async {
     final d = _delivery!;
-    final choice = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Payment Method', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Collect ₹${d.amountToCollect} from customer',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Item total ₹${d.itemsTotal}  ·  Delivery fee ₹${d.deliveryFee}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF059669),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () => Navigator.pop(ctx, 'online'),
-              icon: const Icon(Icons.qr_code_2_rounded),
-              label: const Text('Online (Razorpay / UPI scan)'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFB45309),
-                side: const BorderSide(color: Color(0xFFFBBF24)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () => Navigator.pop(ctx, 'cash'),
-              icon: const Icon(Icons.payments_outlined),
-              label: const Text('Physical Cash (COD)'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        ],
-      ),
+    final choice = await showPaymentMethodSheet(
+      context,
+      amount: d.amountToCollect,
+      itemsTotal: d.itemsTotal,
+      deliveryFee: d.deliveryFee,
     );
 
     if (choice == null || !mounted) return;
@@ -605,67 +428,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       return;
     }
 
-    final proceed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Cash collected', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFDBA74)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '⚠ Pay back to Dark Store Manager by end of day',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF9A3412),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Item total          ₹${d.itemsTotal}', style: const TextStyle(fontSize: 13)),
-                  Text('Delivery fee     ₹${d.deliveryFee}', style: const TextStyle(fontSize: 13)),
-                  const Divider(height: 16),
-                  Text(
-                    'Total to submit  ₹${d.amountToCollect}',
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF9A3412)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Order will be marked delivered. Keep this cash and submit it to your delivery manager before end of day.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF059669),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('OK, COMPLETE ORDER'),
-          ),
-        ],
-      ),
+    if (!mounted) return;
+    final proceed = await showCashCollectedSheet(
+      context,
+      amount: d.amountToCollect,
+      itemsTotal: d.itemsTotal,
+      deliveryFee: d.deliveryFee,
     );
 
-    if (proceed == true) {
+    if (proceed && mounted) {
       await _askOptionalCommentThenFinish();
     }
   }
@@ -678,10 +449,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
 
-    // OTP already verified — send a placeholder so backend path that expects otp still works if needed
     final result = await OrderService.instance.completeDelivery(
       _delivery!.id,
-      otpAlreadyVerified ? 'VERIFIED' : _otpController.text.trim(),
+      'VERIFIED',
       deliveryComment: deliveryComment,
     );
 
@@ -735,14 +505,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     }
   }
 
-  Future<void> _callStore(String? phone) async {
+  Future<void> _callStore(String? phone) => _callNumber(phone, 'Store');
+
+  Future<void> _callNumber(String? phone, String who) async {
     if (phone == null || phone.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Store phone number not available.')),
+        SnackBar(content: Text('$who phone number not available.')),
       );
       return;
     }
-    final uri = Uri.parse('tel:$phone');
+    final uri = Uri.parse('tel:${phone.replaceAll(RegExp(r'[^\d+]'), '')}');
     if (!await launchUrl(uri)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -924,6 +696,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     onViewMap: () => _navigateToCustomer(d),
                   ),
                   const SizedBox(height: 12),
+                  if (d.hasCustomerPhone) ...[
+                    _CustomerContactCard(
+                      name: d.customerName,
+                      phone: d.customerPhone,
+                      onCall: () => _callNumber(d.customerPhone, 'Customer'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   _OrderItemsSummaryCard(
                     totalItems: totalItems,
                     itemsTotal: itemsTotal,
@@ -957,7 +737,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               isUnlocked: isUnlocked,
               proofPending: proofPending,
               customerNavStarted: _customerNavStarted,
-              otpVerified: d.customerOtpVerified,
+              otpVerified: OrderService.instance.isOtpVerified(d),
               onItemProof: _openItemProofCapture,
               onNavigateCustomer: _onNavigateCustomerTap,
               onCaptureProof: _captureDeliveryProofThenOtp,
@@ -1510,6 +1290,79 @@ class _CustomerAddressCard extends StatelessWidget {
               'View on Map',
               style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerContactCard extends StatelessWidget {
+  const _CustomerContactCard({
+    required this.name,
+    required this.phone,
+    required this.onCall,
+  });
+
+  final String name;
+  final String phone;
+  final VoidCallback onCall;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.trim().isEmpty ? 'C' : name.trim()[0].toUpperCase();
+    return _WhiteCard(
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: const Color(0xFFDCFCE7),
+            child: Text(
+              initial,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF126B43),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name.trim().isEmpty ? 'Customer' : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  phone,
+                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B7280)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Hidden automatically after delivery',
+                  style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF9CA3AF)),
+                ),
+              ],
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: onCall,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF126B43),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+            ),
+            icon: const Icon(Icons.call_rounded, size: 16),
+            label: Text('Call', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
           ),
         ],
       ),

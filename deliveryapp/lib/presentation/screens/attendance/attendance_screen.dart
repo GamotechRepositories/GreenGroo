@@ -7,7 +7,8 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../widgets/cards/dashboard_card.dart';
+import '../../widgets/charts/weekly_bar_chart.dart';
+import '../../widgets/common/app_panel.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -26,6 +27,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int _shiftsBooked = 0;
   int _shiftsCompleted = 0;
   List<_DayBox> _days = const [];
+  bool _showTrips = false;
 
   @override
   void initState() {
@@ -68,6 +70,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _error = 'Could not load attendance. Pull to retry.';
       });
     }
+  }
+
+  static String _fmtMinutes(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h == 0) return '${m}m';
+    return '${h}h ${m}m';
   }
 
   void _showDayDetails(_DayBox day) {
@@ -163,175 +172,298 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         showBackButton: true,
       ),
       body: RefreshIndicator(
+        color: AppColors.primary,
         onRefresh: _load,
         child: _loading
-            ? ListView(
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              )
+            ? const PageSkeleton()
             : _error != null
                 ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(AppSpacing.lg),
-                    children: [
-                      DashboardCard(
-                        child: Column(
-                          children: [
-                            Text(_error!, textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            TextButton(onPressed: _load, child: const Text('Retry')),
-                          ],
-                        ),
-                      ),
-                    ],
+                    children: [ErrorPanel(message: _error!, onRetry: _load)],
                   )
-                : ListView(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    children: [
-                      Text(
-                        'Today’s progress',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
+                : _content(),
+      ),
+    );
+  }
+
+  Widget _content() {
+    final weekMinutes = _days.fold<int>(0, (s, d) => s + d.onlineMinutes);
+    final weekTrips = _days.fold<int>(0, (s, d) => s + d.trips);
+    final activeDays = _days.where((d) => d.onlineMinutes > 0 || d.trips > 0).length;
+    final weekShiftsBooked = _days.fold<int>(0, (s, d) => s + d.shiftsBooked);
+    final weekShiftsDone = _days.fold<int>(0, (s, d) => s + d.shiftsCompleted);
+
+    final bars = [
+      for (final d in _days)
+        ChartBar(
+          label: d.dayLabel.length > 3 ? d.dayLabel.substring(0, 3) : d.dayLabel,
+          value: _showTrips ? d.trips.toDouble() : d.onlineMinutes / 60,
+          highlight: d.isToday,
+        ),
+    ];
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxxl),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: brandHeroDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'Today’s progress',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Shifts booked',
-                              value: '$_shiftsBooked',
-                              icon: Icons.event_available_outlined,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Completed',
-                              value: '$_shiftsCompleted',
-                              icon: Icons.check_circle_outline,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Online time',
-                              value: _online,
-                              icon: Icons.schedule_outlined,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: _StatCard(
-                              title: 'Total trips',
-                              value: '$_trips',
-                              icon: Icons.delivery_dining_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      Text(
-                        'This week',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Tap a day box to see online time and trips',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _days.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 0.92,
-                        ),
-                        itemBuilder: (context, index) {
-                          final day = _days[index];
-                          return InkWell(
-                            onTap: () => _showDayDetails(day),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: day.isToday
-                                    ? AppColors.primarySoft
-                                    : AppColors.surface,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: day.isToday
-                                      ? AppColors.primary
-                                      : AppColors.border,
-                                  width: day.isToday ? 1.6 : 1,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.shadow,
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    day.dayLabel,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    day.dayNum,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: day.isToday
-                                          ? AppColors.primaryDark
-                                          : AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${day.trips} trip${day.trips == 1 ? '' : 's'}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      color: AppColors.textMuted,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                    ),
                   ),
+                  const Spacer(),
+                  Icon(Icons.timer_outlined, color: Colors.white.withValues(alpha: 0.9)),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Online time',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _online,
+                style: GoogleFonts.inter(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: HeroStat(label: 'Trips', value: '$_trips')),
+                    Expanded(child: HeroStat(label: 'Shifts booked', value: '$_shiftsBooked')),
+                    Expanded(child: HeroStat(label: 'Completed', value: '$_shiftsCompleted')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        const SectionLabel('This week', subtitle: 'Last 7 days'),
+        KpiGrid(
+          children: [
+            KpiTile(
+              label: 'Online hours',
+              value: _fmtMinutes(weekMinutes),
+              icon: Icons.schedule_rounded,
+            ),
+            KpiTile(
+              label: 'Trips delivered',
+              value: '$weekTrips',
+              icon: Icons.delivery_dining_rounded,
+              accent: AppColors.info,
+            ),
+            KpiTile(
+              label: 'Active days',
+              value: '$activeDays / ${_days.length}',
+              icon: Icons.event_available_rounded,
+              accent: const Color(0xFF8B5CF6),
+            ),
+            KpiTile(
+              label: 'Shifts completed',
+              value: '$weekShiftsDone / $weekShiftsBooked',
+              icon: Icons.task_alt_rounded,
+              accent: AppColors.warning,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppPanel(
+          title: _showTrips ? 'Trips per day' : 'Online hours per day',
+          subtitle: 'Tap a bar for day details',
+          trailing: _MetricToggle(
+            showTrips: _showTrips,
+            onChanged: (v) => setState(() => _showTrips = v),
+          ),
+          child: WeeklyBarChart(
+            bars: bars,
+            color: _showTrips ? AppColors.info : AppColors.primary,
+            emptyMessage: 'No activity recorded this week',
+            axisLabel: (v) {
+              final s = v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+              return _showTrips ? s : '${s}h';
+            },
+            tooltipLabel: (i) {
+              final d = _days[i];
+              return '${d.dayLabel}\n${d.onlineTime} · ${d.trips} trip${d.trips == 1 ? '' : 's'}';
+            },
+            onBarTap: (i) {
+              if (i >= 0 && i < _days.length) _showDayDetails(_days[i]);
+            },
+          ),
+        ),
+        AppPanel(
+          title: 'Week calendar',
+          subtitle: 'Tap a day to see online time and trips',
+          child: _days.isEmpty
+              ? const EmptyPanelMessage(message: 'No days to show yet.', icon: Icons.calendar_today_outlined)
+              : Column(
+                  children: [
+                    Row(
+                      children: [
+                        for (final d in _days)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: _DayPill(day: d, onTap: () => _showDayDetails(d)),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 6,
+                      children: [
+                        LegendDot(color: AppColors.primary, label: 'Active'),
+                        LegendDot(color: AppColors.border, label: 'No activity'),
+                      ],
+                    ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricToggle extends StatelessWidget {
+  const _MetricToggle({required this.showTrips, required this.onChanged});
+
+  final bool showTrips;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget chip(String label, bool selected, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: selected
+                ? [BoxShadow(color: AppColors.shadow, blurRadius: 4, offset: const Offset(0, 1))]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: selected ? AppColors.textPrimary : AppColors.textMuted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppColors.cardSubBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardSubBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          chip('Hours', !showTrips, () => onChanged(false)),
+          chip('Trips', showTrips, () => onChanged(true)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayPill extends StatelessWidget {
+  const _DayPill({required this.day, required this.onTap});
+
+  final _DayBox day;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = day.onlineMinutes > 0 || day.trips > 0;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: day.isToday ? AppColors.primary : AppColors.cardSubBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: day.isToday ? AppColors.primary : AppColors.cardSubBorder,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              day.dayLabel.length > 3 ? day.dayLabel.substring(0, 3) : day.dayLabel,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: day.isToday ? Colors.white.withValues(alpha: 0.85) : AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              day.dayNum,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: day.isToday ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: active
+                    ? (day.isToday ? Colors.white : AppColors.primary)
+                    : (day.isToday ? Colors.white.withValues(alpha: 0.4) : AppColors.border),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -354,7 +486,7 @@ class _DetailTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.cardSubBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.cardSubBorder),
       ),
       child: Column(
@@ -384,39 +516,6 @@ class _DetailTile extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return DashboardCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(height: AppSpacing.sm),
-          Text(title, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DayBox {
   const _DayBox({
     required this.date,
@@ -424,6 +523,7 @@ class _DayBox {
     required this.dayNum,
     required this.isToday,
     required this.onlineTime,
+    required this.onlineMinutes,
     required this.trips,
     required this.shiftsBooked,
     required this.shiftsCompleted,
@@ -434,6 +534,7 @@ class _DayBox {
   final String dayNum;
   final bool isToday;
   final String onlineTime;
+  final int onlineMinutes;
   final int trips;
   final int shiftsBooked;
   final int shiftsCompleted;
@@ -447,6 +548,7 @@ class _DayBox {
           (date.contains('-') ? date.split('-').last : date),
       isToday: json['isToday'] == true,
       onlineTime: json['totalOnlineFormatted']?.toString() ?? '0m',
+      onlineMinutes: (json['totalOnlineMinutes'] as num?)?.round() ?? 0,
       trips: (json['totalTrips'] as num?)?.toInt() ?? 0,
       shiftsBooked: (json['shiftsBooked'] as num?)?.toInt() ?? 0,
       shiftsCompleted: (json['shiftsCompleted'] as num?)?.toInt() ?? 0,

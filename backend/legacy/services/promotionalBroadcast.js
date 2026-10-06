@@ -20,7 +20,7 @@ export async function broadcastPromotionalNotification({ title, body = "", data,
     data.linkTarget && data.linkTarget !== "none" && data.linkTarget !== "general";
   const type = hasNavigation || data.offerId ? "offer" : "promotional";
 
-  const users = await User.find(audienceFilter(audience)).select("_id fcmToken").lean();
+  const users = await User.find(audienceFilter(audience)).select("_id fcmToken fcmTokens").lean();
   return broadcastToUsers(users, {
     title,
     body,

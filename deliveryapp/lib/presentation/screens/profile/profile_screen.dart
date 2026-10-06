@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_spacing.dart';
@@ -11,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../widgets/cards/dashboard_card.dart';
+import '../../widgets/common/app_panel.dart';
 import '../../widgets/layout/custom_app_bar.dart';
 import '../../widgets/tiles/profile_tile.dart';
 
@@ -116,76 +118,152 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final boy = _boy;
     final avatar = _avatarImage;
 
+    final hasRating = (boy?.totalRatingsCount ?? 0) > 0;
+    final employment = (boy?.employmentType ?? '').trim();
+    final location = [boy?.area ?? '', boy?.city ?? '']
+        .where((s) => s.trim().isNotEmpty)
+        .join(', ');
+
     final body = ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
-        DashboardCard(
-          child: Row(
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: brandHeroDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: _busy ? null : _changeAvatar,
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: AppColors.primaryLight,
-                      backgroundImage: avatar,
-                      child: avatar == null
-                          ? Icon(Icons.person, size: 36, color: AppColors.primary)
-                          : null,
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: _busy ? null : _changeAvatar,
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                          child: CircleAvatar(
+                            radius: 36,
+                            backgroundColor: AppColors.primaryLight,
+                            backgroundImage: avatar,
+                            child: avatar == null
+                                ? Icon(Icons.person, size: 36, color: AppColors.primary)
+                                : null,
+                          ),
                         ),
-                        child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.primary, width: 2),
+                            ),
+                            child: Icon(Icons.camera_alt, size: 12, color: AppColors.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          boy?.name.isNotEmpty == true ? boy!.name : 'Delivery Partner',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          boy?.phone ?? '',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                        if (employment.isNotEmpty || location.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              if (employment.isNotEmpty)
+                                _HeroChip(
+                                  icon: Icons.badge_outlined,
+                                  label: employment
+                                      .toLowerCase()
+                                      .split('_')
+                                      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+                                      .join('-'),
+                                ),
+                              if (location.isNotEmpty)
+                                _HeroChip(icon: Icons.location_on_outlined, label: location),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Material(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      onPressed: _busy ? null : _editName,
+                      icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+                      tooltip: 'Edit name',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: HeroStat(
+                        label: hasRating ? '${boy!.totalRatingsCount} ratings' : 'Rating',
+                        value: hasRating ? '★ ${boy!.rating.toStringAsFixed(1)}' : '—',
+                      ),
+                    ),
+                    Expanded(
+                      child: HeroStat(
+                        label: 'Vehicle',
+                        value: boy?.vehicleType.isNotEmpty == true ? boy!.vehicleType : '—',
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      boy?.name.isNotEmpty == true ? boy!.name : 'Delivery Partner',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      boy?.phone ?? '',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Tap photo to update · saved to cloud & home avatar',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                            fontSize: 11,
-                          ),
-                    ),
-                  ],
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Tap photo to update · saved to cloud & home avatar',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.8),
                 ),
-              ),
-              IconButton(
-                onPressed: _busy ? null : _editName,
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: 'Edit name',
               ),
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.xl),
+        const SectionLabel('Account details'),
         DashboardCard(
           padding: EdgeInsets.zero,
           child: Column(
@@ -239,6 +317,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.white),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ],
       ),
     );

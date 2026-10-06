@@ -32,6 +32,16 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _forcedOfflineController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _deliveryUpdatedController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<bool> _connectionController = StreamController<bool>.broadcast();
+
+  /// Any server-side change to this rider's deliveries (assignment, pickup
+  /// approval, status change, cancellation…). Screens refresh on this instead of polling.
+  Stream<Map<String, dynamic>> get onActiveDeliveryUpdated => _deliveryUpdatedController.stream;
+
+  /// true on every (re)connect — a cue to catch up on anything missed while offline.
+  Stream<bool> get onConnectionChanged => _connectionController.stream;
 
   Stream<Map<String, dynamic>> get onOrderAssigned =>
       _orderAssignedController.stream;
@@ -54,11 +64,17 @@ class SocketService {
 
   void connect(String riderId) {
     if (riderId.isEmpty) return;
+    final sameRider = _riderId == riderId;
     _riderId = riderId;
 
-    if (_socket != null && _socket!.connected) {
-      _joinRoom();
+    // A live or reconnecting socket for this rider is reused; never stack a second one.
+    if (_socket != null && sameRider) {
+      if (_socket!.connected) _joinRoom();
       return;
+    }
+    if (_socket != null) {
+      _socket!.dispose();
+      _socket = null;
     }
 
     final serverUrl = ApiConfig.baseUrl;
@@ -70,6 +86,7 @@ class SocketService {
       IO.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .setAuth({if (token != null && token.isNotEmpty) 'token': token})
+          .enableForceNew()
           .enableAutoConnect()
           .enableReconnection()
           .setReconnectionAttempts(99999)
@@ -81,12 +98,31 @@ class SocketService {
       _isConnected = true;
       debugPrint('[Socket] Connected to server: ${_socket!.id}');
       _joinRoom();
+      _connectionController.add(true);
     });
 
     _socket!.onDisconnect((reason) {
       _isConnected = false;
       debugPrint('[Socket] Disconnected: $reason');
+      _connectionController.add(false);
     });
+
+    for (final event in const [
+      'active_delivery_updated',
+      'new_order_assigned',
+      'pickup_qr_unlocked',
+      'same_route_window_started',
+      'pickup_verified',
+      'customer_address_unlocked',
+      'return_pickup_assigned',
+    ]) {
+      _socket!.on(event, (data) {
+        _deliveryUpdatedController.add({
+          'event': event,
+          if (data is Map) ...Map<String, dynamic>.from(data),
+        });
+      });
+    }
 
     _socket!.onConnectError((err) {
       debugPrint('[Socket] Connection Error: $err');

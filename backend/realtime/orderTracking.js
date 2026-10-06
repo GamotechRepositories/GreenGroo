@@ -2,6 +2,8 @@ import { changeFeed } from "../shared/realtime/changeFeed.js";
 import Order from "../legacy/models/order/Order.js";
 import StoreOrder from "../delivery-service/src/models/StoreOrder.js";
 import DeliveryBoy from "../delivery-service/src/models/DeliveryBoy.js";
+import { getIO } from "../socket.js";
+import { notifyStoreOrderStage } from "../legacy/services/orderNotificationDispatcher.js";
 import {
   authorizeDriverForOrder,
   customerOrderIdOf,
@@ -136,13 +138,55 @@ export function startOrderStatusRelay() {
 
   changeFeed.on("change", (change) => {
     if (!change.id || !change.doc?.status) return;
+    const coll = change.coll.toLowerCase();
+
+    if (coll === STORE_ORDERS) relayRiderDeliveryChange(change);
+
+    if (change.op === "insert" && coll === STORE_ORDERS) {
+      setTimeout(() => void notifyStoreOrderStage(change.doc), NEW_ORDER_CONFIRM_DELAY_MS);
+      return;
+    }
+
     const statusChanged =
       change.op === "replace" ||
       (change.op === "update" && change.updatedFields?.some((field) => field === "status"));
     if (!statusChanged) return;
 
-    const coll = change.coll.toLowerCase();
-    if (coll === STORE_ORDERS) emitOrderStatus(change.doc, change.doc.status);
-    else if (coll === ORDERS) emitCustomerOrderStatus(change.doc);
+    if (coll === STORE_ORDERS) {
+      emitOrderStatus(change.doc, change.doc.status);
+      void notifyStoreOrderStage(change.doc);
+    } else if (coll === ORDERS) {
+      emitCustomerOrderStatus(change.doc);
+    }
   });
+}
+
+/** Lets the "Order placed" push land before "Order confirmed" for brand-new orders. */
+const NEW_ORDER_CONFIRM_DELAY_MS = 4000;
+const RIDER_NOISE_FIELDS = new Set(["driverLocation", "updatedAt"]);
+const riderByStoreOrder = new Map();
+
+/**
+ * Tell the assigned rider's app its delivery changed so it refreshes on demand
+ * instead of polling. A rider who was just unassigned is told as well.
+ */
+function relayRiderDeliveryChange(change) {
+  const fields = change.updatedFields || [];
+  if (change.op === "update" && fields.length && fields.every((field) => RIDER_NOISE_FIELDS.has(field.split(".")[0]))) {
+    return;
+  }
+  const io = getIO();
+  if (!io) return;
+
+  const orderId = String(change.id);
+  const riderId = change.doc.assignedRiderId ? String(change.doc.assignedRiderId) : "";
+  const previous = riderByStoreOrder.get(orderId) || "";
+  const payload = { orderId, status: change.doc.status, at: new Date().toISOString() };
+
+  if (riderId) io.to(`rider_${riderId}`).emit("active_delivery_updated", payload);
+  if (previous && previous !== riderId) io.to(`rider_${previous}`).emit("active_delivery_updated", payload);
+
+  const closed = ["delivered", "cancelled", "delivery_failed"].includes(change.doc.status);
+  if (riderId && !closed) riderByStoreOrder.set(orderId, riderId);
+  else riderByStoreOrder.delete(orderId);
 }

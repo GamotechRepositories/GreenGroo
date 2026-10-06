@@ -156,7 +156,10 @@ abstract final class NotificationNavigator {
   }
 
   static bool _isOrderType(String type) {
-    return type.startsWith('order_') || type == 'out_for_delivery';
+    return type.startsWith('order_') ||
+        type == 'out_for_delivery' ||
+        type == 'rider_assigned' ||
+        type == 'delivery_failed';
   }
 
   static bool _isPaymentType(String type) {
