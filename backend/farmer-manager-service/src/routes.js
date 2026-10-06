@@ -484,7 +484,12 @@ managerRouter.delete("/:farmerId/orders/:orderId", requireManager, deleteFarmerO
 managerRouter.get("/farmers/:farmerId/earnings", requireManager, getFarmerEarnings);
 managerRouter.get("/farmers/:farmerId/documents", requireManager, getFarmerDocuments);
 managerRouter.post("/farmers/:farmerId/documents", requireManager, uploadFarmerDocument);
-managerRouter.patch("/farmers/:farmerId/documents/:documentId/status", requireManager, updateFarmerDocumentStatus);
+managerRouter.patch("/farmers/:farmerId/documents/:documentId/status", requireManager, (req, res) => {
+  return res.status(403).json({
+    success: false,
+    message: "Managers are not authorized to approve or reject farmer documents. Verification is reserved for Admin.",
+  });
+});
 
 driverAuthRouter.post("/login", driverLogin);
 driverAuthRouter.get("/me", requireDriver, getDriverMe);

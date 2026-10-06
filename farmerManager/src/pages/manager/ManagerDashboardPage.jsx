@@ -536,12 +536,12 @@ export default function ManagerDashboardPage() {
     if (pendingDocs > 0) {
       items.push({
         id: "docs",
-        title: "Farmer KYC Docs Pending",
+        title: "Farmer KYC Documents",
         count: pendingDocs,
-        desc: `${pendingDocs} farmer verification documents waiting for compliance check`,
-        badge: "KYC Action",
+        desc: `${pendingDocs} farmer documents uploaded or pending compliance review`,
+        badge: "KYC Uploads",
         badgeColor: "bg-blue-100 text-blue-800 border-blue-200",
-        actionLabel: "Verify KYC",
+        actionLabel: "Upload Docs",
         to: "/manager/documents",
         icon: FileText,
       });
