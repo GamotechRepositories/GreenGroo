@@ -17,6 +17,7 @@ import '../../features/home/home_providers.dart';
 import '../../models/cart_item.dart';
 import '../../features/product/product_providers.dart';
 import 'widgets/similar_products_section.dart';
+import 'widgets/top_category_products_section.dart';
 import '../../models/product.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/common/app_network_image.dart';
@@ -685,7 +686,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           : product.subcategory,
                     ),
 
-                    const SizedBox(height: 130),
+                    const SizedBox(height: 6),
+                    // Top Category Products Section (More from this category)
+                    TopCategoryProductsSection(product: product),
+
+                    SizedBox(height: MediaQuery.paddingOf(context).bottom + 20),
                   ],
                 ),
               ),

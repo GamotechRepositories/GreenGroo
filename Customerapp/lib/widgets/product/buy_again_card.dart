@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../config/app_decorations.dart';
 import '../../config/theme.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../features/auth/auth_controller.dart';
@@ -13,9 +12,14 @@ import '../../models/product.dart';
 import '../../widgets/common/app_network_image.dart';
 
 class BuyAgainCard extends ConsumerWidget {
-  const BuyAgainCard({super.key, required this.item});
+  const BuyAgainCard({
+    super.key,
+    required this.item,
+    this.width = 136,
+  });
 
   final OrderItem item;
+  final double width;
 
   CartItem? _findCartLine(List<CartItem> items) {
     for (final cartItem in items) {
@@ -46,7 +50,7 @@ class BuyAgainCard extends ConsumerWidget {
     final product = _toProduct();
     final result = await ref.read(cartControllerProvider.notifier).addToCart(
           product,
-          item.quantity > 0 ? item.quantity : 1,
+          1,
           variantName: item.variantName,
           colorName: item.colorName,
           flySourceContext: context,
@@ -105,153 +109,194 @@ class BuyAgainCard extends ConsumerWidget {
       }),
     );
 
+    final variantText = item.variantName.trim().isNotEmpty
+        ? item.variantName.trim()
+        : (item.brandName.trim().isNotEmpty ? item.brandName.trim() : '1 unit');
+
     return SizedBox(
-      width: 140,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            InkWell(
-              onTap: () => context.push('/product/${item.productId}'),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: AppColors.borderLight)),
-                  ),
-                  child: AppNetworkImage(
-                    imageUrl: item.image,
-                    cacheWidth: 140,
-                  ),
-                ),
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Image box
+          AspectRatio(
+            aspectRatio: 1.0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE5E7EB), width: 1.0),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: item.productId.isNotEmpty
+                        ? () => context.push('/product/${item.productId}')
+                        : null,
+                    child: Stack(
                       children: [
-                        InkWell(
-                          onTap: () => context.push('/product/${item.productId}'),
-                          child: Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          formatInr(item.price),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: item.image.isNotEmpty
+                                ? AppNetworkImage(
+                                    imageUrl: item.image,
+                                    fit: BoxFit.contain,
+                                    cacheWidth: 200,
+                                  )
+                                : const Center(
+                                    child: Icon(
+                                      Icons.image_outlined,
+                                      color: AppColors.textMuted,
+                                      size: 32,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
                     ),
-                    if (cartQuantity > 0)
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.borderLight),
-                          borderRadius: BorderRadius.circular(AppDecorations.radiusSm),
-                          color: Colors.white,
-                        ),
-                        child: Row(
-                          children: [
-                            _QtyButton(
-                              label: '−',
-                              onTap: () => _handleDecrease(ref),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  '$cartQuantity',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            _QtyButton(
-                              label: '+',
-                              onTap: () => _handleIncrease(ref, context),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      SizedBox(
-                        height: 28,
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () => _handleAdd(ref, context),
-                          style: ElevatedButton.styleFrom(
-                            elevation: 0,
-                            padding: EdgeInsets.zero,
-                            textStyle: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                          child: const Text('ADD'),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          // Product Name
+          GestureDetector(
+            onTap: item.productId.isNotEmpty
+                ? () => context.push('/product/${item.productId}')
+                : null,
+            child: Text(
+              item.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                height: 1.25,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          // Variant / Brand
+          Text(
+            variantText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Price & Add Button Row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  formatInr(item.price),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (cartQuantity > 0)
+                Container(
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CompactQtyButton(
+                        icon: Icons.remove,
+                        onTap: () => _handleDecrease(ref),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          '$cartQuantity',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      _CompactQtyButton(
+                        icon: Icons.add,
+                        onTap: () => _handleIncrease(ref, context),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 30,
+                  child: OutlinedButton(
+                    onPressed: () => _handleAdd(ref, context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: AppColors.primary, width: 1.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'ADD',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _QtyButton extends StatelessWidget {
-  const _QtyButton({required this.label, required this.onTap});
+class _CompactQtyButton extends StatelessWidget {
+  const _CompactQtyButton({required this.icon, required this.onTap});
 
-  final String label;
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Icon(icon, size: 14, color: Colors.white),
         ),
       ),
     );

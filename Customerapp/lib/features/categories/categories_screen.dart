@@ -383,170 +383,175 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: ClipRect(
         child: SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              SizedBox(height: topInset + 2),
-              // 1. Select Location Row (with Back Button)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go(RoutePaths.home);
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.arrow_back_rounded,
-                        size: 20,
-                        color: Color(0xFF0F172A),
+          child: Padding(
+            padding: EdgeInsets.only(top: topInset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. Select Location Row (with Back Button)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 2),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: IconButton(
+                          onPressed: () {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go(RoutePaths.home);
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.arrow_back_rounded,
+                            size: 20,
+                            color: Color(0xFF0F172A),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                        ),
                       ),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Consumer(
-                        builder: (context, ref, _) => InkWell(
-                          onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_rounded,
-                                  size: 16,
-                                  color: locationColor,
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    addressText,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF06311D),
-                                    ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Consumer(
+                          builder: (context, ref, _) => InkWell(
+                            onTap: () => showSelectDeliveryLocationBottomSheet(context, ref),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on_rounded,
+                                    size: 16,
+                                    color: locationColor,
                                   ),
-                                ),
-                                Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 18,
-                                  color: locationColor,
-                                ),
-                                if (storeName?.isNotEmpty == true) ...[
                                   const SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
-                                      '($storeName)',
+                                      addressText,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: locationColor,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF06311D),
                                       ),
                                     ),
                                   ),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 18,
+                                    color: locationColor,
+                                  ),
+                                  if (storeName?.isNotEmpty == true) ...[
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        '($storeName)',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: locationColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              // 2. Search Bar Box (Pure White inner box)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(21),
-                          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.only(left: 12, right: 4),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.search_rounded,
-                              color: Color(0xFF64748B),
-                              size: 19,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: searchController,
-                                onSubmitted: onSubmitted,
-                                textInputAction: TextInputAction.search,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF111827),
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: searchHint,
-                                  hintStyle: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF94A3B8),
+                // 2. Search Bar Box (Pure White inner box)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(21),
+                            border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.only(left: 12, right: 4),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.search_rounded,
+                                color: Color(0xFF64748B),
+                                size: 19,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: searchController,
+                                  onSubmitted: onSubmitted,
+                                  textInputAction: TextInputAction.search,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF111827),
                                   ),
-                                  filled: false,
-                                  isCollapsed: true,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  errorBorder: InputBorder.none,
-                                  focusedErrorBorder: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
+                                  decoration: InputDecoration(
+                                    hintText: searchHint,
+                                    hintStyle: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF94A3B8),
+                                    ),
+                                    filled: false,
+                                    isCollapsed: true,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    focusedErrorBorder: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
                                 ),
                               ),
-                            ),
-                            VoiceMicButton(
-                              onTranscript: (text, isFinal) {
-                                searchController.value = TextEditingValue(
-                                  text: text,
-                                  selection: TextSelection.collapsed(
-                                    offset: text.length,
-                                  ),
-                                );
-                                if (isFinal) onSubmitted(text);
-                              },
-                            ),
-                          ],
+                              VoiceMicButton(
+                                onTranscript: (text, isFinal) {
+                                  searchController.value = TextEditingValue(
+                                    text: text,
+                                    selection: TextSelection.collapsed(
+                                      offset: text.length,
+                                    ),
+                                  );
+                                  if (isFinal) onSubmitted(text);
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const OffersBadgeButton(height: 42),
-                  ],
+                      const SizedBox(width: 8),
+                      const OffersBadgeButton(height: 42),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),
@@ -554,12 +559,5 @@ class _StickyCategoryHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _StickyCategoryHeaderDelegate oldDelegate) {
-    return oldDelegate.topInset != topInset ||
-        oldDelegate.addressText != addressText ||
-        oldDelegate.storeName != storeName ||
-        oldDelegate.headerColor != headerColor ||
-        oldDelegate.locationColor != locationColor ||
-        oldDelegate.searchHint != searchHint;
-  }
+  bool shouldRebuild(covariant _StickyCategoryHeaderDelegate oldDelegate) => true;
 }

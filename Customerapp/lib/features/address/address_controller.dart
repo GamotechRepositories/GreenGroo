@@ -42,6 +42,11 @@ class AddressController extends Notifier<AddressState> {
         loadAddresses();
       }
     });
+
+    final isLoggedIn = ref.watch(authControllerProvider.select((s) => s.isLoggedIn));
+    if (isLoggedIn) {
+      Future.microtask(loadAddresses);
+    }
     return const AddressState();
   }
 

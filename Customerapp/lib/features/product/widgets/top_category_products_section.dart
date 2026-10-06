@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../config/theme.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -15,82 +16,194 @@ import '../../../widgets/common/skeleton_loaders.dart';
 import '../../../widgets/product/wishlist_button.dart';
 import '../product_providers.dart';
 
-class SimilarProductsSection extends ConsumerWidget {
-  const SimilarProductsSection({
+class TopCategoryProductsSection extends ConsumerWidget {
+  const TopCategoryProductsSection({
     super.key,
-    required this.productId,
-    this.categoryName = '',
+    required this.product,
+    this.sectionTitle,
   });
 
-  final String productId;
-  final String categoryName;
+  final Product product;
+  final String? sectionTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(similarProductsProvider(productId));
+    final catName = product.categories.isNotEmpty
+        ? product.categories.first.trim()
+        : product.subcategory.trim();
 
-    return productsAsync.when(
-      loading: () => const _SimilarProductsSkeleton(),
-      error: (_, _) => _buildCategoryFallback(context, ref),
+    final query = catName.isNotEmpty
+        ? ProductQuery(categoryName: catName)
+        : const ProductQuery(hotSelling: true);
+
+    final categoryAsync = ref.watch(productListProvider(query));
+
+    return categoryAsync.when(
+      loading: () => const _TopCategorySkeleton(),
+      error: (_, _) => _buildFallback(context, ref, catName),
       data: (products) {
         final filtered =
-            products.where((p) => p.id != productId && p.isActive).toList();
+            products.where((p) => p.id != product.id && p.isActive).toList();
         if (filtered.isNotEmpty) {
-          return _SimilarProductsList(products: filtered);
+          final displayTitle = sectionTitle ??
+              (catName.isNotEmpty
+                  ? 'Top $catName Products'
+                  : 'Top Category Products');
+          return _TopCategoryProductsList(
+            title: displayTitle,
+            categoryName: catName.isNotEmpty ? catName : 'All Products',
+            products: filtered,
+          );
         }
-        return _buildCategoryFallback(context, ref);
+        return _buildFallback(context, ref, catName);
       },
     );
   }
 
-  Widget _buildCategoryFallback(BuildContext context, WidgetRef ref) {
-    final trimmedCategory = categoryName.trim();
-    if (trimmedCategory.isEmpty) return const SizedBox.shrink();
-
-    final categoryAsync = ref.watch(
-      productListProvider(ProductQuery(categoryName: trimmedCategory)),
+  Widget _buildFallback(
+    BuildContext context,
+    WidgetRef ref,
+    String primaryCategory,
+  ) {
+    // Fallback 1: query hot selling or general products
+    final fallbackAsync = ref.watch(
+      productListProvider(const ProductQuery()),
     );
-    return categoryAsync.when(
-      loading: () => const _SimilarProductsSkeleton(),
+
+    return fallbackAsync.when(
+      loading: () => const _TopCategorySkeleton(),
       error: (_, _) => const SizedBox.shrink(),
       data: (products) {
         final filtered =
-            products.where((p) => p.id != productId && p.isActive).toList();
+            products.where((p) => p.id != product.id && p.isActive).toList();
         if (filtered.isEmpty) return const SizedBox.shrink();
-        return _SimilarProductsList(products: filtered);
+
+        final displayTitle = sectionTitle ??
+            (primaryCategory.isNotEmpty
+                ? 'More in $primaryCategory'
+                : 'Top Category Products');
+
+        return _TopCategoryProductsList(
+          title: displayTitle,
+          categoryName:
+              primaryCategory.isNotEmpty ? primaryCategory : 'Products',
+          products: filtered.take(10).toList(),
+        );
       },
     );
   }
 }
 
-class _SimilarProductsList extends StatelessWidget {
-  const _SimilarProductsList({required this.products});
+class _TopCategoryProductsList extends StatelessWidget {
+  const _TopCategoryProductsList({
+    required this.title,
+    required this.categoryName,
+    required this.products,
+  });
 
+  final String title;
+  final String categoryName;
   final List<Product> products;
+
+  void _navigateToCategory(BuildContext context) {
+    if (categoryName.isNotEmpty &&
+        categoryName != 'Products' &&
+        categoryName != 'All Products') {
+      context.push(
+        '${RoutePaths.product}?categoryName=${Uri.encodeComponent(categoryName)}',
+      );
+    } else {
+      context.push(RoutePaths.product);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Similar products',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
+        // Section Header Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    'Explore popular products in $categoryName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () => _navigateToCategory(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'See all',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF047857),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: Color(0xFF047857),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
+
+        // Horizontal Product List with "Show More" Card at the end
         SizedBox(
           height: 245,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
-            itemCount: products.length,
+            itemCount: products.length + 1,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) =>
-                _BlinkitSimilarProductCard(product: products[index]),
+            itemBuilder: (context, index) {
+              if (index < products.length) {
+                return _TopCategoryProductCard(product: products[index]);
+              }
+              // Last Item: "Show More" Card
+              return _ShowMoreCategoryCard(
+                categoryName: categoryName,
+                onTap: () => _navigateToCategory(context),
+              );
+            },
           ),
         ),
       ],
@@ -98,8 +211,83 @@ class _SimilarProductsList extends StatelessWidget {
   }
 }
 
-class _BlinkitSimilarProductCard extends ConsumerWidget {
-  const _BlinkitSimilarProductCard({required this.product});
+class _ShowMoreCategoryCard extends StatelessWidget {
+  const _ShowMoreCategoryCard({
+    required this.categoryName,
+    required this.onTap,
+  });
+
+  final String categoryName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 124,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFBBF7D0)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFF047857),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF047857).withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Show More',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF065F46),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'See all in $categoryName',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF047857),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopCategoryProductCard extends ConsumerWidget {
+  const _TopCategoryProductCard({required this.product});
 
   final Product product;
 
@@ -495,7 +683,7 @@ class _BlinkitSimilarProductCard extends ConsumerWidget {
             ),
             const SizedBox(height: 3),
 
-            // Tag / Badge (e.g. No Maida)
+            // Tag / Badge
             if (badgeText != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 2),
@@ -522,14 +710,13 @@ class _BlinkitSimilarProductCard extends ConsumerWidget {
             Row(
               children: [
                 ...List.generate(
-                    5,
-                    (index) => Icon(
-                          index < rating.floor()
-                              ? Icons.star
-                              : Icons.star_border,
-                          size: 10,
-                          color: const Color(0xFFF59E0B),
-                        )),
+                  5,
+                  (index) => Icon(
+                    index < rating.floor() ? Icons.star : Icons.star_border,
+                    size: 10,
+                    color: const Color(0xFFF59E0B),
+                  ),
+                ),
                 const SizedBox(width: 3),
                 Text(
                   '$reviewsCount',
@@ -570,21 +757,20 @@ class _BlinkitSimilarProductCard extends ConsumerWidget {
   }
 }
 
-class _SimilarProductsSkeleton extends StatelessWidget {
-  const _SimilarProductsSkeleton();
+class _TopCategorySkeleton extends StatelessWidget {
+  const _TopCategorySkeleton();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Similar products',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SkeletonBox(width: 160, height: 20, borderRadius: 6),
+            const SkeletonBox(width: 60, height: 16, borderRadius: 4),
+          ],
         ),
         const SizedBox(height: 8),
         SizedBox(

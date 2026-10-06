@@ -14,6 +14,8 @@ import '../../widgets/layout/shell_bottom_insets.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/common/voice_mic_button.dart';
+import '../../features/profile/profile_recent_items.dart';
+import '../../widgets/product/buy_again_card.dart';
 import '../home/home_providers.dart';
 import 'widgets/blinkit_order_card.dart';
 
@@ -149,6 +151,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       return false;
     }).toList();
 
+    final recentProducts = query.isEmpty ? extractRecentOrderItems(orders) : <OrderItem>[];
     final chrome = StoreChrome.forStore(ref.watch(selectedStoreTabProvider));
 
     return Column(
@@ -225,16 +228,73 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               : RefreshIndicator(
                   onRefresh: _loadOrders,
                   color: AppColors.primary,
-                  child: ListView.separated(
+                  child: ListView.builder(
                     controller: _scrollController,
                     physics: AppScrollConfig.listPhysics,
                     cacheExtent: AppScrollConfig.cacheExtent,
                     padding: ShellBottomInsets.listPadding(context, left: 12, top: 12, right: 12),
-                    itemCount: filteredOrders.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemCount: filteredOrders.length + (recentProducts.isNotEmpty ? 1 : 0),
                     itemBuilder: (context, index) {
-                      return RepaintBoundary(
-                        child: BlinkitOrderCard(order: filteredOrders[index]),
+                      if (recentProducts.isNotEmpty) {
+                        if (index == 0) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Buy Again',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Items from your previous orders',
+                                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                                ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  height: 228,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: recentProducts.length,
+                                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                                    itemBuilder: (context, itemIdx) {
+                                      return BuyAgainCard(item: recentProducts[itemIdx]);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                const Text(
+                                  'Past Orders',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        final order = filteredOrders[index - 1];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: RepaintBoundary(
+                            child: BlinkitOrderCard(order: order),
+                          ),
+                        );
+                      }
+
+                      final order = filteredOrders[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: RepaintBoundary(
+                          child: BlinkitOrderCard(order: order),
+                        ),
                       );
                     },
                   ),

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/app_info.dart';
 import '../../config/theme.dart';
-import '../../core/providers/app_providers.dart';
 import '../../core/providers/package_info_provider.dart';
 import '../../core/scroll/app_scroll_config.dart';
 import '../../core/scroll/tab_scroll_registry.dart';
@@ -13,15 +12,19 @@ import '../../core/utils/website_share.dart';
 import '../../features/address/address_controller.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../models/address.dart';
-import '../../models/order.dart';
 import '../../models/user.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/address/address_form.dart';
 import '../../widgets/common/refreshable_body.dart';
 import '../../widgets/common/skeleton_loaders.dart';
 import '../../widgets/layout/shell_bottom_insets.dart';
-import '../../widgets/product/buy_again_card.dart';
-import 'profile_recent_items.dart';
+
+String _profileInitials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return 'G';
+  if (parts.length == 1) return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -34,21 +37,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TabScrollRegistry _tabScrollRegistry;
   final _scrollController = ScrollController();
   final _addressesSectionKey = GlobalKey();
-  final _addressPageController = PageController();
 
   bool _showAddressForm = false;
   Address? _editingAddress;
   bool _savingAddress = false;
   String? _formError;
-  int _addressPage = 0;
-  List<OrderItem> _recentItems = [];
-  bool _recentItemsLoading = false;
+  bool _isAddressesExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _tabScrollRegistry = ref.read(tabScrollRegistryProvider);
-    Future.microtask(_loadRecentItems);
+    Future.microtask(() {
+      if (mounted) {
+        ref.read(addressControllerProvider.notifier).loadAddresses();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tabScrollRegistry.register(ShellTabIndex.account, _scrollController);
@@ -59,36 +63,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _tabScrollRegistry.unregister(ShellTabIndex.account, _scrollController);
     _scrollController.dispose();
-    _addressPageController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadRecentItems() async {
-    if (!ref.read(authControllerProvider).isLoggedIn) return;
-
-    setState(() => _recentItemsLoading = true);
-    try {
-      final orders = await ref.read(apiServiceProvider).fetchMyOrders();
-      if (!mounted) return;
-      setState(() {
-        _recentItems = extractRecentOrderItems(orders);
-        _recentItemsLoading = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _recentItems = [];
-          _recentItemsLoading = false;
-        });
-      }
-    }
-  }
-
   Future<void> _refreshProfile() async {
-    await Future.wait([
-      ref.read(addressControllerProvider.notifier).loadAddresses(),
-      _loadRecentItems(),
-    ]);
+    await ref.read(addressControllerProvider.notifier).loadAddresses();
   }
 
   void _scrollToAddresses() {
@@ -99,6 +78,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
       );
+    }
+  }
+
+  void _openAddressesDropdown() {
+    setState(() {
+      _isAddressesExpanded = true;
+    });
+    ref.read(addressControllerProvider.notifier).loadAddresses();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToAddresses();
+    });
+  }
+
+  void _toggleAddressesDropdown() {
+    setState(() {
+      _isAddressesExpanded = !_isAddressesExpanded;
+    });
+    if (_isAddressesExpanded) {
+      ref.read(addressControllerProvider.notifier).loadAddresses();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToAddresses();
+      });
     }
   }
 
@@ -223,7 +224,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Log out of GreenGroo?'),
-        content: const Text('You will need to sign in again to access your account, orders, and saved addresses.'),
+        content: const Text('You will need to sign in again to access your account and saved addresses.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -277,7 +278,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Sign in to manage your account details, view orders, saved addresses & quick checkout.',
+                  'Sign in to manage your account details, saved addresses & quick checkout.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppColors.textSecondary, height: 1.4),
                 ),
@@ -310,31 +311,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final topInset = MediaQuery.paddingOf(context).top;
-    final topPadding = topInset > 0 ? topInset + 16 : 24.0;
 
-    return RefreshIndicator(
-      onRefresh: _refreshProfile,
-      child: ListView(
-        controller: _scrollController,
-        physics: AppScrollConfig.listPhysics,
-        cacheExtent: AppScrollConfig.cacheExtent,
-        padding: ShellBottomInsets.listPadding(context, top: topPadding),
-        children: [
-          Row(
-            children: [
-              const Text(
-                'My Account',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          color: AppColors.pageBackground,
+          padding: EdgeInsets.fromLTRB(16, topInset > 0 ? topInset + 12 : 20, 16, 12),
+          child: const Text(
+            'My Account',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.3,
+            ),
           ),
-          const SizedBox(height: 14),
-          _ProfileHeaderCard(
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refreshProfile,
+            child: ListView(
+              controller: _scrollController,
+              physics: AppScrollConfig.listPhysics,
+              cacheExtent: AppScrollConfig.cacheExtent,
+              padding: ShellBottomInsets.listPadding(context, top: 4),
+              children: [
+                _ProfileHeaderCard(
             user: user,
             onEditName: () => _editProfileField(
               title: 'Name',
@@ -356,32 +359,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           _QuickActionsGrid(
-            onAddresses: _scrollToAddresses,
-            onOrders: () => context.go(RoutePaths.orders),
+            onAddresses: _openAddressesDropdown,
             onWishlist: () => context.push(RoutePaths.wishlist),
-            onNotifications: () => context.push(RoutePaths.notifications),
             onSupport: () => context.push(RoutePaths.support),
           ),
-          if (_recentItemsLoading || _recentItems.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _RecentOrderItemsSection(
-              items: _recentItems,
-              loading: _recentItemsLoading,
-            ),
-          ],
           const SizedBox(height: 20),
           _SavedAddressesSection(
             sectionKey: _addressesSectionKey,
+            isExpanded: _isAddressesExpanded,
+            onToggleExpand: _toggleAddressesDropdown,
             addresses: addresses,
             loading: addressesLoading,
             showForm: _showAddressForm,
             editingAddress: _editingAddress,
             savingAddress: _savingAddress,
             formError: _formError,
-            pageController: _addressPageController,
-            currentPage: _addressPage,
-            onPageChanged: (index) => setState(() => _addressPage = index),
             onAddAddress: () => setState(() {
+              _isAddressesExpanded = true;
               _editingAddress = null;
               _showAddressForm = true;
               _formError = null;
@@ -393,6 +387,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             }),
             onSubmitForm: _handleSaveAddress,
             onEditAddress: (address) => setState(() {
+              _isAddressesExpanded = true;
               _editingAddress = address;
               _showAddressForm = true;
               _formError = null;
@@ -439,8 +434,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 12),
         ],
       ),
-    );
-  }
+    ),
+  ),
+],
+);
+}
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
@@ -476,45 +474,23 @@ class _ProfileHeaderCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: AppColors.headerSearchBg,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 2),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      profileInitials(user.name),
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                      ),
-                    ),
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.headerSearchBg,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2), width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _profileInitials(user.name),
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: InkWell(
-                      onTap: onEditName,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(Icons.edit_rounded, size: 10, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -525,9 +501,9 @@ class _ProfileHeaderCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            user.name.isNotEmpty ? user.name : 'Valued Customer',
+                            user.name.isNotEmpty ? user.name : 'GreenGroo User',
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
@@ -652,28 +628,18 @@ class _ProfileDetailTile extends StatelessWidget {
 class _QuickActionsGrid extends StatelessWidget {
   const _QuickActionsGrid({
     required this.onAddresses,
-    required this.onOrders,
     required this.onWishlist,
-    required this.onNotifications,
     required this.onSupport,
   });
 
   final VoidCallback onAddresses;
-  final VoidCallback onOrders;
   final VoidCallback onWishlist;
-  final VoidCallback onNotifications;
   final VoidCallback onSupport;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _QuickActionTile(
-          icon: Icons.shopping_bag_outlined,
-          label: 'My Orders',
-          onTap: onOrders,
-        ),
-        const SizedBox(width: 10),
         _QuickActionTile(
           icon: Icons.location_on_outlined,
           label: 'Addresses',
@@ -761,73 +727,17 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-class _RecentOrderItemsSection extends StatelessWidget {
-  const _RecentOrderItemsSection({
-    required this.items,
-    required this.loading,
-  });
-
-  final List<OrderItem> items;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Buy Again',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 2),
-        const Text(
-          'Items from your recent orders',
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 12),
-        if (loading)
-          SizedBox(
-            height: 148,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: 4,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (_, _) => Container(
-                width: 112,
-                decoration: BoxDecoration(
-                  color: AppColors.mobileSurface,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          )
-        else
-          SizedBox(
-            height: 220,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, index) => BuyAgainCard(item: items[index]),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _SavedAddressesSection extends StatelessWidget {
   const _SavedAddressesSection({
     required this.sectionKey,
+    required this.isExpanded,
+    required this.onToggleExpand,
     required this.addresses,
     required this.loading,
     required this.showForm,
     required this.editingAddress,
     required this.savingAddress,
     required this.formError,
-    required this.pageController,
-    required this.currentPage,
-    required this.onPageChanged,
     required this.onAddAddress,
     required this.onCancelForm,
     required this.onSubmitForm,
@@ -836,15 +746,14 @@ class _SavedAddressesSection extends StatelessWidget {
   });
 
   final Key sectionKey;
+  final bool isExpanded;
+  final VoidCallback onToggleExpand;
   final List<Address> addresses;
   final bool loading;
   final bool showForm;
   final Address? editingAddress;
   final bool savingAddress;
   final String? formError;
-  final PageController pageController;
-  final int currentPage;
-  final ValueChanged<int> onPageChanged;
   final VoidCallback onAddAddress;
   final VoidCallback onCancelForm;
   final Future<void> Function(Map<String, String> form) onSubmitForm;
@@ -853,124 +762,206 @@ class _SavedAddressesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Container(
       key: sectionKey,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Saved Addresses',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            if (!showForm)
-              OutlinedButton.icon(
-                onPressed: onAddAddress,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  side: const BorderSide(color: AppColors.primary),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Add New', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-          ],
-        ),
-        if (formError != null && !showForm) ...[
-          const SizedBox(height: 6),
-          Text(formError!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
-        ],
-        const SizedBox(height: 10),
-        if (showForm) ...[
-          AddressForm(
-            plain: true,
-            initial: editingAddress != null ? mapAddressToForm(editingAddress!) : null,
-            submitting: savingAddress,
-            onCancel: onCancelForm,
-            onSubmit: onSubmitForm,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          if (formError != null) ...[
-            const SizedBox(height: 8),
-            Text(formError!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
-          ],
-        ] else if (loading)
-          const SkeletonAddressList()
-        else if (addresses.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: onToggleExpand,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderLight),
-            ),
-            child: Column(
-              children: [
-                const Icon(Icons.location_off_outlined, size: 40, color: AppColors.textMuted),
-                const SizedBox(height: 8),
-                const Text(
-                  'No saved addresses yet',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.headerFadeBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.location_on_outlined, size: 20, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Flexible(
+                                child: Text(
+                                  'Saved Addresses',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (addresses.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.headerFadeBg,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${addresses.length}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isExpanded ? 'Tap to hide addresses' : 'Tap to view your saved addresses',
+                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(Icons.keyboard_arrow_down_rounded, size: 24, color: AppColors.textSecondary),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Add your delivery location for faster checkout',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: onAddAddress,
-                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
-                  label: const Text('Add Delivery Address'),
-                ),
-              ],
-            ),
-          )
-        else ...[
-          SizedBox(
-            height: 195,
-            child: PageView.builder(
-              controller: pageController,
-              itemCount: addresses.length,
-              onPageChanged: onPageChanged,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: _AddressCard(
-                    address: addresses[index],
-                    onEdit: () => onEditAddress(addresses[index]),
-                    onDelete: () => onDeleteAddress(addresses[index]),
-                  ),
-                );
-              },
+              ),
             ),
           ),
-          if (addresses.length > 1) ...[
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                addresses.length,
-                (index) => Container(
-                  width: index == currentPage ? 16 : 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(3),
-                    color: index == currentPage
-                        ? AppColors.primary
-                        : AppColors.borderLight,
-                  ),
-                ),
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!showForm && addresses.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${addresses.length} ${addresses.length == 1 ? 'Address' : 'Addresses'}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onAddAddress,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 14),
+                          label: const Text('Add New', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (formError != null && !showForm) ...[
+                    Text(formError!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                    const SizedBox(height: 10),
+                  ],
+                  if (showForm) ...[
+                    AddressForm(
+                      plain: true,
+                      initial: editingAddress != null ? mapAddressToForm(editingAddress!) : null,
+                      submitting: savingAddress,
+                      onCancel: onCancelForm,
+                      onSubmit: onSubmitForm,
+                    ),
+                    if (formError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(formError!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                    ],
+                  ] else if (loading)
+                    const SkeletonAddressList()
+                  else if (addresses.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.headerFadeBg.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.location_off_outlined, size: 36, color: AppColors.textMuted),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No saved addresses yet',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Add your delivery location for faster checkout',
+                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton.icon(
+                            onPressed: onAddAddress,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+                            label: const Text('Add Delivery Address', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Column(
+                      children: [
+                        for (final address in addresses)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _AddressCard(
+                              address: address,
+                              onEdit: () => onEditAddress(address),
+                              onDelete: () => onDeleteAddress(address),
+                            ),
+                          ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -986,8 +977,26 @@ class _AddressCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  IconData _getAddressTypeIcon(String tag) {
+    final lower = tag.toLowerCase();
+    if (lower.contains('home')) return Icons.home_outlined;
+    if (lower.contains('work') || lower.contains('office')) return Icons.work_outline;
+    return Icons.location_on_outlined;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tagLabel = address.shopName.trim().isNotEmpty
+        ? address.shopName.trim()
+        : (address.landmark.trim().isNotEmpty ? address.landmark.trim() : 'Address');
+    final formattedAddress = formatAddressLine(address);
+    final displayAddress = formattedAddress.isNotEmpty
+        ? formattedAddress
+        : (address.fullAddress.isNotEmpty
+            ? address.fullAddress
+            : '${address.shopNo} ${address.area} ${address.city} ${address.pincode}'.trim());
+    final fullName = getAddressFullName(address);
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -996,7 +1005,7 @@ class _AddressCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderLight),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1006,44 +1015,63 @@ class _AddressCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.headerSearchBg,
+                  color: AppColors.headerFadeBg,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.home_outlined, size: 18, color: AppColors.primary),
+                child: Icon(_getAddressTypeIcon(tagLabel), size: 18, color: AppColors.primary),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        getAddressFullName(address),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (address.isDefault) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'DEFAULT',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF15803D),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            tagLabel.toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 0.3,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (address.isDefault) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'DEFAULT',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF15803D),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (fullName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        fullName,
+                        style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
@@ -1051,6 +1079,8 @@ class _AddressCard extends StatelessWidget {
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textMuted),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
                 onSelected: (value) {
                   if (value == 'edit') onEdit();
                   if (value == 'delete') onDelete();
@@ -1063,32 +1093,40 @@ class _AddressCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Expanded(
-            child: Text(
-              formatAddressLine(address),
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Text(
+            displayAddress.isNotEmpty ? displayAddress : 'Saved delivery address',
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
           ),
-          const Divider(height: 12),
+          const Divider(height: 16),
           Row(
             children: [
               const Icon(Icons.phone_outlined, size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 4),
-              Text(
-                address.number.startsWith('+91') ? address.number : '+91 ${address.number}',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+              Expanded(
+                child: Text(
+                  address.number.startsWith('+91') ? address.number : '+91 ${address.number}',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: onEdit,
-                child: const Text('Edit', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                borderRadius: BorderRadius.circular(4),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text('Edit', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: onDelete,
-                child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+                borderRadius: BorderRadius.circular(4),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  child: Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
               ),
             ],
           ),

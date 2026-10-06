@@ -325,11 +325,7 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
-    return oldDelegate.isLightNotifier != isLightNotifier ||
-        oldDelegate.topInset != topInset ||
-        oldDelegate.currentStore != currentStore;
-  }
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) => true;
 }
 
 /// Custom clipper that applies the exact arc wave around the current open department tab,

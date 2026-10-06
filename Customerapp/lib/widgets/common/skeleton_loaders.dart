@@ -86,19 +86,19 @@ class SkeletonOrderList extends StatelessWidget {
 }
 
 class SkeletonWishlistList extends StatelessWidget {
-  const SkeletonWishlistList({super.key, this.count = 6});
+  const SkeletonWishlistList({super.key, this.count = 9});
 
   final int count;
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 100),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.58,
+        childAspectRatio: 0.59,
       ),
       itemCount: count,
       itemBuilder: (_, _) => const SkeletonBox(borderRadius: 12),
