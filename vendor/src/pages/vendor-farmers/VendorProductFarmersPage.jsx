@@ -122,7 +122,7 @@ export default function VendorProductFarmersPage() {
   const [searchParams] = useSearchParams();
   const productId = searchParams.get("productId") || "";
   const productNameParam = searchParams.get("name") || "";
-  const backTo = "/vendor/products";
+  const backTo = "/vendor/farmer-products";
 
   const [farmers, setFarmers] = useState([]);
   const [products, setProducts] = useState([]);

@@ -89,7 +89,7 @@ export default function VendorProductAddPage() {
     };
   }, [farmerId, lockedFarmerId]);
 
-  const backTo = lockedFarmerId ? `/vendor/all-farmers/${lockedFarmerId}` : "/vendor/products";
+  const backTo = lockedFarmerId ? `/vendor/all-farmers/${lockedFarmerId}` : "/vendor/farmer-products";
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -210,8 +210,8 @@ export default function VendorProductAddPage() {
             </Link>
           </>
         ) : (
-          <Link to="/vendor/products" className="hover:text-[#217346]">
-            All Products
+          <Link to="/vendor/farmer-products" className="hover:text-[#217346]">
+            Farmer Products
           </Link>
         )}
         <span>›</span>

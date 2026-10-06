@@ -189,11 +189,11 @@ export default function VendorProductsPage() {
     <div className="min-w-0 space-y-4 p-6">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">All Products</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Farmer Products</h1>
           <p className="hidden text-sm text-slate-500 md:block">Approve farmer products before they go live</p>
         </div>
         <Link
-          to="/vendor/products/add"
+          to="/vendor/farmer-products/add"
           className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-[#217346] px-3 text-xs font-semibold text-white hover:bg-[#1a5c38] md:h-auto md:py-2"
         >
           + Add Product

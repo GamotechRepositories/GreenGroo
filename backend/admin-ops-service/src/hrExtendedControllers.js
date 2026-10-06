@@ -10,15 +10,30 @@ import {
   HrTask,
   HrVacancy,
   HrMeeting,
+  HrVendorLeavePolicy,
 } from "./models.js";
 import { ROLE_LABELS } from "../../staff-service/src/constants/roles.js";
-import { loadHrPeople } from "./opsControllers.js";
+import { loadScopedHrPeople } from "./opsControllers.js";
+import {
+  VENDOR_HR_ROLE_KEYS,
+  allowedHrRole,
+  canManageHrEmployee,
+  hrEmployeeFilter,
+  hrOwnerFilter,
+  hrOwnerId,
+  isVendorScope,
+  liveHrOwnerFilter,
+  ownsHrRecord,
+  scopedRoles,
+  withHrScope,
+} from "./hrScope.js";
 
 const ok = (res, data, extra = {}) => res.json({ success: true, data, ...extra });
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 
 async function notifyDeliveryBoysAnnouncement(row) {
   try {
+    if (row.vendorId) return;
     const roleKey = String(row.roleKey || "all").toLowerCase();
     if (roleKey !== "all" && roleKey !== "delivery_boy") return;
 
@@ -76,10 +91,29 @@ async function ensureLeavePolicies() {
   return HrLeavePolicy.find().sort({ roleKey: 1 }).lean();
 }
 
+async function ensureVendorLeavePolicies(vendorId) {
+  const existing = await HrVendorLeavePolicy.find({ vendorId }).lean();
+  const have = new Set(existing.map((row) => row.roleKey));
+  const missing = VENDOR_HR_ROLE_KEYS.filter((role) => !have.has(role));
+  if (missing.length) {
+    await HrVendorLeavePolicy.insertMany(
+      missing.map((roleKey) => ({
+        vendorId,
+        roleKey,
+        casualDays: 12,
+        sickDays: 12,
+        earnedDays: 15,
+        notes: "Default annual leave policy",
+      }))
+    );
+  }
+  return HrVendorLeavePolicy.find({ vendorId }).sort({ roleKey: 1 }).lean();
+}
+
 export async function getHrPerson(req, res, next) {
   try {
     const { type, id } = req.params;
-    const { people } = await loadHrPeople();
+    const { people } = await loadScopedHrPeople(req);
     const person = people.find((row) => row.employeeType === type && String(row.id) === String(id));
     if (!person) return fail(res, 404, "Employee not found");
     const [attendance, leaves, payroll, tasks, shifts, meetings] = await Promise.all([
@@ -88,7 +122,10 @@ export async function getHrPerson(req, res, next) {
       HrPayroll.find({ employeeId: id }).sort({ month: -1 }).limit(24).lean(),
       HrTask.find({ employeeId: id }).sort({ createdAt: -1 }).limit(40).lean(),
       HrShift.find({ employeeId: id }).sort({ date: -1 }).limit(40).lean(),
-      HrMeeting.find({ roles: person.roleKey || "all" }).sort({ createdAt: -1 }).limit(40).lean(),
+      HrMeeting.find({ roles: { $in: [person.roleKey || "all", "all"] }, ...hrOwnerFilter(req) })
+        .sort({ createdAt: -1 })
+        .limit(40)
+        .lean(),
     ]);
     return ok(res, { person, attendance, leaves, payroll, tasks, shifts, meetings });
   } catch (error) {
@@ -96,15 +133,15 @@ export async function getHrPerson(req, res, next) {
   }
 }
 
-export async function listHrRoles(_req, res, next) {
+export async function listHrRoles(req, res, next) {
   try {
-    const { people } = await loadHrPeople();
+    const { people } = await loadScopedHrPeople(req);
     const counts = {};
     people.forEach((person) => {
       const key = person.roleKey || "other";
       counts[key] = (counts[key] || 0) + 1;
     });
-    const roles = HR_ROLES.filter((role) => role.value !== "all").map((role) => ({
+    const roles = scopedRoles(req, HR_ROLES).filter((role) => role.value !== "all").map((role) => ({
       ...role,
       count: counts[role.value] || 0,
     }));
@@ -242,6 +279,7 @@ export async function listLiveHrAnnouncements(req, res, next) {
     const rows = await HrAnnouncement.find({
       status: "published",
       roleKey: { $in: ["all", roleKey] },
+      ...liveHrOwnerFilter(req.user),
     })
       .sort({ publishedAt: -1, createdAt: -1 })
       .limit(20)
@@ -263,14 +301,14 @@ export async function listLiveHrAnnouncements(req, res, next) {
 export async function listHrAnnouncements(req, res, next) {
   try {
     await publishDueAnnouncements();
-    const filter = {};
+    const filter = { ...hrOwnerFilter(req) };
     if (req.query.roleKey && req.query.roleKey !== "all") {
       filter.$or = [{ roleKey: req.query.roleKey }, { roleKey: "all" }];
     }
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
     const rows = await HrAnnouncement.find(filter).sort({ createdAt: -1 }).lean();
     return ok(res, rows, {
-      roles: HR_ROLES,
+      roles: scopedRoles(req, HR_ROLES),
       stats: {
         draft: rows.filter((row) => row.status === "draft").length,
         scheduled: rows.filter((row) => row.status === "scheduled").length,
@@ -289,15 +327,18 @@ export async function createHrAnnouncement(req, res, next) {
     const scheduledAt = String(req.body.scheduledAt || "").trim();
     const status = resolveAnnouncementStatus({ status: req.body.status, scheduledAt });
     const category = normalizeAnnouncementCategory(req.body.category || req.body.kind);
+    const roleKey = String(req.body.roleKey || "all").trim() || "all";
+    if (!allowedHrRole(req, roleKey, { allowAll: true })) return fail(res, 400, "Choose a role from your team");
     const row = await HrAnnouncement.create({
       title,
       body: String(req.body.body || "").trim(),
-      roleKey: String(req.body.roleKey || "all").trim() || "all",
+      roleKey,
       category,
       status,
       scheduledAt,
       publishedAt: status === "published" ? new Date() : null,
-      createdBy: req.user?.email || req.user?.name || "admin",
+      createdBy: req.user?.email || req.user?.name || (isVendorScope(req) ? "vendor" : "admin"),
+      vendorId: hrOwnerId(req),
     });
     if (row.status === "published") {
       notifyDeliveryBoysAnnouncement(row).catch(() => {});
@@ -311,7 +352,10 @@ export async function createHrAnnouncement(req, res, next) {
 export async function updateHrAnnouncement(req, res, next) {
   try {
     const row = await HrAnnouncement.findById(req.params.id);
-    if (!row) return fail(res, 404, "Announcement not found");
+    if (!row || !ownsHrRecord(req, row)) return fail(res, 404, "Announcement not found");
+    if (req.body.roleKey !== undefined && !allowedHrRole(req, req.body.roleKey, { allowAll: true })) {
+      return fail(res, 400, "Choose a role from your team");
+    }
     ["title", "body", "roleKey", "scheduledAt"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
@@ -338,7 +382,7 @@ export async function updateHrAnnouncement(req, res, next) {
 
 export async function deleteHrAnnouncement(req, res, next) {
   try {
-    const row = await HrAnnouncement.findByIdAndDelete(req.params.id);
+    const row = await HrAnnouncement.findOneAndDelete({ _id: req.params.id, ...hrOwnerFilter(req) });
     if (!row) return fail(res, 404, "Announcement not found");
     return ok(res, { id: req.params.id });
   } catch (error) {
@@ -346,9 +390,9 @@ export async function deleteHrAnnouncement(req, res, next) {
   }
 }
 
-export async function listHrLeavePolicies(_req, res, next) {
+export async function listHrLeavePolicies(req, res, next) {
   try {
-    const rows = await ensureLeavePolicies();
+    const rows = isVendorScope(req) ? await ensureVendorLeavePolicies(hrOwnerId(req)) : await ensureLeavePolicies();
     return ok(
       res,
       rows.map((row) => ({
@@ -364,9 +408,10 @@ export async function listHrLeavePolicies(_req, res, next) {
 export async function upsertHrLeavePolicy(req, res, next) {
   try {
     const roleKey = String(req.body.roleKey || req.params.roleKey || "").trim();
-    if (!HR_ROLE_KEYS.includes(roleKey)) return fail(res, 400, "Invalid role");
-    const row = await HrLeavePolicy.findOneAndUpdate(
-      { roleKey },
+    if (!HR_ROLE_KEYS.includes(roleKey) || !allowedHrRole(req, roleKey)) return fail(res, 400, "Invalid role");
+    const Model = isVendorScope(req) ? HrVendorLeavePolicy : HrLeavePolicy;
+    const row = await Model.findOneAndUpdate(
+      isVendorScope(req) ? { vendorId: hrOwnerId(req), roleKey } : { roleKey },
       {
         $set: {
           casualDays: Math.max(0, Number(req.body.casualDays ?? 12)),
@@ -388,10 +433,11 @@ export async function listHrLeaves(req, res, next) {
     const filter = {};
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
     if (req.query.roleKey && req.query.roleKey !== "all") filter.roleKey = req.query.roleKey;
-    const rows = await HrLeaveRequest.find(filter).sort({ createdAt: -1 }).limit(400).lean();
+    const scopeFilter = await hrEmployeeFilter(req);
+    const rows = await HrLeaveRequest.find(withHrScope(filter, scopeFilter)).sort({ createdAt: -1 }).limit(400).lean();
     const allForStats =
       req.query.roleKey && req.query.roleKey !== "all"
-        ? await HrLeaveRequest.find({}).select("roleKey status").lean()
+        ? await HrLeaveRequest.find(withHrScope({}, scopeFilter)).select("roleKey status").lean()
         : rows;
     const byRole = {};
     allForStats.forEach((row) => {
@@ -403,7 +449,7 @@ export async function listHrLeaves(req, res, next) {
       else if (row.status === "rejected") byRole[key].rejected += 1;
     });
     return ok(res, rows, {
-      roles: HR_ROLES.filter((role) => role.value !== "all"),
+      roles: scopedRoles(req, HR_ROLES).filter((role) => role.value !== "all"),
       byRole,
       stats: {
         pending: rows.filter((row) => row.status === "pending").length,
@@ -428,6 +474,9 @@ export async function createHrLeave(req, res, next) {
     });
     if (!employeeId || !name) return fail(res, 400, "Employee is required");
     if (!normalized.fromDate) return fail(res, 400, "Leave dates are required");
+    if (!(await canManageHrEmployee(req, req.body.employeeType || "staff", employeeId))) {
+      return fail(res, 403, "This employee is not in your team");
+    }
     const status = req.body.status === "approved" || req.body.assign ? "approved" : "pending";
     const row = await HrLeaveRequest.create({
       employeeId,
@@ -442,7 +491,7 @@ export async function createHrLeave(req, res, next) {
       days: normalized.days,
       reason: String(req.body.reason || "").trim(),
       status,
-      assignedBy: status === "approved" ? req.user?.email || "admin" : "",
+      assignedBy: status === "approved" ? req.user?.email || req.user?.name || (isVendorScope(req) ? "vendor" : "admin") : "",
     });
     return res.status(201).json({ success: true, data: row });
   } catch (error) {
@@ -503,13 +552,16 @@ export async function listMyHrLeaves(req, res, next) {
 export async function updateHrLeave(req, res, next) {
   try {
     const row = await HrLeaveRequest.findById(req.params.id);
-    if (!row) return fail(res, 404, "Leave request not found");
+    if (!row || !(await canManageHrEmployee(req, row.employeeType, row.employeeId))) {
+      return fail(res, 404, "Leave request not found");
+    }
     ["leaveType", "fromDate", "toDate", "reason", "adminNotes", "status"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
     if (row.fromDate && row.toDate) row.days = daysBetween(row.fromDate, row.toDate);
     if (req.body.status === "approved" || req.body.status === "rejected") {
-      row.assignedBy = req.user?.email || req.user?.name || row.assignedBy || "admin";
+      row.assignedBy =
+        req.user?.email || req.user?.name || row.assignedBy || (isVendorScope(req) ? "vendor" : "admin");
     }
     await row.save();
     return ok(res, row);
@@ -520,6 +572,10 @@ export async function updateHrLeave(req, res, next) {
 
 export async function deleteHrLeave(req, res, next) {
   try {
+    const existing = await HrLeaveRequest.findById(req.params.id).lean();
+    if (!existing || !(await canManageHrEmployee(req, existing.employeeType, existing.employeeId))) {
+      return fail(res, 404, "Leave request not found");
+    }
     const row = await HrLeaveRequest.findByIdAndDelete(req.params.id);
     if (!row) return fail(res, 404, "Leave request not found");
     return ok(res, { id: req.params.id });
@@ -533,7 +589,10 @@ export async function listHrShifts(req, res, next) {
     const filter = {};
     if (req.query.roleKey && req.query.roleKey !== "all") filter.roleKey = req.query.roleKey;
     if (req.query.date) filter.date = req.query.date;
-    const rows = await HrShift.find(filter).sort({ date: -1, startTime: 1 }).limit(400).lean();
+    const rows = await HrShift.find(withHrScope(filter, await hrEmployeeFilter(req)))
+      .sort({ date: -1, startTime: 1 })
+      .limit(400)
+      .lean();
     return ok(res, rows);
   } catch (error) {
     next(error);
@@ -546,6 +605,9 @@ export async function createHrShift(req, res, next) {
     const name = String(req.body.name || "").trim();
     const date = String(req.body.date || "").trim();
     if (!employeeId || !name || !date) return fail(res, 400, "Employee and date are required");
+    if (!(await canManageHrEmployee(req, req.body.employeeType || "staff", employeeId))) {
+      return fail(res, 403, "This employee is not in your team");
+    }
     let status = req.body.status === "scheduled" ? "scheduled" : "published";
     if (status === "scheduled" && isScheduleDue(date)) status = "published";
     const row = await HrShift.create({
@@ -570,7 +632,9 @@ export async function createHrShift(req, res, next) {
 export async function updateHrShift(req, res, next) {
   try {
     const row = await HrShift.findById(req.params.id);
-    if (!row) return fail(res, 404, "Shift not found");
+    if (!row || !(await canManageHrEmployee(req, row.employeeType, row.employeeId))) {
+      return fail(res, 404, "Shift not found");
+    }
     ["date", "startTime", "endTime", "shiftName", "notes", "name", "role", "roleKey"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
@@ -588,6 +652,10 @@ export async function updateHrShift(req, res, next) {
 
 export async function deleteHrShift(req, res, next) {
   try {
+    const existing = await HrShift.findById(req.params.id).lean();
+    if (!existing || !(await canManageHrEmployee(req, existing.employeeType, existing.employeeId))) {
+      return fail(res, 404, "Shift not found");
+    }
     const row = await HrShift.findByIdAndDelete(req.params.id);
     if (!row) return fail(res, 404, "Shift not found");
     return ok(res, { id: req.params.id });
@@ -605,7 +673,8 @@ export async function listHrCalendar(req, res, next) {
     const roleKey = String(req.query.roleKey || "all").trim();
     const monthStart = new Date(`${month}-01T00:00:00`);
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
-    const { people } = await loadHrPeople();
+    const { people } = await loadScopedHrPeople(req);
+    const scopeFilter = await hrEmployeeFilter(req);
     const peopleByKey = new Map(
       people.map((person) => [`${person.employeeType}:${String(person.id)}`, person])
     );
@@ -626,6 +695,7 @@ export async function listHrCalendar(req, res, next) {
     };
     const [announcements, shifts] = await Promise.all([
       HrAnnouncement.find({
+        ...hrOwnerFilter(req),
         $or: [
           { scheduledAt: { $regex: `^${month}` } },
           { publishedAt: { $gte: monthStart, $lt: monthEnd } },
@@ -637,7 +707,7 @@ export async function listHrCalendar(req, res, next) {
           },
         ],
       }).lean(),
-      HrShift.find({ date: { $regex: `^${month}` } }).lean(),
+      HrShift.find(withHrScope({ date: { $regex: `^${month}` } }, scopeFilter)).lean(),
     ]);
     const events = [
       ...announcements
@@ -670,7 +740,7 @@ export async function listHrCalendar(req, res, next) {
         meta: row,
       })),
     ];
-    return ok(res, events, { month, roleKey, roles: HR_ROLES });
+    return ok(res, events, { month, roleKey, roles: scopedRoles(req, HR_ROLES) });
   } catch (error) {
     next(error);
   }
@@ -691,21 +761,32 @@ export async function listLiveHrCalendar(req, res, next) {
     const recentCut = new Date();
     recentCut.setDate(recentCut.getDate() - 14);
     const recentDay = todayYmd(recentCut);
+    const viewerVendorId = String(req.user?.vendorId || "").trim();
+    const teamShiftFilter =
+      viewerVendorId && VENDOR_HR_ROLE_KEYS.includes(roleKey)
+        ? await hrEmployeeFilter({ hrScope: { vendorId: viewerVendorId } })
+        : null;
 
     const [announcements, shifts] = await Promise.all([
       HrAnnouncement.find({
         status: { $in: ["published", "scheduled"] },
         roleKey: { $in: ["all", roleKey] },
+        ...liveHrOwnerFilter(req.user),
       })
         .sort({ scheduledAt: 1, publishedAt: -1, createdAt: -1 })
         .limit(40)
         .select("title body roleKey category status scheduledAt publishedAt createdAt")
         .lean(),
-      HrShift.find({
-        roleKey: { $in: ["all", roleKey] },
-        date: { $gte: today, $lte: until },
-        $or: [{ status: "published" }, { status: { $exists: false } }, { status: null }],
-      })
+      HrShift.find(
+        withHrScope(
+          {
+            roleKey: { $in: ["all", roleKey] },
+            date: { $gte: today, $lte: until },
+            $or: [{ status: "published" }, { status: { $exists: false } }, { status: null }],
+          },
+          teamShiftFilter
+        )
+      )
         .sort({ date: 1, startTime: 1 })
         .limit(40)
         .lean(),
@@ -758,11 +839,11 @@ export async function listLiveHrCalendar(req, res, next) {
 
 export async function listHrVacancies(req, res, next) {
   try {
-    const filter = {};
+    const filter = { ...hrOwnerFilter(req) };
     if (req.query.status && req.query.status !== "all") filter.status = req.query.status;
     if (req.query.roleKey && req.query.roleKey !== "all") filter.roleKey = req.query.roleKey;
     const rows = await HrVacancy.find(filter).sort({ createdAt: -1 }).lean();
-    return ok(res, rows, { roles: HR_ROLES.filter((role) => role.value !== "all") });
+    return ok(res, rows, { roles: scopedRoles(req, HR_ROLES).filter((role) => role.value !== "all") });
   } catch (error) {
     next(error);
   }
@@ -820,6 +901,7 @@ export async function applyHrCandidate(req, res, next) {
       phone,
       roleKey: vacancy.roleKey,
       vacancyId: String(vacancy._id),
+      vendorId: vacancy.vendorId || "",
       section: "applied",
       applicationStatus: "pending",
       finalizeStatus: "",
@@ -873,7 +955,9 @@ export async function createHrVacancy(req, res, next) {
     const title = String(req.body.title || "").trim();
     const roleKey = String(req.body.roleKey || "").trim();
     if (!title) return fail(res, 400, "Vacancy title is required");
-    if (!HR_ROLE_KEYS.includes(roleKey)) return fail(res, 400, "Choose a role for this vacancy");
+    if (!HR_ROLE_KEYS.includes(roleKey) || !allowedHrRole(req, roleKey)) {
+      return fail(res, 400, "Choose a role for this vacancy");
+    }
     const row = await HrVacancy.create({
       title,
       roleKey,
@@ -881,6 +965,7 @@ export async function createHrVacancy(req, res, next) {
       location: String(req.body.location || "").trim(),
       description: String(req.body.description || "").trim(),
       status: req.body.status === "closed" ? "closed" : "open",
+      vendorId: hrOwnerId(req),
     });
     return res.status(201).json({ success: true, data: row });
   } catch (error) {
@@ -891,7 +976,10 @@ export async function createHrVacancy(req, res, next) {
 export async function updateHrVacancy(req, res, next) {
   try {
     const row = await HrVacancy.findById(req.params.id);
-    if (!row) return fail(res, 404, "Vacancy not found");
+    if (!row || !ownsHrRecord(req, row)) return fail(res, 404, "Vacancy not found");
+    if (req.body.roleKey !== undefined && !allowedHrRole(req, req.body.roleKey)) {
+      return fail(res, 400, "Choose a role for this vacancy");
+    }
     ["title", "roleKey", "location", "description", "status"].forEach((key) => {
       if (req.body[key] !== undefined) row[key] = req.body[key];
     });
@@ -925,7 +1013,7 @@ function deriveCandidateSection(row) {
 
 export async function listHrCandidates(req, res, next) {
   try {
-    const filter = {};
+    const filter = { ...hrOwnerFilter(req) };
     if (req.query.stage && req.query.stage !== "all") filter.stage = req.query.stage;
     if (req.query.applicationStatus && req.query.applicationStatus !== "all") {
       filter.applicationStatus = req.query.applicationStatus;
@@ -949,7 +1037,7 @@ export async function listHrCandidates(req, res, next) {
     if (req.query.section && req.query.section !== "all") {
       normalized = normalized.filter((row) => row.section === req.query.section);
     }
-    const all = await HrCandidate.find({}).select("section stage applicationStatus vacancyId").lean();
+    const all = await HrCandidate.find(hrOwnerFilter(req)).select("section stage applicationStatus vacancyId").lean();
     const bySection = { applied: 0, selected: 0, finalize: 0, recruited: 0 };
     const recruitedByVacancy = {};
     all.forEach((row) => {
@@ -975,7 +1063,7 @@ export async function listHrCandidates(req, res, next) {
 export async function getHrCandidate(req, res, next) {
   try {
     const row = await HrCandidate.findById(req.params.id).lean();
-    if (!row) return fail(res, 404, "Candidate not found");
+    if (!row || !ownsHrRecord(req, row)) return fail(res, 404, "Candidate not found");
     const vacancy = row.vacancyId ? await HrVacancy.findById(row.vacancyId).lean() : null;
     return ok(res, {
       ...row,
@@ -994,14 +1082,20 @@ export async function createHrCandidate(req, res, next) {
     const name = String(req.body.name || "").trim();
     const roleKey = String(req.body.roleKey || "").trim();
     if (!name) return fail(res, 400, "Candidate name is required");
-    if (!HR_ROLE_KEYS.includes(roleKey)) return fail(res, 400, "Choose a role");
-    const by = req.user?.email || req.user?.name || "admin";
+    if (!HR_ROLE_KEYS.includes(roleKey) || !allowedHrRole(req, roleKey)) return fail(res, 400, "Choose a role");
+    const by = req.user?.email || req.user?.name || (isVendorScope(req) ? "vendor" : "admin");
+    const vacancyId = String(req.body.vacancyId || "").trim();
+    if (vacancyId) {
+      const vacancy = await HrVacancy.findById(vacancyId).lean().catch(() => null);
+      if (!vacancy || !ownsHrRecord(req, vacancy)) return fail(res, 400, "Choose one of your vacancies");
+    }
     const row = await HrCandidate.create({
       name,
       email: String(req.body.email || "").trim().toLowerCase(),
       phone: String(req.body.phone || "").trim(),
       roleKey,
-      vacancyId: String(req.body.vacancyId || "").trim(),
+      vacancyId,
+      vendorId: hrOwnerId(req),
       section: "applied",
       applicationStatus: "pending",
       finalizeStatus: "",
@@ -1041,8 +1135,11 @@ export async function createHrCandidate(req, res, next) {
 export async function updateHrCandidate(req, res, next) {
   try {
     const row = await HrCandidate.findById(req.params.id);
-    if (!row) return fail(res, 404, "Candidate not found");
-    const by = req.user?.email || req.user?.name || "admin";
+    if (!row || !ownsHrRecord(req, row)) return fail(res, 404, "Candidate not found");
+    if (req.body.roleKey !== undefined && !allowedHrRole(req, req.body.roleKey)) {
+      return fail(res, 400, "Choose a role");
+    }
+    const by = req.user?.email || req.user?.name || (isVendorScope(req) ? "vendor" : "admin");
     const prevSection = deriveCandidateSection(row);
     const prevApp = row.applicationStatus || "pending";
     const prevFinalize = row.finalizeStatus || "";
@@ -1200,7 +1297,7 @@ function prettyStatus(value) {
 export async function downloadHrCandidateCv(req, res, next) {
   try {
     const row = await HrCandidate.findById(req.params.id);
-    if (!row) return fail(res, 404, "Candidate not found");
+    if (!row || !ownsHrRecord(req, row)) return fail(res, 404, "Candidate not found");
     if (row.resumeUrl && !row.resumeData) {
       return ok(res, { url: row.resumeUrl, name: row.resumeName || "cv" });
     }
@@ -1217,13 +1314,18 @@ export async function createHrMeeting(req, res, next) {
     if (!roles || !roles.length) {
       return fail(res, 400, "Please select at least one role");
     }
+    const roleList = (Array.isArray(roles) ? roles : [roles]).map((role) => String(role || "").trim()).filter(Boolean);
+    if (roleList.some((role) => !allowedHrRole(req, role, { allowAll: true }))) {
+      return fail(res, 400, "Choose roles from your team");
+    }
     const meeting = await HrMeeting.create({
-      roles,
+      roles: roleList,
       link,
       meetingId,
       password,
       note,
-      createdBy: req.user?._id || "",
+      createdBy: req.user?._id || req.user?.id || "",
+      vendorId: hrOwnerId(req),
     });
     return ok(res, meeting);
   } catch (error) {
@@ -1233,7 +1335,7 @@ export async function createHrMeeting(req, res, next) {
 
 export async function listHrMeetings(req, res, next) {
   try {
-    const meetings = await HrMeeting.find().sort({ createdAt: -1 }).lean();
+    const meetings = await HrMeeting.find(hrOwnerFilter(req)).sort({ createdAt: -1 }).lean();
     return ok(res, meetings);
   } catch (error) {
     next(error);
@@ -1243,8 +1345,10 @@ export async function listHrMeetings(req, res, next) {
 export async function listMyHrMeetings(req, res, next) {
   try {
     const roleKey = req.user?.roleKey || req.user?.role || "all";
+    const mappedRole = mapJwtRoleToHrKey(roleKey);
     const meetings = await HrMeeting.find({
-      $or: [{ roles: "all" }, { roles: roleKey }]
+      $or: [{ roles: "all" }, { roles: roleKey }, ...(mappedRole ? [{ roles: mappedRole }] : [])],
+      ...liveHrOwnerFilter(req.user),
     }).sort({ createdAt: -1 }).lean();
     return ok(res, meetings);
   } catch (error) {

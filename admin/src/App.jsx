@@ -12,6 +12,7 @@ import LocationMastersPage from './pages/erp/LocationMastersPage';
 import CropsPage from './pages/erp/CropsPage';
 import ErpListPage from './pages/erp/ErpListPage';
 import Products from './pages/Products';
+import Analytics from './pages/Analytics';
 import MarketPricesPage from './pages/ops/MarketPricesPage';
 import PreOrderSlots from './pages/PreOrderSlots';
 import DarkStores from './pages/DarkStores';
@@ -24,6 +25,14 @@ import DynamicPricing from './pages/ops/DynamicPricing';
 import BulkImportExport from './pages/ops/BulkImportExport';
 import CsvImportExport from './pages/ops/CsvImportExport';
 import MultiVendor from './pages/ops/MultiVendor';
+import MultiVendorDetailPage from './pages/ops/MultiVendorDetailPage';
+import VendorCommissionPage from './pages/ops/VendorCommissionPage';
+import DarkStoreRequestsPage from './pages/ops/DarkStoreRequestsPage';
+import CentreFarmersPage from './pages/ops/CentreFarmersPage';
+import CollectionDashboardPage from './pages/ops/CollectionDashboardPage';
+import VendorProductRequestsPage from './pages/ops/VendorProductRequestsPage';
+import VendorCropRequestsPage from './pages/ops/VendorCropRequestsPage';
+import CentreFarmerManagersPage from './pages/ops/CentreFarmerManagersPage';
 import HrManagement from './pages/ops/HrManagement';
 import HrCalendarPage from './pages/hr/HrCalendarPage';
 import HrAnnouncementsPage from './pages/hr/HrAnnouncementsPage';
@@ -76,6 +85,7 @@ export default function App() {
             <Route path="/" element={<AdminLayout />}>
               <Route index element={<CeoDashboard />} />
               <Route path="welcome" element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
               <Route path="traceability" element={<TraceabilityPage />} />
               <Route path="erp/locations" element={<LocationMastersPage />} />
               <Route path="erp/farmers" element={<FarmersPage />} />
@@ -100,6 +110,14 @@ export default function App() {
               <Route path="bulk-import-export" element={<BulkImportExport />} />
               <Route path="csv-import-export" element={<CsvImportExport />} />
               <Route path="multi-vendor" element={<MultiVendor />} />
+              <Route path="multi-vendor/:vendorId" element={<MultiVendorDetailPage />} />
+              <Route path="vendor-commission" element={<VendorCommissionPage />} />
+              <Route path="dark-store-requests" element={<DarkStoreRequestsPage />} />
+              <Route path="collection-dashboard" element={<CollectionDashboardPage />} />
+              <Route path="vendor-product-requests" element={<VendorProductRequestsPage />} />
+              <Route path="vendor-crop-requests" element={<VendorCropRequestsPage />} />
+              <Route path="collection-farmers" element={<CentreFarmersPage />} />
+              <Route path="collection-farmer-managers" element={<CentreFarmerManagersPage />} />
               <Route path="hr-management" element={<HrManagement />} />
               <Route path="hr-management/calendar" element={<HrCalendarPage />} />
               <Route path="hr-management/announcements" element={<HrAnnouncementsPage />} />

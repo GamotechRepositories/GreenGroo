@@ -97,6 +97,12 @@ const deliveryManagerSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    /** Vendor (collection centre) that supplies this dark store. */
+    vendorId: {
+      type: String,
+      default: "",
+      index: true,
+    },
   },
   { timestamps: true }
 );
@@ -137,6 +143,7 @@ deliveryManagerSchema.methods.toSafeJSON = function toSafeJSON() {
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
     fullTimeMonthlySalary: this.fullTimeMonthlySalary || 0,
+    vendorId: this.vendorId || "",
   };
 };
 

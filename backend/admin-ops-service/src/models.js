@@ -120,6 +120,18 @@ const financeLedgerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const vendorCommissionPaymentSchema = new mongoose.Schema(
+  {
+    vendorId: { type: String, required: true, trim: true, index: true },
+    amount: { type: Number, required: true, min: 0.01 },
+    paidAt: { type: Date, default: Date.now },
+    method: { type: String, default: "", trim: true },
+    reference: { type: String, default: "", trim: true },
+    note: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+
 const HR_EMPLOYEE_TYPES = [
   "staff",
   "farmer_manager",
@@ -218,6 +230,9 @@ export const RefundClaim =
   mongoose.models.AdminRefundClaim || mongoose.model("AdminRefundClaim", refundClaimSchema);
 export const FinanceLedger =
   mongoose.models.AdminFinanceLedger || mongoose.model("AdminFinanceLedger", financeLedgerSchema);
+export const VendorCommissionPayment =
+  mongoose.models.AdminVendorCommissionPayment ||
+  mongoose.model("AdminVendorCommissionPayment", vendorCommissionPaymentSchema);
 export const HrAttendance =
   mongoose.models.AdminHrAttendance || mongoose.model("AdminHrAttendance", hrAttendanceSchema);
 export const HrEmployment =
@@ -253,6 +268,7 @@ const hrAnnouncementSchema = new mongoose.Schema(
     scheduledAt: { type: String, default: "", trim: true },
     publishedAt: { type: Date, default: null },
     createdBy: { type: String, default: "", trim: true },
+    vendorId: { type: String, default: "", trim: true, index: true },
   },
   { timestamps: true }
 );
@@ -267,6 +283,19 @@ const hrLeavePolicySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+const hrVendorLeavePolicySchema = new mongoose.Schema(
+  {
+    vendorId: { type: String, required: true, trim: true },
+    roleKey: { type: String, required: true, trim: true },
+    casualDays: { type: Number, default: 12, min: 0 },
+    sickDays: { type: Number, default: 12, min: 0 },
+    earnedDays: { type: Number, default: 15, min: 0 },
+    notes: { type: String, default: "", trim: true },
+  },
+  { timestamps: true }
+);
+hrVendorLeavePolicySchema.index({ vendorId: 1, roleKey: 1 }, { unique: true });
 
 const hrLeaveRequestSchema = new mongoose.Schema(
   {
@@ -313,6 +342,7 @@ const hrVacancySchema = new mongoose.Schema(
     location: { type: String, default: "", trim: true },
     description: { type: String, default: "", trim: true },
     status: { type: String, enum: ["open", "closed"], default: "open", index: true },
+    vendorId: { type: String, default: "", trim: true, index: true },
   },
   { timestamps: true }
 );
@@ -324,6 +354,7 @@ const hrCandidateSchema = new mongoose.Schema(
     phone: { type: String, default: "", trim: true },
     roleKey: { type: String, required: true, trim: true, index: true },
     vacancyId: { type: String, default: "", trim: true, index: true },
+    vendorId: { type: String, default: "", trim: true, index: true },
     /** Pipeline bucket: applied → selected → finalize → recruited */
     section: {
       type: String,
@@ -402,6 +433,9 @@ export const HrAnnouncement =
   mongoose.models.AdminHrAnnouncement || mongoose.model("AdminHrAnnouncement", hrAnnouncementSchema);
 export const HrLeavePolicy =
   mongoose.models.AdminHrLeavePolicy || mongoose.model("AdminHrLeavePolicy", hrLeavePolicySchema);
+export const HrVendorLeavePolicy =
+  mongoose.models.AdminHrVendorLeavePolicy ||
+  mongoose.model("AdminHrVendorLeavePolicy", hrVendorLeavePolicySchema);
 export const HrLeaveRequest =
   mongoose.models.AdminHrLeaveRequest || mongoose.model("AdminHrLeaveRequest", hrLeaveRequestSchema);
 export const HrShift = mongoose.models.AdminHrShift || mongoose.model("AdminHrShift", hrShiftSchema);
@@ -617,6 +651,7 @@ const hrMeetingSchema = new mongoose.Schema(
     password: { type: String, default: "", trim: true },
     note: { type: String, default: "", trim: true },
     createdBy: { type: String, default: "", trim: true },
+    vendorId: { type: String, default: "", trim: true, index: true },
   },
   { timestamps: true }
 );

@@ -147,6 +147,23 @@ import {
 } from "./pickupControllers.js";
 import { requireVendor, requireManager, requireFarmer, requireFarmerOrManager, requireDriver, requireVendorOrManager } from "./middleware.js";
 import {
+  listVendorDarkStoreRequests,
+  createVendorDarkStoreRequest,
+  cancelVendorDarkStoreRequest,
+} from "./darkStoreRequestControllers.js";
+import {
+  listVendorCatalogProducts,
+  listVendorMyProducts,
+  createVendorProductRequest,
+  cancelVendorProductRequest,
+} from "./vendorProductRequestControllers.js";
+import {
+  listVendorCatalogCrops,
+  listVendorMyCrops,
+  createVendorCropRequest,
+  cancelVendorCropRequest,
+} from "./vendorCropRequestControllers.js";
+import {
   listQualityPending,
   getQualityInspection,
   verifyQualityQr,
@@ -164,6 +181,28 @@ import {
   saveInventoryAlert,
   deleteInventoryAlert,
 } from "./inventoryAlertControllers.js";
+import {
+  listVendorCoupons,
+  createVendorCoupon,
+  updateVendorCoupon,
+  deleteVendorCoupon,
+  seedVendorCoupons,
+  listVendorGiftCards,
+  createVendorGiftCard,
+  updateVendorGiftCard,
+  deleteVendorGiftCard,
+  listVendorPricingRules,
+  createVendorPricingRule,
+  updateVendorPricingRule,
+  deleteVendorPricingRule,
+  getVendorRewardSettings,
+  updateVendorRewardSettings,
+  getVendorRewardStats,
+  listVendorRewardTransactions,
+  listVendorRefunds,
+  createVendorRefund,
+  updateVendorRefund,
+} from "./vendorPromotionControllers.js";
 
 const farmerRouter = express.Router();
 const vendorFarmerRouter = express.Router();
@@ -403,6 +442,38 @@ vendorRouter.post("/pickups/:pickupId/receive", requireVendor, receiveVendorPick
 vendorRouter.get("/pickups/:pickupId/receipt", requireVendor, getVendorPickupReceipt);
 vendorRouter.get("/collection-centres", requireVendor, listVendorCentres);
 vendorRouter.post("/collection-centres", requireVendor, createVendorCentre);
+vendorRouter.get("/dark-store-requests", requireVendor, listVendorDarkStoreRequests);
+vendorRouter.post("/dark-store-requests", requireVendor, createVendorDarkStoreRequest);
+vendorRouter.post("/dark-store-requests/:requestId/cancel", requireVendor, cancelVendorDarkStoreRequest);
+vendorRouter.get("/catalog-products", requireVendor, listVendorCatalogProducts);
+vendorRouter.get("/my-products", requireVendor, listVendorMyProducts);
+vendorRouter.post("/product-requests", requireVendor, createVendorProductRequest);
+vendorRouter.post("/product-requests/:requestId/cancel", requireVendor, cancelVendorProductRequest);
+vendorRouter.get("/catalog-crops", requireVendor, listVendorCatalogCrops);
+vendorRouter.get("/my-crops", requireVendor, listVendorMyCrops);
+vendorRouter.post("/crop-requests", requireVendor, createVendorCropRequest);
+vendorRouter.post("/crop-requests/:requestId/cancel", requireVendor, cancelVendorCropRequest);
+
+vendorRouter.get("/promotions/coupons", requireVendor, listVendorCoupons);
+vendorRouter.post("/promotions/coupons/seed", requireVendor, seedVendorCoupons);
+vendorRouter.post("/promotions/coupons", requireVendor, createVendorCoupon);
+vendorRouter.put("/promotions/coupons/:id", requireVendor, updateVendorCoupon);
+vendorRouter.delete("/promotions/coupons/:id", requireVendor, deleteVendorCoupon);
+vendorRouter.get("/promotions/gift-cards", requireVendor, listVendorGiftCards);
+vendorRouter.post("/promotions/gift-cards", requireVendor, createVendorGiftCard);
+vendorRouter.put("/promotions/gift-cards/:id", requireVendor, updateVendorGiftCard);
+vendorRouter.delete("/promotions/gift-cards/:id", requireVendor, deleteVendorGiftCard);
+vendorRouter.get("/promotions/pricing", requireVendor, listVendorPricingRules);
+vendorRouter.post("/promotions/pricing", requireVendor, createVendorPricingRule);
+vendorRouter.put("/promotions/pricing/:id", requireVendor, updateVendorPricingRule);
+vendorRouter.delete("/promotions/pricing/:id", requireVendor, deleteVendorPricingRule);
+vendorRouter.get("/promotions/rewards/settings", requireVendor, getVendorRewardSettings);
+vendorRouter.put("/promotions/rewards/settings", requireVendor, updateVendorRewardSettings);
+vendorRouter.get("/promotions/rewards/stats", requireVendor, getVendorRewardStats);
+vendorRouter.get("/promotions/rewards/transactions", requireVendor, listVendorRewardTransactions);
+vendorRouter.get("/promotions/refunds", requireVendor, listVendorRefunds);
+vendorRouter.post("/promotions/refunds", requireVendor, createVendorRefund);
+vendorRouter.put("/promotions/refunds/:id", requireVendor, updateVendorRefund);
 
 vendorRouter.get("/driver-desk/pickups", requireDriver, listDriverPickups);
 vendorRouter.get("/driver-desk/batches/:batchId", requireDriver, getDriverBatch);

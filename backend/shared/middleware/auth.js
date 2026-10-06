@@ -40,7 +40,7 @@ export const protect = async (req, res, next) => {
       role = userRole ? String(userRole).trim().toLowerCase() : null;
     }
 
-    req.user = { id: decoded.id || decoded.vendorId, role, email: decoded.email };
+    req.user = { id: decoded.id || decoded.vendorId, role, email: decoded.email, vendorId: decoded.vendorId };
     next();
   } catch {
     return res.status(401).json({
@@ -81,7 +81,7 @@ export const optionalAuth = (req, _res, next) => {
   try {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: decoded.id, role: decoded.role };
+    req.user = { id: decoded.id, role: decoded.role, vendorId: decoded.vendorId };
   } catch {
     // ignore invalid token for optional auth
   }

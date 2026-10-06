@@ -1292,35 +1292,39 @@ export async function listVendorCentres(req, res) {
   }
 }
 
+export async function createCentreForVendor(vendorId, body = {}) {
+  const { name, address, city, contactMobile, state, district, taluka, village } = body;
+  const parts = await locationPartsForCentre({
+    city: city || district || "",
+    address: address || "",
+    farmer: {
+      state: state || "Maharashtra",
+      district: district || city || "Nashik",
+      taluka: taluka || "",
+      village: village || "",
+      farmAddress: { state, district, taluka, village },
+    },
+  });
+  return CollectionCentre.create({
+    id: await createCentreId(parts),
+    vendorId,
+    name: String(name).trim(),
+    address: address || "",
+    city: city || "",
+    contactMobile: contactMobile || "",
+    stateCode: parts.state,
+    districtCode: parts.district,
+    talukaCode: parts.taluka,
+    villageCode: parts.village,
+    status: body.status || "Active",
+  });
+}
+
 export async function createVendorCentre(req, res) {
   try {
     const vendorId = vendorIdOf(req);
-    const { name, address, city, contactMobile, state, district, taluka, village } = req.body || {};
-    if (!name) return res.status(400).json({ message: "Collection centre name is required" });
-    const parts = await locationPartsForCentre({
-      city: city || district || "",
-      address: address || "",
-      farmer: {
-        state: state || "Maharashtra",
-        district: district || city || "Nashik",
-        taluka: taluka || "",
-        village: village || "",
-        farmAddress: { state, district, taluka, village },
-      },
-    });
-    const centre = await CollectionCentre.create({
-      id: await createCentreId(parts),
-      vendorId,
-      name: String(name).trim(),
-      address: address || "",
-      city: city || "",
-      contactMobile: contactMobile || "",
-      stateCode: parts.state,
-      districtCode: parts.district,
-      talukaCode: parts.taluka,
-      villageCode: parts.village,
-      status: "Active",
-    });
+    if (!req.body?.name) return res.status(400).json({ message: "Collection centre name is required" });
+    const centre = await createCentreForVendor(vendorId, req.body);
     res.status(201).json(centre);
   } catch (err) {
     res.status(500).json({ message: err.message || "Failed to create collection centre" });

@@ -13,8 +13,13 @@ import {
   AlertTriangle,
   Phone,
   Mail,
+  Warehouse,
+  Plus,
 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import darkStoreApi from '../api/darkStoreApi';
+import opsApi from '../api/opsApi';
+import { PendingDarkStoreRequestsBanner } from './ops/multiVendorShared';
 import { BTN, BTN_PRIMARY, INPUT, PAGE_KICKER, PAGE_SUB, PAGE_TITLE, PANEL } from '../utils/ui';
 
 const DEFAULT_LAT = 18.559;
@@ -31,7 +36,13 @@ const emptyForm = {
   longitude: '',
   geofenceRadius: 500,
   isActive: true,
+  vendorId: '',
+  email: '',
+  phone: '',
+  password: '',
 };
+
+const UNASSIGNED = '__none__';
 
 function isDefaultPin(store) {
   const lat = Number(store?.latitude);
@@ -156,16 +167,21 @@ function StoreFormFields({ form, onChange }) {
 }
 
 export default function DarkStores() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [stores, setStores] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [centreFilter, setCentreFilter] = useState('all');
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const showToast = (message) => {
     setToast(message);
@@ -175,8 +191,12 @@ export default function DarkStores() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await darkStoreApi.list();
+      const [data, vendorRes] = await Promise.all([
+        darkStoreApi.list(),
+        opsApi.list('vendors').catch(() => ({ data: [] })),
+      ]);
       setStores(data.stores || []);
+      setVendors(Array.isArray(vendorRes.data) ? vendorRes.data : []);
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dark stores');
@@ -189,11 +209,25 @@ export default function DarkStores() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (location.state?.createFor === undefined) return;
+    openCreate(location.state.createFor || '');
+    navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
+  const vendorById = useMemo(() => new Map(vendors.map((v) => [v.id, v])), [vendors]);
+  const centreKeyOf = useCallback(
+    (store) => (store.vendorId && vendorById.has(store.vendorId) ? store.vendorId : UNASSIGNED),
+    [vendorById]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return stores.filter((store) => {
       if (statusFilter === 'active' && !store.isActive) return false;
       if (statusFilter === 'inactive' && store.isActive) return false;
+      if (centreFilter !== 'all' && centreKeyOf(store) !== centreFilter) return false;
       if (!q) return true;
       return [
         store.storeName,
@@ -209,7 +243,22 @@ export default function DarkStores() {
         .toLowerCase()
         .includes(q);
     });
-  }, [stores, search, statusFilter]);
+  }, [stores, search, statusFilter, centreFilter, centreKeyOf]);
+
+  const groups = useMemo(() => {
+    const byCentre = new Map();
+    filtered.forEach((store) => {
+      const key = centreKeyOf(store);
+      if (!byCentre.has(key)) byCentre.set(key, []);
+      byCentre.get(key).push(store);
+    });
+    const showEmpty = !search.trim() && statusFilter === 'all';
+    const list = vendors
+      .filter((v) => (centreFilter === 'all' || centreFilter === v.id) && (showEmpty || byCentre.has(v.id)))
+      .map((v) => ({ key: v.id, vendor: v, stores: byCentre.get(v.id) || [] }));
+    if (byCentre.has(UNASSIGNED)) list.push({ key: UNASSIGNED, vendor: null, stores: byCentre.get(UNASSIGNED) });
+    return list;
+  }, [filtered, vendors, centreFilter, centreKeyOf, search, statusFilter]);
 
   const stats = useMemo(() => {
     const active = stores.filter((s) => s.isActive).length;
@@ -218,9 +267,17 @@ export default function DarkStores() {
     return { total: stores.length, active, needPin, skus };
   }, [stores]);
 
+  const openCreate = (vendorId = '') => {
+    setFormError('');
+    setEditing({ isNew: true });
+    setForm({ ...emptyForm, vendorId });
+  };
+
   const openEdit = (store) => {
+    setFormError('');
     setEditing(store);
     setForm({
+      ...emptyForm,
       storeName: store.storeName || '',
       name: store.name || '',
       state: store.state || '',
@@ -231,6 +288,7 @@ export default function DarkStores() {
       longitude: store.longitude ?? '',
       geofenceRadius: store.geofenceRadius ?? 500,
       isActive: store.isActive !== false,
+      vendorId: store.vendorId || '',
     });
   };
 
@@ -279,36 +337,45 @@ export default function DarkStores() {
 
   const saveLocation = async (e) => {
     e.preventDefault();
-    if (!editing?.id) return;
+    if (!editing) return;
+    setFormError('');
     const lat = Number(form.latitude);
     const lng = Number(form.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || form.latitude === '' || form.longitude === '') {
-      showToast('Enter a valid latitude and longitude');
+      setFormError('Enter a valid latitude and longitude (or use current location)');
       return;
     }
     if (!form.city.trim() || !form.area.trim() || !form.state.trim()) {
-      showToast('State, city and area are required');
+      setFormError('State, city and area are required');
       return;
     }
+    if (editing.isNew && !form.storeName.trim()) {
+      setFormError('Store name is required');
+      return;
+    }
+    const payload = {
+      storeName: form.storeName,
+      name: form.name,
+      state: form.state,
+      city: form.city,
+      area: form.area,
+      storeAddress: form.storeAddress,
+      latitude: lat,
+      longitude: lng,
+      geofenceRadius: Number(form.geofenceRadius),
+      isActive: form.isActive,
+      vendorId: form.vendorId,
+    };
     setSaving(true);
     try {
-      const data = await darkStoreApi.updateLocation(editing.id, {
-        storeName: form.storeName,
-        name: form.name,
-        state: form.state,
-        city: form.city,
-        area: form.area,
-        storeAddress: form.storeAddress,
-        latitude: Number(form.latitude),
-        longitude: Number(form.longitude),
-        geofenceRadius: Number(form.geofenceRadius),
-        isActive: form.isActive,
-      });
-      showToast(data.message || 'Store location updated');
+      const data = editing.isNew
+        ? await opsApi.create('dark-stores', { ...payload, email: form.email, phone: form.phone, password: form.password })
+        : await darkStoreApi.updateLocation(editing.id, payload);
+      showToast(data.message || (editing.isNew ? 'Dark store created' : 'Store updated'));
       setEditing(null);
       await load();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to update store location');
+      setFormError(err.response?.data?.message || 'Failed to save dark store');
     } finally {
       setSaving(false);
     }
@@ -318,17 +385,25 @@ export default function DarkStores() {
     <div className="space-y-5 pb-10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className={PAGE_KICKER}>Catalog · Fulfilment</p>
+          <p className={PAGE_KICKER}>Multi Vendor · Fulfilment</p>
           <h1 className={PAGE_TITLE}>Dark Stores</h1>
           <p className={PAGE_SUB}>
-            Delivery manager hubs — set city, area, and map pin so orders route correctly
+            Dark stores grouped by the collection centre that supplies them
           </p>
         </div>
-        <button type="button" onClick={load} className={BTN}>
-          <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={load} className={BTN}>
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button type="button" onClick={() => openCreate()} className={BTN_PRIMARY}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Dark Store
+          </button>
+        </div>
       </div>
+
+      <PendingDarkStoreRequestsBanner />
 
       {toast ? (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
@@ -367,6 +442,19 @@ export default function DarkStores() {
               className={`${INPUT} pl-9`}
             />
           </div>
+          <select
+            value={centreFilter}
+            onChange={(e) => setCentreFilter(e.target.value)}
+            className={`${INPUT} sm:w-64`}
+          >
+            <option value="all">All collection centres</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.vendorName || v.businessName || v.ownerName}
+              </option>
+            ))}
+            <option value={UNASSIGNED}>Not assigned</option>
+          </select>
           <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
             {['all', 'active', 'inactive'].map((key) => (
               <button
@@ -393,7 +481,7 @@ export default function DarkStores() {
         <div className={`${PANEL} flex justify-center py-20 text-slate-400`}>
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : groups.length === 0 ? (
         <div className={`${PANEL} px-6 py-16 text-center`}>
           <Store className="mx-auto h-10 w-10 text-emerald-600/30" />
           <h2 className="mt-3 text-base font-semibold text-slate-800">No dark stores found</h2>
@@ -402,8 +490,44 @@ export default function DarkStores() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {filtered.map((store) => {
+        <div className="space-y-6">
+          {groups.map((group) => (
+            <section key={group.key}>
+              <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+                <Warehouse className={`h-4 w-4 ${group.vendor ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {group.vendor ? (
+                  <Link
+                    to={`/multi-vendor/${group.vendor.id}`}
+                    className="text-sm font-bold text-slate-900 hover:text-emerald-700 hover:underline"
+                  >
+                    {group.vendor.vendorName || group.vendor.businessName || group.vendor.ownerName}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-bold text-slate-500">Not assigned to any collection centre</span>
+                )}
+                {group.vendor?.collectionCentre?.id ? (
+                  <span className="text-xs text-slate-400">{group.vendor.collectionCentre.id}</span>
+                ) : null}
+                <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                  {group.stores.length} dark store{group.stores.length === 1 ? '' : 's'}
+                </span>
+                {group.vendor ? (
+                  <button
+                    type="button"
+                    onClick={() => openCreate(group.vendor.id)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+                  >
+                    <Plus className="h-3 w-3" /> Add dark store
+                  </button>
+                ) : null}
+              </div>
+              {group.stores.length === 0 ? (
+                <p className="px-1 py-2 text-xs text-slate-400">
+                  No dark store linked yet. Edit a dark store and choose this collection centre.
+                </p>
+              ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+          {group.stores.map((store) => {
             const unpinned = isDefaultPin(store);
             return (
               <article key={store.id} className={`${PANEL} p-5 transition hover:border-emerald-300`}>
@@ -503,6 +627,10 @@ export default function DarkStores() {
               </article>
             );
           })}
+          </div>
+              )}
+            </section>
+          ))}
         </div>
       )}
 
@@ -515,9 +643,11 @@ export default function DarkStores() {
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <p className={PAGE_KICKER}>Dark store</p>
-                <h3 className="mt-1 text-lg font-bold text-slate-900">Change store location</h3>
+                <h3 className="mt-1 text-lg font-bold text-slate-900">
+                  {editing.isNew ? 'Add dark store' : 'Edit dark store'}
+                </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Orders near this pin and area are assigned to this store.
+                  Choose its collection centre. Orders near this pin and area are assigned to this store.
                 </p>
               </div>
               <button
@@ -539,7 +669,45 @@ export default function DarkStores() {
               {detecting ? 'Detecting…' : 'Use current location'}
             </button>
 
+            <Field label="Collection centre (supplies this dark store)">
+              <select name="vendorId" value={form.vendorId} onChange={handleChange} className={`${INPUT} mt-1 mb-3`}>
+                <option value="">Not assigned</option>
+                {vendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.vendorName || v.businessName || v.ownerName}
+                    {v.collectionCentre?.id ? ` (${v.collectionCentre.id})` : ''}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {editing.isNew ? (
+              <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Field label="Manager mobile *">
+                  <input name="phone" value={form.phone} onChange={handleChange} maxLength={10} className={`${INPUT} mt-1`} required />
+                </Field>
+                <Field label="Manager email *">
+                  <input name="email" type="email" value={form.email} onChange={handleChange} className={`${INPUT} mt-1`} required />
+                </Field>
+                <Field label="Login password *">
+                  <input
+                    name="password"
+                    type="password"
+                    minLength={6}
+                    value={form.password}
+                    onChange={handleChange}
+                    className={`${INPUT} mt-1`}
+                    required
+                  />
+                </Field>
+              </div>
+            ) : null}
+
             <StoreFormFields form={form} onChange={handleChange} />
+
+            {formError ? (
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{formError}</div>
+            ) : null}
 
             <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
               <button type="button" onClick={() => setEditing(null)} className={BTN}>
@@ -551,8 +719,10 @@ export default function DarkStores() {
                     <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                     Saving…
                   </>
+                ) : editing.isNew ? (
+                  'Create dark store'
                 ) : (
-                  'Save location'
+                  'Save'
                 )}
               </button>
             </div>

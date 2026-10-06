@@ -119,14 +119,14 @@ export default function VendorCropsPage() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">All Crops</h1>
+          <h1 className="text-xl font-bold text-gray-900">Farmer Crops</h1>
           <p className="text-xs text-gray-500">
-            Manage and track all crops registered in the system.
+            Crops your farmers are growing.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to="/vendor/crops/add"
+            to="/vendor/farmer-crops/add"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#217346] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#1B5E38] transition-colors"
           >
             <span>+ Add Crop</span>
@@ -169,7 +169,7 @@ export default function VendorCropsPage() {
           <p className="text-sm font-semibold text-gray-700">No crops added yet</p>
           <p className="text-xs text-gray-500 mt-1">Click + Add Crop to record a crop's details.</p>
           <Link
-            to="/vendor/crops/add"
+            to="/vendor/farmer-crops/add"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#217346] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#1B5E38] transition-colors mt-3"
           >
             + Add Crop
@@ -188,8 +188,8 @@ export default function VendorCropsPage() {
               const id = cropKey(crop);
               const fId = crop.farmerId || crop.farmer_id || "";
               const cropIdLabel = formatCropBusinessId(crop);
-              const viewUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}` : `/vendor/crops`;
-              const editUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}/edit` : `/vendor/crops/add`;
+              const viewUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}` : `/vendor/farmer-crops`;
+              const editUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}/edit` : `/vendor/farmer-crops/add`;
 
               return (
                 <div
@@ -270,8 +270,8 @@ export default function VendorCropsPage() {
                   const id = cropKey(crop);
                   const fId = crop.farmerId || crop.farmer_id || "";
                   const cropIdLabel = formatCropBusinessId(crop);
-                  const viewUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}` : `/vendor/crops`;
-                  const editUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}/edit` : `/vendor/crops/add`;
+                  const viewUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}` : `/vendor/farmer-crops`;
+                  const editUrl = fId ? `/vendor/all-farmers/${encodeURIComponent(fId)}/crops/${encodeURIComponent(id)}/edit` : `/vendor/farmer-crops/add`;
                   const zebra = idx % 2 === 0 ? "bg-white hover:bg-emerald-50/60" : "bg-[#F9FAFB] hover:bg-emerald-50/60";
 
                   return (

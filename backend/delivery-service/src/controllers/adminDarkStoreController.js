@@ -1,5 +1,6 @@
 import DeliveryManager from "../models/DeliveryManager.js";
 import StoreInventory from "../models/StoreInventory.js";
+import { Vendor } from "../../../farmer-manager-service/src/models.js";
 
 const toCoord = (value) => {
   const n = Number(value);
@@ -352,6 +353,14 @@ export const updateDarkStoreLocation = async (req, res, next) => {
       store.isActive = req.body.isActive;
     }
 
+    if (req.body.vendorId !== undefined) {
+      const vendorId = String(req.body.vendorId || "").trim();
+      if (vendorId && !(await Vendor.exists({ id: vendorId }))) {
+        return res.status(400).json({ success: false, message: "Selected collection centre was not found" });
+      }
+      store.vendorId = vendorId;
+    }
+
     await DeliveryManager.updateOne(
       { _id: store._id },
       {
@@ -367,6 +376,7 @@ export const updateDarkStoreLocation = async (req, res, next) => {
           longitude: store.longitude,
           geofenceRadius: store.geofenceRadius,
           isActive: store.isActive,
+          vendorId: store.vendorId || "",
         },
       }
     );

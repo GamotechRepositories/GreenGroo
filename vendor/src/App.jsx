@@ -35,7 +35,6 @@ import DriverDashboardPage from './pages/drivers/DriverDashboardPage'
 import DriverHomePage from './pages/drivers/DriverHomePage'
 import DriverPickupPage from './pages/drivers/DriverPickupPage'
 import DriverBatchPage from './pages/drivers/DriverBatchPage'
-import InventoryRequestsPage from './pages/inventory-requests/InventoryRequestsPage'
 import VendorSearchPage from './pages/search/VendorSearchPage'
 import ApplyLeavePage from './pages/leave/ApplyLeavePage'
 import DriverLeavePage from './pages/drivers/DriverLeavePage'
@@ -52,6 +51,27 @@ import OrderProductInventoryPage from './pages/manager/OrderProductInventoryPage
 import ManagerEarningsPage from './pages/manager/ManagerEarningsPage'
 import ManagerEarningReportPage from './pages/manager/ManagerEarningReportPage'
 import ManagerDocumentsPage from './pages/manager/ManagerDocumentsPage'
+import VendorDarkStoresPage from './pages/dark-stores/VendorDarkStoresPage'
+import DarkStoreRequestPage from './pages/dark-stores/DarkStoreRequestPage'
+import VendorMyProductsPage from './pages/products/VendorMyProductsPage'
+import VendorProductRequestPage from './pages/products/VendorProductRequestPage'
+import VendorAllCropsPage from './pages/crops/VendorAllCropsPage'
+import VendorMyCropsPage from './pages/crops/VendorMyCropsPage'
+import HrDashboardPage from './pages/hr/HrDashboardPage'
+import HrCalendarPage from './pages/hr/HrCalendarPage'
+import HrAnnouncementsPage from './pages/hr/HrAnnouncementsPage'
+import HrLeavePage from './pages/hr/HrLeavePage'
+import HrEmployeesPage from './pages/hr/HrEmployeesPage'
+import HrEmployeeProfilePage from './pages/hr/HrEmployeeProfilePage'
+import HrPayrollPage from './pages/hr/HrPayrollPage'
+import HrRecruitmentPage from './pages/hr/HrRecruitmentPage'
+import HrAttendancePage from './pages/hr/HrAttendancePage'
+import HrMeetingsPage from './pages/hr/HrMeetingsPage'
+import CouponsPage from './pages/promotions/CouponsPage'
+import RewardPointsPage from './pages/promotions/RewardPointsPage'
+import GiftCardsPage from './pages/promotions/GiftCardsPage'
+import DynamicPricingPage from './pages/promotions/DynamicPricingPage'
+import { RefundWarrantyTypePage, RefundWarrantyListPage } from './pages/promotions/ReturnWarrantyPage'
 
 function App() {
   return (
@@ -93,11 +113,17 @@ function App() {
                 <Route path="/vendor/farmer-managers/add" element={<AddManagerPage />} />
                 <Route path="/vendor/farmer-managers/:managerId" element={<ManagerDetailPage />} />
                 <Route path="/vendor/all-farmers" element={<AllFarmersPage />} />
-                <Route path="/vendor/crops" element={<VendorCropsPage />} />
-                <Route path="/vendor/crops/add" element={<FarmerCropFormPage />} />
-                <Route path="/vendor/products/add" element={<VendorProductAddPage />} />
+                <Route path="/vendor/crops" element={<VendorAllCropsPage />} />
+                <Route path="/vendor/crops/add" element={<Navigate to="/vendor/farmer-crops/add" replace />} />
+                <Route path="/vendor/my-crops" element={<VendorMyCropsPage />} />
+                <Route path="/vendor/farmer-crops" element={<VendorCropsPage />} />
+                <Route path="/vendor/farmer-crops/add" element={<FarmerCropFormPage />} />
+                <Route path="/vendor/products/add" element={<Navigate to="/vendor/products" replace />} />
                 <Route path="/vendor/products/:productKey/farmers" element={<VendorProductFarmersPage />} />
-                <Route path="/vendor/products" element={<VendorProductsPage />} />
+                <Route path="/vendor/products" element={<VendorProductRequestPage />} />
+                <Route path="/vendor/my-products" element={<VendorMyProductsPage />} />
+                <Route path="/vendor/farmer-products" element={<VendorProductsPage />} />
+                <Route path="/vendor/farmer-products/add" element={<VendorProductAddPage />} />
                 <Route path="/vendor/all-farmers/add" element={<AddFarmerPage />} />
                 <Route path="/vendor/all-farmers/:farmerId/crops/add" element={<FarmerCropFormPage />} />
                 <Route path="/vendor/all-farmers/:farmerId/crops/:cropId/edit" element={<FarmerCropFormPage />} />
@@ -108,6 +134,8 @@ function App() {
                 <Route path="/vendor/drivers/add" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId/edit" element={<DriverFormPage />} />
                 <Route path="/vendor/drivers/:driverId" element={<DriverDetailPage />} />
+                <Route path="/vendor/dark-stores" element={<VendorDarkStoresPage />} />
+                <Route path="/vendor/dark-stores/request" element={<DarkStoreRequestPage />} />
                 <Route path="/vendor/pickups" element={<Navigate to="/vendor/pickups/ready" replace />} />
                 <Route path="/vendor/pickups/requests" element={<Navigate to="/vendor/pickups/ready" replace />} />
                 <Route path="/vendor/pickups/ready" element={<ManagerPickupsPage mode="ready" />} />
@@ -149,7 +177,25 @@ function App() {
                 <Route path="/vendor/earnings/farmer/:farmerId" element={<ManagerEarningsPage />} />
                 <Route path="/vendor/earnings/farmer/:farmerId/product/:productId" element={<ManagerEarningsPage />} />
                 <Route path="/vendor/documents" element={<ManagerDocumentsPage />} />
-                <Route path="/inventory-requests" element={<InventoryRequestsPage />} />
+                <Route path="/vendor/hr-management" element={<HrDashboardPage />} />
+                <Route path="/vendor/hr-management/calendar" element={<HrCalendarPage />} />
+                <Route path="/vendor/hr-management/announcements" element={<HrAnnouncementsPage />} />
+                <Route path="/vendor/hr-management/leave" element={<HrLeavePage />} />
+                <Route path="/vendor/hr-management/my-leave" element={<ApplyLeavePage />} />
+                <Route path="/vendor/hr-management/employees" element={<HrEmployeesPage />} />
+                <Route path="/vendor/hr-management/employees/:type/:id" element={<HrEmployeeProfilePage />} />
+                <Route path="/vendor/hr-management/payroll" element={<HrPayrollPage />} />
+                <Route path="/vendor/hr-management/recruitment" element={<HrRecruitmentPage />} />
+                <Route path="/vendor/hr-management/attendance" element={<HrAttendancePage />} />
+                <Route path="/vendor/hr-management/meetings" element={<HrMeetingsPage />} />
+                <Route path="/vendor/promotions" element={<Navigate to="/vendor/promotions/coupons" replace />} />
+                <Route path="/vendor/promotions/coupons" element={<CouponsPage />} />
+                <Route path="/vendor/promotions/rewards" element={<RewardPointsPage />} />
+                <Route path="/vendor/promotions/gift-cards" element={<GiftCardsPage />} />
+                <Route path="/vendor/promotions/dynamic-pricing" element={<DynamicPricingPage />} />
+                <Route path="/vendor/promotions/returns" element={<RefundWarrantyTypePage />} />
+                <Route path="/vendor/promotions/returns/:accountType" element={<RefundWarrantyListPage />} />
+                <Route path="/inventory-requests" element={<Navigate to="/vendor/orders/darkstore" replace />} />
                 <Route path="/leave" element={<ApplyLeavePage />} />
                 <Route
                   path="/policies"

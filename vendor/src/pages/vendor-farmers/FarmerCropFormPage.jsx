@@ -146,7 +146,7 @@ export default function FarmerCropFormPage() {
     };
   }, [selectedFarmerId, cropId, isEdit]);
 
-  const backTo = lockedFarmerId ? `/vendor/all-farmers/${lockedFarmerId}` : "/vendor/crops";
+  const backTo = lockedFarmerId ? `/vendor/all-farmers/${lockedFarmerId}` : "/vendor/farmer-crops";
 
   const categoryCode = useMemo(() => {
     const found = CROP_CATEGORY_OPTIONS.find(
@@ -209,7 +209,7 @@ export default function FarmerCropFormPage() {
       if (lockedFarmerId) {
         navigate(`/vendor/all-farmers/${targetFarmer}/crops/${encodeURIComponent(id)}`);
       } else {
-        navigate("/vendor/crops");
+        navigate("/vendor/farmer-crops");
       }
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save crop");
@@ -231,7 +231,7 @@ export default function FarmerCropFormPage() {
             <Link to={backTo} className="hover:text-[#217346]">{farmerName || "Farmer"}</Link>
           </>
         ) : (
-          <Link to="/vendor/crops" className="hover:text-[#217346]">All Crops</Link>
+          <Link to="/vendor/farmer-crops" className="hover:text-[#217346]">Farmer Crops</Link>
         )}
         <span>›</span>
         <span className="font-semibold text-[#1F2937]">{isEdit ? "Edit Crop" : "Add Crop"}</span>

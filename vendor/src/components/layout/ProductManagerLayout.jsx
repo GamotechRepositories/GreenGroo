@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BadgeCheck,
+  Briefcase,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -12,11 +13,13 @@ import {
   IdCard,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   Package,
   Settings,
   ShoppingCart,
   Sprout,
+  Store,
   Tractor,
   Truck,
   UserRound,
@@ -28,7 +31,6 @@ import Header from './Header'
 import VendorTopNavbar from './VendorTopNavbar'
 import VendorBottomNav from './VendorBottomNav'
 import { useVendorAuth } from '../../context/VendorAuthContext'
-import { useInventoryRequests } from '../../hooks/useInventoryRequests'
 import { vendorApi } from '../../api/vendorApi'
 import RoleAnnouncements from '../RoleAnnouncements'
 
@@ -50,7 +52,8 @@ const navItems = [
     icon: Sprout,
     children: [
       { to: '/vendor/crops', label: 'All Crops', end: true },
-      { to: '/vendor/crops/add', label: 'Add Crop' },
+      { to: '/vendor/my-crops', label: 'My Crops' },
+      { to: '/vendor/farmer-crops', label: 'Farmer Crops' },
     ],
   },
   {
@@ -59,7 +62,8 @@ const navItems = [
     icon: Package,
     children: [
       { to: '/vendor/products', label: 'All Products', end: true },
-      { to: '/vendor/products/add', label: 'Add Product' },
+      { to: '/vendor/my-products', label: 'My Products' },
+      { to: '/vendor/farmer-products', label: 'Farmer Products' },
     ],
   },
   {
@@ -104,6 +108,15 @@ const navItems = [
     ],
   },
   {
+    id: 'dark-stores',
+    label: 'Dark Stores',
+    icon: Store,
+    children: [
+      { to: '/vendor/dark-stores', label: 'My Dark Stores', end: true },
+      { to: '/vendor/dark-stores/request', label: 'Request Dark Store' },
+    ],
+  },
+  {
     id: 'orders',
     label: 'Order Manager',
     icon: ShoppingCart,
@@ -122,8 +135,36 @@ const navItems = [
       { to: '/vendor/earnings/payments', label: 'All Payments' },
     ],
   },
+  {
+    id: 'hr-management',
+    label: 'HR Management',
+    icon: Briefcase,
+    children: [
+      { to: '/vendor/hr-management', label: 'Dashboard', end: true, exact: true },
+      { to: '/vendor/hr-management/calendar', label: 'Calendar' },
+      { to: '/vendor/hr-management/announcements', label: 'Announcements' },
+      { to: '/vendor/hr-management/leave', label: 'Leave' },
+      { to: '/vendor/hr-management/my-leave', label: 'My Leave' },
+      { to: '/vendor/hr-management/employees', label: 'Employees' },
+      { to: '/vendor/hr-management/payroll', label: 'Salary management' },
+      { to: '/vendor/hr-management/recruitment', label: 'Recruitment' },
+      { to: '/vendor/hr-management/attendance', label: 'Attendance & Shifts' },
+      { to: '/vendor/hr-management/meetings', label: 'Meetings' },
+    ],
+  },
+  {
+    id: 'promotions',
+    label: 'Promotions',
+    icon: Megaphone,
+    children: [
+      { to: '/vendor/promotions/coupons', label: 'Coupons & Offers' },
+      { to: '/vendor/promotions/rewards', label: 'Reward Points' },
+      { to: '/vendor/promotions/gift-cards', label: 'Gift Cards' },
+      { to: '/vendor/promotions/dynamic-pricing', label: 'Dynamic Pricing' },
+      { to: '/vendor/promotions/returns', label: 'Return & Warranty' },
+    ],
+  },
   { to: '/vendor/documents', label: 'Documents', icon: FileText },
-  { to: '/inventory-requests', label: 'Segregation Manager', icon: Package },
 ]
 
 const footerItems = [
@@ -197,7 +238,7 @@ function NavGroup({ item, collapsed, onNavigate }) {
             const childPath = String(child.to || '').split('?')[0]
             const isChildItemActive =
               path === childPath ||
-              path.startsWith(childPath + '/') ||
+              (!child.exact && path.startsWith(childPath + '/')) ||
               (childPath.endsWith('/farmer') &&
                 (path === '/vendor/orders' ||
                   path.startsWith('/vendor/orders/create') ||
@@ -276,8 +317,6 @@ export default function ProductManagerLayout() {
   const vendor = useVendorAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { requests } = useInventoryRequests()
-  const pendingCount = requests.filter((request) => request.status === 'pending').length
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const closeMobile = () => setMobileOpen(false)
@@ -360,7 +399,6 @@ export default function ProductManagerLayout() {
               item={item}
               collapsed={compact}
               onNavigate={onNavigate}
-              badge={item.to === '/inventory-requests' ? pendingCount : 0}
             />
           ))}
 
